@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arduino — SPI Communication & SD Card</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;700&display=swap');
+
+  :root {
+    --v1: #0d0015;
+    --v2: #1a0030;
+    --v3: #2d0050;
+    --v4: #6600cc;
+    --v5: #9933ff;
+    --v6: #bb66ff;
+    --v7: #dd99ff;
+    --v8: #f0ccff;
+    --acc: #ff66ff;
+    --acc2: #00ffcc;
+    --acc3: #ffcc00;
+    --glow: 0 0 20px #9933ff88, 0 0 40px #6600cc44;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--v1);
+    font-family: 'Exo 2', sans-serif;
+    color: var(--v7);
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* ─── CANVAS BG ─── */
+  #bgCanvas {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ─── LAYOUT ─── */
+  .wrapper {
+    position: relative; z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 20px 60px;
+  }
+
+  /* ─── TITLE ─── */
+  .page-title {
+    text-align: center;
+    padding: 38px 0 28px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(1.2rem, 3.5vw, 2.1rem);
+    font-weight: 900;
+    color: var(--v7);
+    text-shadow: 0 0 18px var(--v5), 0 0 40px var(--v4);
+    letter-spacing: 2px;
+  }
+
+  /* ─── TABS ─── */
+  .tabs {
+    display: flex; gap: 10px; justify-content: center;
+    margin-bottom: 32px; flex-wrap: wrap;
+  }
+  .tab-btn {
+    padding: 10px 22px;
+    background: var(--v3);
+    border: 2px solid var(--v4);
+    border-radius: 30px;
+    color: var(--v7);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all .3s;
+    letter-spacing: 1px;
+  }
+  .tab-btn:hover, .tab-btn.active {
+    background: var(--v5);
+    border-color: var(--acc);
+    color: #fff;
+    box-shadow: var(--glow);
+    transform: translateY(-2px);
+  }
+
+  .activity { display: none; animation: fadeIn .5s ease; }
+  .activity.active { display: block; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
+
+  /* ─── SHARED CARD ─── */
+  .card {
+    background: linear-gradient(135deg, var(--v2) 0%, var(--v3) 100%);
+    border: 1px solid var(--v4);
+    border-radius: 18px;
+    padding: 28px;
+    box-shadow: var(--glow), inset 0 1px 0 #ffffff11;
+  }
+
+  .section-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem;
+    color: var(--acc2);
+    letter-spacing: 3px;
+    margin-bottom: 6px;
+  }
+  .activity-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 20px;
+    text-shadow: 0 0 14px var(--v5);
+  }
+
+  /* ═══════════════════════════════════
+     ACTIVITY 1 — SPI PIN MATCHING
+  ═══════════════════════════════════ */
+  .match-arena {
+    display: grid;
+    grid-template-columns: 1fr 80px 1fr;
+    gap: 14px;
+    align-items: start;
+  }
+  .match-col { display: flex; flex-direction: column; gap: 10px; }
+  .match-col h4 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.72rem;
+    color: var(--acc);
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+    text-align: center;
+  }
+
+  .drag-item {
+    background: linear-gradient(135deg, var(--v4), var(--v5));
+    border: 2px solid var(--v6);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #fff;
+    cursor: grab;
+    text-align: center;
+    user-select: none;
+    transition: transform .2s, box-shadow .2s;
+    box-shadow: 0 4px 12px #6600cc66;
+  }
+  .drag-item:hover { transform: scale(1.05); box-shadow: var(--glow); }
+  .drag-item:active { cursor: grabbing; transform: scale(1.08); }
+  .drag-item.dragging { opacity: .4; }
+  .drag-item.correct { background: linear-gradient(135deg, #00aa55, #00cc77); border-color: var(--acc2); }
+  .drag-item.wrong { background: linear-gradient(135deg, #aa1133, #cc2244); border-color: #ff4466; }
+
+  .drop-zone {
+    background: #ffffff08;
+    border: 2px dashed var(--v5);
+    border-radius: 10px;
+    padding: 10px 14px;
+    min-height: 44px;
+    font-size: 0.82rem;
+    color: var(--v6);
+    text-align: center;
+    transition: background .2s, border-color .2s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .drop-zone.over { background: #9933ff22; border-color: var(--acc); }
+  .drop-zone.filled { border-style: solid; }
+
+  .connector-col {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 10px; padding-top: 32px;
+  }
+  .connector-line {
+    width: 60px; height: 2px;
+    background: linear-gradient(90deg, var(--v5), var(--acc));
+    position: relative; border-radius: 2px;
+    box-shadow: 0 0 8px var(--v5);
+  }
+
+  #match-feedback {
+    margin-top: 18px;
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-align: center;
+    display: none;
+  }
+  #match-feedback.show { display: block; animation: popIn .3s ease; }
+  @keyframes popIn { from{transform:scale(.8);opacity:0} to{transform:scale(1);opacity:1} }
+  #match-feedback.win { background: #00cc7733; border: 1px solid var(--acc2); color: var(--acc2); }
+  #match-feedback.partial { background: #9933ff33; border: 1px solid var(--v6); color: var(--v7); }
+
+  .btn {
+    display: inline-block;
+    margin-top: 14px;
+    padding: 10px 24px;
+    background: linear-gradient(135deg, var(--v4), var(--acc));
+    border: none; border-radius: 24px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.72rem; letter-spacing: 2px;
+    color: #fff; cursor: pointer;
+    box-shadow: var(--glow);
+    transition: transform .2s, box-shadow .2s;
+  }
+  .btn:hover { transform: translateY(-3px) scale(1.04); box-shadow: 0 0 30px var(--v5); }
+
+  /* ═══════════════════════════════════
+     ACTIVITY 2 — SPI SEQUENCE SORT
+  ═══════════════════════════════════ */
+  .seq-container {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .seq-item {
+    display: flex; align-items: center; gap: 14px;
+    background: linear-gradient(135deg, var(--v2), var(--v3));
+    border: 2px solid var(--v4);
+    border-radius: 12px;
+    padding: 12px 18px;
+    cursor: grab;
+    transition: transform .2s, box-shadow .2s, border-color .2s;
+    font-size: 0.9rem;
+  }
+  .seq-item:hover { transform: translateX(6px); border-color: var(--v6); }
+  .seq-item:active { cursor: grabbing; }
+  .seq-item.seq-dragging { opacity: .35; }
+  .seq-item.correct-seq { border-color: var(--acc2); background: linear-gradient(135deg, #002211, #004422); }
+  .seq-item.wrong-seq  { border-color: #ff4466; background: linear-gradient(135deg, #220011, #440022); }
+
+  .seq-num {
+    width: 30px; height: 30px;
+    background: var(--v4);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.8rem; font-weight: 700;
+    color: #fff; flex-shrink: 0;
+  }
+  .seq-icon { font-size: 1.4rem; flex-shrink: 0; }
+  .seq-text { flex: 1; }
+  .seq-text strong { color: var(--acc); display: block; margin-bottom: 2px; font-size: 0.88rem; }
+  .seq-text span { font-size: 0.78rem; color: var(--v6); }
+
+  .seq-result {
+    margin-top: 14px; text-align: center;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.85rem; display: none;
+  }
+  .seq-result.show { display: block; animation: popIn .3s; }
+
+  /* ═══════════════════════════════════
+     ACTIVITY 3 — CIRCUIT BUILDER
+  ═══════════════════════════════════ */
+  .circuit-layout {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 20px;
+  }
+  .parts-panel h4 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.68rem; color: var(--acc);
+    letter-spacing: 2px; margin-bottom: 10px;
+  }
+  .part-chip {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--v3);
+    border: 2px solid var(--v4);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    cursor: grab; font-size: 0.8rem; font-weight: 600;
+    transition: all .2s;
+  }
+  .part-chip:hover { border-color: var(--acc); transform: scale(1.04); }
+  .part-chip.used { opacity: .35; cursor: not-allowed; }
+  .part-chip .chip-icon { font-size: 1.1rem; }
+
+  .board-area {
+    background: #050010;
+    border: 2px solid var(--v4);
+    border-radius: 14px;
+    position: relative;
+    min-height: 320px;
+    overflow: hidden;
+  }
+
+  /* PCB grid lines */
+  .board-area::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(#9933ff11 1px, transparent 1px),
+      linear-gradient(90deg, #9933ff11 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .board-slot {
+    position: absolute;
+    border: 2px dashed #6600cc88;
+    border-radius: 10px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 4px; font-size: 0.7rem;
+    color: var(--v5); text-align: center;
+    transition: background .2s, border-color .2s;
+    cursor: default;
+  }
+  .board-slot.over { background: #9933ff22; border-color: var(--acc); }
+  .board-slot.placed { border-style: solid; border-color: var(--acc2); }
+  .board-slot .slot-icon { font-size: 1.6rem; }
+  .board-slot .slot-label { font-family: 'Orbitron', sans-serif; font-size: 0.6rem; letter-spacing: 1px; }
+
+  /* wires */
+  .wire-canvas {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    width: 100%; height: 100%;
+  }
+
+  .circuit-score {
+    margin-top: 14px;
+    padding: 14px;
+    background: #ffffff06;
+    border: 1px solid var(--v4);
+    border-radius: 12px;
+    font-size: 0.85rem;
+    text-align: center;
+    display: none;
+  }
+  .circuit-score.show { display: block; animation: popIn .3s; }
+  .score-stars { font-size: 1.8rem; letter-spacing: 4px; }
+
+  /* progress bar */
+  .progress-wrap {
+    background: var(--v3); border-radius: 20px;
+    height: 8px; margin: 14px 0 4px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--v5), var(--acc));
+    border-radius: 20px;
+    width: 0%;
+    transition: width .5s ease;
+    box-shadow: 0 0 10px var(--v5);
+  }
+
+  /* ─── TOOLTIP ─── */
+  .tooltip {
+    position: fixed;
+    background: var(--v3);
+    border: 1px solid var(--v5);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    color: var(--v7);
+    pointer-events: none;
+    z-index: 1000;
+    display: none;
+    box-shadow: var(--glow);
+  }
+
+  @media(max-width:640px){
+    .match-arena { grid-template-columns: 1fr 1fr; }
+    .connector-col { display: none; }
+    .circuit-layout { grid-template-columns: 1fr; }
+    .board-area { min-height: 260px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+<div class="tooltip" id="tooltip"></div>
+
+<div class="wrapper">
+  <h1 class="page-title">Arduino — SPI Communication &amp; SD Card</h1>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab(0)">⚡ Pin Mapper</button>
+    <button class="tab-btn"        onclick="switchTab(1)">🔄 SPI Sequence</button>
+    <button class="tab-btn"        onclick="switchTab(2)">🔧 Circuit Builder</button>
+  </div>
+
+  <!-- ══════════ ACTIVITY 1 ══════════ -->
+  <div class="activity active" id="act0">
+    <div class="card">
+      <div class="section-label">ACTIVITY 01 · DRAG &amp; DROP</div>
+      <div class="activity-title">SPI Pin Matcher</div>
+      <p style="font-size:.85rem;color:var(--v6);margin-bottom:20px;">
+        Drag each <strong style="color:var(--acc)">SPI signal</strong> from the left and drop it onto the matching <strong style="color:var(--acc2)">Arduino pin / SD card pin</strong> on the right.
+      </p>
+
+      <div class="match-arena">
+        <div class="match-col">
+          <h4>SPI SIGNALS</h4>
+          <div class="drag-item" draggable="true" data-sig="MOSI" id="sig-MOSI">MOSI</div>
+          <div class="drag-item" draggable="true" data-sig="MISO" id="sig-MISO">MISO</div>
+          <div class="drag-item" draggable="true" data-sig="SCK"  id="sig-SCK">SCK</div>
+          <div class="drag-item" draggable="true" data-sig="CS"   id="sig-CS">CS / SS</div>
+        </div>
+
+        <div class="connector-col">
+          <div class="connector-line"></div>
+          <div class="connector-line"></div>
+          <div class="connector-line"></div>
+          <div class="connector-line"></div>
+        </div>
+
+        <div class="match-col">
+          <h4>ARDUINO / SD PIN</h4>
+          <div class="drop-zone" data-answer="MOSI" id="drop-MOSI">Pin 11 — Master Out</div>
+          <div class="drop-zone" data-answer="MISO" id="drop-MISO">Pin 12 — Master In</div>
+          <div class="drop-zone" data-answer="SCK"  id="drop-SCK">Pin 13 — Clock</div>
+          <div class="drop-zone" data-answer="CS"   id="drop-CS">Pin 10 — Chip Select</div>
+        </div>
+      </div>
+
+      <div style="text-align:center">
+        <div id="match-feedback" class="win"></div>
+        <div class="progress-wrap" style="max-width:400px;margin:14px auto 0">
+          <div class="progress-bar" id="match-progress"></div>
+        </div>
+        <button class="btn" onclick="resetMatch()">↺ RESET</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ ACTIVITY 2 ══════════ -->
+  <div class="activity" id="act1">
+    <div class="card">
+      <div class="section-label">ACTIVITY 02 · DRAG &amp; DROP</div>
+      <div class="activity-title">SPI Write Sequence Sorter</div>
+      <p style="font-size:.85rem;color:var(--v6);margin-bottom:20px;">
+        Drag and re-order the steps to form the correct sequence for <strong style="color:var(--acc)">writing a byte to an SD card via SPI</strong>.
+      </p>
+      <div class="seq-container" id="seqList"></div>
+      <div class="seq-result" id="seqResult"></div>
+      <div style="text-align:center">
+        <button class="btn" onclick="checkSeq()">✔ CHECK ORDER</button>
+        <button class="btn" style="margin-left:10px;background:linear-gradient(135deg,var(--v3),var(--v4))" onclick="resetSeq()">↺ SHUFFLE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ ACTIVITY 3 ══════════ -->
+  <div class="activity" id="act2">
+    <div class="card">
+      <div class="section-label">ACTIVITY 03 · DRAG &amp; DROP</div>
+      <div class="activity-title">SPI Circuit Builder</div>
+      <p style="font-size:.85rem;color:var(--v6);margin-bottom:20px;">
+        Drag each component from the parts panel and drop it onto its correct slot on the Arduino + SD card circuit board.
+      </p>
+
+      <div class="circuit-layout">
+        <div class="parts-panel">
+          <h4>COMPONENTS</h4>
+          <div class="part-chip" draggable="true" data-part="arduino" id="part-arduino">
+            <span class="chip-icon">🟦</span> Arduino UNO
+          </div>
+          <div class="part-chip" draggable="true" data-part="sd" id="part-sd">
+            <span class="chip-icon">💾</span> SD Card Module
+          </div>
+          <div class="part-chip" draggable="true" data-part="cap" id="part-cap">
+            <span class="chip-icon">⚡</span> 100µF Cap
+          </div>
+          <div class="part-chip" draggable="true" data-part="res" id="part-res">
+            <span class="chip-icon">🟫</span> 10kΩ Resistor
+          </div>
+          <div class="part-chip" draggable="true" data-part="led" id="part-led">
+            <span class="chip-icon">💡</span> Status LED
+          </div>
+        </div>
+
+        <div class="board-area" id="boardArea">
+          <canvas class="wire-canvas" id="wireCanvas"></canvas>
+          <!-- slots positioned absolutely -->
+          <div class="board-slot" style="left:16px;top:20px;width:110px;height:80px"
+               data-slot="arduino" id="slot-arduino">
+            <span class="slot-icon">🟦</span>
+            <span class="slot-label">MICROCONTROLLER</span>
+          </div>
+          <div class="board-slot" style="right:16px;top:20px;width:110px;height:80px"
+               data-slot="sd" id="slot-sd">
+            <span class="slot-icon">💾</span>
+            <span class="slot-label">STORAGE MODULE</span>
+          </div>
+          <div class="board-slot" style="left:16px;bottom:20px;width:80px;height:60px"
+               data-slot="cap" id="slot-cap">
+            <span class="slot-icon">⚡</span>
+            <span class="slot-label">BYPASS CAP</span>
+          </div>
+          <div class="board-slot" style="left:50%;transform:translateX(-50%);bottom:20px;width:80px;height:60px"
+               data-slot="res" id="slot-res">
+            <span class="slot-icon">🟫</span>
+            <span class="slot-label">PULL-UP</span>
+          </div>
+          <div class="board-slot" style="right:16px;bottom:20px;width:80px;height:60px"
+               data-slot="led" id="slot-led">
+            <span class="slot-icon">💡</span>
+            <span class="slot-label">INDICATOR</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-bar" id="circuit-progress"></div>
+      </div>
+      <div class="circuit-score" id="circuitScore">
+        <div class="score-stars" id="scoreStars">⭐⭐⭐⭐⭐</div>
+        <p id="scoreMsg" style="margin-top:8px;color:var(--acc2);font-weight:600"></p>
+      </div>
+      <div style="text-align:center;margin-top:10px">
+        <button class="btn" onclick="resetCircuit()">↺ RESET BOARD</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ SCRIPTS ════════════════ -->
+<script>
+/* ── BACKGROUND: stars + birds ── */
+const bgCanvas = document.getElementById('bgCanvas');
+const ctx = bgCanvas.getContext('2d');
+
+function resize() {
+  bgCanvas.width  = window.innerWidth;
+  bgCanvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Stars
+const stars = Array.from({length:160}, () => ({
+  x: Math.random()*window.innerWidth,
+  y: Math.random()*window.innerHeight,
+  r: Math.random()*2+.4,
+  sp: Math.random()*.4+.1,
+  tw: Math.random()*Math.PI*2,
+  twSpeed: Math.random()*.03+.01
+}));
+
+// Birds (simple V-shape)
+const birds = Array.from({length:8}, () => ({
+  x: Math.random()*window.innerWidth,
+  y: Math.random()*window.innerHeight*.6+40,
+  vx: Math.random()*1.2+.6,
+  vy: (Math.random()-.5)*.3,
+  wing: 0, ws: Math.random()*.08+.04
+}));
+
+// Chain reaction nodes
+const nodes = Array.from({length:20}, () => ({
+  x: Math.random()*window.innerWidth,
+  y: Math.random()*window.innerHeight,
+  vx: (Math.random()-.5)*.5,
+  vy: (Math.random()-.5)*.5,
+  r: Math.random()*3+2,
+  pulse: Math.random()*Math.PI*2
+}));
+
+function drawBg(t) {
+  ctx.clearRect(0,0,bgCanvas.width,bgCanvas.height);
+
+  // Stars
+  stars.forEach(s => {
+    s.y += s.sp;
+    if(s.y > bgCanvas.height) { s.y = 0; s.x = Math.random()*bgCanvas.width; }
+    s.tw += s.twSpeed;
+    const alpha = .4 + .4*Math.sin(s.tw);
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(${200 + Math.floor(55*Math.sin(s.tw))},${100+Math.floor(80*Math.cos(s.tw))},255,${alpha})`;
+    ctx.fill();
+  });
+
+  // Chain reaction connections
+  nodes.forEach(n => {
+    n.x += n.vx; n.y += n.vy;
+    n.pulse += .03;
+    if(n.x<0||n.x>bgCanvas.width) n.vx*=-1;
+    if(n.y<0||n.y>bgCanvas.height) n.vy*=-1;
+  });
+  nodes.forEach((a,i) => {
+    nodes.slice(i+1).forEach(b => {
+      const d = Math.hypot(a.x-b.x, a.y-b.y);
+      if(d<160) {
+        ctx.beginPath();
+        ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+        ctx.strokeStyle = `rgba(153,51,255,${.12*(1-d/160)})`;
+        ctx.lineWidth = .8;
+        ctx.stroke();
+      }
+    });
+  });
+  nodes.forEach(n => {
+    const r = n.r*(1+.4*Math.sin(n.pulse));
+    const g = ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,r*3);
+    g.addColorStop(0,'rgba(153,51,255,.7)');
+    g.addColorStop(1,'rgba(153,51,255,0)');
+    ctx.beginPath(); ctx.arc(n.x,n.y,r*3,0,Math.PI*2);
+    ctx.fillStyle = g; ctx.fill();
+  });
+
+  // Birds
+  birds.forEach(b => {
+    b.x += b.vx; b.y += b.vy + Math.sin(t*.001+b.x*.01)*.3;
+    b.wing += b.ws;
+    if(b.x > bgCanvas.width+30) b.x = -30;
+    const w = 7, h = 3*Math.sin(b.wing);
+    ctx.strokeStyle = 'rgba(221,153,255,.45)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(b.x-w, b.y-h); ctx.lineTo(b.x, b.y);
+    ctx.lineTo(b.x+w, b.y-h);
+    ctx.stroke();
+  });
+
+  requestAnimationFrame(drawBg);
+}
+requestAnimationFrame(drawBg);
+
+/* ── TAB SWITCHING ── */
+function switchTab(i) {
+  document.querySelectorAll('.activity').forEach((a,j) => {
+    a.classList.toggle('active', j===i);
+  });
+  document.querySelectorAll('.tab-btn').forEach((b,j) => {
+    b.classList.toggle('active', j===i);
+  });
+}
+
+/* ══════════════════════════════════
+   ACTIVITY 1: PIN MATCHER
+══════════════════════════════════ */
+let matchScore = 0;
+let draggingSig = null;
+
+document.querySelectorAll('.drag-item').forEach(el => {
+  el.addEventListener('dragstart', e => {
+    draggingSig = el.dataset.sig;
+    el.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  el.addEventListener('dragend', () => el.classList.remove('dragging'));
+});
+
+document.querySelectorAll('.drop-zone').forEach(zone => {
+  zone.addEventListener('dragover', e => {
+    e.preventDefault();
+    zone.classList.add('over');
+  });
+  zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('over');
+    if(!draggingSig) return;
+    if(zone.dataset.answer === draggingSig) {
+      zone.textContent = draggingSig + ' ✓';
+      zone.classList.add('filled');
+      const dragEl = document.getElementById('sig-'+draggingSig);
+      dragEl.classList.add('correct');
+      dragEl.setAttribute('draggable','false');
+      matchScore++;
+      updateMatchProgress();
+    } else {
+      zone.style.animation = 'none';
+      zone.style.borderColor = '#ff4466';
+      setTimeout(()=>{ zone.style.borderColor=''; },700);
+      const dragEl = document.getElementById('sig-'+draggingSig);
+      dragEl.classList.add('wrong');
+      setTimeout(()=>dragEl.classList.remove('wrong'),700);
+      showTooltip(e.clientX, e.clientY, '❌ Wrong pin! Try again.');
+    }
+    draggingSig = null;
+  });
+});
+
+function updateMatchProgress() {
+  const pct = (matchScore/4)*100;
+  document.getElementById('match-progress').style.width = pct+'%';
+  const fb = document.getElementById('match-feedback');
+  if(matchScore === 4) {
+    fb.className = 'win show';
+    fb.textContent = '🎉 Perfect! All 4 SPI pins correctly matched!';
+    fireConfetti();
+  } else {
+    fb.className = 'partial show';
+    fb.textContent = `${matchScore}/4 matched — keep going!`;
+  }
+}
+
+function resetMatch() {
+  matchScore = 0;
+  document.querySelectorAll('.drag-item').forEach(el => {
+    el.classList.remove('correct','wrong');
+    el.setAttribute('draggable','true');
+  });
+  document.querySelectorAll('.drop-zone').forEach(z => {
+    z.classList.remove('filled','over');
+    z.style.borderColor = '';
+    const map = {
+      'MOSI':'Pin 11 — Master Out',
+      'MISO':'Pin 12 — Master In',
+      'SCK':'Pin 13 — Clock',
+      'CS':'Pin 10 — Chip Select'
+    };
+    z.textContent = map[z.dataset.answer];
+  });
+  const fb = document.getElementById('match-feedback');
+  fb.className = '';
+  document.getElementById('match-progress').style.width = '0%';
+}
+
+/* ══════════════════════════════════
+   ACTIVITY 2: SEQUENCE SORTER
+══════════════════════════════════ */
+const correctOrder = [
+  { icon:'🔌', title:'Pull CS LOW',      desc:'Assert chip-select to begin SPI transaction' },
+  { icon:'📤', title:'Call SPI.transfer()', desc:'Send the command/address byte via MOSI' },
+  { icon:'⏳', title:'Wait for response', desc:'Arduino clock pulses; SD sends status byte' },
+  { icon:'📥', title:'Read MISO data',   desc:'Receive data byte from SD module on MISO' },
+  { icon:'🔓', title:'Pull CS HIGH',      desc:'De-assert CS to end SPI transaction' },
+  { icon:'💾', title:'Flush / close file',desc:'Call SD.flush() to commit data to card' },
+];
+
+let seqItems = [];
+let seqDrag  = null;
+let seqOver  = null;
+
+function buildSeq(arr) {
+  const list = document.getElementById('seqList');
+  list.innerHTML = '';
+  arr.forEach((item, i) => {
+    const el = document.createElement('div');
+    el.className = 'seq-item';
+    el.draggable = true;
+    el.dataset.idx = i;
+    el.innerHTML = `
+      <div class="seq-num">${i+1}</div>
+      <div class="seq-icon">${item.icon}</div>
+      <div class="seq-text">
+        <strong>${item.title}</strong>
+        <span>${item.desc}</span>
+      </div>
+    `;
+    el.addEventListener('dragstart', () => { seqDrag = i; el.classList.add('seq-dragging'); });
+    el.addEventListener('dragend',   () => el.classList.remove('seq-dragging'));
+    el.addEventListener('dragover',  e => { e.preventDefault(); seqOver = i; });
+    el.addEventListener('drop', () => {
+      if(seqDrag === null || seqDrag === seqOver) return;
+      const tmp = seqItems.splice(seqDrag,1)[0];
+      seqItems.splice(seqOver,0,tmp);
+      buildSeq(seqItems);
+      seqDrag = seqOver = null;
+    });
+    list.appendChild(el);
+  });
+  document.getElementById('seqResult').className = 'seq-result';
+}
+
+function shuffleArr(a) {
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+
+function resetSeq() {
+  seqItems = shuffleArr([...correctOrder]);
+  buildSeq(seqItems);
+}
+
+function checkSeq() {
+  let correct = 0;
+  const items = document.querySelectorAll('.seq-item');
+  seqItems.forEach((item,i) => {
+    const ok = item.title === correctOrder[i].title;
+    if(ok) correct++;
+    items[i].classList.toggle('correct-seq', ok);
+    items[i].classList.toggle('wrong-seq', !ok);
+  });
+  const res = document.getElementById('seqResult');
+  res.className = 'seq-result show';
+  if(correct===6) {
+    res.innerHTML = `<span style="color:var(--acc2);font-size:1.1rem">🎉 Perfect Order! You nailed the SPI write sequence!</span>`;
+    fireConfetti();
+  } else {
+    res.innerHTML = `<span style="color:var(--acc)">${correct}/6 correct — red items need repositioning.</span>`;
+  }
+}
+
+resetSeq();
+
+/* ══════════════════════════════════
+   ACTIVITY 3: CIRCUIT BUILDER
+══════════════════════════════════ */
+let circuitScore = 0;
+let partDragging = null;
+const placedParts = {};
+
+document.querySelectorAll('.part-chip').forEach(chip => {
+  chip.addEventListener('dragstart', e => {
+    if(chip.classList.contains('used')) { e.preventDefault(); return; }
+    partDragging = chip.dataset.part;
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  chip.addEventListener('dragend', () => {});
+});
+
+document.querySelectorAll('.board-slot').forEach(slot => {
+  slot.addEventListener('dragover', e => {
+    e.preventDefault();
+    slot.classList.add('over');
+  });
+  slot.addEventListener('dragleave', () => slot.classList.remove('over'));
+  slot.addEventListener('drop', e => {
+    e.preventDefault();
+    slot.classList.remove('over');
+    if(!partDragging) return;
+    if(slot.dataset.slot === partDragging) {
+      // correct
+      slot.classList.add('placed');
+      slot.querySelector('.slot-label').textContent = getPartLabel(partDragging);
+      const chip = document.getElementById('part-'+partDragging);
+      chip.classList.add('used');
+      placedParts[partDragging] = true;
+      circuitScore++;
+      updateCircuit();
+      drawWires();
+    } else {
+      slot.style.boxShadow = '0 0 0 3px #ff4466 inset';
+      setTimeout(()=>{ slot.style.boxShadow=''; },700);
+      showTooltip(e.clientX, e.clientY, '❌ Wrong slot!');
+    }
+    partDragging = null;
+  });
+});
+
+function getPartLabel(p) {
+  const labels = {
+    arduino:'Arduino UNO',
+    sd:'SD Module',
+    cap:'Bypass Cap',
+    res:'Pull-up Res.',
+    led:'Status LED'
+  };
+  return labels[p]||p;
+}
+
+function updateCircuit() {
+  const pct = (circuitScore/5)*100;
+  document.getElementById('circuit-progress').style.width = pct+'%';
+  if(circuitScore===5) {
+    const sc = document.getElementById('circuitScore');
+    sc.classList.add('show');
+    document.getElementById('scoreMsg').textContent = '🎉 Full circuit built! SPI + SD card ready to go!';
+    fireConfetti();
+  }
+}
+
+function drawWires() {
+  const canvas = document.getElementById('wireCanvas');
+  const board  = document.getElementById('boardArea');
+  const cw = board.clientWidth, ch = board.clientHeight;
+  canvas.width  = cw;
+  canvas.height = ch;
+  const wctx = canvas.getContext('2d');
+  wctx.clearRect(0,0,cw,ch);
+
+  const slotCenter = id => {
+    const el = document.getElementById('slot-'+id);
+    if(!el) return null;
+    const r = el.getBoundingClientRect();
+    const br = board.getBoundingClientRect();
+    return { x: r.left-br.left+r.width/2, y: r.top-br.top+r.height/2 };
+  };
+
+  const wirePairs = [
+    ['arduino','sd'],
+    ['arduino','cap'],
+    ['arduino','res'],
+    ['arduino','led'],
+  ];
+
+  wirePairs.forEach(([a,b]) => {
+    if(!placedParts[a]||!placedParts[b]) return;
+    const pa = slotCenter(a), pb = slotCenter(b);
+    if(!pa||!pb) return;
+    const grad = wctx.createLinearGradient(pa.x,pa.y,pb.x,pb.y);
+    grad.addColorStop(0,'#9933ff');
+    grad.addColorStop(1,'#00ffcc');
+    wctx.beginPath();
+    wctx.moveTo(pa.x,pa.y);
+    const mx=(pa.x+pb.x)/2, my=(pa.y+pb.y)/2-30;
+    wctx.quadraticCurveTo(mx,my,pb.x,pb.y);
+    wctx.strokeStyle = grad;
+    wctx.lineWidth = 2.5;
+    wctx.shadowColor = '#9933ff';
+    wctx.shadowBlur = 8;
+    wctx.stroke();
+    wctx.shadowBlur = 0;
+  });
+}
+
+function resetCircuit() {
+  circuitScore = 0;
+  Object.keys(placedParts).forEach(k => delete placedParts[k]);
+  document.querySelectorAll('.part-chip').forEach(c => c.classList.remove('used'));
+  document.querySelectorAll('.board-slot').forEach(s => {
+    s.classList.remove('placed','over');
+    s.style.boxShadow='';
+    const map = {
+      arduino:'MICROCONTROLLER',
+      sd:'STORAGE MODULE',
+      cap:'BYPASS CAP',
+      res:'PULL-UP',
+      led:'INDICATOR'
+    };
+    s.querySelector('.slot-label').textContent = map[s.dataset.slot];
+  });
+  document.getElementById('circuit-progress').style.width='0%';
+  const sc = document.getElementById('circuitScore');
+  sc.classList.remove('show');
+  const wctx = document.getElementById('wireCanvas').getContext('2d');
+  wctx.clearRect(0,0,9999,9999);
+}
+
+/* ── TOOLTIP ── */
+const tooltip = document.getElementById('tooltip');
+function showTooltip(x,y,msg) {
+  tooltip.textContent = msg;
+  tooltip.style.left  = (x+10)+'px';
+  tooltip.style.top   = (y-30)+'px';
+  tooltip.style.display='block';
+  setTimeout(()=>{ tooltip.style.display='none'; },1500);
+}
+
+/* ── CONFETTI ── */
+function fireConfetti() {
+  const colors = ['#9933ff','#ff66ff','#00ffcc','#ffcc00','#dd99ff'];
+  for(let i=0;i<60;i++) {
+    const p = document.createElement('div');
+    p.style.cssText = `
+      position:fixed;
+      left:${Math.random()*100}vw;
+      top:-10px;
+      width:${6+Math.random()*6}px;
+      height:${6+Math.random()*6}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      border-radius:${Math.random()>.5?'50%':'2px'};
+      pointer-events:none;
+      z-index:9999;
+      animation: confettiFall ${1.5+Math.random()}s ease-out forwards;
+      animation-delay:${Math.random()*.5}s;
+    `;
+    document.body.appendChild(p);
+    p.addEventListener('animationend',()=>p.remove());
+  }
+}
+
+/* inject confetti keyframe */
+const style = document.createElement('style');
+style.textContent = `
+@keyframes confettiFall {
+  from { transform: translateY(0) rotate(0); opacity:1; }
+  to   { transform: translateY(100vh) rotate(${Math.random()*720}deg); opacity:0; }
+}`;
+document.head.appendChild(style);
+</script>
+</body>
+</html>

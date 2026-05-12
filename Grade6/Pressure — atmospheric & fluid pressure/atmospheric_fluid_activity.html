@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atmospheric and Fluid Pressure</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --v1: #6B21A8; --v2: #7C3AED; --v3: #8B5CF6; --v4: #A78BFA;
+    --v5: #C4B5FD; --v6: #EDE9FE; --v7: #F5F3FF;
+    --pink: #EC4899; --cyan: #06B6D4; --yellow: #FBBF24; --green: #10B981;
+    --orange: #F97316; --rose: #FB7185;
+    --white: #fff; --dark: #1E1B4B;
+  }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background: #0f0720;
+    color: var(--white);
+    position: relative;
+  }
+
+  /* ── ANIMATED BACKGROUND ── */
+  .bg-canvas {
+    position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+  }
+
+  .bg-canvas canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  .bubble {
+    position: absolute; border-radius: 50%;
+    animation: floatUp linear infinite;
+    opacity: 0;
+  }
+
+  @keyframes floatUp {
+    0%   { transform: translateY(100vh) scale(0); opacity: 0; }
+    10%  { opacity: 0.6; }
+    90%  { opacity: 0.3; }
+    100% { transform: translateY(-120px) scale(1.2); opacity: 0; }
+  }
+
+  .blob {
+    position: absolute; border-radius: 50%; filter: blur(60px);
+    animation: blobDrift ease-in-out infinite alternate;
+  }
+  @keyframes blobDrift {
+    0%   { transform: translate(0,0) scale(1); }
+    100% { transform: translate(40px, 30px) scale(1.15); }
+  }
+
+  .star {
+    position: absolute; border-radius: 50%;
+    animation: twinkle ease-in-out infinite alternate;
+  }
+  @keyframes twinkle {
+    0%   { opacity: 0.2; transform: scale(0.8); }
+    100% { opacity: 1;   transform: scale(1.2); }
+  }
+
+  /* ── HEADER ── */
+  .page-header {
+    position: relative; z-index: 10;
+    text-align: center;
+    padding: 2.5rem 1rem 1rem;
+  }
+  .page-header h1 {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(2.2rem, 5vw, 3.8rem);
+    background: linear-gradient(135deg, #C4B5FD, #F0ABFC, #FB7185, #FBBF24);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 30px rgba(139,92,246,0.6));
+    letter-spacing: 1px;
+    animation: titlePop 1s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  @keyframes titlePop {
+    from { transform: scale(0.6); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+  }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex; justify-content: center; gap: 12px;
+    position: relative; z-index: 10;
+    padding: 1rem 1rem 0;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    padding: 0.55rem 1.4rem;
+    border-radius: 50px;
+    border: 2.5px solid transparent;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(.34,1.56,.64,1);
+    background: rgba(255,255,255,0.07);
+    color: var(--v5);
+    backdrop-filter: blur(10px);
+    position: relative; overflow: hidden;
+  }
+  .tab-btn::before {
+    content: ''; position: absolute; inset: 0; border-radius: 50px;
+    background: linear-gradient(135deg, var(--v2), var(--pink));
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .tab-btn span { position: relative; z-index: 1; }
+  .tab-btn:hover { transform: translateY(-3px) scale(1.05); border-color: var(--v4); }
+  .tab-btn.active { border-color: var(--pink); color: white; transform: translateY(-3px); }
+  .tab-btn.active::before { opacity: 1; }
+
+  /* ── ACTIVITY PANELS ── */
+  .activities { position: relative; z-index: 10; padding: 1.5rem 1rem 3rem; }
+  .activity { display: none; animation: panelIn 0.5s cubic-bezier(.34,1.56,.64,1) both; }
+  .activity.active { display: block; }
+  @keyframes panelIn {
+    from { transform: translateY(24px) scale(0.97); opacity: 0; }
+    to   { transform: translateY(0) scale(1); opacity: 1; }
+  }
+
+  .activity-card {
+    max-width: 860px; margin: 0 auto;
+    background: rgba(255,255,255,0.06);
+    border: 1.5px solid rgba(139,92,246,0.35);
+    border-radius: 28px;
+    padding: 2rem;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 0 60px rgba(139,92,246,0.15);
+  }
+
+  .activity-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.5rem;
+    text-align: center;
+    margin-bottom: 0.4rem;
+    background: linear-gradient(90deg, var(--v4), var(--pink));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .activity-subtitle {
+    text-align: center; font-size: 0.92rem; color: var(--v5);
+    margin-bottom: 1.6rem; font-weight: 600;
+  }
+
+  /* ── SCORE BADGE ── */
+  .score-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(139,92,246,0.2); border: 1.5px solid var(--v3);
+    border-radius: 50px; padding: 0.3rem 1rem;
+    font-family: 'Fredoka One', cursive; font-size: 1rem; color: var(--v4);
+    float: right; margin-top: -2.5rem;
+  }
+
+  /* ── FEEDBACK ── */
+  .feedback {
+    text-align: center; font-weight: 700; font-size: 1rem;
+    min-height: 28px; margin: 0.8rem 0;
+    border-radius: 12px; padding: 0.3rem;
+    transition: all 0.3s;
+  }
+  .feedback.correct { color: var(--green); }
+  .feedback.wrong   { color: var(--rose); }
+
+  /* ══════════════════════════════════════
+     ACTIVITY 1 — SORT INTO CATEGORIES
+  ══════════════════════════════════════ */
+  .sort-arena {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+    margin-bottom: 1.2rem;
+  }
+  .sort-zone {
+    border-radius: 20px; min-height: 180px; padding: 1rem;
+    border: 2.5px dashed rgba(255,255,255,0.2);
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+  .sort-zone.atm  { background: rgba(99,102,241,0.1); border-color: rgba(165,180,252,0.4); }
+  .sort-zone.flu  { background: rgba(6,182,212,0.08); border-color: rgba(103,232,249,0.4); }
+  .sort-zone.drag-over { background: rgba(251,113,133,0.15); border-color: var(--rose); }
+
+  .zone-label {
+    font-family: 'Fredoka One', cursive; font-size: 1.1rem;
+    text-align: center; margin-bottom: 0.7rem;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .zone-label.atm { color: var(--v4); }
+  .zone-label.flu { color: var(--cyan); }
+
+  .zone-icon { font-size: 1.4rem; }
+
+  .zone-chips { display: flex; flex-wrap: wrap; gap: 8px; min-height: 80px; }
+
+  .source-chips {
+    display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+    padding: 1rem; border-radius: 16px;
+    background: rgba(255,255,255,0.04); border: 1.5px dashed rgba(255,255,255,0.12);
+    min-height: 60px;
+  }
+
+  .chip {
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 0.82rem;
+    padding: 0.45rem 1rem; border-radius: 50px; cursor: grab;
+    user-select: none; transition: transform 0.15s, box-shadow 0.15s;
+    white-space: nowrap; border: 1.5px solid transparent;
+  }
+  .chip:hover { transform: scale(1.07) rotate(-1deg); }
+  .chip:active { cursor: grabbing; transform: scale(0.97); }
+  .chip.dragging { opacity: 0.45; }
+
+  .chip.c-purple { background: rgba(139,92,246,0.25); border-color: var(--v3); color: var(--v5); }
+  .chip.c-cyan   { background: rgba(6,182,212,0.2);   border-color: var(--cyan); color: #67E8F9; }
+  .chip.c-pink   { background: rgba(236,72,153,0.2);  border-color: var(--pink); color: #F9A8D4; }
+  .chip.c-yellow { background: rgba(251,191,36,0.2);  border-color: var(--yellow); color: #FDE68A; }
+  .chip.c-green  { background: rgba(16,185,129,0.2);  border-color: var(--green); color: #6EE7B7; }
+  .chip.c-orange { background: rgba(249,115,22,0.2);  border-color: var(--orange); color: #FDBA74; }
+  .chip.correct-chip { box-shadow: 0 0 0 2.5px var(--green); animation: chipPop 0.4s ease; }
+  .chip.wrong-chip   { box-shadow: 0 0 0 2.5px var(--rose);  animation: chipShake 0.4s ease; }
+  @keyframes chipPop   { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
+  @keyframes chipShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+
+  /* ══════════════════════════════════════
+     ACTIVITY 2 — MATCH PAIRS
+  ══════════════════════════════════════ */
+  .match-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem;
+  }
+  .match-col-header {
+    font-family: 'Fredoka One', cursive; font-size: 1rem;
+    text-align: center; margin-bottom: 0.8rem; color: var(--v4);
+  }
+  .match-source { display: flex; flex-direction: column; gap: 10px; }
+  .match-targets { display: flex; flex-direction: column; gap: 10px; }
+
+  .match-card {
+    border-radius: 14px; padding: 0.7rem 1rem;
+    font-weight: 700; font-size: 0.83rem; text-align: center;
+    cursor: grab; user-select: none;
+    transition: transform 0.15s, box-shadow 0.15s;
+    border: 1.5px solid transparent;
+    min-height: 52px; display: flex; align-items: center; justify-content: center;
+  }
+  .match-card.draggable { background: rgba(139,92,246,0.2); border-color: var(--v3); color: var(--v5); }
+  .match-card.draggable:hover { transform: scale(1.04); }
+  .match-card.draggable.dragging { opacity: 0.4; }
+
+  .drop-slot {
+    border-radius: 14px; padding: 0.7rem 1rem;
+    border: 2.5px dashed rgba(255,255,255,0.2);
+    min-height: 52px; display: flex; align-items: center; justify-content: center;
+    font-size: 0.83rem; font-weight: 700;
+    background: rgba(255,255,255,0.04);
+    transition: background 0.2s, border-color 0.2s;
+    position: relative;
+    flex-direction: column; gap: 4px;
+  }
+  .drop-slot .slot-label { color: rgba(255,255,255,0.55); font-size: 0.78rem; font-weight: 600; }
+  .drop-slot.drag-over { background: rgba(251,113,133,0.12); border-color: var(--rose); }
+  .drop-slot.filled { border-style: solid; }
+  .drop-slot.correct-slot { border-color: var(--green); background: rgba(16,185,129,0.12); }
+  .drop-slot.wrong-slot   { border-color: var(--rose);  background: rgba(251,113,133,0.12); }
+
+  /* ══════════════════════════════════════
+     ACTIVITY 3 — BUILD A SCENE
+  ══════════════════════════════════════ */
+  .scene-layout { display: grid; grid-template-columns: 200px 1fr; gap: 1.2rem; align-items: start; }
+
+  .scene-toolbox {
+    background: rgba(255,255,255,0.04); border: 1.5px dashed rgba(255,255,255,0.15);
+    border-radius: 20px; padding: 1rem;
+  }
+  .toolbox-label {
+    font-family: 'Fredoka One', cursive; font-size: 0.95rem;
+    color: var(--v4); text-align: center; margin-bottom: 0.8rem;
+  }
+  .toolbox-items { display: flex; flex-direction: column; gap: 8px; }
+
+  .tool-item {
+    border-radius: 12px; padding: 0.55rem 0.8rem;
+    font-weight: 700; font-size: 0.8rem; text-align: center;
+    cursor: grab; user-select: none;
+    display: flex; align-items: center; gap: 8px;
+    transition: transform 0.15s;
+    border: 1.5px solid transparent;
+  }
+  .tool-item:hover { transform: scale(1.04) translateX(3px); }
+  .tool-item.dragging { opacity: 0.4; }
+  .tool-item .tool-emoji { font-size: 1.3rem; }
+
+  .scene-drop {
+    background: rgba(255,255,255,0.03); border: 2.5px dashed rgba(139,92,246,0.4);
+    border-radius: 20px; min-height: 340px; position: relative;
+    overflow: hidden; transition: border-color 0.2s;
+  }
+  .scene-drop.drag-over { border-color: var(--rose); background: rgba(251,113,133,0.05); }
+
+  .scene-bg-text {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.95rem; color: rgba(255,255,255,0.2); text-align: center;
+    pointer-events: none; width: 80%;
+  }
+
+  .scene-placed {
+    position: absolute; font-size: 2.2rem;
+    cursor: pointer; user-select: none;
+    animation: placePop 0.4s cubic-bezier(.34,1.56,.64,1) both;
+    filter: drop-shadow(0 4px 12px rgba(139,92,246,0.5));
+    transition: transform 0.15s;
+  }
+  .scene-placed:hover { transform: scale(1.15); }
+  @keyframes placePop {
+    from { transform: scale(0) rotate(-15deg); opacity: 0; }
+    to   { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+
+  .scene-label-tag {
+    position: absolute; background: rgba(15,7,32,0.85);
+    border: 1.5px solid var(--v3); border-radius: 8px;
+    padding: 2px 8px; font-size: 0.65rem; font-weight: 700;
+    color: var(--v4); pointer-events: none; white-space: nowrap;
+    transform: translateX(-50%); margin-top: 2px;
+  }
+
+  .scene-check-row {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 1rem;
+    align-items: center; justify-content: center;
+  }
+  .checklist-item {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.05); border-radius: 50px;
+    padding: 0.3rem 0.9rem; font-size: 0.8rem; font-weight: 700;
+    border: 1.5px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.55);
+    transition: all 0.3s;
+  }
+  .checklist-item.placed { color: var(--green); border-color: var(--green); background: rgba(16,185,129,0.12); }
+  .checklist-item .check-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+  /* ── RESET BTN ── */
+  .reset-btn {
+    font-family: 'Fredoka One', cursive;
+    background: rgba(251,113,133,0.15); border: 1.5px solid var(--rose);
+    color: var(--rose); border-radius: 50px; padding: 0.45rem 1.4rem;
+    font-size: 0.95rem; cursor: pointer; transition: all 0.2s;
+    display: block; margin: 1.2rem auto 0;
+  }
+  .reset-btn:hover { background: rgba(251,113,133,0.3); transform: scale(1.05); }
+
+  /* ── CONFETTI ── */
+  .confetti-piece {
+    position: fixed; width: 10px; height: 10px; border-radius: 2px;
+    animation: confettiFall linear forwards;
+    pointer-events: none; z-index: 999;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+
+  @media (max-width: 600px) {
+    .sort-arena { grid-template-columns: 1fr; }
+    .match-grid { grid-template-columns: 1fr; }
+    .scene-layout { grid-template-columns: 1fr; }
+    .toolbox-items { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+    .scene-drop { min-height: 260px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── ANIMATED BACKGROUND ── -->
+<div class="bg-canvas" id="bgCanvas"></div>
+
+<!-- ── HEADER ── -->
+<header class="page-header">
+  <h1>Atmospheric &amp; Fluid Pressure</h1>
+</header>
+
+<!-- ── TABS ── -->
+<nav class="tabs" role="tablist">
+  <button class="tab-btn active" onclick="showActivity(0,this)" role="tab"><span>🌬️ Sort It Out</span></button>
+  <button class="tab-btn"       onclick="showActivity(1,this)" role="tab"><span>🔗 Match Up</span></button>
+  <button class="tab-btn"       onclick="showActivity(2,this)" role="tab"><span>🎨 Build a Scene</span></button>
+</nav>
+
+<!-- ════════════════════════════════════════
+     ACTIVITY 1 — SORT INTO CATEGORIES
+════════════════════════════════════════ -->
+<section class="activities">
+
+<div class="activity active" id="act0">
+  <div class="activity-card">
+    <div class="activity-title">Sort It Out!</div>
+    <div class="activity-subtitle">Drag each fact into the correct pressure zone 💨🌊</div>
+
+    <div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem">
+      <div class="score-badge">⭐ <span id="sort-score">0</span>/10</div>
+    </div>
+    <div class="feedback" id="sort-feedback"></div>
+
+    <div class="sort-arena">
+      <div class="sort-zone atm" id="zone-atm" data-type="atm">
+        <div class="zone-label atm"><span class="zone-icon">🌍</span> Atmospheric</div>
+        <div class="zone-chips" id="chips-atm"></div>
+      </div>
+      <div class="sort-zone flu" id="zone-flu" data-type="flu">
+        <div class="zone-label flu"><span class="zone-icon">🌊</span> Fluid</div>
+        <div class="zone-chips" id="chips-flu"></div>
+      </div>
+    </div>
+
+    <div class="source-chips" id="source-chips"></div>
+    <button class="reset-btn" onclick="initSort()">↺ Reset</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     ACTIVITY 2 — MATCH PAIRS
+════════════════════════════════════════ -->
+<div class="activity" id="act1">
+  <div class="activity-card">
+    <div class="activity-title">Match Up!</div>
+    <div class="activity-subtitle">Drag each fact to its matching example 🎯</div>
+
+    <div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem">
+      <div class="score-badge">⭐ <span id="match-score">0</span>/6</div>
+    </div>
+    <div class="feedback" id="match-feedback"></div>
+
+    <div class="match-grid">
+      <div>
+        <div class="match-col-header">📋 Facts</div>
+        <div class="match-source" id="match-source"></div>
+      </div>
+      <div>
+        <div class="match-col-header">🏷️ Drop Here</div>
+        <div class="match-targets" id="match-targets"></div>
+      </div>
+    </div>
+    <button class="reset-btn" onclick="initMatch()">↺ Reset</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     ACTIVITY 3 — BUILD A SCENE
+════════════════════════════════════════ -->
+<div class="activity" id="act2">
+  <div class="activity-card">
+    <div class="activity-title">Build a Scene!</div>
+    <div class="activity-subtitle">Place every pressure example onto the scene canvas 🖼️</div>
+
+    <div class="feedback" id="scene-feedback"></div>
+
+    <div class="scene-layout">
+      <div class="scene-toolbox">
+        <div class="toolbox-label">🧰 Toolbox</div>
+        <div class="toolbox-items" id="toolbox-items"></div>
+      </div>
+      <div>
+        <div class="scene-drop" id="scene-drop">
+          <div class="scene-bg-text" id="scene-hint">Drop items here to build your pressure scene!</div>
+        </div>
+        <div class="scene-check-row" id="scene-checklist"></div>
+      </div>
+    </div>
+    <button class="reset-btn" onclick="initScene()">↺ Reset</button>
+  </div>
+</div>
+
+</section>
+
+<script>
+/* ══════ BACKGROUND ANIMATIONS ══════ */
+(function() {
+  const bg = document.getElementById('bgCanvas');
+  const colors = ['#6B21A8','#7C3AED','#8B5CF6','#A78BFA','#C4B5FD','#EC4899','#06B6D4','#FBBF24','#10B981','#F97316'];
+
+  for (let i = 0; i < 8; i++) {
+    const blob = document.createElement('div');
+    blob.className = 'blob';
+    const s = 200 + Math.random()*300;
+    blob.style.cssText = `width:${s}px;height:${s}px;left:${Math.random()*100}%;top:${Math.random()*100}%;
+      background:${colors[Math.floor(Math.random()*5)]};opacity:0.06;
+      animation-duration:${6+Math.random()*8}s;animation-delay:${-Math.random()*8}s;`;
+    bg.appendChild(blob);
+  }
+
+  for (let i = 0; i < 60; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    const s = 2 + Math.random()*4;
+    star.style.cssText = `width:${s}px;height:${s}px;left:${Math.random()*100}%;top:${Math.random()*100}%;
+      background:${Math.random()>0.5?'#C4B5FD':'#F9A8D4'};
+      animation-duration:${1.5+Math.random()*3}s;animation-delay:${-Math.random()*3}s;`;
+    bg.appendChild(star);
+  }
+
+  function spawnBubble() {
+    const b = document.createElement('div');
+    b.className = 'bubble';
+    const s = 6 + Math.random()*24;
+    b.style.cssText = `width:${s}px;height:${s}px;left:${Math.random()*100}%;bottom:-30px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-duration:${5+Math.random()*10}s;`;
+    bg.appendChild(b);
+    setTimeout(()=>b.remove(), 16000);
+  }
+  setInterval(spawnBubble, 400);
+  for(let i=0;i<20;i++) spawnBubble();
+})();
+
+/* ══════ TAB SWITCHING ══════ */
+function showActivity(idx, btn) {
+  document.querySelectorAll('.activity').forEach((a,i)=>{
+    a.classList.toggle('active', i===idx);
+  });
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+/* ══════ CONFETTI ══════ */
+function confetti() {
+  const colors = ['#8B5CF6','#EC4899','#FBBF24','#06B6D4','#10B981','#F97316','#FB7185','#C4B5FD'];
+  for (let i = 0; i < 55; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.cssText = `left:${20+Math.random()*60}%;top:-20px;background:${colors[i%colors.length]};
+      animation-duration:${1.2+Math.random()*1.5}s;animation-delay:${Math.random()*0.6}s;
+      width:${6+Math.random()*10}px;height:${6+Math.random()*10}px;
+      border-radius:${Math.random()>0.5?'50%':'3px'};`;
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(), 3000);
+  }
+}
+
+/* ════════════════════════════════════════
+   ACTIVITY 1 — SORT
+════════════════════════════════════════ */
+const sortData = [
+  { id:'s1', text:'Air pushes from all sides', type:'atm', color:'c-purple' },
+  { id:'s2', text:'Pressure increases with depth', type:'flu', color:'c-cyan' },
+  { id:'s3', text:'Barometer measures this', type:'atm', color:'c-pink' },
+  { id:'s4', text:'Dams use this force', type:'flu', color:'c-yellow' },
+  { id:'s5', text:'Weather changes with this', type:'atm', color:'c-purple' },
+  { id:'s6', text:'Blood flows because of this', type:'flu', color:'c-green' },
+  { id:'s7', text:'Crushes a can when heated', type:'atm', color:'c-orange' },
+  { id:'s8', text:'Tire air keeps shape', type:'flu', color:'c-cyan' },
+  { id:'s9', text:'Atmosphere presses down', type:'atm', color:'c-pink' },
+  { id:'s10',text:'Deeper water = more push', type:'flu', color:'c-yellow' },
+];
+let sortScore = 0;
+let sortDrag = null;
+
+function initSort() {
+  sortScore = 0;
+  document.getElementById('sort-score').textContent = '0';
+  document.getElementById('sort-feedback').textContent = '';
+  document.getElementById('sort-feedback').className = 'feedback';
+  document.getElementById('chips-atm').innerHTML = '';
+  document.getElementById('chips-flu').innerHTML = '';
+
+  const src = document.getElementById('source-chips');
+  src.innerHTML = '';
+  const shuffled = [...sortData].sort(()=>Math.random()-0.5);
+  shuffled.forEach(d => {
+    const chip = makeChip(d);
+    src.appendChild(chip);
+  });
+
+  ['zone-atm','zone-flu'].forEach(id=>{
+    const zone = document.getElementById(id);
+    zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', ()=>zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e=>{ e.preventDefault(); zone.classList.remove('drag-over'); onSortDrop(zone); });
+  });
+}
+
+function makeChip(d) {
+  const chip = document.createElement('div');
+  chip.className = `chip ${d.color}`;
+  chip.textContent = d.text;
+  chip.draggable = true;
+  chip.dataset.id = d.id;
+  chip.dataset.type = d.type;
+  chip.addEventListener('dragstart', e=>{ sortDrag=chip; chip.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+  chip.addEventListener('dragend', ()=>chip.classList.remove('dragging'));
+  return chip;
+}
+
+function onSortDrop(zone) {
+  if (!sortDrag) return;
+  const correct = sortDrag.dataset.type === zone.dataset.type;
+  const fb = document.getElementById('sort-feedback');
+  if (correct) {
+    sortDrag.classList.add('correct-chip');
+    zone.querySelector('.zone-chips').appendChild(sortDrag);
+    sortScore++;
+    document.getElementById('sort-score').textContent = sortScore;
+    fb.textContent = '✅ Correct! Great job!';
+    fb.className = 'feedback correct';
+    if (sortScore === 10) { confetti(); fb.textContent = '🎉 Perfect! You sorted all 10 correctly!'; }
+  } else {
+    sortDrag.classList.add('wrong-chip');
+    fb.textContent = '❌ Not quite — try again!';
+    fb.className = 'feedback wrong';
+    setTimeout(()=>sortDrag.classList.remove('wrong-chip'), 600);
+  }
+  sortDrag = null;
+}
+
+/* ════════════════════════════════════════
+   ACTIVITY 2 — MATCH
+════════════════════════════════════════ */
+const matchData = [
+  { id:'m1', fact:'Barometer', example:'Measures atmospheric pressure', color:'c-purple' },
+  { id:'m2', fact:'Inverted glass', example:'Atmospheric pressure holds water in', color:'c-cyan' },
+  { id:'m3', fact:'Hot air balloon', example:'Warm air changes pressure to rise', color:'c-pink' },
+  { id:'m4', fact:'Dam wall', example:'Fluid pressure pushes against it', color:'c-yellow' },
+  { id:'m5', fact:'Submarine', example:'Uses pressure to dive underwater', color:'c-green' },
+  { id:'m6', fact:'Blood pressure', example:'Pushes blood through veins', color:'c-orange' },
+];
+let matchScore = 0;
+let matchDrag = null;
+
+function initMatch() {
+  matchScore = 0;
+  document.getElementById('match-score').textContent = '0';
+  document.getElementById('match-feedback').textContent = '';
+  document.getElementById('match-feedback').className = 'feedback';
+
+  const src = document.getElementById('match-source');
+  const tgt = document.getElementById('match-targets');
+  src.innerHTML = '';
+  tgt.innerHTML = '';
+
+  const shuffledFacts = [...matchData].sort(()=>Math.random()-0.5);
+  const shuffledEx   = [...matchData].sort(()=>Math.random()-0.5);
+
+  shuffledFacts.forEach(d => {
+    const card = document.createElement('div');
+    card.className = `match-card draggable ${d.color}`;
+    card.textContent = d.fact;
+    card.draggable = true;
+    card.dataset.id = d.id;
+    card.addEventListener('dragstart', e=>{ matchDrag=card; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+    card.addEventListener('dragend', ()=>card.classList.remove('dragging'));
+    src.appendChild(card);
+  });
+
+  shuffledEx.forEach(d => {
+    const slot = document.createElement('div');
+    slot.className = 'drop-slot';
+    slot.dataset.id = d.id;
+    slot.innerHTML = `<div class="slot-label">${d.example}</div>`;
+    slot.addEventListener('dragover', e=>{ e.preventDefault(); slot.classList.add('drag-over'); });
+    slot.addEventListener('dragleave', ()=>slot.classList.remove('drag-over'));
+    slot.addEventListener('drop', e=>{ e.preventDefault(); slot.classList.remove('drag-over'); onMatchDrop(slot); });
+    tgt.appendChild(slot);
+  });
+}
+
+function onMatchDrop(slot) {
+  if (!matchDrag) return;
+  if (slot.classList.contains('filled')) return;
+  const fb = document.getElementById('match-feedback');
+  const correct = matchDrag.dataset.id === slot.dataset.id;
+  if (correct) {
+    slot.classList.add('filled','correct-slot');
+    const clone = matchDrag.cloneNode(true);
+    clone.draggable = false; clone.style.cursor='default';
+    slot.appendChild(clone);
+    matchDrag.style.visibility = 'hidden'; matchDrag.draggable = false;
+    matchScore++;
+    document.getElementById('match-score').textContent = matchScore;
+    fb.textContent = '✅ Perfect match!';
+    fb.className = 'feedback correct';
+    if (matchScore === 6) { confetti(); fb.textContent = '🎉 You matched them all! Brilliant!'; }
+  } else {
+    slot.classList.add('wrong-slot');
+    fb.textContent = '❌ Wrong match — try a different slot!';
+    fb.className = 'feedback wrong';
+    setTimeout(()=>slot.classList.remove('wrong-slot','drag-over'), 700);
+  }
+  matchDrag = null;
+}
+
+/* ════════════════════════════════════════
+   ACTIVITY 3 — BUILD A SCENE
+════════════════════════════════════════ */
+const sceneItems = [
+  { id:'sc1', emoji:'🌍', label:'Earth Atmosphere', desc:'Air blanket',   color:'#7C3AED', x:10, y:8  },
+  { id:'sc2', emoji:'🌊', label:'Ocean Waves',      desc:'Fluid depth',   color:'#06B6D4', x:55, y:10 },
+  { id:'sc3', emoji:'🎈', label:'Hot Air Balloon',  desc:'Rises by pressure', color:'#EC4899', x:30, y:5  },
+  { id:'sc4', emoji:'🐟', label:'Deep Sea Fish',    desc:'High fluid pressure', color:'#10B981', x:60, y:55 },
+  { id:'sc5', emoji:'🌡️', label:'Barometer',       desc:'Measures atm.', color:'#FBBF24', x:15, y:55 },
+  { id:'sc6', emoji:'🚢', label:'Submarine',        desc:'Dives by pressure', color:'#8B5CF6', x:42, y:60 },
+  { id:'sc7', emoji:'🩺', label:'Blood Pressure',   desc:'Body fluid',    color:'#FB7185', x:78, y:30 },
+  { id:'sc8', emoji:'🌬️', label:'Wind Force',      desc:'Atm. pressure', color:'#A78BFA', x:5,  y:30 },
+];
+let scenePlaced = new Set();
+let sceneDragId = null;
+
+function initScene() {
+  scenePlaced = new Set();
+  const drop = document.getElementById('scene-drop');
+  drop.innerHTML = '<div class="scene-bg-text" id="scene-hint">Drop items here to build your pressure scene!</div>';
+
+  const toolbox = document.getElementById('toolbox-items');
+  toolbox.innerHTML = '';
+  sceneItems.forEach(it => {
+    const ti = document.createElement('div');
+    ti.className = 'tool-item';
+    ti.draggable = true;
+    ti.dataset.id = it.id;
+    ti.style.cssText = `background:${it.color}22;border-color:${it.color};color:${it.color};`;
+    ti.innerHTML = `<span class="tool-emoji">${it.emoji}</span><span>${it.label}</span>`;
+    ti.addEventListener('dragstart', e=>{ sceneDragId=it.id; ti.classList.add('dragging'); e.dataTransfer.effectAllowed='copy'; });
+    ti.addEventListener('dragend', ()=>ti.classList.remove('dragging'));
+    toolbox.appendChild(ti);
+  });
+
+  const checklist = document.getElementById('scene-checklist');
+  checklist.innerHTML = '';
+  sceneItems.forEach(it => {
+    const ci = document.createElement('div');
+    ci.className = 'checklist-item';
+    ci.id = `check-${it.id}`;
+    ci.innerHTML = `<div class="check-dot"></div>${it.label}`;
+    checklist.appendChild(ci);
+  });
+
+  drop.addEventListener('dragover', e=>{ e.preventDefault(); drop.classList.add('drag-over'); });
+  drop.addEventListener('dragleave', ()=>drop.classList.remove('drag-over'));
+  drop.addEventListener('drop', e=>{
+    e.preventDefault(); drop.classList.remove('drag-over');
+    const rect = drop.getBoundingClientRect();
+    const px = ((e.clientX - rect.left) / rect.width * 100).toFixed(1);
+    const py = ((e.clientY - rect.top)  / rect.height * 100).toFixed(1);
+    onSceneDrop(parseFloat(px), parseFloat(py));
+  });
+  document.getElementById('scene-feedback').textContent = '';
+  document.getElementById('scene-feedback').className = 'feedback';
+}
+
+function onSceneDrop(px, py) {
+  if (!sceneDragId) return;
+  const it = sceneItems.find(x=>x.id===sceneDragId);
+  if (!it || scenePlaced.has(it.id)) return;
+
+  const drop = document.getElementById('scene-drop');
+  const hint = document.getElementById('scene-hint');
+  if (hint) hint.style.display = 'none';
+
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = `position:absolute;left:${Math.min(Math.max(px,5),88)}%;top:${Math.min(Math.max(py,5),80)}%;transform:translate(-50%,-50%);text-align:center;`;
+
+  const em = document.createElement('div');
+  em.className = 'scene-placed';
+  em.textContent = it.emoji;
+  em.title = `${it.label}: ${it.desc}`;
+  em.onclick = ()=>{ wrapper.remove(); scenePlaced.delete(it.id); updateSceneCheck(); };
+
+  const tag = document.createElement('div');
+  tag.className = 'scene-label-tag';
+  tag.textContent = it.label;
+  tag.style.left = '50%';
+
+  wrapper.appendChild(em);
+  wrapper.appendChild(tag);
+  drop.appendChild(wrapper);
+
+  scenePlaced.add(it.id);
+  updateSceneCheck();
+
+  const toolItem = document.querySelector(`[data-id="${it.id}"]`);
+  if (toolItem) { toolItem.style.opacity = '0.35'; toolItem.draggable = false; }
+
+  sceneDragId = null;
+}
+
+function updateSceneCheck() {
+  const fb = document.getElementById('scene-feedback');
+  sceneItems.forEach(it => {
+    const ci = document.getElementById(`check-${it.id}`);
+    if(ci) ci.classList.toggle('placed', scenePlaced.has(it.id));
+  });
+  if (scenePlaced.size === sceneItems.length) {
+    confetti();
+    fb.textContent = '🎉 Incredible! You placed everything on the scene!';
+    fb.className = 'feedback correct';
+  } else {
+    const left = sceneItems.length - scenePlaced.size;
+    fb.textContent = left > 0 ? `${left} item${left>1?'s':''} left to place!` : '';
+    fb.className = 'feedback';
+  }
+}
+
+/* ══ INIT ALL ══ */
+initSort();
+initMatch();
+initScene();
+</script>
+</body>
+</html>

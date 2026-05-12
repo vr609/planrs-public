@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arduino — Bluetooth (HC-05) & Smartphone Control</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg1:#0a0020; --bg2:#130040; --bg3:#0d0030;
+    --blue:#3B82F6; --cyan:#22D3EE; --yellow:#FCD34D;
+    --orange:#FB923C; --green:#4ADE80; --red:#F87171;
+    --pink:#F472B6; --v1:#7C3AED; --v2:#A855F7; --v3:#C084FC;
+    --card:#ffffff0d; --border:rgba(99,102,241,0.3);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Nunito',sans-serif;
+    min-height:100vh;
+    background:radial-gradient(ellipse at 20% 20%,#1a0050 0%,#0a0020 50%,#001030 100%);
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  /* ═══ ANIMATED TECH BACKGROUND ═══ */
+  .bg-scene{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;}
+
+  /* Circuit lines */
+  .circuit-svg{position:absolute;inset:0;width:100%;height:100%;opacity:0.12;}
+
+  /* Arduino board */
+  .arduino-board{
+    position:absolute; right:3%; top:12%;
+    width:140px; animation:board-float 5s ease-in-out infinite;
+    filter:drop-shadow(0 0 20px #22D3EE88);
+  }
+  @keyframes board-float{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-15px) rotate(2deg)}}
+
+  /* Smartphone */
+  .phone-device{
+    position:absolute; left:2%; top:15%;
+    width:80px; animation:phone-float 4s ease-in-out infinite reverse;
+    filter:drop-shadow(0 0 16px #3B82F688);
+  }
+  @keyframes phone-float{0%,100%{transform:translateY(0) rotate(4deg)}50%{transform:translateY(-12px) rotate(-3deg)}}
+
+  /* Bluetooth waves */
+  .bt-icon{
+    position:absolute; right:8%; top:55%;
+    animation:bt-pulse 2s ease-in-out infinite;
+    filter:drop-shadow(0 0 12px #3B82F6);
+  }
+  @keyframes bt-pulse{0%,100%{transform:scale(1);opacity:0.7}50%{transform:scale(1.2);opacity:1}}
+
+  /* Data packets floating */
+  .data-packet{
+    position:absolute; background:linear-gradient(135deg,#3B82F6,#22D3EE);
+    border-radius:6px; font-family:'Fredoka One',cursive;
+    font-size:0.65rem; color:white; padding:3px 8px;
+    animation:packet-travel linear infinite; white-space:nowrap;
+    box-shadow:0 0 8px #3B82F688;
+  }
+  @keyframes packet-travel{
+    0%{transform:translateX(-200px);opacity:0}
+    10%{opacity:1} 90%{opacity:1}
+    100%{transform:translateX(120vw);opacity:0}
+  }
+
+  /* LED blink dots */
+  .led-dot{
+    position:absolute; border-radius:50%;
+    animation:led-blink ease-in-out infinite;
+  }
+  @keyframes led-blink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.2;transform:scale(0.7)}}
+
+  /* Floating code snippets */
+  .code-float{
+    position:absolute; font-family:monospace; font-size:0.7rem;
+    color:rgba(74,222,128,0.4); animation:code-drift ease-in-out infinite;
+    white-space:nowrap;
+  }
+  @keyframes code-drift{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}}
+
+  /* HC-05 module */
+  .hc05-module{
+    position:absolute; left:5%; bottom:18%;
+    animation:board-float 6s ease-in-out infinite 1s;
+    filter:drop-shadow(0 0 14px #F472B688);
+  }
+
+  /* Sparkle stars */
+  .star{position:absolute;animation:twinkle ease-in-out infinite;}
+  @keyframes twinkle{0%,100%{opacity:0.15;transform:scale(0.8) rotate(0deg)}50%{opacity:1;transform:scale(1.3) rotate(180deg)}}
+
+  /* Wifi rings */
+  .wifi-ring{
+    position:absolute; border-radius:50%; border:2px solid;
+    animation:wifi-expand ease-out infinite; transform-origin:center;
+  }
+  @keyframes wifi-expand{0%{transform:scale(0.2);opacity:1}100%{transform:scale(3);opacity:0}}
+
+  /* ═══ MAIN CONTENT ═══ */
+  .page-wrap{
+    position:relative;z-index:10;
+    max-width:980px;margin:0 auto;
+    padding:22px 16px 70px;
+  }
+
+  h1.main-title{
+    font-family:'Fredoka One',cursive;
+    font-size:clamp(1.6rem,3.8vw,2.6rem);
+    text-align:center; color:white;
+    text-shadow:0 0 30px #22D3EE,0 0 60px #3B82F6,0 3px 0 #0a0040;
+    letter-spacing:0.5px; padding:26px 0 6px;
+    animation:title-pulse 3s ease-in-out infinite;
+  }
+  @keyframes title-pulse{
+    0%,100%{text-shadow:0 0 20px #22D3EE,0 0 40px #3B82F6,0 3px 0 #0a0040}
+    50%{text-shadow:0 0 40px #22D3EE,0 0 80px #3B82F6,0 0 120px #A855F7,0 3px 0 #0a0040}
+  }
+
+  /* Tabs */
+  .tabs{display:flex;gap:10px;justify-content:center;margin:20px 0;flex-wrap:wrap;}
+  .tab-btn{
+    font-family:'Fredoka One',cursive; font-size:0.95rem;
+    padding:10px 22px; border-radius:50px; cursor:pointer;
+    border:2px solid rgba(99,102,241,0.3); background:rgba(255,255,255,0.06);
+    color:rgba(196,181,253,0.8); transition:all 0.3s; letter-spacing:0.3px;
+  }
+  .tab-btn:hover{transform:translateY(-2px);}
+  .tab-btn.active{
+    background:linear-gradient(135deg,#1D4ED8,#3B82F6);
+    color:white; border-color:#60A5FA;
+    box-shadow:0 4px 22px #3B82F688;
+  }
+
+  /* Card */
+  .activity-card{
+    background:rgba(255,255,255,0.05);
+    border:1.5px solid rgba(99,102,241,0.25);
+    border-radius:28px; padding:28px 24px;
+    backdrop-filter:blur(14px);
+    box-shadow:0 8px 50px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.08);
+    display:none;
+  }
+  .activity-card.active{display:block;animation:card-in 0.4s cubic-bezier(0.34,1.56,0.64,1);}
+  @keyframes card-in{from{opacity:0;transform:translateY(24px) scale(0.96)}to{opacity:1;transform:none}}
+
+  .act-title{
+    font-family:'Fredoka One',cursive; font-size:1.5rem;
+    color:#FCD34D; text-align:center; margin-bottom:6px;
+    text-shadow:0 0 20px #FCD34D66;
+  }
+  .act-desc{color:rgba(147,197,253,0.9);text-align:center;font-size:0.9rem;margin-bottom:22px;font-weight:600;}
+
+  /* ════════════════════════════════
+     ACT 1 — Match Component to its Pin/Role
+  ════════════════════════════════ */
+  .match-layout{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+
+  .comp-bank{
+    background:rgba(59,130,246,0.1); border-radius:18px;
+    padding:16px; border:2px dashed rgba(96,165,250,0.35);
+  }
+  .comp-bank h3{font-family:'Fredoka One',cursive;color:#60A5FA;margin-bottom:12px;text-align:center;font-size:1rem;}
+
+  .comp-chip{
+    display:inline-flex;align-items:center;gap:6px;
+    background:linear-gradient(135deg,#1D4ED8,#3B82F6);
+    color:white;padding:8px 14px;border-radius:50px;
+    font-size:0.8rem;font-weight:800;margin:5px 4px;
+    cursor:grab;border:2px solid rgba(255,255,255,0.15);
+    transition:transform 0.2s,box-shadow 0.2s;user-select:none;
+  }
+  .comp-chip:hover{transform:scale(1.08);box-shadow:0 4px 18px #3B82F688;}
+  .comp-chip.dragging{opacity:0.45;transform:scale(1.1);cursor:grabbing;}
+
+  .role-targets{display:flex;flex-direction:column;gap:10px;}
+  .role-drop{
+    background:rgba(255,255,255,0.05);border:2px dashed rgba(96,165,250,0.3);
+    border-radius:14px;padding:10px 12px;min-height:64px;transition:all 0.25s;
+  }
+  .role-drop.drag-over{background:rgba(96,165,250,0.15);border-color:#60A5FA;transform:scale(1.02);}
+  .role-drop.correct{border-color:#4ADE80;background:rgba(74,222,128,0.1);}
+  .role-drop.wrong{border-color:#F87171;background:rgba(248,113,113,0.1);animation:shake 0.4s;}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+  .role-label{font-family:'Fredoka One',cursive;font-size:0.88rem;color:#FCD34D;margin-bottom:4px;}
+  .role-hint{color:rgba(147,197,253,0.5);font-size:0.72rem;margin-bottom:5px;}
+  .dropped-chips{display:flex;flex-wrap:wrap;gap:4px;min-height:24px;}
+  .dropped-chip{background:rgba(96,165,250,0.25);color:#BAE6FD;padding:4px 10px;border-radius:16px;font-size:0.77rem;font-weight:800;}
+
+  /* ════════════════════════════════
+     ACT 2 — Build the Bluetooth Circuit
+  ════════════════════════════════ */
+  .circuit-build{display:flex;flex-direction:column;gap:16px;align-items:center;}
+  .parts-bank{
+    display:flex;flex-wrap:wrap;gap:10px;justify-content:center;
+    padding:16px;background:rgba(34,211,238,0.08);
+    border-radius:18px;border:2px dashed rgba(34,211,238,0.3);
+    min-height:80px;width:100%;
+  }
+  .part-card{
+    background:linear-gradient(135deg,#164E63,#0E7490);
+    color:white;padding:10px 15px;border-radius:14px;
+    font-size:0.82rem;font-weight:800;cursor:grab;
+    border:2px solid rgba(34,211,238,0.3);
+    transition:transform 0.2s,box-shadow 0.2s;user-select:none;
+    text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px;
+  }
+  .part-card .p-emoji{font-size:1.4rem;}
+  .part-card:hover{transform:scale(1.07);box-shadow:0 4px 18px #22D3EE66;}
+  .part-card.dragging{opacity:0.4;}
+
+  .wiring-diagram{
+    width:100%;background:rgba(255,255,255,0.04);
+    border:2px dashed rgba(74,222,128,0.3);border-radius:18px;
+    padding:16px;
+  }
+  .wire-slots{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .wire-slot{
+    background:rgba(255,255,255,0.04);border:2px dashed rgba(34,211,238,0.25);
+    border-radius:14px;min-height:90px;padding:10px;
+    transition:all 0.25s;display:flex;flex-direction:column;
+  }
+  .wire-slot.drag-over{background:rgba(34,211,238,0.12);border-color:#22D3EE;}
+  .wire-slot.correct{border-color:#4ADE80;background:rgba(74,222,128,0.08);}
+  .wire-slot.wrong{border-color:#F87171;animation:shake 0.4s;}
+  .slot-label{font-family:'Fredoka One',cursive;font-size:0.82rem;color:#22D3EE;margin-bottom:3px;}
+  .slot-sub{color:rgba(147,197,253,0.5);font-size:0.68rem;margin-bottom:6px;}
+  .slot-content{display:flex;flex-wrap:wrap;gap:3px;min-height:28px;}
+  .slot-chip{background:rgba(34,211,238,0.2);color:#BAE6FD;padding:3px 9px;border-radius:12px;font-size:0.74rem;font-weight:800;}
+
+  /* ════════════════════════════════
+     ACT 3 — Decode the Commands
+  ════════════════════════════════ */
+  .cmd-layout{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+  .cmd-bank{
+    background:rgba(250,130,36,0.1);border-radius:18px;
+    padding:16px;border:2px dashed rgba(251,146,60,0.35);
+  }
+  .cmd-bank h3{font-family:'Fredoka One',cursive;color:#FB923C;margin-bottom:12px;text-align:center;font-size:1rem;}
+  .cmd-chip{
+    display:inline-flex;align-items:center;gap:6px;
+    background:linear-gradient(135deg,#92400E,#D97706);
+    color:white;padding:8px 14px;border-radius:50px;
+    font-size:0.82rem;font-weight:800;margin:5px 4px;
+    cursor:grab;border:2px solid rgba(255,255,255,0.15);
+    font-family:monospace;transition:transform 0.2s;user-select:none;
+  }
+  .cmd-chip:hover{transform:scale(1.08);box-shadow:0 4px 18px #D9770688;}
+  .cmd-chip.dragging{opacity:0.4;}
+
+  .effect-targets{display:flex;flex-direction:column;gap:10px;}
+  .effect-drop{
+    background:rgba(255,255,255,0.04);border:2px dashed rgba(251,146,60,0.3);
+    border-radius:14px;padding:10px 12px;min-height:64px;transition:all 0.25s;
+  }
+  .effect-drop.drag-over{background:rgba(251,146,60,0.15);border-color:#FB923C;}
+  .effect-drop.correct{border-color:#4ADE80;background:rgba(74,222,128,0.1);}
+  .effect-drop.wrong{border-color:#F87171;animation:shake 0.4s;}
+  .effect-label{font-family:'Fredoka One',cursive;font-size:0.88rem;color:#FCD34D;margin-bottom:4px;}
+  .effect-hint{color:rgba(147,197,253,0.5);font-size:0.72rem;margin-bottom:5px;}
+  .effect-chips{display:flex;flex-wrap:wrap;gap:4px;min-height:24px;}
+  .effect-chip{background:rgba(251,146,60,0.25);color:#FED7AA;padding:4px 10px;border-radius:16px;font-size:0.77rem;font-weight:800;font-family:monospace;}
+
+  /* Shared */
+  .check-btn{
+    font-family:'Fredoka One',cursive;font-size:1.1rem;
+    padding:12px 38px;border-radius:50px;border:none;
+    background:linear-gradient(135deg,#D97706,#FCD34D);
+    color:#1C1917;cursor:pointer;margin:20px auto 0;display:block;
+    transition:transform 0.2s,box-shadow 0.2s;
+    box-shadow:0 4px 22px #D9770666;
+  }
+  .check-btn:hover{transform:translateY(-3px) scale(1.04);box-shadow:0 8px 30px #FCD34D88;}
+
+  .result-banner{
+    text-align:center;margin-top:14px;padding:14px 20px;
+    border-radius:16px;font-family:'Fredoka One',cursive;
+    font-size:1.1rem;display:none;
+  }
+  .result-banner.show{display:block;animation:card-in 0.4s cubic-bezier(0.34,1.56,0.64,1);}
+  .result-banner.perfect{background:rgba(74,222,128,0.15);border:2px solid #4ADE80;color:#4ADE80;}
+  .result-banner.partial{background:rgba(252,211,77,0.12);border:2px solid #FCD34D;color:#FCD34D;}
+  .result-banner.bad{background:rgba(248,113,113,0.12);border:2px solid #F87171;color:#F87171;}
+
+  .reset-btn{
+    font-family:'Fredoka One',cursive;font-size:0.88rem;
+    padding:7px 20px;border-radius:50px;border:2px solid rgba(99,102,241,0.35);
+    background:transparent;color:#A5B4FC;cursor:pointer;
+    margin:8px auto 0;display:block;transition:all 0.2s;
+  }
+  .reset-btn:hover{background:rgba(99,102,241,0.15);}
+
+  .score-row{display:flex;justify-content:center;gap:10px;margin-top:10px;}
+  .score-badge{
+    background:rgba(255,255,255,0.07);border:1.5px solid rgba(99,102,241,0.25);
+    border-radius:50px;padding:5px 16px;color:#C4B5FD;font-size:0.82rem;font-weight:700;
+  }
+  .score-badge span{color:#FCD34D;font-family:'Fredoka One',cursive;}
+
+  /* Wiring diagram label */
+  .diagram-title{
+    font-family:'Fredoka One',cursive;color:#22D3EE;
+    text-align:center;margin-bottom:12px;font-size:1rem;
+  }
+</style>
+</head>
+<body>
+
+<!-- ════ ANIMATED TECH BACKGROUND ════ -->
+<div class="bg-scene" id="bgScene">
+
+  <!-- Circuit board SVG lines -->
+  <svg class="circuit-svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <filter id="glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <!-- Horizontal lines -->
+    <line x1="0" y1="80" x2="400" y2="80" stroke="#22D3EE" stroke-width="1.5" filter="url(#glow)"/>
+    <line x1="500" y1="80" x2="900" y2="80" stroke="#3B82F6" stroke-width="1.5" filter="url(#glow)"/>
+    <line x1="0" y1="200" x2="300" y2="200" stroke="#A855F7" stroke-width="1.5"/>
+    <line x1="300" y1="200" x2="300" y2="320" stroke="#A855F7" stroke-width="1.5"/>
+    <line x1="300" y1="320" x2="700" y2="320" stroke="#A855F7" stroke-width="1.5"/>
+    <line x1="1100" y1="150" x2="1440" y2="150" stroke="#22D3EE" stroke-width="1.5"/>
+    <line x1="1100" y1="150" x2="1100" y2="400" stroke="#22D3EE" stroke-width="1.5"/>
+    <line x1="800" y1="500" x2="1440" y2="500" stroke="#3B82F6" stroke-width="1.5"/>
+    <line x1="0" y1="650" x2="600" y2="650" stroke="#22D3EE" stroke-width="1.5"/>
+    <line x1="600" y1="650" x2="600" y2="800" stroke="#22D3EE" stroke-width="1.5"/>
+    <line x1="600" y1="800" x2="1440" y2="800" stroke="#22D3EE" stroke-width="1.5"/>
+    <!-- Nodes -->
+    <circle cx="400" cy="80" r="5" fill="#22D3EE" filter="url(#glow)"/>
+    <circle cx="300" cy="200" r="5" fill="#A855F7" filter="url(#glow)"/>
+    <circle cx="300" cy="320" r="5" fill="#A855F7" filter="url(#glow)"/>
+    <circle cx="700" cy="320" r="5" fill="#3B82F6" filter="url(#glow)"/>
+    <circle cx="1100" cy="150" r="5" fill="#22D3EE" filter="url(#glow)"/>
+    <circle cx="1100" cy="400" r="5" fill="#22D3EE" filter="url(#glow)"/>
+    <circle cx="600" cy="650" r="5" fill="#22D3EE" filter="url(#glow)"/>
+    <circle cx="600" cy="800" r="5" fill="#22D3EE" filter="url(#glow)"/>
+  </svg>
+
+  <!-- Arduino Board SVG -->
+  <svg class="arduino-board" viewBox="0 0 140 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="5" y="5" width="130" height="90" rx="8" fill="#00878A" stroke="#22D3EE" stroke-width="2"/>
+    <rect x="15" y="15" width="50" height="35" rx="3" fill="#005C5F"/>
+    <text x="40" y="36" text-anchor="middle" fill="#22D3EE" font-size="8" font-family="monospace" font-weight="bold">ARDUINO</text>
+    <rect x="80" y="15" width="45" height="60" rx="3" fill="#004042" stroke="#22D3EE" stroke-width="1"/>
+    <!-- Pins -->
+    <rect x="15" y="55" width="6" height="12" rx="1" fill="#FCD34D"/>
+    <rect x="25" y="55" width="6" height="12" rx="1" fill="#FCD34D"/>
+    <rect x="35" y="55" width="6" height="12" rx="1" fill="#FCD34D"/>
+    <rect x="45" y="55" width="6" height="12" rx="1" fill="#FCD34D"/>
+    <rect x="55" y="55" width="6" height="12" rx="1" fill="#FCD34D"/>
+    <!-- USB -->
+    <rect x="15" y="72" width="30" height="18" rx="3" fill="#1e3a8a" stroke="#3B82F6" stroke-width="1.5"/>
+    <text x="30" y="84" text-anchor="middle" fill="#60A5FA" font-size="6" font-family="monospace">USB</text>
+    <!-- LED -->
+    <circle cx="100" cy="25" r="5" fill="#4ADE80" opacity="0.9"/>
+    <circle cx="115" cy="25" r="5" fill="#F87171" opacity="0.9"/>
+    <text x="100" y="38" text-anchor="middle" fill="#94A3B8" font-size="5">TX RX</text>
+  </svg>
+
+  <!-- Smartphone SVG -->
+  <svg class="phone-device" viewBox="0 0 60 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="3" width="54" height="104" rx="10" fill="#1E1B4B" stroke="#3B82F6" stroke-width="2"/>
+    <rect x="8" y="14" width="44" height="72" rx="4" fill="#0F172A"/>
+    <rect x="16" y="5" width="18" height="4" rx="2" fill="#374151"/>
+    <!-- App screen -->
+    <rect x="12" y="18" width="14" height="14" rx="3" fill="#3B82F6"/>
+    <rect x="30" y="18" width="14" height="14" rx="3" fill="#22D3EE"/>
+    <rect x="12" y="36" width="14" height="14" rx="3" fill="#A855F7"/>
+    <rect x="30" y="36" width="14" height="14" rx="3" fill="#4ADE80"/>
+    <!-- BT symbol on screen -->
+    <text x="19" y="28" text-anchor="middle" fill="white" font-size="9" font-weight="bold">BT</text>
+    <text x="37" y="28" text-anchor="middle" fill="white" font-size="7">ON</text>
+    <text x="19" y="46" text-anchor="middle" fill="white" font-size="9">🚀</text>
+    <text x="37" y="46" text-anchor="middle" fill="white" font-size="9">💡</text>
+    <!-- Home button -->
+    <circle cx="30" cy="99" r="5" fill="#374151" stroke="#4B5563" stroke-width="1"/>
+  </svg>
+
+  <!-- HC-05 Module SVG -->
+  <svg class="hc05-module" viewBox="0 0 90 50" fill="none" xmlns="http://www.w3.org/2000/svg" width="100">
+    <rect x="3" y="3" width="84" height="44" rx="6" fill="#1E3A5F" stroke="#F472B6" stroke-width="2"/>
+    <rect x="10" y="10" width="40" height="30" rx="3" fill="#0F2744" stroke="#3B82F6" stroke-width="1"/>
+    <text x="30" y="28" text-anchor="middle" fill="#F472B6" font-size="7" font-family="monospace" font-weight="bold">HC-05</text>
+    <!-- LED -->
+    <circle cx="65" cy="18" r="5" fill="#3B82F6"/>
+    <!-- Pins -->
+    <rect x="60" y="30" width="5" height="16" rx="1" fill="#FCD34D"/>
+    <rect x="68" y="30" width="5" height="16" rx="1" fill="#FCD34D"/>
+    <rect x="76" y="30" width="5" height="16" rx="1" fill="#FCD34D"/>
+    <text x="63" y="29" fill="#94A3B8" font-size="4">VCC GND TX</text>
+  </svg>
+
+  <!-- Bluetooth Symbol -->
+  <svg class="bt-icon" viewBox="0 0 60 80" width="55" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M30 10 L50 27 L33 45 L50 63 L30 78 L30 45 L13 27 L30 10Z" fill="none" stroke="#3B82F6" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M30 10 L50 27 L33 45" stroke="#22D3EE" stroke-width="3"/>
+  </svg>
+</div>
+
+<!-- Generate dynamic elements via JS -->
+<script>
+(function(){
+  const scene = document.getElementById('bgScene');
+
+  // Data packets
+  const pkts = ['Serial.read()','HC-05','1234','9600 baud','VCC→5V','TX→RX','\'1\' ON','\'F\' FWD'];
+  pkts.forEach((t,i)=>{
+    const p=document.createElement('div');p.className='data-packet';p.textContent=t;
+    p.style.cssText=`top:${15+i*10}%;animation-duration:${8+i*1.5}s;animation-delay:${i*2}s`;
+    scene.appendChild(p);
+  });
+
+  // LED dots
+  const leds=[
+    {l:'12%',t:'70%',c:'#4ADE80',s:'10px',d:'1.2s'},
+    {l:'88%',t:'40%',c:'#F87171',s:'8px',d:'0.8s'},
+    {l:'75%',t:'75%',c:'#FCD34D',s:'9px',d:'1.5s'},
+    {l:'20%',t:'50%',c:'#22D3EE',s:'7px',d:'2s'},
+    {l:'50%',t:'85%',c:'#A855F7',s:'8px',d:'0.6s'},
+  ];
+  leds.forEach(l=>{
+    const d=document.createElement('div');d.className='led-dot';
+    d.style.cssText=`left:${l.l};top:${l.t};width:${l.s};height:${l.s};background:${l.c};box-shadow:0 0 8px ${l.c};animation-duration:${l.d};animation-delay:${Math.random()}s`;
+    scene.appendChild(d);
+  });
+
+  // Code snippets
+  const codes=['Serial.begin(9600);','digitalWrite(13,HIGH);','if(cmd==\'1\')','SoftwareSerial bt(0,1);'];
+  codes.forEach((c,i)=>{
+    const el=document.createElement('div');el.className='code-float';el.textContent=c;
+    el.style.cssText=`left:${3+i*23}%;top:${78+i%2*8}%;animation-duration:${4+i}s;animation-delay:${i*0.7}s`;
+    scene.appendChild(el);
+  });
+
+  // Stars
+  for(let i=0;i<12;i++){
+    const s=document.createElement('div');s.className='star';
+    const sz=4+Math.random()*6;
+    s.style.cssText=`left:${Math.random()*98}%;top:${Math.random()*95}%;width:${sz}px;height:${sz}px;background:white;clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);animation-duration:${2+Math.random()*3}s;animation-delay:${Math.random()*3}s`;
+    scene.appendChild(s);
+  }
+
+  // Wifi rings around BT icon
+  const btEl = document.querySelector('.bt-icon');
+  if(btEl){
+    [0,0.5,1].forEach((delay,i)=>{
+      const ring=document.createElement('div');ring.className='wifi-ring';
+      const sz=40+i*20;
+      ring.style.cssText=`width:${sz}px;height:${sz}px;border-color:#3B82F6;right:${5.5}%;top:${56}%;animation-duration:2s;animation-delay:${delay}s;margin-left:-${sz/2}px;margin-top:-${sz/2}px;`;
+      scene.appendChild(ring);
+    });
+  }
+})();
+</script>
+
+<!-- ════ MAIN CONTENT ════ -->
+<div class="page-wrap">
+  <h1 class="main-title">Arduino — Bluetooth (HC-05) &amp; Smartphone Control</h1>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab(1)">📌 Pin Roles</button>
+    <button class="tab-btn" onclick="switchTab(2)">🔌 Wire It Up</button>
+    <button class="tab-btn" onclick="switchTab(3)">📲 Decode Commands</button>
+  </div>
+
+  <!-- ══════════════════════════════════
+       ACTIVITY 1 — Match HC-05 Pins to Roles
+  ══════════════════════════════════ -->
+  <div class="activity-card active" id="act1">
+    <div class="act-title">📌 Match Each HC-05 Pin to Its Role!</div>
+    <p class="act-desc">Drag each component or pin chip and drop it onto the correct description.</p>
+
+    <div class="match-layout">
+      <!-- Chip bank -->
+      <div class="comp-bank">
+        <h3>🔬 Pins &amp; Parts</h3>
+        <div id="compBank">
+          <div class="comp-chip" draggable="true" data-comp="VCC" data-role="power">⚡ VCC</div>
+          <div class="comp-chip" draggable="true" data-comp="GND" data-role="ground">⬛ GND</div>
+          <div class="comp-chip" draggable="true" data-comp="TX" data-role="transmit">📤 TX</div>
+          <div class="comp-chip" draggable="true" data-comp="RX" data-role="receive">📥 RX</div>
+          <div class="comp-chip" draggable="true" data-comp="LED" data-role="status">💡 LED</div>
+          <div class="comp-chip" draggable="true" data-comp="HC-05" data-role="module">📶 HC-05</div>
+          <div class="comp-chip" draggable="true" data-comp="Arduino" data-role="brain">🧠 Arduino</div>
+          <div class="comp-chip" draggable="true" data-comp="9600" data-role="baud">🔢 9600</div>
+          <div class="comp-chip" draggable="true" data-comp="1234" data-role="password">🔑 1234</div>
+        </div>
+      </div>
+
+      <!-- Drop targets -->
+      <div class="role-targets">
+        <div class="role-drop" id="drop-power" data-role="power">
+          <div class="role-label">⚡ Connects to 5V (Arduino)</div>
+          <div class="role-hint">Powers the module</div>
+          <div class="dropped-chips" id="chips-power"></div>
+        </div>
+        <div class="role-drop" id="drop-ground" data-role="ground">
+          <div class="role-label">⬛ Common Ground</div>
+          <div class="role-hint">Completes the circuit</div>
+          <div class="dropped-chips" id="chips-ground"></div>
+        </div>
+        <div class="role-drop" id="drop-transmit" data-role="transmit">
+          <div class="role-label">📤 Sends data OUT</div>
+          <div class="role-hint">Goes to Arduino RX pin</div>
+          <div class="dropped-chips" id="chips-transmit"></div>
+        </div>
+        <div class="role-drop" id="drop-receive" data-role="receive">
+          <div class="role-label">📥 Receives data IN</div>
+          <div class="role-hint">Gets data from Arduino TX</div>
+          <div class="dropped-chips" id="chips-receive"></div>
+        </div>
+        <div class="role-drop" id="drop-status" data-role="status">
+          <div class="role-label">💡 Blinks to show connection status</div>
+          <div class="role-hint">Slow blink = paired!</div>
+          <div class="dropped-chips" id="chips-status"></div>
+        </div>
+        <div class="role-drop" id="drop-module" data-role="module">
+          <div class="role-label">📶 Bluetooth module for Arduino</div>
+          <div class="role-hint">10-metre wireless range</div>
+          <div class="dropped-chips" id="chips-module"></div>
+        </div>
+        <div class="role-drop" id="drop-brain" data-role="brain">
+          <div class="role-label">🧠 Mini-computer that runs the code</div>
+          <div class="role-hint">Reads serial commands</div>
+          <div class="dropped-chips" id="chips-brain"></div>
+        </div>
+        <div class="role-drop" id="drop-baud" data-role="baud">
+          <div class="role-label">🔢 Communication speed (baud rate)</div>
+          <div class="role-hint">Used in Serial.begin()</div>
+          <div class="dropped-chips" id="chips-baud"></div>
+        </div>
+        <div class="role-drop" id="drop-password" data-role="password">
+          <div class="role-label">🔑 Default pairing password</div>
+          <div class="role-hint">Enter when pairing phone</div>
+          <div class="dropped-chips" id="chips-password"></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="check-btn" onclick="checkAct1()">✅ Check Answers!</button>
+    <button class="reset-btn" onclick="resetAct1()">🔄 Reset</button>
+    <div class="result-banner" id="res1"></div>
+    <div class="score-row" id="score1"></div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       ACTIVITY 2 — Wire the Circuit
+  ══════════════════════════════════ -->
+  <div class="activity-card" id="act2">
+    <div class="act-title">🔌 Wire the HC-05 to Arduino!</div>
+    <p class="act-desc">Drag each component into the correct slot in the wiring diagram.</p>
+
+    <div class="circuit-build">
+      <div class="parts-bank" id="partsBank"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="dropBackToBank(event)">
+        <!-- filled by JS -->
+      </div>
+
+      <div class="wiring-diagram">
+        <div class="diagram-title">🔧 HC-05 → Arduino Wiring Slots</div>
+        <div class="wire-slots">
+          <div class="wire-slot" id="ws-5v" data-slot="5v"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="dropToSlot(event,'5v')">
+            <div class="slot-label">Arduino 5V Pin</div>
+            <div class="slot-sub">Power source for HC-05</div>
+            <div class="slot-content" id="sc-5v"></div>
+          </div>
+          <div class="wire-slot" id="ws-gnd" data-slot="gnd"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="dropToSlot(event,'gnd')">
+            <div class="slot-label">Arduino GND Pin</div>
+            <div class="slot-sub">Ground connection</div>
+            <div class="slot-content" id="sc-gnd"></div>
+          </div>
+          <div class="wire-slot" id="ws-rx" data-slot="rx"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="dropToSlot(event,'rx')">
+            <div class="slot-label">Arduino RX (Pin 0)</div>
+            <div class="slot-sub">Receives from HC-05</div>
+            <div class="slot-content" id="sc-rx"></div>
+          </div>
+          <div class="wire-slot" id="ws-tx" data-slot="tx"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="dropToSlot(event,'tx')">
+            <div class="slot-label">Arduino TX (Pin 1)</div>
+            <div class="slot-sub">Sends to HC-05</div>
+            <div class="slot-content" id="sc-tx"></div>
+          </div>
+          <div class="wire-slot" id="ws-led" data-slot="led"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="dropToSlot(event,'led')">
+            <div class="slot-label">Arduino Pin 13</div>
+            <div class="slot-sub">Output device</div>
+            <div class="slot-content" id="sc-led"></div>
+          </div>
+          <div class="wire-slot" id="ws-res" data-slot="res"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="dropToSlot(event,'res')">
+            <div class="slot-label">In series with LED</div>
+            <div class="slot-sub">Protects from high current</div>
+            <div class="slot-content" id="sc-res"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="check-btn" onclick="checkAct2()">✅ Check Wiring!</button>
+    <button class="reset-btn" onclick="resetAct2()">🔄 Reset</button>
+    <div class="result-banner" id="res2"></div>
+    <div class="score-row" id="score2"></div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       ACTIVITY 3 — Decode Bluetooth Commands
+  ══════════════════════════════════ -->
+  <div class="activity-card" id="act3">
+    <div class="act-title">📲 Decode the Bluetooth Commands!</div>
+    <p class="act-desc">Match each serial command sent from the phone app to what Arduino does!</p>
+
+    <div class="cmd-layout">
+      <!-- Command chips -->
+      <div class="cmd-bank">
+        <h3>📱 Phone Sends...</h3>
+        <div id="cmdBank">
+          <div class="cmd-chip" draggable="true" data-cmd="'1'" data-effect="ledon">📤 '1'</div>
+          <div class="cmd-chip" draggable="true" data-cmd="'0'" data-effect="ledoff">📤 '0'</div>
+          <div class="cmd-chip" draggable="true" data-cmd="'F'" data-effect="forward">📤 'F'</div>
+          <div class="cmd-chip" draggable="true" data-cmd="'B'" data-effect="backward">📤 'B'</div>
+          <div class="cmd-chip" draggable="true" data-cmd="'S'" data-effect="stop">📤 'S'</div>
+          <div class="cmd-chip" draggable="true" data-cmd="'H'" data-effect="horn">📤 'H'</div>
+          <div class="cmd-chip" draggable="true" data-cmd="'R'" data-effect="red">📤 'R'</div>
+          <div class="cmd-chip" draggable="true" data-cmd="'G'" data-effect="green">📤 'G'</div>
+        </div>
+      </div>
+
+      <!-- Effect targets -->
+      <div class="effect-targets">
+        <div class="effect-drop" id="drop-ledon" data-effect="ledon">
+          <div class="effect-label">💡 LED turns ON</div>
+          <div class="effect-hint">digitalWrite(LED,HIGH)</div>
+          <div class="effect-chips" id="echips-ledon"></div>
+        </div>
+        <div class="effect-drop" id="drop-ledoff" data-effect="ledoff">
+          <div class="effect-label">🌑 LED turns OFF</div>
+          <div class="effect-hint">digitalWrite(LED,LOW)</div>
+          <div class="effect-chips" id="echips-ledoff"></div>
+        </div>
+        <div class="effect-drop" id="drop-forward" data-effect="forward">
+          <div class="effect-label">⬆️ Motor spins FORWARD</div>
+          <div class="effect-hint">Robot moves ahead</div>
+          <div class="effect-chips" id="echips-forward"></div>
+        </div>
+        <div class="effect-drop" id="drop-backward" data-effect="backward">
+          <div class="effect-label">⬇️ Motor spins BACKWARD</div>
+          <div class="effect-hint">Robot reverses</div>
+          <div class="effect-chips" id="echips-backward"></div>
+        </div>
+        <div class="effect-drop" id="drop-stop" data-effect="stop">
+          <div class="effect-label">🛑 Motor STOPS</div>
+          <div class="effect-hint">All motor pins LOW</div>
+          <div class="effect-chips" id="echips-stop"></div>
+        </div>
+        <div class="effect-drop" id="drop-horn" data-effect="horn">
+          <div class="effect-label">📯 Buzzer sounds HORN</div>
+          <div class="effect-hint">tone(pin, frequency)</div>
+          <div class="effect-chips" id="echips-horn"></div>
+        </div>
+        <div class="effect-drop" id="drop-red" data-effect="red">
+          <div class="effect-label">🔴 RGB LED → RED</div>
+          <div class="effect-hint">Red pin HIGH, others LOW</div>
+          <div class="effect-chips" id="echips-red"></div>
+        </div>
+        <div class="effect-drop" id="drop-green" data-effect="green">
+          <div class="effect-label">🟢 RGB LED → GREEN</div>
+          <div class="effect-hint">Green pin HIGH, others LOW</div>
+          <div class="effect-chips" id="echips-green"></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="check-btn" onclick="checkAct3()">✅ Check Commands!</button>
+    <button class="reset-btn" onclick="resetAct3()">🔄 Reset</button>
+    <div class="result-banner" id="res3"></div>
+    <div class="score-row" id="score3"></div>
+  </div>
+</div>
+
+<script>
+/* ══ TABS ══ */
+function switchTab(n){
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===n-1));
+  document.querySelectorAll('.activity-card').forEach((c,i)=>c.classList.toggle('active',i===n-1));
+}
+
+/* ══ DRAG STATE ══ */
+let dragData={};
+function initDrag(el){
+  el.addEventListener('dragstart',e=>{
+    dragData={...el.dataset};el.classList.add('dragging');e.dataTransfer.effectAllowed='move';
+  });
+  el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+}
+document.querySelectorAll('.comp-chip,.cmd-chip').forEach(initDrag);
+
+/* ══════════════════════
+   ACT 1
+══════════════════════ */
+function dropRole(e,roleId){
+  e.preventDefault();
+  const drop=document.getElementById('drop-'+roleId);
+  drop.classList.remove('drag-over');
+  if(!dragData.comp) return;
+  const chips=document.getElementById('chips-'+roleId);
+  if([...chips.querySelectorAll('.dropped-chip')].some(c=>c.dataset.comp===dragData.comp)) return;
+  const chip=document.createElement('div');
+  chip.className='dropped-chip';chip.textContent=dragData.comp;
+  chip.dataset.comp=dragData.comp;chip.dataset.correctRole=dragData.role;
+  chips.appendChild(chip);
+  document.querySelectorAll('#compBank .comp-chip').forEach(c=>{
+    if(c.dataset.comp===dragData.comp) c.style.display='none';
+  });
+}
+// Attach drop listeners to role-drops
+document.querySelectorAll('.role-drop').forEach(el=>{
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
+  el.addEventListener('drop',e=>dropRole(e,el.dataset.role));
+});
+
+function checkAct1(){
+  let correct=0,total=0;
+  document.querySelectorAll('.role-drop').forEach(drop=>{
+    const roleId=drop.dataset.role;
+    const chips=drop.querySelectorAll('.dropped-chip');
+    let allRight=chips.length>0;
+    chips.forEach(c=>{total++;if(c.dataset.correctRole===roleId){correct++;}else allRight=false;});
+    if(chips.length>0){drop.classList.remove('correct','wrong');drop.classList.add(allRight?'correct':'wrong');}
+  });
+  showResult('res1','score1',correct,total,9);
+}
+function resetAct1(){
+  document.querySelectorAll('[id^="chips-"]').forEach(c=>c.innerHTML='');
+  document.querySelectorAll('.role-drop').forEach(d=>d.classList.remove('correct','wrong'));
+  document.querySelectorAll('#compBank .comp-chip').forEach(c=>c.style.display='');
+  clearResult('res1','score1');
+}
+
+/* ══════════════════════
+   ACT 2 — Wire It Up
+══════════════════════ */
+const wireParts=[
+  {id:'w1',emoji:'⚡',label:'VCC Wire',slot:'5v'},
+  {id:'w2',emoji:'⬛',label:'GND Wire',slot:'gnd'},
+  {id:'w3',emoji:'📥',label:'HC-05 TX',slot:'rx'},
+  {id:'w4',emoji:'📤',label:'HC-05 RX',slot:'tx'},
+  {id:'w5',emoji:'💡',label:'LED',slot:'led'},
+  {id:'w6',emoji:'🔲',label:'Resistor (220Ω)',slot:'res'},
+];
+
+function buildPartsBank(){
+  const bank=document.getElementById('partsBank');
+  bank.innerHTML='';
+  const shuffled=[...wireParts].sort(()=>Math.random()-0.5);
+  shuffled.forEach(p=>{
+    const card=document.createElement('div');card.className='part-card';card.draggable=true;
+    card.dataset.partId=p.id;card.dataset.slot=p.slot;
+    card.innerHTML=`<span class="p-emoji">${p.emoji}</span>${p.label}`;
+    initDragPart(card);
+    bank.appendChild(card);
+  });
+}
+buildPartsBank();
+
+function initDragPart(el){
+  el.addEventListener('dragstart',e=>{
+    dragData={...el.dataset};el.classList.add('dragging');e.dataTransfer.effectAllowed='move';
+  });
+  el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+}
+
+function dropToSlot(e,slotId){
+  e.preventDefault();
+  const ws=document.getElementById('ws-'+slotId);
+  ws.classList.remove('drag-over');
+  if(!dragData.partId) return;
+  const sc=document.getElementById('sc-'+slotId);
+  if([...sc.querySelectorAll('.slot-chip')].some(c=>c.dataset.partId===dragData.partId)) return;
+  const chip=document.createElement('div');chip.className='slot-chip';
+  const p=wireParts.find(x=>x.id===dragData.partId);
+  chip.textContent=p?p.emoji+' '+p.label:'?';
+  chip.dataset.partId=dragData.partId;chip.dataset.correctSlot=dragData.slot;
+  sc.appendChild(chip);
+  document.querySelectorAll('#partsBank .part-card').forEach(c=>{
+    if(c.dataset.partId===dragData.partId) c.remove();
+  });
+}
+
+function dropBackToBank(e){
+  e.preventDefault();
+  const bank=document.getElementById('partsBank');
+  bank.classList.remove('drag-over');
+  if(!dragData.partId) return;
+  // Remove from slot
+  document.querySelectorAll('.slot-chip').forEach(c=>{
+    if(c.dataset.partId===dragData.partId) c.remove();
+  });
+  const p=wireParts.find(x=>x.id===dragData.partId);
+  if(p){
+    const card=document.createElement('div');card.className='part-card';card.draggable=true;
+    card.dataset.partId=p.id;card.dataset.slot=p.slot;
+    card.innerHTML=`<span class="p-emoji">${p.emoji}</span>${p.label}`;
+    initDragPart(card);
+    bank.appendChild(card);
+  }
+}
+
+function checkAct2(){
+  let correct=0,total=0;
+  document.querySelectorAll('.wire-slot').forEach(ws=>{
+    const slotId=ws.dataset.slot;
+    const chips=ws.querySelectorAll('.slot-chip');
+    let allRight=chips.length>0;
+    chips.forEach(c=>{total++;if(c.dataset.correctSlot===slotId){correct++;}else allRight=false;});
+    if(chips.length>0){ws.classList.remove('correct','wrong');ws.classList.add(allRight?'correct':'wrong');}
+  });
+  showResult('res2','score2',correct,total,6);
+}
+
+function resetAct2(){
+  document.querySelectorAll('[id^="sc-"]').forEach(c=>c.innerHTML='');
+  document.querySelectorAll('.wire-slot').forEach(w=>w.classList.remove('correct','wrong'));
+  buildPartsBank();
+  clearResult('res2','score2');
+}
+
+/* ══════════════════════
+   ACT 3 — Commands
+══════════════════════ */
+document.querySelectorAll('.cmd-chip').forEach(initDrag);
+document.querySelectorAll('.effect-drop').forEach(el=>{
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
+  el.addEventListener('drop',e=>{
+    e.preventDefault();el.classList.remove('drag-over');
+    if(!dragData.cmd) return;
+    const ec=document.getElementById('echips-'+el.dataset.effect);
+    if([...ec.querySelectorAll('.effect-chip')].some(c=>c.dataset.cmd===dragData.cmd)) return;
+    const chip=document.createElement('div');chip.className='effect-chip';
+    chip.textContent=dragData.cmd;chip.dataset.cmd=dragData.cmd;chip.dataset.correctEffect=dragData.effect;
+    ec.appendChild(chip);
+    document.querySelectorAll('#cmdBank .cmd-chip').forEach(c=>{
+      if(c.dataset.cmd===dragData.cmd) c.style.display='none';
+    });
+  });
+});
+
+function checkAct3(){
+  let correct=0,total=0;
+  document.querySelectorAll('.effect-drop').forEach(drop=>{
+    const eff=drop.dataset.effect;
+    const chips=drop.querySelectorAll('.effect-chip');
+    let allRight=chips.length>0;
+    chips.forEach(c=>{total++;if(c.dataset.correctEffect===eff){correct++;}else allRight=false;});
+    if(chips.length>0){drop.classList.remove('correct','wrong');drop.classList.add(allRight?'correct':'wrong');}
+  });
+  showResult('res3','score3',correct,total,8);
+}
+function resetAct3(){
+  document.querySelectorAll('[id^="echips-"]').forEach(c=>c.innerHTML='');
+  document.querySelectorAll('.effect-drop').forEach(d=>d.classList.remove('correct','wrong'));
+  document.querySelectorAll('#cmdBank .cmd-chip').forEach(c=>c.style.display='');
+  clearResult('res3','score3');
+}
+
+/* ══ SHARED HELPERS ══ */
+function showResult(resId,scoreId,correct,total,max){
+  const res=document.getElementById(resId);
+  const sc=document.getElementById(scoreId);
+  res.classList.add('show');
+  sc.innerHTML=`<div class="score-badge">Score: <span>${correct}/${total||max}</span></div>`;
+  if(total===0){res.className='result-banner show partial';res.textContent='🔧 Place some items first!';return;}
+  if(correct===total&&total>=max){res.className='result-banner show perfect';res.textContent='🏆 Perfect! You\'re a Bluetooth engineer!';}
+  else if(correct/total>=0.6){res.className='result-banner show partial';res.textContent=`⭐ Great work! ${correct}/${total} correct — almost there!`;}
+  else{res.className='result-banner show bad';res.textContent=`💪 ${correct}/${total} — Check the descriptions and try again!`;}
+}
+function clearResult(rId,sId){
+  document.getElementById(rId).className='result-banner';
+  document.getElementById(sId).innerHTML='';
+}
+</script>
+</body>
+</html>

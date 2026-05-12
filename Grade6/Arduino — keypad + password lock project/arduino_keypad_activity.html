@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arduino — Keypad + Password Lock Project</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --v1:#4C1D95; --v2:#6D28D9; --v3:#7C3AED; --v4:#8B5CF6;
+  --v5:#A78BFA; --v6:#C4B5FD; --v7:#EDE9FE;
+  --teal:#14B8A6; --coral:#F87171; --yellow:#FCD34D;
+  --green:#4ADE80; --pink:#F472B6; --orange:#FB923C;
+  --blue:#60A5FA; --card:rgba(255,255,255,0.07);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:'Nunito',sans-serif;
+  min-height:100vh;
+  background:radial-gradient(ellipse at 30% 10%,#2e0060 0%,#0a0020 55%,#050010 100%);
+  overflow-x:hidden;
+  position:relative;
+}
+
+/* ══ ANIMATED BACKGROUND — Arduino + Keypad + Lock themed ══ */
+.bg{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;}
+
+/* floating keypad */
+.kp-float{position:absolute;animation:kp-bob ease-in-out infinite;filter:drop-shadow(0 0 18px #7C3AED88);}
+@keyframes kp-bob{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-14px) rotate(3deg)}}
+
+/* servo motor */
+.servo-float{position:absolute;animation:servo-spin ease-in-out infinite;}
+@keyframes servo-spin{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-10px) rotate(8deg)}}
+
+/* lock icon */
+.lock-anim{position:absolute;animation:lock-pulse 2.4s ease-in-out infinite;filter:drop-shadow(0 0 14px #FCD34D);}
+@keyframes lock-pulse{0%,100%{transform:scale(1);opacity:0.8}50%{transform:scale(1.15);opacity:1}}
+
+/* password dots traveling */
+.pwd-dot{position:absolute;border-radius:50%;animation:pwd-travel linear infinite;}
+@keyframes pwd-travel{0%{transform:translateX(-80px);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translateX(110vw);opacity:0}}
+
+/* circuit lines */
+.circ-svg{position:absolute;inset:0;width:100%;height:100%;opacity:0.08;}
+
+/* code snippets */
+.code-ghost{position:absolute;font-family:monospace;color:rgba(74,222,128,0.3);font-size:0.68rem;animation:code-drift ease-in-out infinite;white-space:nowrap;}
+@keyframes code-drift{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+
+/* stars */
+.star{position:absolute;background:white;clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);animation:twinkle ease-in-out infinite;}
+@keyframes twinkle{0%,100%{opacity:0.1;transform:scale(0.7)}50%{opacity:0.9;transform:scale(1.3)}}
+
+/* key press ripples */
+.ripple{position:absolute;border-radius:50%;border:2px solid var(--v4);animation:ripple-out 3s ease-out infinite;}
+@keyframes ripple-out{0%{transform:scale(0.5);opacity:0.8}100%{transform:scale(4);opacity:0}}
+
+/* Arduino board floats */
+.ard-board{position:absolute;animation:kp-bob 5s ease-in-out infinite 1s;filter:drop-shadow(0 0 14px #14B8A688);}
+
+/* ══ MAIN CONTENT ══ */
+.page{position:relative;z-index:10;max-width:980px;margin:0 auto;padding:22px 16px 70px;}
+
+h1.title{
+  font-family:'Fredoka One',cursive;
+  font-size:clamp(1.7rem,3.8vw,2.6rem);
+  text-align:center;color:white;
+  text-shadow:0 0 30px var(--v4),0 0 60px var(--v3),0 3px 0 #0a0020;
+  padding:24px 0 6px;letter-spacing:.5px;
+  animation:glow 3s ease-in-out infinite;
+}
+@keyframes glow{0%,100%{text-shadow:0 0 20px var(--v4),0 3px 0 #0a0020}50%{text-shadow:0 0 50px var(--v5),0 0 90px var(--v3),0 3px 0 #0a0020}}
+
+/* tabs */
+.tabs{display:flex;gap:10px;justify-content:center;margin:20px 0;flex-wrap:wrap;}
+.tab{font-family:'Fredoka One',cursive;font-size:.95rem;padding:10px 22px;border-radius:50px;cursor:pointer;border:2px solid rgba(139,92,246,.3);background:rgba(255,255,255,.06);color:var(--v6);transition:all .3s;}
+.tab:hover{transform:translateY(-2px);}
+.tab.on{background:linear-gradient(135deg,#5B21B6,#7C3AED);color:white;border-color:var(--v5);box-shadow:0 4px 22px #7C3AED88;}
+
+/* card */
+.card{background:rgba(255,255,255,.06);border:1.5px solid rgba(139,92,246,.25);border-radius:28px;padding:28px 22px;backdrop-filter:blur(14px);box-shadow:0 8px 50px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.08);display:none;}
+.card.on{display:block;animation:card-in .4s cubic-bezier(.34,1.56,.64,1);}
+@keyframes card-in{from{opacity:0;transform:translateY(22px) scale(.97)}to{opacity:1;transform:none}}
+
+.act-title{font-family:'Fredoka One',cursive;font-size:1.45rem;color:var(--yellow);text-align:center;margin-bottom:6px;text-shadow:0 0 18px #FCD34D55;}
+.act-desc{color:rgba(196,181,253,.9);text-align:center;font-size:.9rem;margin-bottom:22px;font-weight:700;}
+
+/* ══ ACTIVITY 1 — Wire the Keypad ══ */
+.wire-layout{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+.pin-bank{background:rgba(20,184,166,.1);border-radius:18px;padding:15px;border:2px dashed rgba(20,184,166,.35);}
+.pin-bank h3{font-family:'Fredoka One',cursive;color:var(--teal);margin-bottom:12px;text-align:center;font-size:1rem;}
+.pin-chip{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#065F46,#14B8A6);color:white;padding:8px 14px;border-radius:50px;font-size:.82rem;font-weight:800;margin:5px 4px;cursor:grab;border:2px solid rgba(255,255,255,.18);transition:transform .2s,box-shadow .2s;user-select:none;font-family:'Courier New',monospace;}
+.pin-chip:hover{transform:scale(1.08);box-shadow:0 4px 16px #14B8A688;}
+.pin-chip.dragging{opacity:.4;cursor:grabbing;}
+
+.slot-col{display:flex;flex-direction:column;gap:9px;}
+.pin-slot{background:rgba(255,255,255,.05);border:2px dashed rgba(20,184,166,.3);border-radius:13px;padding:9px 12px;min-height:62px;transition:all .25s;}
+.pin-slot.over{background:rgba(20,184,166,.15);border-color:var(--teal);transform:scale(1.02);}
+.pin-slot.correct{border-color:var(--green);background:rgba(74,222,128,.1);}
+.pin-slot.wrong{border-color:var(--coral);background:rgba(248,113,113,.1);animation:shake .4s;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.slot-lbl{font-family:'Fredoka One',cursive;font-size:.88rem;color:var(--yellow);margin-bottom:4px;}
+.slot-sub{color:rgba(196,181,253,.5);font-size:.7rem;margin-bottom:5px;}
+.slot-chips{display:flex;flex-wrap:wrap;gap:4px;min-height:22px;}
+.s-chip{background:rgba(20,184,166,.25);color:#A7F3D0;padding:3px 9px;border-radius:14px;font-size:.76rem;font-weight:800;font-family:'Courier New',monospace;}
+
+/* ══ ACTIVITY 2 — Sequence the Code ══ */
+.seq-wrap{display:flex;flex-direction:column;gap:14px;align-items:center;}
+.code-bank{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;padding:15px;background:rgba(139,92,246,.1);border-radius:18px;border:2px dashed rgba(139,92,246,.3);min-height:76px;width:100%;}
+.code-block{background:linear-gradient(135deg,#3B0764,#6D28D9);color:white;padding:10px 15px;border-radius:13px;font-size:.82rem;font-weight:800;cursor:grab;border:2px solid rgba(196,181,253,.25);transition:transform .2s,box-shadow .2s;user-select:none;text-align:center;font-family:'Courier New',monospace;display:flex;align-items:center;gap:6px;max-width:220px;}
+.code-block:hover{transform:scale(1.06);box-shadow:0 4px 16px #7C3AED88;}
+.code-block.dragging{opacity:.4;}
+.seq-drop{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;width:100%;min-height:64px;padding:12px 10px;background:rgba(255,255,255,.04);border:2px dashed rgba(96,165,250,.3);border-radius:18px;align-items:center;}
+.seq-drop.over{background:rgba(96,165,250,.1);border-color:var(--blue);}
+.step-num{background:rgba(255,255,255,.18);border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:800;flex-shrink:0;}
+.seq-arrow{color:var(--v5);font-size:1.3rem;margin:0 2px;}
+
+/* ══ ACTIVITY 3 — Match Command to Action ══ */
+.cmd-layout{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+.cmd-bank{background:rgba(251,146,60,.1);border-radius:18px;padding:15px;border:2px dashed rgba(251,146,60,.35);}
+.cmd-bank h3{font-family:'Fredoka One',cursive;color:var(--orange);margin-bottom:12px;text-align:center;font-size:1rem;}
+.cmd-chip{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#78350F,#D97706);color:white;padding:8px 14px;border-radius:50px;font-size:.82rem;font-weight:800;margin:5px 4px;cursor:grab;border:2px solid rgba(255,255,255,.15);transition:transform .2s;user-select:none;font-family:'Courier New',monospace;}
+.cmd-chip:hover{transform:scale(1.08);box-shadow:0 4px 16px #D9770688;}
+.cmd-chip.dragging{opacity:.4;}
+
+.action-targets{display:flex;flex-direction:column;gap:9px;}
+.action-drop{background:rgba(255,255,255,.04);border:2px dashed rgba(251,146,60,.3);border-radius:13px;padding:9px 12px;min-height:62px;transition:all .25s;}
+.action-drop.over{background:rgba(251,146,60,.15);border-color:var(--orange);}
+.action-drop.correct{border-color:var(--green);background:rgba(74,222,128,.1);}
+.action-drop.wrong{border-color:var(--coral);animation:shake .4s;}
+.action-lbl{font-family:'Fredoka One',cursive;font-size:.88rem;color:var(--yellow);margin-bottom:4px;}
+.action-sub{color:rgba(196,181,253,.5);font-size:.7rem;margin-bottom:5px;}
+.action-chips{display:flex;flex-wrap:wrap;gap:4px;min-height:22px;}
+.a-chip{background:rgba(251,146,60,.25);color:#FED7AA;padding:3px 9px;border-radius:14px;font-size:.76rem;font-weight:800;font-family:'Courier New',monospace;}
+
+/* shared */
+.check-btn{font-family:'Fredoka One',cursive;font-size:1.1rem;padding:12px 38px;border-radius:50px;border:none;background:linear-gradient(135deg,#D97706,#FCD34D);color:#1C1917;cursor:pointer;margin:20px auto 0;display:block;transition:transform .2s,box-shadow .2s;box-shadow:0 4px 22px #D9770655;}
+.check-btn:hover{transform:translateY(-3px) scale(1.04);box-shadow:0 8px 30px #FCD34D88;}
+.reset-btn{font-family:'Fredoka One',cursive;font-size:.88rem;padding:7px 20px;border-radius:50px;border:2px solid rgba(139,92,246,.35);background:transparent;color:var(--v5);cursor:pointer;margin:8px auto 0;display:block;transition:all .2s;}
+.reset-btn:hover{background:rgba(139,92,246,.15);}
+.result{text-align:center;margin-top:14px;padding:14px 20px;border-radius:16px;font-family:'Fredoka One',cursive;font-size:1.1rem;display:none;}
+.result.on{display:block;animation:card-in .4s cubic-bezier(.34,1.56,.64,1);}
+.result.perfect{background:rgba(74,222,128,.15);border:2px solid var(--green);color:var(--green);}
+.result.partial{background:rgba(252,211,77,.12);border:2px solid var(--yellow);color:var(--yellow);}
+.result.bad{background:rgba(248,113,113,.12);border:2px solid var(--coral);color:var(--coral);}
+.score-row{display:flex;justify-content:center;gap:10px;margin-top:8px;}
+.score-badge{background:rgba(255,255,255,.07);border:1.5px solid rgba(139,92,246,.25);border-radius:50px;padding:5px 16px;color:var(--v6);font-size:.82rem;font-weight:700;}
+.score-badge span{color:var(--yellow);font-family:'Fredoka One',cursive;}
+.feedback-line{text-align:center;color:var(--v6);font-size:.88rem;font-weight:700;margin-top:6px;min-height:18px;}
+</style>
+</head>
+<body>
+
+<!-- ══ ANIMATED BACKGROUND ══ -->
+<div class="bg" id="bg">
+
+  <!-- Circuit SVG lines -->
+  <svg class="circ-svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+    <defs><filter id="g"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+    <line x1="0" y1="120" x2="320" y2="120" stroke="#7C3AED" stroke-width="1.5" filter="url(#g)"/>
+    <line x1="320" y1="120" x2="320" y2="280" stroke="#7C3AED" stroke-width="1.5" filter="url(#g)"/>
+    <line x1="320" y1="280" x2="680" y2="280" stroke="#7C3AED" stroke-width="1.5"/>
+    <line x1="1100" y1="80" x2="1440" y2="80" stroke="#14B8A6" stroke-width="1.5"/>
+    <line x1="1100" y1="80" x2="1100" y2="350" stroke="#14B8A6" stroke-width="1.5"/>
+    <line x1="0" y1="600" x2="500" y2="600" stroke="#7C3AED" stroke-width="1.5"/>
+    <line x1="500" y1="600" x2="500" y2="800" stroke="#7C3AED" stroke-width="1.5"/>
+    <line x1="500" y1="800" x2="1440" y2="800" stroke="#14B8A6" stroke-width="1.5"/>
+    <line x1="800" y1="450" x2="1440" y2="450" stroke="#8B5CF6" stroke-width="1.5"/>
+    <circle cx="320" cy="120" r="5" fill="#7C3AED" filter="url(#g)"/>
+    <circle cx="320" cy="280" r="5" fill="#7C3AED" filter="url(#g)"/>
+    <circle cx="1100" cy="80" r="5" fill="#14B8A6" filter="url(#g)"/>
+    <circle cx="1100" cy="350" r="5" fill="#14B8A6" filter="url(#g)"/>
+    <circle cx="500" cy="600" r="5" fill="#7C3AED" filter="url(#g)"/>
+    <circle cx="500" cy="800" r="5" fill="#14B8A6" filter="url(#g)"/>
+    <circle cx="800" cy="450" r="5" fill="#8B5CF6" filter="url(#g)"/>
+  </svg>
+
+  <!-- 4x4 Keypad SVG -->
+  <svg class="kp-float" style="right:2%;top:10%;width:130px;" viewBox="0 0 130 140" fill="none">
+    <rect x="5" y="5" width="120" height="130" rx="10" fill="#1a0a30" stroke="#7C3AED" stroke-width="2"/>
+    <text x="65" y="22" text-anchor="middle" fill="#A78BFA" font-size="8" font-family="Nunito,sans-serif" font-weight="800">4×4 KEYPAD</text>
+    <!-- 16 keys in 4x4 grid -->
+    <script type="text/plain">keys grid placeholder</script>
+    <!-- Row 1 -->
+    <rect x="14" y="28" width="22" height="22" rx="4" fill="#2D1B69" stroke="#7C3AED" stroke-width="1.5"/>
+    <text x="25" y="43" text-anchor="middle" fill="white" font-size="10" font-weight="bold" font-family="monospace">1</text>
+    <rect x="40" y="28" width="22" height="22" rx="4" fill="#2D1B69" stroke="#7C3AED" stroke-width="1.5"/>
+    <text x="51" y="43" text-anchor="middle" fill="white" font-size="10" font-weight="bold" font-family="monospace">2</text>
+    <rect x="66" y="28" width="22" height="22" rx="4" fill="#2D1B69" stroke="#7C3AED" stroke-width="1.5"/>
+    <text x="77" y="43" text-anchor="middle" fill="white" font-size="10" font-weight="bold" font-family="monospace">3</text>
+    <rect x="92" y="28" width="22" height="22" rx="4" fill="#1e3a5f" stroke="#14B8A6" stroke-width="1.5"/>
+    <text x="103" y="43" text-anchor="middle" fill="#14B8A6" font-size="10" font-weight="bold" font-family="monospace">A</text>
+    <!-- Row 2 -->
+    <rect x="14" y="54" width="22" height="22" rx="4" fill="#2D1B69" stroke="#7C3AED" stroke-width="1.5"/>
+    <text x="25" y="69" text-anchor="middle" fill="white" font-size="10" font-weight="bold" font-family="monospace">4</text>
+    <rect x="40" y="54" width="22" height="22" rx="4" fill="#2D1B69" stroke="#7C3AED" stroke-width="1.5"/>
+    <text x="51" y="69" text-anchor="middle" fill="white" font-size="10" font-weight="bold" font-family="monospace">5</text>
+    <rect x="66" y="54" width="22" height="22" rx="4" fill="#2D1B69" stroke="#7C3AED" stroke-width="1.5"/>
+    <text x="77" y="69" text-anchor="middle" fill="white" font-size="10" font-weight="bold" font-family="monospace">6</text>
+    <rect x="92" y="54" width="22" height="22" rx="4" fill="#1e3a5f" stroke="#14B8A6" stroke-width="1.5"/>
+    <text x="103" y="69" text-anchor="middle" fill="#14B8A6" font-size="10" font-weight="bold" font-family="monospace">B</text>
+    <!-- Row 3 -->
+    <rect x="14" y="80" width="22" height="22" rx="4" fill="#2D1B69" stroke="#7C3AED" stroke-width="1.5"/>
+    <text x="25" y="95" text-anchor="middle" fill="white" font-size="10" font-weight="bold" font-family="monospace">7</text>
+    <rect x="40" y="80" width="22" height="22" rx="4" fill="#2D1B69" stroke="#7C3AED" stroke-width="1.5"/>
+    <text x="51" y="95" text-anchor="middle" fill="white" font-size="10" font-weight="bold" font-family="monospace">8</text>
+    <rect x="66" y="80" width="22" height="22" rx="4" fill="#2D1B69" stroke="#7C3AED" stroke-width="1.5"/>
+    <text x="77" y="95" text-anchor="middle" fill="white" font-size="10" font-weight="bold" font-family="monospace">9</text>
+    <rect x="92" y="80" width="22" height="22" rx="4" fill="#1e3a5f" stroke="#14B8A6" stroke-width="1.5"/>
+    <text x="103" y="95" text-anchor="middle" fill="#14B8A6" font-size="10" font-weight="bold" font-family="monospace">C</text>
+    <!-- Row 4 -->
+    <rect x="14" y="106" width="22" height="22" rx="4" fill="#3b1a0a" stroke="#F87171" stroke-width="1.5"/>
+    <text x="25" y="121" text-anchor="middle" fill="#F87171" font-size="10" font-weight="bold" font-family="monospace">*</text>
+    <rect x="40" y="106" width="22" height="22" rx="4" fill="#2D1B69" stroke="#7C3AED" stroke-width="1.5"/>
+    <text x="51" y="121" text-anchor="middle" fill="white" font-size="10" font-weight="bold" font-family="monospace">0</text>
+    <rect x="66" y="106" width="22" height="22" rx="4" fill="#1a3b1a" stroke="#4ADE80" stroke-width="1.5"/>
+    <text x="77" y="121" text-anchor="middle" fill="#4ADE80" font-size="10" font-weight="bold" font-family="monospace">#</text>
+    <rect x="92" y="106" width="22" height="22" rx="4" fill="#1e3a5f" stroke="#14B8A6" stroke-width="1.5"/>
+    <text x="103" y="121" text-anchor="middle" fill="#14B8A6" font-size="10" font-weight="bold" font-family="monospace">D</text>
+  </svg>
+
+  <!-- Arduino Board SVG -->
+  <svg class="ard-board" style="left:1%;top:12%;width:120px;" viewBox="0 0 120 85" fill="none">
+    <rect x="3" y="3" width="114" height="79" rx="7" fill="#00878A" stroke="#14B8A6" stroke-width="2"/>
+    <rect x="12" y="12" width="44" height="30" rx="3" fill="#005C5F"/>
+    <text x="34" y="30" text-anchor="middle" fill="#14B8A6" font-size="7" font-family="monospace" font-weight="bold">ARDUINO</text>
+    <rect x="68" y="12" width="40" height="55" rx="3" fill="#004042" stroke="#14B8A6" stroke-width="1"/>
+    <rect x="12" y="47" width="5" height="11" rx="1" fill="#FCD34D"/>
+    <rect x="20" y="47" width="5" height="11" rx="1" fill="#FCD34D"/>
+    <rect x="28" y="47" width="5" height="11" rx="1" fill="#FCD34D"/>
+    <rect x="36" y="47" width="5" height="11" rx="1" fill="#FCD34D"/>
+    <rect x="44" y="47" width="5" height="11" rx="1" fill="#FCD34D"/>
+    <circle cx="80" cy="20" r="4" fill="#4ADE80" opacity=".9"/>
+    <circle cx="92" cy="20" r="4" fill="#F87171" opacity=".9"/>
+    <rect x="12" y="63" width="26" height="16" rx="3" fill="#1e3a8a" stroke="#60A5FA" stroke-width="1.5"/>
+    <text x="25" y="74" text-anchor="middle" fill="#60A5FA" font-size="5" font-family="monospace">USB</text>
+  </svg>
+
+  <!-- Lock SVG -->
+  <svg class="lock-anim" style="left:45%;top:5%;width:64px;" viewBox="0 0 64 80" fill="none">
+    <rect x="8" y="30" width="48" height="42" rx="8" fill="#1a0a30" stroke="#FCD34D" stroke-width="2.5"/>
+    <path d="M20 30 V22 C20 12 44 12 44 22 V30" stroke="#FCD34D" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <circle cx="32" cy="53" r="8" fill="#FCD34D" opacity=".9"/>
+    <rect x="29" y="52" width="6" height="10" rx="3" fill="#1a0a30"/>
+  </svg>
+
+  <!-- Servo Motor SVG -->
+  <svg class="servo-float" style="right:4%;bottom:25%;width:90px;animation-duration:4.5s;" viewBox="0 0 90 60" fill="none">
+    <rect x="5" y="15" width="60" height="40" rx="6" fill="#1e3a5f" stroke="#60A5FA" stroke-width="2"/>
+    <rect x="15" y="22" width="40" height="26" rx="3" fill="#0F2744"/>
+    <text x="35" y="39" text-anchor="middle" fill="#60A5FA" font-size="7" font-family="monospace" font-weight="bold">SERVO</text>
+    <rect x="62" y="28" width="22" height="6" rx="3" fill="#F87171"/>
+    <rect x="65" y="22" width="5" height="18" rx="2" fill="#FCD34D"/>
+    <circle cx="35" cy="10" r="8" fill="#374151" stroke="#60A5FA" stroke-width="1.5"/>
+    <line x1="35" y1="10" x2="35" y2="3" stroke="#4ADE80" stroke-width="2" stroke-linecap="round"/>
+  </svg>
+</div>
+
+<!-- Dynamic background elements -->
+<script>
+(function(){
+  const bg = document.getElementById('bg');
+  // Stars
+  for(let i=0;i<14;i++){
+    const s=document.createElement('div');s.className='star';
+    const sz=3+Math.random()*6;
+    s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*98}%;top:${Math.random()*95}%;animation-duration:${1.8+Math.random()*2.5}s;animation-delay:${Math.random()*3}s`;
+    bg.appendChild(s);
+  }
+  // Password dots traveling
+  const dotColors=['#7C3AED','#14B8A6','#FCD34D','#F472B6','#4ADE80'];
+  const labels=['1','2','3','4','*','#','0','A'];
+  labels.forEach((l,i)=>{
+    const d=document.createElement('div');d.className='pwd-dot';
+    const sz=18+Math.random()*10;
+    d.style.cssText=`width:${sz}px;height:${sz}px;background:${dotColors[i%dotColors.length]};top:${12+i*10}%;animation-duration:${7+i*1.3}s;animation-delay:${i*1.1}s;display:flex;align-items:center;justify-content:center;font-family:monospace;font-size:.65rem;font-weight:800;color:white;box-shadow:0 0 10px ${dotColors[i%dotColors.length]}88;`;
+    d.textContent=l;
+    bg.appendChild(d);
+  });
+  // Code ghost snippets
+  const codes=['keypad.getKey()','servo.write(90)','if(input==pass)','inputCode += key','Serial.begin(9600)','#include <Keypad.h>'];
+  codes.forEach((c,i)=>{
+    const el=document.createElement('div');el.className='code-ghost';el.textContent=c;
+    el.style.cssText=`left:${2+i*16}%;top:${80+i%2*8}%;animation-duration:${4+i}s;animation-delay:${i*.8}s`;
+    bg.appendChild(el);
+  });
+  // Ripples
+  for(let i=0;i<4;i++){
+    const r=document.createElement('div');r.className='ripple';
+    const sz=30+Math.random()*20;
+    r.style.cssText=`width:${sz}px;height:${sz}px;left:${10+i*25}%;top:${20+i*18}%;animation-duration:${3+i}s;animation-delay:${i*.7}s`;
+    bg.appendChild(r);
+  }
+})();
+</script>
+
+<!-- ══ MAIN CONTENT ══ -->
+<div class="page">
+  <h1 class="title">Arduino — Keypad + Password Lock Project</h1>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab on" onclick="switchTab(1)">🔌 Wire the Keypad</button>
+    <button class="tab" onclick="switchTab(2)">💻 Sequence the Code</button>
+    <button class="tab" onclick="switchTab(3)">🔐 Match Commands</button>
+  </div>
+
+  <!-- ══════════════════════════════
+       ACTIVITY 1 — Wire the Keypad
+  ══════════════════════════════ -->
+  <div class="card on" id="act1">
+    <div class="act-title">🔌 Wire the Keypad to Arduino!</div>
+    <p class="act-desc">Drag each keypad pin and drop it onto the correct Arduino pin slot.</p>
+
+    <div class="wire-layout">
+      <!-- Pin bank -->
+      <div class="pin-bank">
+        <h3>⌨️ Keypad Pins</h3>
+        <div id="pinBank">
+          <div class="pin-chip" draggable="true" data-pin="R1" data-slot="pin9">R1 (Row 1)</div>
+          <div class="pin-chip" draggable="true" data-pin="R2" data-slot="pin8">R2 (Row 2)</div>
+          <div class="pin-chip" draggable="true" data-pin="R3" data-slot="pin7">R3 (Row 3)</div>
+          <div class="pin-chip" draggable="true" data-pin="R4" data-slot="pin6">R4 (Row 4)</div>
+          <div class="pin-chip" draggable="true" data-pin="C1" data-slot="pin5">C1 (Col 1)</div>
+          <div class="pin-chip" draggable="true" data-pin="C2" data-slot="pin4">C2 (Col 2)</div>
+          <div class="pin-chip" draggable="true" data-pin="C3" data-slot="pin3">C3 (Col 3)</div>
+          <div class="pin-chip" draggable="true" data-pin="C4" data-slot="pin2">C4 (Col 4)</div>
+        </div>
+      </div>
+
+      <!-- Arduino slot targets -->
+      <div class="slot-col">
+        <div class="pin-slot" id="drop-pin9" data-slot="pin9">
+          <div class="slot-lbl">📍 Arduino Digital Pin 9</div>
+          <div class="slot-sub">First row connection</div>
+          <div class="slot-chips" id="sc-pin9"></div>
+        </div>
+        <div class="pin-slot" id="drop-pin8" data-slot="pin8">
+          <div class="slot-lbl">📍 Arduino Digital Pin 8</div>
+          <div class="slot-sub">Second row connection</div>
+          <div class="slot-chips" id="sc-pin8"></div>
+        </div>
+        <div class="pin-slot" id="drop-pin7" data-slot="pin7">
+          <div class="slot-lbl">📍 Arduino Digital Pin 7</div>
+          <div class="slot-sub">Third row connection</div>
+          <div class="slot-chips" id="sc-pin7"></div>
+        </div>
+        <div class="pin-slot" id="drop-pin6" data-slot="pin6">
+          <div class="slot-lbl">📍 Arduino Digital Pin 6</div>
+          <div class="slot-sub">Fourth row connection</div>
+          <div class="slot-chips" id="sc-pin6"></div>
+        </div>
+        <div class="pin-slot" id="drop-pin5" data-slot="pin5">
+          <div class="slot-lbl">📍 Arduino Digital Pin 5</div>
+          <div class="slot-sub">First column connection</div>
+          <div class="slot-chips" id="sc-pin5"></div>
+        </div>
+        <div class="pin-slot" id="drop-pin4" data-slot="pin4">
+          <div class="slot-lbl">📍 Arduino Digital Pin 4</div>
+          <div class="slot-sub">Second column connection</div>
+          <div class="slot-chips" id="sc-pin4"></div>
+        </div>
+        <div class="pin-slot" id="drop-pin3" data-slot="pin3">
+          <div class="slot-lbl">📍 Arduino Digital Pin 3</div>
+          <div class="slot-sub">Third column connection</div>
+          <div class="slot-chips" id="sc-pin3"></div>
+        </div>
+        <div class="pin-slot" id="drop-pin2" data-slot="pin2">
+          <div class="slot-lbl">📍 Arduino Digital Pin 2</div>
+          <div class="slot-sub">Fourth column connection</div>
+          <div class="slot-chips" id="sc-pin2"></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="check-btn" onclick="checkAct1()">✅ Check Wiring!</button>
+    <button class="reset-btn" onclick="resetAct1()">🔄 Reset</button>
+    <div class="result" id="res1"></div>
+    <div class="score-row" id="scr1"></div>
+  </div>
+
+  <!-- ══════════════════════════════
+       ACTIVITY 2 — Sequence the Code
+  ══════════════════════════════ -->
+  <div class="card" id="act2">
+    <div class="act-title">💻 Sequence the Code Steps!</div>
+    <p class="act-desc">Drag the code steps into the correct order — from setup to unlocking!</p>
+
+    <div class="seq-wrap">
+      <div class="code-bank" id="codeBank"
+           ondragover="event.preventDefault();this.classList.add('over')"
+           ondragleave="this.classList.remove('over')"
+           ondrop="dropBackCode(event)">
+      </div>
+      <div style="color:var(--v6);font-size:.85rem;font-weight:700;text-align:center;">⬇️ Drop steps in the correct order (1 → 7)</div>
+      <div class="seq-drop" id="seqDrop"
+           ondragover="event.preventDefault();this.classList.add('over')"
+           ondragleave="this.classList.remove('over')"
+           ondrop="dropToSeq(event)">
+        <div style="color:rgba(196,181,253,.4);font-size:.85rem;">Drop steps here in order...</div>
+      </div>
+    </div>
+
+    <button class="check-btn" onclick="checkAct2()">✅ Check Order!</button>
+    <button class="reset-btn" onclick="resetAct2()">🔄 Reset</button>
+    <div class="feedback-line" id="fb2"></div>
+    <div class="result" id="res2"></div>
+  </div>
+
+  <!-- ══════════════════════════════
+       ACTIVITY 3 — Match Commands
+  ══════════════════════════════ -->
+  <div class="card" id="act3">
+    <div class="act-title">🔐 Match the Arduino Command!</div>
+    <p class="act-desc">Drag each Arduino code command to what it actually makes happen.</p>
+
+    <div class="cmd-layout">
+      <!-- Command chips -->
+      <div class="cmd-bank">
+        <h3>📱 Arduino Commands</h3>
+        <div id="cmdBank">
+          <div class="cmd-chip" draggable="true" data-cmd="servo.write(90)" data-action="unlock">servo.write(90)</div>
+          <div class="cmd-chip" draggable="true" data-cmd="servo.write(0)" data-action="lock">servo.write(0)</div>
+          <div class="cmd-chip" draggable="true" data-cmd="keypad.getKey()" data-action="readkey">keypad.getKey()</div>
+          <div class="cmd-chip" draggable="true" data-cmd='inputCode += key' data-action="build">inputCode += key</div>
+          <div class="cmd-chip" draggable="true" data-cmd='inputCode == password' data-action="check">inputCode == password</div>
+          <div class="cmd-chip" draggable="true" data-cmd='inputCode = ""' data-action="clear">inputCode = ""</div>
+          <div class="cmd-chip" draggable="true" data-cmd="Serial.begin(9600)" data-action="serial">Serial.begin(9600)</div>
+          <div class="cmd-chip" draggable="true" data-cmd="servo.attach(10)" data-action="attach">servo.attach(10)</div>
+        </div>
+      </div>
+
+      <!-- Action drop zones -->
+      <div class="action-targets">
+        <div class="action-drop" id="drop-unlock" data-action="unlock">
+          <div class="action-lbl">🔓 Rotates servo to 90° — UNLOCKS the door</div>
+          <div class="action-sub">Correct password entered!</div>
+          <div class="action-chips" id="ac-unlock"></div>
+        </div>
+        <div class="action-drop" id="drop-lock" data-action="lock">
+          <div class="action-lbl">🔒 Rotates servo to 0° — LOCKS the door</div>
+          <div class="action-sub">Wrong password or after delay</div>
+          <div class="action-chips" id="ac-lock"></div>
+        </div>
+        <div class="action-drop" id="drop-readkey" data-action="readkey">
+          <div class="action-lbl">⌨️ Reads which key is currently pressed</div>
+          <div class="action-sub">Returns the character of the pressed button</div>
+          <div class="action-chips" id="ac-readkey"></div>
+        </div>
+        <div class="action-drop" id="drop-build" data-action="build">
+          <div class="action-lbl">➕ Adds the pressed key to the input string</div>
+          <div class="action-sub">Builds up the entered password character by character</div>
+          <div class="action-chips" id="ac-build"></div>
+        </div>
+        <div class="action-drop" id="drop-check" data-action="check">
+          <div class="action-lbl">🔍 Compares entered password to stored one</div>
+          <div class="action-sub">Returns true if they match, false if not</div>
+          <div class="action-chips" id="ac-check"></div>
+        </div>
+        <div class="action-drop" id="drop-clear" data-action="clear">
+          <div class="action-lbl">🗑️ Clears the input — resets for next attempt</div>
+          <div class="action-sub">Used after wrong password or after unlocking</div>
+          <div class="action-chips" id="ac-clear"></div>
+        </div>
+        <div class="action-drop" id="drop-serial" data-action="serial">
+          <div class="action-lbl">📡 Starts serial communication at 9600 baud</div>
+          <div class="action-sub">Goes in setup() — like tuning a walkie-talkie channel</div>
+          <div class="action-chips" id="ac-serial"></div>
+        </div>
+        <div class="action-drop" id="drop-attach" data-action="attach">
+          <div class="action-lbl">⚙️ Connects the servo to Arduino pin 10</div>
+          <div class="action-sub">Must be called in setup() before using the servo</div>
+          <div class="action-chips" id="ac-attach"></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="check-btn" onclick="checkAct3()">✅ Check Answers!</button>
+    <button class="reset-btn" onclick="resetAct3()">🔄 Reset</button>
+    <div class="result" id="res3"></div>
+    <div class="score-row" id="scr3"></div>
+  </div>
+</div>
+
+<script>
+/* ══ TAB SWITCH ══ */
+function switchTab(n){
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',i===n-1));
+  document.querySelectorAll('.card').forEach((c,i)=>c.classList.toggle('on',i===n-1));
+}
+
+/* ══ DRAG STATE ══ */
+let dragD={};
+function initDrag(el){
+  el.addEventListener('dragstart',e=>{dragD={...el.dataset};el.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+  el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+}
+document.querySelectorAll('.pin-chip,.cmd-chip').forEach(initDrag);
+
+/* ══ ACT 1 — Wire the Keypad ══ */
+document.querySelectorAll('.pin-slot').forEach(el=>{
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('over'));
+  el.addEventListener('drop',e=>{
+    e.preventDefault();el.classList.remove('over');
+    if(!dragD.pin) return;
+    const sc=document.getElementById('sc-'+el.dataset.slot);
+    if([...sc.querySelectorAll('.s-chip')].some(c=>c.dataset.pin===dragD.pin)) return;
+    const chip=document.createElement('div');chip.className='s-chip';
+    chip.textContent=dragD.pin;chip.dataset.pin=dragD.pin;chip.dataset.correctSlot=dragD.slot;
+    sc.appendChild(chip);
+    document.querySelectorAll('#pinBank .pin-chip').forEach(c=>{if(c.dataset.pin===dragD.pin)c.style.display='none';});
+  });
+});
+
+function checkAct1(){
+  let ok=0,tot=0;
+  document.querySelectorAll('.pin-slot').forEach(slot=>{
+    const chips=slot.querySelectorAll('.s-chip');
+    let allOk=chips.length>0;
+    chips.forEach(c=>{tot++;if(c.dataset.correctSlot===slot.dataset.slot)ok++;else allOk=false;});
+    if(chips.length>0){slot.classList.remove('correct','wrong');slot.classList.add(allOk?'correct':'wrong');}
+  });
+  showResult('res1','scr1',ok,tot,8);
+}
+function resetAct1(){
+  document.querySelectorAll('[id^="sc-pin"]').forEach(c=>c.innerHTML='');
+  document.querySelectorAll('.pin-slot').forEach(d=>d.classList.remove('correct','wrong'));
+  document.querySelectorAll('#pinBank .pin-chip').forEach(c=>c.style.display='');
+  clearResult('res1','scr1');
+}
+
+/* ══ ACT 2 — Sequence the Code ══ */
+const steps=[
+  {id:'st1',order:1,emoji:'📦',label:'#include Keypad and Servo libraries'},
+  {id:'st2',order:2,emoji:'⚙️',label:'void setup() — attach servo, set to 0°'},
+  {id:'st3',order:3,emoji:'👂',label:'void loop() — check for key press'},
+  {id:'st4',order:4,emoji:'➕',label:'Append pressed key to inputCode'},
+  {id:'st5',order:5,emoji:'🔍',label:'Check if inputCode matches password'},
+  {id:'st6',order:6,emoji:'🔓',label:'servo.write(90) — unlock the door'},
+  {id:'st7',order:7,emoji:'🗑️',label:'Clear inputCode — reset for next try'},
+];
+let seqList=[];
+
+function buildCodeBank(){
+  const bank=document.getElementById('codeBank');
+  bank.innerHTML='';
+  [...steps].sort(()=>Math.random()-.5).forEach(s=>{
+    const c=document.createElement('div');c.className='code-block';c.draggable=true;
+    c.dataset.stepId=s.id;c.dataset.order=s.order;
+    c.innerHTML=`${s.emoji} ${s.label}`;
+    initDragStep(c);bank.appendChild(c);
+  });
+}
+buildCodeBank();
+
+function initDragStep(el){
+  el.addEventListener('dragstart',e=>{dragD={...el.dataset};el.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+  el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+}
+
+function dropToSeq(e){
+  e.preventDefault();
+  const drop=document.getElementById('seqDrop');drop.classList.remove('over');
+  if(!dragD.stepId) return;
+  if(seqList.find(x=>x===dragD.stepId)) return;
+  seqList.push(dragD.stepId);
+  renderSeq();
+  document.querySelectorAll('#codeBank .code-block').forEach(c=>{if(c.dataset.stepId===dragD.stepId)c.remove();});
+  const ph=drop.querySelector('div:not(.code-block):not(.seq-arrow)');if(ph)ph.remove();
+}
+
+function dropBackCode(e){
+  e.preventDefault();
+  const bank=document.getElementById('codeBank');bank.classList.remove('over');
+  if(!dragD.stepId) return;
+  seqList=seqList.filter(x=>x!==dragD.stepId);
+  renderSeq();
+  const s=steps.find(x=>x.id===dragD.stepId);
+  if(s){const c=document.createElement('div');c.className='code-block';c.draggable=true;
+    c.dataset.stepId=s.id;c.dataset.order=s.order;
+    c.innerHTML=`${s.emoji} ${s.label}`;
+    initDragStep(c);bank.appendChild(c);}
+}
+
+function renderSeq(){
+  const drop=document.getElementById('seqDrop');drop.innerHTML='';
+  seqList.forEach((id,i)=>{
+    const s=steps.find(x=>x.id===id);
+    const c=document.createElement('div');c.className='code-block';c.draggable=true;
+    c.dataset.stepId=s.id;c.dataset.order=s.order;
+    c.innerHTML=`<span class="step-num">${i+1}</span>${s.emoji} ${s.label}`;
+    initDragStep(c);drop.appendChild(c);
+    if(i<seqList.length-1){const a=document.createElement('span');a.className='seq-arrow';a.textContent='→';drop.appendChild(a);}
+  });
+  if(seqList.length===0) drop.innerHTML='<div style="color:rgba(196,181,253,.4);font-size:.85rem;">Drop steps here in order...</div>';
+}
+
+function checkAct2(){
+  if(seqList.length<7){document.getElementById('fb2').textContent='⚠️ Place all 7 steps first!';return;}
+  let ok=0;
+  seqList.forEach((id,i)=>{const s=steps.find(x=>x.id===id);if(s.order===i+1)ok++;});
+  document.getElementById('fb2').textContent='';
+  const res=document.getElementById('res2');res.classList.add('on');
+  if(ok===7){res.className='result on perfect';res.textContent='🏆 Perfect! You know the code flow!';}
+  else if(ok>=4){res.className='result on partial';res.textContent=`⭐ ${ok}/7 steps correct! Almost there!`;}
+  else{res.className='result on bad';res.textContent=`💪 ${ok}/7 — Think about what happens first in setup(). Try again!`;}
+}
+function resetAct2(){seqList=[];buildCodeBank();renderSeq();document.getElementById('res2').className='result';document.getElementById('fb2').textContent='';}
+
+/* ══ ACT 3 — Match Commands ══ */
+document.querySelectorAll('.cmd-chip').forEach(initDrag);
+document.querySelectorAll('.action-drop').forEach(el=>{
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('over'));
+  el.addEventListener('drop',e=>{
+    e.preventDefault();el.classList.remove('over');
+    if(!dragD.cmd) return;
+    const ac=document.getElementById('ac-'+el.dataset.action);
+    if([...ac.querySelectorAll('.a-chip')].some(c=>c.dataset.cmd===dragD.cmd)) return;
+    const chip=document.createElement('div');chip.className='a-chip';
+    chip.textContent=dragD.cmd;chip.dataset.cmd=dragD.cmd;chip.dataset.correctAction=dragD.action;
+    ac.appendChild(chip);
+    document.querySelectorAll('#cmdBank .cmd-chip').forEach(c=>{if(c.dataset.cmd===dragD.cmd)c.style.display='none';});
+  });
+});
+
+function checkAct3(){
+  let ok=0,tot=0;
+  document.querySelectorAll('.action-drop').forEach(drop=>{
+    const chips=drop.querySelectorAll('.a-chip');
+    let allOk=chips.length>0;
+    chips.forEach(c=>{tot++;if(c.dataset.correctAction===drop.dataset.action)ok++;else allOk=false;});
+    if(chips.length>0){drop.classList.remove('correct','wrong');drop.classList.add(allOk?'correct':'wrong');}
+  });
+  showResult('res3','scr3',ok,tot,8);
+}
+function resetAct3(){
+  document.querySelectorAll('[id^="ac-"]').forEach(c=>c.innerHTML='');
+  document.querySelectorAll('.action-drop').forEach(d=>d.classList.remove('correct','wrong'));
+  document.querySelectorAll('#cmdBank .cmd-chip').forEach(c=>c.style.display='');
+  clearResult('res3','scr3');
+}
+
+/* ══ HELPERS ══ */
+function showResult(rId,sId,ok,tot,max){
+  const res=document.getElementById(rId);
+  const sc=document.getElementById(sId);
+  res.classList.add('on');
+  if(sc) sc.innerHTML=`<div class="score-badge">Score: <span>${ok}/${tot||max}</span></div>`;
+  if(tot===0){res.className='result on partial';res.textContent='🔧 Place some items first!';return;}
+  if(ok===tot&&tot>=max){res.className='result on perfect';res.textContent='🏆 Amazing! You\'re an Arduino engineer!';}
+  else if(ok/tot>=.6){res.className='result on partial';res.textContent=`⭐ Great! ${ok}/${tot} correct — keep going!`;}
+  else{res.className='result on bad';res.textContent=`💪 ${ok}/${tot} — Check the descriptions and try again!`;}
+}
+function clearResult(rId,sId){
+  document.getElementById(rId).className='result';
+  if(sId&&document.getElementById(sId))document.getElementById(sId).innerHTML='';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Statistics — Box Plots & IQR</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --v1: #1a0533;
+    --v2: #2d0a5e;
+    --v3: #4a1a8a;
+    --v4: #7b3fc4;
+    --v5: #a855f7;
+    --v6: #c084fc;
+    --v7: #e9d5ff;
+    --acc1: #f0abfc;
+    --acc2: #fde68a;
+    --acc3: #6ee7b7;
+    --acc4: #fb923c;
+    --white: #fdf4ff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--v1);
+    color: var(--white);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── ANIMATED CANVAS BG ── */
+  #bg-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .page-wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 20px 60px;
+  }
+
+  /* ── TITLE ── */
+  .main-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(2rem, 5vw, 3.4rem);
+    text-align: center;
+    padding: 38px 0 10px;
+    background: linear-gradient(135deg, #e879f9, #a855f7, #fde68a);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 18px #a855f788);
+    letter-spacing: 1px;
+  }
+
+  .subtitle-bar {
+    text-align: center;
+    font-size: 1rem;
+    color: var(--v6);
+    margin-bottom: 32px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── ACTIVITY TABS ── */
+  .tab-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+
+  .tab-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    padding: 10px 24px;
+    border-radius: 50px;
+    border: 2px solid var(--v5);
+    background: var(--v2);
+    color: var(--v6);
+    cursor: pointer;
+    transition: all .25s;
+    letter-spacing: .5px;
+  }
+  .tab-btn:hover { background: var(--v3); color: var(--acc1); transform: translateY(-2px); }
+  .tab-btn.active {
+    background: linear-gradient(135deg, var(--v4), var(--v5));
+    color: #fff;
+    border-color: var(--acc1);
+    box-shadow: 0 0 18px #a855f766;
+  }
+
+  /* ── ACTIVITY PANELS ── */
+  .activity-panel {
+    display: none;
+    animation: fadeIn .4s ease;
+  }
+  .activity-panel.active { display: block; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+  .activity-card {
+    background: linear-gradient(135deg, #1e0647cc, #2d0a5ecc);
+    border: 1.5px solid var(--v4);
+    border-radius: 22px;
+    padding: 28px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 40px #0007, inset 0 0 40px #7b3fc411;
+  }
+
+  .act-heading {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.5rem;
+    color: var(--acc1);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .act-desc {
+    color: var(--v7);
+    font-size: .95rem;
+    margin-bottom: 22px;
+    line-height: 1.6;
+  }
+
+  /* ── FEEDBACK ── */
+  .feedback-strip {
+    margin-top: 16px;
+    padding: 12px 18px;
+    border-radius: 14px;
+    font-weight: 700;
+    font-size: 1rem;
+    text-align: center;
+    min-height: 48px;
+    transition: all .3s;
+  }
+  .feedback-strip.correct { background: #064e3b99; border: 1.5px solid var(--acc3); color: var(--acc3); }
+  .feedback-strip.wrong   { background: #7f1d1d99; border: 1.5px solid #fca5a5; color: #fca5a5; }
+  .feedback-strip.empty   { background: transparent; border: 1.5px solid transparent; color: transparent; }
+
+  .btn-check {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.05rem;
+    padding: 11px 32px;
+    border-radius: 50px;
+    border: none;
+    background: linear-gradient(135deg, var(--v4), #d946ef);
+    color: #fff;
+    cursor: pointer;
+    margin-top: 16px;
+    transition: transform .2s, box-shadow .2s;
+    box-shadow: 0 4px 18px #a855f755;
+  }
+  .btn-check:hover { transform: translateY(-2px); box-shadow: 0 8px 28px #a855f777; }
+
+  .btn-reset {
+    font-family: 'Fredoka One', cursive;
+    font-size: .95rem;
+    padding: 9px 22px;
+    border-radius: 50px;
+    border: 1.5px solid var(--v5);
+    background: transparent;
+    color: var(--v6);
+    cursor: pointer;
+    margin-top: 16px;
+    margin-left: 10px;
+    transition: all .2s;
+  }
+  .btn-reset:hover { background: var(--v3); color: #fff; }
+
+  /* ══════════════════════════════
+     ACTIVITY 1 — SORT THE DATA
+  ══════════════════════════════ */
+  .act1-bank {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-height: 60px;
+    background: #150330aa;
+    border: 2px dashed var(--v4);
+    border-radius: 16px;
+    padding: 14px;
+    margin-bottom: 18px;
+  }
+
+  .num-chip {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.2rem;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, var(--v3), var(--v4));
+    border: 1.5px solid var(--v5);
+    border-radius: 12px;
+    cursor: grab;
+    user-select: none;
+    transition: transform .15s, box-shadow .15s;
+    color: #fff;
+  }
+  .num-chip:hover { transform: scale(1.08); box-shadow: 0 4px 16px #a855f766; }
+  .num-chip.dragging { opacity: .5; transform: scale(.95); }
+
+  .sort-slots {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    min-height: 60px;
+    align-items: center;
+    padding: 14px;
+    border-radius: 16px;
+    background: #2d0a5e55;
+    border: 2px solid var(--v4);
+  }
+
+  .sort-slot {
+    width: 64px;
+    height: 52px;
+    border: 2px dashed var(--v5);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .8rem;
+    color: var(--v6);
+    transition: background .2s, border-color .2s;
+    position: relative;
+  }
+  .sort-slot.over { background: #7b3fc433; border-color: var(--acc1); }
+  .sort-slot .num-chip { margin: 0; }
+
+  .five-num-display {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+  }
+
+  .fnl-item {
+    flex: 1;
+    min-width: 80px;
+    text-align: center;
+    padding: 10px 8px;
+    border-radius: 14px;
+    border: 1.5px solid var(--v4);
+    background: #1e064766;
+  }
+  .fnl-item .label { font-size: .78rem; color: var(--v6); margin-bottom: 4px; letter-spacing: .5px; }
+  .fnl-item .value { font-family: 'Fredoka One', cursive; font-size: 1.4rem; color: var(--acc1); min-height: 36px; }
+
+  .drop-target-fn {
+    min-width: 80px;
+    min-height: 44px;
+    border: 2px dashed var(--v5);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: default;
+    transition: background .2s;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.2rem;
+    color: var(--acc1);
+  }
+  .drop-target-fn.over { background: #7b3fc444; border-color: var(--acc1); }
+
+  /* ══════════════════════════════
+     ACTIVITY 2 — BUILD BOX PLOT
+  ══════════════════════════════ */
+  .bp-container {
+    position: relative;
+    width: 100%;
+    margin-bottom: 20px;
+  }
+
+  .bp-number-line {
+    position: relative;
+    height: 60px;
+    margin: 10px 0;
+  }
+
+  .bp-axis {
+    position: absolute;
+    bottom: 16px;
+    left: 40px;
+    right: 40px;
+    height: 3px;
+    background: var(--v5);
+    border-radius: 2px;
+  }
+
+  .bp-tick {
+    position: absolute;
+    bottom: 6px;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .bp-tick-mark { width: 2px; height: 14px; background: var(--v5); }
+  .bp-tick-label { font-size: .75rem; color: var(--v6); margin-top: 4px; font-weight: 700; }
+
+  .bp-plot-area {
+    position: relative;
+    height: 80px;
+    margin: 10px 40px;
+    border: 2px dashed #4a1a8a88;
+    border-radius: 10px;
+    overflow: visible;
+  }
+
+  .bp-element {
+    position: absolute;
+    cursor: grab;
+    user-select: none;
+    transition: filter .2s;
+    touch-action: none;
+  }
+  .bp-element:hover { filter: brightness(1.3); }
+  .bp-element.placed { cursor: default; }
+
+  /* box parts */
+  .bp-whisker-left, .bp-whisker-right {
+    width: 4px;
+    height: 50px;
+    top: 15px;
+    background: var(--acc1);
+    border-radius: 2px;
+  }
+  .bp-whisker-cap {
+    width: 18px;
+    height: 4px;
+    top: 37px;
+    background: var(--acc1);
+    border-radius: 2px;
+    margin-left: -7px;
+  }
+  .bp-box {
+    height: 50px;
+    top: 15px;
+    background: #7b3fc455;
+    border: 3px solid var(--v5);
+    border-radius: 4px;
+    min-width: 40px;
+  }
+  .bp-median {
+    width: 4px;
+    height: 56px;
+    top: 12px;
+    background: var(--acc2);
+    border-radius: 2px;
+  }
+
+  .part-bank {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 14px;
+    background: #150330aa;
+    border: 2px dashed var(--v4);
+    border-radius: 16px;
+    min-height: 64px;
+  }
+
+  .part-chip {
+    font-family: 'Fredoka One', cursive;
+    font-size: .9rem;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, var(--v3), var(--v4));
+    border: 1.5px solid var(--v5);
+    border-radius: 10px;
+    cursor: grab;
+    user-select: none;
+    color: #fff;
+    transition: transform .15s;
+    white-space: nowrap;
+  }
+  .part-chip:hover { transform: scale(1.06); }
+
+  .bp-drop-zone {
+    border: 2px dashed var(--v5);
+    border-radius: 10px;
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .8rem;
+    color: var(--v6);
+    padding: 6px;
+    transition: background .2s;
+  }
+  .bp-drop-zone.over { background: #7b3fc433; border-color: var(--acc1); }
+
+  .bp-labels-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  .bp-label-zone {
+    flex: 1;
+    min-width: 100px;
+    text-align: center;
+    padding: 8px;
+    border: 1.5px dashed var(--v5);
+    border-radius: 10px;
+    min-height: 46px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: .78rem;
+    color: var(--v6);
+    transition: background .2s;
+    gap: 4px;
+  }
+  .bp-label-zone.over { background: #7b3fc433; border-color: var(--acc1); }
+  .bp-label-zone .part-chip { font-size: .8rem; padding: 5px 12px; cursor: default; }
+  .bp-label-zone strong { font-size: .7rem; text-transform: uppercase; letter-spacing: .5px; color: var(--v5); }
+
+  /* ══════════════════════════════
+     ACTIVITY 3 — IQR MATCH
+  ══════════════════════════════ */
+  .iqr-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  @media (max-width: 540px) { .iqr-grid { grid-template-columns: 1fr; } }
+
+  .iqr-card {
+    background: #1e064777;
+    border: 1.5px solid var(--v4);
+    border-radius: 16px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .iqr-card-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    color: var(--acc1);
+    margin-bottom: 8px;
+  }
+
+  .iqr-dataset {
+    font-size: .88rem;
+    color: var(--v7);
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+
+  .iqr-drop-area {
+    min-height: 48px;
+    border: 2px dashed var(--v5);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .82rem;
+    color: var(--v6);
+    transition: background .2s, border-color .2s;
+    padding: 6px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .iqr-drop-area.over { background: #7b3fc433; border-color: var(--acc1); }
+  .iqr-drop-area .iqr-chip { cursor: default; }
+
+  .iqr-chips-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin: 16px 0;
+    padding: 14px;
+    background: #150330aa;
+    border: 2px dashed var(--v4);
+    border-radius: 16px;
+  }
+
+  .iqr-chip {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    padding: 9px 20px;
+    background: linear-gradient(135deg, var(--v3), var(--v4));
+    border: 1.5px solid var(--v5);
+    border-radius: 10px;
+    cursor: grab;
+    user-select: none;
+    color: #fff;
+    transition: transform .15s;
+  }
+  .iqr-chip:hover { transform: scale(1.07); }
+
+  .score-badge {
+    display: inline-block;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+    padding: 6px 20px;
+    border-radius: 50px;
+    background: linear-gradient(135deg, var(--v4), #d946ef);
+    color: #fff;
+    margin-top: 12px;
+    box-shadow: 0 4px 16px #a855f755;
+  }
+
+  /* progress dots */
+  .progress-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 24px;
+  }
+  .prog-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--v3);
+    border: 2px solid var(--v5);
+    transition: background .3s;
+  }
+  .prog-dot.done { background: var(--acc3); border-color: var(--acc3); }
+
+  /* stars */
+  .star-pop {
+    position: fixed;
+    pointer-events: none;
+    font-size: 2rem;
+    animation: starFly 1s forwards;
+    z-index: 999;
+  }
+  @keyframes starFly {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-120px) scale(.5); }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<div class="page-wrap">
+  <h1 class="main-title">Statistics — Box Plots &amp; IQR</h1>
+
+
+  <div class="progress-row">
+    <div class="prog-dot" id="pd1"></div>
+    <div class="prog-dot" id="pd2"></div>
+    <div class="prog-dot" id="pd3"></div>
+  </div>
+
+  <div class="tab-row">
+    <button class="tab-btn active" onclick="showTab(1,this)">🔢 Sort &amp; Summarise</button>
+    <button class="tab-btn" onclick="showTab(2,this)">📦 Build the Box Plot</button>
+    <button class="tab-btn" onclick="showTab(3,this)">🎯 IQR Match-Up</button>
+  </div>
+
+  <!-- ════════ ACTIVITY 1 ════════ -->
+  <div class="activity-panel active" id="panel1">
+    <div class="activity-card">
+      <div class="act-heading">🔢 Sort &amp; Summarise</div>
+      <p class="act-desc">
+        Drag each number from the bank into the sorted order row (smallest → largest), then drop them into the correct five-number summary boxes.
+      </p>
+
+      <div style="margin-bottom:8px;font-size:.85rem;color:var(--v6);">📦 Number Bank</div>
+      <div class="act1-bank" id="bank1">
+        <!-- chips injected by JS -->
+      </div>
+
+      <div style="margin-bottom:8px;font-size:.85rem;color:var(--v6);">↔ Sorted Order (drop here in order)</div>
+      <div class="sort-slots" id="sort-slots">
+        <!-- 9 slots -->
+      </div>
+
+      <div style="margin:18px 0 8px;font-size:.85rem;color:var(--v6);">📊 Five-Number Summary (drag from sorted row)</div>
+      <div class="five-num-display">
+        <div class="fnl-item">
+          <div class="label">MIN</div>
+          <div class="drop-target-fn" id="fn-min" data-key="min">drop</div>
+        </div>
+        <div class="fnl-item">
+          <div class="label">Q1</div>
+          <div class="drop-target-fn" id="fn-q1" data-key="q1">drop</div>
+        </div>
+        <div class="fnl-item">
+          <div class="label">MEDIAN</div>
+          <div class="drop-target-fn" id="fn-med" data-key="med">drop</div>
+        </div>
+        <div class="fnl-item">
+          <div class="label">Q3</div>
+          <div class="drop-target-fn" id="fn-q3" data-key="q3">drop</div>
+        </div>
+        <div class="fnl-item">
+          <div class="label">MAX</div>
+          <div class="drop-target-fn" id="fn-max" data-key="max">drop</div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <button class="btn-check" onclick="checkAct1()">Check Answers ✨</button>
+        <button class="btn-reset" onclick="resetAct1()">Reset</button>
+      </div>
+      <div class="feedback-strip empty" id="fb1"></div>
+    </div>
+  </div>
+
+  <!-- ════════ ACTIVITY 2 ════════ -->
+  <div class="activity-panel" id="panel2">
+    <div class="activity-card">
+      <div class="act-heading">📦 Build the Box Plot</div>
+      <p class="act-desc">
+        Given the five-number summary below, drag each label to its correct position on the box plot.
+        <br><strong style="color:var(--acc2)">Data: Min=4, Q1=9, Median=14, Q3=19, Max=24</strong>
+      </p>
+
+      <div style="margin-bottom:8px;font-size:.85rem;color:var(--v6);">🏷 Label Bank — drag to the correct box plot position</div>
+      <div class="part-bank" id="bank2">
+        <div class="part-chip" draggable="true" data-val="Min=4" id="lbl-min">Min = 4</div>
+        <div class="part-chip" draggable="true" data-val="Q1=9" id="lbl-q1">Q1 = 9</div>
+        <div class="part-chip" draggable="true" data-val="Median=14" id="lbl-med">Median = 14</div>
+        <div class="part-chip" draggable="true" data-val="Q3=19" id="lbl-q3">Q3 = 19</div>
+        <div class="part-chip" draggable="true" data-val="Max=24" id="lbl-max">Max = 24</div>
+      </div>
+
+      <!-- Visual box plot (static) -->
+      <div style="position:relative;background:#150330aa;border-radius:16px;padding:20px 10px 30px;">
+        <svg id="bp-svg" viewBox="0 0 800 120" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+          <!-- axis -->
+          <line x1="60" y1="90" x2="750" y2="90" stroke="#7b3fc4" stroke-width="2"/>
+          <!-- ticks 0-30 -->
+          <g id="ticks"></g>
+          <!-- whisker left -->
+          <line x1="159" y1="60" x2="159" y2="90" stroke="#c084fc" stroke-width="2"/>
+          <line x1="149" y1="75" x2="169" y2="75" stroke="#c084fc" stroke-width="2"/>
+          <!-- whisker left line to box -->
+          <line x1="159" y1="75" x2="311" y2="75" stroke="#c084fc" stroke-width="2" stroke-dasharray="4,3"/>
+          <!-- box Q1→Q3 -->
+          <rect x="311" y="45" width="304" height="45" fill="#7b3fc433" stroke="#a855f7" stroke-width="2.5" rx="4"/>
+          <!-- median line -->
+          <line x1="463" y1="42" x2="463" y2="92" stroke="#fde68a" stroke-width="3"/>
+          <!-- whisker right line -->
+          <line x1="615" y1="75" x2="691" y2="75" stroke="#c084fc" stroke-width="2" stroke-dasharray="4,3"/>
+          <!-- whisker right cap -->
+          <line x1="691" y1="60" x2="691" y2="90" stroke="#c084fc" stroke-width="2"/>
+          <line x1="681" y1="75" x2="701" y2="75" stroke="#c084fc" stroke-width="2"/>
+          <!-- tick labels -->
+          <text x="60" y="108" fill="#9ca3af" font-size="13" text-anchor="middle">0</text>
+          <text x="214" y="108" fill="#9ca3af" font-size="13" text-anchor="middle">5</text>
+          <text x="368" y="108" fill="#9ca3af" font-size="13" text-anchor="middle">10</text>
+          <text x="522" y="108" fill="#9ca3af" font-size="13" text-anchor="middle">15</text>
+          <text x="676" y="108" fill="#9ca3af" font-size="13" text-anchor="middle">20</text>
+          <text x="750" y="108" fill="#9ca3af" font-size="11" text-anchor="middle">25</text>
+        </svg>
+
+        <!-- Drop zones anchored to positions -->
+        <div style="display:flex;justify-content:space-between;margin-top:8px;gap:6px;" id="bp-drop-row">
+          <div class="bp-label-zone" id="bz-min" data-correct="Min=4"><strong>← Left whisker tip</strong><br><small style="color:var(--v6)">Drop label</small></div>
+          <div class="bp-label-zone" id="bz-q1" data-correct="Q1=9"><strong>Box left edge</strong><br><small style="color:var(--v6)">Drop label</small></div>
+          <div class="bp-label-zone" id="bz-med" data-correct="Median=14"><strong>Middle line</strong><br><small style="color:var(--v6)">Drop label</small></div>
+          <div class="bp-label-zone" id="bz-q3" data-correct="Q3=19"><strong>Box right edge</strong><br><small style="color:var(--v6)">Drop label</small></div>
+          <div class="bp-label-zone" id="bz-max" data-correct="Max=24"><strong>Right whisker tip →</strong><br><small style="color:var(--v6)">Drop label</small></div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <button class="btn-check" onclick="checkAct2()">Check Answers ✨</button>
+        <button class="btn-reset" onclick="resetAct2()">Reset</button>
+      </div>
+      <div class="feedback-strip empty" id="fb2"></div>
+    </div>
+  </div>
+
+  <!-- ════════ ACTIVITY 3 ════════ -->
+  <div class="activity-panel" id="panel3">
+    <div class="activity-card">
+      <div class="act-heading">🎯 IQR Match-Up</div>
+      <p class="act-desc">
+        Each dataset has a box plot already drawn. Drag the correct IQR value to match its dataset. <strong style="color:var(--acc2)">IQR = Q3 − Q1</strong>
+      </p>
+
+      <div class="iqr-chips-row" id="iqr-bank">
+        <div class="iqr-chip" draggable="true" data-val="8">IQR = 8</div>
+        <div class="iqr-chip" draggable="true" data-val="12">IQR = 12</div>
+        <div class="iqr-chip" draggable="true" data-val="5">IQR = 5</div>
+        <div class="iqr-chip" draggable="true" data-val="15">IQR = 15</div>
+      </div>
+
+      <div class="iqr-grid" id="iqr-grid">
+
+        <div class="iqr-card">
+          <div class="iqr-card-title">Dataset A 🌵</div>
+          <div class="iqr-dataset">Q1 = 10, Q3 = 18</div>
+          <svg viewBox="0 0 220 60" style="width:100%;margin-bottom:8px">
+            <line x1="10" y1="48" x2="210" y2="48" stroke="#7b3fc4" stroke-width="1.5"/>
+            <line x1="44" y1="35" x2="44" y2="48" stroke="#c084fc" stroke-width="1.5"/>
+            <line x1="38" y1="42" x2="50" y2="42" stroke="#c084fc" stroke-width="1.5"/>
+            <line x1="44" y1="42" x2="88" y2="42" stroke="#c084fc" stroke-width="1.5" stroke-dasharray="3,2"/>
+            <rect x="88" y="25" width="80" height="23" fill="#7b3fc433" stroke="#a855f7" stroke-width="2" rx="3"/>
+            <line x1="128" y1="22" x2="128" y2="50" stroke="#fde68a" stroke-width="2"/>
+            <line x1="168" y1="42" x2="188" y2="42" stroke="#c084fc" stroke-width="1.5" stroke-dasharray="3,2"/>
+            <line x1="188" y1="35" x2="188" y2="48" stroke="#c084fc" stroke-width="1.5"/>
+            <line x1="182" y1="42" x2="194" y2="42" stroke="#c084fc" stroke-width="1.5"/>
+            <text x="44" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">5</text>
+            <text x="88" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">10</text>
+            <text x="128" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">14</text>
+            <text x="168" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">18</text>
+            <text x="188" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">22</text>
+          </svg>
+          <div class="iqr-drop-area" id="iqr-drop-A" data-correct="8">Drop IQR here</div>
+        </div>
+
+        <div class="iqr-card">
+          <div class="iqr-card-title">Dataset B 🌊</div>
+          <div class="iqr-dataset">Q1 = 6, Q3 = 18</div>
+          <svg viewBox="0 0 220 60" style="width:100%;margin-bottom:8px">
+            <line x1="10" y1="48" x2="210" y2="48" stroke="#7b3fc4" stroke-width="1.5"/>
+            <line x1="30" y1="35" x2="30" y2="48" stroke="#c084fc" stroke-width="1.5"/>
+            <line x1="24" y1="42" x2="36" y2="42" stroke="#c084fc" stroke-width="1.5"/>
+            <line x1="30" y1="42" x2="70" y2="42" stroke="#c084fc" stroke-width="1.5" stroke-dasharray="3,2"/>
+            <rect x="70" y="25" width="120" height="23" fill="#7b3fc433" stroke="#a855f7" stroke-width="2" rx="3"/>
+            <line x1="120" y1="22" x2="120" y2="50" stroke="#fde68a" stroke-width="2"/>
+            <line x1="190" y1="42" x2="200" y2="42" stroke="#c084fc" stroke-width="1.5" stroke-dasharray="3,2"/>
+            <line x1="200" y1="35" x2="200" y2="48" stroke="#c084fc" stroke-width="1.5"/>
+            <line x1="194" y1="42" x2="206" y2="42" stroke="#c084fc" stroke-width="1.5"/>
+            <text x="30" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">2</text>
+            <text x="70" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">6</text>
+            <text x="120" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">12</text>
+            <text x="190" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">18</text>
+            <text x="200" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">20</text>
+          </svg>
+          <div class="iqr-drop-area" id="iqr-drop-B" data-correct="12">Drop IQR here</div>
+        </div>
+
+        <div class="iqr-card">
+          <div class="iqr-card-title">Dataset C 🌸</div>
+          <div class="iqr-dataset">Q1 = 20, Q3 = 25</div>
+          <svg viewBox="0 0 220 60" style="width:100%;margin-bottom:8px">
+            <line x1="10" y1="48" x2="210" y2="48" stroke="#7b3fc4" stroke-width="1.5"/>
+            <line x1="55" y1="35" x2="55" y2="48" stroke="#c084fc" stroke-width="1.5"/>
+            <line x1="49" y1="42" x2="61" y2="42" stroke="#c084fc" stroke-width="1.5"/>
+            <line x1="55" y1="42" x2="110" y2="42" stroke="#c084fc" stroke-width="1.5" stroke-dasharray="3,2"/>
+            <rect x="110" y="25" width="50" height="23" fill="#7b3fc433" stroke="#a855f7" stroke-width="2" rx="3"/>
+            <line x1="135" y1="22" x2="135" y2="50" stroke="#fde68a" stroke-width="2"/>
+            <line x1="160" y1="42" x2="185" y2="42" stroke="#c084fc" stroke-width="1.5" stroke-dasharray="3,2"/>
+            <line x1="185" y1="35" x2="185" y2="48" stroke="#c084fc" stroke-width="1.5"/>
+            <line x1="179" y1="42" x2="191" y2="42" stroke="#c084fc" stroke-width="1.5"/>
+            <text x="55" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">15</text>
+            <text x="110" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">20</text>
+            <text x="135" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">22</text>
+            <text x="160" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">25</text>
+            <text x="185" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">28</text>
+          </svg>
+          <div class="iqr-drop-area" id="iqr-drop-C" data-correct="5">Drop IQR here</div>
+        </div>
+
+        <div class="iqr-card">
+          <div class="iqr-card-title">Dataset D 🔥</div>
+          <div class="iqr-dataset">Q1 = 3, Q3 = 18</div>
+          <svg viewBox="0 0 220 60" style="width:100%;margin-bottom:8px">
+            <line x1="10" y1="48" x2="210" y2="48" stroke="#7b3fc4" stroke-width="1.5"/>
+            <line x1="20" y1="35" x2="20" y2="48" stroke="#c084fc" stroke-width="1.5"/>
+            <line x1="14" y1="42" x2="26" y2="42" stroke="#c084fc" stroke-width="1.5"/>
+            <line x1="20" y1="42" x2="55" y2="42" stroke="#c084fc" stroke-width="1.5" stroke-dasharray="3,2"/>
+            <rect x="55" y="25" width="150" height="23" fill="#7b3fc433" stroke="#a855f7" stroke-width="2" rx="3"/>
+            <line x1="100" y1="22" x2="100" y2="50" stroke="#fde68a" stroke-width="2"/>
+            <line x1="205" y1="42" x2="208" y2="42" stroke="#c084fc" stroke-width="1.5" stroke-dasharray="3,2"/>
+            <line x1="208" y1="35" x2="208" y2="48" stroke="#c084fc" stroke-width="1.5"/>
+            <line x1="202" y1="42" x2="214" y2="42" stroke="#c084fc" stroke-width="1.5"/>
+            <text x="20" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">1</text>
+            <text x="55" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">3</text>
+            <text x="100" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">10</text>
+            <text x="205" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">18</text>
+            <text x="208" y="58" fill="#9ca3af" font-size="9" text-anchor="middle">20</text>
+          </svg>
+          <div class="iqr-drop-area" id="iqr-drop-D" data-correct="15">Drop IQR here</div>
+        </div>
+
+      </div>
+
+      <div style="margin-top:14px;">
+        <button class="btn-check" onclick="checkAct3()">Check Answers ✨</button>
+        <button class="btn-reset" onclick="resetAct3()">Reset</button>
+      </div>
+      <div class="feedback-strip empty" id="fb3"></div>
+    </div>
+  </div>
+
+</div><!-- end page-wrap -->
+
+<!-- ════════════════════════════
+     JAVASCRIPT
+════════════════════════════ -->
+<script>
+/* ── BACKGROUND CANVAS ── */
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize(){ W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; }
+resize(); window.addEventListener('resize', resize);
+
+const stars = Array.from({length:120},()=>({
+  x:Math.random()*2000, y:Math.random()*1200,
+  r:Math.random()*1.6+.3,
+  speed:Math.random()*.4+.1,
+  opacity:Math.random()*.7+.3
+}));
+
+const birds = Array.from({length:8},()=>({
+  x:Math.random()*W, y:Math.random()*H*.5+50,
+  vx:Math.random()*1.5+.5, vy:(Math.random()-.5)*.3,
+  phase:Math.random()*Math.PI*2
+}));
+
+let t=0;
+function drawBg(){
+  ctx.clearRect(0,0,W,H);
+  // gradient bg
+  const g=ctx.createRadialGradient(W*.4,H*.3,50,W*.4,H*.3,Math.max(W,H));
+  g.addColorStop(0,'#2d0a5e'); g.addColorStop(.6,'#1a0533'); g.addColorStop(1,'#0d021f');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+  // nebula blobs
+  [[W*.2,H*.2,200,'#7b3fc411'],[W*.7,H*.6,280,'#4a1a8a18'],[W*.5,H*.1,160,'#d946ef0a']].forEach(([cx,cy,r,c])=>{
+    const ng=ctx.createRadialGradient(cx,cy,0,cx,cy,r);
+    ng.addColorStop(0,c); ng.addColorStop(1,'transparent');
+    ctx.fillStyle=ng; ctx.fillRect(0,0,W,H);
+  });
+
+  // stars (twinkling)
+  stars.forEach(s=>{
+    s.x -= s.speed*.3;
+    if(s.x<0) s.x=W;
+    const flicker = .5+.5*Math.sin(t*.05+s.y);
+    ctx.beginPath();
+    ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(200,180,255,${s.opacity*flicker})`;
+    ctx.fill();
+  });
+
+  // birds (chain-like flocking)
+  ctx.strokeStyle='#c084fc44'; ctx.lineWidth=1.5;
+  birds.forEach((b,i)=>{
+    b.x+=b.vx; b.vy+=Math.sin(t*.02+b.phase)*.02;
+    b.y+=b.vy;
+    if(b.x>W+20) b.x=-20;
+    if(b.y<20) b.y=20; if(b.y>H*.7) b.y=H*.7;
+    // wing flap
+    const flap = Math.sin(t*.15+b.phase)*6;
+    ctx.beginPath();
+    ctx.moveTo(b.x-7,b.y+flap); ctx.quadraticCurveTo(b.x,b.y-4,b.x+7,b.y+flap);
+    ctx.stroke();
+    // chain line to next bird
+    if(i>0){
+      ctx.beginPath();
+      ctx.setLineDash([4,6]);
+      ctx.moveTo(b.x,b.y); ctx.lineTo(birds[i-1].x,birds[i-1].y);
+      ctx.strokeStyle='#7b3fc422';
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle='#c084fc44';
+    }
+  });
+
+  t++;
+  requestAnimationFrame(drawBg);
+}
+drawBg();
+
+/* ── TABS ── */
+function showTab(n, btn){
+  document.querySelectorAll('.activity-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel'+n).classList.add('active');
+  btn.classList.add('active');
+}
+
+/* ── STAR POP ── */
+function popStars(x,y){
+  ['⭐','✨','💜','🌟'].forEach((e,i)=>{
+    const el=document.createElement('div');
+    el.className='star-pop'; el.textContent=e;
+    el.style.left=(x+i*30-40)+'px'; el.style.top=(y-20)+'px';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),1000);
+  });
+}
+
+/* ══════════════════════════
+   ACTIVITY 1
+══════════════════════════ */
+const ACT1_DATA = [3, 7, 9, 12, 15, 18, 21, 24, 27];
+// Correct five-num: min=3, Q1=9, med=15, Q3=21, max=27
+const A1_ANSWERS = { min:'3', q1:'9', med:'15', q3:'21', max:'27' };
+
+let a1DragVal = null;
+
+function buildAct1(){
+  const bank = document.getElementById('bank1');
+  bank.innerHTML='';
+  const shuffled = [...ACT1_DATA].sort(()=>Math.random()-.5);
+  shuffled.forEach(n=>{
+    const chip = document.createElement('div');
+    chip.className='num-chip'; chip.textContent=n;
+    chip.draggable=true; chip.dataset.val=n;
+    addChipDrag(chip,'bank1');
+    bank.appendChild(chip);
+  });
+
+  const slots = document.getElementById('sort-slots');
+  slots.innerHTML='';
+  for(let i=0;i<9;i++){
+    const slot=document.createElement('div');
+    slot.className='sort-slot'; slot.dataset.idx=i;
+    slot.textContent=i+1;
+    setupSlotDrop(slot,'sort');
+    slots.appendChild(slot);
+  }
+
+  ['fn-min','fn-q1','fn-med','fn-q3','fn-max'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.textContent='drop';
+    setupSlotDrop(el,'fn');
+  });
+}
+
+function addChipDrag(chip, origin){
+  chip.addEventListener('dragstart',e=>{
+    a1DragVal = chip.dataset.val;
+    chip.classList.add('dragging');
+    e.dataTransfer.effectAllowed='move';
+    e.dataTransfer.setData('text/plain', chip.dataset.val+':'+origin+':'+chip.id);
+  });
+  chip.addEventListener('dragend',()=>chip.classList.remove('dragging'));
+}
+
+function setupSlotDrop(slot, type){
+  slot.addEventListener('dragover',e=>{ e.preventDefault(); slot.classList.add('over'); });
+  slot.addEventListener('dragleave',()=>slot.classList.remove('over'));
+  slot.addEventListener('drop',e=>{
+    e.preventDefault(); slot.classList.remove('over');
+    const raw = e.dataTransfer.getData('text/plain');
+    const [val, origin, srcId] = raw.split(':');
+    // Remove chip from wherever it was
+    if(srcId){
+      const existing = document.getElementById(srcId);
+      if(existing) existing.parentElement.replaceChild(document.createTextNode(''), existing);
+    }
+    // If slot already has a chip, return it to bank
+    const prev = slot.querySelector('.num-chip');
+    if(prev){
+      prev.remove();
+      const bank = document.getElementById('bank1');
+      bank.appendChild(prev);
+    }
+    if(type==='sort'){
+      if(slot.firstChild && slot.firstChild.nodeType===3) slot.innerHTML='';
+      const chip=document.createElement('div');
+      chip.className='num-chip'; chip.textContent=val; chip.dataset.val=val;
+      chip.draggable=true; chip.id='chip-s-'+val;
+      addChipDrag(chip,'sort');
+      slot.appendChild(chip);
+    } else if(type==='fn'){
+      slot.textContent=val;
+      slot.dataset.placed=val;
+    }
+  });
+}
+
+function checkAct1(){
+  const fb=document.getElementById('fb1');
+  let correct=0, total=5;
+  const keys=['fn-min','fn-q1','fn-med','fn-q3','fn-max'];
+  const corrKeys=['min','q1','med','q3','max'];
+  keys.forEach((id,i)=>{
+    const el=document.getElementById(id);
+    const placed=el.dataset.placed||el.textContent;
+    if(placed===A1_ANSWERS[corrKeys[i]]) correct++;
+  });
+  if(correct===total){
+    fb.className='feedback-strip correct';
+    fb.textContent='🎉 Perfect! All five numbers correct! IQR = Q3 − Q1 = 21 − 9 = 12';
+    document.getElementById('pd1').classList.add('done');
+    popStars(400,200);
+  } else {
+    fb.className='feedback-strip wrong';
+    fb.textContent=`Not quite — ${correct}/5 correct. Remember: sorted order → min, Q1 (25th %ile), median, Q3 (75th %ile), max!`;
+  }
+}
+
+function resetAct1(){
+  document.getElementById('fb1').className='feedback-strip empty';
+  document.getElementById('fb1').textContent='';
+  buildAct1();
+}
+
+buildAct1();
+
+/* ══════════════════════════
+   ACTIVITY 2
+══════════════════════════ */
+let a2DragId = null;
+
+function setupAct2(){
+  document.querySelectorAll('.part-chip').forEach(chip=>{
+    chip.addEventListener('dragstart',e=>{
+      a2DragId = chip.id;
+      e.dataTransfer.setData('text/plain', chip.id+':'+chip.dataset.val);
+    });
+  });
+
+  document.querySelectorAll('.bp-label-zone').forEach(zone=>{
+    zone.addEventListener('dragover',e=>{ e.preventDefault(); zone.classList.add('over'); });
+    zone.addEventListener('dragleave',()=>zone.classList.remove('over'));
+    zone.addEventListener('drop',e=>{
+      e.preventDefault(); zone.classList.remove('over');
+      const [srcId, val] = e.dataTransfer.getData('text/plain').split(':');
+      // Return previous chip to bank if any
+      const prev = zone.querySelector('.part-chip');
+      if(prev){
+        document.getElementById('bank2').appendChild(prev);
+        prev.draggable=true;
+      }
+      const chip = document.getElementById(srcId);
+      if(!chip) return;
+      // clone to place
+      const placed=chip.cloneNode(true);
+      placed.draggable=false;
+      placed.style.cursor='default';
+      // remove old drag listener by not adding it
+      zone.innerHTML='';
+      zone.appendChild(placed);
+      zone.dataset.placed=val;
+      chip.remove();
+    });
+  });
+}
+setupAct2();
+
+function checkAct2(){
+  const fb=document.getElementById('fb2');
+  const zones=document.querySelectorAll('.bp-label-zone');
+  let correct=0;
+  zones.forEach(z=>{
+    if(z.dataset.placed===z.dataset.correct) correct++;
+  });
+  if(correct===5){
+    fb.className='feedback-strip correct';
+    fb.textContent='🌟 Brilliant! Every label is in the right spot!';
+    document.getElementById('pd2').classList.add('done');
+    popStars(500,300);
+  } else {
+    fb.className='feedback-strip wrong';
+    fb.textContent=`${correct}/5 correct. Tip: Min & Max are the whisker tips; Q1 & Q3 are the box edges; Median is the line inside the box!`;
+  }
+}
+
+function resetAct2(){
+  document.getElementById('fb2').className='feedback-strip empty';
+  document.getElementById('fb2').textContent='';
+  // return all placed chips to bank
+  document.querySelectorAll('.bp-label-zone').forEach(z=>{
+    const chip=z.querySelector('.part-chip');
+    if(chip){
+      chip.draggable=true;
+      document.getElementById('bank2').appendChild(chip);
+    }
+    z.innerHTML='<strong>'+z.querySelector('strong')?.textContent+'</strong><small style="color:var(--v6)">Drop label</small>';
+    delete z.dataset.placed;
+  });
+  // re-setup drag
+  document.querySelectorAll('#bank2 .part-chip').forEach(chip=>{
+    chip.addEventListener('dragstart',e=>{
+      a2DragId=chip.id;
+      e.dataTransfer.setData('text/plain', chip.id+':'+chip.dataset.val);
+    });
+  });
+}
+
+/* ══════════════════════════
+   ACTIVITY 3
+══════════════════════════ */
+function setupAct3(){
+  document.querySelectorAll('.iqr-chip').forEach(chip=>{
+    chip.addEventListener('dragstart',e=>{
+      e.dataTransfer.setData('text/plain', chip.dataset.val+':'+chip.id);
+    });
+  });
+
+  document.querySelectorAll('.iqr-drop-area').forEach(zone=>{
+    zone.addEventListener('dragover',e=>{ e.preventDefault(); zone.classList.add('over'); });
+    zone.addEventListener('dragleave',()=>zone.classList.remove('over'));
+    zone.addEventListener('drop',e=>{
+      e.preventDefault(); zone.classList.remove('over');
+      const [val, srcId] = e.dataTransfer.getData('text/plain').split(':');
+      // Return previous
+      const prev=zone.querySelector('.iqr-chip');
+      if(prev){ document.getElementById('iqr-bank').appendChild(prev); prev.draggable=true; }
+      const src=document.getElementById(srcId);
+      if(!src) return;
+      const placed=src.cloneNode(true);
+      placed.draggable=false; placed.style.cursor='default';
+      zone.innerHTML=''; zone.appendChild(placed);
+      zone.dataset.placed=val;
+      src.remove();
+    });
+  });
+}
+setupAct3();
+
+function checkAct3(){
+  const fb=document.getElementById('fb3');
+  const zones=document.querySelectorAll('.iqr-drop-area');
+  let correct=0;
+  zones.forEach(z=>{
+    if(z.dataset.placed===z.dataset.correct) correct++;
+  });
+  if(correct===4){
+    fb.className='feedback-strip correct';
+    fb.textContent='🏆 Champion! All IQR values matched perfectly!';
+    document.getElementById('pd3').classList.add('done');
+    popStars(500,400);
+  } else {
+    fb.className='feedback-strip wrong';
+    fb.textContent=`${correct}/4 correct. Remember IQR = Q3 − Q1. Calculate carefully for each dataset!`;
+  }
+}
+
+function resetAct3(){
+  document.getElementById('fb3').className='feedback-strip empty';
+  document.getElementById('fb3').textContent='';
+  document.querySelectorAll('.iqr-drop-area').forEach(z=>{
+    const chip=z.querySelector('.iqr-chip');
+    if(chip){ chip.draggable=true; document.getElementById('iqr-bank').appendChild(chip); }
+    z.textContent='Drop IQR here';
+    delete z.dataset.placed;
+  });
+  document.querySelectorAll('.iqr-chip').forEach(chip=>{
+    chip.addEventListener('dragstart',e=>{
+      e.dataTransfer.setData('text/plain', chip.dataset.val+':'+chip.id);
+    });
+  });
+}
+</script>
+</body>
+</html>

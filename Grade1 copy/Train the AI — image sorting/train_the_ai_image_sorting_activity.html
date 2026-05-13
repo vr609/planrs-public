@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Train the AI — Image Sorting</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#060818; --panel:#0d1535; --panel2:#111f40;
+  --cyan:#00F5FF; --purple:#A855F7; --pink:#FF3D9A;
+  --green:#00FF88; --gold:#FFD700; --orange:#FF6B35;
+  --white:#F0F8FF; --dim:#7090B0;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+
+body {
+  font-family:'Nunito',sans-serif;
+  background:var(--bg);
+  min-height:100vh;
+  overflow-x:hidden;
+  color:var(--white);
+}
+
+/* ── ANIMATED AI BACKGROUND ── */
+.ai-bg {
+  position:fixed;inset:0;z-index:0;overflow:hidden;
+  background:radial-gradient(ellipse at 20% 30%,#0a1a4a 0%,transparent 55%),
+             radial-gradient(ellipse at 80% 70%,#1a0a3a 0%,transparent 55%),
+             radial-gradient(ellipse at 50% 50%,#060c28 0%,transparent 60%),
+             #030a1a;
+}
+
+/* Neural network grid */
+.nn-grid {
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(0,245,255,0.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,245,255,0.04) 1px,transparent 1px);
+  background-size:48px 48px;
+  animation:gridShift 20s linear infinite;
+}
+@keyframes gridShift {
+  from{background-position:0 0;}
+  to  {background-position:48px 48px;}
+}
+
+/* Floating neural nodes */
+.node {
+  position:fixed;border-radius:50%;
+  animation:nodePulse ease-in-out infinite alternate, nodeFloat linear infinite;
+  pointer-events:none;
+}
+@keyframes nodePulse {
+  0%  {opacity:0.15;transform:scale(0.8);}
+  100%{opacity:0.7; transform:scale(1.2);}
+}
+@keyframes nodeFloat {
+  0%  {transform:translateY(0) translateX(0);}
+  25% {transform:translateY(-18px) translateX(10px);}
+  75% {transform:translateY(12px) translateX(-8px);}
+  100%{transform:translateY(0) translateX(0);}
+}
+
+/* Connection lines */
+.conn-line {
+  position:fixed;pointer-events:none;z-index:0;
+  height:1px;transform-origin:left center;
+  animation:lineGlow ease-in-out infinite alternate;
+}
+@keyframes lineGlow {
+  0%  {opacity:0.06;}
+  100%{opacity:0.2;}
+}
+
+/* Floating data packets */
+.data-packet {
+  position:fixed;width:6px;height:6px;border-radius:50%;
+  pointer-events:none;z-index:1;
+  animation:packetTravel linear infinite;
+}
+@keyframes packetTravel {
+  0%  {opacity:0;transform:translateX(0) translateY(0);}
+  10% {opacity:1;}
+  90% {opacity:1;}
+  100%{opacity:0;transform:translateX(var(--dx)) translateY(var(--dy));}
+}
+
+/* AI face / brain animation */
+.ai-brain {
+  position:fixed;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:300px;height:300px;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(0,245,255,0.03) 0%,transparent 70%);
+  animation:brainPulse 4s ease-in-out infinite;
+  pointer-events:none;z-index:0;
+}
+@keyframes brainPulse {
+  0%,100%{box-shadow:0 0 60px 30px rgba(0,245,255,0.04);}
+  50%    {box-shadow:0 0 100px 60px rgba(168,85,247,0.06);}
+}
+
+/* Scan lines */
+.scan-line {
+  position:fixed;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,rgba(0,245,255,0.15),transparent);
+  animation:scanDown linear infinite;
+  pointer-events:none;z-index:1;
+}
+@keyframes scanDown {
+  from{top:-4px;}
+  to  {top:100vh;}
+}
+
+/* ── LAYOUT ── */
+.wrapper {
+  position:relative;z-index:10;
+  max-width:980px;margin:0 auto;
+  padding:18px 14px 60px;
+}
+
+/* ── TITLE ── */
+.main-title {
+  font-family:'Orbitron',monospace;
+  font-size:clamp(1.5rem,4.5vw,2.8rem);
+  font-weight:900;
+  text-align:center;
+  margin-bottom:6px;
+  background:linear-gradient(135deg,var(--cyan),var(--purple),var(--pink),var(--cyan));
+  background-size:300%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+  animation:titleFlow 4s linear infinite;
+  filter:drop-shadow(0 0 20px rgba(0,245,255,0.4));
+}
+@keyframes titleFlow {
+  0%  {background-position:0% 50%;}
+  100%{background-position:300% 50%;}
+}
+
+/* ── DATA STREAM DIVIDER ── */
+.data-div {
+  height:3px;margin:10px 0 22px;border-radius:2px;
+  background:linear-gradient(90deg,var(--cyan),var(--purple),var(--pink),var(--green),var(--cyan));
+  background-size:200%;
+  animation:dataFlow 2s linear infinite;
+  box-shadow:0 0 10px rgba(0,245,255,0.4);
+}
+@keyframes dataFlow {
+  from{background-position:0% 50%;}
+  to  {background-position:200% 50%;}
+}
+
+/* ── TABS ── */
+.tab-nav {
+  display:flex;gap:10px;justify-content:center;
+  margin-bottom:22px;flex-wrap:wrap;
+}
+.tab-btn {
+  font-family:'Orbitron',monospace;
+  font-size:0.88rem;font-weight:700;
+  padding:11px 22px;border:none;border-radius:6px;
+  cursor:pointer;transition:all 0.3s;position:relative;
+  overflow:hidden;letter-spacing:0.5px;
+  clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);
+}
+.tab-btn::after {
+  content:'';position:absolute;inset:0;
+  background:white;opacity:0;transition:.2s;
+}
+.tab-btn:hover::after{opacity:0.12;}
+.tab-btn.active{transform:translateY(-3px);
+  box-shadow:0 8px 30px rgba(0,0,0,0.5);}
+.tab-btn:nth-child(1){
+  background:linear-gradient(135deg,#005fa3,#00C3FF);color:white;}
+.tab-btn:nth-child(2){
+  background:linear-gradient(135deg,#6a11cb,#A855F7);color:white;}
+.tab-btn:nth-child(3){
+  background:linear-gradient(135deg,#c31432,#FF3D9A);color:white;}
+
+/* ── PANELS ── */
+.panel{display:none;animation:panIn 0.4s ease;}
+.panel.active{display:block;}
+@keyframes panIn {
+  from{opacity:0;transform:translateY(14px);}
+  to  {opacity:1;transform:translateY(0);}
+}
+
+.card {
+  background:rgba(13,21,53,0.85);
+  border:1px solid rgba(0,245,255,0.15);
+  border-radius:16px;padding:22px;
+  margin-bottom:16px;
+  backdrop-filter:blur(16px);
+  box-shadow:0 8px 32px rgba(0,0,0,0.5),
+             inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.card-title {
+  font-family:'Orbitron',monospace;
+  font-size:1.2rem;font-weight:700;
+  margin-bottom:12px;
+  display:flex;align-items:center;gap:8px;
+}
+
+/* ══════════════════════════════════════
+   ACTIVITY 1 — DRAG & DROP SORT
+══════════════════════════════════════ */
+.sort-arena {
+  display:flex;flex-direction:column;gap:14px;
+}
+.sort-instruction {
+  font-size:0.95rem;color:rgba(240,248,255,0.75);
+  line-height:1.6;margin-bottom:8px;
+  padding:10px 14px;
+  background:rgba(0,245,255,0.06);
+  border-left:3px solid var(--cyan);
+  border-radius:0 8px 8px 0;
+}
+
+.image-bank {
+  display:flex;flex-wrap:wrap;gap:10px;
+  justify-content:center;
+  min-height:90px;
+  padding:14px;
+  background:rgba(255,255,255,0.03);
+  border:2px dashed rgba(0,245,255,0.2);
+  border-radius:12px;
+}
+
+.sort-item {
+  width:76px;height:76px;border-radius:12px;
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:4px;
+  cursor:grab;font-size:2.2rem;
+  background:rgba(255,255,255,0.06);
+  border:1.5px solid rgba(255,255,255,0.1);
+  transition:all 0.25s;
+  user-select:none;
+  -webkit-user-select:none;
+  position:relative;overflow:hidden;
+}
+.sort-item::before {
+  content:'';position:absolute;inset:0;border-radius:12px;
+  background:linear-gradient(135deg,rgba(255,255,255,0.08),transparent);
+}
+.sort-item:hover{transform:scale(1.1) rotate(-2deg);
+  box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  border-color:var(--cyan);}
+.sort-item:active{cursor:grabbing;}
+.sort-item.dragging{opacity:0.5;transform:scale(1.1);}
+.sort-item span{font-size:0.6rem;font-weight:700;
+  color:rgba(255,255,255,0.6);letter-spacing:0.5px;text-transform:uppercase;}
+
+.drop-zones {
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  gap:12px;
+}
+.drop-zone {
+  min-height:120px;border-radius:14px;padding:10px;
+  border:2px dashed rgba(255,255,255,0.2);
+  transition:all 0.3s;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+}
+.drop-zone.drag-over {
+  border-color:var(--cyan);
+  background:rgba(0,245,255,0.08);
+  box-shadow:0 0 20px rgba(0,245,255,0.2);
+}
+.drop-zone .zone-label {
+  font-family:'Orbitron',monospace;
+  font-size:0.78rem;font-weight:700;
+  padding:4px 14px;border-radius:20px;
+  margin-bottom:4px;letter-spacing:0.5px;
+}
+.drop-zone .zone-items {
+  display:flex;flex-wrap:wrap;gap:6px;justify-content:center;
+  min-height:60px;width:100%;
+}
+.drop-zone .zone-items .sort-item {
+  width:56px;height:56px;font-size:1.6rem;
+  cursor:default;
+}
+.drop-zone .zone-items .sort-item:hover{transform:none;}
+
+.sort-score-bar {
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:10px;
+}
+.ai-accuracy {
+  font-family:'Orbitron',monospace;
+  font-size:1rem;color:var(--green);
+}
+.accuracy-bar {
+  flex:1;height:8px;background:rgba(255,255,255,0.1);
+  border-radius:4px;overflow:hidden;min-width:120px;
+}
+.accuracy-fill {
+  height:100%;border-radius:4px;
+  background:linear-gradient(90deg,var(--cyan),var(--green));
+  transition:width 0.8s ease;width:0%;
+  box-shadow:0 0 8px rgba(0,255,136,0.4);
+}
+.check-btn {
+  font-family:'Orbitron',monospace;
+  font-size:0.85rem;font-weight:700;
+  padding:10px 22px;border:none;border-radius:6px;
+  background:linear-gradient(135deg,var(--cyan),var(--purple));
+  color:var(--bg);cursor:pointer;transition:all 0.3s;
+  clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);
+}
+.check-btn:hover{transform:scale(1.05);
+  box-shadow:0 6px 20px rgba(0,245,255,0.4);}
+.sort-feedback {
+  font-size:1rem;font-weight:700;min-height:24px;
+  text-align:center;color:var(--white);
+}
+.reset-s {
+  font-family:'Orbitron',monospace;
+  font-size:0.8rem;padding:8px 18px;
+  border:1.5px solid rgba(255,255,255,0.2);
+  border-radius:6px;background:transparent;
+  color:var(--dim);cursor:pointer;transition:all 0.25s;
+}
+.reset-s:hover{color:var(--white);border-color:rgba(255,255,255,0.4);}
+
+/* ══════════════════════════════════════
+   ACTIVITY 2 — QUIZ
+══════════════════════════════════════ */
+.q-wrap {background:rgba(0,0,0,0.2);border-radius:14px;padding:18px;margin-bottom:14px;}
+.q-text {
+  font-family:'Orbitron',monospace;
+  font-size:0.95rem;font-weight:700;
+  color:var(--cyan);margin-bottom:14px;line-height:1.5;
+}
+.q-opts {display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.q-opt {
+  font-family:'Nunito',sans-serif;
+  font-size:0.9rem;font-weight:700;
+  padding:11px 14px;
+  border:1.5px solid rgba(0,245,255,0.2);
+  border-radius:10px;
+  background:rgba(255,255,255,0.04);
+  color:var(--white);cursor:pointer;
+  transition:all 0.22s;text-align:left;
+}
+.q-opt:hover:not(:disabled) {
+  background:rgba(0,245,255,0.1);
+  border-color:var(--cyan);transform:translateY(-2px);
+}
+.q-opt.correct{background:rgba(0,255,136,0.2);border-color:var(--green);color:var(--green);}
+.q-opt.wrong  {background:rgba(255,61,154,0.15);border-color:var(--pink);color:var(--pink);}
+.q-opt:disabled{cursor:not-allowed;}
+.q-fb {font-size:0.9rem;font-weight:700;color:var(--white);margin-top:10px;min-height:20px;}
+.q-score {
+  font-family:'Orbitron',monospace;
+  font-size:1rem;color:var(--gold);text-align:center;margin-top:10px;
+}
+.nxt-btn {
+  font-family:'Orbitron',monospace;
+  font-size:0.85rem;font-weight:700;padding:10px 22px;
+  border:none;border-radius:6px;
+  background:linear-gradient(135deg,var(--gold),var(--orange));
+  color:var(--bg);cursor:pointer;transition:all .25s;display:none;margin-top:10px;
+  clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);
+}
+.nxt-btn:hover{transform:scale(1.06);}
+.quiz-done{text-align:center;padding:26px;display:none;}
+.ai-badge-icon{font-size:4rem;animation:badgeSpin 2s ease-in-out infinite alternate;}
+@keyframes badgeSpin{0%{transform:rotate(-8deg) scale(1);}100%{transform:rotate(8deg) scale(1.2);}}
+.done-title{font-family:'Orbitron',monospace;font-size:1.6rem;color:var(--gold);margin:10px 0;}
+.retry-btn {
+  font-family:'Orbitron',monospace;
+  font-size:0.85rem;padding:10px 22px;
+  border:none;border-radius:6px;
+  background:linear-gradient(135deg,var(--purple),var(--pink));
+  color:white;cursor:pointer;transition:all .25s;margin-top:12px;
+  display:inline-block;
+}
+.retry-btn:hover{transform:scale(1.07);}
+
+/* ══════════════════════════════════════
+   ACTIVITY 3 — FIX THE AI
+══════════════════════════════════════ */
+.fix-intro {
+  font-size:0.95rem;color:rgba(240,248,255,0.8);
+  line-height:1.65;margin-bottom:14px;
+}
+.error-board {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:12px;margin-bottom:14px;
+}
+.error-bucket {
+  background:rgba(255,255,255,0.04);
+  border:1.5px solid rgba(255,255,255,0.1);
+  border-radius:14px;padding:12px 10px;
+  text-align:center;min-height:160px;
+}
+.bucket-label {
+  font-family:'Orbitron',monospace;
+  font-size:0.75rem;font-weight:700;
+  padding:4px 12px;border-radius:20px;
+  margin-bottom:8px;display:inline-block;
+  letter-spacing:0.5px;
+}
+.bucket-items {
+  display:flex;flex-wrap:wrap;gap:8px;
+  justify-content:center;min-height:80px;align-items:center;
+}
+.fix-item {
+  width:62px;height:62px;border-radius:10px;
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:2px;cursor:pointer;
+  font-size:1.9rem;
+  background:rgba(255,255,255,0.06);
+  border:1.5px solid rgba(255,255,255,0.1);
+  transition:all 0.25s;position:relative;
+}
+.fix-item:hover{transform:scale(1.12);border-color:var(--gold);}
+.fix-item.error-item {
+  border-color:var(--pink);
+  box-shadow:0 0 14px rgba(255,61,154,0.4);
+  animation:errorShake 0.5s ease infinite;
+}
+@keyframes errorShake {
+  0%,100%{transform:rotate(0deg);}
+  25%{transform:rotate(-3deg);}
+  75%{transform:rotate(3deg);}
+}
+.fix-item.found-error {
+  border-color:var(--green);
+  box-shadow:0 0 14px rgba(0,255,136,0.5);
+  animation:none;
+}
+.fix-item .item-label {
+  font-size:0.5rem;font-weight:700;
+  color:rgba(255,255,255,0.55);letter-spacing:0.3px;
+  text-transform:uppercase;
+}
+.fix-score {
+  font-family:'Orbitron',monospace;
+  font-size:1rem;color:var(--purple);text-align:center;margin-bottom:8px;
+}
+.fix-msg {
+  font-family:'Orbitron',monospace;
+  font-size:0.9rem;text-align:center;
+  color:var(--white);min-height:24px;margin-top:8px;
+}
+.new-round-btn {
+  font-family:'Orbitron',monospace;
+  font-size:0.82rem;font-weight:700;padding:9px 20px;
+  border:none;border-radius:6px;
+  background:linear-gradient(135deg,var(--purple),var(--pink));
+  color:white;cursor:pointer;transition:all .25s;
+  display:block;margin:10px auto 0;
+  clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);
+}
+.new-round-btn:hover{transform:scale(1.06);}
+
+/* Info box */
+.info-panel {
+  background:rgba(0,245,255,0.05);
+  border-left:3px solid var(--cyan);
+  border-radius:0 10px 10px 0;
+  padding:12px 14px;margin-top:0;
+}
+.info-panel p{font-size:0.95rem;color:rgba(240,248,255,0.82);line-height:1.7;}
+
+/* Confetti burst */
+.spark {
+  position:fixed;pointer-events:none;z-index:999;
+  border-radius:50%;animation:sparkPop linear forwards;
+}
+@keyframes sparkPop {
+  0%{opacity:1;transform:translate(0,0)scale(1);}
+  100%{opacity:0;transform:translate(var(--dx),var(--dy))scale(0.2);}
+}
+
+@media(max-width:520px) {
+  .q-opts{grid-template-columns:1fr;}
+  .drop-zones{grid-template-columns:1fr 1fr;}
+  .error-board{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- ANIMATED AI BACKGROUND -->
+<div class="ai-bg">
+  <div class="nn-grid"></div>
+  <div class="ai-brain"></div>
+  <div class="scan-line" style="animation-duration:8s;animation-delay:0s;"></div>
+  <div class="scan-line" style="animation-duration:12s;animation-delay:-5s;opacity:0.5;"></div>
+</div>
+
+<div class="wrapper">
+
+  <div class="main-title">🤖 Train the AI — Image Sorting</div>
+  <div class="data-div"></div>
+
+  <!-- TABS -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="showTab(0)">⚡ Sort &amp; Train</button>
+    <button class="tab-btn"        onclick="showTab(1)">🧠 AI Quiz</button>
+    <button class="tab-btn"        onclick="showTab(2)">🔍 Fix the AI!</button>
+  </div>
+
+  <!-- ════════════════════════════════
+       PANEL 0 — DRAG & SORT
+  ════════════════════════════════ -->
+  <div class="panel active" id="panel0">
+    <div class="card">
+      <div class="card-title" style="color:var(--cyan);">⚡ Train the AI: Sort the Images!</div>
+      <div class="sort-arena">
+        <div class="sort-instruction">
+          🤖 <strong>You are the AI Trainer!</strong> Drag each image card into the correct category box below.
+          Each sorted image teaches the AI what belongs where. The more correct examples you give, the smarter the AI gets!
+        </div>
+
+        <!-- Image bank -->
+        <div class="image-bank" id="imageBank"></div>
+
+        <!-- Drop zones -->
+        <div class="drop-zones" id="dropZones"></div>
+
+        <!-- Score + controls -->
+        <div class="sort-score-bar">
+          <div class="ai-accuracy">🤖 AI Accuracy: <span id="accPct">0</span>%</div>
+          <div class="accuracy-bar"><div class="accuracy-fill" id="accFill"></div></div>
+          <button class="check-btn" onclick="checkSort()">✅ Check Sorting</button>
+          <button class="reset-s" onclick="resetSort()">🔄 Reset</button>
+        </div>
+        <div class="sort-feedback" id="sortFeedback"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="color:var(--green);">💡 What is Training Data?</div>
+      <div class="info-panel">
+        <p>When you sort these images and label them correctly, you are creating
+        <strong style="color:var(--gold);">TRAINING DATA</strong> — the examples that teach the AI.
+        Just like how Amma sorts vegetables at the sabzi mandi 🥦,
+        the AI learns by seeing many sorted examples.
+        More correct examples = <strong style="color:var(--green);">SMARTER AI!</strong></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════
+       PANEL 1 — QUIZ
+  ════════════════════════════════ -->
+  <div class="panel" id="panel1">
+    <div class="card">
+      <div class="card-title" style="color:var(--purple);">🧠 AI Knowledge Quiz!</div>
+      <div id="quizArea">
+        <div class="q-wrap" id="qBox">
+          <div class="q-text" id="qText"></div>
+          <div class="q-opts" id="qOpts"></div>
+          <div class="q-fb" id="qFb"></div>
+          <button class="nxt-btn" id="nxtBtn" onclick="nextQ()">NEXT ▶</button>
+        </div>
+        <div class="q-score">⭐ Score: <span id="qSc">0</span> / <span id="qTot">6</span></div>
+      </div>
+      <div class="quiz-done" id="quizDone">
+        <div class="ai-badge-icon">🏆</div>
+        <div class="done-title">AI TRAINER CERTIFIED!</div>
+        <div id="doneMsg" style="font-size:0.95rem;color:rgba(240,248,255,0.8);"></div>
+        <button class="retry-btn" onclick="resetQuiz()">🔄 Try Again!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════
+       PANEL 2 — FIX THE AI
+  ════════════════════════════════ -->
+  <div class="panel" id="panel2">
+    <div class="card">
+      <div class="card-title" style="color:var(--pink);">🔍 Fix the AI's Mistakes!</div>
+      <div class="fix-intro">
+        🤖 The AI made sorting errors! Some images are in the <strong style="color:var(--pink);">WRONG category</strong>.
+        Tap the <strong style="color:var(--pink);">glowing/shaking</strong> image that is in the wrong group and click it to move it to the correct group!
+      </div>
+      <div class="fix-score">🐛 Errors Found: <span id="fixCount">0</span> / <span id="fixTotal">3</span></div>
+      <div class="error-board" id="errorBoard"></div>
+      <div class="fix-msg" id="fixMsg">🔍 Find the AI errors — tap on the wrong image!</div>
+      <button class="new-round-btn" onclick="buildFixRound()">🔄 New AI Error Round!</button>
+    </div>
+  </div>
+
+</div><!-- /wrapper -->
+
+<script>
+// ── BACKGROUND EFFECTS ──────────────────────────────────
+(function buildScene(){
+  const body = document.body;
+  const COLORS = ['#00F5FF','#A855F7','#FF3D9A','#00FF88','#FFD700','#FF6B35'];
+
+  // Neural nodes
+  for(let i=0;i<18;i++){
+    const n=document.createElement('div');
+    n.className='node';
+    const sz=4+Math.random()*10;
+    const col=COLORS[Math.floor(Math.random()*COLORS.length)];
+    n.style.cssText=`
+      width:${sz}px;height:${sz}px;
+      left:${Math.random()*100}vw;top:${Math.random()*100}vh;
+      background:${col};
+      animation-duration:${2+Math.random()*4}s,${8+Math.random()*12}s;
+      animation-delay:-${Math.random()*6}s,-${Math.random()*10}s;
+      box-shadow:0 0 ${sz*2}px ${col}66;
+    `;
+    body.appendChild(n);
+  }
+
+  // Connection lines
+  for(let i=0;i<12;i++){
+    const l=document.createElement('div');
+    l.className='conn-line';
+    const x=Math.random()*100, y=Math.random()*100;
+    const len=80+Math.random()*150;
+    const ang=Math.random()*360;
+    const col=COLORS[Math.floor(Math.random()*COLORS.length)];
+    l.style.cssText=`
+      left:${x}vw;top:${y}vh;
+      width:${len}px;
+      background:${col};
+      transform:rotate(${ang}deg);
+      animation-duration:${2+Math.random()*3}s;
+      animation-delay:-${Math.random()*4}s;
+    `;
+    body.appendChild(l);
+  }
+
+  // Data packets
+  for(let i=0;i<16;i++){
+    const p=document.createElement('div');
+    p.className='data-packet';
+    const col=COLORS[Math.floor(Math.random()*COLORS.length)];
+    const dx=(Math.random()-0.5)*400;
+    const dy=(Math.random()-0.5)*400;
+    p.style.cssText=`
+      left:${Math.random()*100}vw;top:${Math.random()*100}vh;
+      background:${col};
+      --dx:${dx}px;--dy:${dy}px;
+      animation-duration:${3+Math.random()*5}s;
+      animation-delay:-${Math.random()*6}s;
+      box-shadow:0 0 6px ${col};
+    `;
+    body.appendChild(p);
+  }
+})();
+
+// ── TABS ─────────────────────────────────────────────────
+function showTab(idx){
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',i===idx));
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
+}
+
+// ══════════════════════════════════════════════════════
+// ACTIVITY 1 — DRAG & SORT
+// ══════════════════════════════════════════════════════
+const CATEGORIES = [
+  { name:'🍎 FRUITS',    color:'#FF6B35', light:'rgba(255,107,53,0.15)',
+    items:[
+      {e:'🥭',l:'Mango'},{e:'🍌',l:'Banana'},{e:'🍈',l:'Guava'},{e:'🥥',l:'Coconut'}
+    ]
+  },
+  { name:'🐄 ANIMALS',   color:'#00FF88', light:'rgba(0,255,136,0.12)',
+    items:[
+      {e:'🐄',l:'Cow'},{e:'🦜',l:'Parrot'},{e:'🐘',l:'Elephant'},{e:'🐕',l:'Dog'}
+    ]
+  },
+  { name:'🚌 VEHICLES',  color:'#00F5FF', light:'rgba(0,245,255,0.1)',
+    items:[
+      {e:'🛺',l:'Rickshaw'},{e:'🚲',l:'Cycle'},{e:'🚌',l:'Bus'},{e:'🚂',l:'Train'}
+    ]
+  },
+  { name:'🍛 FOODS',     color:'#A855F7', light:'rgba(168,85,247,0.12)',
+    items:[
+      {e:'🫓',l:'Roti'},{e:'🍚',l:'Rice'},{e:'🫕',l:'Idli'},{e:'🥐',l:'Samosa'}
+    ]
+  },
+];
+
+let dragEl=null, sortScore=0, sortTotal=0, sortAnswers={};
+
+function buildSort(){
+  sortAnswers={}; sortScore=0; sortTotal=0;
+  document.getElementById('accPct').textContent='0';
+  document.getElementById('accFill').style.width='0%';
+  document.getElementById('sortFeedback').textContent='';
+
+  // Build image bank — all items shuffled
+  const bank=document.getElementById('imageBank');
+  bank.innerHTML='';
+  const allItems=[];
+  CATEGORIES.forEach(cat=>{
+    cat.items.forEach(item=>{
+      allItems.push({...item,cat:cat.name});
+    });
+  });
+  allItems.sort(()=>Math.random()-0.5);
+  allItems.forEach(item=>{
+    sortTotal++;
+    const d=document.createElement('div');
+    d.className='sort-item';
+    d.draggable=true;
+    d.dataset.cat=item.cat;
+    d.dataset.label=item.l;
+    d.innerHTML=`${item.e}<span>${item.l}</span>`;
+    d.addEventListener('dragstart',e=>{
+      dragEl=d;
+      setTimeout(()=>d.classList.add('dragging'),0);
+      e.dataTransfer.effectAllowed='move';
+    });
+    d.addEventListener('dragend',()=>d.classList.remove('dragging'));
+    // Touch support
+    d.addEventListener('touchstart',touchStart,{passive:false});
+    d.addEventListener('touchmove',touchMove,{passive:false});
+    d.addEventListener('touchend',touchEnd);
+    bank.appendChild(d);
+  });
+
+  // Build drop zones
+  const zones=document.getElementById('dropZones');
+  zones.innerHTML='';
+  CATEGORIES.forEach(cat=>{
+    const z=document.createElement('div');
+    z.className='drop-zone';
+    z.dataset.cat=cat.name;
+    z.style.background=cat.light;
+    z.style.borderColor=cat.color+'55';
+    z.innerHTML=`
+      <div class="zone-label" style="background:${cat.color}22;color:${cat.color};border:1px solid ${cat.color}66;">${cat.name}</div>
+      <div class="zone-items" id="zone_${cat.name.replace(/\W/g,'')}"></div>
+    `;
+    z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('drag-over');});
+    z.addEventListener('dragleave',()=>z.classList.remove('drag-over'));
+    z.addEventListener('drop',e=>{
+      e.preventDefault();
+      z.classList.remove('drag-over');
+      if(dragEl){
+        const targetZone=z.querySelector('.zone-items');
+        const clone=dragEl.cloneNode(true);
+        clone.draggable=false;
+        clone.style.cursor='default';
+        targetZone.appendChild(clone);
+        dragEl.dataset.placed=cat.name;
+        dragEl.style.opacity='0.3';
+        dragEl.style.pointerEvents='none';
+        dragEl=null;
+      }
+    });
+    zones.appendChild(z);
+  });
+}
+
+// Touch drag support
+let touchDragEl=null, touchClone=null;
+function touchStart(e){
+  touchDragEl=e.currentTarget;
+  const touch=e.touches[0];
+  touchClone=touchDragEl.cloneNode(true);
+  touchClone.style.cssText=`position:fixed;z-index:9999;pointer-events:none;opacity:0.85;
+    left:${touch.clientX-38}px;top:${touch.clientY-38}px;width:76px;height:76px;`;
+  document.body.appendChild(touchClone);
+  e.preventDefault();
+}
+function touchMove(e){
+  if(!touchClone)return;
+  const touch=e.touches[0];
+  touchClone.style.left=`${touch.clientX-38}px`;
+  touchClone.style.top=`${touch.clientY-38}px`;
+  e.preventDefault();
+}
+function touchEnd(e){
+  if(!touchClone||!touchDragEl)return;
+  const touch=e.changedTouches[0];
+  const el=document.elementFromPoint(touch.clientX,touch.clientY);
+  const zone=el?.closest('.drop-zone');
+  if(zone){
+    const targetZone=zone.querySelector('.zone-items');
+    const clone=touchDragEl.cloneNode(true);
+    clone.draggable=false;clone.style.cursor='default';
+    targetZone.appendChild(clone);
+    touchDragEl.dataset.placed=zone.dataset.cat;
+    touchDragEl.style.opacity='0.3';
+    touchDragEl.style.pointerEvents='none';
+  }
+  touchClone.remove();
+  touchClone=null;touchDragEl=null;
+}
+
+function checkSort(){
+  let correct=0,total=0;
+  document.querySelectorAll('#imageBank .sort-item').forEach(item=>{
+    if(item.dataset.placed){
+      total++;
+      if(item.dataset.placed===item.dataset.cat) correct++;
+    }
+  });
+  const pct=total===0?0:Math.round((correct/Math.max(total,1))*100);
+  sortScore=correct;
+  document.getElementById('accPct').textContent=pct;
+  document.getElementById('accFill').style.width=pct+'%';
+  let msg='';
+  if(pct===100){
+    msg='🎉 PERFECT! AI fully trained with correct training data!';
+    sparkBurst(40);
+  } else if(pct>=75){
+    msg=`✅ Great training! ${correct}/${total} correct. Keep going!`;
+    sparkBurst(15);
+  } else if(pct>=50){
+    msg=`⚠️ ${correct}/${total} correct. The AI needs better training data!`;
+  } else {
+    msg=`❌ ${correct}/${total}. Retry — check which category each image belongs to!`;
+  }
+  document.getElementById('sortFeedback').textContent=msg;
+}
+
+function resetSort(){buildSort();}
+buildSort();
+
+// ══════════════════════════════════════════════════════
+// ACTIVITY 2 — QUIZ
+// ══════════════════════════════════════════════════════
+const QS=[
+  {q:'What does AI stand for?',
+   opts:['Automatic Internet','Artificial Intelligence','Amazing Invention','Animal Images'],
+   correct:1,fb:'AI = Artificial Intelligence — a computer trained to do tasks that need human thinking!'},
+  {q:'What is TRAINING DATA?',
+   opts:['A machine that runs fast','Labelled examples we give to the AI so it can learn',
+         'A computer game','The internet'],
+   correct:1,fb:'Training data is the collection of labelled examples that teach the AI what to sort!'},
+  {q:'A mango is sorted into the ANIMAL group. What happened?',
+   opts:['The AI is perfect!','The AI made an ERROR — mangoes belong in FRUITS',
+         'Mangoes are animals','Nothing is wrong'],
+   correct:1,fb:'AI ERROR! The AI confused categories. We fix it by giving better training data!'},
+  {q:'What is a LABEL in AI image sorting?',
+   opts:['A sticker on a lunchbox','The name/category we attach to each picture for the AI to learn',
+         'A colour on a card','The size of the picture'],
+   correct:1,fb:'A label is like a name tag — it tells the AI what category each picture belongs to!'},
+  {q:'Which of these is an example of AI sorting images in real life?',
+   opts:['A bicycle','Google Photos grouping pictures by the same person',
+         'A cricket bat','A cooking pot'],
+   correct:1,fb:'Google Photos uses AI to recognise and group faces — that is AI image sorting in real life!'},
+  {q:'Why does AI need MANY examples to learn?',
+   opts:['AI gets bored with few examples','With only 1 example, the AI may confuse similar-looking things',
+         'AI does not need examples','One example is always enough'],
+   correct:1,fb:'Like learning a new game — you need to play many times to get good. AI needs many examples too!'},
+];
+
+let qIdx=0,qSc=0,qAns=false;
+
+function loadQ(){
+  if(qIdx>=QS.length){showQuizDone();return;}
+  const q=QS[qIdx];
+  document.getElementById('qText').textContent=`Q${qIdx+1}: ${q.q}`;
+  const opts=document.getElementById('qOpts');
+  opts.innerHTML='';
+  q.opts.forEach((o,i)=>{
+    const b=document.createElement('button');
+    b.className='q-opt';b.textContent=o;
+    b.onclick=()=>checkQ(i,q);
+    opts.appendChild(b);
+  });
+  document.getElementById('qFb').textContent='';
+  document.getElementById('nxtBtn').style.display='none';
+  document.getElementById('qTot').textContent=QS.length;
+  document.getElementById('qSc').textContent=qSc;
+  qAns=false;
+}
+function checkQ(idx,q){
+  if(qAns)return;qAns=true;
+  document.querySelectorAll('.q-opt').forEach((b,i)=>{
+    b.disabled=true;
+    if(i===q.correct)b.classList.add('correct');
+    else if(i===idx)b.classList.add('wrong');
+  });
+  if(idx===q.correct){qSc++;sparkBurst(8);}
+  document.getElementById('qFb').textContent=(idx===q.correct?'✅ ':'❌ ')+q.fb;
+  document.getElementById('qSc').textContent=qSc;
+  document.getElementById('nxtBtn').style.display='inline-block';
+}
+function nextQ(){qIdx++;loadQ();}
+function showQuizDone(){
+  document.getElementById('quizArea').style.display='none';
+  document.getElementById('quizDone').style.display='block';
+  const msg=qSc>=5?`${qSc}/${QS.length} — MASTER AI TRAINER! 🌟🌟🌟`
+           :qSc>=4?`${qSc}/${QS.length} — Expert AI Trainer! 🌟🌟`
+           :`${qSc}/${QS.length} — Keep training! 🌟`;
+  document.getElementById('doneMsg').textContent=msg;
+  sparkBurst(qSc>=5?40:15);
+}
+function resetQuiz(){
+  qIdx=0;qSc=0;qAns=false;
+  document.getElementById('quizArea').style.display='block';
+  document.getElementById('quizDone').style.display='none';
+  loadQ();
+}
+loadQ();
+
+// ══════════════════════════════════════════════════════
+// ACTIVITY 3 — FIX THE AI
+// ══════════════════════════════════════════════════════
+const FIX_CATS = [
+  {name:'🍎 FRUITS',  color:'#FF6B35', correct:['🥭','🍌','🥥'],
+   wrong:[{e:'🐄',l:'Cow',real:'🐄 ANIMALS'},{e:'🛺',l:'Rickshaw',real:'🚌 VEHICLES'}]},
+  {name:'🐄 ANIMALS', color:'#00FF88', correct:['🐘','🦜','🐕'],
+   wrong:[{e:'🍚',l:'Rice',real:'🍛 FOODS'}]},
+  {name:'🚌 VEHICLES',color:'#00F5FF', correct:['🚲','🚌','🚂'],wrong:[]},
+  {name:'🍛 FOODS',   color:'#A855F7', correct:['🫓','🫕','🥐'],wrong:[]},
+];
+
+// Pre-defined error scenarios
+const ERROR_SCENARIOS = [
+  { buckets:[
+    {name:'🍎 FRUITS',  color:'#FF6B35', items:[
+      {e:'🥭',err:false},{e:'🍌',err:false},{e:'🐄',err:true,real:'🐄 ANIMALS',l:'Cow'}]},
+    {name:'🐄 ANIMALS', color:'#00FF88', items:[
+      {e:'🐘',err:false},{e:'🦜',err:false},{e:'🍚',err:true,real:'🍛 FOODS',l:'Rice'}]},
+    {name:'🚌 VEHICLES',color:'#00F5FF', items:[
+      {e:'🚲',err:false},{e:'🚌',err:false},{e:'🛺',err:false},{e:'🥥',err:true,real:'🍎 FRUITS',l:'Coconut'}]},
+    {name:'🍛 FOODS',   color:'#A855F7', items:[
+      {e:'🫓',err:false},{e:'🫕',err:false},{e:'🥐',err:false}]},
+  ]},
+  { buckets:[
+    {name:'🍎 FRUITS',  color:'#FF6B35', items:[
+      {e:'🥭',err:false},{e:'🍌',err:false},{e:'🚲',err:true,real:'🚌 VEHICLES',l:'Cycle'}]},
+    {name:'🐄 ANIMALS', color:'#00FF88', items:[
+      {e:'🐘',err:false},{e:'🐕',err:false},{e:'🫓',err:true,real:'🍛 FOODS',l:'Roti'}]},
+    {name:'🚌 VEHICLES',color:'#00F5FF', items:[
+      {e:'🚌',err:false},{e:'🚂',err:false},{e:'🦜',err:true,real:'🐄 ANIMALS',l:'Parrot'}]},
+    {name:'🍛 FOODS',   color:'#A855F7', items:[
+      {e:'🫕',err:false},{e:'🥐',err:false},{e:'🍚',err:false}]},
+  ]},
+];
+
+let fixFound=0,fixTotal=0,fixScenario=null;
+
+function buildFixRound(){
+  fixFound=0;
+  fixScenario=ERROR_SCENARIOS[Math.floor(Math.random()*ERROR_SCENARIOS.length)];
+  let totalErrors=0;
+  fixScenario.buckets.forEach(b=>b.items.forEach(it=>{if(it.err)totalErrors++;}));
+  fixTotal=totalErrors;
+  document.getElementById('fixTotal').textContent=fixTotal;
+  document.getElementById('fixCount').textContent=0;
+  document.getElementById('fixMsg').textContent='🔍 Find the AI errors — tap on the wrong image!';
+
+  const board=document.getElementById('errorBoard');
+  board.innerHTML='';
+
+  fixScenario.buckets.forEach(bucket=>{
+    const col=document.createElement('div');
+    col.className='error-bucket';
+    col.innerHTML=`
+      <div class="bucket-label" style="background:${bucket.color}22;color:${bucket.color};border:1px solid ${bucket.color}55;">
+        ${bucket.name}
+      </div>
+      <div class="bucket-items" id="bucket_${bucket.name.replace(/\W/g,'')}"></div>
+    `;
+    board.appendChild(col);
+
+    const itemsCont=col.querySelector('.bucket-items');
+    bucket.items.forEach(item=>{
+      const d=document.createElement('div');
+      d.className='fix-item'+(item.err?' error-item':'');
+      d.innerHTML=`${item.e}<div class="item-label">${item.l||''}</div>`;
+      if(item.err){
+        d.onclick=()=>fixError(d,item,d.closest('.error-bucket'));
+      }
+      itemsCont.appendChild(d);
+    });
+  });
+}
+
+function fixError(el,item,bucket){
+  if(el.classList.contains('found-error'))return;
+  el.classList.remove('error-item');
+  el.classList.add('found-error');
+  el.onclick=null;
+  fixFound++;
+  document.getElementById('fixCount').textContent=fixFound;
+  document.getElementById('fixMsg').textContent=`✅ Correct! The ${item.l||item.e} belongs in ${item.real}!`;
+  sparkBurst(12);
+  if(fixFound>=fixTotal){
+    setTimeout(()=>{
+      document.getElementById('fixMsg').textContent='🎉 ALL errors fixed! The AI is now retrained correctly!';
+      sparkBurst(35);
+    },400);
+  }
+}
+buildFixRound();
+
+// ── SPARK BURST ─────────────────────────────────────────
+const SPARK_COLS=['#00F5FF','#A855F7','#FF3D9A','#00FF88','#FFD700','#FF6B35'];
+function sparkBurst(n=20){
+  for(let i=0;i<n;i++){
+    setTimeout(()=>{
+      const s=document.createElement('div');
+      s.className='spark';
+      const ang=Math.random()*Math.PI*2;
+      const d=60+Math.random()*130;
+      s.style.cssText=`
+        left:${10+Math.random()*80}vw;
+        top:${20+Math.random()*55}vh;
+        width:${7+Math.random()*7}px;
+        height:${7+Math.random()*7}px;
+        border-radius:${Math.random()>.5?'50%':'2px'};
+        background:${SPARK_COLS[Math.floor(Math.random()*SPARK_COLS.length)]};
+        --dx:${Math.cos(ang)*d}px;
+        --dy:${Math.sin(ang)*d}px;
+        animation-duration:${0.7+Math.random()*.9}s;
+        box-shadow:0 0 6px currentColor;
+      `;
+      document.body.appendChild(s);
+      setTimeout(()=>s.remove(),1800);
+    },i*48);
+  }
+}
+</script>
+</body>
+</html>

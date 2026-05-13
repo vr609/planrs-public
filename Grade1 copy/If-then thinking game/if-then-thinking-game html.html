@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>IF–THEN THINKING GAME</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+
+  :root {
+    --cream: #FFF8EC;
+    --orange: #FF6B35;
+    --yellow: #FFD23F;
+    --teal: #06D6A0;
+    --purple: #7B2D8B;
+    --blue: #118AB2;
+    --pink: #EF476F;
+    --dark: #2D2D2D;
+    --steam: rgba(255,255,255,0.6);
+    --shadow: 0 8px 32px rgba(0,0,0,0.18);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    font-family: 'Nunito', sans-serif;
+    background: var(--cream);
+    user-select: none;
+  }
+
+  /* ===== BACKGROUND KITCHEN SCENE ===== */
+  #bg-canvas {
+    position: fixed; inset: 0; z-index: 0;
+    pointer-events: none;
+  }
+
+  .bg-kitchen {
+    position: fixed; inset: 0; z-index: 0;
+    background: linear-gradient(160deg, #FFF3DC 0%, #FFE9C5 50%, #FFDBA8 100%);
+    overflow: hidden;
+  }
+
+  /* Tile pattern */
+  .bg-kitchen::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(255,180,80,0.07) 0px, rgba(255,180,80,0.07) 1px, transparent 1px, transparent 60px),
+      repeating-linear-gradient(90deg, rgba(255,180,80,0.07) 0px, rgba(255,180,80,0.07) 1px, transparent 1px, transparent 60px);
+  }
+
+  /* Floating ingredients */
+  .float-item {
+    position: fixed;
+    font-size: 2.2rem;
+    opacity: 0.18;
+    animation: floatDrift linear infinite;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  @keyframes floatDrift {
+    0% { transform: translateY(0) rotate(0deg); opacity: 0.18; }
+    50% { opacity: 0.28; }
+    100% { transform: translateY(-30px) rotate(20deg); opacity: 0.18; }
+  }
+
+  /* Steam particles */
+  .steam-wrap { position: fixed; bottom: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+  .steam-puff {
+    position: absolute;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--steam);
+    filter: blur(6px);
+    animation: steamRise linear infinite;
+    opacity: 0;
+  }
+
+  @keyframes steamRise {
+    0%   { transform: translateY(0) scale(0.5); opacity: 0; }
+    20%  { opacity: 0.7; }
+    80%  { opacity: 0.3; }
+    100% { transform: translateY(-160px) scale(2.5) translateX(var(--dx, 0px)); opacity: 0; }
+  }
+
+  /* Bouncing pots */
+  .deco-pot {
+    position: fixed;
+    font-size: 3.5rem;
+    opacity: 0.13;
+    pointer-events: none;
+    z-index: 1;
+    animation: potBob ease-in-out infinite alternate;
+  }
+  @keyframes potBob {
+    from { transform: translateY(0) rotate(-4deg); }
+    to   { transform: translateY(-14px) rotate(4deg); }
+  }
+
+  /* ===== MAIN LAYOUT ===== */
+  #app {
+    position: relative; z-index: 10;
+    width: 100vw; height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-start;
+    padding: 0;
+  }
+
+  /* ===== HEADER ===== */
+  #header {
+    width: 100%; padding: 10px 20px 6px;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    background: linear-gradient(135deg, var(--orange), var(--pink));
+    box-shadow: 0 4px 20px rgba(255,107,53,0.35);
+    border-bottom: 4px solid var(--yellow);
+    position: relative;
+    z-index: 20;
+  }
+
+  #header h1 {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(1.4rem, 3.5vw, 2.2rem);
+    color: #fff;
+    letter-spacing: 2px;
+    text-shadow: 3px 3px 0 rgba(0,0,0,0.18);
+    line-height: 1.1;
+  }
+
+  #header .subtitle {
+    font-size: clamp(0.68rem, 1.5vw, 0.88rem);
+    color: rgba(255,255,255,0.92);
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-top: 1px;
+  }
+
+  /* Progress dots */
+  #progress-bar {
+    display: flex; gap: 10px; margin-top: 6px;
+  }
+  .prog-dot {
+    width: 28px; height: 10px;
+    border-radius: 5px;
+    background: rgba(255,255,255,0.3);
+    border: 2px solid rgba(255,255,255,0.5);
+    transition: all 0.4s;
+  }
+  .prog-dot.active { background: var(--yellow); border-color: var(--yellow); box-shadow: 0 0 10px var(--yellow); }
+  .prog-dot.done   { background: var(--teal);   border-color: var(--teal); }
+
+  /* ===== ACTIVITY STAGE ===== */
+  #stage {
+    flex: 1;
+    width: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 10px 16px 6px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .activity-panel {
+    width: 100%; max-width: 900px;
+    background: rgba(255,255,255,0.88);
+    border-radius: 24px;
+    box-shadow: var(--shadow), 0 0 0 3px var(--yellow);
+    padding: 16px 22px 14px;
+    position: relative;
+    backdrop-filter: blur(8px);
+    animation: panelIn 0.5s cubic-bezier(.34,1.56,.64,1);
+    max-height: calc(100vh - 120px);
+    display: flex; flex-direction: column;
+  }
+
+  @keyframes panelIn {
+    from { transform: scale(0.85) translateY(30px); opacity: 0; }
+    to   { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  .act-badge {
+    position: absolute; top: -14px; left: 22px;
+    background: var(--orange);
+    color: #fff; font-family: 'Fredoka One', cursive;
+    font-size: 0.82rem; padding: 3px 14px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+    box-shadow: 0 3px 10px rgba(255,107,53,0.4);
+  }
+
+  .act-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+    color: var(--dark);
+    margin: 6px 0 4px;
+    text-align: center;
+  }
+  .act-desc {
+    font-size: clamp(0.72rem, 1.4vw, 0.88rem);
+    color: #555; text-align: center;
+    margin-bottom: 10px; font-weight: 600;
+    line-height: 1.4;
+  }
+
+  /* ===== ACTIVITY 1: IF-THEN BUILDER ===== */
+  #act1-area {
+    display: flex; flex-direction: column; gap: 10px; align-items: center;
+  }
+
+  .rule-row {
+    display: flex; align-items: center; gap: 8px;
+    background: linear-gradient(120deg, #f0fff8, #fff8f0);
+    border-radius: 14px; padding: 8px 12px;
+    border: 2px dashed #ddd;
+    width: 100%;
+    min-height: 56px;
+    transition: border-color 0.3s;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .rule-row.complete { border-color: var(--teal); border-style: solid; background: linear-gradient(120deg,#e8fff6,#f0fff8); }
+
+  .rule-label {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem; padding: 6px 14px;
+    border-radius: 10px; color: #fff;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .rule-label.if-lbl  { background: var(--blue); }
+  .rule-label.then-lbl{ background: var(--purple); }
+
+  .drop-zone {
+    min-width: 130px; min-height: 38px;
+    border: 2.5px dashed #bbb;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.78rem; color: #bbb; font-weight: 700;
+    transition: all 0.2s;
+    flex: 1; padding: 4px;
+    position: relative;
+    background: rgba(255,255,255,0.7);
+  }
+  .drop-zone.over { border-color: var(--orange); background: rgba(255,107,53,0.08); color: var(--orange); transform: scale(1.03); }
+  .drop-zone.filled { border-style: solid; border-color: var(--teal); background: rgba(6,214,160,0.1); }
+
+  .drag-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 7px 13px; border-radius: 10px;
+    font-size: 0.8rem; font-weight: 800;
+    cursor: grab; transition: all 0.2s;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+    white-space: nowrap;
+    border: 2px solid rgba(0,0,0,0.08);
+    animation: chipPop 0.3s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes chipPop { from { transform: scale(0); } to { transform: scale(1); } }
+  .drag-chip:active { cursor: grabbing; transform: scale(1.08) rotate(2deg); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+  .drag-chip.if-chip  { background: linear-gradient(135deg,#E0F4FF,#BEE9FF); color: var(--blue); border-color: var(--blue); }
+  .drag-chip.then-chip{ background: linear-gradient(135deg,#F5E6FF,#E8D0FF); color: var(--purple); border-color: var(--purple); }
+  .drag-chip.placed   { cursor: default; }
+
+  .chips-pool {
+    display: flex; flex-wrap: wrap; gap: 7px;
+    justify-content: center; padding: 8px;
+    background: rgba(255,255,255,0.6);
+    border-radius: 14px;
+    border: 2px solid #eee;
+    min-height: 52px;
+  }
+
+  /* ===== ACTIVITY 2: DECISION TREE ===== */
+  #act2-area {
+    display: flex; gap: 12px; align-items: flex-start;
+    width: 100%; justify-content: center;
+  }
+
+  .tree-left { display: flex; flex-direction: column; gap: 7px; min-width: 180px; }
+  .tree-right {
+    flex: 1;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+
+  .tree-slot {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.75);
+    border-radius: 12px; padding: 6px 10px;
+    border: 2.5px dashed #ddd;
+    min-height: 46px;
+    transition: all 0.25s;
+  }
+  .tree-slot.over { border-color: var(--orange); background: rgba(255,107,53,0.07); }
+  .tree-slot.filled { border-style: solid; border-color: var(--purple); background: rgba(123,45,139,0.06); }
+
+  .slot-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--purple); color: #fff;
+    font-family: 'Fredoka One', cursive; font-size: 0.9rem;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .slot-placeholder { font-size: 0.72rem; color: #bbb; font-weight: 700; }
+
+  .tree-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 11px; border-radius: 9px;
+    font-size: 0.73rem; font-weight: 800;
+    cursor: grab;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    white-space: nowrap;
+    transition: all 0.2s;
+    border: 2px solid rgba(0,0,0,0.07);
+  }
+  .tree-chip:active { cursor: grabbing; transform: scale(1.07); }
+  .tree-chip.placed  { cursor: default; }
+
+  .chips-pool2 {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 8px; background: rgba(255,255,255,0.6);
+    border-radius: 12px; border: 2px solid #eee;
+    min-height: 46px;
+  }
+
+  /* Connector arrows */
+  .connector {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--orange); font-size: 1.3rem; font-weight: 900;
+    height: 16px; line-height: 1;
+  }
+
+  /* ===== ACTIVITY 3: FLOWCHART ===== */
+  #act3-area {
+    width: 100%; display: flex; gap: 10px; align-items: flex-start;
+  }
+
+  .flow-left { min-width: 170px; display: flex; flex-direction: column; gap: 6px; }
+  .flow-right { flex: 1; }
+
+  .flowchart {
+    display: grid;
+    grid-template-columns: 1fr 28px 1fr 28px 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .flow-node {
+    background: rgba(255,255,255,0.8);
+    border-radius: 10px; border: 2.5px solid #ddd;
+    padding: 5px 8px; text-align: center;
+    font-size: 0.7rem; font-weight: 800;
+    min-height: 40px; display: flex; align-items: center; justify-content: center;
+    transition: all 0.25s;
+    flex-direction: column; gap: 2px;
+  }
+  .flow-node.start { background: linear-gradient(135deg,var(--yellow),#FFB347); color: var(--dark); border-color: var(--orange); font-family:'Fredoka One',cursive; font-size:0.78rem; }
+  .flow-node.decision { background: linear-gradient(135deg,#E0F4FF,#BEE9FF); border-color: var(--blue); color: var(--blue); }
+  .flow-node.outcome { background: linear-gradient(135deg,#E8FFF3,#CCFFE6); border-color: var(--teal); color: #057A55; }
+  .flow-node.outcome.wrong { background: linear-gradient(135deg,#FFF0F0,#FFD6D6); border-color: var(--pink); color: var(--pink); }
+  .flow-node.drop-node { border-style: dashed; border-color: #bbb; }
+  .flow-node.drop-node.over { border-color: var(--orange); background: rgba(255,107,53,0.08); }
+  .flow-node.drop-node.filled { border-style: solid; border-color: var(--teal); background: rgba(6,214,160,0.1); }
+
+  .flow-arrow { text-align: center; font-size: 1.1rem; color: var(--orange); font-weight: 900; }
+  .flow-arrow.down { writing-mode: vertical-rl; font-size: 1rem; }
+
+  .flow-chips {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+
+  .flow-chip {
+    display: flex; align-items: center; gap: 5px;
+    padding: 6px 11px; border-radius: 9px;
+    font-size: 0.72rem; font-weight: 800;
+    cursor: grab; transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    border: 2px solid rgba(0,0,0,0.07);
+  }
+  .flow-chip:active { cursor: grabbing; transform: scale(1.07); }
+  .flow-chip.placed { cursor: default; }
+
+  /* ===== NEXT BUTTON ===== */
+  #next-btn {
+    margin-top: 10px;
+    padding: 10px 36px;
+    background: linear-gradient(135deg, var(--teal), #04B882);
+    color: #fff; font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem; border: none; border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(6,214,160,0.4);
+    transition: all 0.2s;
+    letter-spacing: 1px;
+    display: none;
+    align-self: center;
+  }
+  #next-btn:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 10px 28px rgba(6,214,160,0.5); }
+  #next-btn.visible { display: flex; animation: chipPop 0.4s cubic-bezier(.34,1.56,.64,1); }
+
+  /* ===== FEEDBACK TOAST ===== */
+  #toast {
+    position: fixed; top: 80px; left: 50%; transform: translateX(-50%) translateY(-20px);
+    background: var(--dark); color: #fff;
+    padding: 10px 24px; border-radius: 50px;
+    font-weight: 800; font-size: 0.9rem;
+    box-shadow: var(--shadow);
+    z-index: 100; opacity: 0;
+    transition: all 0.35s;
+    pointer-events: none;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.good { background: var(--teal); }
+  #toast.bad  { background: var(--pink); }
+
+  /* ===== POPUP OVERLAY ===== */
+  #popup-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.55);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+    backdrop-filter: blur(4px);
+  }
+  #popup-overlay.show { opacity: 1; pointer-events: all; }
+
+  .popup-box {
+    background: #fff; border-radius: 28px;
+    padding: 36px 40px;
+    text-align: center; max-width: 400px; width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    animation: popupBounce 0.5s cubic-bezier(.34,1.56,.64,1);
+    position: relative; overflow: hidden;
+  }
+  @keyframes popupBounce {
+    from { transform: scale(0.5) rotate(-5deg); opacity: 0; }
+    to   { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+
+  .popup-emoji { font-size: 4rem; display: block; margin-bottom: 10px; animation: emojiSpin 0.6s ease; }
+  @keyframes emojiSpin { from { transform: rotate(-30deg) scale(0.5); } to { transform: rotate(0) scale(1); } }
+
+  .popup-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.8rem; color: var(--dark);
+    margin-bottom: 8px;
+  }
+  .popup-msg { font-size: 0.95rem; color: #555; font-weight: 600; margin-bottom: 22px; line-height: 1.5; }
+  .popup-btn {
+    padding: 12px 40px;
+    background: linear-gradient(135deg, var(--orange), var(--pink));
+    color: #fff; border: none; border-radius: 50px;
+    font-family: 'Fredoka One', cursive; font-size: 1.1rem;
+    cursor: pointer; box-shadow: 0 6px 20px rgba(255,107,53,0.4);
+    transition: all 0.2s; letter-spacing: 1px;
+  }
+  .popup-btn:hover { transform: translateY(-3px) scale(1.05); }
+
+  .popup-confetti {
+    position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+  }
+  .conf-piece {
+    position: absolute; width: 10px; height: 10px;
+    border-radius: 2px;
+    animation: confFall linear forwards;
+  }
+  @keyframes confFall {
+    0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(320px) rotate(720deg); opacity: 0; }
+  }
+
+  /* Stars decoration */
+  .star {
+    position: fixed; pointer-events: none; z-index: 1;
+    font-size: 1.1rem; opacity: 0.12;
+    animation: twinkle ease-in-out infinite alternate;
+  }
+  @keyframes twinkle { from { opacity: 0.08; transform: scale(0.9); } to { opacity: 0.2; transform: scale(1.1); } }
+
+  /* ===== MISC ===== */
+  .emoji-big { font-size: 1.3rem; }
+  .check-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--teal); color: #fff; font-size: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  /* scrollable inner for small screens */
+  .act-scroll { overflow-y: auto; flex: 1; }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 600px) {
+    #header h1 { font-size: 1.1rem; }
+    .activity-panel { padding: 12px 10px 10px; }
+    .act-title { font-size: 1rem; }
+    #act2-area { flex-direction: column; }
+    .tree-left { min-width: unset; }
+    #act3-area { flex-direction: column; }
+    .flow-left { min-width: unset; }
+    .flowchart { grid-template-columns: 1fr 18px 1fr 18px 1fr; }
+    .flow-node { padding: 4px 5px; font-size: 0.62rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- KITCHEN BACKGROUND -->
+<div class="bg-kitchen" id="bg">
+  <!-- Decorative pots -->
+  <div class="deco-pot" style="bottom:5vh;left:3vw;animation-duration:3.2s;">🍳</div>
+  <div class="deco-pot" style="bottom:8vh;right:4vw;animation-duration:4.1s;animation-delay:1s;">🥘</div>
+  <div class="deco-pot" style="top:12vh;left:1vw;font-size:2.5rem;animation-duration:5s;">🧁</div>
+  <div class="deco-pot" style="top:15vh;right:2vw;font-size:2.5rem;animation-duration:3.8s;animation-delay:0.5s;">🥚</div>
+  <!-- Stars -->
+  <div class="star" style="top:20%;left:8%;animation-duration:2.4s;">✨</div>
+  <div class="star" style="top:40%;right:6%;animation-duration:3.1s;animation-delay:0.7s;">⭐</div>
+  <div class="star" style="bottom:25%;left:12%;animation-duration:2.8s;animation-delay:0.3s;">✨</div>
+  <div class="star" style="bottom:15%;right:15%;animation-duration:3.5s;">⭐</div>
+  <!-- Floating ingredients -->
+  <div class="float-item" style="top:8%;left:20%;animation-duration:4.2s;animation-delay:0s;">🍅</div>
+  <div class="float-item" style="top:22%;left:75%;animation-duration:5.5s;animation-delay:1s;">🌿</div>
+  <div class="float-item" style="top:55%;left:88%;animation-duration:4.8s;animation-delay:0.5s;">🧄</div>
+  <div class="float-item" style="top:70%;left:5%;animation-duration:3.9s;animation-delay:1.5s;">🥕</div>
+  <div class="float-item" style="top:35%;left:50%;animation-duration:6s;animation-delay:2s;">🌶️</div>
+  <div class="float-item" style="top:80%;left:55%;animation-duration:4.5s;animation-delay:0.8s;">🧂</div>
+  <div class="float-item" style="top:15%;left:40%;animation-duration:5.2s;animation-delay:1.2s;">🥄</div>
+  <!-- Steam puffs -->
+  <div class="steam-wrap" id="steams"></div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div id="header">
+    <h1>🍳 IF–THEN THINKING GAME 🎩</h1>
+    <div class="subtitle">PLANRS ACADEMY · THE CHEF'S MAGIC RULES</div>
+    <div id="progress-bar">
+      <div class="prog-dot active" id="dot1"></div>
+      <div class="prog-dot" id="dot2"></div>
+      <div class="prog-dot" id="dot3"></div>
+    </div>
+  </div>
+
+  <div id="stage">
+    <!-- Activities injected here -->
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- POPUP -->
+<div id="popup-overlay">
+  <div class="popup-box" id="popup-box">
+    <div class="popup-confetti" id="confetti"></div>
+    <span class="popup-emoji" id="popup-emoji">🎉</span>
+    <div class="popup-title" id="popup-title">Awesome!</div>
+    <div class="popup-msg" id="popup-msg">You did it!</div>
+    <button class="popup-btn" id="popup-btn" onclick="nextActivity()">Next Activity ▶</button>
+  </div>
+</div>
+
+<script>
+// ===== STEAM GENERATOR =====
+(function() {
+  const wrap = document.getElementById('steams');
+  const positions = [10, 20, 35, 50, 65, 78, 90]; // percent from left
+  const basePositions = [
+    {x: '8vw', bot: '15vh'},
+    {x: '18vw', bot: '10vh'},
+    {x: '30vw', bot: '18vh'},
+    {x: '50vw', bot: '12vh'},
+    {x: '70vw', bot: '9vh'},
+    {x: '82vw', bot: '16vh'},
+    {x: '92vw', bot: '13vh'},
+  ];
+  for (let i = 0; i < 18; i++) {
+    const p = document.createElement('div');
+    p.className = 'steam-puff';
+    const base = basePositions[i % basePositions.length];
+    p.style.left = `calc(${base.x} + ${(Math.random()-0.5)*40}px)`;
+    p.style.bottom = base.bot;
+    p.style.setProperty('--dx', `${(Math.random()-0.5)*30}px`);
+    p.style.animationDuration = `${2.2 + Math.random()*2.5}s`;
+    p.style.animationDelay = `${Math.random()*3}s`;
+    p.style.width = p.style.height = `${12 + Math.random()*16}px`;
+    wrap.appendChild(p);
+  }
+})();
+
+// ===== TOAST =====
+function showToast(msg, type='good') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  setTimeout(() => t.className = '', 2200);
+}
+
+// ===== POPUP =====
+let currentActivity = 1;
+
+function showPopup(emoji, title, msg, btnText='Next Activity ▶', isLast=false) {
+  document.getElementById('popup-emoji').textContent = emoji;
+  document.getElementById('popup-title').textContent = title;
+  document.getElementById('popup-msg').textContent = msg;
+  const btn = document.getElementById('popup-btn');
+  btn.textContent = btnText;
+  if (isLast) btn.onclick = () => { document.getElementById('popup-overlay').classList.remove('show'); };
+  else btn.onclick = nextActivity;
+  spawnConfetti();
+  document.getElementById('popup-overlay').classList.add('show');
+}
+
+function spawnConfetti() {
+  const c = document.getElementById('confetti');
+  c.innerHTML = '';
+  const colors = ['#FF6B35','#FFD23F','#06D6A0','#7B2D8B','#118AB2','#EF476F'];
+  for (let i = 0; i < 40; i++) {
+    const p = document.createElement('div');
+    p.className = 'conf-piece';
+    p.style.left = Math.random()*100 + '%';
+    p.style.background = colors[Math.floor(Math.random()*colors.length)];
+    p.style.animationDuration = (0.8+Math.random()*1.2)+'s';
+    p.style.animationDelay = Math.random()*0.5+'s';
+    p.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    c.appendChild(p);
+  }
+}
+
+function nextActivity() {
+  document.getElementById('popup-overlay').classList.remove('show');
+  currentActivity++;
+  updateProgress();
+  renderActivity();
+}
+
+function updateProgress() {
+  [1,2,3].forEach(i => {
+    const d = document.getElementById('dot'+i);
+    d.className = 'prog-dot';
+    if (i < currentActivity) d.classList.add('done');
+    else if (i === currentActivity) d.classList.add('active');
+  });
+}
+
+// ===== DRAG-DROP HELPERS =====
+let dragData = null;
+
+function makeDraggable(el, data) {
+  el.draggable = true;
+  el.addEventListener('dragstart', e => {
+    dragData = data;
+    e.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => el.style.opacity = '0.4', 0);
+  });
+  el.addEventListener('dragend', e => {
+    el.style.opacity = '';
+  });
+  // Touch support
+  el.addEventListener('touchstart', touchStart, {passive:true});
+  el.addEventListener('touchmove', touchMove, {passive:false});
+  el.addEventListener('touchend', touchEnd);
+}
+
+let _touchEl = null, _touchClone = null, _touchData = null;
+function touchStart(e) {
+  _touchEl = this;
+  _touchData = _touchEl._dragData;
+  const rect = _touchEl.getBoundingClientRect();
+  _touchClone = _touchEl.cloneNode(true);
+  _touchClone.style.cssText = `position:fixed;z-index:9999;pointer-events:none;opacity:0.85;
+    width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;transition:none;`;
+  document.body.appendChild(_touchClone);
+}
+function touchMove(e) {
+  e.preventDefault();
+  if (!_touchClone) return;
+  const t = e.touches[0];
+  _touchClone.style.left = (t.clientX - _touchClone.offsetWidth/2)+'px';
+  _touchClone.style.top  = (t.clientY - _touchClone.offsetHeight/2)+'px';
+  // highlight drop targets
+  document.querySelectorAll('.drop-zone,.tree-slot,.flow-node.drop-node').forEach(dz => {
+    const r = dz.getBoundingClientRect();
+    if (t.clientX > r.left && t.clientX < r.right && t.clientY > r.top && t.clientY < r.bottom)
+      dz.classList.add('over');
+    else dz.classList.remove('over');
+  });
+}
+function touchEnd(e) {
+  if (!_touchClone) return;
+  const t = e.changedTouches[0];
+  document.querySelectorAll('.drop-zone,.tree-slot,.flow-node.drop-node').forEach(dz => {
+    dz.classList.remove('over');
+    const r = dz.getBoundingClientRect();
+    if (t.clientX > r.left && t.clientX < r.right && t.clientY > r.top && t.clientY < r.bottom) {
+      dz._dropHandler && dz._dropHandler(_touchEl._dragData || _touchData);
+    }
+  });
+  _touchClone.remove(); _touchClone = null;
+}
+
+function makeDropZone(el, handler) {
+  el._dropHandler = handler;
+  el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('over'); });
+  el.addEventListener('dragleave', () => el.classList.remove('over'));
+  el.addEventListener('drop', e => { e.preventDefault(); el.classList.remove('over'); handler(dragData); });
+}
+
+// ===== RENDER ENGINE =====
+function renderActivity() {
+  const stage = document.getElementById('stage');
+  stage.innerHTML = '';
+  if (currentActivity === 1) renderAct1();
+  else if (currentActivity === 2) renderAct2();
+  else if (currentActivity === 3) renderAct3();
+}
+
+// ============================================================
+// ACTIVITY 1: IF-THEN BUILDER
+// ============================================================
+const act1Rules = [
+  {
+    emoji: '🌧️',
+    ifOptions:   ['it starts raining','the sun is bright','it is bedtime'],
+    thenOptions: ['we open umbrellas','we eat breakfast','we brush teeth'],
+    correctIf:   'it starts raining',
+    correctThen: 'we open umbrellas'
+  },
+  {
+    emoji: '🔔',
+    ifOptions:   ['the school bell rings','the pot whistles','it is morning'],
+    thenOptions: ['we line up in a row','we open umbrellas','we play football'],
+    correctIf:   'the school bell rings',
+    correctThen: 'we line up in a row'
+  },
+  {
+    emoji: '🍲',
+    ifOptions:   ['the cooker whistles 3 times','it rains hard','we see a tiger'],
+    thenOptions: ['Mummy turns off the gas','we put on raincoats','we freeze still'],
+    correctIf:   'the cooker whistles 3 times',
+    correctThen: 'Mummy turns off the gas'
+  }
+];
+
+let act1State = { placed: [{if:null,then:null},{if:null,then:null},{if:null,then:null}] };
+
+function renderAct1() {
+  act1State = { placed: [{if:null,then:null},{if:null,then:null},{if:null,then:null}] };
+  const stage = document.getElementById('stage');
+  const panel = document.createElement('div');
+  panel.className = 'activity-panel';
+  panel.innerHTML = `
+    <div class="act-badge">🍽️ ACTIVITY 1 OF 3</div>
+    <div class="act-title">🌟 Build the Magic Kitchen Rules!</div>
+    <div class="act-desc">Drag the right <span style="color:var(--blue);font-weight:800">IF</span> and <span style="color:var(--purple);font-weight:800">THEN</span> chips to complete each rule below.</div>
+    <div class="act-scroll">
+      <div id="act1-area"></div>
+      <div class="chips-pool" id="chips-pool1" style="margin-top:10px;"></div>
+    </div>
+    <button id="next-btn" onclick="checkAct1()">Check My Rules! ✅</button>
+  `;
+  stage.appendChild(panel);
+
+  const area = panel.querySelector('#act1-area');
+  const pool = panel.querySelector('#chips-pool1');
+
+  // Build rule rows
+  act1Rules.forEach((rule, ri) => {
+    const row = document.createElement('div');
+    row.className = 'rule-row';
+    row.id = `rule-row-${ri}`;
+    row.innerHTML = `
+      <span style="font-size:1.5rem">${rule.emoji}</span>
+      <span class="rule-label if-lbl">IF</span>
+      <div class="drop-zone" id="if-dz-${ri}">drop here…</div>
+      <span class="rule-label then-lbl">THEN</span>
+      <div class="drop-zone" id="then-dz-${ri}">drop here…</div>
+    `;
+    area.appendChild(row);
+
+    // Drop zones
+    const ifDz = row.querySelector(`#if-dz-${ri}`);
+    const thenDz = row.querySelector(`#then-dz-${ri}`);
+
+    makeDropZone(ifDz, (data) => {
+      if (!data || data.type !== 'if') { showToast('🤔 That goes in the THEN spot!','bad'); return; }
+      if (act1State.placed[ri].if) returnChipToPool(act1State.placed[ri].if, pool, 'if');
+      act1State.placed[ri].if = data.text;
+      ifDz.innerHTML = `<span class="drag-chip if-chip placed">🔵 ${data.text} <span class="check-badge">✓</span></span>`;
+      ifDz.classList.add('filled');
+      showToast('👍 Nice IF condition!');
+      checkAct1Auto();
+    });
+
+    makeDropZone(thenDz, (data) => {
+      if (!data || data.type !== 'then') { showToast('🤔 That goes in the IF spot!','bad'); return; }
+      if (act1State.placed[ri].then) returnChipToPool(act1State.placed[ri].then, pool, 'then');
+      act1State.placed[ri].then = data.text;
+      thenDz.innerHTML = `<span class="drag-chip then-chip placed">🟣 ${data.text} <span class="check-badge">✓</span></span>`;
+      thenDz.classList.add('filled');
+      showToast('👍 Perfect THEN action!');
+      checkAct1Auto();
+    });
+  });
+
+  // Build chip pool (shuffled)
+  let allChips = [];
+  act1Rules.forEach((rule, ri) => {
+    rule.ifOptions.forEach(txt => allChips.push({text:txt, type:'if', ri}));
+    rule.thenOptions.forEach(txt => allChips.push({text:txt, type:'then', ri}));
+  });
+  shuffle(allChips);
+
+  allChips.forEach(chip => {
+    const el = createChip(chip.text, chip.type === 'if' ? 'if-chip' : 'then-chip');
+    el._dragData = {text: chip.text, type: chip.type};
+    makeDraggable(el, {text: chip.text, type: chip.type});
+    pool.appendChild(el);
+  });
+
+  // Show check button
+  const btn = panel.querySelector('#next-btn');
+  btn.style.display = 'flex';
+}
+
+function createChip(text, cls) {
+  const el = document.createElement('span');
+  el.className = `drag-chip ${cls}`;
+  el.innerHTML = `${cls.includes('if') ? '🔵' : '🟣'} ${text}`;
+  return el;
+}
+
+function returnChipToPool(text, pool, type) {
+  const el = createChip(text, type === 'if' ? 'if-chip' : 'then-chip');
+  el._dragData = {text, type};
+  makeDraggable(el, {text, type});
+  pool.appendChild(el);
+}
+
+function checkAct1Auto() {
+  // Just a soft visual check
+  act1Rules.forEach((rule, ri) => {
+    const row = document.getElementById(`rule-row-${ri}`);
+    if (act1State.placed[ri].if && act1State.placed[ri].then) {
+      if (act1State.placed[ri].if === rule.correctIf && act1State.placed[ri].then === rule.correctThen)
+        row.classList.add('complete');
+      else row.classList.remove('complete');
+    }
+  });
+}
+
+function checkAct1() {
+  let allCorrect = true;
+  act1Rules.forEach((rule, ri) => {
+    if (act1State.placed[ri].if !== rule.correctIf || act1State.placed[ri].then !== rule.correctThen)
+      allCorrect = false;
+  });
+  if (allCorrect) {
+    showPopup('🎉','Kitchen Rules Master!','Amazing! You matched all 3 IF-THEN rules perfectly! The kitchen logic is strong with you! 🍳✨');
+  } else {
+    showToast('🔄 Hmm, some rules need fixing! Try again!','bad');
+    // Highlight wrong ones
+    act1Rules.forEach((rule, ri) => {
+      const row = document.getElementById(`rule-row-${ri}`);
+      if (act1State.placed[ri].if !== rule.correctIf || act1State.placed[ri].then !== rule.correctThen)
+        row.style.animation = 'shake 0.4s ease';
+      setTimeout(() => { if(row) row.style.animation = ''; }, 500);
+    });
+  }
+}
+
+// ============================================================
+// ACTIVITY 2: DECISION TREE (5-step)
+// ============================================================
+const act2Steps = [
+  { icon:'🌅', label:'Morning starts!', hint:'This is where our day begins…', correct:'Morning starts!' },
+  { icon:'👃', label:'Smell breakfast cooking?', hint:'Your nose tells you something…', correct:'Smell breakfast cooking?' },
+  { icon:'🍽️', label:'Go to the kitchen', hint:'Your feet carry you…', correct:'Go to the kitchen' },
+  { icon:'🧼', label:'Wash hands first!', hint:'Safety rule #1…', correct:'Wash hands first!' },
+  { icon:'😋', label:'Eat a yummy breakfast!', hint:'The happy ending…', correct:'Eat a yummy breakfast!' },
+];
+
+let act2State = Array(5).fill(null);
+
+function renderAct2() {
+  act2State = Array(5).fill(null);
+  const stage = document.getElementById('stage');
+  const panel = document.createElement('div');
+  panel.className = 'activity-panel';
+  panel.innerHTML = `
+    <div class="act-badge">🥘 ACTIVITY 2 OF 3</div>
+    <div class="act-title">🗺️ Build the Breakfast Decision Tree!</div>
+    <div class="act-desc">Drag each step into the correct numbered slot to build a 5-step morning breakfast decision tree.</div>
+    <div class="act-scroll">
+      <div id="act2-area">
+        <div class="tree-left">
+          <div style="font-family:'Fredoka One',cursive;font-size:0.85rem;color:var(--orange);margin-bottom:4px;text-align:center;">🃏 STEPS TO PLACE</div>
+          <div class="chips-pool2" id="pool2"></div>
+        </div>
+        <div class="tree-right" id="tree-right"></div>
+      </div>
+    </div>
+    <button id="next-btn" onclick="checkAct2()">Check My Tree! 🌳</button>
+  `;
+  stage.appendChild(panel);
+
+  const pool = panel.querySelector('#pool2');
+  const treeRight = panel.querySelector('#tree-right');
+
+  // Build slots
+  act2Steps.forEach((step, i) => {
+    if (i > 0) {
+      const conn = document.createElement('div');
+      conn.className = 'connector';
+      conn.innerHTML = '⬇';
+      treeRight.appendChild(conn);
+    }
+    const slot = document.createElement('div');
+    slot.className = 'tree-slot';
+    slot.id = `tslot-${i}`;
+    slot.innerHTML = `<div class="slot-num">${i+1}</div><div class="slot-placeholder">Drop step ${i+1} here…</div>`;
+    makeDropZone(slot, (data) => {
+      if (!data || data.act !== 2) return;
+      // Return old chip if exists
+      if (act2State[i]) {
+        returnTreeChip(act2State[i], pool);
+      }
+      act2State[i] = data.text;
+      slot.classList.add('filled');
+      const chipData = act2Steps.find(s => s.label === data.text);
+      slot.innerHTML = `<div class="slot-num">${i+1}</div>
+        <span class="tree-chip placed" style="background:linear-gradient(135deg,#F5E6FF,#E8D0FF);color:var(--purple);border-color:var(--purple);">
+          ${chipData ? chipData.icon : '📌'} ${data.text} <span class="check-badge">✓</span>
+        </span>`;
+      showToast('✅ Step placed!');
+    });
+    treeRight.appendChild(slot);
+  });
+
+  // Build pool (shuffled)
+  let steps = [...act2Steps];
+  shuffle(steps);
+  steps.forEach(step => {
+    const chip = createTreeChip(step);
+    pool.appendChild(chip);
+  });
+
+  panel.querySelector('#next-btn').style.display = 'flex';
+}
+
+function createTreeChip(step) {
+  const el = document.createElement('span');
+  el.className = 'tree-chip';
+  el.style.cssText = 'background:linear-gradient(135deg,#FFF8E1,#FFE0B2);color:#E65100;border-color:#FF8F00;';
+  el.innerHTML = `${step.icon} ${step.label}`;
+  el._dragData = {act:2, text: step.label};
+  makeDraggable(el, {act:2, text: step.label});
+  el.addEventListener('touchstart', touchStart, {passive:true});
+  el.addEventListener('touchmove', touchMove, {passive:false});
+  el.addEventListener('touchend', touchEnd);
+  return el;
+}
+
+function returnTreeChip(text, pool) {
+  const step = act2Steps.find(s => s.label === text);
+  if (step) pool.appendChild(createTreeChip(step));
+}
+
+function checkAct2() {
+  let allCorrect = true;
+  act2Steps.forEach((step, i) => {
+    if (act2State[i] !== step.correct) allCorrect = false;
+  });
+  if (allCorrect) {
+    showPopup('🌳','Decision Tree Champion!','WOW! All 5 steps are in the perfect order! Your breakfast decision tree is chef-kiss perfect! 👨‍🍳💫');
+  } else {
+    showToast('🔄 Some steps are out of order! Re-arrange and try again!','bad');
+  }
+}
+
+// ============================================================
+// ACTIVITY 3: BREAKFAST FLOWCHART
+// ============================================================
+// Structure: START → Decision1 → [YES path] → Action → Outcome
+//                              → [NO path]  → Action → Outcome
+// Plus 3 extra "special" nodes to fill in
+
+const act3Data = {
+  nodes: [
+    {id:'start',  label:'🌅 Wake Up!',       type:'start',    fixed:true},
+    {id:'d1',     label:'🍳 Is the stove on?',type:'decision', fixed:true},
+    {id:'a1yes',  label:'???',               type:'drop-node', fixed:false, correct:'🥚 Cook eggs!', icon:'🥚'},
+    {id:'out1',   label:'🎉 Yummy breakfast!',type:'outcome',  fixed:true},
+    {id:'a1no',   label:'???',               type:'drop-node', fixed:false, correct:'🥣 Pour cereal!', icon:'🥣'},
+    {id:'out2',   label:'😊 Still delicious!',type:'outcome',  fixed:true},
+    {id:'d2',     label:'🧂 Add salt?',       type:'decision', fixed:true},
+    {id:'a2yes',  label:'???',               type:'drop-node', fixed:false, correct:'🧂 Season it!', icon:'🧂'},
+    {id:'out3',   label:'😋 Perfect taste!',  type:'outcome',  fixed:true},
+    {id:'a2no',   label:'???',               type:'drop-node', fixed:false, correct:'🚫 Keep plain!', icon:'🚫'},
+    {id:'out4',   label:'🙂 Good enough!',    type:'outcome',  fixed:true},
+  ],
+  chips: [
+    {id:'c1', label:'🥚 Cook eggs!',  color:'#FFF3E0', border:'#FF8F00', text:'#E65100'},
+    {id:'c2', label:'🥣 Pour cereal!',color:'#E8F5E9', border:'#2E7D32', text:'#1B5E20'},
+    {id:'c3', label:'🧂 Season it!',  color:'#E3F2FD', border:'#1565C0', text:'#0D47A1'},
+    {id:'c4', label:'🚫 Keep plain!', color:'#FCE4EC', border:'#C62828', text:'#B71C1C'},
+  ]
+};
+
+let act3State = {a1yes:null,a1no:null,a2yes:null,a2no:null};
+
+function renderAct3() {
+  act3State = {a1yes:null,a1no:null,a2yes:null,a2no:null};
+  const stage = document.getElementById('stage');
+  const panel = document.createElement('div');
+  panel.className = 'activity-panel';
+  panel.innerHTML = `
+    <div class="act-badge">🎩 ACTIVITY 3 OF 3</div>
+    <div class="act-title">🗂️ Complete the Breakfast Flowchart!</div>
+    <div class="act-desc">Drag the action cards into the empty flowchart boxes to complete the breakfast decision paths!</div>
+    <div class="act-scroll">
+      <div id="act3-area">
+        <div class="flow-left">
+          <div style="font-family:'Fredoka One',cursive;font-size:0.82rem;color:var(--orange);margin-bottom:6px;text-align:center;">🃏 ACTION CARDS</div>
+          <div class="flow-chips" id="flow-pool"></div>
+        </div>
+        <div class="flow-right">
+          <div class="flowchart" id="flowchart"></div>
+        </div>
+      </div>
+    </div>
+    <button id="next-btn" onclick="checkAct3()">Complete the Chart! 🏁</button>
+  `;
+  stage.appendChild(panel);
+
+  // Build flowchart
+  // Layout: 5-col grid
+  // Row1: [START] [→] [d1 DECISION] [→] [YES→a1yes]
+  // Row2: [  ]  [ ]  [  ]  [  ]  [out1]
+  // Row3: [d2]  [←]  [NO→a1no] [  ] [out2] 
+  // Row4: [a2yes] [→] [out3] [  ] [  ]
+  // Row5: [a2no]  [→] [out4]
+
+  // Simpler 5-col layout: We'll manually build it
+  const fc = panel.querySelector('#flowchart');
+  fc.style.cssText = 'display:grid;grid-template-columns:1fr 22px 1fr 22px 1fr;grid-template-rows:repeat(6,auto);gap:5px 4px;align-items:center;';
+
+  const cells = [
+    // row 1
+    {type:'start',  label:'🌅 Wake Up!',       col:1, row:1},
+    {type:'arrow',  label:'→',                 col:2, row:1},
+    {type:'decision',label:'🍳 Stove on?',     col:3, row:1},
+    {type:'arrow',  label:'→ YES',             col:4, row:1, small:true},
+    {type:'drop',   id:'a1yes',  label:'???',  col:5, row:1},
+    // row 2
+    {type:'empty',  col:1, row:2},
+    {type:'empty',  col:2, row:2},
+    {type:'arrow-d',label:'↓ NO',              col:3, row:2, small:true},
+    {type:'empty',  col:4, row:2},
+    {type:'arrow-d',label:'↓',                col:5, row:2},
+    // row 3
+    {type:'empty',  col:1, row:3},
+    {type:'empty',  col:2, row:3},
+    {type:'drop',   id:'a1no',  label:'???',   col:3, row:3},
+    {type:'empty',  col:4, row:3},
+    {type:'outcome',label:'🎉 Yummy breakfast!',col:5, row:3},
+    // row 4
+    {type:'empty',  col:1, row:4},
+    {type:'empty',  col:2, row:4},
+    {type:'arrow-d',label:'↓',                col:3, row:4},
+    {type:'empty',  col:4, row:4},
+    {type:'empty',  col:5, row:4},
+    // row 5
+    {type:'decision',label:'🧂 Add salt?',     col:1, row:5},
+    {type:'arrow',  label:'→ YES',             col:2, row:5, small:true},
+    {type:'drop',   id:'a2yes', label:'???',   col:3, row:5},
+    {type:'arrow',  label:'→',                 col:4, row:5},
+    {type:'outcome', label:'😋 Perfect taste!',col:5, row:5},
+    // row 6
+    {type:'arrow-d-left', label:'↓ NO',        col:1, row:6, small:true},
+    {type:'empty',  col:2, row:6},
+    {type:'drop',   id:'a2no', label:'???',    col:3, row:6},
+    {type:'arrow-r-left', label:'→',           col:4, row:6},
+    {type:'outcome-plain',label:'🙂 Simple!',  col:5, row:6},
+  ];
+
+  cells.forEach(cell => {
+    const div = document.createElement('div');
+    div.style.gridColumn = cell.col;
+    div.style.gridRow = cell.row;
+
+    if (cell.type === 'start') {
+      div.className = 'flow-node start';
+      div.textContent = cell.label;
+    } else if (cell.type === 'decision') {
+      div.className = 'flow-node decision';
+      div.textContent = cell.label;
+    } else if (cell.type === 'outcome' || cell.type === 'outcome-plain') {
+      div.className = 'flow-node outcome';
+      div.textContent = cell.label;
+      if (cell.type === 'outcome-plain') div.style.cssText += ';background:linear-gradient(135deg,#FFF8E1,#FFE0B2);border-color:#FF8F00;color:#E65100;';
+    } else if (cell.type === 'arrow' || cell.type === 'arrow-r-left') {
+      div.style.cssText = 'text-align:center;font-size:'+(cell.small?'0.65rem':'1.1rem')+';color:var(--orange);font-weight:900;line-height:1.3;display:flex;align-items:center;justify-content:center;';
+      div.textContent = cell.label;
+    } else if (cell.type === 'arrow-d' || cell.type === 'arrow-d-left') {
+      div.style.cssText = 'text-align:center;font-size:'+(cell.small?'0.65rem':'1.1rem')+';color:var(--orange);font-weight:900;line-height:1.3;display:flex;align-items:center;justify-content:center;';
+      div.textContent = cell.label;
+    } else if (cell.type === 'drop') {
+      div.className = 'flow-node drop-node';
+      div.id = `fn-${cell.id}`;
+      div.innerHTML = `<span style="font-size:0.65rem;color:#bbb;font-weight:700;">drop here</span>`;
+      const dropId = cell.id;
+      makeDropZone(div, (data) => {
+        if (!data || data.act !== 3) return;
+        const correct = act3Data.nodes.find(n => n.id === dropId)?.correct;
+        act3State[dropId] = data.label;
+        div.classList.add('filled');
+        div.innerHTML = `<span style="font-size:0.68rem;font-weight:800;color:var(--purple)">${data.label} <span class="check-badge">✓</span></span>`;
+        if (data.label === correct) showToast('🎯 Correct action!');
+        else showToast('🤔 Hmm, is that the right action?','bad');
+      });
+    } else if (cell.type === 'empty') {
+      div.style.minHeight = '10px';
+    }
+    fc.appendChild(div);
+  });
+
+  // Chips
+  const pool = panel.querySelector('#flow-pool');
+  let chips = [...act3Data.chips];
+  shuffle(chips);
+  chips.forEach(chip => {
+    const el = document.createElement('div');
+    el.className = 'flow-chip';
+    el.style.cssText = `background:${chip.color};border-color:${chip.border};color:${chip.text}`;
+    el.innerHTML = chip.label;
+    el._dragData = {act:3, label:chip.label};
+    makeDraggable(el, {act:3, label:chip.label});
+    pool.appendChild(el);
+  });
+
+  panel.querySelector('#next-btn').style.display = 'flex';
+}
+
+function checkAct3() {
+  const checks = {
+    a1yes: '🥚 Cook eggs!',
+    a1no:  '🥣 Pour cereal!',
+    a2yes: '🧂 Season it!',
+    a2no:  '🚫 Keep plain!'
+  };
+  let allCorrect = Object.keys(checks).every(k => act3State[k] === checks[k]);
+  if (allCorrect) {
+    showPopup('🏆','FLOWCHART MASTER CHEF!',
+      'INCREDIBLE! You completed ALL 3 activities! You\'ve unlocked the secret of IF-THEN logic — the same magic computers use to think! 🤖✨🍳',
+      '🎉 I\'m a Logic Chef! 🎉', true);
+  } else {
+    showToast('🔄 Some actions don\'t match! Check and try again!','bad');
+  }
+}
+
+// ===== UTILS =====
+function shuffle(arr) {
+  for (let i = arr.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+
+// Shake animation
+const styleEl = document.createElement('style');
+styleEl.textContent = `@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }`;
+document.head.appendChild(styleEl);
+
+// ===== INIT =====
+renderActivity();
+</script>
+</body>
+</html>

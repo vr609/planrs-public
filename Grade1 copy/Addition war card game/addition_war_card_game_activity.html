@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Addition War Card Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --r:#FF3B5C; --o:#FF8C00; --y:#FFD700; --g:#00C853;
+    --b:#00AEFF; --p:#7C3AED; --pk:#FF69B4;
+    --bg:#0d001a; --card:#1a003a;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family:'Nunito',sans-serif;
+    background:var(--bg);
+    min-height:100vh;
+    overflow-x:hidden;
+    cursor:default;
+  }
+
+  /* ─── ANIMATED BG ─── */
+  .bg-scene {
+    position:fixed; inset:0; z-index:0; overflow:hidden;
+    background: radial-gradient(ellipse at 15% 40%,#1e0050 0%,transparent 55%),
+                radial-gradient(ellipse at 85% 20%,#002244 0%,transparent 55%),
+                radial-gradient(ellipse at 50% 80%,#1a0060 0%,transparent 50%),
+                #0d001a;
+  }
+
+  /* Rainbow arcs */
+  .rainbow-arc {
+    position:absolute;
+    border-radius:50%;
+    border:3px solid transparent;
+    animation:arcPulse ease-in-out infinite alternate;
+    pointer-events:none;
+  }
+  @keyframes arcPulse {
+    0%  { opacity:0.12; transform:scale(0.95) rotate(-2deg); }
+    100%{ opacity:0.3;  transform:scale(1.05) rotate(2deg); }
+  }
+
+  /* Floating stars */
+  .star {
+    position:fixed;
+    background:white;
+    border-radius:50%;
+    pointer-events:none;
+    animation:twinkle ease-in-out infinite alternate, drift linear infinite;
+  }
+  @keyframes twinkle {
+    0% { opacity:0.1; transform:scale(0.6); }
+    100%{ opacity:1;  transform:scale(1.4); }
+  }
+  @keyframes drift {
+    0%   { transform:translateY(0) translateX(0); }
+    33%  { transform:translateY(-12px) translateX(6px); }
+    66%  { transform:translateY(8px) translateX(-5px); }
+    100% { transform:translateY(0) translateX(0); }
+  }
+
+  /* Confetti numbers */
+  .confetti {
+    position:fixed;
+    font-family:'Fredoka One',cursive;
+    pointer-events:none;
+    animation:floatConfetti linear infinite;
+    z-index:0;
+  }
+  @keyframes floatConfetti {
+    0%   { transform:translateY(110vh) rotate(0deg); opacity:0; }
+    8%   { opacity:0.3; }
+    92%  { opacity:0.2; }
+    100% { transform:translateY(-10vh) rotate(360deg); opacity:0; }
+  }
+
+  /* Light beams */
+  .beam {
+    position:fixed; top:0; width:3px; height:100vh;
+    opacity:0.04;
+    animation:beamPulse ease-in-out infinite alternate;
+    pointer-events:none; z-index:0;
+  }
+  @keyframes beamPulse {
+    0%  { opacity:0.02; transform:scaleX(1); }
+    100%{ opacity:0.07; transform:scaleX(8); }
+  }
+
+  /* ─── LAYOUT ─── */
+  .wrapper {
+    position:relative; z-index:1;
+    max-width:960px; margin:0 auto;
+    padding:18px 16px 60px;
+  }
+
+  /* ─── TITLE ─── */
+  .main-title {
+    font-family:'Fredoka One',cursive;
+    font-size:clamp(2rem,6vw,3.8rem);
+    text-align:center;
+    line-height:1.1;
+    margin-bottom:6px;
+    background:linear-gradient(135deg,#FF3B5C,#FF8C00,#FFD700,#00C853,#00AEFF,#7C3AED,#FF69B4);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    background-clip:text;
+    filter:drop-shadow(0 0 24px rgba(255,215,0,0.5));
+    animation:titleGlow 3s ease-in-out infinite alternate;
+  }
+  @keyframes titleGlow {
+    0%  { filter:drop-shadow(0 0 16px rgba(255,100,100,0.5)); }
+    50% { filter:drop-shadow(0 0 32px rgba(255,215,0,0.7)); }
+    100%{ filter:drop-shadow(0 0 20px rgba(124,58,237,0.6)); }
+  }
+
+  /* ─── RAINBOW BAR ─── */
+  .rainbow-bar {
+    height:5px;
+    background:linear-gradient(90deg,#FF3B5C,#FF8C00,#FFD700,#00C853,#00AEFF,#7C3AED,#FF69B4);
+    border-radius:4px;
+    margin:10px 0 20px;
+    animation:barShimmer 2s linear infinite;
+    background-size:200%;
+  }
+  @keyframes barShimmer {
+    0%  { background-position:0% 50%; }
+    100%{ background-position:200% 50%; }
+  }
+
+  /* ─── TAB NAV ─── */
+  .tab-nav {
+    display:flex; gap:10px; justify-content:center;
+    margin-bottom:24px; flex-wrap:wrap;
+  }
+  .tab-btn {
+    font-family:'Fredoka One',cursive;
+    font-size:1.1rem;
+    padding:12px 26px;
+    border:none; border-radius:50px;
+    cursor:pointer;
+    transition:all 0.3s;
+    position:relative; overflow:hidden;
+    letter-spacing:0.3px;
+  }
+  .tab-btn::after {
+    content:''; position:absolute; inset:0;
+    background:white; opacity:0;
+    transition:opacity 0.2s;
+  }
+  .tab-btn:hover::after { opacity:0.15; }
+  .tab-btn.active { transform:translateY(-3px); box-shadow:0 8px 28px rgba(0,0,0,0.45); }
+  .tab-btn:nth-child(1) { background:linear-gradient(135deg,#FF3B5C,#FF8C00); color:white; }
+  .tab-btn:nth-child(2) { background:linear-gradient(135deg,#00C853,#00AEFF); color:white; }
+  .tab-btn:nth-child(3) { background:linear-gradient(135deg,#7C3AED,#FF69B4); color:white; }
+
+  /* ─── PANELS ─── */
+  .panel { display:none; animation:panelIn 0.45s ease; }
+  .panel.active { display:block; }
+  @keyframes panelIn {
+    from { opacity:0; transform:translateY(18px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+
+  .card-panel {
+    background:rgba(255,255,255,0.06);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:24px;
+    padding:26px;
+    backdrop-filter:blur(14px);
+    margin-bottom:18px;
+  }
+  .panel-title {
+    font-family:'Fredoka One',cursive;
+    font-size:1.6rem;
+    margin-bottom:14px;
+    display:flex; align-items:center; gap:10px;
+  }
+
+  /* ══════════════════════════════════════
+     ACTIVITY 1 — CARD BATTLE GAME
+  ══════════════════════════════════════ */
+  .battle-area {
+    display:flex; flex-direction:column;
+    align-items:center; gap:16px;
+  }
+  .mode-toggle {
+    display:flex; gap:12px; justify-content:center;
+    margin-bottom:6px;
+  }
+  .mode-btn {
+    font-family:'Fredoka One',cursive;
+    font-size:1rem; padding:9px 22px;
+    border:2px solid rgba(255,255,255,0.25);
+    border-radius:30px; cursor:pointer;
+    background:rgba(255,255,255,0.07);
+    color:white; transition:all 0.25s;
+  }
+  .mode-btn.on {
+    background:linear-gradient(135deg,#FFD700,#FF8C00);
+    color:#1a0030; border-color:transparent;
+    box-shadow:0 4px 18px rgba(255,180,0,0.4);
+  }
+  .players-row {
+    display:flex; gap:16px; align-items:flex-start;
+    justify-content:center; width:100%; flex-wrap:wrap;
+  }
+  .player-zone {
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.1);
+    border-radius:18px;
+    padding:16px; min-width:180px; flex:1; max-width:280px;
+    text-align:center;
+  }
+  .player-label {
+    font-family:'Fredoka One',cursive;
+    font-size:1.1rem; color:white; margin-bottom:10px;
+  }
+  .cards-flip-area {
+    display:flex; gap:10px; justify-content:center;
+    min-height:90px; margin-bottom:10px;
+    flex-wrap:wrap;
+  }
+  .play-card {
+    width:60px; height:84px;
+    border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Fredoka One',cursive; font-size:1.8rem;
+    cursor:default;
+    position:relative; overflow:hidden;
+    transition:transform 0.3s;
+    box-shadow:0 6px 20px rgba(0,0,0,0.4);
+  }
+  .play-card.face-down {
+    background:linear-gradient(135deg,#1a0050,#3a0080);
+    border:2px solid rgba(255,255,255,0.2);
+  }
+  .play-card.face-down::after {
+    content:'🃏';
+    position:absolute; font-size:1.6rem;
+  }
+  .play-card.flipped { animation:cardFlip 0.4s ease; }
+  @keyframes cardFlip {
+    0%  { transform:rotateY(90deg) scale(0.8); }
+    100%{ transform:rotateY(0) scale(1); }
+  }
+  .sum-box {
+    font-family:'Fredoka One',cursive;
+    font-size:1.5rem;
+    padding:8px 20px;
+    border-radius:14px;
+    background:rgba(255,255,255,0.1);
+    color:white; min-width:80px;
+    transition:all 0.3s;
+  }
+  .vs-divider {
+    font-family:'Fredoka One',cursive;
+    font-size:2rem; color:var(--y);
+    align-self:center;
+    animation:vsPulse 1.5s ease-in-out infinite alternate;
+    flex-shrink:0;
+  }
+  @keyframes vsPulse {
+    0%  { transform:scale(0.9); text-shadow:0 0 10px rgba(255,215,0,0.3); }
+    100%{ transform:scale(1.1); text-shadow:0 0 24px rgba(255,215,0,0.7); }
+  }
+  .flip-btn {
+    font-family:'Fredoka One',cursive;
+    font-size:1.3rem; padding:14px 36px;
+    border:none; border-radius:50px;
+    background:linear-gradient(135deg,#00C853,#00AEFF);
+    color:white; cursor:pointer;
+    transition:all 0.3s;
+    box-shadow:0 6px 22px rgba(0,200,83,0.4);
+    animation:flipPulse 2s ease-in-out infinite;
+  }
+  .flip-btn:hover { transform:scale(1.07); }
+  .flip-btn:disabled { opacity:0.5; cursor:not-allowed; animation:none; }
+  @keyframes flipPulse {
+    0%,100%{ box-shadow:0 6px 22px rgba(0,200,83,0.4); }
+    50%    { box-shadow:0 6px 34px rgba(0,174,255,0.6); }
+  }
+  .battle-result {
+    font-family:'Fredoka One',cursive;
+    font-size:1.4rem; text-align:center;
+    min-height:36px; color:white;
+    transition:all 0.3s;
+  }
+  .winner-badge {
+    display:inline-block;
+    padding:6px 20px; border-radius:30px;
+    font-size:1.2rem;
+    animation:badgePop 0.5s ease;
+  }
+  @keyframes badgePop {
+    0%  { transform:scale(0) rotate(-10deg); }
+    70% { transform:scale(1.2) rotate(3deg); }
+    100%{ transform:scale(1) rotate(0); }
+  }
+  .score-strip {
+    display:flex; gap:20px; justify-content:center;
+    font-family:'Fredoka One',cursive; font-size:1.1rem;
+    color:rgba(255,255,255,0.75);
+  }
+  .score-chip {
+    background:rgba(255,255,255,0.1);
+    border-radius:30px; padding:6px 18px;
+    color:white;
+  }
+  .reset-btn {
+    font-family:'Fredoka One',cursive;
+    font-size:1rem; padding:9px 22px;
+    border:2px solid rgba(255,255,255,0.25);
+    border-radius:30px; cursor:pointer;
+    background:transparent; color:white;
+    transition:all 0.25s;
+  }
+  .reset-btn:hover { background:rgba(255,255,255,0.1); }
+
+  .round-badge {
+    display:inline-block;
+    background:linear-gradient(135deg,#7C3AED,#FF69B4);
+    color:white; font-family:'Fredoka One',cursive;
+    font-size:0.9rem; padding:4px 16px;
+    border-radius:30px; margin-bottom:8px;
+  }
+
+  /* ══════════════════════════════════════
+     ACTIVITY 2 — QUIZ
+  ══════════════════════════════════════ */
+  .quiz-q {
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.09);
+    border-radius:18px; padding:20px;
+    margin-bottom:14px;
+  }
+  .quiz-qtext {
+    font-size:1.15rem; font-weight:800;
+    color:white; margin-bottom:14px; line-height:1.4;
+  }
+  .quiz-opts {
+    display:grid; grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+  .quiz-opt {
+    font-family:'Nunito',sans-serif;
+    font-size:0.95rem; font-weight:700;
+    padding:12px 14px;
+    border:2px solid rgba(255,255,255,0.18);
+    border-radius:14px;
+    background:rgba(255,255,255,0.06);
+    color:white; cursor:pointer;
+    transition:all 0.22s; text-align:left;
+  }
+  .quiz-opt:hover:not(:disabled) {
+    background:rgba(255,255,255,0.14);
+    border-color:rgba(255,255,255,0.45);
+    transform:translateY(-2px);
+  }
+  .quiz-opt.correct { background:rgba(0,200,83,0.3); border-color:#00C853; color:#AAFFCC; }
+  .quiz-opt.wrong   { background:rgba(255,59,92,0.25); border-color:#FF3B5C; color:#FFAABB; }
+  .quiz-opt:disabled { cursor:not-allowed; }
+  .quiz-feedback { font-size:1rem; font-weight:700; color:white; min-height:22px; margin-top:10px; }
+  .quiz-score { font-family:'Fredoka One',cursive; font-size:1.3rem; color:var(--y); text-align:center; margin-top:12px; }
+  .next-q-btn {
+    font-family:'Fredoka One',cursive;
+    font-size:1.1rem; padding:11px 26px;
+    border:none; border-radius:50px;
+    background:linear-gradient(135deg,#FFD700,#FF8C00);
+    color:#1a0030; cursor:pointer;
+    transition:all 0.25s; display:none; margin-top:10px;
+  }
+  .next-q-btn:hover { transform:scale(1.06); }
+  .quiz-complete { text-align:center; padding:24px; display:none; }
+  .trophy-anim { font-size:4rem; animation:trophySpin 2s ease-in-out infinite alternate; }
+  @keyframes trophySpin {
+    0%  { transform:rotate(-12deg) scale(1); }
+    100%{ transform:rotate(12deg) scale(1.18); }
+  }
+  .complete-title { font-family:'Fredoka One',cursive; font-size:2rem; color:var(--y); margin:10px 0; }
+  .complete-msg { font-size:1.1rem; color:rgba(255,255,255,0.85); }
+
+  /* ══════════════════════════════════════
+     ACTIVITY 3 — MATCH THE SUM
+  ══════════════════════════════════════ */
+  .match-intro {
+    font-size:1rem; color:rgba(255,255,255,0.8);
+    margin-bottom:14px; line-height:1.6;
+  }
+  .match-board {
+    display:flex; gap:20px; flex-wrap:wrap;
+    justify-content:center; align-items:flex-start;
+  }
+  .match-col {
+    display:flex; flex-direction:column; gap:10px;
+    align-items:center; flex:1; min-width:120px;
+  }
+  .match-col-label {
+    font-family:'Fredoka One',cursive;
+    font-size:1rem; color:rgba(255,255,255,0.6);
+    margin-bottom:4px;
+  }
+  .match-item {
+    font-family:'Fredoka One',cursive;
+    font-size:1.1rem;
+    padding:12px 20px; border-radius:14px;
+    cursor:pointer; transition:all 0.25s;
+    width:100%; text-align:center;
+    border:2px solid transparent;
+    position:relative;
+  }
+  .match-item.equation {
+    background:rgba(255,255,255,0.08);
+    border-color:rgba(255,255,255,0.15);
+    color:white;
+  }
+  .match-item.equation:hover:not(.disabled) {
+    background:rgba(255,255,255,0.15);
+    border-color:var(--b);
+    transform:scale(1.04);
+  }
+  .match-item.equation.selected {
+    border-color:var(--y);
+    background:rgba(255,215,0,0.2);
+    box-shadow:0 0 16px rgba(255,215,0,0.4);
+  }
+  .match-item.answer {
+    color:white;
+    border-color:rgba(255,255,255,0.15);
+  }
+  .match-item.answer:hover:not(.disabled) {
+    transform:scale(1.04);
+    border-color:var(--pk);
+  }
+  .match-item.answer.selected {
+    border-color:var(--y);
+    box-shadow:0 0 16px rgba(255,215,0,0.4);
+  }
+  .match-item.matched {
+    animation:matchPop 0.4s ease;
+    opacity:0.6; cursor:not-allowed;
+  }
+  @keyframes matchPop {
+    0%  { transform:scale(1.2); }
+    100%{ transform:scale(1); }
+  }
+  .match-item.wrong-flash { animation:wrongFlash 0.4s ease; }
+  @keyframes wrongFlash {
+    0%,100%{ background:rgba(255,59,92,0.2); border-color:#FF3B5C; }
+    50%    { background:rgba(255,59,92,0.4); }
+  }
+  .match-status {
+    font-family:'Fredoka One',cursive;
+    font-size:1.2rem; color:white; text-align:center;
+    min-height:30px; margin-top:10px;
+  }
+  .match-score {
+    font-family:'Fredoka One',cursive;
+    font-size:1.1rem; color:var(--y);
+    text-align:center; margin-bottom:8px;
+  }
+  .new-match-btn {
+    font-family:'Fredoka One',cursive;
+    font-size:1rem; padding:10px 24px;
+    border:none; border-radius:50px;
+    background:linear-gradient(135deg,#7C3AED,#FF69B4);
+    color:white; cursor:pointer;
+    transition:all 0.25s;
+    display:block; margin:12px auto 0;
+  }
+  .new-match-btn:hover { transform:scale(1.06); }
+
+  /* ─── CONFETTI BURST ─── */
+  .burst {
+    position:fixed; width:10px; height:10px;
+    border-radius:50%; pointer-events:none; z-index:999;
+    animation:burstAnim linear forwards;
+  }
+  @keyframes burstAnim {
+    0%  { opacity:1; transform:translate(0,0) rotate(0deg); }
+    100%{ opacity:0; transform:translate(var(--dx),var(--dy)) rotate(720deg); }
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media(max-width:520px) {
+    .quiz-opts { grid-template-columns:1fr; }
+    .players-row { flex-direction:column; align-items:center; }
+    .player-zone { max-width:100%; width:100%; }
+    .match-board { flex-direction:column; align-items:center; }
+    .match-col { width:100%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ANIMATED BACKGROUND -->
+<div class="bg-scene" id="bgScene"></div>
+
+<div class="wrapper">
+
+  <!-- TITLE -->
+  <div class="main-title">🃏 Addition War Card Game ➕</div>
+  <div class="rainbow-bar"></div>
+
+  <!-- TABS -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="showTab(0)">⚔️ Card Battle</button>
+    <button class="tab-btn"        onclick="showTab(1)">🧠 Maths Quiz</button>
+    <button class="tab-btn"        onclick="showTab(2)">🎯 Match the Sum</button>
+  </div>
+
+  <!-- ══════════════════════════════════
+       ACTIVITY 1 — CARD BATTLE
+  ══════════════════════════════════ -->
+  <div class="panel active" id="panel0">
+    <div class="card-panel">
+      <div class="panel-title" style="color:#00AEFF;">⚔️ Play Addition War!</div>
+
+      <!-- Mode toggle -->
+      <div class="mode-toggle">
+        <button class="mode-btn on" id="mode2btn" onclick="setMode(2)">🃏 2 Cards (Round 1)</button>
+        <button class="mode-btn"   id="mode3btn" onclick="setMode(3)">🃏🃏 3 Cards (Round 2)</button>
+      </div>
+
+      <div class="battle-area">
+        <div class="round-badge" id="roundBadge">Round 1 — Flip 2 Cards!</div>
+
+        <div class="players-row">
+          <!-- Player 1 -->
+          <div class="player-zone" id="zone1">
+            <div class="player-label">🧒 You</div>
+            <div class="cards-flip-area" id="cards1"></div>
+            <div class="sum-box" id="sum1">—</div>
+          </div>
+
+          <div class="vs-divider">VS</div>
+
+          <!-- Player 2 -->
+          <div class="player-zone" id="zone2">
+            <div class="player-label">🤖 Computer</div>
+            <div class="cards-flip-area" id="cards2"></div>
+            <div class="sum-box" id="sum2">—</div>
+          </div>
+        </div>
+
+        <div class="battle-result" id="battleResult">
+          Press <b>FLIP!</b> to start the battle 🎲
+        </div>
+
+        <div class="score-strip">
+          <div class="score-chip">🧒 You: <span id="p1score">0</span></div>
+          <div class="score-chip">🤖 CPU: <span id="p2score">0</span></div>
+          <div class="score-chip">🏆 Rounds: <span id="roundCount">0</span></div>
+        </div>
+
+        <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+          <button class="flip-btn" id="flipBtn" onclick="doFlip()">🃏 FLIP! ➕ COMPARE!</button>
+          <button class="reset-btn" onclick="resetBattle()">🔄 Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-panel">
+      <div class="panel-title" style="color:#FFD700;">💡 How to Play</div>
+      <p style="color:rgba(255,255,255,0.8);line-height:1.7;font-size:1rem;">
+        Both players flip cards and add the numbers together to get their <strong style="color:#FFD700;">SUM</strong>.
+        The player with the <strong style="color:#00C853;">BIGGER SUM wins</strong> that round!
+        In Round 1 flip <b>2 cards</b>, in Round 2 flip <b>3 cards</b> — add them all up!
+        Like counting cricket runs: 4 runs + 6 runs = <b>10 runs total!</b>
+      </p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       ACTIVITY 2 — QUIZ
+  ══════════════════════════════════ -->
+  <div class="panel" id="panel1">
+    <div class="card-panel">
+      <div class="panel-title" style="color:#00C853;">🧠 Maths Quiz — Test Your Skills!</div>
+      <div id="quizArea">
+        <div class="quiz-q" id="qBox">
+          <div class="quiz-qtext" id="qText"></div>
+          <div class="quiz-opts" id="qOpts"></div>
+          <div class="quiz-feedback" id="qFeedback"></div>
+          <button class="next-q-btn" id="nextQBtn" onclick="nextQ()">Next Question ➜</button>
+        </div>
+        <div class="quiz-score">⭐ Score: <span id="qScore">0</span> / <span id="qTotal">6</span></div>
+      </div>
+      <div class="quiz-complete" id="quizComplete">
+        <div class="trophy-anim">🏆</div>
+        <div class="complete-title">Maths Champion!</div>
+        <div class="complete-msg" id="completeMsg"></div>
+        <br>
+        <button class="next-q-btn" style="display:inline-block;" onclick="resetQuiz()">🔄 Play Again!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       ACTIVITY 3 — MATCH THE SUM
+  ══════════════════════════════════ -->
+  <div class="panel" id="panel2">
+    <div class="card-panel">
+      <div class="panel-title" style="color:#FF69B4;">🎯 Match the Sum!</div>
+      <p class="match-intro">
+        Tap an <strong style="color:#FFD700;">addition card</strong> from the left, then tap its
+        <strong style="color:#FF69B4;">matching answer</strong> on the right.
+        Match all pairs to win! 🌈
+      </p>
+      <div class="match-score">✅ Matched: <span id="matchCount">0</span> / <span id="matchTotal">6</span></div>
+      <div class="match-board">
+        <div class="match-col">
+          <div class="match-col-label">➕ Equations</div>
+          <div id="matchLeft"></div>
+        </div>
+        <div class="match-col">
+          <div class="match-col-label">🔢 Answers</div>
+          <div id="matchRight"></div>
+        </div>
+      </div>
+      <div class="match-status" id="matchStatus">Tap an equation to begin! 👆</div>
+      <button class="new-match-btn" onclick="buildMatch()">🔄 New Round!</button>
+    </div>
+  </div>
+
+</div><!-- /wrapper -->
+
+<script>
+// ─── BACKGROUND EFFECTS ────────────────────────────────
+(function(){
+  const bg = document.getElementById('bgScene');
+  const cols = ['#FF3B5C','#FF8C00','#FFD700','#00C853','#00AEFF','#7C3AED','#FF69B4'];
+
+  // Rainbow arcs
+  const arcSizes = [320,240,170,110,60];
+  arcSizes.forEach((s,i) => {
+    const a = document.createElement('div');
+    a.className = 'rainbow-arc';
+    a.style.cssText = `
+      width:${s*2}px; height:${s*2}px;
+      border-radius:50%;
+      border:${4-i*0.5}px solid ${cols[i]};
+      position:absolute;
+      left:calc(50% - ${s}px);
+      top:calc(50% - ${s}px);
+      animation-duration:${3+i*1.2}s;
+      animation-delay:-${i*0.8}s;
+      opacity:0.08;
+    `;
+    bg.appendChild(a);
+  });
+
+  // Stars
+  for(let i=0;i<70;i++){
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = 1.2+Math.random()*3;
+    s.style.cssText = `
+      width:${sz}px; height:${sz}px;
+      left:${Math.random()*100}vw;
+      top:${Math.random()*100}vh;
+      animation-duration:${1.5+Math.random()*3}s, ${8+Math.random()*14}s;
+      animation-delay:-${Math.random()*5}s, -${Math.random()*10}s;
+    `;
+    document.body.appendChild(s);
+  }
+
+  // Confetti numbers
+  const nums = ['1','2','3','4','5','6','7','8','9','10','+','='];
+  for(let i=0;i<22;i++){
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    c.textContent = nums[Math.floor(Math.random()*nums.length)];
+    const col = cols[Math.floor(Math.random()*cols.length)];
+    const sz = 14+Math.random()*18;
+    c.style.cssText = `
+      left:${Math.random()*100}vw;
+      font-size:${sz}px;
+      color:${col};
+      opacity:0.2;
+      animation-duration:${12+Math.random()*16}s;
+      animation-delay:-${Math.random()*16}s;
+    `;
+    document.body.appendChild(c);
+  }
+
+  // Light beams
+  cols.forEach((col,i) => {
+    const b = document.createElement('div');
+    b.className = 'beam';
+    b.style.cssText = `
+      left:${8+i*14}%;
+      background:linear-gradient(to bottom,${col},transparent);
+      animation-duration:${2.5+i*0.6}s;
+      animation-delay:-${i*0.4}s;
+    `;
+    document.body.appendChild(b);
+  });
+})();
+
+// ─── TAB SWITCHING ──────────────────────────────────────
+function showTab(idx){
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',i===idx));
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
+}
+
+// ─── CARD COLOURS ───────────────────────────────────────
+const CARD_COLOURS = [
+  '#FF3B5C','#FF8C00','#FFD700','#00C853',
+  '#00AEFF','#7C3AED','#FF69B4','#00BFA5','#FF6D00'
+];
+function cardStyle(n){
+  const idx = (n-1) % CARD_COLOURS.length;
+  return `background:${CARD_COLOURS[idx]}; color:white; border:2px solid rgba(255,255,255,0.4);`;
+}
+
+// ══════════════════════════════════════
+// ACTIVITY 1 — CARD BATTLE
+// ══════════════════════════════════════
+let gameMode = 2;
+let p1Score = 0, p2Score = 0, rounds = 0;
+let battleActive = false;
+
+function setMode(m){
+  gameMode = m;
+  document.getElementById('mode2btn').classList.toggle('on', m===2);
+  document.getElementById('mode3btn').classList.toggle('on', m===3);
+  document.getElementById('roundBadge').textContent =
+    m===2 ? 'Round 1 — Flip 2 Cards!' : 'Round 2 — Flip 3 Cards!';
+  resetBattle();
+}
+
+function randCard(){ return Math.floor(Math.random()*10)+1; }
+
+function renderCards(containerId, vals, sumId, sum){
+  const cont = document.getElementById(containerId);
+  cont.innerHTML = '';
+  vals.forEach(v => {
+    const d = document.createElement('div');
+    d.className = 'play-card flipped';
+    d.style.cssText = cardStyle(v);
+    d.textContent = v;
+    cont.appendChild(d);
+  });
+  const sb = document.getElementById(sumId);
+  if(vals.length > 1){
+    const eq = vals.join(' + ') + ' = ' + sum;
+    sb.textContent = eq;
+    sb.style.background = 'rgba(255,255,255,0.15)';
+  }
+}
+
+function doFlip(){
+  if(battleActive) return;
+  battleActive = true;
+  document.getElementById('flipBtn').disabled = true;
+  document.getElementById('battleResult').innerHTML = '';
+
+  // Reset display
+  document.getElementById('cards1').innerHTML = '';
+  document.getElementById('cards2').innerHTML = '';
+  document.getElementById('sum1').textContent = '—';
+  document.getElementById('sum2').textContent = '—';
+  document.getElementById('sum1').style.background = 'rgba(255,255,255,0.1)';
+  document.getElementById('sum2').style.background = 'rgba(255,255,255,0.1)';
+
+  // Show face-down cards
+  function makeFaceDown(cont, n){
+    for(let i=0;i<n;i++){
+      const d = document.createElement('div');
+      d.className = 'play-card face-down';
+      cont.appendChild(d);
+    }
+  }
+  makeFaceDown(document.getElementById('cards1'), gameMode);
+  makeFaceDown(document.getElementById('cards2'), gameMode);
+  document.getElementById('battleResult').innerHTML = '3... 2... 1...';
+
+  setTimeout(() => {
+    const v1 = Array.from({length:gameMode},()=>randCard());
+    const v2 = Array.from({length:gameMode},()=>randCard());
+    const s1 = v1.reduce((a,b)=>a+b,0);
+    const s2 = v2.reduce((a,b)=>a+b,0);
+
+    renderCards('cards1', v1, 'sum1', s1);
+    renderCards('cards2', v2, 'sum2', s2);
+
+    setTimeout(() => {
+      rounds++;
+      let msg = '';
+      const z1 = document.getElementById('zone1');
+      const z2 = document.getElementById('zone2');
+      z1.style.borderColor = 'rgba(255,255,255,0.1)';
+      z2.style.borderColor = 'rgba(255,255,255,0.1)';
+
+      if(s1 > s2){
+        p1Score++;
+        msg = `<span class="winner-badge" style="background:linear-gradient(135deg,#00C853,#00AEFF);color:white;">🎉 You Win This Round! ${s1} > ${s2}</span>`;
+        z1.style.borderColor = '#00C853';
+        launchBurst(20);
+      } else if(s2 > s1){
+        p2Score++;
+        msg = `<span class="winner-badge" style="background:linear-gradient(135deg,#FF3B5C,#FF8C00);color:white;">🤖 Computer Wins! ${s2} > ${s1}</span>`;
+        z2.style.borderColor = '#FF3B5C';
+      } else {
+        msg = `<span class="winner-badge" style="background:linear-gradient(135deg,#FFD700,#FF69B4);color:#1a0030;">⚡ It's a WAR! ${s1} = ${s2}</span>`;
+      }
+      document.getElementById('battleResult').innerHTML = msg;
+      document.getElementById('p1score').textContent = p1Score;
+      document.getElementById('p2score').textContent = p2Score;
+      document.getElementById('roundCount').textContent = rounds;
+
+      battleActive = false;
+      document.getElementById('flipBtn').disabled = false;
+    }, 400);
+  }, 900);
+}
+
+function resetBattle(){
+  p1Score = 0; p2Score = 0; rounds = 0; battleActive = false;
+  document.getElementById('cards1').innerHTML = '';
+  document.getElementById('cards2').innerHTML = '';
+  document.getElementById('sum1').textContent = '—';
+  document.getElementById('sum2').textContent = '—';
+  document.getElementById('sum1').style.background = 'rgba(255,255,255,0.1)';
+  document.getElementById('sum2').style.background = 'rgba(255,255,255,0.1)';
+  document.getElementById('battleResult').innerHTML = 'Press <b>FLIP!</b> to start the battle 🎲';
+  document.getElementById('p1score').textContent = '0';
+  document.getElementById('p2score').textContent = '0';
+  document.getElementById('roundCount').textContent = '0';
+  document.getElementById('flipBtn').disabled = false;
+  document.getElementById('zone1').style.borderColor = 'rgba(255,255,255,0.1)';
+  document.getElementById('zone2').style.borderColor = 'rgba(255,255,255,0.1)';
+}
+
+// ══════════════════════════════════════
+// ACTIVITY 2 — QUIZ
+// ══════════════════════════════════════
+const QUESTIONS = [
+  { q:'What is 4 + 5?', opts:['7','8','9','10'], correct:2,
+    feedback:'4 + 5 = 9. Like scoring 4 runs then 5 more runs in cricket!' },
+  { q:'What is the SUM of 6 + 7?', opts:['11','12','13','14'], correct:2,
+    feedback:'6 + 7 = 13. The SUM is the total when we add two numbers!' },
+  { q:'Which SUM is bigger: 3+4 or 5+2?', opts:['3+4 = 7','5+2 = 7','They are equal!','Cannot tell'], correct:2,
+    feedback:'Both equal 7! When sums are equal — it is a WAR round!' },
+  { q:'In Addition War, who WINS the round?', opts:['The player with the smaller sum','The player with the bigger sum','Both players always win','Whoever flips first'], correct:1,
+    feedback:'The player with the BIGGER SUM wins all the cards! Higher sum = winner!' },
+  { q:'Add three cards: 3 + 5 + 2 = ?', opts:['8','9','10','11'], correct:2,
+    feedback:'3 + 5 = 8, then 8 + 2 = 10! Add first two, then add the third!' },
+  { q:'You flip 8 and 6. Your friend flips 7 and 9. Who wins?', opts:['You win! 14 > 16','Your friend wins! 16 > 14','It is a tie','No one wins'], correct:1,
+    feedback:'8+6=14 and 7+9=16. Your friend\'s 16 beats your 14. Friend wins!' },
+];
+
+let qIdx = 0, qScore = 0, qAnswered = false;
+
+function loadQ(){
+  if(qIdx >= QUESTIONS.length){ showQuizComplete(); return; }
+  const q = QUESTIONS[qIdx];
+  document.getElementById('qText').textContent = `Q${qIdx+1}: ${q.q}`;
+  const opts = document.getElementById('qOpts');
+  opts.innerHTML = '';
+  q.opts.forEach((opt,i) => {
+    const b = document.createElement('button');
+    b.className = 'quiz-opt';
+    b.textContent = opt;
+    b.onclick = () => checkQ(i, q);
+    opts.appendChild(b);
+  });
+  document.getElementById('qFeedback').textContent = '';
+  document.getElementById('nextQBtn').style.display = 'none';
+  document.getElementById('qTotal').textContent = QUESTIONS.length;
+  document.getElementById('qScore').textContent = qScore;
+  qAnswered = false;
+}
+
+function checkQ(idx, q){
+  if(qAnswered) return;
+  qAnswered = true;
+  const btns = document.querySelectorAll('.quiz-opt');
+  btns.forEach((b,i) => {
+    b.disabled = true;
+    if(i===q.correct) b.classList.add('correct');
+    else if(i===idx) b.classList.add('wrong');
+  });
+  if(idx===q.correct){
+    qScore++;
+    document.getElementById('qFeedback').textContent = '✅ ' + q.feedback;
+    launchBurst(8);
+  } else {
+    document.getElementById('qFeedback').textContent = '❌ ' + q.feedback;
+  }
+  document.getElementById('qScore').textContent = qScore;
+  document.getElementById('nextQBtn').style.display = 'inline-block';
+}
+
+function nextQ(){
+  qIdx++;
+  loadQ();
+}
+
+function showQuizComplete(){
+  document.getElementById('quizArea').style.display = 'none';
+  document.getElementById('quizComplete').style.display = 'block';
+  const msg = qScore >= 5 ? `You scored ${qScore}/${QUESTIONS.length} — SUPER Maths Champion! 🌟🌟🌟`
+            : qScore >= 4 ? `You scored ${qScore}/${QUESTIONS.length} — Great work! 🌟🌟`
+            : `You scored ${qScore}/${QUESTIONS.length} — Keep practising! 🌟`;
+  document.getElementById('completeMsg').textContent = msg;
+  launchBurst(qScore >= 5 ? 40 : 16);
+}
+
+function resetQuiz(){
+  qIdx = 0; qScore = 0; qAnswered = false;
+  document.getElementById('quizArea').style.display = 'block';
+  document.getElementById('quizComplete').style.display = 'none';
+  loadQ();
+}
+
+loadQ();
+
+// ══════════════════════════════════════
+// ACTIVITY 3 — MATCH THE SUM
+// ══════════════════════════════════════
+let matchSelected = null;
+let matchedCount = 0;
+let matchPairs = [];
+
+const ALL_PAIRS = [
+  {eq:'2 + 3', ans:5},  {eq:'4 + 4', ans:8},  {eq:'6 + 3', ans:9},
+  {eq:'5 + 5', ans:10}, {eq:'7 + 2', ans:9},   {eq:'3 + 8', ans:11},
+  {eq:'6 + 6', ans:12}, {eq:'4 + 7', ans:11},  {eq:'8 + 3', ans:11},
+  {eq:'5 + 6', ans:11}, {eq:'9 + 1', ans:10},  {eq:'2 + 9', ans:11},
+  {eq:'3 + 4 + 2', ans:9}, {eq:'5 + 3 + 1', ans:9},{eq:'2 + 6 + 3', ans:11},
+  {eq:'4 + 3 + 5', ans:12},{eq:'1 + 8 + 2', ans:11},{eq:'6 + 2 + 4', ans:12},
+];
+
+const MATCH_COLOURS = [
+  '#FF3B5C','#FF8C00','#FFD700','#00C853','#00AEFF','#7C3AED'
+];
+
+function shuffleArr(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function buildMatch(){
+  matchSelected = null;
+  matchedCount = 0;
+
+  // Pick 6 unique-answer pairs (filter so answers don't repeat)
+  const shuffled = shuffleArr(ALL_PAIRS);
+  const usedAns = new Set();
+  matchPairs = [];
+  for(const p of shuffled){
+    if(!usedAns.has(p.ans)){
+      usedAns.add(p.ans);
+      matchPairs.push(p);
+    }
+    if(matchPairs.length === 6) break;
+  }
+
+  document.getElementById('matchTotal').textContent = matchPairs.length;
+  document.getElementById('matchCount').textContent = 0;
+  document.getElementById('matchStatus').textContent = 'Tap an equation to begin! 👆';
+
+  // Build left (equations)
+  const left = document.getElementById('matchLeft');
+  left.innerHTML = '';
+  shuffleArr(matchPairs).forEach((p,i) => {
+    const d = document.createElement('div');
+    d.className = 'match-item equation';
+    d.textContent = p.eq + ' = ?';
+    d.dataset.ans = p.ans;
+    d.dataset.type = 'eq';
+    d.dataset.eq = p.eq;
+    d.style.borderLeftColor = MATCH_COLOURS[i];
+    d.onclick = () => matchClick(d);
+    left.appendChild(d);
+  });
+
+  // Build right (answers — shuffled)
+  const right = document.getElementById('matchRight');
+  right.innerHTML = '';
+  shuffleArr(matchPairs).forEach((p,i) => {
+    const d = document.createElement('div');
+    d.className = 'match-item answer';
+    d.textContent = p.ans;
+    d.dataset.ans = p.ans;
+    d.dataset.type = 'ans';
+    d.style.background = `${MATCH_COLOURS[i]}33`;
+    d.style.borderColor = MATCH_COLOURS[i];
+    d.onclick = () => matchClick(d);
+    right.appendChild(d);
+  });
+}
+
+function matchClick(el){
+  if(el.classList.contains('matched') || el.classList.contains('disabled')) return;
+
+  if(!matchSelected){
+    // First click — must be an equation
+    if(el.dataset.type !== 'eq') {
+      document.getElementById('matchStatus').textContent = '👆 Tap an EQUATION first!';
+      return;
+    }
+    document.querySelectorAll('.match-item.equation.selected').forEach(x=>x.classList.remove('selected'));
+    el.classList.add('selected');
+    matchSelected = el;
+    document.getElementById('matchStatus').textContent = `"${el.dataset.eq}" selected! Now pick the answer 🔢`;
+  } else {
+    // Second click — must be an answer
+    if(el.dataset.type !== 'ans'){
+      // Reselect equation
+      document.querySelectorAll('.match-item.equation.selected').forEach(x=>x.classList.remove('selected'));
+      el.classList.add('selected');
+      matchSelected = el;
+      return;
+    }
+
+    if(matchSelected.dataset.ans === el.dataset.ans){
+      // Correct match!
+      matchedCount++;
+      const col = MATCH_COLOURS[matchedCount % MATCH_COLOURS.length];
+      matchSelected.classList.add('matched');
+      matchSelected.classList.remove('selected');
+      matchSelected.style.background = col + '55';
+      matchSelected.style.borderColor = col;
+      matchSelected.textContent = matchSelected.dataset.eq + ' = ' + el.dataset.ans + ' ✓';
+      el.classList.add('matched');
+      el.style.background = col + '55';
+      el.style.borderColor = col;
+      el.textContent = el.dataset.ans + ' ✓';
+      document.getElementById('matchCount').textContent = matchedCount;
+      document.getElementById('matchStatus').textContent = `✅ Correct! ${matchSelected.dataset.eq} = ${el.dataset.ans}`;
+      launchBurst(10);
+      matchSelected = null;
+      if(matchedCount >= matchPairs.length){
+        setTimeout(()=>{
+          document.getElementById('matchStatus').textContent = '🎉 All matched! You are a Maths Star! 🌟';
+          launchBurst(40);
+        },300);
+      }
+    } else {
+      // Wrong!
+      el.classList.add('wrong-flash');
+      matchSelected.classList.add('wrong-flash');
+      document.getElementById('matchStatus').textContent = '❌ Not quite! Try a different answer!';
+      setTimeout(()=>{
+        el.classList.remove('wrong-flash');
+        if(matchSelected) matchSelected.classList.remove('wrong-flash');
+      }, 400);
+    }
+  }
+}
+
+buildMatch();
+
+// ─── CONFETTI BURST ─────────────────────────────────────
+const BURST_COLS = ['#FF3B5C','#FF8C00','#FFD700','#00C853','#00AEFF','#7C3AED','#FF69B4'];
+function launchBurst(n=20){
+  for(let i=0;i<n;i++){
+    setTimeout(()=>{
+      const c = document.createElement('div');
+      c.className = 'burst';
+      const angle = Math.random()*Math.PI*2;
+      const dist = 60+Math.random()*120;
+      const cx = Math.random()*80+10;
+      const cy = Math.random()*60+20;
+      c.style.cssText = `
+        left:${cx}vw; top:${cy}vh;
+        width:${8+Math.random()*8}px;
+        height:${8+Math.random()*8}px;
+        border-radius:${Math.random()>0.5?'50%':'3px'};
+        background:${BURST_COLS[Math.floor(Math.random()*BURST_COLS.length)]};
+        --dx:${Math.cos(angle)*dist}px;
+        --dy:${Math.sin(angle)*dist}px;
+        animation-duration:${0.8+Math.random()*0.8}s;
+      `;
+      document.body.appendChild(c);
+      setTimeout(()=>c.remove(), 1800);
+    }, i*50);
+  }
+}
+</script>
+</body>
+</html>

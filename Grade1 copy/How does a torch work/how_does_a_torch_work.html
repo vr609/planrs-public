@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Does a Torch Work?</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+
+  :root {
+    --sky1: #ffe259;
+    --sky2: #ffa751;
+    --sky3: #ff6b6b;
+    --sky4: #c0392b;
+    --water: #48cae4;
+    --water2: #0077b6;
+    --leaf: #52b788;
+    --sun: #ffd60a;
+    --torch-body: #e76f51;
+    --torch-head: #f4a261;
+    --bulb: #ffd60a;
+    --battery: #6c757d;
+    --switch-on: #2dc653;
+    --switch-off: #e63946;
+    --white: #fff;
+    --card: rgba(255,255,255,0.92);
+    --shadow: 0 8px 32px rgba(0,0,0,0.13);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background: linear-gradient(180deg, #ffe259 0%, #ffa751 18%, #ff6b6b 36%, #48cae4 56%, #0077b6 100%);
+    background-attachment: fixed;
+  }
+
+  /* ===== ANIMATED BACKGROUND ===== */
+  .bg-scene {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;
+  }
+
+  /* SUN */
+  .sun {
+    position: absolute;
+    top: 28px; left: 50%;
+    transform: translateX(-50%);
+    width: 90px; height: 90px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff9c4 30%, #ffd60a 60%, #ffa00a 100%);
+    box-shadow: 0 0 60px 30px rgba(255,214,10,0.45), 0 0 120px 60px rgba(255,160,10,0.18);
+    animation: sunPulse 4s ease-in-out infinite;
+  }
+  @keyframes sunPulse {
+    0%,100% { box-shadow: 0 0 60px 30px rgba(255,214,10,0.45), 0 0 120px 60px rgba(255,160,10,0.18); }
+    50% { box-shadow: 0 0 90px 50px rgba(255,214,10,0.65), 0 0 160px 80px rgba(255,160,10,0.25); }
+  }
+
+  /* SUN RAYS */
+  .sun-rays {
+    position: absolute;
+    top: -10px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 110px;
+    animation: rotateSun 12s linear infinite;
+  }
+  .ray {
+    position: absolute;
+    width: 4px; height: 28px;
+    background: linear-gradient(to bottom, rgba(255,214,10,0.9), transparent);
+    border-radius: 4px;
+    top: 0; left: 50%;
+    transform-origin: 50% 55px;
+  }
+  @keyframes rotateSun { to { transform: translateX(-50%) rotate(360deg); } }
+
+  /* CLOUDS */
+  .cloud {
+    position: absolute;
+    background: rgba(255,255,255,0.88);
+    border-radius: 50px;
+    animation: driftCloud linear infinite;
+  }
+  .cloud::before, .cloud::after {
+    content: '';
+    position: absolute;
+    background: rgba(255,255,255,0.88);
+    border-radius: 50%;
+  }
+  .c1 { width:120px;height:38px; top:80px; left:-140px; animation-duration:28s; animation-delay:0s; }
+  .c1::before { width:60px;height:55px; top:-25px; left:20px; }
+  .c1::after { width:45px;height:42px; top:-18px; left:55px; }
+  .c2 { width:90px;height:28px; top:55px; left:-110px; animation-duration:22s; animation-delay:-10s; opacity:0.75; }
+  .c2::before { width:45px;height:40px; top:-20px; left:15px; }
+  .c2::after { width:35px;height:32px; top:-14px; left:42px; }
+  .c3 { width:70px;height:22px; top:110px; left:-90px; animation-duration:35s; animation-delay:-18s; opacity:0.6; }
+  .c3::before { width:35px;height:30px; top:-14px; left:10px; }
+  .c3::after { width:28px;height:25px; top:-10px; left:33px; }
+  @keyframes driftCloud { from { transform: translateX(0); } to { transform: translateX(calc(100vw + 200px)); } }
+
+  /* BIRDS */
+  .bird {
+    position: absolute;
+    animation: flyBird linear infinite;
+  }
+  .bird svg { animation: flapWings 0.5s ease-in-out infinite alternate; }
+  @keyframes flapWings {
+    from { transform: scaleY(1); }
+    to { transform: scaleY(0.5); }
+  }
+  .b1 { top: 130px; left: -60px; animation-duration: 18s; animation-delay: 0s; }
+  .b2 { top: 105px; left: -60px; animation-duration: 22s; animation-delay: -8s; }
+  .b3 { top: 150px; left: -60px; animation-duration: 15s; animation-delay: -4s; }
+  @keyframes flyBird {
+    from { transform: translateX(0); }
+    to { transform: translateX(calc(100vw + 120px)); }
+  }
+
+  /* WATER WAVES */
+  .water-strip {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 38%;
+    background: linear-gradient(180deg, #48cae4 0%, #0077b6 100%);
+  }
+  .wave {
+    position: absolute;
+    top: -18px; left: -10%;
+    width: 120%; height: 36px;
+    background: transparent;
+    border-radius: 50%;
+    border-top: 18px solid rgba(255,255,255,0.3);
+    animation: waveRoll 4s ease-in-out infinite;
+  }
+  .wave2 {
+    top: -10px;
+    animation: waveRoll 6s ease-in-out infinite reverse;
+    border-top-color: rgba(255,255,255,0.15);
+  }
+  @keyframes waveRoll {
+    0%,100% { transform: translateX(0) scaleY(1); }
+    50% { transform: translateX(3%) scaleY(1.15); }
+  }
+
+  /* FISH */
+  .fish {
+    position: absolute;
+    animation: swimFish linear infinite;
+  }
+  .fish svg { animation: wriggle 1.2s ease-in-out infinite alternate; }
+  @keyframes wriggle {
+    from { transform: rotate(-5deg); }
+    to { transform: rotate(5deg); }
+  }
+  .f1 { bottom: 15%; animation-duration: 14s; animation-delay: 0s; left: -80px; }
+  .f2 { bottom: 22%; animation-duration: 18s; animation-delay: -7s; left: -80px; }
+  .f3 { bottom: 10%; animation-duration: 20s; animation-delay: -12s; left: -80px; }
+  @keyframes swimFish {
+    from { transform: translateX(0); }
+    to { transform: translateX(calc(100vw + 160px)); }
+  }
+
+  /* BUBBLES */
+  .bubble {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    border: 2px solid rgba(255,255,255,0.4);
+    animation: floatBubble ease-in infinite;
+  }
+  @keyframes floatBubble {
+    0% { transform: translateY(0) scale(1); opacity: 0.7; }
+    100% { transform: translateY(-120px) scale(1.3); opacity: 0; }
+  }
+
+  /* GRASS / TREES */
+  .grass-strip {
+    position: absolute;
+    bottom: 38%; left: 0; right: 0;
+    height: 60px;
+    overflow: hidden;
+  }
+  .tree {
+    position: absolute;
+    bottom: 0;
+  }
+
+  /* ===== MAIN CONTENT ===== */
+  .page-wrap {
+    position: relative; z-index: 10;
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 30px 16px 50px;
+  }
+
+  /* HEADER */
+  .page-header {
+    text-align: center;
+    margin-bottom: 30px;
+    animation: dropIn 0.8s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  @keyframes dropIn {
+    from { transform: translateY(-60px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .topic-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(2rem, 6vw, 3.2rem);
+    color: #fff;
+    text-shadow: 0 4px 16px rgba(0,0,0,0.25), 0 2px 0 rgba(255,140,0,0.5);
+    letter-spacing: 1px;
+    line-height: 1.15;
+  }
+  .topic-emoji {
+    font-size: 2.8rem;
+    display: inline-block;
+    animation: bounce 1.5s ease-in-out infinite;
+  }
+  @keyframes bounce {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  .topic-sub {
+    font-size: 1.1rem;
+    color: rgba(255,255,255,0.92);
+    font-weight: 700;
+    margin-top: 6px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ACTIVITY TABS */
+  .tabs {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.05rem;
+    padding: 10px 22px;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.25s;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+    color: #fff;
+    letter-spacing: 0.5px;
+  }
+  .tab-btn.t1 { background: linear-gradient(135deg, #f72585, #b5179e); }
+  .tab-btn.t2 { background: linear-gradient(135deg, #4cc9f0, #4361ee); }
+  .tab-btn.t3 { background: linear-gradient(135deg, #80b918, #2dc653); }
+  .tab-btn:hover { transform: translateY(-3px) scale(1.05); }
+  .tab-btn.active { transform: translateY(-4px) scale(1.08); box-shadow: 0 8px 24px rgba(0,0,0,0.22); }
+  .tab-btn.t1.active { background: linear-gradient(135deg, #ff006e, #8338ec); }
+  .tab-btn.t2.active { background: linear-gradient(135deg, #4cc9f0, #3a0ca3); }
+  .tab-btn.t3.active { background: linear-gradient(135deg, #aacc00, #007200); }
+
+  /* ACTIVITY PANELS */
+  .activity-panel {
+    display: none;
+    animation: fadeUp 0.4s ease both;
+  }
+  .activity-panel.active { display: block; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: 28px;
+    padding: 28px 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 18px;
+  }
+
+  .act-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.5rem;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* ==================== ACTIVITY 1: NAME THE PARTS ==================== */
+  #act1 .act-title { color: #b5179e; }
+
+  .torch-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .torch-svg-wrap {
+    position: relative;
+    width: 220px;
+    cursor: pointer;
+  }
+  .torch-svg-wrap svg { width: 100%; height: auto; }
+
+  .part-btn {
+    position: absolute;
+    background: rgba(255,255,255,0.9);
+    border: 2.5px solid #b5179e;
+    border-radius: 50px;
+    padding: 4px 12px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.85rem;
+    color: #b5179e;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.13);
+    white-space: nowrap;
+  }
+  .part-btn:hover, .part-btn.correct { background: #b5179e; color: #fff; transform: scale(1.08); }
+  .part-btn.wrong { background: #e63946; color: #fff; border-color: #e63946; animation: shake 0.4s; }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+
+  .label-targets {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 8px;
+  }
+  .label-target {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    padding: 8px 18px;
+    border-radius: 50px;
+    background: #f8e9ff;
+    border: 2.5px dashed #b5179e;
+    color: #b5179e;
+    cursor: pointer;
+    transition: all 0.22s;
+    user-select: none;
+  }
+  .label-target:hover { background: #f0c6ff; }
+  .label-target.placed { background: #b5179e; color: #fff; border-style: solid; cursor: default; }
+
+  .act1-instruction {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #6d28d9;
+    text-align: center;
+    background: #f0e6ff;
+    border-radius: 16px;
+    padding: 10px 18px;
+  }
+
+  #act1-feedback {
+    text-align: center;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.2rem;
+    min-height: 34px;
+    margin-top: 4px;
+  }
+
+  /* ==================== ACTIVITY 2: BUILD THE CIRCUIT ==================== */
+  #act2 .act-title { color: #4361ee; }
+
+  .circuit-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .circuit-board {
+    width: 100%;
+    max-width: 440px;
+    background: #1a1a2e;
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 4px 24px rgba(30,30,80,0.3);
+    position: relative;
+  }
+
+  .circuit-svg { width: 100%; height: auto; }
+
+  .switch-toggle {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    justify-content: center;
+  }
+  .switch-label {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+    color: #4361ee;
+  }
+  .toggle-wrap {
+    width: 70px; height: 36px;
+    border-radius: 50px;
+    background: #e63946;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.3s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    border: none;
+    outline: none;
+  }
+  .toggle-wrap.on { background: #2dc653; }
+  .toggle-knob {
+    position: absolute;
+    top: 4px; left: 4px;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.3s;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+  }
+  .toggle-wrap.on .toggle-knob { transform: translateX(34px); }
+
+  .circuit-msg {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.15rem;
+    text-align: center;
+    padding: 10px 18px;
+    border-radius: 16px;
+    min-height: 46px;
+    width: 100%;
+    max-width: 440px;
+  }
+  .circuit-msg.on { background: #d8f3dc; color: #1b4332; }
+  .circuit-msg.off { background: #ffe5e5; color: #7f1d1d; }
+
+  .circuit-quiz {
+    width: 100%;
+    max-width: 440px;
+  }
+  .circuit-quiz p {
+    font-weight: 800;
+    font-size: 1rem;
+    color: #1e1e5e;
+    margin-bottom: 10px;
+  }
+  .quiz-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .qopt {
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.95rem;
+    padding: 9px 18px;
+    border-radius: 50px;
+    border: 2.5px solid #4361ee;
+    background: #eef2ff;
+    color: #4361ee;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .qopt:hover { background: #c5ceff; }
+  .qopt.correct { background: #2dc653; color: #fff; border-color: #2dc653; }
+  .qopt.wrong { background: #e63946; color: #fff; border-color: #e63946; }
+
+  /* ==================== ACTIVITY 3: COLOUR THE TORCH LIGHT ==================== */
+  #act3 .act-title { color: #2d6a4f; }
+
+  .colour-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .torch-beam-wrap {
+    position: relative;
+    width: 280px;
+    height: 260px;
+  }
+
+  .beam {
+    position: absolute;
+    top: 56px;
+    left: 120px;
+    width: 0;
+    height: 0;
+    border-left: 0px solid transparent;
+    border-right: 60px solid transparent;
+    border-top: 0px solid transparent;
+    filter: blur(4px);
+    opacity: 0.82;
+    transform-origin: left center;
+    transition: border-right-color 0.4s, border-bottom-color 0.4s;
+  }
+  .beam-triangle {
+    position: absolute;
+    top: 50px;
+    left: 118px;
+    width: 0; height: 0;
+    border-top: 30px solid transparent;
+    border-bottom: 30px solid transparent;
+    border-left: 110px solid gold;
+    filter: blur(5px);
+    opacity: 0.75;
+    transition: border-left-color 0.5s;
+  }
+
+  .colour-palette {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .colour-swatch {
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3.5px solid rgba(255,255,255,0.6);
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+  }
+  .colour-swatch:hover { transform: scale(1.18); box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+  .colour-swatch.selected { border-color: #1a1a2e; transform: scale(1.22); }
+
+  .colour-name-display {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.3rem;
+    min-height: 36px;
+    text-align: center;
+    transition: color 0.4s;
+  }
+
+  .drag-label-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .drag-chip {
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.95rem;
+    padding: 7px 16px;
+    border-radius: 50px;
+    cursor: grab;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    transition: transform 0.15s;
+    user-select: none;
+  }
+  .drag-chip:hover { transform: scale(1.08); }
+  .drag-chip.used { opacity: 0.4; cursor: default; }
+
+  .drop-zone-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .drop-zone {
+    min-width: 90px;
+    padding: 9px 14px;
+    border-radius: 16px;
+    border: 2.5px dashed #2d6a4f;
+    background: #d8f3dc;
+    text-align: center;
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.9rem;
+    color: #2d6a4f;
+    transition: background 0.2s;
+  }
+  .drop-zone.filled { background: #2d6a4f; color: #fff; border-style: solid; }
+  .drop-zone.drag-over { background: #b7e4c7; }
+
+  #act3-score {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.15rem;
+    text-align: center;
+    color: #1b4332;
+    background: #d8f3dc;
+    border-radius: 16px;
+    padding: 10px 18px;
+    min-height: 44px;
+  }
+
+  /* STAR BURST celebration */
+  .stars-overlay {
+    position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .star-particle {
+    position: absolute;
+    font-size: 1.8rem;
+    animation: starBurst 1.2s ease-out forwards;
+  }
+  @keyframes starBurst {
+    0% { transform: translate(0,0) scale(0.3); opacity: 1; }
+    100% { transform: translate(var(--tx), var(--ty)) scale(1.4); opacity: 0; }
+  }
+
+  /* SCORE BAR */
+  .score-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .star-icon { font-size: 1.5rem; }
+  .star-icon.lit { filter: drop-shadow(0 0 6px gold); }
+
+  /* RESET BTN */
+  .reset-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    padding: 8px 22px;
+    border-radius: 50px;
+    border: none;
+    background: linear-gradient(135deg, #f72585, #b5179e);
+    color: #fff;
+    cursor: pointer;
+    margin-top: 6px;
+    transition: transform 0.2s;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+  }
+  .reset-btn:hover { transform: scale(1.06); }
+
+  /* Progress dots */
+  .progress-dots {
+    display: flex; gap: 8px; justify-content: center; margin-top: 14px;
+  }
+  .dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.4);
+    transition: background 0.3s;
+  }
+  .dot.done { background: #ffd60a; box-shadow: 0 0 8px rgba(255,214,10,0.7); }
+
+</style>
+</head>
+<body>
+
+<!-- ========== ANIMATED BACKGROUND ========== -->
+<div class="bg-scene">
+
+  <!-- Sky elements -->
+  <div class="sun"></div>
+  <div class="sun-rays" id="sunRays"></div>
+
+  <div class="cloud c1"></div>
+  <div class="cloud c2"></div>
+  <div class="cloud c3"></div>
+
+  <!-- Birds -->
+  <div class="bird b1">
+    <svg width="36" height="18" viewBox="0 0 36 18">
+      <path d="M18 9 Q9 0 0 5 Q9 9 18 9 Q27 0 36 5 Q27 9 18 9Z" fill="#333" opacity="0.7"/>
+    </svg>
+  </div>
+  <div class="bird b2">
+    <svg width="28" height="14" viewBox="0 0 28 14">
+      <path d="M14 7 Q7 0 0 4 Q7 7 14 7 Q21 0 28 4 Q21 7 14 7Z" fill="#555" opacity="0.65"/>
+    </svg>
+  </div>
+  <div class="bird b3">
+    <svg width="22" height="11" viewBox="0 0 22 11">
+      <path d="M11 5.5 Q5.5 0 0 3 Q5.5 5.5 11 5.5 Q16.5 0 22 3 Q16.5 5.5 11 5.5Z" fill="#444" opacity="0.6"/>
+    </svg>
+  </div>
+
+  <!-- Water strip -->
+  <div class="water-strip">
+    <div class="wave"></div>
+    <div class="wave wave2"></div>
+  </div>
+
+  <!-- Fish -->
+  <div class="fish f1">
+    <svg width="60" height="28" viewBox="0 0 60 28">
+      <ellipse cx="28" cy="14" rx="22" ry="10" fill="#f4a261"/>
+      <polygon points="50,14 60,4 60,24" fill="#e76f51"/>
+      <circle cx="18" cy="11" r="3" fill="#fff"/>
+      <circle cx="17" cy="11" r="1.5" fill="#1a1a2e"/>
+      <path d="M28 4 Q32 0 36 4 Q32 8 28 4Z" fill="rgba(255,255,255,0.3)"/>
+    </svg>
+  </div>
+  <div class="fish f2">
+    <svg width="50" height="24" viewBox="0 0 50 24">
+      <ellipse cx="23" cy="12" rx="18" ry="8" fill="#4cc9f0"/>
+      <polygon points="41,12 50,4 50,20" fill="#4361ee"/>
+      <circle cx="15" cy="9" r="2.5" fill="#fff"/>
+      <circle cx="14" cy="9" r="1.2" fill="#1a1a2e"/>
+    </svg>
+  </div>
+  <div class="fish f3">
+    <svg width="44" height="20" viewBox="0 0 44 20">
+      <ellipse cx="20" cy="10" rx="16" ry="7" fill="#80b918"/>
+      <polygon points="36,10 44,3 44,17" fill="#2dc653"/>
+      <circle cx="13" cy="7" r="2.2" fill="#fff"/>
+      <circle cx="12" cy="7" r="1" fill="#1a1a2e"/>
+    </svg>
+  </div>
+
+  <!-- Bubbles -->
+  <div id="bubbles"></div>
+
+</div>
+
+<!-- ========== PAGE CONTENT ========== -->
+<div class="page-wrap">
+
+  <!-- HEADER -->
+  <div class="page-header">
+    <div class="topic-emoji">🔦</div>
+    <h1 class="topic-title">How Does a Torch Work?</h1>
+    <p class="topic-sub">3 Fun Activities to Explore!</p>
+    <div class="progress-dots">
+      <div class="dot" id="dot1"></div>
+      <div class="dot" id="dot2"></div>
+      <div class="dot" id="dot3"></div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn t1 active" onclick="showActivity(1)">🏷️ Name the Parts</button>
+    <button class="tab-btn t2" onclick="showActivity(2)">⚡ Build the Circuit</button>
+    <button class="tab-btn t3" onclick="showActivity(3)">🎨 Colour the Light</button>
+  </div>
+
+  <!-- ===== ACTIVITY 1: NAME THE PARTS ===== -->
+  <div class="activity-panel active" id="act1">
+    <div class="card">
+      <div class="act-title">🏷️ Name the Parts of the Torch!</div>
+      <div class="act1-instruction">Tap a label below, then tap the matching part on the torch! ✨</div>
+
+      <div class="torch-stage">
+        <!-- SVG Torch with hotspots -->
+        <div class="torch-svg-wrap" id="torchWrap">
+          <svg viewBox="0 0 220 340" xmlns="http://www.w3.org/2000/svg">
+            <!-- BODY -->
+            <rect id="p-body" x="70" y="110" width="80" height="180" rx="18" fill="#e76f51" stroke="#c1440e" stroke-width="2"/>
+            <rect x="80" y="130" width="60" height="140" rx="12" fill="#f4a261" opacity="0.4"/>
+
+            <!-- GRIP LINES -->
+            <line x1="74" y1="160" x2="146" y2="160" stroke="#c1440e" stroke-width="2" opacity="0.5"/>
+            <line x1="74" y1="175" x2="146" y2="175" stroke="#c1440e" stroke-width="2" opacity="0.5"/>
+            <line x1="74" y1="190" x2="146" y2="190" stroke="#c1440e" stroke-width="2" opacity="0.5"/>
+
+            <!-- BATTERY inside (shown as cutaway) -->
+            <rect id="p-battery" x="86" y="205" width="48" height="70" rx="8" fill="#6c757d" stroke="#495057" stroke-width="1.5"/>
+            <rect x="96" y="200" width="28" height="8" rx="3" fill="#adb5bd"/>
+            <text x="97" y="246" font-size="9" fill="#fff" font-family="Fredoka One" font-weight="bold">+ CELL −</text>
+
+            <!-- SWITCH -->
+            <rect id="p-switch" x="148" y="165" width="24" height="38" rx="10" fill="#2dc653" stroke="#1b5e20" stroke-width="1.5"/>
+            <rect x="152" y="173" width="16" height="14" rx="6" fill="#fff" opacity="0.8"/>
+
+            <!-- HEAD -->
+            <ellipse cx="110" cy="108" rx="46" ry="14" fill="#f4a261" stroke="#c1440e" stroke-width="2"/>
+            <ellipse cx="110" cy="100" rx="42" ry="24" fill="#e76f51" stroke="#c1440e" stroke-width="2"/>
+
+            <!-- BULB -->
+            <circle id="p-bulb" cx="110" cy="80" r="30" fill="#fff9c4" stroke="#f9c74f" stroke-width="2.5"/>
+            <circle cx="110" cy="78" r="20" fill="#ffd60a" opacity="0.7"/>
+            <circle cx="110" cy="76" r="10" fill="#fff" opacity="0.9"/>
+            <!-- filament -->
+            <path d="M105 82 Q110 70 115 82" stroke="#e76f51" stroke-width="2" fill="none"/>
+
+            <!-- GLOW EFFECT (animated) -->
+            <circle cx="110" cy="78" r="34" fill="rgba(255,214,10,0.15)" class="bulb-glow"/>
+
+            <!-- Lens reflections -->
+            <ellipse cx="102" cy="68" rx="5" ry="3" fill="rgba(255,255,255,0.5)" transform="rotate(-30,102,68)"/>
+          </svg>
+
+          <!-- Hotspot Buttons -->
+          <button class="part-btn" id="hspot-bulb"   style="top:8%;  left:68%;" data-part="bulb"    onclick="matchPart('bulb')">?</button>
+          <button class="part-btn" id="hspot-switch" style="top:50%; left:72%;" data-part="switch"  onclick="matchPart('switch')">?</button>
+          <button class="part-btn" id="hspot-battery" style="top:68%; left:5%;" data-part="battery" onclick="matchPart('battery')">?</button>
+          <button class="part-btn" id="hspot-body"   style="top:40%; left:2%;" data-part="body"    onclick="matchPart('body')">?</button>
+        </div>
+
+        <!-- Label chips to drag/select -->
+        <div class="label-targets">
+          <div class="label-target" data-label="bulb"    id="lbl-bulb"    onclick="selectLabel('bulb')">💡 Bulb</div>
+          <div class="label-target" data-label="battery" id="lbl-battery" onclick="selectLabel('battery')">🔋 Battery</div>
+          <div class="label-target" data-label="switch"  id="lbl-switch"  onclick="selectLabel('switch')">🔘 Switch</div>
+          <div class="label-target" data-label="body"    id="lbl-body"    onclick="selectLabel('body')">🔦 Body</div>
+        </div>
+
+        <div id="act1-feedback"></div>
+        <div class="score-bar" id="score-bar1">
+          <span class="star-icon" id="s1a">⭐</span>
+          <span class="star-icon" id="s1b">⭐</span>
+          <span class="star-icon" id="s1c">⭐</span>
+          <span class="star-icon" id="s1d">⭐</span>
+        </div>
+        <button class="reset-btn" onclick="resetAct1()">🔄 Try Again</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ACTIVITY 2: BUILD THE CIRCUIT ===== -->
+  <div class="activity-panel" id="act2">
+    <div class="card">
+      <div class="act-title">⚡ Build the Circuit!</div>
+      <div class="circuit-stage">
+
+        <!-- Live circuit SVG -->
+        <div class="circuit-board">
+          <svg class="circuit-svg" viewBox="0 0 380 200" id="circuitSVG" xmlns="http://www.w3.org/2000/svg">
+            <!-- Wires -->
+            <path id="wire-top"    d="M80,100 L80,40 L300,40 L300,100" stroke="#ffd60a" stroke-width="5" fill="none" stroke-linecap="round" id="wTop" opacity="0.3"/>
+            <path id="wire-bottom" d="M80,100 L80,160 L300,160 L300,100" stroke="#ffd60a" stroke-width="5" fill="none" stroke-linecap="round" id="wBot" opacity="0.3"/>
+
+            <!-- BATTERY -->
+            <rect x="50" y="75" width="60" height="50" rx="10" fill="#6c757d" stroke="#adb5bd" stroke-width="2"/>
+            <rect x="68" y="70" width="24" height="8" rx="3" fill="#adb5bd"/>
+            <text x="62" y="105" font-size="11" fill="#fff" font-family="Fredoka One">BATTERY</text>
+            <text x="68" y="118" font-size="9" fill="#ffd60a" font-family="Fredoka One">+ −</text>
+
+            <!-- SWITCH (interactive gap) -->
+            <g id="switchGroup">
+              <rect x="165" y="28" width="50" height="24" rx="8" fill="#374151" stroke="#6b7280" stroke-width="1.5"/>
+              <rect id="switchKnob" x="169" y="32" width="20" height="16" rx="5" fill="#e63946"/>
+              <text x="171" y="60" font-size="9" fill="#9ca3af" font-family="Fredoka One">SWITCH</text>
+              <!-- Gap line (broken) -->
+              <line id="gapLine" x1="190" y1="40" x2="213" y2="40" stroke="#666" stroke-width="3" stroke-dasharray="4"/>
+            </g>
+
+            <!-- BULB -->
+            <circle id="bulbCircle" cx="300" cy="100" r="34" fill="#1f2937" stroke="#374151" stroke-width="2"/>
+            <circle id="bulbGlow"   cx="300" cy="100" r="24" fill="#374151"/>
+            <path d="M295 108 Q300 94 305 108" stroke="#6b7280" stroke-width="2.5" fill="none" id="filamentPath"/>
+            <text x="282" y="148" font-size="10" fill="#9ca3af" font-family="Fredoka One">BULB</text>
+
+            <!-- Energy flow dots (animated when on) -->
+            <circle class="flow-dot" r="5" fill="#ffd60a" opacity="0" id="fd1"/>
+            <circle class="flow-dot" r="5" fill="#ffd60a" opacity="0" id="fd2"/>
+            <circle class="flow-dot" r="5" fill="#ffd60a" opacity="0" id="fd3"/>
+          </svg>
+        </div>
+
+        <!-- Toggle Switch -->
+        <div class="switch-toggle">
+          <span class="switch-label">Switch:</span>
+          <button class="toggle-wrap" id="mainToggle" onclick="toggleCircuit()">
+            <div class="toggle-knob"></div>
+          </button>
+          <span class="switch-label" id="toggleLabel">OFF</span>
+        </div>
+
+        <div class="circuit-msg off" id="circuitMsg">
+          🔴 Circuit is BROKEN — the torch is dark!
+        </div>
+
+        <!-- Quiz questions -->
+        <div class="circuit-quiz card" style="background:#eef2ff; box-shadow:none;">
+          <p id="quizQ">❓ What happens when we REMOVE the battery?</p>
+          <div class="quiz-options" id="quizOpts">
+            <button class="qopt" onclick="answerQuiz(this,'a')">💡 Torch glows brighter</button>
+            <button class="qopt" onclick="answerQuiz(this,'b')">🌑 Torch goes dark</button>
+            <button class="qopt" onclick="answerQuiz(this,'c')">🔋 Battery charges</button>
+          </div>
+          <div id="quiz-fb" style="font-family:'Fredoka One';font-size:1rem;margin-top:10px;min-height:28px;"></div>
+        </div>
+
+        <button class="reset-btn" style="background:linear-gradient(135deg,#4cc9f0,#4361ee);" onclick="resetAct2()">🔄 Next Question</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ACTIVITY 3: COLOUR THE TORCH LIGHT ===== -->
+  <div class="activity-panel" id="act3">
+    <div class="card">
+      <div class="act-title">🎨 Colour the Torch Light!</div>
+      <div class="colour-stage">
+        <p style="font-weight:700;color:#2d6a4f;text-align:center;">Tap a colour filter to change the torch light! 🌈</p>
+
+        <!-- Torch beam illustration -->
+        <div class="torch-beam-wrap">
+          <svg viewBox="0 0 280 260" width="280" height="260" xmlns="http://www.w3.org/2000/svg">
+            <!-- Torch body (sideways) -->
+            <rect x="10" y="100" width="100" height="60" rx="14" fill="#e76f51" stroke="#c1440e" stroke-width="2"/>
+            <ellipse cx="112" cy="130" rx="14" ry="22" fill="#f4a261" stroke="#c1440e" stroke-width="2"/>
+            <!-- Battery bump -->
+            <rect x="20" y="118" width="40" height="24" rx="6" fill="#6c757d"/>
+            <rect x="28" y="114" width="24" height="6" rx="3" fill="#adb5bd"/>
+            <!-- Switch -->
+            <rect x="74" y="118" width="22" height="24" rx="8" fill="#2dc653" stroke="#1b5e20" stroke-width="1.5"/>
+
+            <!-- Beam (triangle, colour changes) -->
+            <polygon id="beamPoly" points="124,108 280,40 280,220 124,152" fill="gold" opacity="0.55"/>
+            <polygon id="beamInner" points="124,116 230,70 230,190 124,144" fill="white" opacity="0.35"/>
+
+            <!-- Circular glow at source -->
+            <circle id="beamOrigin" cx="120" cy="130" r="18" fill="gold" opacity="0.7"/>
+
+            <!-- Bulb lens -->
+            <circle cx="113" cy="130" r="10" fill="#fff9c4" stroke="#f9c74f" stroke-width="1.5"/>
+            <circle cx="113" cy="128" r="5" fill="#fff" opacity="0.9"/>
+          </svg>
+        </div>
+
+        <!-- Colour display name -->
+        <div class="colour-name-display" id="colourName" style="color:goldenrod;">✨ White Light!</div>
+
+        <!-- Colour palette swatches -->
+        <div class="colour-palette">
+          <div class="colour-swatch" style="background:gold;" title="White" onclick="changeBeam('gold','✨ White Light!','white')"></div>
+          <div class="colour-swatch" style="background:#e63946;" title="Red" onclick="changeBeam('#e63946','🔴 Red Light!','red')"></div>
+          <div class="colour-swatch" style="background:#4cc9f0;" title="Blue" onclick="changeBeam('#4cc9f0','🔵 Blue Light!','blue')"></div>
+          <div class="colour-swatch" style="background:#2dc653;" title="Green" onclick="changeBeam('#2dc653','🟢 Green Light!','green')"></div>
+          <div class="colour-swatch" style="background:#f72585;" title="Pink" onclick="changeBeam('#f72585','🩷 Pink Light!','pink')"></div>
+          <div class="colour-swatch" style="background:#ff9500;" title="Orange" onclick="changeBeam('#ff9500','🟠 Orange Light!','orange')"></div>
+          <div class="colour-swatch" style="background:#b5179e;" title="Purple" onclick="changeBeam('#b5179e','🟣 Purple Light!','purple')"></div>
+        </div>
+
+        <!-- Drag & Match: colour to situation -->
+        <div class="card" style="background:#f0fdf4;box-shadow:none;width:100%;margin-top:0;">
+          <p style="font-weight:800;color:#2d6a4f;margin-bottom:12px;">🎯 Match: Which light do you see at a Diwali celebration?</p>
+          <div class="drag-label-row" id="chipRow">
+            <div class="drag-chip" draggable="true" data-val="red"    style="background:#e63946;" ondragstart="dragStart(event)" onclick="chipClick(this)">🔴 Red</div>
+            <div class="drag-chip" draggable="true" data-val="white"  style="background:linear-gradient(135deg,#ffd60a,#fff176);color:#333;" ondragstart="dragStart(event)" onclick="chipClick(this)">✨ White</div>
+            <div class="drag-chip" draggable="true" data-val="multi"  style="background:linear-gradient(135deg,#f72585,#4cc9f0,#2dc653);" ondragstart="dragStart(event)" onclick="chipClick(this)">🌈 Many Colours</div>
+            <div class="drag-chip" draggable="true" data-val="black"  style="background:#374151;" ondragstart="dragStart(event)" onclick="chipClick(this)">⬛ No Light</div>
+          </div>
+
+          <div class="drop-zone-row" style="margin-top:12px;">
+            <div class="drop-zone" id="dz-diwali" data-answer="multi"
+              ondragover="event.preventDefault();this.classList.add('drag-over')"
+              ondragleave="this.classList.remove('drag-over')"
+              ondrop="dropOn(event,this)"
+              onclick="dropOnClick(this)">
+              🪔 Diwali Lights
+            </div>
+            <div class="drop-zone" id="dz-powercut" data-answer="white"
+              ondragover="event.preventDefault();this.classList.add('drag-over')"
+              ondragleave="this.classList.remove('drag-over')"
+              ondrop="dropOn(event,this)"
+              onclick="dropOnClick(this)">
+              🔦 Torch in a Power Cut
+            </div>
+          </div>
+          <div id="act3-score" style="margin-top:12px;background:transparent;color:#2d6a4f;font-family:'Fredoka One';font-size:1rem;">Drop or tap a colour chip onto each box!</div>
+        </div>
+
+        <button class="reset-btn" style="background:linear-gradient(135deg,#80b918,#2dc653);" onclick="resetAct3()">🔄 Try Again</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Star celebration overlay -->
+<div class="stars-overlay" id="starsOverlay"></div>
+
+<script>
+// ========== SUN RAYS ==========
+const sunRays = document.getElementById('sunRays');
+for(let i=0;i<12;i++){
+  const r=document.createElement('div');
+  r.className='ray';
+  r.style.transform=`rotate(${i*30}deg)`;
+  sunRays.appendChild(r);
+}
+
+// ========== BUBBLES ==========
+const bubbleContainer = document.getElementById('bubbles');
+function makeBubble(){
+  const b = document.createElement('div');
+  b.className = 'bubble';
+  const sz = 8+Math.random()*18;
+  b.style.cssText=`width:${sz}px;height:${sz}px;bottom:${Math.random()*38}%;left:${Math.random()*100}%;animation-duration:${3+Math.random()*4}s;animation-delay:${Math.random()*3}s;`;
+  bubbleContainer.appendChild(b);
+  setTimeout(()=>b.remove(), 7000);
+}
+setInterval(makeBubble, 700);
+
+// ========== TABS ==========
+function showActivity(n){
+  document.querySelectorAll('.activity-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('act'+n).classList.add('active');
+  document.querySelectorAll('.tab-btn')[n-1].classList.add('active');
+}
+
+// ========== ACTIVITY 1: NAME THE PARTS ==========
+let selectedLabel = null;
+const matchedParts = {};
+const correctMap = {bulb:'bulb',battery:'battery',switch:'switch',body:'body'};
+
+function selectLabel(lbl){
+  if(matchedParts[lbl]) return;
+  document.querySelectorAll('.label-target').forEach(l=>{
+    l.style.background='';l.style.color='';l.style.borderStyle='dashed';
+  });
+  selectedLabel = lbl;
+  const el = document.getElementById('lbl-'+lbl);
+  el.style.background='#b5179e'; el.style.color='#fff'; el.style.borderStyle='solid';
+  document.getElementById('act1-feedback').textContent='Now tap the matching part on the torch! 👆';
+  document.getElementById('act1-feedback').style.color='#6d28d9';
+}
+
+function matchPart(part){
+  if(!selectedLabel){ 
+    document.getElementById('act1-feedback').textContent='Pick a label first! 👇';
+    document.getElementById('act1-feedback').style.color='#e63946';
+    return; 
+  }
+  const hspot = document.getElementById('hspot-'+part);
+  if(selectedLabel === part){
+    // correct
+    hspot.textContent = selectedLabel.charAt(0).toUpperCase()+selectedLabel.slice(1);
+    hspot.classList.add('correct');
+    document.getElementById('lbl-'+selectedLabel).classList.add('placed');
+    matchedParts[part] = true;
+    document.getElementById('act1-feedback').textContent='⭐ Correct! Great job!';
+    document.getElementById('act1-feedback').style.color='#2dc653';
+    document.getElementById('s1'+['a','b','c','d'][Object.keys(matchedParts).length-1]).classList.add('lit');
+    document.getElementById('dot1').classList.add('done');
+    if(Object.keys(matchedParts).length===4){
+      document.getElementById('act1-feedback').textContent='🎉 Amazing! You named all the parts!';
+      celebrate();
+    }
+    selectedLabel=null;
+    document.querySelectorAll('.label-target').forEach(l=>{l.style.background='';l.style.color='';l.style.borderStyle='dashed';});
+  } else {
+    // wrong
+    hspot.classList.add('wrong');
+    document.getElementById('act1-feedback').textContent='Oops! Try again! 🙈';
+    document.getElementById('act1-feedback').style.color='#e63946';
+    setTimeout(()=>hspot.classList.remove('wrong'),500);
+  }
+}
+
+function resetAct1(){
+  selectedLabel=null;
+  Object.keys(matchedParts).forEach(k=>delete matchedParts[k]);
+  document.querySelectorAll('.part-btn').forEach(b=>{b.textContent='?';b.classList.remove('correct','wrong');});
+  document.querySelectorAll('.label-target').forEach(l=>{l.classList.remove('placed');l.style.background='';l.style.color='';l.style.borderStyle='dashed';});
+  document.getElementById('act1-feedback').textContent='';
+  document.querySelectorAll('#score-bar1 .star-icon').forEach(s=>s.classList.remove('lit'));
+}
+
+// ========== ACTIVITY 2: BUILD THE CIRCUIT ==========
+let circuitOn = false;
+let flowAnim = null;
+
+const questions = [
+  {q:"❓ What happens when we REMOVE the battery?", opts:[{t:"💡 Torch glows brighter",v:'a'},{t:"🌑 Torch goes dark",v:'b',correct:true},{t:"🔋 Battery charges",v:'c'}], ans:'b'},
+  {q:"❓ The switch is OFF. Is the circuit complete or broken?", opts:[{t:"✅ Complete",v:'a'},{t:"❌ Broken",v:'b',correct:true},{t:"🤔 Half broken",v:'c'}], ans:'b'},
+  {q:"❓ What does the BULB do in the circuit?", opts:[{t:"🌟 It glows and makes light",v:'a',correct:true},{t:"🔋 It stores energy",v:'b'},{t:"🔘 It opens the path",v:'c'}], ans:'a'},
+  {q:"❓ Electricity travels in a ...", opts:[{t:"⬜ Straight line",v:'a'},{t:"⭕ Complete loop",v:'b',correct:true},{t:"🔀 Random path",v:'c'}], ans:'b'},
+];
+let qIndex=0;
+
+function toggleCircuit(){
+  circuitOn=!circuitOn;
+  const toggle=document.getElementById('mainToggle');
+  const lbl=document.getElementById('toggleLabel');
+  const msg=document.getElementById('circuitMsg');
+  const bulb=document.getElementById('bulbGlow');
+  const bulbCircle=document.getElementById('bulbCircle');
+  const wires=[document.getElementById('wTop'),document.getElementById('wBot')];
+  const knob=document.getElementById('switchKnob');
+  const gap=document.getElementById('gapLine');
+  const origin=document.getElementById('beamOrigin');
+  if(circuitOn){
+    toggle.classList.add('on');
+    lbl.textContent='ON';
+    msg.className='circuit-msg on';
+    msg.textContent='🟢 Circuit is COMPLETE — the torch glows!';
+    bulb.style.fill='#ffd60a'; bulb.style.opacity='0.95';
+    bulbCircle.style.fill='#fff9c4';
+    knob.style.fill='#2dc653';
+    gap.style.opacity='0';
+    wires.forEach(w=>w.setAttribute('opacity','1'));
+    document.getElementById('dot2').classList.add('done');
+    startFlow();
+  } else {
+    toggle.classList.remove('on');
+    lbl.textContent='OFF';
+    msg.className='circuit-msg off';
+    msg.textContent='🔴 Circuit is BROKEN — the torch is dark!';
+    bulb.style.fill='#374151'; bulb.style.opacity='1';
+    bulbCircle.style.fill='#1f2937';
+    knob.style.fill='#e63946';
+    gap.style.opacity='1';
+    wires.forEach(w=>w.setAttribute('opacity','0.3'));
+    stopFlow();
+  }
+}
+
+let flowT=0;
+function startFlow(){
+  const dots=['fd1','fd2','fd3'];
+  const path=[
+    {x:80,y:100},{x:80,y:40},{x:180,y:40},{x:300,y:40},{x:300,y:100},
+    {x:300,y:160},{x:180,y:160},{x:80,y:160},{x:80,y:100}
+  ];
+  function animStep(){
+    dots.forEach((id,i)=>{
+      const el=document.getElementById(id);
+      const idx=(Math.floor(flowT*path.length/100 + i*(path.length/3)))%path.length;
+      const p=path[idx];
+      el.setAttribute('cx',p.x); el.setAttribute('cy',p.y);
+      el.setAttribute('opacity', circuitOn ? '0.9' : '0');
+    });
+    flowT=(flowT+1.5)%100;
+    if(circuitOn) flowAnim=requestAnimationFrame(animStep);
+  }
+  animStep();
+}
+function stopFlow(){
+  if(flowAnim) cancelAnimationFrame(flowAnim);
+  ['fd1','fd2','fd3'].forEach(id=>document.getElementById(id).setAttribute('opacity','0'));
+}
+
+function loadQuestion(){
+  const q=questions[qIndex%questions.length];
+  document.getElementById('quizQ').textContent=q.q;
+  const optsEl=document.getElementById('quizOpts');
+  optsEl.innerHTML='';
+  q.opts.forEach(o=>{
+    const b=document.createElement('button');
+    b.className='qopt';
+    b.textContent=o.t;
+    b.onclick=()=>answerQuiz2(b,o.v===q.ans);
+    optsEl.appendChild(b);
+  });
+  document.getElementById('quiz-fb').textContent='';
+}
+loadQuestion();
+
+function answerQuiz2(btn, isCorrect){
+  document.querySelectorAll('.qopt').forEach(b=>b.onclick=null);
+  const fb=document.getElementById('quiz-fb');
+  if(isCorrect){
+    btn.classList.add('correct');
+    fb.textContent='⭐ Correct! Well done!';
+    fb.style.color='#2dc653';
+    celebrate();
+  } else {
+    btn.classList.add('wrong');
+    fb.textContent='Not quite! Try the next question!';
+    fb.style.color='#e63946';
+  }
+}
+
+function answerQuiz(btn,val){ /* kept for compatibility */ }
+
+function resetAct2(){
+  qIndex++;
+  loadQuestion();
+}
+
+// ========== ACTIVITY 3: COLOUR THE LIGHT ==========
+let selectedChip=null;
+
+function changeBeam(col, name, colKey){
+  document.getElementById('beamPoly').style.fill=col;
+  document.getElementById('beamInner').style.fill=col==='gold'?'white':col;
+  document.getElementById('beamOrigin').style.fill=col;
+  document.getElementById('colourName').textContent=name;
+  document.getElementById('colourName').style.color=col==='gold'?'goldenrod':col;
+  document.querySelectorAll('.colour-swatch').forEach(s=>s.classList.remove('selected'));
+  event.target.classList.add('selected');
+  document.getElementById('dot3').classList.add('done');
+}
+
+// Drag and Drop + Click-to-match
+function dragStart(e){
+  e.dataTransfer.setData('val', e.target.dataset.val);
+  selectedChip = e.target;
+}
+
+function chipClick(chip){
+  if(chip.classList.contains('used')) return;
+  document.querySelectorAll('.drag-chip').forEach(c=>c.style.outline='');
+  chip.style.outline='3px solid #1a1a2e';
+  selectedChip=chip;
+}
+
+function dropOnClick(zone){
+  if(!selectedChip) return;
+  handleDrop(zone, selectedChip.dataset.val);
+  selectedChip.style.outline='';
+  selectedChip=null;
+}
+
+function dropOn(e, zone){
+  e.preventDefault();
+  zone.classList.remove('drag-over');
+  const val=e.dataTransfer.getData('val');
+  handleDrop(zone, val);
+}
+
+const act3Results={};
+
+function handleDrop(zone, val){
+  if(zone.classList.contains('filled')) return;
+  const answer=zone.dataset.answer;
+  const chipEl=document.querySelector(`.drag-chip[data-val="${val}"]`);
+  if(val===answer){
+    zone.textContent=zone.textContent.split('\n')[0]+'  ✅ '+val.charAt(0).toUpperCase()+val.slice(1)+' ✅';
+    zone.classList.add('filled');
+    if(chipEl) chipEl.classList.add('used');
+    act3Results[zone.id]=true;
+    celebrate();
+  } else {
+    zone.style.background='#ffe5e5';
+    setTimeout(()=>zone.style.background='',700);
+    document.getElementById('act3-score').textContent='❌ Oops! Think again — what colours do you see at Diwali?';
+  }
+  if(Object.keys(act3Results).length===2){
+    document.getElementById('act3-score').textContent='🎉 Amazing! You matched them all!';
+    document.getElementById('dot3').classList.add('done');
+  }
+}
+
+function resetAct3(){
+  document.querySelectorAll('.drop-zone').forEach(z=>{
+    z.classList.remove('filled');
+    const orig={'dz-diwali':'🪔 Diwali Lights','dz-powercut':'🔦 Torch in a Power Cut'};
+    z.textContent=orig[z.id]||z.textContent;
+    z.style.background='#d8f3dc';
+  });
+  document.querySelectorAll('.drag-chip').forEach(c=>{c.classList.remove('used');c.style.outline='';});
+  document.getElementById('act3-score').textContent='Drop or tap a colour chip onto each box!';
+  Object.keys(act3Results).forEach(k=>delete act3Results[k]);
+  selectedChip=null;
+  // reset beam
+  document.getElementById('beamPoly').style.fill='gold';
+  document.getElementById('beamInner').style.fill='white';
+  document.getElementById('beamOrigin').style.fill='gold';
+  document.getElementById('colourName').textContent='✨ White Light!';
+  document.getElementById('colourName').style.color='goldenrod';
+  document.querySelectorAll('.colour-swatch').forEach(s=>s.classList.remove('selected'));
+}
+
+// ========== CELEBRATION ==========
+function celebrate(){
+  const overlay=document.getElementById('starsOverlay');
+  overlay.innerHTML='';
+  const emojis=['⭐','🌟','✨','🎉','🎊','💡','🔦'];
+  for(let i=0;i<18;i++){
+    const s=document.createElement('div');
+    s.className='star-particle';
+    const tx=(Math.random()-0.5)*320;
+    const ty=(Math.random()-0.5)*320;
+    s.style.cssText=`--tx:${tx}px;--ty:${ty}px;animation-delay:${Math.random()*0.4}s;`;
+    s.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+    overlay.appendChild(s);
+  }
+  setTimeout(()=>overlay.innerHTML='',1400);
+}
+</script>
+</body>
+</html>

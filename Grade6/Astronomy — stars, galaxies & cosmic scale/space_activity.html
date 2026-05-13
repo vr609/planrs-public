@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Space</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+
+  :root {
+    --v1: #2d0057;
+    --v2: #4a0080;
+    --v3: #6b00b3;
+    --v4: #9b30ff;
+    --v5: #c77dff;
+    --v6: #e0aaff;
+    --accent1: #ff6ef7;
+    --accent2: #ffe06e;
+    --accent3: #6ef7ff;
+    --accent4: #6effa0;
+    --star: #fff9c4;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--v1);
+    font-family: 'Nunito', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ccircle cx='10' cy='10' r='8' fill='%23c77dff' opacity='0.8'/%3E%3Ccircle cx='10' cy='10' r='4' fill='white'/%3E%3C/svg%3E") 10 10, auto;
+  }
+
+  /* ---- ANIMATED BACKGROUND ---- */
+  #bg-canvas {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 0;
+  }
+
+  /* flying birds */
+  .bird {
+    position: fixed;
+    font-size: 1.6rem;
+    pointer-events: none;
+    z-index: 1;
+    animation: flyBird linear infinite;
+    opacity: 0.7;
+  }
+  @keyframes flyBird {
+    0%   { transform: translateX(-80px) translateY(0) scaleX(1); }
+    48%  { transform: translateX(calc(100vw + 80px)) translateY(-60px) scaleX(1); }
+    49%  { transform: translateX(calc(100vw + 80px)) translateY(-60px) scaleX(-1); }
+    100% { transform: translateX(-80px) translateY(0) scaleX(-1); }
+  }
+
+  /* chain reaction circles */
+  .chain-dot {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 1;
+    animation: chainPulse ease-in-out infinite alternate;
+  }
+  @keyframes chainPulse {
+    from { transform: scale(0.7); opacity: 0.2; }
+    to   { transform: scale(1.3); opacity: 0.6; }
+  }
+
+  /* ---- PAGE LAYOUT ---- */
+  .page-title {
+    text-align: center;
+    padding: 32px 20px 8px;
+    position: relative; z-index: 10;
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(2.4rem, 6vw, 4rem);
+    color: var(--accent2);
+    text-shadow: 0 0 30px #ffe06e88, 0 4px 0 #9b30ff, 0 8px 0 #6b00b355;
+    letter-spacing: 2px;
+    animation: titleFloat 3s ease-in-out infinite;
+  }
+  @keyframes titleFloat {
+    0%,100% { transform: translateY(0); }
+    50%      { transform: translateY(-8px); }
+  }
+
+  .activity-nav {
+    display: flex; justify-content: center; gap: 14px;
+    padding: 14px 20px; position: relative; z-index: 10; flex-wrap: wrap;
+  }
+  .nav-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    padding: 10px 22px;
+    border: none; border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: var(--v3);
+    color: var(--v6);
+    box-shadow: 0 4px 14px #9b30ff55;
+    letter-spacing: 0.5px;
+  }
+  .nav-btn.active, .nav-btn:hover {
+    background: var(--v4);
+    color: #fff;
+    transform: scale(1.08) translateY(-2px);
+    box-shadow: 0 8px 24px #c77dff88;
+  }
+
+  .section {
+    display: none;
+    position: relative; z-index: 10;
+    padding: 10px 20px 40px;
+    animation: fadeIn 0.5s ease;
+  }
+  .section.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+
+  /* ---- CARDS & SHARED ---- */
+  .card {
+    background: linear-gradient(135deg, #3a006688 80%, #7b00c822);
+    border: 2px solid var(--v4);
+    border-radius: 24px;
+    padding: 28px;
+    box-shadow: 0 8px 32px #0008, inset 0 1px 0 #c77dff33;
+    backdrop-filter: blur(4px);
+  }
+
+  .instruction {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.15rem;
+    color: var(--v6);
+    text-align: center;
+    margin-bottom: 22px;
+    letter-spacing: 0.3px;
+  }
+
+  /* score badge */
+  .score-badge {
+    display: inline-block;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    background: var(--accent2);
+    color: var(--v1);
+    border-radius: 50px;
+    padding: 4px 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 10px #ffe06e55;
+  }
+
+  /* success flash */
+  .flash {
+    animation: flashGreen 0.5s ease;
+  }
+  @keyframes flashGreen {
+    50% { box-shadow: 0 0 30px #6effa0cc; background: #6effa022; }
+  }
+
+  /* ---- ACTIVITY 1: Planet Sorting ---- */
+  #act1 .areas {
+    display: flex; gap: 18px; flex-wrap: wrap; justify-content: center;
+    margin-top: 18px;
+  }
+
+  .drop-zone {
+    min-width: 160px; min-height: 130px;
+    border: 3px dashed var(--v4);
+    border-radius: 20px;
+    padding: 14px;
+    text-align: center;
+    transition: all 0.3s;
+    flex: 1;
+  }
+  .drop-zone.over {
+    border-color: var(--accent1);
+    background: #ff6ef720;
+    transform: scale(1.04);
+  }
+  .drop-zone.correct {
+    border-color: var(--accent4);
+    background: #6effa015;
+  }
+
+  .zone-label {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+    color: var(--accent2);
+    margin-bottom: 10px;
+    display: block;
+  }
+  .zone-icon { font-size: 2rem; display: block; margin-bottom: 6px; }
+
+  .item-bank {
+    display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;
+    margin-bottom: 22px;
+  }
+
+  .drag-item {
+    background: linear-gradient(135deg, var(--v3), var(--v4));
+    color: #fff;
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.95rem;
+    padding: 10px 18px;
+    border-radius: 50px;
+    cursor: grab;
+    user-select: none;
+    box-shadow: 0 4px 14px #6b00b366;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 2px solid var(--v5);
+  }
+  .drag-item:hover { transform: scale(1.1) rotate(-2deg); box-shadow: 0 8px 24px #c77dff88; }
+  .drag-item.dragging { opacity: 0.4; transform: scale(0.9); cursor: grabbing; }
+
+  .dropped-item {
+    display: inline-block;
+    background: linear-gradient(135deg, #6b00b3, #9b30ff);
+    color: #fff;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 30px;
+    margin: 3px;
+    animation: popIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes popIn {
+    from { transform: scale(0); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+
+  /* ---- ACTIVITY 2: Rocket Assembly ---- */
+  #act2 .assembly-area {
+    display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;
+  }
+
+  .rocket-template {
+    flex: 0 0 220px;
+    min-height: 340px;
+    border: 3px dashed var(--v4);
+    border-radius: 24px;
+    padding: 18px;
+    display: flex; flex-direction: column; gap: 12px;
+    align-items: center;
+  }
+
+  .part-slot {
+    width: 160px; min-height: 58px;
+    border: 2px dashed var(--v5);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.88rem;
+    color: var(--v5);
+    transition: all 0.3s;
+    padding: 8px;
+    text-align: center;
+  }
+  .part-slot.over {
+    border-color: var(--accent1);
+    background: #ff6ef715;
+    color: var(--accent1);
+    transform: scale(1.05);
+  }
+  .part-slot.filled {
+    border-color: var(--accent4);
+    background: #6effa010;
+    font-size: 1.6rem;
+    color: #fff;
+  }
+
+  .parts-bank {
+    flex: 1; display: flex; flex-wrap: wrap; gap: 14px;
+    align-content: flex-start; padding-top: 8px;
+  }
+
+  .rocket-part {
+    background: linear-gradient(135deg, var(--v2), var(--v3));
+    border: 2px solid var(--v4);
+    border-radius: 18px;
+    padding: 14px 18px;
+    text-align: center;
+    cursor: grab;
+    user-select: none;
+    transition: all 0.25s;
+    box-shadow: 0 4px 12px #0006;
+    min-width: 100px;
+  }
+  .rocket-part:hover { transform: scale(1.08) rotate(2deg); box-shadow: 0 8px 20px #c77dff66; }
+  .rocket-part .part-emoji { font-size: 2rem; display: block; margin-bottom: 4px; }
+  .rocket-part .part-name {
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.85rem;
+    color: var(--v6);
+  }
+
+  /* ---- ACTIVITY 3: Constellation Connect ---- */
+  #act3 .constellation-wrapper {
+    display: flex; gap: 22px; flex-wrap: wrap;
+  }
+
+  .star-pool {
+    flex: 0 0 200px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+
+  .star-item {
+    background: linear-gradient(135deg, var(--v3), var(--v4));
+    border: 2px solid var(--accent2);
+    border-radius: 50px;
+    padding: 10px 18px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.9rem;
+    color: var(--accent2);
+    cursor: grab;
+    user-select: none;
+    transition: all 0.25s;
+    display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 4px 12px #0005;
+  }
+  .star-item:hover { transform: scale(1.07); box-shadow: 0 0 20px #ffe06e66; }
+  .star-item .star-glyph { font-size: 1.4rem; }
+
+  .constellation-board {
+    flex: 1; min-height: 320px;
+    border: 3px dashed var(--v4);
+    border-radius: 24px;
+    position: relative;
+    background: radial-gradient(ellipse at 50% 50%, #1a003355 0%, transparent 80%);
+    overflow: hidden;
+  }
+  .constellation-board.over {
+    border-color: var(--accent1);
+    background: radial-gradient(ellipse at 50% 50%, #ff6ef715 0%, transparent 80%);
+  }
+
+  .board-star {
+    position: absolute;
+    width: 52px; height: 52px;
+    background: radial-gradient(circle, #ffe06e 30%, #9b30ff88 100%);
+    border-radius: 50%;
+    border: 2px solid var(--accent2);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.7rem;
+    color: var(--v1);
+    text-align: center;
+    cursor: default;
+    box-shadow: 0 0 16px #ffe06e66;
+    transform: translate(-50%, -50%);
+    animation: starTwinkle 2s ease-in-out infinite alternate;
+    transition: box-shadow 0.3s;
+    z-index: 2;
+  }
+  @keyframes starTwinkle {
+    from { box-shadow: 0 0 10px #ffe06e66; transform: translate(-50%,-50%) scale(0.9); }
+    to   { box-shadow: 0 0 28px #ffe06ecc; transform: translate(-50%,-50%) scale(1.1); }
+  }
+
+  .board-slot {
+    position: absolute;
+    width: 60px; height: 60px;
+    border: 3px dashed var(--v5);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.65rem;
+    font-family: 'Fredoka One', cursive;
+    color: var(--v5);
+    text-align: center;
+    transition: all 0.3s;
+    z-index: 2;
+    padding: 4px;
+  }
+  .board-slot.over {
+    border-color: var(--accent1);
+    background: #ff6ef720;
+    color: var(--accent1);
+  }
+  .board-slot.filled {
+    border-color: var(--accent2);
+    background: radial-gradient(circle, #ffe06e 30%, #9b30ff88 100%);
+    color: var(--v1);
+    font-size: 0.72rem;
+    box-shadow: 0 0 20px #ffe06eaa;
+    animation: starTwinkle 2s ease-in-out infinite alternate;
+  }
+
+  svg.const-lines {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 1;
+  }
+
+  /* ---- CELEBRATION ---- */
+  .confetti-burst {
+    position: fixed; top: 50%; left: 50%;
+    width: 0; height: 0; pointer-events: none; z-index: 999;
+  }
+  .confetto {
+    position: absolute;
+    width: 10px; height: 10px;
+    border-radius: 3px;
+    animation: confettoFly 1.2s ease-out forwards;
+  }
+  @keyframes confettoFly {
+    0%   { transform: translate(0,0) rotate(0deg); opacity: 1; }
+    100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot)); opacity: 0; }
+  }
+
+  .well-done {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.4rem;
+    color: var(--accent4);
+    text-align: center;
+    margin-top: 18px;
+    display: none;
+    animation: popIn 0.5s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  /* reset btn */
+  .reset-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.95rem;
+    padding: 9px 22px;
+    border: none; border-radius: 50px;
+    cursor: pointer;
+    background: var(--v3);
+    color: var(--v6);
+    box-shadow: 0 4px 12px #0005;
+    transition: all 0.25s;
+    margin-top: 16px;
+  }
+  .reset-btn:hover { background: var(--v4); transform: scale(1.05); }
+
+  /* ---- PROGRESS BAR ---- */
+  .progress-wrap {
+    height: 8px; background: var(--v2);
+    border-radius: 10px; margin-bottom: 18px; overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent1), var(--accent2));
+    border-radius: 10px;
+    transition: width 0.5s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow: 0 0 10px var(--accent1);
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<!-- Flying birds -->
+<div class="bird" style="top:12%;animation-duration:9s;animation-delay:-2s;font-size:1.2rem;">🐦</div>
+<div class="bird" style="top:35%;animation-duration:13s;animation-delay:-6s;font-size:1.8rem;">🦋</div>
+<div class="bird" style="top:62%;animation-duration:11s;animation-delay:-4s;font-size:1.4rem;">🐦‍⬛</div>
+<div class="bird" style="top:80%;animation-duration:8s;animation-delay:-1s;font-size:1rem;">🦅</div>
+
+<!-- Chain reaction dots -->
+<script>
+(function(){
+  const colors=['#9b30ff','#ff6ef7','#c77dff','#ffe06e','#6ef7ff','#e0aaff'];
+  for(let i=0;i<14;i++){
+    const d=document.createElement('div');
+    d.className='chain-dot';
+    const s=16+Math.random()*32;
+    d.style.cssText=`width:${s}px;height:${s}px;left:${Math.random()*100}vw;top:${Math.random()*100}vh;background:${colors[i%colors.length]}22;border:2px solid ${colors[i%colors.length]}55;animation-duration:${1.5+Math.random()*2}s;animation-delay:${Math.random()*2}s;`;
+    document.body.appendChild(d);
+  }
+})();
+</script>
+
+<h1 class="page-title">✨ Space ✨</h1>
+
+<nav class="activity-nav">
+  <button class="nav-btn active" onclick="showAct(1,this)">🪐 Planet Sort</button>
+  <button class="nav-btn" onclick="showAct(2,this)">🚀 Build a Rocket</button>
+  <button class="nav-btn" onclick="showAct(3,this)">⭐ Constellations</button>
+</nav>
+
+<!-- ============================================================ -->
+<!-- ACTIVITY 1: Sort planets by size                             -->
+<!-- ============================================================ -->
+<section id="act1" class="section active">
+  <div class="card">
+    <div class="instruction">🪐 Drag each planet into the correct size group!</div>
+    <div style="text-align:center"><span class="score-badge" id="score1">⭐ 0 / 8</span></div>
+    <div class="progress-wrap"><div class="progress-bar" id="prog1" style="width:0%"></div></div>
+
+    <div class="item-bank" id="bank1">
+      <div class="drag-item" draggable="true" data-cat="giant" data-id="p1">🪐 Jupiter</div>
+      <div class="drag-item" draggable="true" data-cat="giant" data-id="p2">🌀 Saturn</div>
+      <div class="drag-item" draggable="true" data-cat="giant" data-id="p3">🔵 Uranus</div>
+      <div class="drag-item" draggable="true" data-cat="giant" data-id="p4">🌊 Neptune</div>
+      <div class="drag-item" draggable="true" data-cat="rocky" data-id="p5">🌍 Earth</div>
+      <div class="drag-item" draggable="true" data-cat="rocky" data-id="p6">🔴 Mars</div>
+      <div class="drag-item" draggable="true" data-cat="rocky" data-id="p7">☿ Mercury</div>
+      <div class="drag-item" draggable="true" data-cat="rocky" data-id="p8">♀ Venus</div>
+    </div>
+
+    <div class="areas">
+      <div class="drop-zone" id="zone-giant" data-cat="giant">
+        <span class="zone-icon">🪐</span>
+        <span class="zone-label">Gas Giants</span>
+        <div class="zone-items"></div>
+      </div>
+      <div class="drop-zone" id="zone-rocky" data-cat="rocky">
+        <span class="zone-icon">🌍</span>
+        <span class="zone-label">Rocky Planets</span>
+        <div class="zone-items"></div>
+      </div>
+    </div>
+    <div class="well-done" id="wd1">🎉 Amazing! You're a real astronomer! 🌟</div>
+    <div style="text-align:center"><button class="reset-btn" onclick="resetAct1()">🔄 Try Again</button></div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- ACTIVITY 2: Assemble a rocket                                -->
+<!-- ============================================================ -->
+<section id="act2" class="section">
+  <div class="card">
+    <div class="instruction">🚀 Drag rocket parts to the correct slots!</div>
+    <div style="text-align:center"><span class="score-badge" id="score2">⭐ 0 / 5</span></div>
+    <div class="progress-wrap"><div class="progress-bar" id="prog2" style="width:0%"></div></div>
+
+    <div class="assembly-area">
+      <div class="rocket-template">
+        <div class="part-slot" id="slot-nose" data-part="nose">👆 Nose Cone</div>
+        <div class="part-slot" id="slot-window" data-part="window">Cockpit Window</div>
+        <div class="part-slot" id="slot-body" data-part="body">Rocket Body</div>
+        <div class="part-slot" id="slot-fins" data-part="fins">Fins</div>
+        <div class="part-slot" id="slot-engine" data-part="engine">🔥 Engine</div>
+      </div>
+      <div class="parts-bank" id="parts-bank">
+        <div class="rocket-part" draggable="true" data-part="engine">
+          <span class="part-emoji">🔥</span>
+          <span class="part-name">Engine</span>
+        </div>
+        <div class="rocket-part" draggable="true" data-part="nose">
+          <span class="part-emoji">⬆️</span>
+          <span class="part-name">Nose Cone</span>
+        </div>
+        <div class="rocket-part" draggable="true" data-part="fins">
+          <span class="part-emoji">🔺</span>
+          <span class="part-name">Fins</span>
+        </div>
+        <div class="rocket-part" draggable="true" data-part="window">
+          <span class="part-emoji">🔵</span>
+          <span class="part-name">Window</span>
+        </div>
+        <div class="rocket-part" draggable="true" data-part="body">
+          <span class="part-emoji">🚀</span>
+          <span class="part-name">Body</span>
+        </div>
+      </div>
+    </div>
+    <div class="well-done" id="wd2">🚀 Blast off! Your rocket is ready! 🌙</div>
+    <div style="text-align:center"><button class="reset-btn" onclick="resetAct2()">🔄 Try Again</button></div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- ACTIVITY 3: Build constellations                             -->
+<!-- ============================================================ -->
+<section id="act3" class="section">
+  <div class="card">
+    <div class="instruction">⭐ Drag stars to complete the Big Dipper constellation!</div>
+    <div style="text-align:center"><span class="score-badge" id="score3">⭐ 0 / 7</span></div>
+    <div class="progress-wrap"><div class="progress-bar" id="prog3" style="width:0%"></div></div>
+
+    <div class="constellation-wrapper">
+      <div class="star-pool" id="star-pool">
+        <div class="star-item" draggable="true" data-star="s1"><span class="star-glyph">⭐</span> Dubhe</div>
+        <div class="star-item" draggable="true" data-star="s2"><span class="star-glyph">⭐</span> Merak</div>
+        <div class="star-item" draggable="true" data-star="s3"><span class="star-glyph">⭐</span> Phecda</div>
+        <div class="star-item" draggable="true" data-star="s4"><span class="star-glyph">⭐</span> Megrez</div>
+        <div class="star-item" draggable="true" data-star="s5"><span class="star-glyph">⭐</span> Alioth</div>
+        <div class="star-item" draggable="true" data-star="s6"><span class="star-glyph">⭐</span> Mizar</div>
+        <div class="star-item" draggable="true" data-star="s7"><span class="star-glyph">⭐</span> Alkaid</div>
+      </div>
+
+      <div class="constellation-board" id="const-board">
+        <svg class="const-lines" id="const-svg"></svg>
+        <!-- slots positioned for Big Dipper shape -->
+        <div class="board-slot" style="left:22%;top:72%" data-slot="s1">Dubhe</div>
+        <div class="board-slot" style="left:34%;top:82%" data-slot="s2">Merak</div>
+        <div class="board-slot" style="left:48%;top:78%" data-slot="s3">Phecda</div>
+        <div class="board-slot" style="left:55%;top:62%" data-slot="s4">Megrez</div>
+        <div class="board-slot" style="left:66%;top:48%" data-slot="s5">Alioth</div>
+        <div class="board-slot" style="left:76%;top:34%" data-slot="s6">Mizar</div>
+        <div class="board-slot" style="left:88%;top:22%" data-slot="s7">Alkaid</div>
+      </div>
+    </div>
+    <div class="well-done" id="wd3">🌌 Stellar! You found the Big Dipper! ✨</div>
+    <div style="text-align:center"><button class="reset-btn" onclick="resetAct3()">🔄 Try Again</button></div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<script>
+// ---- STARFIELD CANVAS ----
+(function(){
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  let stars=[], W, H;
+  function resize(){ W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; }
+  function initStars(){
+    stars=[];
+    for(let i=0;i<220;i++) stars.push({
+      x:Math.random()*W, y:Math.random()*H,
+      r:Math.random()*2.4+0.4,
+      a:Math.random(),
+      da:(Math.random()-0.5)*0.01,
+      dx:(Math.random()-0.5)*0.15,
+      dy:(Math.random()-0.5)*0.1,
+      hue: Math.random()<0.3?60: Math.random()<0.5?280:0,
+    });
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    stars.forEach(s=>{
+      s.a+=s.da;
+      if(s.a<0.1||s.a>1){ s.da*=-1; }
+      s.x=(s.x+s.dx+W)%W;
+      s.y=(s.y+s.dy+H)%H;
+      ctx.beginPath();
+      ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      if(s.hue===60) ctx.fillStyle=`rgba(255,240,150,${s.a})`;
+      else if(s.hue===280) ctx.fillStyle=`rgba(199,125,255,${s.a*0.7})`;
+      else ctx.fillStyle=`rgba(255,255,255,${s.a})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  window.addEventListener('resize',()=>{ resize(); initStars(); });
+  resize(); initStars(); draw();
+})();
+
+// ---- NAV ----
+function showAct(n, btn){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('act'+n).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ---- CONFETTI ----
+function burst(){
+  const colors=['#ff6ef7','#ffe06e','#6ef7ff','#c77dff','#6effa0','#fff'];
+  const b=document.createElement('div'); b.className='confetti-burst';
+  document.body.appendChild(b);
+  for(let i=0;i<40;i++){
+    const c=document.createElement('div'); c.className='confetto';
+    const a=Math.random()*Math.PI*2, dist=80+Math.random()*180;
+    c.style.cssText=`background:${colors[i%colors.length]};--tx:${Math.cos(a)*dist}px;--ty:${Math.sin(a)*dist}px;--rot:${Math.random()*720}deg;transform:translate(${Math.cos(a)*4}px,${Math.sin(a)*4}px);border-radius:${Math.random()>0.5?'50%':'3px'};`;
+    b.appendChild(c);
+  }
+  setTimeout(()=>b.remove(), 1400);
+}
+
+// ========================================================
+// ACTIVITY 1
+// ========================================================
+let score1=0, total1=8;
+let dragging1=null;
+
+document.querySelectorAll('#bank1 .drag-item').forEach(item=>{
+  item.addEventListener('dragstart',e=>{ dragging1=item; item.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+  item.addEventListener('dragend',()=>item.classList.remove('dragging'));
+});
+
+document.querySelectorAll('.drop-zone').forEach(zone=>{
+  zone.addEventListener('dragover',e=>{ e.preventDefault(); zone.classList.add('over'); });
+  zone.addEventListener('dragleave',()=>zone.classList.remove('over'));
+  zone.addEventListener('drop',e=>{
+    e.preventDefault(); zone.classList.remove('over');
+    if(!dragging1) return;
+    const expected=zone.dataset.cat;
+    const actual=dragging1.dataset.cat;
+    if(actual===expected){
+      const el=document.createElement('div'); el.className='dropped-item';
+      el.textContent=dragging1.textContent;
+      zone.querySelector('.zone-items').appendChild(el);
+      dragging1.remove();
+      score1++;
+      zone.classList.add('correct','flash');
+      setTimeout(()=>zone.classList.remove('flash'),500);
+      updateScore1();
+      if(score1===total1){ document.getElementById('wd1').style.display='block'; burst(); }
+    } else {
+      dragging1.style.animation='shake 0.4s ease';
+      setTimeout(()=>dragging1.style.animation='',400);
+    }
+    dragging1=null;
+  });
+});
+
+function updateScore1(){
+  document.getElementById('score1').textContent=`⭐ ${score1} / ${total1}`;
+  document.getElementById('prog1').style.width=(score1/total1*100)+'%';
+}
+
+function resetAct1(){
+  score1=0; updateScore1();
+  document.getElementById('wd1').style.display='none';
+  document.querySelectorAll('.drop-zone .zone-items').forEach(zi=>zi.innerHTML='');
+  document.querySelectorAll('.drop-zone').forEach(z=>z.classList.remove('correct'));
+  const bank=document.getElementById('bank1');
+  const items=[
+    {cat:'giant',id:'p1',text:'🪐 Jupiter'},{cat:'giant',id:'p2',text:'🌀 Saturn'},
+    {cat:'giant',id:'p3',text:'🔵 Uranus'},{cat:'giant',id:'p4',text:'🌊 Neptune'},
+    {cat:'rocky',id:'p5',text:'🌍 Earth'},{cat:'rocky',id:'p6',text:'🔴 Mars'},
+    {cat:'rocky',id:'p7',text:'☿ Mercury'},{cat:'rocky',id:'p8',text:'♀ Venus'},
+  ];
+  bank.innerHTML='';
+  items.forEach(it=>{
+    const d=document.createElement('div'); d.className='drag-item';
+    d.draggable=true; d.dataset.cat=it.cat; d.dataset.id=it.id;
+    d.textContent=it.text;
+    d.addEventListener('dragstart',e=>{ dragging1=d; d.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+    d.addEventListener('dragend',()=>d.classList.remove('dragging'));
+    bank.appendChild(d);
+  });
+}
+
+// ========================================================
+// ACTIVITY 2
+// ========================================================
+let score2=0, total2=5, dragging2=null;
+
+document.querySelectorAll('#parts-bank .rocket-part').forEach(part=>{
+  part.addEventListener('dragstart',e=>{ dragging2=part; part.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+  part.addEventListener('dragend',()=>part.classList.remove('dragging'));
+});
+
+document.querySelectorAll('.part-slot').forEach(slot=>{
+  slot.addEventListener('dragover',e=>{ e.preventDefault(); if(!slot.classList.contains('filled')) slot.classList.add('over'); });
+  slot.addEventListener('dragleave',()=>slot.classList.remove('over'));
+  slot.addEventListener('drop',e=>{
+    e.preventDefault(); slot.classList.remove('over');
+    if(!dragging2||slot.classList.contains('filled')) return;
+    if(dragging2.dataset.part===slot.dataset.part){
+      slot.classList.add('filled');
+      slot.innerHTML=dragging2.querySelector('.part-emoji').textContent+'<br><span style="font-size:0.7rem;color:var(--v6)">'+dragging2.querySelector('.part-name').textContent+'</span>';
+      dragging2.remove();
+      score2++;
+      slot.classList.add('flash'); setTimeout(()=>slot.classList.remove('flash'),500);
+      updateScore2();
+      if(score2===total2){ document.getElementById('wd2').style.display='block'; burst(); }
+    }
+    dragging2=null;
+  });
+});
+
+function updateScore2(){
+  document.getElementById('score2').textContent=`⭐ ${score2} / ${total2}`;
+  document.getElementById('prog2').style.width=(score2/total2*100)+'%';
+}
+
+function resetAct2(){
+  score2=0; updateScore2();
+  document.getElementById('wd2').style.display='none';
+  document.querySelectorAll('.part-slot').forEach(s=>{
+    s.classList.remove('filled','flash');
+  });
+  const slotLabels={nose:'👆 Nose Cone',window:'Cockpit Window',body:'Rocket Body',fins:'Fins',engine:'🔥 Engine'};
+  document.querySelectorAll('.part-slot').forEach(s=>{ s.innerHTML=slotLabels[s.dataset.part]; });
+  const bank=document.getElementById('parts-bank');
+  const parts=[{part:'engine',emoji:'🔥',name:'Engine'},{part:'nose',emoji:'⬆️',name:'Nose Cone'},{part:'fins',emoji:'🔺',name:'Fins'},{part:'window',emoji:'🔵',name:'Window'},{part:'body',emoji:'🚀',name:'Body'}];
+  bank.innerHTML='';
+  parts.forEach(p=>{
+    const d=document.createElement('div'); d.className='rocket-part'; d.draggable=true; d.dataset.part=p.part;
+    d.innerHTML=`<span class="part-emoji">${p.emoji}</span><span class="part-name">${p.name}</span>`;
+    d.addEventListener('dragstart',e=>{ dragging2=d; d.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+    d.addEventListener('dragend',()=>d.classList.remove('dragging'));
+    bank.appendChild(d);
+  });
+}
+
+// ========================================================
+// ACTIVITY 3
+// ========================================================
+let score3=0, total3=7, dragging3=null;
+const lines3=[];
+const slotPos={};
+
+document.querySelectorAll('#star-pool .star-item').forEach(s=>{
+  s.addEventListener('dragstart',e=>{ dragging3=s; s.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+  s.addEventListener('dragend',()=>s.classList.remove('dragging'));
+});
+
+const board=document.getElementById('const-board');
+board.addEventListener('dragover',e=>{ e.preventDefault(); board.classList.add('over'); });
+board.addEventListener('dragleave',()=>board.classList.remove('over'));
+
+document.querySelectorAll('.board-slot').forEach(slot=>{
+  slot.addEventListener('dragover',e=>{ e.preventDefault(); if(!slot.classList.contains('filled')) slot.classList.add('over'); });
+  slot.addEventListener('dragleave',()=>slot.classList.remove('over'));
+  slot.addEventListener('drop',e=>{
+    e.preventDefault(); slot.classList.remove('over'); board.classList.remove('over');
+    if(!dragging3||slot.classList.contains('filled')) return;
+    const starName=dragging3.textContent.trim().replace('⭐','').trim();
+    const slotName=slot.dataset.slot;
+    const starId=dragging3.dataset.star;
+    if(starId===slotName){
+      slot.classList.add('filled');
+      slot.innerHTML=`⭐<br><span style="font-size:0.6rem">${starName}</span>`;
+      dragging3.remove();
+      score3++;
+      slot.classList.add('flash'); setTimeout(()=>slot.classList.remove('flash'),500);
+      updateScore3(); drawLines();
+      if(score3===total3){ document.getElementById('wd3').style.display='block'; burst(); }
+    }
+    dragging3=null;
+  });
+});
+
+function drawLines(){
+  const svg=document.getElementById('const-svg');
+  svg.innerHTML='';
+  const slots=[...document.querySelectorAll('.board-slot.filled')];
+  const bRect=board.getBoundingClientRect();
+  const pts=slots.map(s=>{
+    const r=s.getBoundingClientRect();
+    return { x:r.left-bRect.left+r.width/2, y:r.top-bRect.top+r.height/2, id:s.dataset.slot };
+  });
+  pts.sort((a,b)=>a.id.localeCompare(b.id));
+  for(let i=0;i<pts.length-1;i++){
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',pts[i].x); line.setAttribute('y1',pts[i].y);
+    line.setAttribute('x2',pts[i+1].x); line.setAttribute('y2',pts[i+1].y);
+    line.setAttribute('stroke','#ffe06e88'); line.setAttribute('stroke-width','2');
+    line.setAttribute('stroke-dasharray','6 4');
+    svg.appendChild(line);
+  }
+}
+
+function updateScore3(){
+  document.getElementById('score3').textContent=`⭐ ${score3} / ${total3}`;
+  document.getElementById('prog3').style.width=(score3/total3*100)+'%';
+}
+
+function resetAct3(){
+  score3=0; updateScore3();
+  document.getElementById('wd3').style.display='none';
+  document.getElementById('const-svg').innerHTML='';
+  document.querySelectorAll('.board-slot').forEach(s=>{
+    s.classList.remove('filled','flash');
+    s.textContent=s.dataset.slot.replace('s','Dubhe,Merak,Phecda,Megrez,Alioth,Mizar,Alkaid'.split(',')[parseInt(s.dataset.slot.slice(1))-1]);
+  });
+  // restore slot labels
+  const names={s1:'Dubhe',s2:'Merak',s3:'Phecda',s4:'Megrez',s5:'Alioth',s6:'Mizar',s7:'Alkaid'};
+  document.querySelectorAll('.board-slot').forEach(s=>{ s.textContent=names[s.dataset.slot]; });
+  const pool=document.getElementById('star-pool');
+  pool.innerHTML='';
+  const stars=[{id:'s1',name:'Dubhe'},{id:'s2',name:'Merak'},{id:'s3',name:'Phecda'},{id:'s4',name:'Megrez'},{id:'s5',name:'Alioth'},{id:'s6',name:'Mizar'},{id:'s7',name:'Alkaid'}];
+  stars.forEach(st=>{
+    const d=document.createElement('div'); d.className='star-item'; d.draggable=true; d.dataset.star=st.id;
+    d.innerHTML=`<span class="star-glyph">⭐</span> ${st.name}`;
+    d.addEventListener('dragstart',e=>{ dragging3=d; d.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+    d.addEventListener('dragend',()=>d.classList.remove('dragging'));
+    pool.appendChild(d);
+  });
+}
+</script>
+</body>
+</html>

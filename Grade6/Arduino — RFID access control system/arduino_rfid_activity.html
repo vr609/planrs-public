@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arduino — RFID Access Control System</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --v1: #2D0057;
+    --v2: #4A0080;
+    --v3: #6B21A8;
+    --v4: #9333EA;
+    --v5: #C084FC;
+    --v6: #E9D5FF;
+    --v7: #F5F0FF;
+    --pink: #FF6BCB;
+    --cyan: #22D3EE;
+    --yellow: #FFD60A;
+    --green: #4ADE80;
+    --red: #FF4D6D;
+    --white: #FFFFFF;
+    --card-bg: rgba(255,255,255,0.08);
+    --card-border: rgba(255,255,255,0.2);
+  }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: linear-gradient(135deg, #0f0024 0%, #1a0040 30%, #2D0057 60%, #1a0040 100%);
+    min-height: 100vh;
+    color: var(--white);
+    overflow-x: hidden;
+  }
+
+  /* floating particles */
+  .particles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: hidden; }
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+    animation: floatUp linear infinite;
+    opacity: 0;
+  }
+  @keyframes floatUp {
+    0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 0.6; }
+    100% { transform: translateY(-100px) rotate(720deg); opacity: 0; }
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.2; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.3); }
+  }
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(147,51,234,0.4); }
+    50% { box-shadow: 0 0 40px rgba(192,132,252,0.8), 0 0 60px rgba(147,51,234,0.4); }
+  }
+  @keyframes bounce-in {
+    0% { transform: scale(0) rotate(-10deg); opacity: 0; }
+    60% { transform: scale(1.15) rotate(3deg); opacity: 1; }
+    80% { transform: scale(0.95) rotate(-1deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(-3deg); }
+    50% { transform: rotate(3deg); }
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes scanLine {
+    0% { top: 0; opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+  }
+  @keyframes rfidPulse {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+  @keyframes doorOpen {
+    0% { transform: perspective(300px) rotateY(0deg); }
+    100% { transform: perspective(300px) rotateY(-75deg); }
+  }
+  @keyframes successBounce {
+    0%, 100% { transform: translateY(0); }
+    25% { transform: translateY(-12px); }
+    75% { transform: translateY(-6px); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  /* HEADING */
+  .main-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(1.6rem, 4vw, 2.6rem);
+    text-align: center;
+    margin-bottom: 2.5rem;
+    background: linear-gradient(90deg, var(--pink), var(--v5), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: slideDown 0.7s ease;
+    line-height: 1.2;
+  }
+
+  /* TAB NAV */
+  .tabs {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    padding: 10px 22px;
+    border-radius: 50px;
+    border: 2px solid var(--v4);
+    background: transparent;
+    color: var(--v5);
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .tab-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--v4);
+    opacity: 0;
+    transition: opacity 0.25s;
+    z-index: -1;
+  }
+  .tab-btn:hover::before { opacity: 0.2; }
+  .tab-btn.active {
+    background: linear-gradient(135deg, var(--v3), var(--v4));
+    color: white;
+    border-color: transparent;
+    animation: pulse-glow 2s infinite;
+    box-shadow: 0 0 20px rgba(147,51,234,0.5);
+  }
+
+  /* ACTIVITY PANELS */
+  .activity { display: none; animation: slideDown 0.4s ease; }
+  .activity.active { display: block; }
+
+  .activity-card {
+    background: rgba(255,255,255,0.06);
+    border: 1.5px solid rgba(255,255,255,0.15);
+    border-radius: 24px;
+    padding: 2rem;
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+  }
+  .activity-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 70% 30%, rgba(147,51,234,0.08) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .activity-label {
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.8rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--v5);
+    margin-bottom: 0.4rem;
+  }
+  .activity-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.5rem;
+    margin-bottom: 0.8rem;
+    color: var(--white);
+  }
+  .activity-desc {
+    color: var(--v6);
+    font-size: 0.95rem;
+    margin-bottom: 1.8rem;
+    line-height: 1.6;
+  }
+
+  /* ─────────────────────────────────────────────
+     ACTIVITY 1 — RFID Component Matcher
+  ───────────────────────────────────────────── */
+  .match-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  @media(max-width: 600px) { .match-layout { grid-template-columns: 1fr; } }
+
+  .match-col-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    text-align: center;
+    color: var(--v5);
+  }
+
+  .draggable-item {
+    background: linear-gradient(135deg, var(--v2), var(--v3));
+    border: 2px solid var(--v4);
+    border-radius: 14px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    cursor: grab;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    user-select: none;
+  }
+  .draggable-item:hover { transform: translateY(-3px) scale(1.03); box-shadow: 0 8px 25px rgba(147,51,234,0.5); }
+  .draggable-item.dragging { opacity: 0.4; transform: scale(0.95); cursor: grabbing; }
+  .draggable-item .icon { font-size: 1.3rem; }
+
+  .drop-zone {
+    background: rgba(255,255,255,0.04);
+    border: 2px dashed var(--v4);
+    border-radius: 14px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    min-height: 48px;
+    font-size: 0.85rem;
+    color: var(--v5);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .drop-zone.over { background: rgba(147,51,234,0.2); border-color: var(--v5); transform: scale(1.02); }
+  .drop-zone.correct { background: rgba(74,222,128,0.15); border-color: var(--green); border-style: solid; }
+  .drop-zone.wrong { background: rgba(255,77,109,0.15); border-color: var(--red); border-style: solid; animation: shake 0.4s; }
+  .drop-zone .zone-label { font-weight: 600; color: var(--v6); font-size: 0.85rem; }
+  .drop-zone .zone-desc { font-size: 0.75rem; color: var(--v5); }
+
+  .score-bar {
+    background: rgba(255,255,255,0.1);
+    border-radius: 50px;
+    height: 12px;
+    margin-top: 1.2rem;
+    overflow: hidden;
+  }
+  .score-fill {
+    height: 100%;
+    border-radius: 50px;
+    background: linear-gradient(90deg, var(--v4), var(--pink), var(--cyan));
+    transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .score-text {
+    text-align: center;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    color: var(--v5);
+    margin-top: 0.5rem;
+  }
+
+  /* ─────────────────────────────────────────────
+     ACTIVITY 2 — Code Sequencer
+  ───────────────────────────────────────────── */
+  .code-area {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  @media(max-width: 600px) { .code-area { grid-template-columns: 1fr; } }
+
+  .code-pool {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .code-block {
+    background: linear-gradient(135deg, #1a0040, #2D0057);
+    border: 2px solid var(--v4);
+    border-radius: 12px;
+    padding: 9px 14px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    color: var(--cyan);
+    cursor: grab;
+    transition: transform 0.15s, box-shadow 0.15s;
+    user-select: none;
+    position: relative;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .code-block:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 6px 20px rgba(34,211,238,0.3); }
+  .code-block.dragging { opacity: 0.3; }
+  .code-block .kw { color: var(--pink); }
+  .code-block .fn { color: var(--yellow); }
+  .code-block .str { color: var(--green); }
+
+  .sequence-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .seq-slot {
+    background: rgba(255,255,255,0.03);
+    border: 2px dashed rgba(147,51,234,0.5);
+    border-radius: 12px;
+    padding: 9px 14px;
+    min-height: 42px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    color: var(--v5);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+  }
+  .seq-slot .slot-num {
+    font-family: 'Fredoka One', cursive;
+    color: var(--v4);
+    min-width: 20px;
+    font-size: 0.9rem;
+  }
+  .seq-slot.over { background: rgba(147,51,234,0.15); border-color: var(--v5); }
+  .seq-slot.correct { border-color: var(--green); border-style: solid; background: rgba(74,222,128,0.1); }
+  .seq-slot.wrong { border-color: var(--red); border-style: solid; background: rgba(255,77,109,0.1); animation: shake 0.4s; }
+
+  .check-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+    padding: 12px 32px;
+    border-radius: 50px;
+    border: none;
+    background: linear-gradient(135deg, var(--v3), var(--pink));
+    color: white;
+    cursor: pointer;
+    margin-top: 1.2rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .check-btn:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 10px 30px rgba(255,107,203,0.4); }
+  .check-btn:active { transform: scale(0.97); }
+
+  /* ─────────────────────────────────────────────
+     ACTIVITY 3 — Access Simulator
+  ───────────────────────────────────────────── */
+  .sim-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media(max-width: 600px) { .sim-layout { grid-template-columns: 1fr; } }
+
+  .cards-pool { display: flex; flex-direction: column; gap: 10px; }
+
+  .rfid-card {
+    border-radius: 16px;
+    padding: 14px 16px;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+  .rfid-card::after {
+    content: '';
+    position: absolute;
+    top: -20px;
+    right: -20px;
+    width: 60px;
+    height: 60px;
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 50%;
+  }
+  .rfid-card:hover { transform: translateX(6px) scale(1.03); }
+  .rfid-card.dragging { opacity: 0.35; cursor: grabbing; }
+  .rfid-card.admin { background: linear-gradient(135deg, #1a3a6b, #2563EB); border: 2px solid #60A5FA; color: #BFDBFE; }
+  .rfid-card.user { background: linear-gradient(135deg, #2D4A22, #16A34A); border: 2px solid #4ADE80; color: #BBF7D0; }
+  .rfid-card.guest { background: linear-gradient(135deg, #5C3A1A, #D97706); border: 2px solid #FCD34D; color: #FEF3C7; }
+  .rfid-card.invalid { background: linear-gradient(135deg, #4A1A1A, #DC2626); border: 2px solid #F87171; color: #FECACA; }
+  .rfid-card .card-chip {
+    width: 28px;
+    height: 22px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 4px;
+    border: 1.5px solid rgba(255,255,255,0.4);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .rfid-card .card-chip::before, .rfid-card .card-chip::after {
+    content: '';
+    position: absolute;
+    background: rgba(255,255,255,0.15);
+  }
+  .rfid-card .card-chip::before { top: 3px; left: 3px; right: 3px; height: 4px; border-radius: 2px; }
+  .rfid-card .card-chip::after { top: 10px; left: 3px; width: 8px; height: 8px; border-radius: 1px; }
+
+  .reader-zones { display: flex; flex-direction: column; gap: 12px; }
+  .reader-zone {
+    border-radius: 16px;
+    padding: 14px 16px;
+    border: 2px dashed rgba(255,255,255,0.2);
+    min-height: 70px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .reader-zone.over { transform: scale(1.02); }
+  .reader-zone .zone-name {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    margin-bottom: 4px;
+  }
+  .reader-zone .zone-access {
+    font-size: 0.75rem;
+    opacity: 0.7;
+    margin-bottom: 8px;
+  }
+  .reader-zone .zone-status {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    display: inline-block;
+  }
+  .reader-zone.server { background: rgba(37,99,235,0.15); border-color: rgba(96,165,250,0.4); color: #93C5FD; }
+  .reader-zone.server.over { background: rgba(37,99,235,0.3); border-color: #60A5FA; }
+  .reader-zone.lab { background: rgba(22,163,74,0.15); border-color: rgba(74,222,128,0.4); color: #86EFAC; }
+  .reader-zone.lab.over { background: rgba(22,163,74,0.3); border-color: #4ADE80; }
+  .reader-zone.lobby { background: rgba(217,119,6,0.15); border-color: rgba(252,211,77,0.4); color: #FCD34D; }
+  .reader-zone.lobby.over { background: rgba(217,119,6,0.3); border-color: #FCD34D; }
+
+  .door-visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 50px;
+    font-size: 2rem;
+    transition: transform 0.4s;
+  }
+  .door-visual.open { animation: doorOpen 0.5s forwards; }
+
+  .feedback-msg {
+    text-align: center;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+    padding: 10px 20px;
+    border-radius: 50px;
+    margin-top: 1rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .feedback-msg.show { opacity: 1; }
+  .feedback-msg.ok { background: rgba(74,222,128,0.2); color: var(--green); border: 1.5px solid var(--green); }
+  .feedback-msg.fail { background: rgba(255,77,109,0.2); color: var(--red); border: 1.5px solid var(--red); }
+
+  /* STARS / CONFETTI */
+  .confetti-burst {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    font-size: 1.5rem;
+    animation: confettiFly 1.2s ease forwards;
+  }
+  @keyframes confettiFly {
+    0% { opacity: 1; transform: translate(0,0) scale(1) rotate(0deg); }
+    100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.3) rotate(var(--dr)); }
+  }
+
+  .reset-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.9rem;
+    padding: 8px 20px;
+    border-radius: 50px;
+    border: 2px solid var(--v4);
+    background: transparent;
+    color: var(--v5);
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 0.8rem;
+    display: block;
+    margin-left: auto;
+  }
+  .reset-btn:hover { background: rgba(147,51,234,0.2); }
+
+  /* Stars in bg */
+  .stars { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+  .star {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle linear infinite;
+  }
+</style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+<div class="particles" id="particles"></div>
+
+<div class="wrapper">
+  <h1 class="main-title">Arduino — RFID Access Control System</h1>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab(0)">🔌 Match Components</button>
+    <button class="tab-btn" onclick="switchTab(1)">💻 Sort the Code</button>
+    <button class="tab-btn" onclick="switchTab(2)">🚪 Swipe & Access</button>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       ACTIVITY 1 — Component Matcher
+  ════════════════════════════════════════════ -->
+  <div class="activity active" id="act0">
+    <div class="activity-card">
+      <div class="activity-label">Activity 1</div>
+      <div class="activity-title">🔌 Match the RFID Components!</div>
+      <div class="activity-desc">Drag each RFID system part from the left and drop it onto its matching description on the right. Get them all right to unlock the door! 🎯</div>
+
+      <div class="match-layout">
+        <div>
+          <div class="match-col-title">🧩 Components</div>
+          <div id="drag-pool">
+            <div class="draggable-item" draggable="true" data-id="rc522" id="d-rc522">
+              <span class="icon">📡</span> RC522 Reader
+            </div>
+            <div class="draggable-item" draggable="true" data-id="tag" id="d-tag">
+              <span class="icon">🏷️</span> RFID Tag
+            </div>
+            <div class="draggable-item" draggable="true" data-id="arduino" id="d-arduino">
+              <span class="icon">🤖</span> Arduino Uno
+            </div>
+            <div class="draggable-item" draggable="true" data-id="buzzer" id="d-buzzer">
+              <span class="icon">🔊</span> Buzzer
+            </div>
+            <div class="draggable-item" draggable="true" data-id="servo" id="d-servo">
+              <span class="icon">⚙️</span> Servo Motor
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="match-col-title">📖 Descriptions</div>
+          <div class="drop-zone" data-accept="rc522" id="z-rc522">
+            <div><div class="zone-label">Sends 13.56MHz radio waves</div><div class="zone-desc">Reads the unique ID from tags using electromagnetic fields</div></div>
+          </div>
+          <div class="drop-zone" data-accept="tag" id="z-tag">
+            <div><div class="zone-label">Stores a unique UID</div><div class="zone-desc">Small passive chip — no battery needed, powered by the reader</div></div>
+          </div>
+          <div class="drop-zone" data-accept="arduino" id="z-arduino">
+            <div><div class="zone-label">Brain of the system</div><div class="zone-desc">Processes UID and decides if access is granted or denied</div></div>
+          </div>
+          <div class="drop-zone" data-accept="buzzer" id="z-buzzer">
+            <div><div class="zone-label">Plays alert sounds</div><div class="zone-desc">Beeps once for success, twice for denied access</div></div>
+          </div>
+          <div class="drop-zone" data-accept="servo" id="z-servo">
+            <div><div class="zone-label">Opens the lock</div><div class="zone-desc">Rotates 90° to physically unlock the door when access is granted</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="score-bar"><div class="score-fill" id="score-fill" style="width:0%"></div></div>
+      <div class="score-text" id="score-text">Match all 5 components! 🎮</div>
+      <button class="reset-btn" onclick="resetActivity1()">↺ Reset</button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       ACTIVITY 2 — Code Sequencer
+  ════════════════════════════════════════════ -->
+  <div class="activity" id="act1">
+    <div class="activity-card">
+      <div class="activity-label">Activity 2</div>
+      <div class="activity-title">💻 Sort the Arduino Code!</div>
+      <div class="activity-desc">The RFID access control code got scrambled! Drag the code blocks from the pool into the correct order in the sequence slots. Build a working program! 🧠</div>
+
+      <div class="code-area">
+        <div>
+          <div class="match-col-title" style="text-align:left">📦 Code Blocks</div>
+          <div class="code-pool" id="code-pool">
+            <div class="code-block" draggable="true" data-id="c3" id="cb-c3">
+              <span class="kw">if</span> (uid == authorised) {
+            </div>
+            <div class="code-block" draggable="true" data-id="c1" id="cb-c1">
+              <span class="kw">#include</span> &lt;<span class="str">MFRC522.h</span>&gt;
+            </div>
+            <div class="code-block" draggable="true" data-id="c5" id="cb-c5">
+              myServo.<span class="fn">write</span>(<span class="str">90</span>);
+            </div>
+            <div class="code-block" draggable="true" data-id="c2" id="cb-c2">
+              <span class="kw">void</span> <span class="fn">setup</span>() { rfid.<span class="fn">begin</span>(); }
+            </div>
+            <div class="code-block" draggable="true" data-id="c4" id="cb-c4">
+              rfid.<span class="fn">readUID</span>(&amp;uid);
+            </div>
+            <div class="code-block" draggable="true" data-id="c6" id="cb-c6">
+              buzzer.<span class="fn">beep</span>(<span class="str">1</span>); <span class="kw">}</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="match-col-title" style="text-align:left">📋 Correct Sequence</div>
+          <div class="sequence-slots" id="seq-slots">
+            <div class="seq-slot" data-pos="0" data-expect="c1"><span class="slot-num">1</span><span class="slot-hint">Include library first...</span></div>
+            <div class="seq-slot" data-pos="1" data-expect="c2"><span class="slot-num">2</span><span class="slot-hint">Initialize hardware...</span></div>
+            <div class="seq-slot" data-pos="2" data-expect="c4"><span class="slot-num">3</span><span class="slot-hint">Read the card UID...</span></div>
+            <div class="seq-slot" data-pos="3" data-expect="c3"><span class="slot-num">4</span><span class="slot-hint">Check if authorised...</span></div>
+            <div class="seq-slot" data-pos="4" data-expect="c5"><span class="slot-num">5</span><span class="slot-hint">Unlock the door...</span></div>
+            <div class="seq-slot" data-pos="5" data-expect="c6"><span class="slot-num">6</span><span class="slot-hint">Beep success...</span></div>
+          </div>
+        </div>
+      </div>
+
+      <button class="check-btn" onclick="checkSequence()">✅ Check My Code!</button>
+      <div class="feedback-msg" id="seq-feedback"></div>
+      <button class="reset-btn" onclick="resetActivity2()">↺ Reset</button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       ACTIVITY 3 — Access Simulator
+  ════════════════════════════════════════════ -->
+  <div class="activity" id="act2">
+    <div class="activity-card">
+      <div class="activity-label">Activity 3</div>
+      <div class="activity-title">🚪 Swipe Your RFID Card!</div>
+      <div class="activity-desc">Drag each RFID card to a reader zone. Some cards have access, some don't! Figure out which card opens which door. Watch the system respond in real time! 🎉</div>
+
+      <div class="sim-layout">
+        <div>
+          <div class="match-col-title" style="text-align:left">💳 RFID Cards</div>
+          <div class="cards-pool" id="cards-pool">
+            <div class="rfid-card admin" draggable="true" data-id="admin" id="dc-admin">
+              <div class="card-chip"></div>
+              <div><div>Admin Card</div><div style="font-size:0.7rem;opacity:0.7">UID: A1B2C3D4</div></div>
+            </div>
+            <div class="rfid-card user" draggable="true" data-id="user" id="dc-user">
+              <div class="card-chip"></div>
+              <div><div>Staff Card</div><div style="font-size:0.7rem;opacity:0.7">UID: 1A2B3C4D</div></div>
+            </div>
+            <div class="rfid-card guest" draggable="true" data-id="guest" id="dc-guest">
+              <div class="card-chip"></div>
+              <div><div>Guest Card</div><div style="font-size:0.7rem;opacity:0.7">UID: G9H8I7J6</div></div>
+            </div>
+            <div class="rfid-card invalid" draggable="true" data-id="invalid" id="dc-invalid">
+              <div class="card-chip"></div>
+              <div><div>Unknown Card</div><div style="font-size:0.7rem;opacity:0.7">UID: ????????</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="match-col-title" style="text-align:left">🔒 Reader Zones</div>
+          <div class="reader-zones">
+            <div class="reader-zone server" data-zone="server" id="zone-server">
+              <div class="zone-name">🖥️ Server Room</div>
+              <div class="zone-access">Admin only · Max security</div>
+              <div class="door-visual" id="door-server">🚪</div>
+              <div class="zone-status" id="status-server" style="background:rgba(37,99,235,0.2);color:#93C5FD">● Locked</div>
+            </div>
+            <div class="reader-zone lab" data-zone="lab" id="zone-lab">
+              <div class="zone-name">🔬 Lab Area</div>
+              <div class="zone-access">Admin + Staff · Medium security</div>
+              <div class="door-visual" id="door-lab">🚪</div>
+              <div class="zone-status" id="status-lab" style="background:rgba(22,163,74,0.2);color:#86EFAC">● Locked</div>
+            </div>
+            <div class="reader-zone lobby" data-zone="lobby" id="zone-lobby">
+              <div class="zone-name">🏢 Lobby</div>
+              <div class="zone-access">Admin + Staff + Guest · Low security</div>
+              <div class="door-visual" id="door-lobby">🚪</div>
+              <div class="zone-status" id="status-lobby" style="background:rgba(217,119,6,0.2);color:#FCD34D">● Locked</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feedback-msg" id="sim-feedback"></div>
+      <button class="reset-btn" onclick="resetActivity3()">↺ Reset All Doors</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── BG STARS ───────────────────────────────────────────
+const starsEl = document.getElementById('stars');
+for (let i = 0; i < 80; i++) {
+  const s = document.createElement('div');
+  s.className = 'star';
+  s.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*100}%;width:${Math.random()*3+1}px;height:${Math.random()*3+1}px;animation-delay:${Math.random()*5}s;animation-duration:${Math.random()*4+2}s`;
+  starsEl.appendChild(s);
+}
+
+// ─── PARTICLES ──────────────────────────────────────────
+const particlesEl = document.getElementById('particles');
+const colors = ['#9333EA','#C084FC','#FF6BCB','#22D3EE','#FFD60A'];
+for (let i = 0; i < 18; i++) {
+  const p = document.createElement('div');
+  p.className = 'particle';
+  const size = Math.random() * 10 + 5;
+  p.style.cssText = `left:${Math.random()*100}%;width:${size}px;height:${size}px;background:${colors[Math.floor(Math.random()*colors.length)]};animation-delay:${Math.random()*12}s;animation-duration:${Math.random()*10+8}s;opacity:0`;
+  particlesEl.appendChild(p);
+}
+
+// ─── TABS ────────────────────────────────────────────────
+function switchTab(idx) {
+  document.querySelectorAll('.activity').forEach((a,i) => a.classList.toggle('active', i===idx));
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i===idx));
+}
+
+// ─── CONFETTI ────────────────────────────────────────────
+function spawnConfetti(x, y) {
+  const emojis = ['🎉','✨','⭐','🌟','💜','🎊','🏅'];
+  for (let i = 0; i < 8; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-burst';
+    el.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+    el.style.cssText = `left:${x}px;top:${y}px;--dx:${(Math.random()-0.5)*200}px;--dy:${-(Math.random()*150+60)}px;--dr:${(Math.random()-0.5)*720}deg;animation-delay:${Math.random()*0.3}s`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1500);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// ACTIVITY 1 — Component Matcher
+// ═══════════════════════════════════════════════
+let draggedId = null;
+let matchScore = 0;
+const matched1 = {};
+
+document.querySelectorAll('#drag-pool .draggable-item').forEach(el => {
+  el.addEventListener('dragstart', e => {
+    draggedId = e.target.dataset.id;
+    e.target.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  el.addEventListener('dragend', e => e.target.classList.remove('dragging'));
+});
+
+document.querySelectorAll('.drop-zone').forEach(zone => {
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('over');
+    if (!draggedId) return;
+    if (matched1[zone.dataset.accept]) return;
+    if (zone.dataset.accept === draggedId) {
+      zone.classList.add('correct');
+      const src = document.getElementById('d-'+draggedId);
+      if (src) {
+        const clone = src.cloneNode(true);
+        clone.removeAttribute('draggable');
+        clone.style.marginBottom = '0';
+        zone.insertBefore(clone, zone.firstChild);
+        src.style.display = 'none';
+      }
+      matched1[draggedId] = true;
+      matchScore++;
+      const pct = (matchScore / 5) * 100;
+      document.getElementById('score-fill').style.width = pct + '%';
+      const texts = ['Keep going! 💪','Nice! 2/5 🌟','Halfway there! ⚡','Almost! 4/5 🔥','PERFECT SCORE! 🎊'];
+      document.getElementById('score-text').textContent = texts[matchScore-1];
+      if (matchScore === 5) spawnConfetti(window.innerWidth/2, window.innerHeight/2);
+    } else {
+      zone.classList.add('wrong');
+      setTimeout(() => zone.classList.remove('wrong'), 600);
+    }
+    draggedId = null;
+  });
+});
+
+function resetActivity1() {
+  document.querySelectorAll('.drop-zone').forEach(z => {
+    z.className = 'drop-zone';
+    const added = z.querySelector('.draggable-item');
+    if (added) z.removeChild(added);
+  });
+  document.querySelectorAll('#drag-pool .draggable-item').forEach(el => el.style.display = '');
+  Object.keys(matched1).forEach(k => delete matched1[k]);
+  matchScore = 0;
+  document.getElementById('score-fill').style.width = '0';
+  document.getElementById('score-text').textContent = 'Match all 5 components! 🎮';
+}
+
+// ═══════════════════════════════════════════════
+// ACTIVITY 2 — Code Sequencer
+// ═══════════════════════════════════════════════
+let draggedCode = null;
+const seqState = {};
+
+document.querySelectorAll('.code-block').forEach(el => {
+  el.addEventListener('dragstart', e => {
+    draggedCode = e.target.dataset.id;
+    e.target.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  el.addEventListener('dragend', e => e.target.classList.remove('dragging'));
+});
+
+document.querySelectorAll('.seq-slot').forEach(slot => {
+  slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('over'); });
+  slot.addEventListener('dragleave', () => slot.classList.remove('over'));
+  slot.addEventListener('drop', e => {
+    e.preventDefault();
+    slot.classList.remove('over');
+    if (!draggedCode) return;
+    const pos = slot.dataset.pos;
+    const src = document.getElementById('cb-'+draggedCode);
+    const prevId = seqState[pos];
+    if (prevId) {
+      const prevEl = document.getElementById('cb-'+prevId);
+      if (prevEl) { prevEl.style.display = ''; prevEl.classList.remove('dragging'); }
+      delete seqState[pos];
+    }
+    seqState[pos] = draggedCode;
+    if (src) src.style.display = 'none';
+    const clone = src ? src.cloneNode(true) : document.createElement('div');
+    clone.removeAttribute('draggable');
+    clone.removeAttribute('id');
+    clone.classList.remove('dragging');
+    clone.style.margin = '0';
+    const hint = slot.querySelector('.slot-hint');
+    if (hint) hint.remove();
+    const existing = slot.querySelector('.code-block');
+    if (existing) slot.removeChild(existing);
+    slot.appendChild(clone);
+    slot.classList.remove('correct','wrong');
+    draggedCode = null;
+  });
+});
+
+function checkSequence() {
+  const slots = document.querySelectorAll('.seq-slot');
+  let correct = 0;
+  slots.forEach(slot => {
+    const pos = slot.dataset.pos;
+    const expected = slot.dataset.expect;
+    const placed = seqState[pos];
+    slot.classList.remove('correct','wrong');
+    if (placed === expected) { slot.classList.add('correct'); correct++; }
+    else if (placed) { slot.classList.add('wrong'); }
+  });
+  const fb = document.getElementById('seq-feedback');
+  fb.classList.add('show');
+  if (correct === 6) {
+    fb.className = 'feedback-msg show ok';
+    fb.textContent = '🎉 Perfect! Your RFID code is correct and ready to upload!';
+    spawnConfetti(window.innerWidth/2, window.innerHeight/3);
+  } else {
+    fb.className = 'feedback-msg show fail';
+    fb.textContent = `${correct}/6 correct — keep trying! Red slots need fixing. 🔧`;
+    setTimeout(() => document.querySelectorAll('.seq-slot.wrong').forEach(s => s.classList.remove('wrong')), 1000);
+  }
+}
+
+function resetActivity2() {
+  document.querySelectorAll('.seq-slot').forEach(slot => {
+    slot.classList.remove('correct','wrong');
+    const block = slot.querySelector('.code-block');
+    if (block) slot.removeChild(block);
+    const num = slot.querySelector('.slot-num');
+    const hints = ['Include library first...','Initialize hardware...','Read the card UID...','Check if authorised...','Unlock the door...','Beep success...'];
+    if (!slot.querySelector('.slot-hint')) {
+      const h = document.createElement('span');
+      h.className = 'slot-hint';
+      h.textContent = hints[slot.dataset.pos];
+      slot.appendChild(h);
+    }
+    delete seqState[slot.dataset.pos];
+  });
+  document.querySelectorAll('.code-block').forEach(el => el.style.display = '');
+  const fb = document.getElementById('seq-feedback');
+  fb.className = 'feedback-msg';
+  fb.textContent = '';
+}
+
+// ═══════════════════════════════════════════════
+// ACTIVITY 3 — Access Simulator
+// ═══════════════════════════════════════════════
+const accessRules = {
+  server: ['admin'],
+  lab: ['admin','user'],
+  lobby: ['admin','user','guest']
+};
+
+let draggedCard = null;
+
+document.querySelectorAll('.rfid-card').forEach(el => {
+  el.addEventListener('dragstart', e => {
+    draggedCard = e.target.closest('.rfid-card').dataset.id;
+    e.target.closest('.rfid-card').classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  el.addEventListener('dragend', e => e.target.closest('.rfid-card')?.classList.remove('dragging'));
+});
+
+document.querySelectorAll('.reader-zone').forEach(zone => {
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('over');
+    if (!draggedCard) return;
+    const zoneId = zone.dataset.zone;
+    const allowed = accessRules[zoneId] || [];
+    const fb = document.getElementById('sim-feedback');
+
+    // Scan animation on the reader
+    const door = document.getElementById('door-'+zoneId);
+    const statusEl = document.getElementById('status-'+zoneId);
+
+    if (allowed.includes(draggedCard)) {
+      door.textContent = '🔓';
+      door.style.animation = 'none';
+      setTimeout(() => { door.style.animation = ''; door.classList.add('open'); }, 50);
+      const colors = {server:'rgba(37,99,235,0.3)',lab:'rgba(22,163,74,0.3)',lobby:'rgba(217,119,6,0.3)'};
+      const textColors = {server:'#93C5FD',lab:'#86EFAC',lobby:'#FCD34D'};
+      statusEl.textContent = '✅ Access Granted!';
+      statusEl.style.background = colors[zoneId];
+      statusEl.style.color = textColors[zoneId];
+      fb.className = 'feedback-msg show ok';
+      fb.textContent = '🎉 Card accepted! Door unlocked!';
+      const rect = zone.getBoundingClientRect();
+      spawnConfetti(rect.left + rect.width/2, rect.top + rect.height/2);
+      setTimeout(() => {
+        door.textContent = '🚪';
+        door.classList.remove('open');
+        statusEl.textContent = '● Locked';
+      }, 3000);
+    } else {
+      door.style.animation = 'shake 0.4s';
+      setTimeout(() => door.style.animation = '', 500);
+      statusEl.textContent = '❌ Access Denied!';
+      statusEl.style.color = '#FF4D6D';
+      statusEl.style.background = 'rgba(255,77,109,0.2)';
+      fb.className = 'feedback-msg show fail';
+      const msgs = {
+        invalid: '🚫 Unknown card! This UID is not in the database.',
+        guest: '🔒 Guest cards can only access the Lobby!',
+        user: '🔒 Staff cards cannot enter the Server Room!',
+        admin: ''
+      };
+      fb.textContent = msgs[draggedCard] || '❌ Access denied for this zone.';
+      setTimeout(() => {
+        statusEl.textContent = '● Locked';
+        statusEl.style.color = '';
+        statusEl.style.background = '';
+      }, 2500);
+    }
+    setTimeout(() => fb.classList.remove('show'), 3000);
+    draggedCard = null;
+  });
+});
+
+function resetActivity3() {
+  ['server','lab','lobby'].forEach(z => {
+    document.getElementById('door-'+z).textContent = '🚪';
+    document.getElementById('door-'+z).classList.remove('open');
+    const s = document.getElementById('status-'+z);
+    s.textContent = '● Locked';
+    s.style.color = '';
+    s.style.background = '';
+  });
+  const fb = document.getElementById('sim-feedback');
+  fb.className = 'feedback-msg';
+  fb.textContent = '';
+}
+</script>
+</body>
+</html>

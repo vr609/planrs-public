@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTML — CLOCK CHALLENGE: TIME RACES</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Fredoka+One&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #FFD700;
+    --deep-gold: #E6A800;
+    --orange: #FF6B00;
+    --saffron: #FF9933;
+    --cream: #FFF8E7;
+    --dark: #1A0A00;
+    --teal: #00897B;
+    --teal-light: #4DB6AC;
+    --indigo: #3949AB;
+    --copper: #B87333;
+    --red: #C62828;
+    --green: #2E7D32;
+    --sky: #0288D1;
+    --pink: #E91E63;
+    --purple: #7B1FA2;
+    --success: #43A047;
+    --bg: #0D1B2A;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    font-family: 'Baloo 2', cursive;
+    background: var(--bg);
+    color: var(--cream);
+    user-select: none;
+  }
+
+  /* ===== ANIMATED BACKGROUND ===== */
+  #bg-canvas {
+    position: fixed; inset: 0; z-index: 0;
+    pointer-events: none;
+  }
+
+  /* ===== MAIN LAYOUT ===== */
+  #app {
+    position: relative; z-index: 1;
+    width: 100vw; height: 100vh;
+    display: flex; flex-direction: column;
+    padding: 8px 12px 6px;
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    text-align: center;
+    padding: 4px 0 2px;
+    flex-shrink: 0;
+  }
+
+  .title-badge {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: linear-gradient(135deg, #FF6B00, #FFD700, #FF9933);
+    border-radius: 40px;
+    padding: 4px 20px 4px 12px;
+    box-shadow: 0 0 24px rgba(255,165,0,0.5), 0 4px 12px rgba(0,0,0,0.4);
+    position: relative;
+  }
+  .title-badge::before {
+    content: '⚙'; font-size: 22px;
+    animation: spin 4s linear infinite;
+    display: inline-block;
+  }
+  .title-badge h1 {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(14px, 2.2vw, 24px);
+    color: #1A0A00;
+    letter-spacing: 1px;
+    text-shadow: none;
+  }
+  .title-badge::after {
+    content: '⚙'; font-size: 18px;
+    animation: spin 3s linear infinite reverse;
+    display: inline-block;
+  }
+
+  .progress-bar-wrap {
+    display: flex; justify-content: center; gap: 12px;
+    margin-top: 4px;
+  }
+  .step-dot {
+    width: 28px; height: 8px; border-radius: 4px;
+    background: rgba(255,255,255,0.15);
+    transition: all 0.4s;
+  }
+  .step-dot.active { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+  .step-dot.done { background: var(--success); }
+
+  /* ===== ACTIVITY AREA ===== */
+  #activity-area {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    gap: 16px;
+    min-height: 0;
+  }
+
+  .activity { display: none; width: 100%; height: 100%; }
+  .activity.active { display: flex; align-items: center; justify-content: center; gap: 16px; }
+
+  /* ===== PANEL ===== */
+  .panel {
+    background: rgba(255,255,255,0.05);
+    border: 1.5px solid rgba(255,200,100,0.2);
+    border-radius: 20px;
+    backdrop-filter: blur(8px);
+    padding: 14px 16px;
+    display: flex; flex-direction: column;
+    align-items: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+
+  /* ===== CLOCK SVG ===== */
+  .clock-wrap {
+    position: relative; flex-shrink: 0;
+  }
+
+  .clock-svg {
+    filter: drop-shadow(0 0 16px rgba(255,200,50,0.3));
+  }
+
+  /* ===== ACTIVITY LABELS ===== */
+  .act-label {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(11px,1.5vw,16px);
+    color: var(--gold);
+    text-align: center;
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+  }
+  .act-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(16px,2.5vw,26px);
+    color: #FFF;
+    text-align: center;
+    margin-bottom: 8px;
+    text-shadow: 0 2px 8px rgba(255,165,0,0.4);
+  }
+  .act-sub {
+    font-size: clamp(11px,1.3vw,14px);
+    color: var(--teal-light);
+    text-align: center;
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+
+  /* ===== TARGET TIME DISPLAY ===== */
+  .target-display {
+    background: linear-gradient(135deg, rgba(255,107,0,0.3), rgba(255,215,0,0.2));
+    border: 2px solid var(--gold);
+    border-radius: 16px;
+    padding: 10px 20px;
+    text-align: center;
+    margin-bottom: 10px;
+    box-shadow: 0 0 16px rgba(255,215,0,0.2);
+  }
+  .target-display .label { font-size: 11px; color: var(--deep-gold); text-transform: uppercase; letter-spacing: 1px; }
+  .target-display .time { font-family: 'Fredoka One', cursive; font-size: clamp(28px,5vw,52px); color: var(--gold); line-height: 1; }
+  .target-display .sub { font-size: 11px; color: var(--cream); opacity: 0.7; }
+
+  /* ===== HAND LABELS ===== */
+  .hand-info {
+    display: flex; gap: 10px; margin-top: 6px;
+  }
+  .hand-badge {
+    display: flex; align-items: center; gap: 5px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 11px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .hand-badge .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .hour-dot { background: #FF6B35; }
+  .min-dot { background: #4FC3F7; }
+
+  /* ===== FEEDBACK ===== */
+  .feedback-msg {
+    min-height: 28px;
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(13px,1.8vw,18px);
+    text-align: center;
+    padding: 4px 12px;
+    border-radius: 12px;
+    transition: all 0.3s;
+    margin-top: 6px;
+  }
+  .feedback-msg.correct { background: rgba(67,160,71,0.25); color: #81C784; border: 1px solid #43A047; }
+  .feedback-msg.wrong   { background: rgba(198,40,40,0.2); color: #EF9A9A; border: 1px solid #C62828; }
+  .feedback-msg.hint    { background: rgba(41,182,246,0.15); color: #81D4FA; border: 1px solid #0288D1; }
+
+  /* ===== CHECK BUTTON ===== */
+  .check-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(14px,2vw,18px);
+    padding: 10px 30px;
+    border: none; cursor: pointer;
+    border-radius: 30px;
+    background: linear-gradient(135deg, var(--orange), var(--gold));
+    color: var(--dark);
+    box-shadow: 0 4px 16px rgba(255,107,0,0.4);
+    transition: all 0.2s;
+    margin-top: 8px;
+    letter-spacing: 0.5px;
+  }
+  .check-btn:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 8px 24px rgba(255,107,0,0.5); }
+  .check-btn:active { transform: scale(0.97); }
+
+  /* ===== TIMER BAR (Activity 2) ===== */
+  .timer-wrap {
+    width: 100%; background: rgba(255,255,255,0.1);
+    border-radius: 8px; height: 14px; overflow: hidden;
+    margin-bottom: 8px;
+    border: 1px solid rgba(255,215,0,0.2);
+  }
+  .timer-bar {
+    height: 100%; border-radius: 8px;
+    background: linear-gradient(90deg, var(--green), var(--gold), var(--red));
+    background-size: 200% 100%;
+    transition: width 0.1s linear;
+  }
+  .timer-text {
+    font-family: 'Fredoka One', cursive;
+    font-size: 22px; color: var(--gold);
+    text-align: center;
+    text-shadow: 0 0 8px rgba(255,215,0,0.5);
+  }
+
+  /* ===== ACTIVITY 1 — DRAG HANDS ===== */
+  #a1-clock {
+    cursor: none;
+  }
+
+  /* ===== ACTIVITY 3 — ADD TIME ===== */
+  .add-info {
+    display: flex; flex-direction: column; gap: 8px;
+    width: 100%;
+  }
+  .time-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(255,255,255,0.06);
+    border-radius: 12px; padding: 8px 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .time-row .rlabel { font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; }
+  .time-row .rval { font-family: 'Fredoka One', cursive; font-size: 22px; }
+  .time-row .rval.start { color: var(--teal-light); }
+  .time-row .rval.target3 { color: var(--gold); }
+  .plus-badge {
+    font-family: 'Fredoka One', cursive; font-size: 16px;
+    background: rgba(255,165,0,0.2); color: var(--saffron);
+    border-radius: 50%; width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1.5px solid var(--saffron);
+    margin: 0 auto;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  /* ===== POPUP ===== */
+  #popup-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.4s;
+  }
+  #popup-overlay.show { opacity: 1; pointer-events: all; }
+
+  .popup-box {
+    background: linear-gradient(145deg, #1C2A3A, #0D1B2A);
+    border: 2px solid var(--gold);
+    border-radius: 28px;
+    padding: 32px 40px;
+    text-align: center;
+    max-width: 420px; width: 90%;
+    box-shadow: 0 0 60px rgba(255,215,0,0.3), 0 24px 64px rgba(0,0,0,0.6);
+    transform: scale(0.8);
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  #popup-overlay.show .popup-box { transform: scale(1); }
+
+  .popup-emoji { font-size: 52px; margin-bottom: 12px; animation: bounce 0.6s ease-out; }
+  .popup-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 28px; color: var(--gold);
+    margin-bottom: 8px;
+    text-shadow: 0 0 16px rgba(255,215,0,0.4);
+  }
+  .popup-msg { font-size: 15px; color: var(--cream); opacity: 0.85; line-height: 1.5; margin-bottom: 20px; }
+  .popup-stars { font-size: 28px; margin-bottom: 16px; }
+  .popup-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 18px; padding: 12px 36px;
+    border: none; cursor: pointer; border-radius: 30px;
+    background: linear-gradient(135deg, var(--orange), var(--gold));
+    color: var(--dark);
+    box-shadow: 0 4px 20px rgba(255,165,0,0.5);
+    transition: all 0.2s; letter-spacing: 0.5px;
+  }
+  .popup-btn:hover { transform: scale(1.06); box-shadow: 0 6px 28px rgba(255,165,0,0.7); }
+
+  /* ===== CONFETTI ===== */
+  .confetti-piece {
+    position: fixed; top: -10px;
+    width: 8px; height: 14px;
+    border-radius: 2px;
+    animation: confettiFall linear forwards;
+    z-index: 200;
+    pointer-events: none;
+  }
+
+  /* ===== ANIMATIONS ===== */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.1);opacity:0.8} }
+  @keyframes bounce { 0%{transform:scale(0)} 60%{transform:scale(1.2)} 100%{transform:scale(1)} }
+  @keyframes confettiFall {
+    0%{transform:translateY(0) rotate(0deg); opacity:1}
+    100%{transform:translateY(110vh) rotate(720deg); opacity:0}
+  }
+  @keyframes glow {
+    0%,100%{filter:drop-shadow(0 0 4px rgba(255,215,0,0.3))}
+    50%{filter:drop-shadow(0 0 12px rgba(255,215,0,0.7))}
+  }
+  @keyframes fadeInUp {
+    from{opacity:0;transform:translateY(20px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+  .activity.active { animation: fadeInUp 0.5s ease-out; }
+
+  /* ===== MASCOT ===== */
+  .mascot-wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .mascot-bubble {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,215,0,0.3);
+    border-radius: 14px;
+    padding: 6px 10px;
+    font-size: 11px; color: var(--cream);
+    text-align: center; line-height: 1.4;
+    max-width: 130px;
+    position: relative;
+  }
+  .mascot-bubble::after {
+    content: ''; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(255,215,0,0.3);
+  }
+
+  /* Responsive tweaks */
+  @media (max-height: 600px) {
+    .panel { padding: 8px 10px; }
+    .act-title { font-size: 16px; margin-bottom: 4px; }
+    .target-display .time { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<div id="app">
+  <header>
+    <div class="title-badge">
+      <h1>CLOCK CHALLENGE: TIME RACES</h1>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="step-dot active" id="dot1"></div>
+      <div class="step-dot" id="dot2"></div>
+      <div class="step-dot" id="dot3"></div>
+    </div>
+  </header>
+
+  <div id="activity-area">
+
+    <!-- ===== ACTIVITY 1: Drag the Hands ===== -->
+    <div class="activity active" id="act1">
+      <div class="panel" style="max-width:200px;min-width:160px;">
+        <div class="mascot-wrap">
+          <svg width="80" height="90" viewBox="0 0 80 90">
+            <!-- Chotu character -->
+            <circle cx="40" cy="28" r="22" fill="#FFD54F" stroke="#E65100" stroke-width="2"/>
+            <circle cx="32" cy="24" r="3" fill="#1A0A00"/>
+            <circle cx="33" cy="23" r="1" fill="white"/>
+            <circle cx="48" cy="24" r="3" fill="#1A0A00"/>
+            <circle cx="49" cy="23" r="1" fill="white"/>
+            <path d="M33 34 Q40 40 47 34" stroke="#E65100" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <rect x="25" y="49" width="30" height="28" rx="8" fill="#FF6B00"/>
+            <!-- short hand icon on shirt -->
+            <line x1="40" y1="55" x2="40" y2="65" stroke="#FFD700" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="40" cy="55" r="3" fill="#FFD700"/>
+            <text x="40" y="85" text-anchor="middle" font-size="9" fill="#FFD54F" font-family="Fredoka One">Chotu</text>
+          </svg>
+          <div class="mascot-bubble">🕐 I'm Chotu!<br>Short hand = Hour!</div>
+        </div>
+        <div style="height:12px"></div>
+        <svg width="80" height="90" viewBox="0 0 80 90">
+          <!-- Lambu character -->
+          <ellipse cx="40" cy="26" rx="18" ry="20" fill="#4FC3F7" stroke="#01579B" stroke-width="2"/>
+          <circle cx="34" cy="22" r="3" fill="#1A0A00"/>
+          <circle cx="35" cy="21" r="1" fill="white"/>
+          <circle cx="46" cy="22" r="3" fill="#1A0A00"/>
+          <circle cx="47" cy="21" r="1" fill="white"/>
+          <path d="M34 32 Q40 37 46 32" stroke="#01579B" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <rect x="28" y="45" width="24" height="34" rx="6" fill="#0288D1"/>
+          <line x1="40" y1="49" x2="40" y2="70" stroke="#FFD700" stroke-width="2" stroke-linecap="round"/>
+          <text x="40" y="87" text-anchor="middle" font-size="9" fill="#4FC3F7" font-family="Fredoka One">Lambu</text>
+        </svg>
+        <div class="mascot-bubble" style="margin-top:4px">📏 I'm Lambu!<br>Long hand = Minutes!</div>
+        <div class="hand-info" style="margin-top:10px">
+          <div class="hand-badge"><div class="dot hour-dot"></div>Hour</div>
+          <div class="hand-badge"><div class="dot min-dot"></div>Minute</div>
+        </div>
+      </div>
+
+      <div class="panel" style="flex:1;max-width:340px;align-items:center;">
+        <div class="act-label">⚡ ACTIVITY 1 OF 3 ⚡</div>
+        <div class="act-title">Build the Clock!</div>
+        <div class="act-sub">Drag the hands to show the time below 👇</div>
+        <div class="target-display" id="a1-target">
+          <div class="label">Show this time</div>
+          <div class="time" id="a1-time-text">3:00</div>
+          <div class="sub" id="a1-time-sub">3 o'clock</div>
+        </div>
+        <div class="clock-wrap" style="width:190px;height:190px;">
+          <svg id="a1-clock" width="190" height="190" viewBox="0 0 190 190" style="cursor:default">
+            <!-- Clock face -->
+            <defs>
+              <radialGradient id="clockBg1" cx="50%" cy="40%" r="60%">
+                <stop offset="0%" stop-color="#FFF8E7"/>
+                <stop offset="100%" stop-color="#FFE082"/>
+              </radialGradient>
+              <filter id="shadow1">
+                <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="rgba(0,0,0,0.3)"/>
+              </filter>
+            </defs>
+            <!-- Outer ring - Indian mandala style -->
+            <circle cx="95" cy="95" r="92" fill="#8B4513" filter="url(#shadow1)"/>
+            <circle cx="95" cy="95" r="88" fill="#C8860A"/>
+            <circle cx="95" cy="95" r="84" fill="#E6A800"/>
+            <!-- Decorative petals -->
+            <g opacity="0.4">
+              <ellipse cx="95" cy="15" rx="6" ry="10" fill="#FF6B00" transform="rotate(0 95 95)"/>
+              <ellipse cx="95" cy="15" rx="6" ry="10" fill="#FF6B00" transform="rotate(30 95 95)"/>
+              <ellipse cx="95" cy="15" rx="6" ry="10" fill="#FF6B00" transform="rotate(60 95 95)"/>
+              <ellipse cx="95" cy="15" rx="6" ry="10" fill="#FF6B00" transform="rotate(90 95 95)"/>
+              <ellipse cx="95" cy="15" rx="6" ry="10" fill="#FF6B00" transform="rotate(120 95 95)"/>
+              <ellipse cx="95" cy="15" rx="6" ry="10" fill="#FF6B00" transform="rotate(150 95 95)"/>
+              <ellipse cx="95" cy="15" rx="6" ry="10" fill="#FF6B00" transform="rotate(180 95 95)"/>
+              <ellipse cx="95" cy="15" rx="6" ry="10" fill="#FF6B00" transform="rotate(210 95 95)"/>
+              <ellipse cx="95" cy="15" rx="6" ry="10" fill="#FF6B00" transform="rotate(240 95 95)"/>
+              <ellipse cx="95" cy="15" rx="6" ry="10" fill="#FF6B00" transform="rotate(270 95 95)"/>
+              <ellipse cx="95" cy="15" rx="6" ry="10" fill="#FF6B00" transform="rotate(300 95 95)"/>
+              <ellipse cx="95" cy="15" rx="6" ry="10" fill="#FF6B00" transform="rotate(330 95 95)"/>
+            </g>
+            <circle cx="95" cy="95" r="78" fill="url(#clockBg1)"/>
+            <!-- Tick marks -->
+            <g id="ticks1"></g>
+            <!-- Numbers -->
+            <g id="nums1" font-family="Fredoka One, cursive" font-size="14" fill="#3E2000" text-anchor="middle" dominant-baseline="central"></g>
+            <!-- Hour hand -->
+            <g id="a1-hour-group" style="cursor:grab">
+              <line id="a1-hour" x1="95" y1="95" x2="95" y2="48" stroke="#FF6B35" stroke-width="8" stroke-linecap="round" transform="rotate(90 95 95)"/>
+              <circle id="a1-hour-handle" cx="95" cy="48" r="9" fill="#FF6B35" stroke="#FFF" stroke-width="2" transform="rotate(90 95 95)" opacity="0.9"/>
+            </g>
+            <!-- Minute hand -->
+            <g id="a1-min-group" style="cursor:grab">
+              <line id="a1-min" x1="95" y1="95" x2="95" y2="24" stroke="#4FC3F7" stroke-width="5" stroke-linecap="round" transform="rotate(0 95 95)"/>
+              <circle id="a1-min-handle" cx="95" cy="24" r="7" fill="#4FC3F7" stroke="#FFF" stroke-width="2" transform="rotate(0 95 95)" opacity="0.9"/>
+            </g>
+            <!-- Center -->
+            <circle cx="95" cy="95" r="7" fill="#E65100"/>
+            <circle cx="95" cy="95" r="3" fill="#FFD700"/>
+          </svg>
+        </div>
+        <div id="a1-feedback" class="feedback-msg"></div>
+        <button class="check-btn" id="a1-check">✓ Check My Clock!</button>
+      </div>
+    </div>
+
+    <!-- ===== ACTIVITY 2: Time Race ===== -->
+    <div class="activity" id="act2">
+      <div class="panel" style="max-width:260px;min-width:200px;gap:6px;">
+        <div class="act-label">🏁 ACTIVITY 2 OF 3 🏁</div>
+        <div class="act-title" style="font-size:clamp(14px,2vw,22px)">Time Race!</div>
+        <div class="act-sub" style="margin-bottom:4px">Set the clock fast!<br>Beat the timer! ⏱</div>
+        <div class="timer-wrap">
+          <div class="timer-bar" id="timer-bar" style="width:100%"></div>
+        </div>
+        <div class="timer-text" id="timer-text">15</div>
+        <div class="target-display" id="a2-target" style="margin-bottom:6px;padding:8px 16px;">
+          <div class="label">Race to show</div>
+          <div class="time" id="a2-time-text">7:00</div>
+          <div class="sub" id="a2-time-sub">7 o'clock</div>
+        </div>
+        <div id="a2-score-wrap" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+          <div style="text-align:center;background:rgba(255,255,255,0.06);border-radius:10px;padding:4px 10px;border:1px solid rgba(255,215,0,0.2)">
+            <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase">Score</div>
+            <div id="a2-score" style="font-family:'Fredoka One',cursive;font-size:24px;color:var(--gold)">0</div>
+          </div>
+          <div style="text-align:center;background:rgba(255,255,255,0.06);border-radius:10px;padding:4px 10px;border:1px solid rgba(255,255,255,0.1)">
+            <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase">Round</div>
+            <div id="a2-round" style="font-family:'Fredoka One',cursive;font-size:24px;color:var(--teal-light)">1/3</div>
+          </div>
+        </div>
+        <div id="a2-feedback" class="feedback-msg" style="margin-top:4px"></div>
+        <button class="check-btn" id="a2-check" style="margin-top:6px">⚡ Lock Time!</button>
+      </div>
+
+      <div class="panel" style="min-width:200px;align-items:center;justify-content:center;">
+        <div class="clock-wrap" style="width:210px;height:210px;">
+          <svg id="a2-clock" width="210" height="210" viewBox="0 0 210 210">
+            <defs>
+              <radialGradient id="clockBg2" cx="50%" cy="40%" r="60%">
+                <stop offset="0%" stop-color="#E3F2FD"/>
+                <stop offset="100%" stop-color="#B3E5FC"/>
+              </radialGradient>
+            </defs>
+            <circle cx="105" cy="105" r="102" fill="#01579B"/>
+            <circle cx="105" cy="105" r="97" fill="#0288D1"/>
+            <circle cx="105" cy="105" r="92" fill="#29B6F6" opacity="0.4"/>
+            <circle cx="105" cy="105" r="88" fill="url(#clockBg2)"/>
+            <g id="ticks2"></g>
+            <g id="nums2" font-family="Fredoka One, cursive" font-size="16" fill="#01579B" text-anchor="middle" dominant-baseline="central"></g>
+            <g id="a2-hour-group" style="cursor:grab">
+              <line id="a2-hour" x1="105" y1="105" x2="105" y2="52" stroke="#E65100" stroke-width="9" stroke-linecap="round" transform="rotate(210 105 105)"/>
+              <circle id="a2-hour-handle" cx="105" cy="52" r="10" fill="#E65100" stroke="#FFF" stroke-width="2" transform="rotate(210 105 105)"/>
+            </g>
+            <g id="a2-min-group" style="cursor:grab">
+              <line id="a2-min" x1="105" y1="105" x2="105" y2="24" stroke="#00BCD4" stroke-width="6" stroke-linecap="round" transform="rotate(0 105 105)"/>
+              <circle id="a2-min-handle" cx="105" cy="24" r="8" fill="#00BCD4" stroke="#FFF" stroke-width="2" transform="rotate(0 105 105)"/>
+            </g>
+            <circle cx="105" cy="105" r="8" fill="#E65100"/>
+            <circle cx="105" cy="105" r="4" fill="#FFD700"/>
+          </svg>
+        </div>
+        <div class="hand-info" style="margin-top:8px">
+          <div class="hand-badge"><div class="dot" style="background:#E65100;"></div>Hour</div>
+          <div class="hand-badge"><div class="dot" style="background:#00BCD4;"></div>Minute</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ACTIVITY 3: Add 30 Minutes ===== -->
+    <div class="activity" id="act3">
+      <div class="panel" style="max-width:220px;min-width:180px;gap:8px;">
+        <div class="act-label">🌟 ACTIVITY 3 OF 3 🌟</div>
+        <div class="act-title" style="font-size:clamp(14px,2vw,20px)">Add 30 Minutes!</div>
+        <div class="act-sub" style="margin-bottom:4px">Move the minute hand<br>forward 30 minutes!</div>
+        <div class="add-info">
+          <div class="time-row">
+            <div>
+              <div class="rlabel">Start Time</div>
+              <div class="rval start" id="a3-start-text">2:00</div>
+            </div>
+            <svg width="30" height="30" viewBox="0 0 30 30">
+              <circle cx="15" cy="15" r="13" fill="rgba(255,165,0,0.15)" stroke="rgba(255,165,0,0.4)" stroke-width="1.5"/>
+              <text x="15" y="20" text-anchor="middle" font-size="16" fill="#FF9933">+</text>
+            </svg>
+          </div>
+          <div class="plus-badge">30 min</div>
+          <div class="time-row">
+            <div>
+              <div class="rlabel">Target Time</div>
+              <div class="rval target3" id="a3-target-text">2:30</div>
+            </div>
+            <svg width="30" height="30" viewBox="0 0 30 30">
+              <circle cx="15" cy="15" r="13" fill="rgba(255,215,0,0.15)" stroke="rgba(255,215,0,0.4)" stroke-width="1.5"/>
+              <text x="15" y="20" text-anchor="middle" font-size="16" fill="#FFD700">?</text>
+            </svg>
+          </div>
+        </div>
+        <div style="margin-top:8px;background:rgba(255,255,255,0.05);border-radius:10px;padding:8px;border:1px solid rgba(255,255,255,0.08)">
+          <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;margin-bottom:4px;text-align:center">💡 Hint</div>
+          <div style="font-size:11px;color:var(--cream);text-align:center;line-height:1.5">When the minute hand moves from 12 to 6, that's 30 minutes!</div>
+        </div>
+        <div id="a3-feedback" class="feedback-msg" style="margin-top:4px"></div>
+        <button class="check-btn" id="a3-check">✓ Check Answer!</button>
+      </div>
+
+      <div class="panel" style="min-width:220px;align-items:center;justify-content:center;">
+        <div style="font-size:11px;color:var(--teal-light);text-align:center;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">🟠 Move only the Minute Hand</div>
+        <div class="clock-wrap" style="width:210px;height:210px;">
+          <svg id="a3-clock" width="210" height="210" viewBox="0 0 210 210">
+            <defs>
+              <radialGradient id="clockBg3" cx="50%" cy="40%" r="60%">
+                <stop offset="0%" stop-color="#F3E5F5"/>
+                <stop offset="100%" stop-color="#E1BEE7"/>
+              </radialGradient>
+            </defs>
+            <circle cx="105" cy="105" r="102" fill="#4A148C"/>
+            <circle cx="105" cy="105" r="97" fill="#7B1FA2"/>
+            <circle cx="105" cy="105" r="88" fill="url(#clockBg3)"/>
+            <!-- Arc showing 30 min zone -->
+            <path id="a3-arc" d="M105 17 A88 88 0 0 1 193 105" stroke="rgba(255,165,0,0.3)" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="4 4"/>
+            <g id="ticks3"></g>
+            <g id="nums3" font-family="Fredoka One, cursive" font-size="16" fill="#4A148C" text-anchor="middle" dominant-baseline="central"></g>
+            <!-- Fixed hour hand -->
+            <g id="a3-hour-group">
+              <line id="a3-hour" x1="105" y1="105" x2="105" y2="60" stroke="#9C27B0" stroke-width="9" stroke-linecap="round" transform="rotate(60 105 105)"/>
+              <circle cx="105" cy="60" r="8" fill="#9C27B0" stroke="#FFF" stroke-width="2" transform="rotate(60 105 105)"/>
+            </g>
+            <!-- Draggable minute hand -->
+            <g id="a3-min-group" style="cursor:grab">
+              <line id="a3-min" x1="105" y1="105" x2="105" y2="24" stroke="#FF9800" stroke-width="6" stroke-linecap="round" transform="rotate(0 105 105)"/>
+              <circle id="a3-min-handle" cx="105" cy="24" r="9" fill="#FF9800" stroke="#FFF" stroke-width="2" transform="rotate(0 105 105)"/>
+            </g>
+            <circle cx="105" cy="105" r="8" fill="#6A1B9A"/>
+            <circle cx="105" cy="105" r="4" fill="#FFD700"/>
+          </svg>
+        </div>
+        <div class="hand-info" style="margin-top:8px">
+          <div class="hand-badge"><div class="dot" style="background:#9C27B0;"></div>Hour (fixed)</div>
+          <div class="hand-badge"><div class="dot" style="background:#FF9800;"></div>Minute (drag me!)</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /activity-area -->
+</div><!-- /app -->
+
+<!-- POPUP -->
+<div id="popup-overlay">
+  <div class="popup-box">
+    <div class="popup-emoji" id="popup-emoji">🎉</div>
+    <div class="popup-title" id="popup-title">Well Done!</div>
+    <div class="popup-stars" id="popup-stars">⭐⭐⭐</div>
+    <div class="popup-msg" id="popup-msg">You did it!</div>
+    <button class="popup-btn" id="popup-btn">Next Activity →</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// BACKGROUND CANVAS — animated gears, clocks, energy lines
+// ============================================================
+(function() {
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H;
+
+  function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Gears
+  const gears = [];
+  for (let i = 0; i < 8; i++) {
+    gears.push({
+      x: Math.random() * W, y: Math.random() * H,
+      r: 25 + Math.random() * 55,
+      teeth: Math.floor(6 + Math.random() * 8),
+      angle: Math.random() * Math.PI * 2,
+      speed: (Math.random() - 0.5) * 0.008,
+      alpha: 0.04 + Math.random() * 0.07,
+      color: ['#FFD700','#FF6B00','#4FC3F7','#FF9933'][Math.floor(Math.random()*4)]
+    });
+  }
+
+  // Mini clocks
+  const miniClocks = [];
+  for (let i = 0; i < 5; i++) {
+    miniClocks.push({
+      x: Math.random() * W, y: Math.random() * H,
+      r: 20 + Math.random() * 30,
+      hourAngle: Math.random() * Math.PI * 2,
+      minAngle: Math.random() * Math.PI * 2,
+      speed: 0.003 + Math.random() * 0.002,
+      alpha: 0.05 + Math.random() * 0.06
+    });
+  }
+
+  // Energy lines
+  const lines = [];
+  for (let i = 0; i < 12; i++) {
+    lines.push({
+      x1: Math.random() * W, y1: Math.random() * H,
+      x2: Math.random() * W, y2: Math.random() * H,
+      t: Math.random(),
+      speed: 0.002 + Math.random() * 0.003,
+      alpha: 0.03 + Math.random() * 0.04,
+      color: ['#FFD700','#FF6B00','#4FC3F7'][Math.floor(Math.random()*3)]
+    });
+  }
+
+  // Indian silhouettes (simplified)
+  const silhouettes = [
+    { type: 'temple', x: W * 0.05, y: H * 0.75, scale: 0.8 },
+    { type: 'peacock', x: W * 0.92, y: H * 0.7, scale: 0.7 },
+    { type: 'lotus', x: W * 0.5, y: H * 0.92, scale: 0.6 }
+  ];
+
+  function drawGear(g) {
+    ctx.save();
+    ctx.translate(g.x, g.y);
+    ctx.rotate(g.angle);
+    ctx.globalAlpha = g.alpha;
+    ctx.strokeStyle = g.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    const tr = g.r * 1.15, ir = g.r * 0.6;
+    for (let i = 0; i < g.teeth * 2; i++) {
+      const a = (i / (g.teeth * 2)) * Math.PI * 2;
+      const r = i % 2 === 0 ? tr : g.r;
+      if (i === 0) ctx.moveTo(Math.cos(a)*r, Math.sin(a)*r);
+      else ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+    }
+    ctx.closePath();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, ir, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, 4, 0, Math.PI * 2);
+    ctx.fillStyle = g.color;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawMiniClock(c) {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.globalAlpha = c.alpha;
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(0, 0, c.r, 0, Math.PI * 2);
+    ctx.stroke();
+    // hour hand
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.sin(c.hourAngle)*c.r*0.55, -Math.cos(c.hourAngle)*c.r*0.55);
+    ctx.strokeStyle = '#FF6B00';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // minute hand
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.sin(c.minAngle)*c.r*0.8, -Math.cos(c.minAngle)*c.r*0.8);
+    ctx.strokeStyle = '#4FC3F7';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawLine(l) {
+    ctx.save();
+    ctx.globalAlpha = l.alpha * (0.5 + 0.5 * Math.sin(l.t * Math.PI * 4));
+    ctx.strokeStyle = l.color;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.moveTo(l.x1, l.y1);
+    ctx.lineTo(l.x2, l.y2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // spark
+    const sx = l.x1 + (l.x2 - l.x1) * l.t;
+    const sy = l.y1 + (l.y2 - l.y1) * l.t;
+    ctx.globalAlpha = l.alpha * 3;
+    ctx.fillStyle = l.color;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawTemple(x, y, s, alpha) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(s, s);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#FF9933';
+    // base
+    ctx.fillRect(-40, -10, 80, 10);
+    // main tower
+    ctx.fillRect(-15, -80, 30, 70);
+    // spire layers
+    for (let i = 0; i < 5; i++) {
+      const w = 26 - i * 4, h = 10;
+      ctx.fillRect(-w/2, -90 - i*h, w, h);
+    }
+    ctx.beginPath();
+    ctx.arc(0, -140, 5, 0, Math.PI * 2);
+    ctx.fill();
+    // side towers
+    ctx.fillRect(-38, -50, 18, 40);
+    ctx.fillRect(20, -50, 18, 40);
+    ctx.restore();
+  }
+
+  function drawPeacock(x, y, s, alpha) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(s, s);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#00897B';
+    // body
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 20, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // head
+    ctx.fillStyle = '#26A69A';
+    ctx.beginPath();
+    ctx.arc(-18, -8, 8, 0, Math.PI * 2);
+    ctx.fill();
+    // tail feathers
+    ctx.strokeStyle = '#00BCD4';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 7; i++) {
+      const a = -0.5 + i * 0.16;
+      ctx.beginPath();
+      ctx.moveTo(15, 0);
+      ctx.quadraticCurveTo(30 + Math.cos(a)*20, -30 + Math.sin(a)*20, 30 + Math.cos(a)*40, -50 + Math.sin(a)*40);
+      ctx.stroke();
+      ctx.fillStyle = '#FFD700';
+      ctx.beginPath();
+      ctx.arc(30 + Math.cos(a)*40, -50 + Math.sin(a)*40, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawLotus(x, y, s, alpha) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(s, s);
+    ctx.globalAlpha = alpha;
+    for (let i = 0; i < 8; i++) {
+      ctx.save();
+      ctx.rotate(i * Math.PI / 4);
+      ctx.fillStyle = i % 2 === 0 ? '#E91E63' : '#FF8A80';
+      ctx.beginPath();
+      ctx.ellipse(0, -20, 8, 22, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath();
+    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Background gradient
+    const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H)*0.8);
+    grad.addColorStop(0, 'rgba(20,40,60,1)');
+    grad.addColorStop(1, 'rgba(5,10,20,1)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Silhouettes
+    drawTemple(W * 0.05, H * 0.82, 0.7, 0.07);
+    drawPeacock(W * 0.9, H * 0.78, 0.8, 0.07);
+    drawLotus(W * 0.5, H * 0.9, 0.9, 0.06);
+
+    // Energy lines
+    lines.forEach(l => {
+      l.t += l.speed;
+      if (l.t > 1) { l.t = 0; l.x1 = Math.random()*W; l.y1 = Math.random()*H; l.x2 = Math.random()*W; l.y2 = Math.random()*H; }
+      drawLine(l);
+    });
+
+    // Mini clocks
+    miniClocks.forEach(c => {
+      c.minAngle += c.speed;
+      c.hourAngle += c.speed / 12;
+      drawMiniClock(c);
+    });
+
+    // Gears
+    gears.forEach(g => {
+      g.angle += g.speed;
+      drawGear(g);
+    });
+
+    requestAnimationFrame(animate);
+  }
+  animate();
+})();
+
+
+// ============================================================
+// CLOCK UTILITIES
+// ============================================================
+const CX1 = 95,  CY1 = 95;
+const CX2 = 105, CY2 = 105;
+const CX3 = 105, CY3 = 105;
+
+function buildClockFace(ticksId, numsId, cx, cy, r, numSize) {
+  const tg = document.getElementById(ticksId);
+  const ng = document.getElementById(numsId);
+  tg.innerHTML = '';
+  ng.innerHTML = '';
+  for (let i = 0; i < 60; i++) {
+    const a = (i / 60) * Math.PI * 2 - Math.PI / 2;
+    const isHour = i % 5 === 0;
+    const len = isHour ? r * 0.12 : r * 0.06;
+    const r1 = r - 2, r2 = r1 - len;
+    const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1', cx + Math.cos(a)*r1); l.setAttribute('y1', cy + Math.sin(a)*r1);
+    l.setAttribute('x2', cx + Math.cos(a)*r2); l.setAttribute('y2', cy + Math.sin(a)*r2);
+    l.setAttribute('stroke', isHour ? '#8B4513' : 'rgba(139,69,19,0.3)');
+    l.setAttribute('stroke-width', isHour ? 2 : 1);
+    tg.appendChild(l);
+  }
+  for (let h = 1; h <= 12; h++) {
+    const a = (h / 12) * Math.PI * 2 - Math.PI / 2;
+    const nr = r * 0.72;
+    const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x', cx + Math.cos(a)*nr);
+    t.setAttribute('y', cy + Math.sin(a)*nr);
+    t.setAttribute('font-size', numSize || 14);
+    t.textContent = h;
+    ng.appendChild(t);
+  }
+}
+
+buildClockFace('ticks1','nums1', 95, 95, 78, 14);
+buildClockFace('ticks2','nums2', 105, 105, 88, 16);
+buildClockFace('ticks3','nums3', 105, 105, 88, 16);
+
+// ============================================================
+// ANGLE / TIME HELPERS
+// ============================================================
+function hourToAngle(h)   { return ((h % 12) / 12) * 360; }
+function minuteToAngle(m) { return (m / 60) * 360; }
+function norm(a)          { return ((a % 360) + 360) % 360; }
+function angDiff(a, b)    { const d = Math.abs(norm(a) - norm(b)); return d > 180 ? 360 - d : d; }
+function isClose(a, b, tol) { return angDiff(a, b) <= tol; }
+
+// ============================================================
+// STATE: track hand angles in JS (not read from SVG attributes)
+// ============================================================
+const handAngles = {
+  a1: { h: 90,  m: 0 },
+  a2: { h: 210, m: 0 },
+  a3: { h: 60,  m: 0 }
+};
+
+function applyAngle(prefix, hand, angle) {
+  // prefix = 'a1','a2','a3'  hand = 'h' or 'm'
+  handAngles[prefix][hand] = angle;
+  const cx = prefix === 'a1' ? CX1 : CX2;
+  const cy = prefix === 'a1' ? CY1 : CY2;
+  const elName = hand === 'h' ? 'hour' : 'min';
+  const line   = document.getElementById(`${prefix}-${elName}`);
+  const handle = document.getElementById(`${prefix}-${elName}-handle`);
+  const rot    = `rotate(${angle} ${cx} ${cy})`;
+  if (line)   line.setAttribute('transform', rot);
+  if (handle) handle.setAttribute('transform', rot);
+}
+
+// ============================================================
+// DRAG SYSTEM — hit-test in SVG space, no getBoundingClientRect on handles
+// ============================================================
+function makeDraggable(svgId, prefix, cx, cy, hourLen, minLen, onlyMin) {
+  const svgEl = document.getElementById(svgId);
+  let dragging = null; // 'h' or 'm'
+
+  function toSVG(e) {
+    const rect  = svgEl.getBoundingClientRect();
+    const scaleX = svgEl.viewBox.baseVal.width  / rect.width;
+    const scaleY = svgEl.viewBox.baseVal.height / rect.height;
+    const cx2 = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy2 = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (cx2 - rect.left) * scaleX, y: (cy2 - rect.top) * scaleY };
+  }
+
+  function getAngleFromSVG(e) {
+    const { x, y } = toSVG(e);
+    return Math.atan2(y - cy, x - cx) * (180 / Math.PI) + 90;
+  }
+
+  function tipOf(hand) {
+    const len = hand === 'h' ? hourLen : minLen;
+    const a   = (handAngles[prefix][hand] - 90) * Math.PI / 180;
+    return { x: cx + Math.cos(a) * len, y: cy + Math.sin(a) * len };
+  }
+
+  svgEl.addEventListener('mousedown',  onStart);
+  svgEl.addEventListener('touchstart', onStart, { passive: false });
+  window.addEventListener('mousemove',  onMove);
+  window.addEventListener('touchmove',  onMove, { passive: false });
+  window.addEventListener('mouseup',   onEnd);
+  window.addEventListener('touchend',  onEnd);
+
+  function onStart(e) {
+    const { x, y } = toSVG(e);
+    if (Math.hypot(x - cx, y - cy) < 10) return; // centre dead zone
+
+    if (onlyMin) {
+      dragging = 'm';
+    } else {
+      const th = tipOf('h'), tm = tipOf('m');
+      const dh = Math.hypot(x - th.x, y - th.y);
+      const dm = Math.hypot(x - tm.x, y - tm.y);
+      // Also check closeness to the line bodies (not just tips)
+      // Pick whichever tip is closer AND within 30px; else pick nearer half-plane
+      if (dh < 30 || dm < 30) {
+        dragging = dh < dm ? 'h' : 'm';
+      } else {
+        // Fall back: which hand does the angular sector belong to?
+        const clickAngle = norm(Math.atan2(y - cy, x - cx) * 180 / Math.PI + 90);
+        const hA = norm(handAngles[prefix].h);
+        const mA = norm(handAngles[prefix].m);
+        dragging = angDiff(clickAngle, hA) < angDiff(clickAngle, mA) ? 'h' : 'm';
+      }
+    }
+    e.preventDefault();
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    applyAngle(prefix, dragging, getAngleFromSVG(e));
+  }
+
+  function onEnd() { dragging = null; }
+}
+
+makeDraggable('a1-clock', 'a1', CX1, CY1, 47, 71, false);
+makeDraggable('a2-clock', 'a2', CX2, CY2, 53, 81, false);
+makeDraggable('a3-clock', 'a3', CX3, CY3, 45, 81, true);
+
+// Lock A3 hour hand
+document.getElementById('a3-hour-group').style.pointerEvents = 'none';
+document.getElementById('a3-hour-group').style.cursor = 'default';
+
+// ============================================================
+// ACTIVITY 1 — Build the Clock
+// ============================================================
+const A1_TIMES = [
+  { h: 3, m: 0, label: '3:00', sub: '3 o\'clock — School lunch time! 🍱' },
+  { h: 7, m: 0, label: '7:00', sub: '7 o\'clock — School bus arrives! 🚌' },
+  { h: 6, m: 0, label: '6:00', sub: '6 o\'clock — Wake up time! ☀️' },
+];
+let a1Index = 0;
+
+function setA1Target() {
+  const t = A1_TIMES[a1Index];
+  document.getElementById('a1-time-text').textContent = t.label;
+  document.getElementById('a1-time-sub').textContent  = t.sub;
+  // Start hands at wrong positions so child must move them
+  const wrongH = norm(hourToAngle(t.h) + 90 + (Math.floor(Math.random() * 3) + 1) * 30);
+  applyAngle('a1', 'h', wrongH);
+  applyAngle('a1', 'm', 60 + Math.random() * 240);
+  document.getElementById('a1-feedback').className   = 'feedback-msg';
+  document.getElementById('a1-feedback').textContent = '';
+}
+setA1Target();
+
+document.getElementById('a1-check').addEventListener('click', () => {
+  const t      = A1_TIMES[a1Index];
+  const hourOk = isClose(handAngles.a1.h, hourToAngle(t.h),   35);
+  const minOk  = isClose(handAngles.a1.m, minuteToAngle(t.m), 25);
+  const fb     = document.getElementById('a1-feedback');
+
+  if (hourOk && minOk) {
+    fb.className   = 'feedback-msg correct';
+    fb.textContent = '🎉 Fantastic! That\'s correct!';
+    a1Index++;
+    if (a1Index >= A1_TIMES.length) {
+      setTimeout(() => showPopup(1), 800);
+    } else {
+      setTimeout(setA1Target, 1000);
+    }
+  } else if (!hourOk && minOk) {
+    fb.className   = 'feedback-msg hint';
+    fb.textContent = '💡 Almost! Move Chotu (short hand) to the right number!';
+  } else if (hourOk && !minOk) {
+    fb.className   = 'feedback-msg hint';
+    fb.textContent = '💡 Almost! Point Lambu (long hand) up to the 12!';
+  } else {
+    fb.className   = 'feedback-msg wrong';
+    fb.textContent = '🤔 Try again — short hand to the hour, long hand to 12!';
+  }
+});
+
+// ============================================================
+// ACTIVITY 2 — Time Race
+// ============================================================
+const A2_TIMES = [
+  { h: 7, m: 0, label: '7:00', sub: '7 o\'clock — School bus! 🚌' },
+  { h: 1, m: 0, label: '1:00', sub: '1 o\'clock — Lunch break! 🍛' },
+  { h: 4, m: 0, label: '4:00', sub: '4 o\'clock — Snack time! 🥭' },
+];
+let a2Round = 0, a2Score = 0;
+let a2Timer = null, a2TimeLeft = 15;
+const A2_DURATION = 15;
+
+function setA2Round() {
+  if (a2Round >= A2_TIMES.length) { showPopup(2); return; }
+  const t = A2_TIMES[a2Round];
+  document.getElementById('a2-time-text').textContent = t.label;
+  document.getElementById('a2-time-sub').textContent  = t.sub;
+  document.getElementById('a2-round').textContent     = `${a2Round + 1}/3`;
+  document.getElementById('a2-feedback').className    = 'feedback-msg';
+  document.getElementById('a2-feedback').textContent  = '';
+  const wrongH = norm(hourToAngle(t.h) + 90 + (Math.floor(Math.random() * 3) + 1) * 30);
+  applyAngle('a2', 'h', wrongH);
+  applyAngle('a2', 'm', 60 + Math.random() * 240);
+  startTimer();
+}
+
+function startTimer() {
+  clearInterval(a2Timer);
+  a2TimeLeft = A2_DURATION;
+  updateTimerUI();
+  a2Timer = setInterval(() => {
+    a2TimeLeft--;
+    updateTimerUI();
+    if (a2TimeLeft <= 0) {
+      clearInterval(a2Timer);
+      document.getElementById('a2-feedback').className   = 'feedback-msg wrong';
+      document.getElementById('a2-feedback').textContent = '⏰ Time\'s up! Moving to next one!';
+      a2Round++;
+      if (a2Round >= A2_TIMES.length) {
+        setTimeout(() => showPopup(2), 900);
+      } else {
+        setTimeout(setA2Round, 1400);
+      }
+    }
+  }, 1000);
+}
+
+function updateTimerUI() {
+  const pct = (a2TimeLeft / A2_DURATION) * 100;
+  document.getElementById('timer-bar').style.width    = pct + '%';
+  document.getElementById('timer-text').textContent   = a2TimeLeft;
+  document.getElementById('timer-text').style.color   = `hsl(${(pct/100)*120}, 100%, 60%)`;
+}
+
+document.getElementById('a2-check').addEventListener('click', () => {
+  if (a2Round >= A2_TIMES.length) return;
+  const t      = A2_TIMES[a2Round];
+  const hourOk = isClose(handAngles.a2.h, hourToAngle(t.h),   35);
+  const minOk  = isClose(handAngles.a2.m, minuteToAngle(t.m), 25);
+  const fb     = document.getElementById('a2-feedback');
+
+  if (hourOk && minOk) {
+    clearInterval(a2Timer);
+    const bonus = a2TimeLeft >= 10 ? 3 : a2TimeLeft >= 5 ? 2 : 1;
+    a2Score += bonus;
+    document.getElementById('a2-score').textContent = a2Score;
+    fb.className   = 'feedback-msg correct';
+    fb.textContent = `⚡ Speed star! +${bonus} point${bonus > 1 ? 's' : ''}!`;
+    a2Round++;
+    if (a2Round >= A2_TIMES.length) {
+      setTimeout(() => showPopup(2), 900);
+    } else {
+      setTimeout(setA2Round, 1000);
+    }
+  } else if (!hourOk && minOk) {
+    fb.className   = 'feedback-msg hint';
+    fb.textContent = '💡 Minute hand is right! Fix the short hour hand!';
+  } else if (hourOk && !minOk) {
+    fb.className   = 'feedback-msg hint';
+    fb.textContent = '💡 Hour is right! Point the long hand up to 12!';
+  } else {
+    fb.className   = 'feedback-msg wrong';
+    fb.textContent = '🤔 Short hand → number, long hand → 12. You got this!';
+  }
+});
+
+// ============================================================
+// ACTIVITY 3 — Add 30 Minutes
+// ============================================================
+const A3_CONFIGS = [
+  { startH: 2, targetM: 30 },
+  { startH: 9, targetM: 30 },
+];
+let a3Index = 0;
+
+function setA3Config() {
+  const cfg = A3_CONFIGS[a3Index];
+  document.getElementById('a3-start-text').textContent  = `${cfg.startH}:00`;
+  document.getElementById('a3-target-text').textContent = `${cfg.startH}:30`;
+  applyAngle('a3', 'h', hourToAngle(cfg.startH));
+  applyAngle('a3', 'm', 0); // starts at 12
+  document.getElementById('a3-feedback').className   = 'feedback-msg';
+  document.getElementById('a3-feedback').textContent = '';
+}
+setA3Config();
+
+document.getElementById('a3-check').addEventListener('click', () => {
+  const cfg    = A3_CONFIGS[a3Index];
+  const minOk  = isClose(handAngles.a3.m, minuteToAngle(cfg.targetM), 28);
+  const fb     = document.getElementById('a3-feedback');
+
+  if (minOk) {
+    fb.className   = 'feedback-msg correct';
+    fb.textContent = '🌟 Perfect! You added 30 minutes!';
+    a3Index++;
+    if (a3Index >= A3_CONFIGS.length) {
+      setTimeout(() => showPopup(3), 800);
+    } else {
+      setTimeout(setA3Config, 1100);
+    }
+  } else {
+    const m = norm(handAngles.a3.m);
+    fb.className   = 'feedback-msg wrong';
+    fb.textContent = (m > 150 && m < 210)
+      ? '💡 So close! Point the orange hand exactly at the 6!'
+      : '🤔 Drag the orange hand down to point at the 6!';
+  }
+});
+
+// ============================================================
+// POPUP + ACTIVITY SWITCH
+// ============================================================
+let currentActivity = 1;
+
+const popupData = {
+  1: { emoji:'🕐', title:'Clock Builder!',  stars:'⭐⭐⭐',
+       msg:'Amazing! You built the clock perfectly! Chotu and Lambu are so proud of you! 🎊',
+       btn:'Next: Time Race! →' },
+  2: { emoji:'⚡', title:'Speed Star!',    stars:'🌟🌟🌟',
+       msg:'Wow! You are a Time Racer! The train is always on time with you! 🚂',
+       btn:'Next: Add Time! →' },
+  3: { emoji:'🏆', title:'Time Champion!', stars:'🏅🏅🏅',
+       msg:'You finished all 3 challenges! You are a CLOCK CHAMPION! Arjun will never miss the bus again! 🎉',
+       btn:'🎊 Play Again!' }
+};
+
+function showPopup(act) {
+  confetti();
+  const d = popupData[act];
+  document.getElementById('popup-emoji').textContent = d.emoji;
+  document.getElementById('popup-title').textContent = d.title;
+  document.getElementById('popup-stars').textContent = d.stars;
+  document.getElementById('popup-msg').textContent   = d.msg;
+  document.getElementById('popup-btn').textContent   = d.btn;
+  currentActivity = act;
+  document.getElementById('popup-overlay').classList.add('show');
+}
+
+document.getElementById('popup-btn').addEventListener('click', () => {
+  document.getElementById('popup-overlay').classList.remove('show');
+  if (currentActivity === 3) {
+    a1Index = 0; a2Round = 0; a2Score = 0; a3Index = 0;
+    document.getElementById('a2-score').textContent = '0';
+    clearInterval(a2Timer);
+    setA1Target();
+    setA3Config();
+    switchActivity(1);
+    return;
+  }
+  const next = currentActivity + 1;
+  switchActivity(next);
+  if (next === 2) setTimeout(setA2Round, 500);
+});
+
+function switchActivity(next) {
+  document.querySelectorAll('.activity').forEach(a => a.classList.remove('active'));
+  document.getElementById(`act${next}`).classList.add('active');
+  document.querySelectorAll('.step-dot').forEach((d, i) => {
+    d.classList.remove('active','done');
+    if (i + 1 < next)   d.classList.add('done');
+    if (i + 1 === next) d.classList.add('active');
+  });
+}
+
+// ============================================================
+// CONFETTI
+// ============================================================
+function confetti() {
+  const colors = ['#FFD700','#FF6B00','#4FC3F7','#FF9933','#E91E63','#43A047','#7B1FA2'];
+  for (let i = 0; i < 55; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.left = Math.random() * 100 + 'vw';
+    el.style.background = colors[Math.floor(Math.random() * colors.length)];
+    el.style.transform  = `rotate(${Math.random()*360}deg)`;
+    const dur = 1.5 + Math.random() * 1.5;
+    el.style.animation  = `confettiFall ${dur}s linear forwards`;
+    el.style.animationDelay = Math.random() * 0.8 + 's';
+    el.style.width  = (6 + Math.random() * 8)  + 'px';
+    el.style.height = (10 + Math.random() * 10) + 'px';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), (dur + 1) * 1000);
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bridge of Spaghetti</title>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Cinzel:wght@700;900&family=Cutive+Mono&display=swap" rel="stylesheet">
+<style>
+/* ── RESET & BASE ───────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;user-select:none}
+
+/* ── PALETTE ─────────────────────────────────────────────────── */
+:root{
+  --bg:        #0d0a07;
+  --bg2:       #150f08;
+  --copper:    #b87333;
+  --brass:     #c8973a;
+  --gold:      #e8c44a;
+  --amber:     #ff9f1c;
+  --rust:      #8b3a1a;
+  --cream:     #f5e6c8;
+  --cream2:    #d4c4a0;
+  --teal:      #2dd4bf;
+  --lightning: #e0f7ff;
+  --red:       #e74c3c;
+  --green:     #27ae60;
+  --glow-g:    rgba(200,151,58,0.5);
+  --glow-t:    rgba(45,212,191,0.5);
+  --panel:     rgba(20,12,5,0.88);
+}
+
+body{
+  font-family:'Special Elite',cursive;
+  background:var(--bg);
+  color:var(--cream);
+}
+
+/* ── BACKGROUND CANVAS ──────────────────────────────────────── */
+#bg{
+  position:fixed;inset:0;z-index:0;overflow:hidden;
+  background:radial-gradient(ellipse at 30% 40%,#1a0e05 0%,#0d0a07 60%,#050303 100%);
+}
+
+/* Grid texture */
+#bg::before{
+  content:'';position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(200,151,58,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(200,151,58,.06) 1px,transparent 1px);
+  background-size:40px 40px;
+  animation:gridDrift 20s linear infinite;
+}
+@keyframes gridDrift{from{background-position:0 0}to{background-position:40px 40px}}
+
+/* Clock face rings */
+.clock-ring{
+  position:absolute;border-radius:50%;
+  border:2px solid rgba(200,151,58,.15);
+  animation:clockRotate linear infinite;
+}
+@keyframes clockRotate{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* Gear SVGs injected via JS */
+.gear{
+  position:absolute;
+  opacity:.18;
+  animation:gearSpin linear infinite;
+  transform-origin:center;
+  filter:drop-shadow(0 0 6px var(--copper));
+}
+@keyframes gearSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* Lightning bolt */
+.lightning{
+  position:absolute;
+  width:2px;
+  background:linear-gradient(180deg,transparent,var(--lightning),var(--gold),transparent);
+  opacity:0;
+  animation:lightningFlash 4s ease-in-out infinite;
+  border-radius:2px;
+  filter:blur(1px);
+}
+@keyframes lightningFlash{
+  0%,100%{opacity:0;transform:scaleY(0)}
+  48%{opacity:0;transform:scaleY(0)}
+  50%{opacity:.9;transform:scaleY(1)}
+  52%{opacity:.2;transform:scaleY(1)}
+  54%{opacity:.7;transform:scaleY(1)}
+  56%{opacity:0}
+}
+
+/* Silhouette */
+.silhouette{
+  position:absolute;bottom:0;
+  background:rgba(0,0,0,.6);
+  clip-path:var(--shape);
+}
+
+/* Floating particles */
+.spark{
+  position:absolute;
+  border-radius:50%;
+  background:var(--gold);
+  filter:blur(1px);
+  animation:sparkFloat linear infinite;
+  opacity:0;
+}
+@keyframes sparkFloat{
+  0%{opacity:0;transform:translateY(0) scale(1)}
+  20%{opacity:.8}
+  80%{opacity:.4}
+  100%{opacity:0;transform:translateY(-120px) scale(0)}
+}
+
+/* ── APP SHELL ───────────────────────────────────────────────── */
+#app{
+  position:relative;z-index:10;
+  width:100vw;height:100vh;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+
+/* ── HEADER ─────────────────────────────────────────────────── */
+#hdr{
+  flex-shrink:0;
+  padding:8px 18px 6px;
+  background:linear-gradient(180deg,rgba(10,6,2,.97) 0%,transparent 100%);
+  display:flex;align-items:center;gap:14px;
+  border-bottom:1px solid rgba(200,151,58,.2);
+}
+
+h1{
+  font-family:'Cinzel',serif;
+  font-size:clamp(18px,3vw,30px);
+  font-weight:900;
+  letter-spacing:3px;
+  color:var(--gold);
+  text-shadow:0 0 20px rgba(232,196,74,.6),0 2px 0 rgba(0,0,0,.8);
+  line-height:1;
+  white-space:nowrap;
+}
+#hdr-sub{
+  font-family:'Cutive Mono',monospace;
+  font-size:clamp(8px,1.1vw,11px);
+  color:var(--copper);
+  letter-spacing:2px;
+  text-transform:uppercase;
+}
+
+/* Progress indicators */
+#steps{
+  display:flex;align-items:center;gap:6px;
+  margin-left:auto;
+}
+.step-pip{
+  width:24px;height:24px;border-radius:50%;
+  border:2px solid rgba(200,151,58,.4);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Cinzel',serif;font-size:10px;font-weight:700;
+  color:rgba(200,151,58,.5);
+  transition:all .5s;
+}
+.step-pip.active{
+  border-color:var(--gold);color:var(--gold);
+  box-shadow:0 0 12px rgba(232,196,74,.6);
+  animation:pipPulse 1.5s ease-in-out infinite;
+}
+.step-pip.done{
+  border-color:var(--teal);color:var(--teal);
+  background:rgba(45,212,191,.1);
+  box-shadow:0 0 10px rgba(45,212,191,.5);
+}
+@keyframes pipPulse{0%,100%{box-shadow:0 0 12px rgba(232,196,74,.6)}50%{box-shadow:0 0 22px rgba(232,196,74,.9)}}
+.step-line{width:20px;height:2px;background:rgba(200,151,58,.3);border-radius:1px}
+
+/* ── MAIN AREA ───────────────────────────────────────────────── */
+#main{
+  flex:1;display:flex;gap:12px;
+  padding:8px 14px 10px;
+  min-height:0;
+}
+
+/* ── SIDEBAR ─────────────────────────────────────────────────── */
+#sidebar{
+  width:clamp(160px,20%,210px);flex-shrink:0;
+  background:var(--panel);
+  border:1px solid rgba(200,151,58,.25);
+  border-radius:12px;
+  padding:12px 10px;
+  display:flex;flex-direction:column;gap:8px;
+  backdrop-filter:blur(8px);
+  box-shadow:0 0 30px rgba(200,151,58,.12),inset 0 0 30px rgba(0,0,0,.3);
+}
+
+.mascot{font-size:clamp(32px,5vw,54px);text-align:center;animation:mascotBob 3s ease-in-out infinite}
+@keyframes mascotBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.mascot-name{
+  text-align:center;font-family:'Cinzel',serif;font-size:10px;
+  color:var(--copper);letter-spacing:2px;
+}
+
+.speech{
+  background:rgba(200,151,58,.08);
+  border:1px solid rgba(200,151,58,.25);
+  border-radius:8px;padding:8px 9px;
+  font-size:clamp(9px,1.2vw,12px);
+  line-height:1.55;color:var(--cream2);
+  flex:1;
+}
+.speech b{color:var(--gold)}
+.speech em{color:var(--teal)}
+
+.tools-hdr{
+  font-family:'Cinzel',serif;font-size:9px;
+  color:var(--copper);letter-spacing:2px;
+  text-align:center;text-transform:uppercase;
+}
+
+#toolbox{
+  display:flex;flex-wrap:wrap;gap:5px;justify-content:center;
+}
+
+.tool{
+  background:rgba(139,58,26,.25);
+  border:1.5px solid rgba(200,151,58,.4);
+  border-radius:7px;
+  padding:5px 7px;
+  font-size:clamp(9px,1.2vw,12px);
+  cursor:grab;
+  transition:all .2s;
+  display:flex;align-items:center;gap:4px;
+  white-space:nowrap;
+  font-family:'Special Elite',cursive;
+}
+.tool:hover{background:rgba(200,151,58,.25);transform:scale(1.06);box-shadow:0 0 10px var(--glow-g)}
+.tool:active{cursor:grabbing;transform:scale(.95)}
+.tool.used{opacity:.3;pointer-events:none}
+
+/* ── CANVAS ──────────────────────────────────────────────────── */
+#canvas{
+  flex:1;
+  background:var(--panel);
+  border:1px solid rgba(200,151,58,.2);
+  border-radius:12px;
+  position:relative;
+  overflow:hidden;
+  backdrop-filter:blur(4px);
+  box-shadow:inset 0 0 40px rgba(0,0,0,.4);
+}
+#canvas::before{
+  content:'';position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(200,151,58,.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(200,151,58,.05) 1px,transparent 1px);
+  background-size:24px 24px;pointer-events:none;z-index:0;
+}
+
+/* ── DRAG GHOST ──────────────────────────────────────────────── */
+#ghost{
+  position:fixed;pointer-events:none;z-index:999;
+  font-size:22px;opacity:.85;
+  transform:translate(-50%,-50%);
+  display:none;
+  filter:drop-shadow(0 0 10px var(--gold));
+  animation:ghostPulse .4s ease-in-out infinite alternate;
+}
+@keyframes ghostPulse{from{transform:translate(-50%,-50%) scale(1)}to{transform:translate(-50%,-50%) scale(1.12)}}
+
+/* ── DROP ZONE ───────────────────────────────────────────────── */
+.dz{
+  position:absolute;
+  border:2px dashed rgba(200,151,58,.35);
+  border-radius:5px;
+  transition:all .25s;
+  display:flex;align-items:center;justify-content:center;
+  pointer-events:all;
+}
+.dz.hot{
+  border-color:var(--amber);
+  background:rgba(255,159,28,.08);
+  box-shadow:0 0 20px rgba(255,159,28,.3);
+}
+.dz-label{
+  font-size:9px;color:rgba(200,151,58,.4);
+  letter-spacing:1px;font-family:'Cinzel',serif;
+  pointer-events:none;
+}
+
+/* ── PLACED ITEMS ───────────────────────────────────────────── */
+.placed{
+  position:absolute;pointer-events:none;
+  display:flex;align-items:center;justify-content:center;
+  animation:placeIn .3s cubic-bezier(.68,-0.55,.27,1.55);
+}
+@keyframes placeIn{from{transform:scale(0) rotate(-20deg);opacity:0}to{transform:scale(1) rotate(0deg);opacity:1}}
+
+/* ── WEIGHT METER ───────────────────────────────────────────── */
+#w-meter{
+  position:absolute;right:12px;top:12px;
+  width:110px;
+  background:rgba(10,6,2,.92);
+  border:1px solid rgba(200,151,58,.3);
+  border-radius:10px;
+  padding:8px 10px;
+  display:none;
+  box-shadow:0 0 20px rgba(200,151,58,.15);
+}
+#w-meter.vis{display:block}
+.m-label{font-family:'Cinzel',serif;font-size:9px;color:var(--copper);letter-spacing:1px;margin-bottom:5px;text-align:center}
+.m-bar{height:10px;background:rgba(255,255,255,.08);border-radius:5px;overflow:hidden}
+.m-fill{height:100%;border-radius:5px;width:0%;transition:width .5s,background .5s}
+.m-val{font-family:'Cutive Mono',monospace;font-size:18px;font-weight:700;text-align:center;margin-top:4px;color:var(--green)}
+
+/* ── SCORE DISPLAY (Act 3) ──────────────────────────────────── */
+#score-area{
+  position:absolute;inset:0;display:none;
+  flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  z-index:5;
+}
+#score-area.vis{display:flex}
+
+.score-card{
+  background:rgba(15,9,3,.92);
+  border:1.5px solid rgba(200,151,58,.4);
+  border-radius:14px;
+  padding:14px 20px;
+  text-align:center;
+  width:clamp(200px,55%,360px);
+  box-shadow:0 0 40px rgba(200,151,58,.2);
+}
+.sc-title{font-family:'Cinzel',serif;font-size:14px;color:var(--gold);letter-spacing:2px;margin-bottom:8px}
+.sc-body{font-size:clamp(10px,1.4vw,13px);color:var(--cream2);line-height:1.6}
+.sc-body b{color:var(--teal)}
+
+.compare-row{
+  display:flex;gap:10px;justify-content:center;
+  flex-wrap:wrap;
+}
+.compare-card{
+  background:rgba(20,12,4,.85);
+  border:1px solid rgba(200,151,58,.3);
+  border-radius:10px;
+  padding:10px 14px;
+  text-align:center;
+  min-width:130px;
+  cursor:grab;
+  transition:all .2s;
+}
+.compare-card:hover{border-color:var(--amber);box-shadow:0 0 15px var(--glow-g)}
+.compare-card.active{border-color:var(--teal);box-shadow:0 0 18px var(--glow-t)}
+.cc-emoji{font-size:28px;margin-bottom:4px}
+.cc-name{font-family:'Cinzel',serif;font-size:11px;color:var(--gold);margin-bottom:2px}
+.cc-val{font-family:'Cutive Mono',monospace;font-size:14px;color:var(--teal)}
+
+.winner-tag{
+  display:inline-block;
+  background:linear-gradient(135deg,var(--gold),var(--amber));
+  color:#1a0a00;
+  font-family:'Cinzel',serif;font-size:9px;font-weight:700;
+  letter-spacing:1px;padding:2px 8px;border-radius:10px;margin-top:4px;
+}
+
+/* ── POPUPS ──────────────────────────────────────────────────── */
+.overlay{
+  position:fixed;inset:0;z-index:500;
+  background:rgba(5,2,0,.82);
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(7px);
+  opacity:0;pointer-events:none;transition:opacity .4s;
+}
+.overlay.show{opacity:1;pointer-events:all}
+
+.popup{
+  background:linear-gradient(145deg,rgba(15,9,3,.98) 0%,rgba(8,5,2,.98) 100%);
+  border:1.5px solid rgba(200,151,58,.5);
+  border-radius:20px;
+  padding:26px 30px;
+  max-width:min(460px,86vw);
+  width:100%;text-align:center;
+  box-shadow:0 0 60px rgba(200,151,58,.25),0 30px 60px rgba(0,0,0,.6);
+  transform:scale(.85);transition:transform .4s cubic-bezier(.68,-0.55,.27,1.55);
+}
+.overlay.show .popup{transform:scale(1)}
+
+.pop-icon{font-size:52px;margin-bottom:8px;animation:iconPop .5s .3s both}
+@keyframes iconPop{from{transform:scale(0) rotate(-15deg)}to{transform:scale(1) rotate(0deg)}}
+.pop-title{
+  font-family:'Cinzel',serif;font-size:clamp(18px,3vw,26px);
+  color:var(--gold);
+  text-shadow:0 0 20px rgba(232,196,74,.5);
+  margin-bottom:10px;
+}
+.pop-body{
+  font-size:clamp(11px,1.6vw,14px);
+  color:var(--cream2);line-height:1.7;
+  margin-bottom:18px;
+}
+.pop-body b{color:var(--teal)}
+.pop-body em{color:var(--amber)}
+
+.pop-btn{
+  display:inline-block;
+  padding:11px 26px;
+  background:linear-gradient(135deg,var(--brass),var(--rust));
+  color:var(--cream);
+  font-family:'Cinzel',serif;font-size:14px;font-weight:700;
+  letter-spacing:1px;
+  border:1px solid var(--gold);border-radius:30px;
+  cursor:pointer;
+  box-shadow:0 4px 20px rgba(200,151,58,.4);
+  transition:all .2s;
+  text-transform:uppercase;
+}
+.pop-btn:hover{transform:scale(1.05);box-shadow:0 6px 28px rgba(200,151,58,.6)}
+.pop-btn:active{transform:scale(.97)}
+
+.pop-stars{font-size:26px;margin-bottom:8px;animation:starsIn .6s .5s both}
+@keyframes starsIn{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* ── TOAST ───────────────────────────────────────────────────── */
+#toast{
+  position:fixed;bottom:18px;left:50%;
+  transform:translateX(-50%) translateY(60px);
+  background:rgba(10,6,2,.95);
+  border:1px solid var(--copper);
+  border-radius:30px;padding:9px 22px;
+  font-size:13px;color:var(--cream2);
+  box-shadow:0 0 20px rgba(200,151,58,.3);
+  transition:transform .35s cubic-bezier(.68,-0.55,.27,1.55);
+  z-index:400;white-space:nowrap;
+}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ── CONFETTI ─────────────────────────────────────────────────── */
+.con{
+  position:fixed;pointer-events:none;z-index:600;
+  width:9px;height:9px;border-radius:2px;
+  animation:conFall linear forwards;
+}
+@keyframes conFall{
+  0%{transform:translateY(-20px) rotate(0deg);opacity:1}
+  100%{transform:translateY(100vh) rotate(720deg);opacity:0}
+}
+
+/* ── BRIDGE VISUALS ──────────────────────────────────────────── */
+.bank{
+  position:absolute;bottom:14%;
+  background:linear-gradient(180deg,#4a3520 0%,#2a1a0a 100%);
+  border-top:2px solid rgba(200,151,58,.4);
+  display:flex;align-items:center;justify-content:center;
+}
+.bank-lbl{
+  font-family:'Cinzel',serif;font-size:9px;
+  color:rgba(200,151,58,.5);letter-spacing:1px;
+  writing-mode:vertical-rl;
+}
+.gorge{
+  position:absolute;left:28%;right:28%;bottom:0;height:36%;
+  background:linear-gradient(180deg,rgba(10,5,2,.8) 0%,rgba(30,15,5,.4) 100%);
+  border-top:1px solid rgba(200,151,58,.15);
+  overflow:hidden;
+}
+.gorge::after{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(
+    -30deg,transparent 0,transparent 10px,
+    rgba(200,151,58,.03) 10px,rgba(200,151,58,.03) 12px
+  );
+  animation:gorgeShimmer 4s linear infinite;
+}
+@keyframes gorgeShimmer{from{background-position:0 0}to{background-position:40px 40px}}
+
+.gorge-lbl{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-family:'Cinzel',serif;font-size:10px;
+  color:rgba(200,151,58,.3);letter-spacing:2px;pointer-events:none;
+}
+
+.bridge-beam{
+  position:absolute;
+  background:linear-gradient(180deg,#d4a843 0%,#8b5e1a 100%);
+  border-radius:3px;
+  box-shadow:0 2px 10px rgba(0,0,0,.5),0 0 15px rgba(200,151,58,.3);
+}
+
+/* Slot styles for Act 1 */
+.b-slot{
+  position:absolute;
+  border:2px dashed rgba(200,151,58,.3);
+  border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:rgba(200,151,58,.35);
+  font-family:'Cinzel',serif;letter-spacing:1px;
+  transition:all .3s;
+  cursor:pointer;
+}
+.b-slot:hover:not(.filled){border-color:var(--amber);color:var(--amber);background:rgba(255,159,28,.06)}
+.b-slot.filled{border-style:solid;border-color:rgba(200,151,58,.5);background:rgba(200,151,58,.06)}
+
+/* Coin on bridge */
+.coin{
+  position:absolute;
+  width:30px;height:30px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#ffe87c,#c8851a);
+  border:2px solid var(--gold);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:800;color:#5a3200;
+  box-shadow:0 2px 10px rgba(0,0,0,.5),0 0 8px rgba(232,196,74,.4);
+  animation:coinLand .35s cubic-bezier(.68,-0.55,.27,1.55) both;
+  pointer-events:none;z-index:5;
+}
+@keyframes coinLand{from{transform:scale(0) translateY(-15px)}to{transform:scale(1) translateY(0)}}
+
+/* ── ACT 3 specific ──────────────────────────────────────────── */
+.result-slot{
+  width:140px;
+  min-height:100px;
+  border:2px dashed rgba(200,151,58,.3);
+  border-radius:10px;
+  padding:8px;
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  transition:all .3s;
+  cursor:pointer;
+}
+.result-slot.hot{border-color:var(--amber);background:rgba(255,159,28,.06);box-shadow:0 0 15px rgba(255,159,28,.2)}
+.result-slot.placed{border-color:var(--teal);background:rgba(45,212,191,.04)}
+.rs-label{font-family:'Cinzel',serif;font-size:9px;color:var(--copper);letter-spacing:1px;text-align:center}
+
+/* ── RESPONSIVE ──────────────────────────────────────────────── */
+@media(max-width:600px){
+  #sidebar{width:130px;padding:8px 6px}
+  .pop-btn{font-size:12px;padding:9px 18px}
+}
+</style>
+</head>
+<body>
+
+<!-- BACKGROUND -->
+<div id="bg"></div>
+
+<!-- GHOST -->
+<div id="ghost"></div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- POPUPS -->
+<div class="overlay show" id="pop-intro">
+  <div class="popup">
+    <div class="pop-icon">⚙️</div>
+    <div class="pop-title">BRIDGE OF SPAGHETTI</div>
+    <div class="pop-body">
+      Welcome to the <b>Time Engineer's Workshop!</b><br><br>
+      I'm <em>Professor Bolt</em> 🔭 — and I need your help building bridges that have outlasted centuries!<br><br>
+      You'll <b>Build → Test → Compare</b> bridges made of spaghetti. Are you ready?
+    </div>
+    <button class="pop-btn" onclick="startAct(1)">Activate the Machine! ⚡</button>
+  </div>
+</div>
+
+<div class="overlay" id="pop-a1">
+  <div class="popup">
+    <div class="pop-stars">⭐⭐⭐</div>
+    <div class="pop-icon">🌉</div>
+    <div class="pop-title">Structure Complete!</div>
+    <div class="pop-body">
+      Magnificent work! You've laid <b>spaghetti sticks</b> and secured them with <b>tape</b> — just like builders who used timber and rope across ancient gorges!<br><br>
+      A bridge is really just a path across a gap — simple but powerful.<br><br>
+      Now let's find out <em>how strong</em> your bridge is!
+    </div>
+    <button class="pop-btn" onclick="startAct(2)">Test Its Strength! 🪙</button>
+  </div>
+</div>
+
+<div class="overlay" id="pop-a2">
+  <div class="popup">
+    <div class="pop-stars">⭐⭐⭐</div>
+    <div class="pop-icon">⚖️</div>
+    <div class="pop-title">Load Test Done!</div>
+    <div class="pop-body">
+      Your bridge held <b id="coins-held">0</b> coins — that's real engineering data!<br><br>
+      Real bridge engineers test loads the same way — adding weight until they find the <em>limit</em>.<br><br>
+      Now let's compare your bridge against other designs!
+    </div>
+    <button class="pop-btn" onclick="startAct(3)">Compare & Calculate! 📊</button>
+  </div>
+</div>
+
+<div class="overlay" id="pop-final">
+  <div class="popup">
+    <div class="pop-stars">🌟🌟🌟🌟🌟</div>
+    <div class="pop-icon">🏆</div>
+    <div class="pop-title">MASTER ENGINEER!</div>
+    <div class="pop-body">
+      You built, tested, and compared like a <b>true structural engineer!</b><br><br>
+      The <em id="winner-name">winning bridge</em> held the most weight — proving that design matters!<br><br>
+      Every great bridge in history started with someone just like you — curious, creative, and brave enough to test their ideas. <b>Keep building!</b>
+    </div>
+    <button class="pop-btn" onclick="restartAll()">Build Again! 🔄</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div id="hdr">
+    <div>
+      <h1>⚙️ BRIDGE OF SPAGHETTI</h1>
+      <div id="hdr-sub">Build · Test · Compare · Calculate</div>
+    </div>
+    <div id="steps">
+      <div class="step-pip active" id="pip1">1</div>
+      <div class="step-line"></div>
+      <div class="step-pip" id="pip2">2</div>
+      <div class="step-line"></div>
+      <div class="step-pip" id="pip3">3</div>
+    </div>
+  </div>
+
+  <div id="main">
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <div class="mascot" id="mascot">🔭</div>
+      <div class="mascot-name">PROF. BOLT</div>
+      <div class="speech" id="speech">
+        <b>Activity 1 — BUILD!</b><br>
+        Drag <b>spaghetti sticks</b> and <b>tape strips</b> into the slots to construct your bridge!<br><br>
+        Fill <em>all 5 slots</em> to complete the structure.
+      </div>
+      <div class="tools-hdr">🔧 Materials</div>
+      <div id="toolbox"></div>
+    </div>
+
+    <!-- Canvas -->
+    <div id="canvas">
+      <div id="w-meter">
+        <div class="m-label">⚖️ LOAD</div>
+        <div class="m-bar"><div class="m-fill" id="m-fill"></div></div>
+        <div class="m-val" id="m-val">0 coins</div>
+      </div>
+      <div id="score-area"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// BACKGROUND GENERATION
+// ─────────────────────────────────────────────────────────────
+(function buildBG(){
+  const bg = document.getElementById('bg');
+
+  // Clock rings
+  const rings = [
+    {cx:'15%',cy:'25%',r:80,speed:'18s'},
+    {cx:'80%',cy:'60%',r:110,speed:'25s'},
+    {cx:'50%',cy:'80%',r:65,speed:'12s'},
+    {cx:'90%',cy:'15%',r:50,speed:'20s'},
+  ];
+  rings.forEach(r=>{
+    const el = document.createElement('div');
+    el.className='clock-ring';
+    const s=r.r*2;
+    el.style.cssText=`left:calc(${r.cx} - ${r.r}px);top:calc(${r.cy} - ${r.r}px);width:${s}px;height:${s}px;animation-duration:${r.speed}`;
+    bg.appendChild(el);
+    // inner ring
+    const el2 = document.createElement('div');
+    el2.className='clock-ring';
+    const r2=r.r*.65,s2=r2*2;
+    el2.style.cssText=`left:calc(${r.cx} - ${r2}px);top:calc(${r.cy} - ${r2}px);width:${s2}px;height:${s2}px;animation-duration:${parseFloat(r.speed)*0.7}s;animation-direction:reverse`;
+    bg.appendChild(el2);
+  });
+
+  // Gears (SVG path)
+  function gearPath(R,r,n,notch){
+    const pts=[];
+    for(let i=0;i<n;i++){
+      const a0=i*2*Math.PI/n, a1=a0+Math.PI/n, a2=a1+notch, a3=a0+2*Math.PI/n;
+      pts.push(`M${(R*Math.cos(a0)).toFixed(1)},${(R*Math.sin(a0)).toFixed(1)}`);
+      pts.push(`A${R},${R},0,0,1,${(R*Math.cos(a1)).toFixed(1)},${(R*Math.sin(a1)).toFixed(1)}`);
+      pts.push(`L${(r*Math.cos(a2)).toFixed(1)},${(r*Math.sin(a2)).toFixed(1)}`);
+      pts.push(`A${r},${r},0,0,1,${(r*Math.cos(a3)).toFixed(1)},${(r*Math.sin(a3)).toFixed(1)}`);
+    }
+    pts.push('Z');
+    return pts.join(' ');
+  }
+  const gearDefs=[
+    {x:'8%',y:'8%',sz:60,teeth:10,speed:'8s',dir:1},
+    {x:'88%',y:'5%',sz:90,teeth:14,speed:'12s',dir:-1},
+    {x:'3%',y:'65%',sz:70,teeth:11,speed:'10s',dir:1},
+    {x:'75%',y:'78%',sz:50,teeth:8,speed:'7s',dir:-1},
+    {x:'55%',y:'5%',sz:40,teeth:7,speed:'6s',dir:1},
+    {x:'92%',y:'40%',sz:55,teeth:9,speed:'9s',dir:-1},
+  ];
+  gearDefs.forEach(g=>{
+    const ns='http://www.w3.org/2000/svg';
+    const svg=document.createElementNS(ns,'svg');
+    const d=g.sz*2+4;
+    svg.setAttribute('width',d);svg.setAttribute('height',d);
+    svg.setAttribute('viewBox',`-${g.sz+2} -${g.sz+2} ${d} ${d}`);
+    svg.style.cssText=`position:absolute;left:${g.x};top:${g.y};animation-duration:${g.speed};animation-direction:${g.dir>0?'normal':'reverse'}`;
+    svg.classList.add('gear');
+    const path=document.createElementNS(ns,'path');
+    path.setAttribute('d',gearPath(g.sz,g.sz*.7,g.teeth,.15));
+    path.setAttribute('fill','none');
+    path.setAttribute('stroke','#b87333');
+    path.setAttribute('stroke-width','2');
+    svg.appendChild(path);
+    // hub circle
+    const hub=document.createElementNS(ns,'circle');
+    hub.setAttribute('r',g.sz*.25);hub.setAttribute('fill','none');
+    hub.setAttribute('stroke','#b87333');hub.setAttribute('stroke-width','1.5');
+    svg.appendChild(hub);
+    bg.appendChild(svg);
+  });
+
+  // Lightning bolts
+  for(let i=0;i<4;i++){
+    const el=document.createElement('div');
+    el.className='lightning';
+    el.style.cssText=`left:${15+i*22}%;top:${5+Math.random()*20}%;height:${60+Math.random()*80}px;animation-delay:${i*1.3+Math.random()}s`;
+    bg.appendChild(el);
+  }
+
+  // Sparks
+  for(let i=0;i<18;i++){
+    const s=document.createElement('div');
+    s.className='spark';
+    const sz=2+Math.random()*3;
+    s.style.cssText=`left:${Math.random()*100}%;top:${50+Math.random()*50}%;width:${sz}px;height:${sz}px;animation-delay:${Math.random()*6}s;animation-duration:${3+Math.random()*4}s`;
+    bg.appendChild(s);
+  }
+
+  // Historical silhouette (city skyline)
+  const sky=document.createElement('div');
+  sky.style.cssText='position:absolute;bottom:0;left:0;right:0;height:18%;pointer-events:none;overflow:hidden';
+  sky.innerHTML=`<svg width="100%" height="100%" viewBox="0 0 1000 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <polygon points="0,120 0,80 30,80 30,60 50,60 50,40 70,40 70,20 90,20 90,40 110,40 110,60 130,60 130,80 160,80 160,55 180,55 180,35 200,35 200,15 210,15 210,35 230,35 230,55 260,55 260,75 300,75 300,50 330,50 330,30 355,30 355,10 375,10 375,30 400,30 400,50 430,50 430,70 470,70 470,45 500,45 500,25 520,25 520,45 550,45 550,70 600,70 600,50 630,50 630,35 650,35 650,55 680,55 680,70 720,70 720,45 750,45 750,25 770,25 770,45 800,45 800,65 850,65 850,40 880,40 880,20 900,20 900,40 930,40 930,65 970,65 970,85 1000,85 1000,120" fill="rgba(10,5,2,0.7)"/>
+  </svg>`;
+  bg.appendChild(sky);
+})();
+
+// ─────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────
+let currentAct=0;
+let dragData=null;
+let act1Filled=0;
+let act2Coins=0;
+let act3Done=0;
+
+const ACT1_SLOTS=5;
+const ACT2_TARGET=6; // coins to collect result
+
+// Activity 2 results stored
+let myBridgeCoins=0;
+
+// Act 3 bridge data
+const otherBridges=[
+  {id:'rope',name:'Rope Bridge',emoji:'🪢',coins:3,label:'3 coins'},
+  {id:'stone',name:'Stone Arch',emoji:'🪨',coins:8,label:'8 coins'},
+  {id:'steel',name:'Steel Truss',emoji:'🔩',coins:12,label:'12 coins'},
+];
+
+const TOOLS_ACT={
+  1:[
+    {id:'spaghetti',emoji:'🍝',label:'Spaghetti',count:3},
+    {id:'tape',emoji:'📏',label:'Tape Strip',count:2},
+  ],
+  2:[
+    {id:'coin',emoji:'🪙',label:'Coin',count:8},
+  ],
+  3:[]
+};
+
+const SPEECH_ACT={
+  1:'<b>Activity 1 — BUILD!</b><br>Drag <b>spaghetti sticks</b> and <b>tape strips</b> into the bridge slots!<br><br>Fill <em>all 5 slots</em> to complete your structure.',
+  2:'<b>Activity 2 — LOAD TEST!</b><br>Drag <b>coins</b> onto the bridge platform one by one.<br><br>Watch the load meter! See how many your bridge holds!',
+  3:'<b>Activity 3 — COMPARE!</b><br>Drag each <b>bridge card</b> into the ranking slots to order them from <em>weakest to strongest</em>!',
+};
+
+// ─────────────────────────────────────────────────────────────
+// ACTIVITY START
+// ─────────────────────────────────────────────────────────────
+function startAct(n){
+  currentAct=n;
+  closeAllPopups();
+
+  // Progress pips
+  [1,2,3].forEach(i=>{
+    const p=document.getElementById('pip'+i);
+    p.className='step-pip'+(i<n?' done':i===n?' active':'');
+  });
+
+  // Speech
+  document.getElementById('speech').innerHTML=SPEECH_ACT[n];
+
+  // Toolbox
+  const tb=document.getElementById('toolbox');
+  tb.innerHTML='';
+  (TOOLS_ACT[n]||[]).forEach(t=>{
+    for(let k=0;k<t.count;k++){
+      const el=document.createElement('div');
+      el.className='tool';
+      el.dataset.id=t.id;el.dataset.emoji=t.emoji;
+      el.innerHTML=`${t.emoji} <span>${t.label}</span>`;
+      el.addEventListener('mousedown',e=>startDrag(e,t.id,t.emoji,el));
+      el.addEventListener('touchstart',e=>startDrag(e,t.id,t.emoji,el),{passive:false});
+      tb.appendChild(el);
+    }
+  });
+
+  // Canvas
+  renderCanvas(n);
+}
+
+// ─────────────────────────────────────────────────────────────
+// CANVAS RENDERING
+// ─────────────────────────────────────────────────────────────
+function renderCanvas(n){
+  const cv=document.getElementById('canvas');
+  const meter=document.getElementById('w-meter');
+  const scoreArea=document.getElementById('score-area');
+  meter.className='';
+  scoreArea.className='';
+  scoreArea.innerHTML='';
+
+  // Clear dynamic content (keep meter and score-area)
+  [...cv.children].forEach(c=>{
+    if(c.id!=='w-meter'&&c.id!=='score-area')c.remove();
+  });
+
+  if(n===1) renderAct1(cv);
+  else if(n===2) renderAct2(cv);
+  else if(n===3) renderAct3(cv,scoreArea);
+}
+
+/* ACT 1 — Build */
+function renderAct1(cv){
+  act1Filled=0;
+
+  // Gorge
+  const gorge=document.createElement('div');
+  gorge.className='gorge';
+  gorge.innerHTML='<div class="gorge-lbl">~ THE GORGE ~</div>';
+  cv.appendChild(gorge);
+
+  // Banks
+  const lb=document.createElement('div');
+  lb.className='bank';
+  lb.style.cssText='left:0;width:28%;height:22%;';
+  lb.innerHTML='<div class="bank-lbl">SIDE A</div>';
+  cv.appendChild(lb);
+
+  const rb=document.createElement('div');
+  rb.className='bank';
+  rb.style.cssText='right:0;width:28%;height:22%;';
+  rb.innerHTML='<div class="bank-lbl">SIDE B</div>';
+  cv.appendChild(rb);
+
+  // 5 slots: 3 horizontal beams + 2 tape joints
+  const slotDefs=[
+    {left:'22%',bottom:'37%',width:'56%',height:'12px',label:'BEAM',id:'sl0'},
+    {left:'22%',bottom:'44%',width:'56%',height:'12px',label:'BEAM',id:'sl1'},
+    {left:'22%',bottom:'51%',width:'56%',height:'12px',label:'BEAM',id:'sl2'},
+    {left:'24%',bottom:'36%',width:'20px',height:'28%',label:'JOINT',id:'sl3'},
+    {left:'68%',bottom:'36%',width:'20px',height:'28%',label:'JOINT',id:'sl4'},
+  ];
+
+  slotDefs.forEach((s,i)=>{
+    const slot=document.createElement('div');
+    slot.className='b-slot';
+    slot.id=s.id;
+    slot.style.cssText=`left:${s.left};bottom:${s.bottom};width:${s.width};height:${s.height};transform:none`;
+    slot.textContent=s.label;
+    slot.addEventListener('mousedown',e=>{
+      if(slot.classList.contains('filled'))return;
+      // allow dropping via click if dragging
+    });
+    cv.appendChild(slot);
+  });
+
+  // Canvas-wide drop zone
+  const dz=document.createElement('div');
+  dz.id='main-dz';
+  dz.className='dz';
+  dz.style.cssText='left:20%;right:20%;top:10%;bottom:14%;border:none;background:transparent;pointer-events:all';
+  cv.appendChild(dz);
+
+  // Hint arrow
+  const hint=document.createElement('div');
+  hint.style.cssText='position:absolute;top:10px;left:50%;transform:translateX(-50%);font-size:10px;color:rgba(200,151,58,.4);letter-spacing:2px;font-family:Cinzel,serif;pointer-events:none;z-index:5';
+  hint.textContent='↓ DRAG MATERIALS TO THE SLOTS ↓';
+  cv.appendChild(hint);
+}
+
+/* ACT 2 — Load Test */
+function renderAct2(cv){
+  act2Coins=0;
+
+  drawBridgeBase(cv);
+
+  // Drop zone on bridge deck
+  const dz=document.createElement('div');
+  dz.id='main-dz';
+  dz.className='dz';
+  dz.style.cssText='left:26%;right:26%;bottom:35%;height:50px;';
+  dz.innerHTML='<span class="dz-label">DROP COINS HERE</span>';
+  cv.appendChild(dz);
+
+  document.getElementById('w-meter').className='vis';
+  updateMeter(0);
+
+  const hint=document.createElement('div');
+  hint.style.cssText='position:absolute;top:10px;left:50%;transform:translateX(-50%);font-size:10px;color:rgba(200,151,58,.4);letter-spacing:2px;font-family:Cinzel,serif;pointer-events:none';
+  hint.textContent='↓ ADD COIN WEIGHTS TO TEST YOUR BRIDGE ↓';
+  cv.appendChild(hint);
+}
+
+/* ACT 3 — Compare */
+function renderAct3(cv,scoreArea){
+  act3Done=0;
+  drawBridgeBase(cv);
+  drawBridgeReinforced(cv);
+
+  scoreArea.className='vis';
+  scoreArea.style.zIndex='6';
+
+  const myLabel=`My Bridge (${myBridgeCoins} coins)`;
+
+  // All bridges to compare (including player's)
+  const allBridges=[
+    {id:'mine',name:'My Bridge',emoji:'🍝',coins:myBridgeCoins,label:`${myBridgeCoins} coins`},
+    ...otherBridges
+  ].sort((a,b)=>a.coins-b.coins); // sorted weakest→strongest
+
+  // Title
+  const title=document.createElement('div');
+  title.style.cssText='font-family:Cinzel,serif;font-size:12px;color:var(--gold);letter-spacing:2px;text-align:center;margin-bottom:4px';
+  title.textContent='DRAG BRIDGES INTO RANKING ORDER (WEAKEST → STRONGEST)';
+  scoreArea.appendChild(title);
+
+  // Cards to drag
+  const cardRow=document.createElement('div');
+  cardRow.style.cssText='display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:10px';
+
+  const shuffled=[...allBridges].sort(()=>Math.random()-.5);
+  shuffled.forEach(b=>{
+    const card=document.createElement('div');
+    card.className='compare-card';
+    card.id='card-'+b.id;
+    card.dataset.coins=b.coins;
+    card.dataset.id=b.id;
+    card.innerHTML=`<div class="cc-emoji">${b.emoji}</div><div class="cc-name">${b.name}</div><div class="cc-val">${b.label}</div>`;
+    card.addEventListener('mousedown',e=>startDragCard(e,b,card));
+    card.addEventListener('touchstart',e=>startDragCard(e,b,card),{passive:false});
+    cardRow.appendChild(card);
+  });
+  scoreArea.appendChild(cardRow);
+
+  // Ranking slots
+  const slotRow=document.createElement('div');
+  slotRow.style.cssText='display:flex;gap:10px;justify-content:center;flex-wrap:wrap';
+
+  allBridges.forEach((b,i)=>{
+    const slot=document.createElement('div');
+    slot.className='result-slot';
+    slot.id='rslot-'+i;
+    slot.dataset.rank=i;
+    slot.innerHTML=`<div class="rs-label">RANK ${i+1}<br>${i===0?'WEAKEST':i===allBridges.length-1?'STRONGEST':'MIDDLE'}</div>`;
+    slot.addEventListener('mouseenter',()=>{if(dragData&&dragData.isCard)slot.classList.add('hot')});
+    slot.addEventListener('mouseleave',()=>slot.classList.remove('hot'));
+    slotRow.appendChild(slot);
+  });
+  scoreArea.appendChild(slotRow);
+
+  // Instruction
+  const ins=document.createElement('div');
+  ins.style.cssText='font-size:10px;color:rgba(200,151,58,.4);letter-spacing:1px;font-family:Cinzel,serif;text-align:center;margin-top:4px';
+  ins.textContent='Drag each card to its correct rank slot';
+  scoreArea.appendChild(ins);
+
+  // hidden complete btn
+  const completeBtn=document.createElement('button');
+  completeBtn.className='pop-btn';
+  completeBtn.id='complete-btn';
+  completeBtn.textContent='See Results! 🏆';
+  completeBtn.style.cssText='display:none;margin-top:8px';
+  completeBtn.onclick=showFinalResults;
+  scoreArea.appendChild(completeBtn);
+}
+
+function drawBridgeBase(cv){
+  // Banks
+  const lb=document.createElement('div');lb.className='bank';
+  lb.style.cssText='left:0;width:28%;height:22%;';cv.appendChild(lb);
+  const rb=document.createElement('div');rb.className='bank';
+  rb.style.cssText='right:0;width:28%;height:22%;';cv.appendChild(rb);
+
+  // Gorge
+  const gorge=document.createElement('div');gorge.className='gorge';
+  gorge.innerHTML='<div class="gorge-lbl">~ THE GORGE ~</div>';cv.appendChild(gorge);
+
+  // Beams
+  const b1=document.createElement('div');b1.className='bridge-beam';
+  b1.style.cssText='left:26%;right:26%;bottom:36%;height:10px';cv.appendChild(b1);
+  const b2=document.createElement('div');b2.className='bridge-beam';
+  b2.style.cssText='left:26%;right:26%;bottom:42%;height:10px';cv.appendChild(b2);
+  const b3=document.createElement('div');b3.className='bridge-beam';
+  b3.style.cssText='left:26%;right:26%;bottom:48%;height:10px';cv.appendChild(b3);
+  // Joints
+  const j1=document.createElement('div');j1.className='bridge-beam';
+  j1.style.cssText='left:27%;bottom:35%;width:8px;height:24%';cv.appendChild(j1);
+  const j2=document.createElement('div');j2.className='bridge-beam';
+  j2.style.cssText='right:27%;bottom:35%;width:8px;height:24%';cv.appendChild(j2);
+}
+
+function drawBridgeReinforced(cv){
+  // Extra visual for act 3
+  const rail=document.createElement('div');
+  rail.style.cssText='position:absolute;left:24%;right:24%;bottom:59%;height:4px;background:rgba(200,151,58,.4);border-radius:2px';
+  cv.appendChild(rail);
+}
+
+// ─────────────────────────────────────────────────────────────
+// DRAG AND DROP — TOOLS
+// ─────────────────────────────────────────────────────────────
+function startDrag(e,id,emoji,srcEl){
+  e.preventDefault();
+  const ghost=document.getElementById('ghost');
+  ghost.textContent=emoji;ghost.style.display='block';
+  const pos=ePos(e);
+  ghost.style.left=pos.x+'px';ghost.style.top=pos.y+'px';
+  dragData={id,emoji,srcEl,isCard:false};
+
+  const dz=document.getElementById('main-dz');
+  if(dz)dz.classList.add('hot');
+
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('touchmove',onMove,{passive:false});
+  document.addEventListener('mouseup',onEnd);
+  document.addEventListener('touchend',onEnd);
+}
+
+function startDragCard(e,bridge,cardEl){
+  e.preventDefault();
+  if(cardEl.classList.contains('placed-card'))return;
+  const ghost=document.getElementById('ghost');
+  ghost.textContent=bridge.emoji;ghost.style.display='block';
+  const pos=ePos(e);
+  ghost.style.left=pos.x+'px';ghost.style.top=pos.y+'px';
+  dragData={id:bridge.id,emoji:bridge.emoji,bridge,cardEl,isCard:true};
+
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('touchmove',onMove,{passive:false});
+  document.addEventListener('mouseup',onCardEnd);
+  document.addEventListener('touchend',onCardEnd);
+}
+
+function onMove(e){
+  e.preventDefault();
+  const pos=ePos(e);
+  const g=document.getElementById('ghost');
+  g.style.left=pos.x+'px';g.style.top=pos.y+'px';
+}
+
+function onEnd(e){
+  cleanup();
+  const pos=ePos(e);
+  const cv=document.getElementById('canvas');
+  const cvr=cv.getBoundingClientRect();
+  const inCv=pos.x>=cvr.left&&pos.x<=cvr.right&&pos.y>=cvr.top&&pos.y<=cvr.bottom;
+
+  const dz=document.getElementById('main-dz');
+  if(dz)dz.classList.remove('hot');
+
+  if(!dragData||!inCv){dragData=null;return;}
+
+  if(currentAct===1) handleAct1Drop(pos,cvr);
+  else if(currentAct===2) handleAct2Drop(pos,cvr);
+
+  dragData=null;
+}
+
+function onCardEnd(e){
+  cleanup();
+  const pos=ePos(e);
+
+  // Find slot under cursor
+  const slots=document.querySelectorAll('.result-slot');
+  let dropped=false;
+  slots.forEach(slot=>{
+    slot.classList.remove('hot');
+    const r=slot.getBoundingClientRect();
+    if(pos.x>=r.left&&pos.x<=r.right&&pos.y>=r.top&&pos.y<=r.bottom){
+      handleCardDrop(slot);
+      dropped=true;
+    }
+  });
+  if(!dropped) toast('Drop into a rank slot!');
+  dragData=null;
+}
+
+function cleanup(){
+  document.removeEventListener('mousemove',onMove);
+  document.removeEventListener('touchmove',onMove);
+  document.removeEventListener('mouseup',onEnd);
+  document.removeEventListener('touchend',onEnd);
+  document.removeEventListener('mouseup',onCardEnd);
+  document.removeEventListener('touchend',onCardEnd);
+  document.getElementById('ghost').style.display='none';
+}
+
+function ePos(e){
+  if(e.touches&&e.touches.length) return{x:e.touches[0].clientX,y:e.touches[0].clientY};
+  if(e.changedTouches&&e.changedTouches.length) return{x:e.changedTouches[0].clientX,y:e.changedTouches[0].clientY};
+  return{x:e.clientX,y:e.clientY};
+}
+
+// ─────────────────────────────────────────────────────────────
+// ACT 1 DROP
+// ─────────────────────────────────────────────────────────────
+function handleAct1Drop(pos,cvr){
+  if(act1Filled>=ACT1_SLOTS){toast('All slots filled!');return;}
+
+  // Find nearest unfilled slot
+  const slots=document.querySelectorAll('.b-slot:not(.filled)');
+  if(!slots.length)return;
+  let best=null,bestD=9999;
+  slots.forEach(s=>{
+    const r=s.getBoundingClientRect();
+    const cx=r.left+r.width/2,cy=r.top+r.height/2;
+    const d=Math.hypot(pos.x-cx,pos.y-cy);
+    if(d<bestD){bestD=d;best=s;}
+  });
+
+  if(!best||bestD>150){toast('Drop closer to a bridge slot!');return;}
+
+  // Validate type
+  const id=dragData.id;
+  const beams=['sl0','sl1','sl2'];
+  const joints=['sl3','sl4'];
+  if(id==='spaghetti'&&joints.includes(best.id)){
+    // find a beam slot instead
+    const beamSlot=[...slots].find(s=>beams.includes(s.id));
+    if(beamSlot){best=beamSlot;}
+  }
+  if(id==='tape'&&beams.includes(best.id)){
+    const jointSlot=[...slots].find(s=>joints.includes(s.id));
+    if(jointSlot){best=jointSlot;}
+  }
+
+  best.classList.add('filled');
+  best.textContent='';
+  best.style.background='rgba(200,151,58,.12)';
+  best.style.borderColor='rgba(200,151,58,.5)';
+
+  // Place emoji
+  const el=document.createElement('div');
+  el.className='placed';
+  const r=best.getBoundingClientRect();
+  const cvRect=document.getElementById('canvas').getBoundingClientRect();
+  el.style.cssText=`left:${r.left-cvRect.left}px;top:${r.top-cvRect.top}px;width:${r.width}px;height:${r.height}px;font-size:${Math.min(r.width,r.height)*.6}px`;
+  el.textContent=dragData.emoji;
+  document.getElementById('canvas').appendChild(el);
+
+  dragData.srcEl.classList.add('used');
+  act1Filled++;
+
+  const rem=ACT1_SLOTS-act1Filled;
+  document.getElementById('speech').innerHTML=rem>0
+    ?`<b>Building!</b> ${rem} more slot${rem>1?'s':''} to fill! Keep going! 💪`
+    :'<b>Bridge complete!</b> All pieces in place! 🎉';
+
+  toast(`Placed! ${act1Filled}/${ACT1_SLOTS} slots filled`);
+
+  if(act1Filled>=ACT1_SLOTS){
+    setTimeout(()=>showPopup('pop-a1'),700);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// ACT 2 DROP
+// ─────────────────────────────────────────────────────────────
+function handleAct2Drop(pos,cvr){
+  const dz=document.getElementById('main-dz');
+  if(!dz)return;
+  const dzr=dz.getBoundingClientRect();
+  const inDz=pos.x>=dzr.left-30&&pos.x<=dzr.right+30&&pos.y>=dzr.top-30&&pos.y<=dzr.bottom+30;
+  if(!inDz){toast('Drop the coin onto the bridge deck!');return;}
+
+  if(dragData.id!=='coin'){toast('Use a coin for the load test!');return;}
+
+  act2Coins++;
+  dragData.srcEl.classList.add('used');
+
+  // Place coin visually
+  const cv=document.getElementById('canvas');
+  const coin=document.createElement('div');
+  coin.className='coin';
+  coin.textContent='₹';
+  const bridgeLeft=cvr.width*0.28;
+  const span=cvr.width*0.44;
+  const xPct=0.06+(act2Coins-1)*0.12;
+  const xPos=Math.min(bridgeLeft+xPct*span*8,cvr.width*0.68);
+  coin.style.left=(bridgeLeft+(act2Coins-1)%5*(span/5))+'px';
+  coin.style.bottom=(cvr.height*0.38)+'px';
+  cv.appendChild(coin);
+
+  // Sway effect on beams
+  document.querySelectorAll('.bridge-beam').forEach(b=>{
+    b.style.animation='none';
+    void b.offsetWidth;
+    b.style.animation='bridgeSway .3s ease-in-out';
+  });
+
+  updateMeter(act2Coins);
+  toast(`Coin ${act2Coins} placed!`);
+
+  // Update speech
+  document.getElementById('speech').innerHTML=act2Coins<4
+    ?`<b>Keep adding!</b> ${act2Coins} coin${act2Coins>1?'s':''} so far. How many can it hold?`
+    :act2Coins<7
+    ?`<b>Impressive!</b> ${act2Coins} coins! The bridge is feeling the weight... ⚠️`
+    :`<b>Incredible!</b> ${act2Coins} coins! That's some serious engineering! 🏆`;
+
+  // Trigger end at 6+ coins
+  if(act2Coins>=ACT2_TARGET){
+    myBridgeCoins=act2Coins;
+    document.getElementById('coins-held').textContent=act2Coins;
+    setTimeout(()=>showPopup('pop-a2'),600);
+  }
+}
+
+function updateMeter(n){
+  const pct=Math.min(n/ACT2_TARGET*100,100);
+  const fill=document.getElementById('m-fill');
+  const val=document.getElementById('m-val');
+  fill.style.width=pct+'%';
+  val.textContent=n+' coin'+(n!==1?'s':'');
+  if(pct<40){fill.style.background='var(--green)';val.style.color='var(--green)';}
+  else if(pct<75){fill.style.background='var(--amber)';val.style.color='var(--amber)';}
+  else{fill.style.background='var(--red)';val.style.color='var(--red)';}
+}
+
+// ─────────────────────────────────────────────────────────────
+// ACT 3 — CARD DROP
+// ─────────────────────────────────────────────────────────────
+function handleCardDrop(slot){
+  if(!dragData||!dragData.isCard)return;
+  if(slot.querySelector('.compare-card')){toast('This slot is taken!');return;}
+
+  const card=dragData.cardEl.cloneNode(true);
+  card.style.cursor='default';
+  card.classList.add('placed-card','active');
+  card.style.border='none';
+  card.style.padding='4px';
+  card.style.minWidth='unset';
+  slot.appendChild(card);
+  slot.classList.add('placed');
+  slot.classList.remove('hot');
+
+  // Hide original card
+  dragData.cardEl.style.visibility='hidden';
+
+  act3Done++;
+  toast(`Placed ${dragData.bridge.name}!`);
+
+  const totalSlots=document.querySelectorAll('.result-slot').length;
+  if(act3Done>=totalSlots){
+    // Check correctness
+    checkRanking();
+  }
+}
+
+function checkRanking(){
+  const slots=document.querySelectorAll('.result-slot');
+  let allCorrect=true;
+  const allBridges=[
+    {id:'mine',coins:myBridgeCoins},
+    ...otherBridges
+  ].sort((a,b)=>a.coins-b.coins);
+
+  slots.forEach((slot,i)=>{
+    const card=slot.querySelector('.compare-card,.placed-card');
+    if(!card)return;
+    const cid=card.dataset.id||card.querySelector('[data-id]')?.dataset.id;
+    // Check by coins value
+    const coinVal=parseInt(card.querySelector('.cc-val')?.textContent)||0;
+    if(coinVal!==allBridges[i].coins) allCorrect=false;
+  });
+
+  // Add winner tag to highest
+  const lastSlot=slots[slots.length-1];
+  const winCard=lastSlot.querySelector('.compare-card,.placed-card');
+  if(winCard){
+    const tag=document.createElement('div');tag.className='winner-tag';
+    tag.textContent='STRONGEST! 🏆';winCard.appendChild(tag);
+    document.getElementById('winner-name').textContent=winCard.querySelector('.cc-name')?.textContent||'Your Bridge';
+  }
+
+  document.getElementById('complete-btn').style.display='inline-block';
+  toast(allCorrect?'Perfect ranking! 🎉':'Ranking placed — check results!');
+}
+
+function showFinalResults(){
+  spawnConfetti();
+  setTimeout(()=>showPopup('pop-final'),400);
+}
+
+// ─────────────────────────────────────────────────────────────
+// POPUP HELPERS
+// ─────────────────────────────────────────────────────────────
+function showPopup(id){document.getElementById(id).classList.add('show')}
+function closeAllPopups(){document.querySelectorAll('.overlay').forEach(p=>p.classList.remove('show'))}
+function restartAll(){
+  closeAllPopups();
+  act1Filled=0;act2Coins=0;act3Done=0;myBridgeCoins=0;
+  document.getElementById('w-meter').className='';
+  startAct(1);
+}
+
+// ─────────────────────────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────────────────────────
+let toastT;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ─────────────────────────────────────────────────────────────
+// CONFETTI
+// ─────────────────────────────────────────────────────────────
+function spawnConfetti(){
+  const cols=['#e8c44a','#b87333','#2dd4bf','#ff9f1c','#c8973a','#f5e6c8'];
+  for(let i=0;i<55;i++){
+    const c=document.createElement('div');
+    c.className='con';
+    c.style.left=Math.random()*100+'vw';
+    c.style.background=cols[Math.floor(Math.random()*cols.length)];
+    const sz=7+Math.random()*8;c.style.width=sz+'px';c.style.height=sz+'px';
+    c.style.borderRadius=Math.random()>.5?'50%':'2px';
+    c.style.animationDuration=(1.5+Math.random()*2.5)+'s';
+    c.style.animationDelay=(Math.random()*.5)+'s';
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(),4000);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// BRIDGE SWAY KEYFRAME (injected)
+// ─────────────────────────────────────────────────────────────
+const style=document.createElement('style');
+style.textContent=`
+@keyframes bridgeSway{
+  0%,100%{transform:scaleY(1) translateX(0)}
+  25%{transform:scaleY(.98) translateX(-2px)}
+  75%{transform:scaleY(.98) translateX(2px)}
+}`;
+document.head.appendChild(style);
+
+// ─────────────────────────────────────────────────────────────
+// INIT — show intro popup (already shown via class)
+// ─────────────────────────────────────────────────────────────
+// Intro popup is open by default; startAct(1) called from its button
+</script>
+</body>
+</html>

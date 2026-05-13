@@ -1,0 +1,367 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;user-select:none}
+body{font-family:Arial,sans-serif}
+#app{position:relative;width:100%;height:100vh;min-height:600px;overflow:hidden;background:linear-gradient(180deg,#1a6b9e 0%,#2a8cc4 30%,#3aade6 60%,#5bbde0 80%,#a8dff5 100%)}
+canvas#rain{position:absolute;inset:0;pointer-events:none;z-index:1}
+#clouds{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2}
+.cloud{position:absolute;opacity:.85}
+#ground{position:absolute;bottom:0;left:0;width:100%;height:22%;background:linear-gradient(180deg,#4caf73 0%,#388e56 100%);border-radius:60% 60% 0 0/30px 30px 0 0;z-index:3}
+.puddle{position:absolute;bottom:18%;border-radius:50%;background:rgba(100,200,255,.45);border:2px solid rgba(150,220,255,.6)}
+.frog{position:absolute;font-size:28px;bottom:20%;animation:frogBounce 2.5s ease-in-out infinite}
+.umbrella{position:absolute;font-size:38px;animation:umbFloat 4s ease-in-out infinite;opacity:.9}
+.rainbow{position:absolute;bottom:30%;left:50%;transform:translateX(-50%);width:320px;height:160px;border-radius:160px 160px 0 0;border:18px solid transparent;border-top:18px solid rgba(255,100,100,.4);box-shadow:0 -16px 0 rgba(255,180,50,.35),0 -32px 0 rgba(255,255,80,.3),0 -48px 0 rgba(80,220,80,.3),0 -64px 0 rgba(80,160,255,.35),0 -80px 0 rgba(180,80,255,.3);z-index:3;pointer-events:none}
+@keyframes frogBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+@keyframes umbFloat{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-8px) rotate(5deg)}}
+@keyframes drift{0%{transform:translateX(0)}100%{transform:translateX(60px)}}
+#ui{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px}
+#title-block{text-align:center;margin-bottom:10px}
+#title-block h1{font-size:2rem;font-weight:900;color:#fff;text-shadow:0 2px 8px rgba(0,60,120,.5),0 0 30px rgba(100,220,255,.4);letter-spacing:2px}
+#title-block p{color:rgba(255,255,255,.9);font-size:.9rem;margin-top:3px;text-shadow:0 1px 4px rgba(0,0,0,.3)}
+#step-dots{display:flex;gap:10px;margin-bottom:10px}
+.dot{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.3);border:2px solid rgba(255,255,255,.6);transition:all .3s}
+.dot.active{background:#fff;box-shadow:0 0 8px rgba(255,255,255,.8)}
+.dot.done{background:rgba(100,255,150,.8);border-color:rgba(100,255,150,.9)}
+#activity-card{background:rgba(255,255,255,.15);backdrop-filter:blur(6px);border:2px solid rgba(255,255,255,.35);border-radius:20px;padding:14px 18px;width:100%;max-width:660px;min-height:360px;display:flex;flex-direction:column;gap:10px}
+#act-header{display:flex;align-items:center;gap:10px}
+#act-badge{background:rgba(255,255,255,.25);color:#fff;font-weight:700;font-size:.75rem;padding:3px 10px;border-radius:20px;letter-spacing:1px}
+#act-title{color:#fff;font-size:1.1rem;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.3)}
+#act-desc{color:rgba(255,255,255,.9);font-size:.8rem;background:rgba(0,0,0,.12);border-radius:10px;padding:7px 10px}
+#drop-zone-area{flex:1;display:flex;gap:10px}
+#pieces-tray{display:flex;flex-direction:column;gap:7px;min-width:110px}
+#pieces-label{color:rgba(255,255,255,.8);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.piece{background:rgba(255,255,255,.22);border:2px dashed rgba(255,255,255,.5);border-radius:12px;padding:7px 10px;color:#fff;font-size:.8rem;font-weight:600;cursor:grab;text-align:center;transition:all .2s;display:flex;align-items:center;gap:6px}
+.piece:hover{background:rgba(255,255,255,.35);transform:scale(1.03)}
+.piece.dragging{opacity:.4;cursor:grabbing}
+.piece.placed{opacity:.35;pointer-events:none;border-style:solid}
+#drop-zones{flex:1;display:grid;gap:8px}
+.dz{border:2px dashed rgba(255,255,255,.4);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:.75rem;color:rgba(255,255,255,.6);min-height:55px;transition:all .25s;text-align:center;flex-direction:column;gap:3px;position:relative;padding:4px}
+.dz.over{background:rgba(255,255,255,.2);border-color:#fff;border-style:solid}
+.dz.filled{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.6);border-style:solid}
+.dz.filled .dz-label{font-size:.65rem;color:rgba(255,255,255,.6)}
+.dz-content{font-size:.85rem;font-weight:700;color:#fff;display:flex;align-items:center;gap:5px}
+#btn-row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+.btn{padding:8px 20px;border-radius:20px;border:none;font-size:.85rem;font-weight:700;cursor:pointer;transition:all .2s}
+.btn-next{background:linear-gradient(135deg,#4cda64,#2fb54a);color:#fff;box-shadow:0 3px 12px rgba(0,0,0,.2)}
+.btn-next:hover{transform:translateY(-2px);box-shadow:0 5px 16px rgba(0,0,0,.25)}
+.btn-next:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-reset{background:rgba(255,255,255,.2);color:#fff;border:1.5px solid rgba(255,255,255,.5)}
+.btn-reset:hover{background:rgba(255,255,255,.3)}
+#progress-bar{height:5px;background:rgba(255,255,255,.2);border-radius:5px;overflow:hidden;margin-top:2px}
+#progress-fill{height:100%;background:linear-gradient(90deg,#4cda64,#2fb54a);border-radius:5px;transition:width .5s}
+.popup-overlay{position:absolute;inset:0;background:rgba(0,30,60,.55);z-index:50;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.popup{background:linear-gradient(135deg,rgba(255,255,255,.95),rgba(220,240,255,.95));border-radius:24px;padding:28px 32px;text-align:center;max-width:340px;border:2px solid rgba(100,200,255,.5);box-shadow:0 8px 40px rgba(0,60,120,.3)}
+.popup h2{font-size:1.4rem;color:#1a5f8a;margin-bottom:8px}
+.popup p{font-size:.9rem;color:#2a6a7a;margin-bottom:16px;line-height:1.5}
+.popup .emoji-big{font-size:3rem;margin-bottom:8px;display:block}
+.popup .btn-next{margin:0 auto;display:block;padding:10px 28px}
+</style>
+<canvas id="rain"></canvas>
+<div id="clouds"></div>
+<div id="ground"></div>
+<div class="rainbow"></div>
+<div id="app">
+<div id="ui">
+  <div id="title-block">
+    <h1>INVENT A NEW GAME</h1>
+    <p>Design it. Build the rules. Test it with friends!</p>
+  </div>
+  <div id="step-dots">
+    <div class="dot active" id="d1"></div>
+    <div class="dot" id="d2"></div>
+    <div class="dot" id="d3"></div>
+  </div>
+  <div id="progress-bar"><div id="progress-fill" style="width:0%"></div></div>
+  <div style="height:8px"></div>
+  <div id="activity-card">
+    <div id="act-header">
+      <span id="act-badge">ACTIVITY 1 OF 3</span>
+      <span id="act-title">Design Your Game</span>
+    </div>
+    <div id="act-desc" id="act-desc">Drag the game pieces into the board slots below. Fill all 4 slots to build your game setup!</div>
+    <div id="drop-zone-area">
+      <div id="pieces-tray">
+        <div id="pieces-label">Game Pieces</div>
+      </div>
+      <div id="drop-zones"></div>
+    </div>
+    <div id="btn-row">
+      <button class="btn btn-reset" onclick="resetActivity()">Reset</button>
+      <button class="btn btn-next" id="btn-next" disabled onclick="nextActivity()">Next Step</button>
+    </div>
+  </div>
+</div>
+</div>
+<script>
+const ACTIVITIES = [
+  {
+    badge:"ACTIVITY 1 OF 3",
+    title:"Design Your Game",
+    desc:"Drag the game pieces into the matching board slots. Fill all 4 slots to complete your game setup!",
+    pieces:[
+      {id:"dice",icon:"🎲",label:"Dice"},
+      {id:"cards",icon:"🃏",label:"Cards"},
+      {id:"sticks",icon:"🪄",label:"Sticks"},
+      {id:"board",icon:"🎯",label:"Goal Marker"}
+    ],
+    zones:[
+      {id:"z-start",label:"Starting Zone",hint:"Drop a piece to begin"},
+      {id:"z-play",label:"Play Area",hint:"Drop a piece here"},
+      {id:"z-score",label:"Score Spot",hint:"Drop a piece here"},
+      {id:"z-win",label:"Winner Zone",hint:"Drop the final piece"}
+    ],
+    grid:"repeat(2,1fr)"
+  },
+  {
+    badge:"ACTIVITY 2 OF 3",
+    title:"Create the Rules",
+    desc:"Every great game has clear rules! Drag each rule step into the correct order slot.",
+    pieces:[
+      {id:"r1",icon:"🏁",label:"Set up the board"},
+      {id:"r2",icon:"👆",label:"Oldest goes first"},
+      {id:"r3",icon:"🔄",label:"Take turns"},
+      {id:"r4",icon:"🏆",label:"First to reach goal wins"}
+    ],
+    zones:[
+      {id:"rz1",label:"Rule 1 — Start",hint:"How does the game begin?"},
+      {id:"rz2",label:"Rule 2 — Order",hint:"Who goes first?"},
+      {id:"rz3",label:"Rule 3 — Play",hint:"How do turns work?"},
+      {id:"rz4",label:"Rule 4 — Win",hint:"How do you win?"}
+    ],
+    grid:"1fr"
+  },
+  {
+    badge:"ACTIVITY 3 OF 3",
+    title:"Test & Improve",
+    desc:"Your friends played your game! Drag their feedback into the right improvement slots to make your game even better.",
+    pieces:[
+      {id:"f1",icon:"😅",label:"Too confusing"},
+      {id:"f2",icon:"⏱️",label:"Too long"},
+      {id:"f3",icon:"🤝",label:"Needs more teamwork"},
+      {id:"f4",icon:"🎉",label:"Really fun ending!"}
+    ],
+    zones:[
+      {id:"fz1",label:"Simplify the Rules",hint:"Fix something confusing"},
+      {id:"fz2",label:"Shorten the Game",hint:"Make it quicker"},
+      {id:"fz3",label:"Add a Team Twist",hint:"Make it more collaborative"},
+      {id:"fz4",label:"Keep This Part",hint:"Something worth keeping!"}
+    ],
+    grid:"repeat(2,1fr)"
+  }
+];
+
+let currentAct = 0;
+let dropped = {};
+let draggingId = null;
+
+function buildActivity(idx){
+  const a = ACTIVITIES[idx];
+  dropped = {};
+  document.getElementById("act-badge").textContent = a.badge;
+  document.getElementById("act-title").textContent = a.title;
+  document.getElementById("act-desc").textContent = a.desc;
+  document.getElementById("btn-next").disabled = true;
+
+  const tray = document.getElementById("pieces-tray");
+  tray.innerHTML = '<div id="pieces-label" style="color:rgba(255,255,255,.8);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Game Pieces</div>';
+  a.pieces.forEach(p => {
+    const el = document.createElement("div");
+    el.className = "piece";
+    el.id = "piece-"+p.id;
+    el.draggable = true;
+    el.innerHTML = `<span>${p.icon}</span><span>${p.label}</span>`;
+    el.addEventListener("dragstart", e => { draggingId = p.id; el.classList.add("dragging"); });
+    el.addEventListener("dragend", () => el.classList.remove("dragging"));
+    tray.appendChild(el);
+  });
+
+  const dz = document.getElementById("drop-zones");
+  dz.innerHTML = "";
+  dz.style.gridTemplateColumns = a.grid;
+  dz.style.display = "grid";
+  a.zones.forEach(z => {
+    const el = document.createElement("div");
+    el.className = "dz";
+    el.id = z.id;
+    el.innerHTML = `<span class="dz-label" style="font-size:.68rem;color:rgba(255,255,255,.7);font-weight:600">${z.label}</span><span style="font-size:.65rem;color:rgba(255,255,255,.45)">${z.hint}</span>`;
+    el.addEventListener("dragover", e => { e.preventDefault(); el.classList.add("over"); });
+    el.addEventListener("dragleave", () => el.classList.remove("over"));
+    el.addEventListener("drop", e => { e.preventDefault(); el.classList.remove("over"); handleDrop(z.id, z.label); });
+    dz.appendChild(el);
+  });
+
+  updateDots(idx);
+  updateProgress(idx, 0);
+}
+
+function handleDrop(zoneId, zoneLabel){
+  if(!draggingId) return;
+  const a = ACTIVITIES[currentAct];
+  const piece = a.pieces.find(p => p.id === draggingId);
+  if(!piece) return;
+  if(dropped[zoneId]){
+    const oldId = dropped[zoneId];
+    const oldPiece = document.getElementById("piece-"+oldId);
+    if(oldPiece){ oldPiece.classList.remove("placed"); }
+  }
+  dropped[zoneId] = draggingId;
+  const zEl = document.getElementById(zoneId);
+  zEl.classList.add("filled");
+  zEl.innerHTML = `<span class="dz-label" style="font-size:.65rem;color:rgba(255,255,255,.6)">${zoneLabel}</span><div class="dz-content"><span>${piece.icon}</span><span>${piece.label}</span></div>`;
+  const pEl = document.getElementById("piece-"+draggingId);
+  if(pEl) pEl.classList.add("placed");
+  draggingId = null;
+  checkComplete();
+}
+
+function checkComplete(){
+  const a = ACTIVITIES[currentAct];
+  const filled = a.zones.filter(z => dropped[z.id]).length;
+  updateProgress(currentAct, filled / a.zones.length);
+  if(filled === a.zones.length){
+    document.getElementById("btn-next").disabled = false;
+    showSuccessPopup(currentAct);
+  }
+}
+
+function showSuccessPopup(idx){
+  const msgs = [
+    {emoji:"🎲",title:"Game Board Ready!",msg:"Amazing! You've placed all the pieces. Your game has a starting zone, play area, score spot, and winner zone!"},
+    {emoji:"📋",title:"Rules Complete!",msg:"Fantastic! Your game now has 4 clear rules. Every great game needs order — you nailed it!"},
+    {emoji:"🎉",title:"Game Improved!",msg:"Incredible! You listened to feedback and made your game even better. That's what great game designers do!"}
+  ];
+  const m = msgs[idx];
+  const overlay = document.createElement("div");
+  overlay.className = "popup-overlay";
+  overlay.innerHTML = `<div class="popup">
+    <span class="emoji-big">${m.emoji}</span>
+    <h2>${m.title}</h2>
+    <p>${m.msg}</p>
+    <button class="btn btn-next" onclick="this.closest('.popup-overlay').remove();${idx<2?'':'showFinalPopup()'}">${idx<2?'Continue to Next Activity':'See Your Achievement!'}</button>
+  </div>`;
+  document.getElementById("app").appendChild(overlay);
+}
+
+function showFinalPopup(){
+  const overlay = document.createElement("div");
+  overlay.className = "popup-overlay";
+  overlay.innerHTML = `<div class="popup" style="max-width:380px">
+    <span class="emoji-big">🌈</span>
+    <h2 style="font-size:1.6rem;color:#1a4a8a">Game Designer!</h2>
+    <p style="font-size:.95rem">You designed a game, wrote the rules, tested it, and improved it using real feedback.<br><br>
+    <strong style="color:#1a5f8a">That is exactly how professional game designers work!</strong><br><br>
+    Now go invent your own game in real life — all you need is imagination and a few objects around you!</p>
+    <button class="btn btn-next" onclick="this.closest('.popup-overlay').remove();restartAll()" style="margin-top:4px">Play Again</button>
+  </div>`;
+  document.getElementById("app").appendChild(overlay);
+}
+
+function nextActivity(){
+  if(currentAct < 2){
+    currentAct++;
+    buildActivity(currentAct);
+  }
+}
+
+function resetActivity(){ buildActivity(currentAct); }
+
+function restartAll(){ currentAct=0; buildActivity(0); }
+
+function updateDots(idx){
+  for(let i=0;i<3;i++){
+    const d = document.getElementById("d"+(i+1));
+    d.className = "dot";
+    if(i < idx) d.classList.add("done");
+    else if(i === idx) d.classList.add("active");
+  }
+}
+
+function updateProgress(actIdx, fraction){
+  const base = actIdx/3;
+  const pct = Math.round((base + fraction/3)*100);
+  document.getElementById("progress-fill").style.width = pct+"%";
+}
+
+buildActivity(0);
+
+const canvas = document.getElementById("rain");
+const ctx = canvas.getContext("2d");
+let drops = [];
+function resizeCanvas(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+for(let i=0;i<120;i++){
+  drops.push({x:Math.random()*window.innerWidth,y:Math.random()*window.innerHeight,len:Math.random()*14+6,speed:Math.random()*4+3,alpha:Math.random()*.5+.15});
+}
+function animateRain(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drops.forEach(d=>{
+    ctx.strokeStyle=`rgba(150,220,255,${d.alpha})`;
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(d.x,d.y);
+    ctx.lineTo(d.x-d.len*0.15,d.y+d.len);
+    ctx.stroke();
+    d.y+=d.speed;
+    if(d.y>canvas.height){d.y=-20;d.x=Math.random()*canvas.width;}
+  });
+  requestAnimationFrame(animateRain);
+}
+animateRain();
+
+const cloudsSvgs=[
+  '<svg width="120" height="50" viewBox="0 0 120 50" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="60" cy="35" rx="55" ry="18" fill="rgba(255,255,255,0.55)"/><ellipse cx="40" cy="28" rx="28" ry="20" fill="rgba(255,255,255,0.55)"/><ellipse cx="75" cy="25" rx="22" ry="18" fill="rgba(255,255,255,0.55)"/></svg>',
+  '<svg width="90" height="40" viewBox="0 0 90 40" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="45" cy="28" rx="40" ry="14" fill="rgba(255,255,255,0.5)"/><ellipse cx="30" cy="22" rx="20" ry="16" fill="rgba(255,255,255,0.5)"/><ellipse cx="58" cy="20" rx="18" ry="15" fill="rgba(255,255,255,0.5)"/></svg>'
+];
+const cloudsContainer = document.getElementById("clouds");
+const cloudData=[
+  {svg:0,top:"5%",left:"-5%",speed:28,delay:0},
+  {svg:1,top:"12%",left:"30%",speed:35,delay:5},
+  {svg:0,top:"3%",left:"70%",speed:22,delay:10},
+  {svg:1,top:"18%",left:"85%",speed:30,delay:2}
+];
+cloudData.forEach((c,i)=>{
+  const d=document.createElement("div");
+  d.className="cloud";
+  d.style.top=c.top;
+  d.style.left=c.left;
+  d.style.animation=`drift ${c.speed}s ${c.delay}s linear infinite alternate`;
+  d.innerHTML=cloudsSvgs[c.svg];
+  cloudsContainer.appendChild(d);
+});
+
+const ground = document.getElementById("ground");
+const puddleData=[{left:"10%",w:70,h:22},{left:"35%",w:110,h:28},{left:"65%",w:80,h:20},{left:"82%",w:55,h:18}];
+puddleData.forEach(p=>{
+  const el=document.createElement("div");
+  el.className="puddle";
+  el.style.left=p.left;
+  el.style.width=p.w+"px";
+  el.style.height=p.h+"px";
+  document.getElementById("app").appendChild(el);
+});
+
+const frogs=[{left:"8%",delay:0},{left:"55%",delay:1.2},{left:"88%",delay:0.6}];
+frogs.forEach(f=>{
+  const el=document.createElement("div");
+  el.className="frog";
+  el.textContent="🐸";
+  el.style.left=f.left;
+  el.style.animationDelay=f.delay+"s";
+  document.getElementById("app").appendChild(el);
+});
+
+const umbrellas=[{left:"20%",top:"25%",delay:0},{left:"75%",top:"22%",delay:2}];
+umbrellas.forEach(u=>{
+  const el=document.createElement("div");
+  el.className="umbrella";
+  el.textContent="☂️";
+  el.style.left=u.left;
+  el.style.top=u.top;
+  el.style.animationDelay=u.delay+"s";
+  document.getElementById("app").appendChild(el);
+});
+</script>

@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PYTHON — TURTLE ART: GEOMETRIC PATTERNS</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --space-void:#020408; --star-white:#e8f4ff;
+  --aurora-cyan:#00e5ff; --aurora-violet:#7c4dff;
+  --aurora-magenta:#e040fb; --aurora-gold:#ffd740;
+  --aurora-green:#69ff47; --aurora-orange:#ff6d00;
+  --glass:rgba(10,22,40,0.80); --glass-border:rgba(0,229,255,0.2);
+  --glow-cyan:0 0 20px rgba(0,229,255,0.5),0 0 60px rgba(0,229,255,0.15);
+  --glow-gold:0 0 20px rgba(255,215,64,0.6),0 0 60px rgba(255,215,64,0.2);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100vh;overflow:hidden;font-family:'Exo 2',sans-serif;background:var(--space-void);}
+
+/* ── BACKGROUND ── */
+#cosmos{position:fixed;inset:0;z-index:0;
+  background:radial-gradient(ellipse 120% 80% at 20% 30%,rgba(7,18,40,0.9) 0%,transparent 60%),
+    radial-gradient(ellipse 80% 60% at 80% 70%,rgba(20,5,45,0.8) 0%,transparent 50%),
+    linear-gradient(135deg,#010208 0%,#030b18 40%,#060214 70%,#020408 100%);}
+#starfield{position:fixed;inset:0;z-index:1;pointer-events:none;}
+#nebula-layer,#particle-layer{position:fixed;inset:0;z-index:2;pointer-events:none;}
+.nebula-blob{position:absolute;border-radius:50%;filter:blur(80px);
+  animation:nebulaFloat var(--nb-dur,20s) ease-in-out infinite var(--nb-delay,0s) alternate;}
+@keyframes nebulaFloat{0%{transform:translate(0,0) scale(1);}100%{transform:translate(var(--nx,20px),var(--ny,30px)) scale(var(--ns,1.1));}}
+.planet{position:absolute;border-radius:50%;animation:planetDrift var(--pd,40s) ease-in-out infinite;}
+@keyframes planetDrift{0%,100%{transform:translateY(0);}50%{transform:translateY(-12px);}}
+.planet-ring{position:absolute;left:50%;top:50%;border-radius:50%;border:2px solid rgba(100,180,255,0.25);transform:translate(-50%,-50%) rotateX(75deg);}
+.satellite-wrap{position:fixed;left:28%;top:14%;z-index:3;animation:satDrift 38s linear infinite;}
+@keyframes satDrift{0%{transform:translate(0,0);}25%{transform:translate(140px,-40px);}50%{transform:translate(230px,15px);}75%{transform:translate(90px,55px);}100%{transform:translate(0,0);}}
+.sat-body{width:20px;height:8px;background:linear-gradient(90deg,#aaa,#eee,#aaa);border-radius:3px;position:relative;}
+.sat-wing{position:absolute;top:50%;width:28px;height:6px;background:linear-gradient(90deg,#4fc3f7,#81d4fa);border-radius:2px;transform:translateY(-50%);}
+.sat-wing.l{right:100%;}.sat-wing.r{left:100%;}
+.sat-blink{position:absolute;width:4px;height:4px;border-radius:50%;background:#f00;top:-2px;right:-2px;animation:blink 1.2s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.asteroid{position:absolute;border-radius:40% 60% 55% 45%;background:linear-gradient(135deg,#4a4a4a,#2a2a2a);
+  animation:asteroidDrift var(--ad-dur,18s) linear infinite var(--ad-delay,0s);opacity:0;}
+@keyframes asteroidDrift{0%{transform:translateX(-60px) rotate(0deg);opacity:0;}10%{opacity:0.7;}90%{opacity:0.5;}100%{transform:translateX(calc(100vw+80px)) rotate(400deg);opacity:0;}}
+.trail-particle{position:absolute;border-radius:50%;animation:trailFloat var(--tf-dur,6s) ease-in-out infinite var(--tf-delay,0s);}
+@keyframes trailFloat{0%,100%{transform:translate(0,0) scale(1);opacity:0.2;}50%{transform:translate(var(--tx,10px),var(--ty,-20px)) scale(1.6);opacity:0.7;}}
+
+/* ── LAYOUT ── */
+#app{position:relative;z-index:10;width:100vw;height:100vh;display:flex;flex-direction:column;padding:10px 18px 8px;}
+#header{text-align:center;flex-shrink:0;margin-bottom:6px;}
+.title-line{font-family:'Orbitron',monospace;font-weight:900;font-size:clamp(13px,2.2vw,24px);
+  letter-spacing:0.14em;
+  background:linear-gradient(90deg,var(--aurora-cyan),var(--aurora-violet),var(--aurora-magenta),var(--aurora-cyan));
+  background-size:300% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  animation:gradShift 4s ease-in-out infinite;}
+@keyframes gradShift{0%,100%{background-position:0% 50%;}50%{background-position:100% 50%;}}
+.subtitle{font-size:clamp(7px,1vw,11px);color:rgba(0,229,255,0.55);letter-spacing:0.35em;font-weight:300;margin-top:2px;}
+
+/* Progress */
+#progress-bar{display:flex;align-items:center;justify-content:center;gap:8px;margin:4px 0 6px;flex-shrink:0;}
+.prog-dot{width:30px;height:30px;border-radius:50%;border:2px solid rgba(0,229,255,0.25);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Orbitron',monospace;font-size:10px;font-weight:700;
+  color:rgba(0,229,255,0.35);transition:all 0.5s;position:relative;}
+.prog-dot.active{border-color:var(--aurora-cyan);color:var(--aurora-cyan);box-shadow:var(--glow-cyan);animation:progPulse 2s ease-in-out infinite;}
+.prog-dot.done{border-color:var(--aurora-gold);background:var(--aurora-gold);color:#020408;box-shadow:var(--glow-gold);}
+@keyframes progPulse{0%,100%{box-shadow:0 0 10px rgba(0,229,255,0.35);}50%{box-shadow:0 0 28px rgba(0,229,255,0.8),0 0 55px rgba(0,229,255,0.25);}}
+.prog-label{font-size:8px;letter-spacing:0.12em;color:rgba(0,229,255,0.35);position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);white-space:nowrap;transition:color 0.5s;}
+.prog-dot.active .prog-label{color:var(--aurora-cyan);}
+.prog-dot.done .prog-label{color:var(--aurora-gold);}
+.prog-line{width:48px;height:2px;background:rgba(0,229,255,0.12);transition:background 0.5s;}
+.prog-line.done{background:var(--aurora-gold);}
+
+/* Activity container */
+#activity-container{flex:1;display:flex;gap:14px;min-height:0;}
+.panel{background:var(--glass);border:1px solid var(--glass-border);border-radius:16px;
+  backdrop-filter:blur(20px);position:relative;overflow:hidden;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.04),0 20px 60px rgba(0,0,0,0.5);}
+.panel::before{content:'';position:absolute;inset:0;border-radius:16px;pointer-events:none;
+  background:linear-gradient(135deg,rgba(0,229,255,0.03) 0%,transparent 50%,rgba(124,77,255,0.03) 100%);}
+#left-panel{width:295px;flex-shrink:0;display:flex;flex-direction:column;padding:14px;}
+#right-panel{flex:1;display:flex;flex-direction:column;padding:14px;}
+
+/* Activity sub-panels */
+.act-panel{display:none;flex-direction:column;flex:1;min-height:0;}
+.act-panel.active{display:flex;}
+
+.panel-title{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:0.28em;color:var(--aurora-cyan);
+  text-transform:uppercase;margin-bottom:10px;padding-bottom:7px;
+  border-bottom:1px solid rgba(0,229,255,0.13);display:flex;align-items:center;gap:7px;flex-shrink:0;}
+.panel-title::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--aurora-cyan);
+  box-shadow:0 0 7px var(--aurora-cyan);animation:dotPulse 2s ease-in-out infinite;}
+@keyframes dotPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.5);}}
+.act-badge{display:inline-block;font-family:'Orbitron',monospace;font-size:7px;font-weight:700;
+  letter-spacing:0.18em;padding:3px 9px;border-radius:20px;margin-bottom:6px;flex-shrink:0;}
+.act-desc{font-size:10px;color:rgba(232,244,255,0.65);line-height:1.5;font-weight:300;margin-bottom:8px;flex-shrink:0;}
+.drag-section-title{font-size:8px;letter-spacing:0.22em;font-weight:600;color:rgba(0,229,255,0.45);
+  text-transform:uppercase;margin:7px 0 5px;flex-shrink:0;}
+.source-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:5px;flex-shrink:0;}
+.drag-chip{padding:5px 9px;border-radius:7px;font-size:11px;font-family:'Exo 2',sans-serif;font-weight:600;
+  cursor:grab;user-select:none;border:1px solid rgba(255,255,255,0.13);transition:all 0.2s;white-space:nowrap;}
+.drag-chip:hover{transform:translateY(-2px) scale(1.05);}
+.drag-chip:active{cursor:grabbing;}
+.drag-chip.is-dragging{opacity:0.35;}
+.drop-zone{min-height:36px;border-radius:7px;border:1.5px dashed rgba(0,229,255,0.28);
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:rgba(0,229,255,0.38);letter-spacing:0.09em;
+  transition:all 0.22s;margin-bottom:5px;position:relative;padding:4px 28px 4px 8px;flex-shrink:0;}
+.drop-zone.over{border-color:var(--aurora-cyan);background:rgba(0,229,255,0.07);box-shadow:0 0 14px rgba(0,229,255,0.18);}
+.drop-zone.filled{border-style:solid;border-color:rgba(0,229,255,0.45);background:rgba(0,229,255,0.04);}
+.filled-chip{padding:3px 9px;border-radius:6px;font-size:11px;font-family:'Exo 2',sans-serif;font-weight:600;}
+.rm-btn{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:16px;height:16px;
+  border-radius:50%;background:rgba(255,80,80,0.25);border:none;color:#ff8a80;font-size:11px;
+  cursor:pointer;line-height:16px;text-align:center;padding:0;}
+.dz-hint{font-size:9px;color:rgba(0,229,255,0.35);letter-spacing:0.08em;pointer-events:none;}
+.color-chip{width:30px;height:30px;border-radius:7px;cursor:grab;border:2px solid rgba(255,255,255,0.18);transition:all 0.2s;user-select:none;flex-shrink:0;}
+.color-chip:hover{transform:scale(1.12);}
+.color-chip.selectable{cursor:pointer;}
+.color-drop-zone{min-height:34px;flex:1;border-radius:7px;border:2px dashed rgba(0,229,255,0.28);
+  display:flex;align-items:center;justify-content:center;transition:all 0.22s;
+  font-size:9px;color:rgba(0,229,255,0.38);font-family:'Exo 2',sans-serif;
+  letter-spacing:0.1em;position:relative;flex-shrink:0;}
+.color-drop-zone.over{border-color:#fff;box-shadow:0 0 12px rgba(255,255,255,0.25);}
+.color-drop-zone.filled{border-style:solid;}
+.step-block{padding:6px 10px;border-radius:7px;cursor:grab;font-family:'Courier New',monospace;font-size:10.5px;
+  user-select:none;border:1px solid rgba(255,255,255,0.1);transition:all 0.18s;color:#e8f4ff;flex-shrink:0;}
+.step-block:hover{transform:translateY(-1px);}
+.step-block.is-dragging{opacity:0.3;}
+.seq-slot{min-height:34px;border-radius:7px;border:1.5px dashed rgba(124,77,255,0.38);
+  margin-bottom:5px;display:flex;align-items:center;padding:3px 26px 3px 8px;
+  transition:all 0.22s;position:relative;font-size:9.5px;color:rgba(124,77,255,0.42);flex-shrink:0;}
+.seq-slot.over{border-color:var(--aurora-violet);background:rgba(124,77,255,0.08);}
+.seq-slot.filled{border-style:solid;border-color:rgba(124,77,255,0.48);background:rgba(124,77,255,0.04);}
+.slot-num{position:absolute;right:7px;top:50%;transform:translateY(-50%);font-family:'Orbitron',monospace;font-size:7px;color:rgba(124,77,255,0.38);}
+.slider-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-shrink:0;}
+.slider-row label{font-size:9.5px;color:rgba(0,229,255,0.65);letter-spacing:0.09em;width:72px;flex-shrink:0;}
+.slider-row input[type=range]{flex:1;accent-color:var(--aurora-cyan);cursor:pointer;height:3px;}
+.slider-val{font-family:'Orbitron',monospace;font-size:10px;color:var(--aurora-gold);width:26px;text-align:right;}
+.btn-run{margin-top:auto;padding:9px 0;font-family:'Orbitron',monospace;font-size:10px;font-weight:700;
+  letter-spacing:0.22em;border:none;border-radius:9px;cursor:pointer;width:100%;
+  position:relative;overflow:hidden;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:7px;flex-shrink:0;}
+.btn-run::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.09),transparent);
+  transform:translateX(-100%);transition:transform 0.5s;}
+.btn-run:hover::after{transform:translateX(100%);}
+.cyan-btn{background:linear-gradient(135deg,#004d60,#007c8c);color:var(--aurora-cyan);
+  box-shadow:0 4px 18px rgba(0,229,255,0.18),inset 0 1px 0 rgba(0,229,255,0.28);}
+.cyan-btn:hover{background:linear-gradient(135deg,#006070,#009aaf);transform:translateY(-1px);box-shadow:0 6px 28px rgba(0,229,255,0.38);}
+.violet-btn{background:linear-gradient(135deg,#2d1b69,#4527a0);color:#b39ddb;
+  box-shadow:0 4px 18px rgba(124,77,255,0.18),inset 0 1px 0 rgba(124,77,255,0.28);}
+.violet-btn:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(124,77,255,0.38);}
+.gold-btn{background:linear-gradient(135deg,#5d4037,#8d6e63);color:var(--aurora-gold);
+  box-shadow:0 4px 18px rgba(255,215,64,0.18),inset 0 1px 0 rgba(255,215,64,0.28);}
+.gold-btn:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(255,215,64,0.38);}
+.green-btn{background:linear-gradient(135deg,#1b5e20,#2e7d32);color:var(--aurora-green);
+  border:1px solid rgba(105,255,71,0.28);box-shadow:0 0 18px rgba(105,255,71,0.18);margin-top:5px;}
+.green-btn:hover{box-shadow:0 0 28px rgba(105,255,71,0.38);transform:translateY(-1px);}
+.finish-btn{background:linear-gradient(135deg,#3d0a6b,#6a0080);color:var(--aurora-magenta);
+  border:1px solid rgba(224,64,251,0.28);margin-top:5px;}
+.finish-btn:hover{transform:translateY(-1px);box-shadow:0 6px 22px rgba(224,64,251,0.35);}
+#canvas-wrapper{flex:1;position:relative;display:flex;align-items:center;justify-content:center;min-height:0;}
+#main-canvas{border-radius:11px;border:1px solid rgba(0,229,255,0.14);
+  box-shadow:0 0 36px rgba(0,229,255,0.09);max-width:100%;max-height:100%;}
+.canvas-label{position:absolute;bottom:6px;right:8px;font-size:7px;letter-spacing:0.18em;
+  color:rgba(0,229,255,0.28);font-family:'Orbitron',monospace;}
+#code-display{background:rgba(0,0,0,0.48);border-radius:7px;padding:8px 10px;margin-top:7px;
+  font-family:'Courier New',monospace;font-size:9.5px;line-height:1.6;color:#ccc;flex-shrink:0;
+  border:1px solid rgba(0,229,255,0.09);max-height:72px;overflow-y:auto;}
+.kw{color:#7c4dff;}.fn{color:#00e5ff;}.num{color:#ffd740;}.str{color:#69ff47;}.cm{color:#546e7a;}
+.fb{padding:5px 10px;border-radius:7px;font-size:9.5px;letter-spacing:0.09em;text-align:center;margin-top:5px;transition:all 0.35s;flex-shrink:0;}
+.fb.hidden{opacity:0;pointer-events:none;padding:0;margin:0;height:0;overflow:hidden;}
+.fb.success{background:rgba(105,255,71,0.09);border:1px solid rgba(105,255,71,0.28);color:var(--aurora-green);}
+.fb.error{background:rgba(255,80,80,0.09);border:1px solid rgba(255,80,80,0.28);color:#ff8a80;}
+.fb.info{background:rgba(0,229,255,0.07);border:1px solid rgba(0,229,255,0.18);color:var(--aurora-cyan);}
+.popup-overlay{position:fixed;inset:0;z-index:200;background:rgba(1,4,12,0.88);
+  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);}
+.popup-overlay.hidden{display:none;}
+.popup-card{background:rgba(4,12,28,0.97);border-radius:20px;padding:30px 36px;max-width:490px;width:92%;
+  border:1px solid var(--glass-border);text-align:center;position:relative;overflow:hidden;
+  animation:cardIn 0.45s cubic-bezier(0.34,1.56,0.64,1) both;}
+@keyframes cardIn{from{opacity:0;transform:scale(0.82) translateY(22px);}to{opacity:1;transform:scale(1) translateY(0);}}
+.popup-card::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at top,rgba(0,229,255,0.05) 0%,transparent 65%);pointer-events:none;}
+.p-emoji{font-size:46px;margin-bottom:12px;display:block;animation:emojiFloat 3s ease-in-out infinite;}
+@keyframes emojiFloat{0%,100%{transform:translateY(0) rotate(-4deg);}50%{transform:translateY(-8px) rotate(4deg);}}
+.p-title{font-family:'Orbitron',monospace;font-size:17px;font-weight:900;letter-spacing:0.09em;margin-bottom:7px;}
+.p-sub{font-size:12px;color:rgba(232,244,255,0.62);line-height:1.6;margin-bottom:18px;font-weight:300;}
+.p-code{background:rgba(0,0,0,0.48);border-radius:9px;padding:12px;font-family:'Courier New',monospace;
+  font-size:10.5px;text-align:left;line-height:1.7;margin-bottom:16px;border:1px solid rgba(0,229,255,0.09);}
+.p-btn{padding:11px 28px;border-radius:50px;border:none;font-family:'Orbitron',monospace;font-size:11px;
+  font-weight:700;letter-spacing:0.18em;cursor:pointer;transition:all 0.28s;}
+.p-btn.next{background:linear-gradient(135deg,var(--aurora-cyan),var(--aurora-violet));color:#fff;
+  box-shadow:0 6px 28px rgba(0,229,255,0.28);}
+.p-btn.next:hover{box-shadow:0 10px 36px rgba(0,229,255,0.45);transform:translateY(-2px);}
+.p-btn.start{background:linear-gradient(135deg,var(--aurora-violet),var(--aurora-magenta));color:#fff;
+  box-shadow:0 6px 28px rgba(124,77,255,0.28);}
+.p-btn.start:hover{transform:translateY(-2px);}
+.confetti-burst{position:absolute;inset:0;pointer-events:none;}
+.confetti-dot{position:absolute;width:8px;height:8px;border-radius:2px;animation:cFall 2.2s ease-in both;}
+@keyframes cFall{0%{transform:translate(0,0) rotate(0deg);opacity:1;}100%{transform:translate(var(--cx,40px),220px) rotate(560deg);opacity:0;}}
+#intro-popup .popup-card{border-color:rgba(124,77,255,0.38);}
+#success-popup .popup-card{border-color:rgba(255,215,64,0.38);}
+#success-popup .popup-card::before{background:radial-gradient(ellipse at top,rgba(255,215,64,0.07) 0%,transparent 65%);}
+::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:rgba(0,229,255,0.18);border-radius:2px;}
+</style>
+</head>
+<body>
+<div id="cosmos"></div>
+<canvas id="starfield" style="position:fixed;inset:0;z-index:1;pointer-events:none;"></canvas>
+<div id="nebula-layer"></div>
+<div id="particle-layer"></div>
+
+<div id="app">
+  <div id="header">
+    <div class="title-line">PYTHON — TURTLE ART: GEOMETRIC PATTERNS</div>
+    <div class="subtitle">⬡ INTERACTIVE SPACE LAB ⬡ DRAG · DROP · CREATE · EXPLORE ⬡</div>
+  </div>
+  <div id="progress-bar">
+    <div class="prog-dot active" id="dot-1">1<span class="prog-label">SPIROGRAPH</span></div>
+    <div class="prog-line" id="line-1"></div>
+    <div class="prog-dot" id="dot-2">2<span class="prog-label">MANDALA</span></div>
+    <div class="prog-line" id="line-2"></div>
+    <div class="prog-dot" id="dot-3">3<span class="prog-label">SNOWFLAKE</span></div>
+  </div>
+  <div id="activity-container">
+    <!-- LEFT PANEL -->
+    <div id="left-panel" class="panel">
+      <div class="panel-title" id="left-title">CONTROL DECK</div>
+
+      <!-- A1 -->
+      <div class="act-panel active" id="a1-panel">
+        <div class="act-badge" style="background:rgba(0,229,255,0.09);border:1px solid rgba(0,229,255,0.28);color:var(--aurora-cyan);">⬟ ACTIVITY 01 — SPIROGRAPH</div>
+        <div class="act-desc">Drag loop values, step size and colours into the drop zones, then launch your spirograph!</div>
+        <div class="drag-section-title">① LOOP COUNT</div>
+        <div class="source-row">
+          <div class="drag-chip" style="background:rgba(0,229,255,0.1);color:#80deea;border-color:rgba(0,229,255,0.28);" draggable="true" data-kind="loops" data-val="36">36</div>
+          <div class="drag-chip" style="background:rgba(0,229,255,0.1);color:#80deea;border-color:rgba(0,229,255,0.28);" draggable="true" data-kind="loops" data-val="72">72</div>
+          <div class="drag-chip" style="background:rgba(0,229,255,0.1);color:#80deea;border-color:rgba(0,229,255,0.28);" draggable="true" data-kind="loops" data-val="120">120</div>
+          <div class="drag-chip" style="background:rgba(0,229,255,0.1);color:#80deea;border-color:rgba(0,229,255,0.28);" draggable="true" data-kind="loops" data-val="180">180</div>
+        </div>
+        <div class="drop-zone" id="dz-loops"><span class="dz-hint">DROP LOOP COUNT HERE</span></div>
+        <div class="drag-section-title">② STEP SIZE</div>
+        <div class="source-row">
+          <div class="drag-chip" style="background:rgba(255,215,64,0.08);color:#ffe082;border-color:rgba(255,215,64,0.28);" draggable="true" data-kind="step" data-val="50">50</div>
+          <div class="drag-chip" style="background:rgba(255,215,64,0.08);color:#ffe082;border-color:rgba(255,215,64,0.28);" draggable="true" data-kind="step" data-val="100">100</div>
+          <div class="drag-chip" style="background:rgba(255,215,64,0.08);color:#ffe082;border-color:rgba(255,215,64,0.28);" draggable="true" data-kind="step" data-val="150">150</div>
+        </div>
+        <div class="drop-zone" id="dz-step"><span class="dz-hint">DROP STEP SIZE HERE</span></div>
+        <div class="drag-section-title">③ COLOURS (1–3)</div>
+        <div class="source-row">
+          <div class="color-chip" draggable="true" data-kind="color" data-color="#00e5ff" style="background:#00e5ff;"></div>
+          <div class="color-chip" draggable="true" data-kind="color" data-color="#7c4dff" style="background:#7c4dff;"></div>
+          <div class="color-chip" draggable="true" data-kind="color" data-color="#e040fb" style="background:#e040fb;"></div>
+          <div class="color-chip" draggable="true" data-kind="color" data-color="#ffd740" style="background:#ffd740;"></div>
+          <div class="color-chip" draggable="true" data-kind="color" data-color="#69ff47" style="background:#69ff47;"></div>
+          <div class="color-chip" draggable="true" data-kind="color" data-color="#ff6d00" style="background:#ff6d00;"></div>
+        </div>
+        <div style="display:flex;gap:5px;margin-bottom:5px;">
+          <div class="color-drop-zone" id="dz-c0">C1</div>
+          <div class="color-drop-zone" id="dz-c1">C2</div>
+          <div class="color-drop-zone" id="dz-c2">C3</div>
+        </div>
+        <div class="fb hidden" id="fb-1"></div>
+        <button class="btn-run cyan-btn" onclick="runA1()">▶ LAUNCH SPIROGRAPH</button>
+      </div>
+
+      <!-- A2 -->
+      <div class="act-panel" id="a2-panel">
+        <div class="act-badge" style="background:rgba(124,77,255,0.09);border:1px solid rgba(124,77,255,0.28);color:#b39ddb;">⬡ ACTIVITY 02 — MANDALA</div>
+        <div class="act-desc">Drag the command blocks into the correct order (slots 1→4) to build a mandala.</div>
+        <div class="drag-section-title">COMMAND BLOCKS</div>
+        <div id="block-pool" style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;">
+          <div class="step-block" draggable="true" data-kind="block" data-cmd="forward" style="background:rgba(0,229,255,0.09);border-color:rgba(0,229,255,0.28);"><span class="fn">turtle</span>.<span class="fn">forward</span>(<span class="num">80</span>)</div>
+          <div class="step-block" draggable="true" data-kind="block" data-cmd="right"   style="background:rgba(255,215,64,0.07);border-color:rgba(255,215,64,0.22);"><span class="fn">turtle</span>.<span class="fn">right</span>(<span class="num">144</span>)</div>
+          <div class="step-block" draggable="true" data-kind="block" data-cmd="loop"    style="background:rgba(124,77,255,0.09);border-color:rgba(124,77,255,0.28);"><span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">36</span>):</div>
+          <div class="step-block" draggable="true" data-kind="block" data-cmd="color"   style="background:rgba(224,64,251,0.07);border-color:rgba(224,64,251,0.22);"><span class="fn">turtle</span>.<span class="fn">pencolor</span>(<span class="str">cols[i%3]</span>)</div>
+        </div>
+        <div class="drag-section-title">ARRANGE IN ORDER (1 → 4)</div>
+        <div id="seq-container">
+          <div class="seq-slot" id="slot-0" data-pos="0"><span class="slot-hint">SLOT 1 — OUTER LOOP</span><span class="slot-num">#1</span></div>
+          <div class="seq-slot" id="slot-1" data-pos="1"><span class="slot-hint">SLOT 2 — SET COLOUR</span><span class="slot-num">#2</span></div>
+          <div class="seq-slot" id="slot-2" data-pos="2"><span class="slot-hint">SLOT 3 — MOVE FORWARD</span><span class="slot-num">#3</span></div>
+          <div class="seq-slot" id="slot-3" data-pos="3"><span class="slot-hint">SLOT 4 — TURN RIGHT</span><span class="slot-num">#4</span></div>
+        </div>
+        <div class="fb hidden" id="fb-2"></div>
+        <button class="btn-run violet-btn" onclick="runA2()">▶ GENERATE MANDALA</button>
+      </div>
+
+      <!-- A3 -->
+      <div class="act-panel" id="a3-panel">
+        <div class="act-badge" style="background:rgba(255,215,64,0.09);border:1px solid rgba(255,215,64,0.28);color:var(--aurora-gold);">✦ ACTIVITY 03 — SNOWFLAKE</div>
+        <div class="act-desc">Tune the sliders, pick a colour, generate your unique snowflake, then export it!</div>
+        <div class="drag-section-title">PARAMETERS</div>
+        <div class="slider-row"><label>BRANCHES</label><input type="range" id="sl-branches" min="4" max="12" value="6" oninput="setSV('branches',this.value)"><span class="slider-val" id="sv-branches">6</span></div>
+        <div class="slider-row"><label>DEPTH</label><input type="range" id="sl-depth" min="2" max="5" value="3" oninput="setSV('depth',this.value)"><span class="slider-val" id="sv-depth">3</span></div>
+        <div class="slider-row"><label>LENGTH</label><input type="range" id="sl-length" min="30" max="100" value="60" step="5" oninput="setSV('length',this.value)"><span class="slider-val" id="sv-length">60</span></div>
+        <div class="slider-row"><label>SPREAD</label><input type="range" id="sl-spread" min="30" max="60" value="45" step="5" oninput="setSV('spread',this.value)"><span class="slider-val" id="sv-spread">45</span></div>
+        <div class="drag-section-title">COLOUR</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;" id="snow-colors">
+          <div class="color-chip selectable" onclick="pickSnow(this,'#00e5ff')" style="background:#00e5ff;outline:2px solid #00e5ff;outline-offset:2px;"></div>
+          <div class="color-chip selectable" onclick="pickSnow(this,'#7c4dff')" style="background:#7c4dff;"></div>
+          <div class="color-chip selectable" onclick="pickSnow(this,'#ffffff')" style="background:#fff;"></div>
+          <div class="color-chip selectable" onclick="pickSnow(this,'#e040fb')" style="background:#e040fb;"></div>
+          <div class="color-chip selectable" onclick="pickSnow(this,'#69ff47')" style="background:#69ff47;"></div>
+          <div class="color-chip selectable" onclick="pickSnow(this,'#ffd740')" style="background:#ffd740;"></div>
+        </div>
+        <div class="fb hidden" id="fb-3"></div>
+        <button class="btn-run gold-btn" onclick="runA3()" style="margin-bottom:0;margin-top:auto;">▶ GENERATE SNOWFLAKE</button>
+        <button class="btn-run green-btn hidden" id="export-btn" onclick="doExport()">⬇ EXPORT AS IMAGE</button>
+        <button class="btn-run finish-btn hidden" id="finish-btn" onclick="showFinal()">🏆 FINISH LAB →</button>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div id="right-panel" class="panel">
+      <div class="panel-title" id="right-title">TURTLE CANVAS</div>
+      <div id="canvas-wrapper"><canvas id="main-canvas"></canvas></div>
+      <div id="code-display"><span class="cm"># Your code appears here when you run an activity...</span></div>
+      <div class="canvas-label" id="canvas-label">PLANRS ACADEMY — TURTLE ART</div>
+    </div>
+  </div>
+</div>
+
+<!-- INTRO -->
+<div class="popup-overlay" id="intro-popup">
+  <div class="popup-card">
+    <span class="p-emoji">🐢</span>
+    <div class="p-title" style="background:linear-gradient(90deg,var(--aurora-violet),var(--aurora-magenta));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">TURTLE ART LAB</div>
+    <div class="p-title" style="font-size:13px;color:var(--aurora-cyan);margin-top:-4px;margin-bottom:10px;letter-spacing:0.14em;">GEOMETRIC PATTERNS</div>
+    <div class="p-sub">Welcome to the Space Lab! Create a Spirograph, a Mandala, and a Snowflake using Python Turtle commands. Drag, drop, and watch your code come alive!</div>
+    <div class="p-code"><span class="kw">import</span> <span class="fn">turtle</span><br><span class="cm"># You are the programmer. The turtle obeys you.</span><br><span class="fn">turtle</span>.<span class="fn">speed</span>(<span class="num">0</span>)<br><span class="fn">turtle</span>.<span class="fn">pencolor</span>(<span class="str">"#00e5ff"</span>) <span class="cm"># magic starts!</span></div>
+    <button class="p-btn start" onclick="enterLab()">⚡ ENTER THE LAB</button>
+  </div>
+</div>
+
+<!-- COMPLETE -->
+<div class="popup-overlay hidden" id="complete-popup">
+  <div class="popup-card">
+    <div class="confetti-burst" id="confetti-a"></div>
+    <span class="p-emoji" id="cp-emoji">🎆</span>
+    <div class="p-title" id="cp-title" style="color:var(--aurora-cyan);">PATTERN COMPLETE!</div>
+    <div class="p-sub" id="cp-sub"></div>
+    <div class="p-code" id="cp-code"></div>
+    <button class="p-btn next" id="cp-next" onclick="goNext()">NEXT ACTIVITY →</button>
+  </div>
+</div>
+
+<!-- SUCCESS -->
+<div class="popup-overlay hidden" id="success-popup">
+  <div class="popup-card">
+    <div class="confetti-burst" id="confetti-b"></div>
+    <span class="p-emoji">🏆</span>
+    <div class="p-title" style="background:linear-gradient(90deg,var(--aurora-gold),var(--aurora-magenta));-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:19px;">YOU'RE A TURTLE ARTIST!</div>
+    <div class="p-sub">You built three stunning geometric patterns using real Python Turtle — loops, angles, parameters, and recursion. Geometric Patterns Master achieved! 🐢✨</div>
+    <div class="p-code"><span class="cm"># Skills unlocked:</span><br><span class="str">✓</span> <span class="kw">for</span> loops &amp; iteration<br><span class="str">✓</span> <span class="fn">forward</span>() &amp; <span class="fn">right</span>() commands<br><span class="str">✓</span> colours, angles &amp; patterns<br><span class="str">✓</span> recursive branching functions<br><span class="str">🌟</span> <span class="kw">Geometric Patterns Badge</span> — EARNED!</div>
+    <button class="p-btn next" onclick="restartLab()" style="background:linear-gradient(135deg,var(--aurora-gold),var(--aurora-orange));color:#000;">🔄 EXPLORE AGAIN</button>
+  </div>
+</div>
+
+<script>
+// ══════════════ SPACE BACKGROUND ══════════════
+(function(){
+  const sc=document.getElementById('starfield'),sx=sc.getContext('2d');
+  const nb=document.getElementById('nebula-layer'),pl=document.getElementById('particle-layer');
+  function rsz(){sc.width=innerWidth;sc.height=innerHeight;}
+  rsz();window.addEventListener('resize',rsz);
+  const stars=Array.from({length:260},()=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,r:Math.random()*1.4+0.25,ph:Math.random()*Math.PI*2,sp:Math.random()*0.007+0.003,c:['#e8f4ff','#cce8ff','#ffecb3','#f8bbd0'][Math.floor(Math.random()*4)]}));
+  const shooters=Array.from({length:5},()=>({active:false,timer:Math.random()*250+80,x:0,y:0,dist:0,angle:0,alpha:0,len:0}));
+  let fr=0;
+  (function loop(){
+    sx.clearRect(0,0,sc.width,sc.height);fr++;
+    stars.forEach(s=>{
+      const a=0.28+0.55*Math.sin(s.ph+fr*s.sp);
+      sx.globalAlpha=Math.max(0,Math.min(1,a));sx.fillStyle=s.c;
+      sx.beginPath();sx.arc(s.x,s.y,s.r,0,Math.PI*2);sx.fill();
+    });
+    shooters.forEach(s=>{
+      if(!s.active){if(--s.timer<=0){s.active=true;s.x=Math.random()*innerWidth*0.7;s.y=Math.random()*innerHeight*0.45;s.dist=0;s.angle=(22+Math.random()*18)*Math.PI/180;s.len=Math.random()*90+55;s.timer=Math.random()*350+150;}}
+      else{s.dist+=7;const a=s.dist<s.len?s.dist/s.len:Math.max(0,1-(s.dist-s.len)/55);const x1=s.x+Math.max(0,s.dist-s.len)*Math.cos(s.angle),y1=s.y+Math.max(0,s.dist-s.len)*Math.sin(s.angle),x2=s.x+s.dist*Math.cos(s.angle),y2=s.y+s.dist*Math.sin(s.angle);const g=sx.createLinearGradient(x1,y1,x2,y2);g.addColorStop(0,'transparent');g.addColorStop(1,`rgba(210,240,255,${a})`);sx.globalAlpha=1;sx.beginPath();sx.moveTo(x1,y1);sx.lineTo(x2,y2);sx.strokeStyle=g;sx.lineWidth=1.4;sx.stroke();if(a<=0&&s.dist>s.len)s.active=false;}
+    });
+    sx.globalAlpha=1;requestAnimationFrame(loop);
+  })();
+  [{x:8,y:15,w:340,h:260,c:'rgba(0,90,170,0.11)',nx:28,ny:18,ns:1.1,d:22,dl:0},
+   {x:68,y:55,w:290,h:240,c:'rgba(70,0,130,0.1)',nx:-18,ny:28,ns:0.9,d:27,dl:4},
+   {x:78,y:30,w:260,h:210,c:'rgba(130,0,70,0.07)',nx:-25,ny:20,ns:1.05,d:24,dl:8}
+  ].forEach(n=>{const b=document.createElement('div');b.className='nebula-blob';b.style.cssText=`left:${n.x}%;top:${n.y}%;width:${n.w}px;height:${n.h}px;background:${n.c};--nb-dur:${n.d}s;--nb-delay:${n.dl}s;--nx:${n.nx}px;--ny:${n.ny}px;--ns:${n.ns};`;nb.appendChild(b);});
+  [{x:87,y:7,sz:52,bg:'linear-gradient(135deg,#1a237e,#3949ab)',rw:76,rh:18,pd:42},{x:4,y:62,sz:32,bg:'linear-gradient(135deg,#4a148c,#6a1b9a)',rw:0,pd:55},{x:91,y:72,sz:18,bg:'linear-gradient(135deg,#1b5e20,#388e3c)',rw:0,pd:68}].forEach(p=>{const el=document.createElement('div');el.className='planet';el.style.cssText=`left:${p.x}%;top:${p.y}%;width:${p.sz}px;height:${p.sz}px;background:${p.bg};--pd:${p.pd}s;z-index:2;box-shadow:0 0 ${p.sz}px rgba(80,80,255,0.12);`;if(p.rw){const r=document.createElement('div');r.className='planet-ring';r.style.cssText=`width:${p.rw}px;height:${p.rh}px;`;el.appendChild(r);}nb.appendChild(el);});
+  const sw=document.createElement('div');sw.className='satellite-wrap';sw.innerHTML='<div class="sat-body"><div class="sat-wing l"></div><div class="sat-wing r"></div><div class="sat-blink"></div></div>';document.body.appendChild(sw);
+  [{top:22,dur:19,del:-5},{top:55,dur:26,del:-12},{top:75,dur:22,del:-8}].forEach(a=>{const el=document.createElement('div');el.className='asteroid';const sz=Math.random()*7+4;el.style.cssText=`top:${a.top}%;width:${sz}px;height:${sz*0.65}px;--ad-dur:${a.dur}s;--ad-delay:${a.del}s;z-index:3;`;nb.appendChild(el);});
+  const tc=['rgba(0,229,255,0.38)','rgba(124,77,255,0.38)','rgba(224,64,251,0.28)','rgba(255,215,64,0.28)','rgba(105,255,71,0.28)'];
+  for(let i=0;i<18;i++){const p=document.createElement('div');p.className='trail-particle';const sz=Math.random()*3.5+1,c=tc[i%tc.length];p.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;width:${sz}px;height:${sz}px;background:${c};box-shadow:0 0 ${sz*3}px ${c};--tf-dur:${5+Math.random()*7}s;--tf-delay:${-Math.random()*7}s;--tx:${(Math.random()-.5)*36}px;--ty:${(Math.random()-.5)*36}px;z-index:3;`;pl.appendChild(p);}
+})();
+
+// ══════════════ CANVAS ══════════════
+const MC=document.getElementById('main-canvas'),CTX=MC.getContext('2d');
+let CS=0,rafId=null;
+function resizeCanvas(){
+  const wr=document.getElementById('canvas-wrapper').getBoundingClientRect();
+  CS=Math.floor(Math.min(wr.width-6,wr.height-6));
+  MC.width=CS;MC.height=CS;clearCanvas();
+}
+function clearCanvas(){
+  CTX.fillStyle='#01040e';CTX.fillRect(0,0,CS,CS);
+  CTX.fillStyle='rgba(0,229,255,0.052)';
+  for(let x=18;x<CS;x+=28)for(let y=18;y<CS;y+=28){CTX.beginPath();CTX.arc(x,y,0.7,0,Math.PI*2);CTX.fill();}
+}
+
+// ══════════════ TURTLE ENGINE ══════════════
+function turtleDraw(buildFn,onDone){
+  const cmds=[];
+  const api={
+    forward(d){cmds.push({t:'fwd',d});},
+    right(deg){cmds.push({t:'rt',deg});},
+    left(deg){cmds.push({t:'lt',deg});},
+    penup(){cmds.push({t:'pu'});},
+    pendown(){cmds.push({t:'pd'});},
+    color(c){cmds.push({t:'col',c});},
+    width(w){cmds.push({t:'wid',w});}
+  };
+  buildFn(api);
+  if(rafId)cancelAnimationFrame(rafId);
+  clearCanvas();
+  let ci=0;
+  const px={x:CS/2,y:CS/2,angle:0,down:true,color:'#00e5ff',width:1.6};
+  CTX.lineCap='round';
+  function step(){
+    for(let b=0;b<12&&ci<cmds.length;b++,ci++){
+      const c=cmds[ci];
+      if(c.t==='fwd'){
+        const rad=(px.angle-90)*Math.PI/180,nx=px.x+c.d*Math.cos(rad),ny=px.y+c.d*Math.sin(rad);
+        if(px.down){CTX.beginPath();CTX.moveTo(px.x,px.y);CTX.lineTo(nx,ny);CTX.strokeStyle=px.color;CTX.lineWidth=px.width;CTX.shadowColor=px.color;CTX.shadowBlur=7;CTX.stroke();CTX.shadowBlur=0;}
+        px.x=nx;px.y=ny;
+      }else if(c.t==='rt'){px.angle+=c.deg;}
+      else if(c.t==='lt'){px.angle-=c.deg;}
+      else if(c.t==='pu'){px.down=false;}
+      else if(c.t==='pd'){px.down=true;}
+      else if(c.t==='col'){px.color=c.c;}
+      else if(c.t==='wid'){px.width=c.w;}
+    }
+    if(ci<cmds.length){rafId=requestAnimationFrame(step);}
+    else{if(onDone)onDone();}
+  }
+  rafId=requestAnimationFrame(step);
+}
+
+// ══════════════ STATE ══════════════
+let currentAct=1;
+let dragging=null;
+const a1={loops:null,step:null,colors:[null,null,null]};
+const a2={slots:[null,null,null,null]};
+let snowColor='#00e5ff';
+const CORRECT=['loop','color','forward','right'];
+
+// ══════════════ DRAG HELPERS ══════════════
+function makeDraggable(el){
+  el.addEventListener('dragstart',e=>{
+    dragging={kind:el.dataset.kind,val:el.dataset.val||null,color:el.dataset.color||null,cmd:el.dataset.cmd||null,html:el.innerHTML};
+    el.classList.add('is-dragging');
+    e.dataTransfer.effectAllowed='copy';
+  });
+  el.addEventListener('dragend',()=>el.classList.remove('is-dragging'));
+}
+function makeDroppable(el,kindCheck,onDrop){
+  el.addEventListener('dragover',e=>{
+    if(!dragging)return;
+    if(kindCheck&&dragging.kind!==kindCheck)return;
+    e.preventDefault();el.classList.add('over');
+  });
+  el.addEventListener('dragleave',()=>el.classList.remove('over'));
+  el.addEventListener('drop',e=>{
+    e.preventDefault();el.classList.remove('over');
+    if(!dragging)return;
+    if(kindCheck&&dragging.kind!==kindCheck)return;
+    onDrop(dragging);dragging=null;
+  });
+}
+function mkChip(text,bg,color,border){
+  const c=document.createElement('div');c.className='filled-chip';
+  c.style.cssText=`background:${bg};color:${color};border:1px solid ${border};`;
+  c.textContent=text;return c;
+}
+function mkRm(cb){
+  const b=document.createElement('button');b.className='rm-btn';b.textContent='×';
+  b.addEventListener('click',cb);return b;
+}
+function resetDZ(zone,hint){
+  zone.className=zone.className.replace(' filled','').replace('filled','').trim();
+  zone.innerHTML=`<span class="dz-hint">${hint}</span>`;
+}
+function setFb(id,type,msg){
+  const el=document.getElementById(id);
+  el.className='fb'+(type?' '+type:'');
+  if(type){el.textContent=msg;}else{el.classList.add('hidden');}
+}
+function setCode(html){document.getElementById('code-display').innerHTML=html;}
+
+// ══════════════ INIT A1 ══════════════
+function initA1(){
+  document.querySelectorAll('#a1-panel [draggable]').forEach(makeDraggable);
+  // loops
+  const dzL=document.getElementById('dz-loops');
+  makeDroppable(dzL,'loops',d=>{
+    a1.loops=parseInt(d.val);
+    dzL.classList.add('filled');dzL.innerHTML='';
+    dzL.appendChild(mkChip(d.val,'rgba(0,229,255,0.14)','#80deea','rgba(0,229,255,0.4)'));
+    dzL.appendChild(mkRm(()=>{a1.loops=null;resetDZ(dzL,'DROP LOOP COUNT HERE');}));
+  });
+  // step
+  const dzS=document.getElementById('dz-step');
+  makeDroppable(dzS,'step',d=>{
+    a1.step=parseInt(d.val);
+    dzS.classList.add('filled');dzS.innerHTML='';
+    dzS.appendChild(mkChip(d.val,'rgba(255,215,64,0.12)','#ffe082','rgba(255,215,64,0.4)'));
+    dzS.appendChild(mkRm(()=>{a1.step=null;resetDZ(dzS,'DROP STEP SIZE HERE');}));
+  });
+  // colors
+  [0,1,2].forEach(i=>{
+    const z=document.getElementById(`dz-c${i}`);
+    makeDroppable(z,'color',d=>{
+      a1.colors[i]=d.color;
+      z.classList.add('filled');
+      z.style.background=d.color;z.style.boxShadow=`0 0 10px ${d.color}88`;
+      z.innerHTML='';
+      const rm=mkRm(()=>{a1.colors[i]=null;z.classList.remove('filled');z.style.background='';z.style.boxShadow='';z.textContent=`C${i+1}`;});
+      rm.style.cssText+=';background:rgba(0,0,0,0.45);color:#fff;';
+      z.appendChild(rm);
+    });
+  });
+}
+
+function runA1(){
+  if(!a1.loops){setFb('fb-1','error','⚠ Drop a LOOP COUNT first!');return;}
+  if(!a1.step){setFb('fb-1','error','⚠ Drop a STEP SIZE first!');return;}
+  const cols=a1.colors.filter(Boolean);
+  if(!cols.length){setFb('fb-1','error','⚠ Drop at least 1 colour!');return;}
+  setFb('fb-1','info','🐢 Drawing your spirograph...');
+  const loops=a1.loops,step=a1.step,angleInc=360/loops;
+  turtleDraw(api=>{
+    api.width(1.8);
+    for(let i=0;i<loops;i++){api.color(cols[i%cols.length]);api.forward(step);api.right(90+angleInc);}
+  },()=>{
+    setFb('fb-1','success','✨ Spirograph complete!');
+    setCode(`<span class="kw">import</span> <span class="fn">turtle</span>\ncols=[${cols.map(c=>`<span class="str">"${c}"</span>`).join(',')}]\n<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">${loops}</span>):\n    turtle.<span class="fn">pencolor</span>(cols[i%<span class="num">${cols.length}</span>])\n    turtle.<span class="fn">forward</span>(<span class="num">${step}</span>)\n    turtle.<span class="fn">right</span>(<span class="num">${(90+angleInc).toFixed(1)}</span>)`);
+    setTimeout(()=>openComplete(1),900);
+  });
+}
+
+// ══════════════ INIT A2 ══════════════
+function initA2(){
+  document.querySelectorAll('#block-pool .step-block').forEach(makeDraggable);
+  [0,1,2,3].forEach(i=>{
+    const slot=document.getElementById(`slot-${i}`);
+    const hints=['SLOT 1 — OUTER LOOP','SLOT 2 — SET COLOUR','SLOT 3 — MOVE FORWARD','SLOT 4 — TURN RIGHT'];
+    // Use 'block' kind
+    slot.addEventListener('dragover',e=>{
+      if(!dragging||dragging.kind!=='block')return;
+      e.preventDefault();slot.classList.add('over');
+    });
+    slot.addEventListener('dragleave',()=>slot.classList.remove('over'));
+    slot.addEventListener('drop',e=>{
+      e.preventDefault();slot.classList.remove('over');
+      if(!dragging||dragging.kind!=='block')return;
+      a2.slots[i]=dragging.cmd;
+      slot.classList.add('filled');slot.innerHTML='';
+      const inner=document.createElement('div');
+      inner.style.cssText='font-family:"Courier New",monospace;font-size:10px;color:#e8f4ff;flex:1;';
+      inner.innerHTML=dragging.html;
+      const rm=mkRm(()=>{a2.slots[i]=null;slot.classList.remove('filled');slot.innerHTML=`<span class="slot-hint">${hints[i]}</span><span class="slot-num">#${i+1}</span>`;});
+      slot.appendChild(inner);slot.appendChild(rm);
+      dragging=null;
+    });
+  });
+}
+
+function runA2(){
+  const filled=a2.slots.filter(Boolean);
+  if(filled.length<4){setFb('fb-2','error','⚠ Fill all 4 slots first!');return;}
+  if(!a2.slots.every((s,i)=>s===CORRECT[i])){setFb('fb-2','error','⚠ Wrong order! Hint: for loop → colour → forward → turn');return;}
+  setFb('fb-2','info','🐢 Building your mandala...');
+  const cols=['#00e5ff','#7c4dff','#e040fb','#ffd740','#69ff47','#ff6d00'];
+  turtleDraw(api=>{
+    api.width(1.6);
+    for(let i=0;i<36;i++){api.color(cols[i%cols.length]);api.forward(80);api.right(144);}
+    api.width(1.0);
+    for(let i=0;i<72;i++){api.color(cols[(i+2)%cols.length]);api.forward(50);api.right(145);}
+    api.width(0.7);
+    for(let i=0;i<36;i++){api.color(cols[(i+1)%cols.length]);api.forward(28);api.right(143);}
+  },()=>{
+    setFb('fb-2','success','🌸 Mandala complete! Perfect sequence!');
+    setCode(`<span class="kw">import</span> <span class="fn">turtle</span>\ncols=[<span class="str">"#00e5ff"</span>,<span class="str">"#7c4dff"</span>,...]\n<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">36</span>):\n    turtle.<span class="fn">pencolor</span>(cols[i%<span class="num">3</span>])\n    turtle.<span class="fn">forward</span>(<span class="num">80</span>)\n    turtle.<span class="fn">right</span>(<span class="num">144</span>)\n<span class="cm"># 36 strokes × 144° = mandala!</span>`);
+    setTimeout(()=>openComplete(2),900);
+  });
+}
+
+// ══════════════ ACTIVITY 3 ══════════════
+function setSV(k,v){document.getElementById('sv-'+k).textContent=v;}
+function pickSnow(el,c){
+  snowColor=c;
+  document.querySelectorAll('#snow-colors .color-chip').forEach(ch=>{ch.style.outline='';ch.style.outlineOffset='';});
+  el.style.outline=`2px solid ${c}`;el.style.outlineOffset='2px';
+}
+function buildSnowSegs(cx,cy,ang,len,depth,spread){
+  const segs=[];
+  function branch(x,y,a,l,d){
+    if(d===0||l<3)return;
+    const rad=a*Math.PI/180,ex=x+l*Math.cos(rad),ey=y+l*Math.sin(rad);
+    segs.push({x1:x,y1:y,x2:ex,y2:ey,d});
+    branch(ex,ey,a-spread,l*0.62,d-1);
+    branch(ex,ey,a+spread,l*0.62,d-1);
+    branch(ex,ey,a,l*0.62,d-1);
+  }
+  branch(cx,cy,ang,len,depth);
+  return segs;
+}
+function runA3(){
+  setFb('fb-3','info','❄ Generating snowflake...');
+  const branches=parseInt(document.getElementById('sl-branches').value);
+  const depth=parseInt(document.getElementById('sl-depth').value);
+  const length=parseInt(document.getElementById('sl-length').value);
+  const spread=parseInt(document.getElementById('sl-spread').value);
+  const cx=CS/2,cy=CS/2;
+  const allSegs=[];
+  for(let b=0;b<branches;b++)allSegs.push(...buildSnowSegs(cx,cy,(360/branches)*b-90,length,depth,spread));
+  if(rafId)cancelAnimationFrame(rafId);
+  clearCanvas();CTX.lineCap='round';
+  let si=0;
+  function drawSeg(){
+    for(let b=0;b<7&&si<allSegs.length;b++,si++){
+      const seg=allSegs[si];
+      CTX.beginPath();CTX.moveTo(seg.x1,seg.y1);CTX.lineTo(seg.x2,seg.y2);
+      CTX.strokeStyle=snowColor;CTX.globalAlpha=0.45+0.55*(seg.d/depth);
+      CTX.lineWidth=Math.max(0.4,2.4*(seg.d/depth));CTX.shadowColor=snowColor;CTX.shadowBlur=5;
+      CTX.stroke();
+    }
+    CTX.globalAlpha=1;CTX.shadowBlur=0;
+    if(si<allSegs.length){rafId=requestAnimationFrame(drawSeg);}
+    else{
+      setFb('fb-3','success',`❄ Done! ${allSegs.length} branches drawn!`);
+      setCode(`<span class="kw">import</span> <span class="fn">turtle</span>\n<span class="kw">def</span> <span class="fn">branch</span>(length, depth):\n    <span class="kw">if</span> depth==<span class="num">0</span>: <span class="kw">return</span>\n    turtle.<span class="fn">forward</span>(length)\n    <span class="kw">for</span> a <span class="kw">in</span> [<span class="num">-${spread}</span>,<span class="num">${spread*2}</span>,<span class="num">-${spread}</span>]:\n        turtle.<span class="fn">right</span>(a)\n        <span class="fn">branch</span>(length*<span class="num">0.62</span>,depth-<span class="num">1</span>)\n<span class="cm"># ${branches} arms, depth ${depth}</span>`);
+      document.getElementById('export-btn').classList.remove('hidden');
+      document.getElementById('finish-btn').classList.remove('hidden');
+    }
+  }
+  rafId=requestAnimationFrame(drawSeg);
+}
+function doExport(){
+  const a=document.createElement('a');a.download='turtle-snowflake.png';a.href=MC.toDataURL('image/png');a.click();
+}
+
+// ══════════════ POPUPS ══════════════
+const popDefs={
+  1:{emoji:'🌀',titleColor:'var(--aurora-cyan)',title:'SPIROGRAPH DONE!',
+     sub:'You used a for loop with forward() and right() to create a spirograph. By turning just past 90°, the turtle traces a continuous curve instead of closing a box.',
+     code:`<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(loops):\n    turtle.<span class="fn">pencolor</span>(cols[i%n])\n    turtle.<span class="fn">forward</span>(step)\n    turtle.<span class="fn">right</span>(<span class="num">90</span> + angle_inc)\n<span class="cm"># Loop + colour + angle = spirograph!</span>`,
+     next:'NEXT: MANDALA →'},
+  2:{emoji:'🌸',titleColor:'var(--aurora-violet)',title:'MANDALA COMPLETE!',
+     sub:'Perfect sequence! 144° is a star polygon angle (360÷5×2). Layering the loop three times at different sizes creates the nested mandala effect.',
+     code:`<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">36</span>):\n    turtle.<span class="fn">pencolor</span>(cols[i%<span class="num">3</span>])\n    turtle.<span class="fn">forward</span>(<span class="num">80</span>)\n    turtle.<span class="fn">right</span>(<span class="num">144</span>)\n<span class="cm"># 36 × 144° = perfect mandala!</span>`,
+     next:'NEXT: SNOWFLAKE →'}
+};
+function openComplete(n){
+  const d=popDefs[n];
+  document.getElementById('cp-emoji').textContent=d.emoji;
+  document.getElementById('cp-title').style.color=d.titleColor;
+  document.getElementById('cp-title').textContent=d.title;
+  document.getElementById('cp-sub').textContent=d.sub;
+  document.getElementById('cp-code').innerHTML=d.code;
+  document.getElementById('cp-next').textContent=d.next;
+  document.getElementById('complete-popup').classList.remove('hidden');
+  spawnConfetti('confetti-a',22);
+}
+function goNext(){
+  document.getElementById('complete-popup').classList.add('hidden');
+  currentAct++;
+  switchTo(currentAct);
+}
+function showFinal(){
+  document.getElementById('success-popup').classList.remove('hidden');
+  spawnConfetti('confetti-b',42);
+}
+function switchTo(n){
+  for(let i=1;i<=3;i++){
+    const d=document.getElementById(`dot-${i}`);
+    d.className='prog-dot'+(i<n?' done':i===n?' active':'');
+  }
+  for(let i=1;i<=2;i++)document.getElementById(`line-${i}`).className='prog-line'+(i<n?' done':'');
+  document.querySelectorAll('.act-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById(`a${n}-panel`).classList.add('active');
+  if(n!==3){document.getElementById('export-btn').classList.add('hidden');document.getElementById('finish-btn').classList.add('hidden');}
+  const lt=['CONTROL DECK','SEQUENCE BUILDER','SNOWFLAKE TUNER'];
+  const rt=['TURTLE CANVAS — SPIROGRAPH','TURTLE CANVAS — MANDALA','TURTLE CANVAS — SNOWFLAKE'];
+  document.getElementById('left-title').textContent=lt[n-1];
+  document.getElementById('right-title').textContent=rt[n-1];
+  document.getElementById('canvas-label').textContent=`PLANRS ACADEMY — ACTIVITY ${n}`;
+  clearCanvas();
+  setCode(`<span class="cm"># Activity ${n} ready. Configure and run!</span>`);
+}
+function spawnConfetti(id,count){
+  const cont=document.getElementById(id);cont.innerHTML='';
+  const cs=['#00e5ff','#7c4dff','#e040fb','#ffd740','#69ff47','#ff6d00'];
+  for(let i=0;i<count;i++){
+    const d=document.createElement('div');d.className='confetti-dot';
+    d.style.cssText=`left:${35+Math.random()*30}%;top:${Math.random()*25}%;background:${cs[i%cs.length]};transform:rotate(${Math.random()*360}deg);--cx:${(Math.random()-.5)*280}px;animation-delay:${Math.random()*0.4}s;`;
+    cont.appendChild(d);
+  }
+}
+function enterLab(){
+  document.getElementById('intro-popup').classList.add('hidden');
+  resizeCanvas();
+  setCode(`<span class="cm"># Activity 1 ready — drag chips and launch!</span>`);
+}
+function restartLab(){
+  document.getElementById('success-popup').classList.add('hidden');
+  currentAct=1;
+  a1.loops=null;a1.step=null;a1.colors=[null,null,null];
+  a2.slots=[null,null,null,null];
+  resetDZ(document.getElementById('dz-loops'),'DROP LOOP COUNT HERE');
+  resetDZ(document.getElementById('dz-step'),'DROP STEP SIZE HERE');
+  [0,1,2].forEach(i=>{const z=document.getElementById(`dz-c${i}`);z.classList.remove('filled');z.style.background='';z.style.boxShadow='';z.textContent=`C${i+1}`;});
+  ['slot-0','slot-1','slot-2','slot-3'].forEach((id,i)=>{const s=document.getElementById(id);s.classList.remove('filled');const h=['SLOT 1 — OUTER LOOP','SLOT 2 — SET COLOUR','SLOT 3 — MOVE FORWARD','SLOT 4 — TURN RIGHT'];s.innerHTML=`<span class="slot-hint">${h[i]}</span><span class="slot-num">#${i+1}</span>`;});
+  ['fb-1','fb-2','fb-3'].forEach(id=>{const el=document.getElementById(id);el.className='fb hidden';el.textContent='';});
+  switchTo(1);
+}
+window.addEventListener('load',()=>{resizeCanvas();initA1();initA2();window.addEventListener('resize',resizeCanvas);});
+</script>
+</body>
+</html>

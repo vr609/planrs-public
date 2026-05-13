@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Set Theory — Union, Intersection, Venn Diagrams</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --violet-dark: #2d0057;
+    --violet-mid: #5c0099;
+    --violet-bright: #8b00ff;
+    --violet-light: #bf7fff;
+    --pink: #ff4dff;
+    --cyan: #00eeff;
+    --yellow: #ffe033;
+    --mint: #00ffb0;
+    --orange: #ff7f2a;
+    --white: #ffffff;
+    --card-bg: rgba(255,255,255,0.08);
+    --card-border: rgba(255,255,255,0.18);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--violet-dark);
+    min-height: 100vh;
+    overflow-x: hidden;
+    color: var(--white);
+  }
+
+  /* ── Animated background ── */
+  .bg-canvas {
+    position: fixed; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse at 20% 20%, #5c0099 0%, transparent 55%),
+                radial-gradient(ellipse at 80% 80%, #3a0080 0%, transparent 55%),
+                radial-gradient(ellipse at 50% 50%, #1a003a 0%, #0a0015 100%);
+  }
+
+  .bubble {
+    position: fixed;
+    border-radius: 50%;
+    opacity: 0.18;
+    animation: floatUp linear infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes floatUp {
+    0%   { transform: translateY(110vh) scale(0.8); opacity: 0; }
+    10%  { opacity: 0.18; }
+    90%  { opacity: 0.18; }
+    100% { transform: translateY(-15vh) scale(1.2); opacity: 0; }
+  }
+
+  /* chain-reaction sparkles */
+  .sparkle {
+    position: fixed;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 999;
+    animation: sparkleAnim 0.8s ease-out forwards;
+  }
+  @keyframes sparkleAnim {
+    0%   { transform: scale(1) translate(0,0); opacity: 1; }
+    100% { transform: scale(0) translate(var(--dx), var(--dy)); opacity: 0; }
+  }
+
+  /* ── Layout ── */
+  .page {
+    position: relative; z-index: 1;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 24px 20px 60px;
+  }
+
+  /* ── Header ── */
+  .main-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    text-align: center;
+    letter-spacing: 1px;
+    background: linear-gradient(90deg, #ff4dff, #bf7fff, #00eeff, #ffe033);
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 4s linear infinite;
+    margin-bottom: 32px;
+    filter: drop-shadow(0 0 18px rgba(191,127,255,0.6));
+  }
+  @keyframes shimmer {
+    0%   { background-position: 0% 50%; }
+    100% { background-position: 300% 50%; }
+  }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    padding: 10px 26px;
+    border-radius: 50px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: rgba(255,255,255,0.08);
+    color: var(--white);
+    position: relative;
+    overflow: hidden;
+  }
+  .tab-btn::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, var(--pink), var(--violet-bright));
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .tab-btn span { position: relative; z-index: 1; }
+  .tab-btn.active::before, .tab-btn:hover::before { opacity: 1; }
+  .tab-btn.active { border-color: var(--pink); transform: scale(1.06); }
+
+  /* ── Activity panels ── */
+  .activity { display: none; animation: fadeIn 0.5s ease; }
+  .activity.active { display: block; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Card ── */
+  .card {
+    background: var(--card-bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: 24px;
+    padding: 28px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12);
+  }
+
+  .activity-label {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.5rem;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .activity-label .emoji { font-size: 1.8rem; animation: wobble 2s ease-in-out infinite; }
+  @keyframes wobble {
+    0%,100% { transform: rotate(-5deg); }
+    50%      { transform: rotate(5deg); }
+  }
+
+  .subtitle {
+    color: var(--violet-light);
+    font-size: 0.95rem;
+    margin-bottom: 22px;
+  }
+
+  /* ─────────────────────────────
+     ACTIVITY 1 — Drag items into sets
+  ───────────────────────────────*/
+  .set-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .items-tray {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 16px;
+    border-radius: 16px;
+    border: 2px dashed rgba(255,255,255,0.25);
+    min-height: 68px;
+    background: rgba(0,0,0,0.2);
+    transition: border-color 0.3s;
+  }
+  .items-tray.drag-over { border-color: var(--cyan); background: rgba(0,238,255,0.07); }
+
+  .set-zones {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .set-zone {
+    min-height: 110px;
+    border-radius: 16px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 2.5px dashed rgba(255,255,255,0.3);
+    transition: all 0.3s;
+    position: relative;
+  }
+  .set-zone.drag-over { transform: scale(1.03); }
+  .set-zone.set-a { background: rgba(255,77,255,0.1); border-color: var(--pink); }
+  .set-zone.set-b { background: rgba(0,238,255,0.1); border-color: var(--cyan); }
+  .set-zone.set-a.drag-over { background: rgba(255,77,255,0.25); }
+  .set-zone.set-b.drag-over { background: rgba(0,238,255,0.25); }
+
+  .zone-label {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+  }
+  .set-a .zone-label { color: var(--pink); }
+  .set-b .zone-label { color: var(--cyan); }
+
+  .zone-items { display: flex; flex-wrap: wrap; gap: 8px; min-height: 40px; }
+
+  .drag-item {
+    padding: 7px 16px;
+    border-radius: 50px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    cursor: grab;
+    user-select: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    border: 2px solid transparent;
+  }
+  .drag-item:active { cursor: grabbing; transform: scale(0.95); }
+  .drag-item:hover  { transform: scale(1.08) rotate(-2deg); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+  .drag-item.dragging { opacity: 0.4; }
+
+  .color-pink   { background: rgba(255,77,255,0.2); color: #ffaaff; border-color: var(--pink); }
+  .color-cyan   { background: rgba(0,238,255,0.2);  color: #aaffff; border-color: var(--cyan); }
+  .color-yellow { background: rgba(255,224,51,0.2); color: #ffee88; border-color: var(--yellow); }
+  .color-mint   { background: rgba(0,255,176,0.2);  color: #aaffdd; border-color: var(--mint); }
+  .color-orange { background: rgba(255,127,42,0.2); color: #ffbb88; border-color: var(--orange); }
+
+  .check-btn {
+    align-self: center;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+    padding: 12px 36px;
+    border-radius: 50px;
+    border: none;
+    cursor: pointer;
+    background: linear-gradient(135deg, var(--pink), var(--violet-bright));
+    color: white;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 20px rgba(255,77,255,0.4);
+  }
+  .check-btn:hover { transform: scale(1.07); box-shadow: 0 8px 28px rgba(255,77,255,0.55); }
+
+  .feedback {
+    text-align: center;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.2rem;
+    min-height: 36px;
+    padding: 8px;
+    border-radius: 12px;
+    transition: all 0.4s;
+  }
+  .feedback.correct { color: var(--mint); background: rgba(0,255,176,0.1); }
+  .feedback.wrong   { color: #ff6666; background: rgba(255,80,80,0.1); }
+
+  .reset-btn {
+    align-self: center;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 8px 22px;
+    border-radius: 50px;
+    border: 2px solid rgba(255,255,255,0.3);
+    cursor: pointer;
+    background: transparent;
+    color: var(--violet-light);
+    transition: all 0.2s;
+  }
+  .reset-btn:hover { border-color: var(--violet-light); color: white; }
+
+  /* ─────────────────────────────
+     ACTIVITY 2 — Venn Quiz
+  ───────────────────────────────*/
+  .venn-container {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto 24px;
+    height: 220px;
+  }
+
+  .venn-svg { width: 100%; height: 100%; }
+
+  .venn-circle { fill-opacity: 0.25; transition: fill-opacity 0.3s; cursor: pointer; }
+  .venn-circle:hover { fill-opacity: 0.42; }
+
+  .venn-label { font-family: 'Fredoka One', cursive; font-size: 17px; pointer-events: none; }
+
+  .venn-items-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .venn-drop-item {
+    position: absolute;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    padding: 5px 13px;
+    border-radius: 50px;
+    cursor: grab;
+    pointer-events: all;
+    transition: transform 0.15s;
+    border: 2px solid rgba(255,255,255,0.4);
+    background: rgba(0,0,0,0.45);
+    color: white;
+  }
+  .venn-drop-item:hover { transform: scale(1.12); z-index: 10; }
+
+  .venn-zones-row {
+    display: flex;
+    justify-content: space-around;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .venn-zone {
+    flex: 1;
+    min-height: 70px;
+    border-radius: 14px;
+    padding: 10px;
+    border: 2.5px dashed rgba(255,255,255,0.25);
+    text-align: center;
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+    background: rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .venn-zone.drag-over { border-color: var(--yellow); background: rgba(255,224,51,0.1); transform: scale(1.04); }
+  .vz-only-a   { border-color: var(--pink); }
+  .vz-only-b   { border-color: var(--cyan); }
+  .vz-intersect { border-color: var(--violet-light); }
+
+  .vz-title { font-size: 0.8rem; opacity: 0.75; margin-bottom: 2px; }
+  .vz-items  { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
+
+  .q-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .q-row label { font-size: 1rem; font-weight: 700; color: var(--violet-light); flex: 0 0 auto; }
+
+  .option-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.95rem;
+    padding: 8px 20px;
+    border-radius: 50px;
+    border: 2px solid rgba(255,255,255,0.2);
+    cursor: pointer;
+    background: rgba(255,255,255,0.07);
+    color: white;
+    transition: all 0.2s;
+  }
+  .option-btn:hover { border-color: var(--yellow); color: var(--yellow); transform: scale(1.05); }
+  .option-btn.selected-correct { background: rgba(0,255,176,0.2); border-color: var(--mint); color: var(--mint); }
+  .option-btn.selected-wrong   { background: rgba(255,80,80,0.2);  border-color: #ff6666;     color: #ff6666; }
+
+  /* ─────────────────────────────
+     ACTIVITY 3 — Match the definition
+  ───────────────────────────────*/
+  .match-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .match-col { display: flex; flex-direction: column; gap: 10px; }
+  .match-col-title {
+    font-family: 'Fredoka One', cursive;
+    text-align: center;
+    font-size: 1rem;
+    margin-bottom: 4px;
+    color: var(--violet-light);
+  }
+
+  .term-card {
+    padding: 12px 16px;
+    border-radius: 14px;
+    border: 2px solid var(--pink);
+    background: rgba(255,77,255,0.1);
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    cursor: grab;
+    user-select: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-align: center;
+  }
+  .term-card:hover    { transform: scale(1.05) rotate(-1deg); box-shadow: 0 6px 18px rgba(255,77,255,0.4); }
+  .term-card.dragging { opacity: 0.4; }
+  .term-card.matched  { opacity: 0.35; cursor: default; }
+
+  .def-slot {
+    padding: 12px 16px;
+    border-radius: 14px;
+    border: 2.5px dashed rgba(0,238,255,0.4);
+    background: rgba(0,238,255,0.06);
+    font-size: 0.88rem;
+    font-weight: 700;
+    line-height: 1.4;
+    min-height: 60px;
+    transition: all 0.3s;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .def-slot.drag-over { border-color: var(--yellow); background: rgba(255,224,51,0.1); transform: scale(1.03); }
+  .def-slot.matched-correct { border-color: var(--mint); background: rgba(0,255,176,0.1); }
+  .def-slot.matched-wrong   { border-color: #ff6666;    background: rgba(255,80,80,0.1); }
+
+  .slot-answer {
+    position: absolute;
+    top: -12px; right: 10px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.85rem;
+    padding: 3px 12px;
+    border-radius: 50px;
+    color: white;
+  }
+  .slot-answer.correct { background: var(--mint); color: #003a20; }
+  .slot-answer.wrong   { background: #ff4444; }
+
+  /* Score star */
+  .score-display {
+    text-align: center;
+    font-family: 'Fredoka One', cursive;
+    font-size: 2rem;
+    animation: popIn 0.5s cubic-bezier(0.175,0.885,0.32,1.275);
+  }
+  @keyframes popIn {
+    0%   { transform: scale(0); opacity: 0; }
+    80%  { transform: scale(1.15); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* progress dots */
+  .progress-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    transition: all 0.4s;
+  }
+  .dot.done { background: var(--mint); box-shadow: 0 0 10px var(--mint); }
+
+  /* confetti burst */
+  .confetti-piece {
+    position: fixed;
+    width: 10px; height: 10px;
+    pointer-events: none;
+    z-index: 9999;
+    animation: confettifall 1.2s ease-out forwards;
+  }
+  @keyframes confettifall {
+    0%   { transform: translate(0,0) rotate(0deg); opacity: 1; }
+    100% { transform: translate(var(--cx), var(--cy)) rotate(720deg); opacity: 0; }
+  }
+
+  @media (max-width: 560px) {
+    .set-zones, .match-grid { grid-template-columns: 1fr; }
+    .venn-zones-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-canvas"></div>
+
+<!-- floating bubbles -->
+<script>
+  const cols = ['#8b00ff','#ff4dff','#00eeff','#ffe033','#00ffb0','#ff7f2a'];
+  for(let i=0;i<18;i++){
+    const b=document.createElement('div');
+    b.className='bubble';
+    const sz=30+Math.random()*90;
+    b.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;
+      background:${cols[Math.floor(Math.random()*cols.length)]};
+      animation-duration:${8+Math.random()*14}s;
+      animation-delay:-${Math.random()*14}s;`;
+    document.body.appendChild(b);
+  }
+</script>
+
+<div class="page">
+
+  <h1 class="main-title">Set Theory — Union, Intersection, Venn Diagrams</h1>
+
+  <!-- progress dots -->
+  <div class="progress-dots">
+    <div class="dot" id="dot1"></div>
+    <div class="dot" id="dot2"></div>
+    <div class="dot" id="dot3"></div>
+  </div>
+
+  <!-- tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab(1,this)"><span>🧲 Sort the Sets</span></button>
+    <button class="tab-btn" onclick="switchTab(2,this)"><span>🔵 Venn Explorer</span></button>
+    <button class="tab-btn" onclick="switchTab(3,this)"><span>🎯 Match It!</span></button>
+  </div>
+
+  <!-- ═══════════════════════════
+       ACTIVITY 1 — Sort items
+  ═══════════════════════════════ -->
+  <div class="activity active" id="act1">
+    <div class="card">
+      <div class="activity-label"><span class="emoji">🧲</span> Sort the Sets</div>
+      <div class="subtitle">Drag each number into the correct set! Set A = even numbers, Set B = multiples of 3.</div>
+
+      <div class="set-workspace">
+        <!-- tray -->
+        <div class="items-tray" id="tray1"
+             ondragover="allowDrop(event)" ondrop="dropToTray(event,'tray1')"
+             ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+        </div>
+
+        <div class="set-zones">
+          <div class="set-zone set-a" id="zone-a"
+               ondragover="allowDrop(event)" ondrop="dropToZone(event,'zone-a')"
+               ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+            <div class="zone-label">Set A 🩷<br><small style="font-size:0.7rem;font-family:Nunito;color:rgba(255,255,255,0.6)">Even numbers</small></div>
+            <div class="zone-items" id="items-zone-a"></div>
+          </div>
+          <div class="set-zone set-b" id="zone-b"
+               ondragover="allowDrop(event)" ondrop="dropToZone(event,'zone-b')"
+               ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+            <div class="zone-label">Set B 🩵<br><small style="font-size:0.7rem;font-family:Nunito;color:rgba(255,255,255,0.6)">Multiples of 3</small></div>
+            <div class="zone-items" id="items-zone-b"></div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+          <button class="check-btn" onclick="checkAct1()">✅ Check!</button>
+          <button class="reset-btn" onclick="resetAct1()">↩ Reset</button>
+        </div>
+        <div class="feedback" id="fb1"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════
+       ACTIVITY 2 — Venn Explorer
+  ═══════════════════════════════ -->
+  <div class="activity" id="act2">
+    <div class="card">
+      <div class="activity-label"><span class="emoji">🔵</span> Venn Explorer</div>
+      <div class="subtitle">Drag each animal into the correct zone of the Venn diagram! Set A = can swim, Set B = can fly.</div>
+
+      <!-- drop zones -->
+      <div class="venn-zones-row">
+        <div class="venn-zone vz-only-a" id="vz-only-a"
+             ondragover="allowDrop(event)" ondrop="dropVenn(event,'only-a')"
+             ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+          <div class="vz-title">🩷 Only swims</div>
+          <div class="vz-items" id="vz-only-a-items"></div>
+        </div>
+        <div class="venn-zone vz-intersect" id="vz-intersect"
+             ondragover="allowDrop(event)" ondrop="dropVenn(event,'intersect')"
+             ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+          <div class="vz-title">✨ Both!</div>
+          <div class="vz-items" id="vz-intersect-items"></div>
+        </div>
+        <div class="venn-zone vz-only-b" id="vz-only-b"
+             ondragover="allowDrop(event)" ondrop="dropVenn(event,'only-b')"
+             ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+          <div class="vz-title">🩵 Only flies</div>
+          <div class="vz-items" id="vz-only-b-items"></div>
+        </div>
+      </div>
+
+      <!-- Venn visual -->
+      <div class="venn-container" style="pointer-events:none">
+        <svg class="venn-svg" viewBox="0 0 480 220" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <!-- Set A -->
+          <circle cx="170" cy="110" r="95" fill="#ff4dff" class="venn-circle" filter="url(#glow)"/>
+          <!-- Set B -->
+          <circle cx="310" cy="110" r="95" fill="#00eeff" class="venn-circle" filter="url(#glow)"/>
+          <!-- labels -->
+          <text x="105" y="115" fill="#ffaaff" class="venn-label" text-anchor="middle">Set A</text>
+          <text x="375" y="115" fill="#aaffff" class="venn-label" text-anchor="middle">Set B</text>
+          <text x="240" y="80" fill="#ffffaa" class="venn-label" text-anchor="middle" font-size="13">A ∩ B</text>
+          <!-- symbol labels -->
+          <text x="105" y="155" fill="#ff4dff" font-family="Fredoka One" font-size="22" text-anchor="middle">🏊</text>
+          <text x="375" y="155" fill="#00eeff" font-family="Fredoka One" font-size="22" text-anchor="middle">🦅</text>
+        </svg>
+      </div>
+
+      <!-- Animals tray -->
+      <div class="items-tray" id="tray2"
+           ondragover="allowDrop(event)" ondrop="dropVennTray(event)"
+           ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+      </div>
+
+      <br>
+      <!-- Questions -->
+      <div style="margin-bottom:10px">
+        <div class="q-row">
+          <label>Q1. A ∪ B means…</label>
+          <button class="option-btn" onclick="answerQ(this,'q1','all')">All animals</button>
+          <button class="option-btn" onclick="answerQ(this,'q1','intersect')">Only both</button>
+          <button class="option-btn" onclick="answerQ(this,'q1','neither')">Neither</button>
+        </div>
+        <div class="q-row">
+          <label>Q2. A ∩ B means…</label>
+          <button class="option-btn" onclick="answerQ(this,'q2','all')">All animals</button>
+          <button class="option-btn" onclick="answerQ(this,'q2','intersect')">Swim AND fly</button>
+          <button class="option-btn" onclick="answerQ(this,'q2','onlya')">Only swim</button>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <button class="check-btn" onclick="checkAct2()">✅ Check!</button>
+        <button class="reset-btn" onclick="resetAct2()">↩ Reset</button>
+      </div>
+      <div class="feedback" id="fb2"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════
+       ACTIVITY 3 — Match It
+  ═══════════════════════════════ -->
+  <div class="activity" id="act3">
+    <div class="card">
+      <div class="activity-label"><span class="emoji">🎯</span> Match It!</div>
+      <div class="subtitle">Drag each term from the left and drop it onto its correct definition on the right!</div>
+
+      <div class="match-grid">
+        <div class="match-col">
+          <div class="match-col-title">🏷️ Terms</div>
+          <div class="term-card" draggable="true" id="term-union" data-term="union"
+               ondragstart="termDragStart(event)">Union (A ∪ B)</div>
+          <div class="term-card" draggable="true" id="term-intersect" data-term="intersect"
+               ondragstart="termDragStart(event)">Intersection (A ∩ B)</div>
+          <div class="term-card" draggable="true" id="term-complement" data-term="complement"
+               ondragstart="termDragStart(event)">Complement (Aᶜ)</div>
+          <div class="term-card" draggable="true" id="term-subset" data-term="subset"
+               ondragstart="termDragStart(event)">Subset (A ⊆ B)</div>
+          <div class="term-card" draggable="true" id="term-empty" data-term="empty"
+               ondragstart="termDragStart(event)">Empty Set (∅)</div>
+        </div>
+        <div class="match-col">
+          <div class="match-col-title">📖 Definitions</div>
+          <div class="def-slot" data-answer="union"
+               ondragover="allowDrop(event)" ondrop="dropTerm(event)"
+               ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+            Everything in A <em>or</em> B (or both)
+          </div>
+          <div class="def-slot" data-answer="intersect"
+               ondragover="allowDrop(event)" ondrop="dropTerm(event)"
+               ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+            Only what A <em>and</em> B share
+          </div>
+          <div class="def-slot" data-answer="complement"
+               ondragover="allowDrop(event)" ondrop="dropTerm(event)"
+               ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+            Everything <em>not</em> in A
+          </div>
+          <div class="def-slot" data-answer="subset"
+               ondragover="allowDrop(event)" ondrop="dropTerm(event)"
+               ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+            Every element of A is also in B
+          </div>
+          <div class="def-slot" data-answer="empty"
+               ondragover="allowDrop(event)" ondrop="dropTerm(event)"
+               ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+            A set with <em>no</em> elements at all
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <button class="check-btn" onclick="checkAct3()">✅ Check!</button>
+        <button class="reset-btn" onclick="resetAct3()">↩ Reset</button>
+      </div>
+      <div class="feedback" id="fb3"></div>
+      <div class="score-display" id="score3" style="display:none"></div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+/* ══════════════════════════════════════
+   CHAIN-REACTION SPARKLES + CONFETTI
+══════════════════════════════════════ */
+function burst(x, y, count=8) {
+  const cols = ['#ff4dff','#00eeff','#ffe033','#00ffb0','#ff7f2a','#bf7fff'];
+  for(let i=0;i<count;i++){
+    const s=document.createElement('div');
+    s.className='sparkle';
+    const angle=Math.random()*360;
+    const dist=40+Math.random()*60;
+    s.style.cssText=`left:${x}px;top:${y}px;
+      background:${cols[Math.floor(Math.random()*cols.length)]};
+      --dx:${Math.cos(angle)*dist}px;--dy:${Math.sin(angle)*dist}px;`;
+    document.body.appendChild(s);
+    setTimeout(()=>s.remove(), 850);
+  }
+}
+
+function confettiBurst(x, y) {
+  const cols=['#ff4dff','#00eeff','#ffe033','#00ffb0','#ff7f2a','#bf7fff','#ffffff'];
+  const shapes=['circle','square'];
+  for(let i=0;i<40;i++){
+    const c=document.createElement('div');
+    c.className='confetti-piece';
+    const ang=Math.random()*Math.PI*2;
+    const dist=80+Math.random()*200;
+    const shape=shapes[Math.floor(Math.random()*2)];
+    c.style.cssText=`left:${x}px;top:${y}px;
+      background:${cols[Math.floor(Math.random()*cols.length)]};
+      border-radius:${shape==='circle'?'50%':'3px'};
+      width:${6+Math.random()*10}px;height:${6+Math.random()*10}px;
+      --cx:${Math.cos(ang)*dist}px;--cy:${Math.sin(ang)*dist - 100}px;
+      animation-duration:${0.8+Math.random()*0.8}s;`;
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(), 1600);
+  }
+}
+
+// sparkle on any click
+document.addEventListener('click', e => burst(e.clientX, e.clientY, 6));
+
+/* drag helper */
+function allowDrop(e){ e.preventDefault(); }
+
+/* ══════════════════════════════════════
+   TABS
+══════════════════════════════════════ */
+function switchTab(n, btn){
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('act'+n).classList.add('active');
+  btn.classList.add('active');
+  const r=btn.getBoundingClientRect();
+  burst(r.left+r.width/2, r.top+r.height/2, 10);
+}
+
+/* ══════════════════════════════════════
+   ACTIVITY 1 — Sort into sets
+══════════════════════════════════════ */
+const ACT1_ITEMS = [
+  {val:2,  label:'2',  color:'color-pink'},
+  {val:3,  label:'3',  color:'color-cyan'},
+  {val:4,  label:'4',  color:'color-yellow'},
+  {val:6,  label:'6',  color:'color-mint'},
+  {val:8,  label:'8',  color:'color-pink'},
+  {val:9,  label:'9',  color:'color-orange'},
+  {val:12, label:'12', color:'color-cyan'},
+  {val:15, label:'15', color:'color-yellow'},
+  {val:5,  label:'5',  color:'color-orange'},
+];
+
+// answers: SetA=even, SetB=mult of 3, some belong to both
+const ACT1_ANSWER = {
+  'zone-a': [2,4,6,8,12],   // must have at least these (6,12 are both OK)
+  'zone-b': [3,6,9,12,15],
+};
+
+let draggedItem1 = null;
+
+function buildAct1(){
+  const tray = document.getElementById('tray1');
+  tray.innerHTML='';
+  ['items-zone-a','items-zone-b'].forEach(id=>document.getElementById(id).innerHTML='');
+  document.getElementById('fb1').className='feedback';
+  document.getElementById('fb1').textContent='';
+
+  ACT1_ITEMS.forEach(item=>{
+    const el = createDragItem1(item);
+    tray.appendChild(el);
+  });
+}
+
+function createDragItem1(item){
+  const el = document.createElement('div');
+  el.className = 'drag-item ' + item.color;
+  el.textContent = item.label;
+  el.draggable = true;
+  el.dataset.val = item.val;
+  el.addEventListener('dragstart', e=>{
+    draggedItem1 = el;
+    setTimeout(()=>el.classList.add('dragging'), 0);
+    e.dataTransfer.setData('text','item1');
+  });
+  el.addEventListener('dragend', ()=> el.classList.remove('dragging'));
+  return el;
+}
+
+function dropToZone(e, zoneId){
+  e.preventDefault();
+  document.querySelectorAll('.set-zone,.items-tray').forEach(z=>z.classList.remove('drag-over'));
+  if(!draggedItem1) return;
+  document.getElementById('items-'+zoneId).appendChild(draggedItem1);
+  const r=draggedItem1.getBoundingClientRect();
+  burst(r.left+r.width/2, r.top+r.height/2, 7);
+  draggedItem1=null;
+}
+function dropToTray(e, trayId){
+  e.preventDefault();
+  document.querySelectorAll('.set-zone,.items-tray').forEach(z=>z.classList.remove('drag-over'));
+  if(!draggedItem1) return;
+  document.getElementById(trayId).appendChild(draggedItem1);
+  draggedItem1=null;
+}
+
+function checkAct1(){
+  const aItems = [...document.getElementById('items-zone-a').children].map(c=>+c.dataset.val);
+  const bItems = [...document.getElementById('items-zone-b').children].map(c=>+c.dataset.val);
+  const fb = document.getElementById('fb1');
+
+  const aOk = aItems.every(v=> v%2===0) && aItems.length >= 3;
+  const bOk = bItems.every(v=> v%3===0) && bItems.length >= 3;
+
+  if(aOk && bOk){
+    fb.textContent = '🎉 Amazing! You sorted them perfectly!';
+    fb.className = 'feedback correct';
+    const r=document.getElementById('zone-a').getBoundingClientRect();
+    confettiBurst(r.left+r.width/2, r.top+r.height/2);
+    document.getElementById('dot1').classList.add('done');
+  } else {
+    fb.textContent = '🤔 Hmm, check again! Even numbers go to A, multiples of 3 go to B!';
+    fb.className = 'feedback wrong';
+  }
+}
+
+function resetAct1(){ buildAct1(); }
+buildAct1();
+
+/* ══════════════════════════════════════
+   ACTIVITY 2 — Venn Explorer
+══════════════════════════════════════ */
+const ANIMALS = [
+  {name:'🐟 Fish',    zone:'only-a'},
+  {name:'🦆 Duck',    zone:'intersect'},
+  {name:'🦅 Eagle',   zone:'only-b'},
+  {name:'🐋 Whale',   zone:'only-a'},
+  {name:'🦆 Pelican', zone:'intersect'},
+  {name:'🦉 Owl',     zone:'only-b'},
+  {name:'🐊 Croc',    zone:'only-a'},
+  {name:'🦢 Swan',    zone:'intersect'},
+];
+
+let draggedVenn = null;
+const q2Answers = {};
+
+function buildAct2(){
+  ['vz-only-a-items','vz-intersect-items','vz-only-b-items'].forEach(id=>document.getElementById(id).innerHTML='');
+  document.getElementById('fb2').className='feedback';
+  document.getElementById('fb2').textContent='';
+  document.querySelectorAll('.option-btn').forEach(b=>{b.className='option-btn';});
+  const tray=document.getElementById('tray2');
+  tray.innerHTML='';
+  q2Answers.q1=''; q2Answers.q2='';
+
+  ANIMALS.forEach(a=>{
+    const el=document.createElement('div');
+    el.className='drag-item color-mint';
+    el.textContent=a.name;
+    el.draggable=true;
+    el.dataset.zone=a.zone;
+    el.style.cssText='font-size:0.9rem;padding:6px 14px;';
+    el.addEventListener('dragstart',e=>{
+      draggedVenn=el;
+      setTimeout(()=>el.classList.add('dragging'),0);
+      e.dataTransfer.setData('text','venn');
+    });
+    el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+    tray.appendChild(el);
+  });
+}
+
+function dropVenn(e, zoneName){
+  e.preventDefault();
+  document.querySelectorAll('.venn-zone,.items-tray').forEach(z=>z.classList.remove('drag-over'));
+  if(!draggedVenn) return;
+  document.getElementById('vz-'+zoneName+'-items').appendChild(draggedVenn);
+  const r=draggedVenn.getBoundingClientRect();
+  burst(r.left+r.width/2, r.top+r.height/2, 8);
+  draggedVenn=null;
+}
+function dropVennTray(e){
+  e.preventDefault();
+  document.querySelectorAll('.venn-zone,.items-tray').forEach(z=>z.classList.remove('drag-over'));
+  if(!draggedVenn) return;
+  document.getElementById('tray2').appendChild(draggedVenn);
+  draggedVenn=null;
+}
+
+function answerQ(btn, qid, val){
+  // clear siblings
+  btn.closest('.q-row').querySelectorAll('.option-btn').forEach(b=>b.className='option-btn');
+  btn.classList.add('selected-correct'); // provisional
+  q2Answers[qid]=val;
+  burst(btn.getBoundingClientRect().left+40, btn.getBoundingClientRect().top+15, 5);
+}
+
+function checkAct2(){
+  const placements = [...document.getElementById('vz-only-a-items').children,
+                      ...document.getElementById('vz-intersect-items').children,
+                      ...document.getElementById('vz-only-b-items').children];
+  let correct=0, total=0;
+  placements.forEach(el=>{
+    const parent=el.parentElement.id;
+    const expected='vz-'+el.dataset.zone+'-items';
+    if(parent===expected) correct++;
+    total++;
+  });
+
+  const q1ok = q2Answers.q1==='all';
+  const q2ok = q2Answers.q2==='intersect';
+
+  // fix q style
+  document.querySelectorAll('#act2 .q-row').forEach((row,i)=>{
+    const qid = i===0?'q1':'q2';
+    const ok  = i===0?q1ok:q2ok;
+    row.querySelectorAll('.option-btn').forEach(b=>{
+      if(b.classList.contains('selected-correct')){
+        b.classList.remove('selected-correct');
+        b.classList.add(ok?'selected-correct':'selected-wrong');
+      }
+    });
+  });
+
+  const fb=document.getElementById('fb2');
+  const score = correct + (q1ok?1:0) + (q2ok?1:0);
+  const total2 = ANIMALS.length + 2;
+  if(score === total2){
+    fb.textContent='🌟 Perfect! You mastered union and intersection!';
+    fb.className='feedback correct';
+    confettiBurst(window.innerWidth/2, window.innerHeight/3);
+    document.getElementById('dot2').classList.add('done');
+  } else {
+    fb.textContent=`✨ ${score}/${total2} correct! Try again — you're so close!`;
+    fb.className='feedback wrong';
+  }
+}
+
+function resetAct2(){ buildAct2(); }
+buildAct2();
+
+/* ══════════════════════════════════════
+   ACTIVITY 3 — Match definitions
+══════════════════════════════════════ */
+let draggedTerm = null;
+
+function termDragStart(e){
+  draggedTerm = e.currentTarget;
+  setTimeout(()=>draggedTerm.classList.add('dragging'), 0);
+  e.dataTransfer.setData('text','term');
+}
+
+function dropTerm(e){
+  e.preventDefault();
+  const slot=e.currentTarget;
+  slot.classList.remove('drag-over');
+  if(!draggedTerm) return;
+  draggedTerm.classList.remove('dragging');
+
+  const termVal = draggedTerm.dataset.term;
+  const expected = slot.dataset.answer;
+
+  // remove previous answer badge
+  const prev = slot.querySelector('.slot-answer');
+  if(prev) prev.remove();
+
+  const badge=document.createElement('div');
+  badge.className='slot-answer '+(termVal===expected?'correct':'wrong');
+  badge.textContent=draggedTerm.textContent;
+  slot.appendChild(badge);
+
+  slot.classList.remove('matched-correct','matched-wrong');
+  slot.classList.add(termVal===expected?'matched-correct':'matched-wrong');
+  burst(e.clientX, e.clientY, 9);
+
+  if(termVal===expected){
+    draggedTerm.classList.add('matched');
+    draggedTerm.draggable=false;
+  }
+  draggedTerm=null;
+}
+
+function checkAct3(){
+  const slots=document.querySelectorAll('#act3 .def-slot');
+  let correct=0;
+  slots.forEach(s=>{
+    const badge=s.querySelector('.slot-answer');
+    if(badge && badge.classList.contains('correct')) correct++;
+  });
+  const total=slots.length;
+  const fb=document.getElementById('fb3');
+  const sc=document.getElementById('score3');
+
+  if(correct===total){
+    fb.textContent='🏆 PERFECT MATCH! You\'re a set theory superstar!';
+    fb.className='feedback correct';
+    sc.style.display='block';
+    sc.textContent='⭐⭐⭐ '+correct+'/'+total+' ⭐⭐⭐';
+    confettiBurst(window.innerWidth/2, window.innerHeight/3);
+    document.getElementById('dot3').classList.add('done');
+  } else {
+    fb.textContent=`🎯 ${correct}/${total} correct! Keep going, champion!`;
+    fb.className='feedback wrong';
+    sc.style.display='none';
+  }
+}
+
+function resetAct3(){
+  document.querySelectorAll('#act3 .def-slot').forEach(s=>{
+    const b=s.querySelector('.slot-answer');
+    if(b) b.remove();
+    s.classList.remove('matched-correct','matched-wrong');
+  });
+  document.querySelectorAll('.term-card').forEach(t=>{
+    t.classList.remove('matched');
+    t.draggable=true;
+  });
+  document.getElementById('fb3').className='feedback';
+  document.getElementById('fb3').textContent='';
+  document.getElementById('score3').style.display='none';
+}
+</script>
+</body>
+</html>

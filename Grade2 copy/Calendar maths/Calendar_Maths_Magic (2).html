@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ Calendar Magic Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #FFD700;
+    --deep-purple: #1a0533;
+    --mid-purple: #2d0b5c;
+    --light-purple: #6a2fa8;
+    --accent-teal: #00e5c8;
+    --accent-pink: #ff6eb4;
+    --accent-amber: #ffaa00;
+    --card-bg: rgba(255,255,255,0.07);
+    --card-border: rgba(255,255,255,0.15);
+    --text-main: #f0e6ff;
+    --text-muted: #b08fd4;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--deep-purple);
+    color: var(--text-main);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ===== ANIMATED BACKGROUND ===== */
+  .bg-canvas {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 0; overflow: hidden;
+  }
+  .bg-gradient {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 20% 20%, #3b0f7a 0%, transparent 55%),
+                radial-gradient(ellipse at 80% 80%, #0a1a4a 0%, transparent 55%),
+                radial-gradient(ellipse at 50% 50%, #1a0533 0%, #050010 100%);
+  }
+  .floating-obj {
+    position: absolute;
+    font-size: 2rem;
+    animation: floatObj linear infinite;
+    opacity: 0.35;
+    filter: drop-shadow(0 0 8px rgba(160,100,255,0.6));
+  }
+  @keyframes floatObj {
+    0%   { transform: translateY(110vh) rotate(0deg); opacity: 0; }
+    10%  { opacity: 0.35; }
+    90%  { opacity: 0.35; }
+    100% { transform: translateY(-15vh) rotate(360deg); opacity: 0; }
+  }
+  .star-particle {
+    position: absolute;
+    width: 3px; height: 3px;
+    background: var(--gold);
+    border-radius: 50%;
+    animation: twinkle ease-in-out infinite;
+  }
+  @keyframes twinkle {
+    0%,100% { opacity: 0.1; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.8); box-shadow: 0 0 6px var(--gold); }
+  }
+  .glow-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(160,100,255,0.15);
+    animation: pulseRing ease-in-out infinite;
+  }
+  @keyframes pulseRing {
+    0%,100% { transform: scale(1); opacity: 0.15; }
+    50% { transform: scale(1.08); opacity: 0.35; }
+  }
+
+  /* ===== LAYOUT ===== */
+  .page-wrap { position: relative; z-index: 1; max-width: 980px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+  /* ===== HEADER ===== */
+  .site-header { text-align: center; padding: 2rem 0 3rem; }
+  .header-icon { font-size: 4rem; display: block; margin-bottom: .5rem; animation: iconBob 3s ease-in-out infinite; }
+  @keyframes iconBob { 0%,100%{transform:translateY(0) rotate(-5deg);}50%{transform:translateY(-12px) rotate(5deg);} }
+  .site-title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(1.6rem,4vw,2.8rem);
+    background: linear-gradient(135deg, var(--gold), #ffb3e6, var(--accent-teal));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: .02em;
+    text-shadow: none;
+    line-height: 1.2;
+    margin-bottom: .5rem;
+  }
+  .site-sub { color: var(--text-muted); font-size: 1rem; }
+  .tab-nav { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; margin-top: 2rem; }
+  .tab-btn {
+    background: var(--card-bg); border: 1.5px solid var(--card-border);
+    color: var(--text-main); padding: .65rem 1.4rem; border-radius: 50px;
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: .95rem;
+    cursor: pointer; transition: all .25s; position: relative; overflow: hidden;
+  }
+  .tab-btn:hover { border-color: var(--accent-teal); color: var(--accent-teal); }
+  .tab-btn.active {
+    background: linear-gradient(135deg, #6a2fa8, #2d0b5c);
+    border-color: var(--gold); color: var(--gold);
+    box-shadow: 0 0 20px rgba(255,215,0,0.3);
+  }
+
+  /* ===== SECTION PANELS ===== */
+  .activity-panel { display: none; }
+  .activity-panel.active { display: block; animation: fadeIn .4s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+  .section-banner {
+    background: linear-gradient(135deg, rgba(106,47,168,0.5), rgba(0,229,200,0.1));
+    border: 1px solid var(--card-border); border-radius: 18px;
+    padding: 1.5rem 2rem; margin-bottom: 2rem; text-align: center;
+  }
+  .section-banner h2 { font-size: 1.5rem; color: var(--gold); margin-bottom: .35rem; }
+  .section-banner p { color: var(--text-muted); font-size: .95rem; }
+
+  .card {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 18px; padding: 1.75rem; margin-bottom: 1.5rem;
+    backdrop-filter: blur(8px);
+  }
+  .card h3 { color: var(--accent-teal); margin-bottom: 1rem; font-size: 1.1rem; }
+
+  /* ===== ACTIVITY 1: CALENDAR BUILDER ===== */
+  .month-controls { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.5rem; }
+  .month-controls label { color: var(--text-muted); font-size: .9rem; }
+  .magic-select, .magic-input {
+    background: rgba(255,255,255,0.1); border: 1px solid var(--card-border);
+    color: var(--text-main); border-radius: 10px; padding: .5rem .9rem;
+    font-family: 'Nunito', sans-serif; font-size: .95rem; cursor: pointer;
+    outline: none; transition: border-color .2s;
+  }
+  .magic-select:hover, .magic-input:hover { border-color: var(--accent-teal); }
+  .magic-select option { background: #2d0b5c; color: #f0e6ff; }
+
+  .calendar-grid {
+    border: 1.5px solid var(--card-border); border-radius: 14px; overflow: hidden;
+  }
+  .cal-header-row { display: grid; grid-template-columns: repeat(7,1fr); background: rgba(106,47,168,0.4); }
+  .cal-day-name { text-align: center; padding: .6rem .2rem; font-size: .8rem; font-weight: 700; color: var(--gold); letter-spacing: .05em; }
+  .cal-body { display: grid; grid-template-columns: repeat(7,1fr); }
+  .cal-cell {
+    border: .5px solid rgba(255,255,255,0.07); min-height: 52px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; font-weight: 600; cursor: pointer; transition: background .15s;
+    position: relative;
+  }
+  .cal-cell:hover:not(.empty) { background: rgba(0,229,200,0.1); }
+  .cal-cell.empty { pointer-events: none; }
+  .cal-cell.today { background: rgba(255,215,0,0.12); color: var(--gold); }
+  .cal-cell.today::after { content:'★'; position:absolute;top:4px;right:6px;font-size:.6rem;color:var(--gold); }
+  .cal-cell.selected { background: rgba(106,47,168,0.55); color: var(--accent-teal); box-shadow: inset 0 0 0 2px var(--accent-teal); }
+  .cal-cell.highlighted { background: rgba(255,110,180,0.2); color: var(--accent-pink); }
+
+  .quiz-panel { margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .quiz-q { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 1rem; }
+  .quiz-q p { font-size: .9rem; margin-bottom: .75rem; color: var(--text-main); }
+  .quiz-q input { background: rgba(255,255,255,0.1); border: 1px solid var(--card-border); color: #fff; border-radius: 8px; padding: .4rem .7rem; font-family: 'Nunito',sans-serif; width: 80px; text-align: center; font-size: 1rem; }
+  .check-btn, .magic-btn {
+    background: linear-gradient(135deg, #6a2fa8, #3b0f7a); border: 1.5px solid var(--gold);
+    color: var(--gold); padding: .6rem 1.4rem; border-radius: 50px;
+    font-family: 'Nunito',sans-serif; font-weight: 700; font-size: .9rem;
+    cursor: pointer; transition: all .2s; margin-top: .75rem;
+  }
+  .check-btn:hover, .magic-btn:hover { box-shadow: 0 0 18px rgba(255,215,0,0.4); transform: translateY(-1px); }
+  .feedback { font-size: .85rem; margin-top: .5rem; font-weight: 700; min-height: 1.2em; }
+  .correct { color: var(--accent-teal); }
+  .wrong { color: var(--accent-pink); }
+
+  /* ===== ACTIVITY 2: TIME TRAVEL TIMELINE ===== */
+  .timeline-setup { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+  .input-group { display: flex; flex-direction: column; gap: .4rem; }
+  .input-group label { font-size: .85rem; color: var(--text-muted); }
+  .magic-input { width: 100%; }
+
+  .timeline-visual {
+    position: relative; margin: 1.5rem 0;
+    background: rgba(255,255,255,0.04); border-radius: 14px; padding: 1.5rem 1rem;
+  }
+  .timeline-line {
+    height: 4px; background: linear-gradient(90deg, #6a2fa8, var(--accent-teal));
+    border-radius: 2px; margin: 1.5rem 1rem; position: relative;
+  }
+  .timeline-events { display: flex; justify-content: space-between; position: relative; min-height: 120px; }
+  .tl-event {
+    display: flex; flex-direction: column; align-items: center; position: relative; flex: 1;
+    cursor: grab;
+  }
+  .tl-dot { width: 16px; height: 16px; border-radius: 50%; background: var(--gold); border: 2px solid #fff; box-shadow: 0 0 12px var(--gold); flex-shrink: 0; }
+  .tl-label { font-size: .78rem; text-align: center; margin-top: .4rem; color: var(--text-muted); max-width: 90px; }
+  .tl-date { font-size: .82rem; font-weight: 700; color: var(--accent-teal); }
+
+  .event-drop-zone {
+    min-height: 70px; border: 2px dashed rgba(255,255,255,0.2); border-radius: 12px;
+    display: flex; flex-direction: column; gap: .5rem; padding: .75rem;
+    align-items: flex-start; flex-wrap: wrap;
+    transition: border-color .2s, background .2s;
+  }
+  .event-drop-zone.dragover { border-color: var(--accent-teal); background: rgba(0,229,200,0.08); }
+
+  .event-card {
+    background: linear-gradient(135deg, rgba(106,47,168,0.5), rgba(45,11,92,0.7));
+    border: 1px solid var(--card-border); border-radius: 10px;
+    padding: .45rem .9rem; font-size: .85rem; cursor: grab;
+    user-select: none; transition: transform .15s, box-shadow .15s;
+    display: inline-flex; align-items: center; gap: .4rem;
+  }
+  .event-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,229,200,0.2); }
+  .event-card:active { cursor: grabbing; }
+
+  .events-bank { display: flex; flex-wrap: wrap; gap: .6rem; margin-bottom: 1rem; }
+
+  .timeline-slots {
+    display: flex; gap: 1rem; margin-top: 1rem; overflow-x: auto; padding-bottom: .5rem;
+  }
+  .tl-slot {
+    flex: 0 0 140px;
+    background: rgba(255,255,255,0.04); border: 1.5px dashed rgba(255,255,255,0.2);
+    border-radius: 12px; padding: .75rem; min-height: 90px;
+    display: flex; flex-direction: column; align-items: center; gap: .4rem;
+    transition: border-color .2s, background .2s;
+  }
+  .tl-slot.dragover { border-color: var(--gold); background: rgba(255,215,0,0.08); }
+  .tl-slot-label { font-size: .75rem; color: var(--text-muted); font-weight: 700; }
+  .tl-slot.correct-slot { border-color: var(--accent-teal); }
+  .tl-slot.wrong-slot { border-color: var(--accent-pink); }
+
+  /* duration bar */
+  .duration-bar-wrap { margin-top: 1.5rem; }
+  .duration-bar-wrap p { font-size: .9rem; color: var(--text-muted); margin-bottom: .5rem; }
+  .dur-bar { height: 28px; background: rgba(255,255,255,0.08); border-radius: 8px; overflow: hidden; }
+  .dur-fill { height: 100%; background: linear-gradient(90deg, #6a2fa8, var(--accent-teal)); border-radius: 8px; transition: width 1s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: .6rem; font-size: .8rem; font-weight: 700; color: #fff; white-space: nowrap; }
+
+  /* ===== ACTIVITY 3: POTION SCHEDULE DRAG ===== */
+  .brew-board { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; }
+  .brew-legend { }
+  .brew-legend h4 { color: var(--gold); margin-bottom: .75rem; font-size: .95rem; }
+  .ingredient-item {
+    background: rgba(255,255,255,0.07); border: 1px solid var(--card-border);
+    border-radius: 10px; padding: .6rem .9rem; margin-bottom: .6rem;
+    cursor: grab; font-size: .88rem; display: flex; align-items: center; gap: .5rem;
+    transition: box-shadow .15s;
+  }
+  .ingredient-item:hover { box-shadow: 0 0 14px rgba(255,215,0,0.3); }
+
+  .week-grid { }
+  .week-grid h4 { color: var(--gold); margin-bottom: .75rem; font-size: .95rem; }
+  .week-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: .4rem; }
+  .week-day-col { display: flex; flex-direction: column; gap: .4rem; }
+  .week-day-header { text-align: center; font-size: .75rem; font-weight: 700; color: var(--gold); padding: .3rem 0; background: rgba(106,47,168,0.3); border-radius: 6px; }
+  .day-drop {
+    min-height: 60px; border: 1.5px dashed rgba(255,255,255,0.18); border-radius: 8px;
+    display: flex; flex-direction: column; gap: .3rem; padding: .3rem;
+    transition: border-color .2s, background .2s; align-items: stretch;
+  }
+  .day-drop.dragover { border-color: var(--accent-pink); background: rgba(255,110,180,0.08); }
+  .day-drop.has-item { border-color: rgba(0,229,200,0.3); }
+  .placed-item {
+    background: linear-gradient(135deg, rgba(106,47,168,0.6), rgba(0,229,200,0.15));
+    border-radius: 6px; padding: .3rem .4rem; font-size: .72rem; text-align: center;
+    cursor: default; display: flex; align-items: center; justify-content: center; gap: .25rem;
+  }
+  .remove-item { cursor: pointer; color: var(--accent-pink); font-weight: 700; font-size: .85rem; flex-shrink: 0; }
+  .brew-result { margin-top: 1.5rem; }
+
+  .challenge-row { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; }
+  .challenge-box {
+    background: rgba(255,255,255,0.05); border: 1px solid var(--card-border);
+    border-radius: 12px; padding: 1rem; flex: 1; min-width: 220px;
+  }
+  .challenge-box p { font-size: .88rem; color: var(--text-muted); margin-bottom: .6rem; }
+  .challenge-box strong { color: var(--text-main); }
+
+  .score-badge {
+    display: inline-flex; align-items: center; gap: .4rem;
+    background: linear-gradient(135deg, #6a2fa8, #3b0f7a);
+    border: 1.5px solid var(--gold); border-radius: 50px; padding: .4rem 1.2rem;
+    font-weight: 700; color: var(--gold); font-size: 1rem;
+    box-shadow: 0 0 20px rgba(255,215,0,0.25);
+  }
+  .stars-row { display: flex; gap: .25rem; margin-top: .75rem; }
+  .star-icon { font-size: 1.4rem; transition: all .3s; }
+  .star-icon.lit { filter: drop-shadow(0 0 6px var(--gold)); }
+  .star-icon.dim { opacity: .25; }
+
+  /* ===== MISC ===== */
+  .potion-bottle { font-size: 2rem; animation: potionBob 2.5s ease-in-out infinite; display: inline-block; }
+  @keyframes potionBob { 0%,100%{transform:rotate(-8deg);} 50%{transform:rotate(8deg);} }
+  .sparkle-burst { animation: sparkle 1s ease forwards; }
+  @keyframes sparkle { 0%{transform:scale(1);} 50%{transform:scale(1.15);} 100%{transform:scale(1);} }
+
+  footer { text-align: center; margin-top: 3rem; color: var(--text-muted); font-size: .82rem; }
+
+  @media(max-width:600px){
+    .quiz-panel { grid-template-columns: 1fr; }
+    .timeline-setup { grid-template-columns: 1fr; }
+    .brew-board { grid-template-columns: 1fr; }
+    .week-days { grid-template-columns: repeat(4,1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== ANIMATED BACKGROUND ===== -->
+<div class="bg-canvas">
+  <div class="bg-gradient"></div>
+  <div id="floaters"></div>
+  <div id="stars"></div>
+  <div id="rings"></div>
+</div>
+
+<!-- ===== PAGE ===== -->
+<div class="page-wrap">
+
+  <header class="site-header">
+    <span class="header-icon">🗓️</span>
+    <h1 class="site-title">Calendar Magic Lab</h1>
+    <p class="site-sub">Experiment with time, dates &amp; magical schedules!</p>
+    <nav class="tab-nav">
+      <button class="tab-btn active" onclick="switchTab('activity1',this)">🔮 Spell the Month</button>
+      <button class="tab-btn" onclick="switchTab('activity2',this)">⏳ Time-Travel Timeline</button>
+      <button class="tab-btn" onclick="switchTab('activity3',this)">🧪 Potion Schedule</button>
+    </nav>
+  </header>
+
+  <!-- ===================== ACTIVITY 1 ===================== -->
+  <section class="activity-panel active" id="activity1">
+    <div class="section-banner">
+      <h2>🔮 Spell the Month</h2>
+      <p>Use the magic calendar to investigate days, weeks and months — then solve the experiments below!</p>
+    </div>
+
+    <div class="card">
+      <h3>🧙 Build Your Magic Calendar</h3>
+      <div class="month-controls">
+        <label>Month:</label>
+        <select class="magic-select" id="calMonth" onchange="buildCalendar()">
+          <option value="0">January</option><option value="1">February</option>
+          <option value="2">March</option><option value="3">April</option>
+          <option value="4">May</option><option value="5">June</option>
+          <option value="6">July</option><option value="7">August</option>
+          <option value="8">September</option><option value="9">October</option>
+          <option value="10">November</option><option value="11">December</option>
+        </select>
+        <label>Year:</label>
+        <input class="magic-input" type="number" id="calYear" value="2025" min="2000" max="2099" style="width:90px" onchange="buildCalendar()">
+        <button class="magic-btn" onclick="highlightWeekends()">✨ Glow Weekends</button>
+        <button class="magic-btn" onclick="clearHighlights()">🧹 Clear</button>
+      </div>
+      <div class="calendar-grid">
+        <div class="cal-header-row">
+          <div class="cal-day-name">Sun</div><div class="cal-day-name">Mon</div>
+          <div class="cal-day-name">Tue</div><div class="cal-day-name">Wed</div>
+          <div class="cal-day-name">Thu</div><div class="cal-day-name">Fri</div>
+          <div class="cal-day-name">Sat</div>
+        </div>
+        <div class="cal-body" id="calBody"></div>
+      </div>
+      <div style="margin-top:.75rem;font-size:.82rem;color:var(--text-muted)">💡 Click any date to select it &nbsp;|&nbsp; ⭐ = today's date in a matching month</div>
+    </div>
+
+    <div class="card">
+      <h3>🔬 Calendar Experiments — solve them using your calendar!</h3>
+      <div class="quiz-panel" id="calQuizPanel"></div>
+      <button class="check-btn" style="margin-top:1rem" onclick="checkCalQuiz()">⚡ Cast the Check Spell</button>
+      <div class="feedback" id="calQuizFb"></div>
+    </div>
+  </section>
+
+  <!-- ===================== ACTIVITY 2 ===================== -->
+  <section class="activity-panel" id="activity2">
+    <div class="section-banner">
+      <h2>⏳ Time-Travel Timeline</h2>
+      <p>Drag magical events onto the timeline and calculate how many days, weeks or months apart they are!</p>
+    </div>
+
+    <div class="card">
+      <h3>🌟 Choose your adventure dates</h3>
+      <div class="timeline-setup">
+        <div class="input-group">
+          <label>🚀 Journey Start Date</label>
+          <input class="magic-input" type="date" id="startDate" onchange="updateTimeline()">
+        </div>
+        <div class="input-group">
+          <label>🏁 Journey End Date</label>
+          <input class="magic-input" type="date" id="endDate" onchange="updateTimeline()">
+        </div>
+      </div>
+      <div id="durationResult" style="display:none">
+        <div class="duration-bar-wrap">
+          <p>Journey length: <strong id="durText" style="color:var(--accent-teal)"></strong></p>
+          <div class="dur-bar"><div class="dur-fill" id="durFill" style="width:0%">0 days</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🗺️ Drag Events to the Right Order on the Timeline</h3>
+      <p style="font-size:.88rem;color:var(--text-muted);margin-bottom:1rem">Drag each event card into the correct slot (Slot 1 = earliest, Slot 5 = latest)</p>
+      <div class="events-bank" id="eventsBank"></div>
+      <div class="timeline-visual">
+        <div style="display:flex;justify-content:space-between;padding:0 0 .5rem;font-size:.75rem;color:var(--text-muted)">
+          <span>Earliest</span><span>Latest</span>
+        </div>
+        <div class="timeline-line">
+          <div style="position:absolute;top:50%;left:0;right:0;border-top:4px solid transparent"></div>
+        </div>
+        <div class="timeline-slots" id="timelineSlots"></div>
+      </div>
+      <button class="check-btn" onclick="checkTimeline()">⚡ Check My Timeline</button>
+      <div class="feedback" id="tlFb"></div>
+    </div>
+
+    <div class="card">
+      <h3>🧮 Duration Calculator Experiments</h3>
+      <div class="challenge-row" id="durChallenges"></div>
+      <button class="check-btn" style="margin-top:1rem" onclick="checkDurChallenges()">⚡ Check Experiments</button>
+      <div class="feedback" id="durFb"></div>
+    </div>
+  </section>
+
+  <!-- ===================== ACTIVITY 3 ===================== -->
+  <section class="activity-panel" id="activity3">
+    <div class="section-banner">
+      <h2>🧪 Potion Brewing Schedule</h2>
+      <p>Merlin needs you to schedule the right potions on the right days of the week. Drag potions into the calendar!</p>
+    </div>
+
+    <div class="card">
+      <div class="brew-board">
+        <div class="brew-legend">
+          <h4>🧙 Potion Ingredients</h4>
+          <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.75rem">Drag each potion onto the correct day</p>
+          <div id="ingredientBank"></div>
+        </div>
+        <div class="week-grid">
+          <h4>📅 This Week's Schedule</h4>
+          <div class="week-days" id="weekDays"></div>
+        </div>
+      </div>
+
+      <div class="brew-result">
+        <button class="check-btn" onclick="checkBrewSchedule()">⚗️ Test the Brew!</button>
+        <div class="feedback" id="brewFb" style="margin-top:.75rem"></div>
+        <div class="stars-row" id="brewStars"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🦉 Owl's Questions — answer these by looking at your schedule!</h3>
+      <div id="owlQuestions"></div>
+      <button class="check-btn" style="margin-top:1rem" onclick="checkOwlQuestions()">🦉 Hoot Check!</button>
+      <div class="feedback" id="owlFb"></div>
+    </div>
+  </section>
+
+  <footer>⚡ Calendar Magic Lab · Every great scientist masters the art of time! ⚡</footer>
+</div>
+
+<script>
+/* ============================
+   BACKGROUND ANIMATION
+============================= */
+const FLOATERS = ['📚','🪄','🧪','🦉','⭐','🌙','✨','🔮','📜','🌟','💫','🧙'];
+const floaterEl = document.getElementById('floaters');
+for(let i=0;i<22;i++){
+  const d = document.createElement('div');
+  d.className='floating-obj';
+  d.textContent = FLOATERS[i%FLOATERS.length];
+  d.style.cssText=`left:${Math.random()*100}%;animation-duration:${8+Math.random()*18}s;animation-delay:${Math.random()*20}s;font-size:${1.2+Math.random()*1.8}rem;`;
+  floaterEl.appendChild(d);
+}
+const starsEl = document.getElementById('stars');
+for(let i=0;i<80;i++){
+  const s=document.createElement('div');
+  s.className='star-particle';
+  s.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;animation-duration:${1.5+Math.random()*3}s;animation-delay:${Math.random()*4}s;width:${Math.random()<0.3?5:3}px;height:${Math.random()<0.3?5:3}px;`;
+  starsEl.appendChild(s);
+}
+const ringsEl=document.getElementById('rings');
+[[20,30,300],[70,60,200],[50,80,250],[30,70,180]].forEach(([l,t,sz])=>{
+  const r=document.createElement('div');
+  r.className='glow-ring';
+  r.style.cssText=`left:${l}%;top:${t}%;width:${sz}px;height:${sz}px;margin-left:-${sz/2}px;margin-top:-${sz/2}px;animation-duration:${4+Math.random()*4}s;animation-delay:${Math.random()*3}s;`;
+  ringsEl.appendChild(r);
+});
+
+/* ============================
+   TAB SWITCH
+============================= */
+function switchTab(id,btn){
+  document.querySelectorAll('.activity-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+/* ============================
+   ACTIVITY 1: CALENDAR
+============================= */
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYS_IN=['31','28','31','30','31','30','31','31','30','31','30','31'];
+
+function daysInMonth(m,y){
+  if(m===1) return (y%4===0&&(y%100!==0||y%400===0))?29:28;
+  return parseInt(DAYS_IN[m]);
+}
+
+let selectedDates=[];
+function buildCalendar(){
+  const m=parseInt(document.getElementById('calMonth').value);
+  const y=parseInt(document.getElementById('calYear').value);
+  const firstDay=new Date(y,m,1).getDay();
+  const days=daysInMonth(m,y);
+  const today=new Date();
+  const isCurrentMonth=(today.getMonth()===m&&today.getFullYear()===y);
+
+  let html='';
+  for(let i=0;i<firstDay;i++) html+=`<div class="cal-cell empty"></div>`;
+  for(let d=1;d<=days;d++){
+    const cls=isCurrentMonth&&d===today.getDate()?'today':'';
+    html+=`<div class="cal-cell ${cls}" onclick="toggleDate(this,${d},${m},${y})">${d}</div>`;
+  }
+  document.getElementById('calBody').innerHTML=html;
+  selectedDates=[];
+  generateCalQuiz(m,y,days,firstDay);
+}
+
+function toggleDate(el,d,m,y){
+  el.classList.toggle('selected');
+  const key=`${y}-${m}-${d}`;
+  if(selectedDates.includes(key)) selectedDates=selectedDates.filter(k=>k!==key);
+  else selectedDates.push(key);
+}
+
+function highlightWeekends(){
+  const m=parseInt(document.getElementById('calMonth').value);
+  const y=parseInt(document.getElementById('calYear').value);
+  const firstDay=new Date(y,m,1).getDay();
+  const days=daysInMonth(m,y);
+  const cells=document.querySelectorAll('#calBody .cal-cell:not(.empty)');
+  cells.forEach((c,i)=>{
+    const dow=(firstDay+i)%7;
+    if(dow===0||dow===6) c.classList.add('highlighted');
+  });
+}
+
+function clearHighlights(){
+  document.querySelectorAll('#calBody .cal-cell').forEach(c=>c.classList.remove('highlighted','selected'));
+  selectedDates=[];
+}
+
+let calQuizData=[];
+function generateCalQuiz(m,y,days,firstDay){
+  const monthName=MONTHS[m];
+  const lastDay=new Date(y,m,days).getDay();
+  const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const weekends=[0,6];
+  let weekendCount=0;
+  for(let d=1;d<=days;d++){
+    const dow=(firstDay+d-1)%7;
+    if(weekends.includes(dow)) weekendCount++;
+  }
+  const numWeeks=Math.floor(days/7);
+  const q3day=new Date(y,m,15).getDay();
+
+  calQuizData=[
+    {q:`How many days are in ${monthName} ${y}?`, a:days},
+    {q:`How many complete weeks are in ${monthName}?`, a:numWeeks},
+    {q:`How many weekend days (Sat & Sun) are in ${monthName}?`, a:weekendCount},
+    {q:`What day of the week is the 15th of ${monthName}?`, a:dayNames[q3day], type:'text'},
+    {q:`If today is the 10th, what date will it be in 2 weeks?`, a:24},
+  ];
+
+  const panel=document.getElementById('calQuizPanel');
+  panel.innerHTML=calQuizData.map((q,i)=>`
+    <div class="quiz-q">
+      <p>🔬 <strong>Experiment ${i+1}:</strong> ${q.q}</p>
+      <input id="cq${i}" placeholder="${q.type==='text'?'day name':'number'}" style="width:${q.type==='text'?'160px':'80px'}">
+      <div class="feedback" id="cqfb${i}"></div>
+    </div>
+  `).join('');
+}
+
+function checkCalQuiz(){
+  let correct=0;
+  calQuizData.forEach((q,i)=>{
+    const val=document.getElementById(`cq${i}`).value.trim();
+    const correct_ans=String(q.a);
+    const ok=val.toLowerCase()===correct_ans.toLowerCase();
+    if(ok) correct++;
+    document.getElementById(`cqfb${i}`).innerHTML=ok?`<span class="correct">✅ Correct!</span>`:`<span class="wrong">❌ Answer: ${q.a}</span>`;
+  });
+  document.getElementById('calQuizFb').innerHTML=`<span style="color:var(--gold)">⭐ Score: ${correct}/${calQuizData.length}</span>`;
+}
+
+// init calendar
+document.getElementById('calMonth').value=new Date().getMonth();
+document.getElementById('calYear').value=new Date().getFullYear();
+buildCalendar();
+
+/* ============================
+   ACTIVITY 2: TIMELINE
+============================= */
+// Set default dates
+const now=new Date();
+document.getElementById('startDate').value=`${now.getFullYear()}-01-01`;
+document.getElementById('endDate').value=`${now.getFullYear()}-12-31`;
+
+function daysBetween(d1,d2){
+  return Math.round((new Date(d2)-new Date(d1))/(1000*60*60*24));
+}
+
+function updateTimeline(){
+  const s=document.getElementById('startDate').value;
+  const e=document.getElementById('endDate').value;
+  if(!s||!e||new Date(s)>=new Date(e)) return;
+  const days=daysBetween(s,e);
+  const weeks=Math.floor(days/7);
+  const months=Math.floor(days/30.44);
+  document.getElementById('durText').textContent=`${days} days · ${weeks} weeks · ~${months} months`;
+  const pct=Math.min(100,Math.round(days/365*100));
+  const fill=document.getElementById('durFill');
+  fill.style.width=pct+'%';
+  fill.textContent=days+' days';
+  document.getElementById('durationResult').style.display='block';
+}
+updateTimeline();
+
+// Timeline drag events
+const TIMELINE_EVENTS=[
+  {emoji:'🐣',label:'Spring Festival',date:'2025-03-21'},
+  {emoji:'☀️',label:'Summer Camp',date:'2025-07-15'},
+  {emoji:'🍂',label:'Harvest Fair',date:'2025-10-03'},
+  {emoji:'❄️',label:'Winter Ball',date:'2025-12-20'},
+  {emoji:'🌸',label:'Blossom Day',date:'2025-04-08'},
+];
+const SORTED_ORDER=[0,4,1,2,3]; // sorted by date index
+
+let draggedEventId=null;
+let tlSlotContents=Array(5).fill(null);
+
+function buildTimelineUI(){
+  const bank=document.getElementById('eventsBank');
+  bank.innerHTML=TIMELINE_EVENTS.map((e,i)=>`
+    <div class="event-card" draggable="true" id="ev${i}" data-id="${i}" ondragstart="startDragEv(event,${i})">
+      ${e.emoji} ${e.label}
+    </div>
+  `).join('');
+
+  const slotsEl=document.getElementById('timelineSlots');
+  slotsEl.innerHTML=Array(5).fill(0).map((_, si)=>`
+    <div class="tl-slot" id="slot${si}" data-slot="${si}"
+      ondragover="allowDrop(event)" ondrop="dropEv(event,${si})" ondragleave="leaveDrop(event)">
+      <div class="tl-slot-label">Slot ${si+1}</div>
+    </div>
+  `).join('');
+  tlSlotContents=Array(5).fill(null);
+}
+
+function startDragEv(e,id){
+  draggedEventId=id;
+  e.dataTransfer.setData('text/plain',id);
+}
+function allowDrop(e){
+  e.preventDefault();
+  e.currentTarget.classList.add('dragover');
+}
+function leaveDrop(e){ e.currentTarget.classList.remove('dragover'); }
+function dropEv(e,si){
+  e.preventDefault();
+  const slot=document.getElementById(`slot${si}`);
+  slot.classList.remove('dragover');
+  if(draggedEventId===null) return;
+  // remove from previous slot
+  tlSlotContents=tlSlotContents.map(v=>v===draggedEventId?null:v);
+  // remove from bank if needed
+  const bankCard=document.getElementById(`ev${draggedEventId}`);
+  if(bankCard) bankCard.style.display='none';
+  tlSlotContents[si]=draggedEventId;
+  renderSlots();
+  draggedEventId=null;
+}
+function renderSlots(){
+  for(let si=0;si<5;si++){
+    const slot=document.getElementById(`slot${si}`);
+    const id=tlSlotContents[si];
+    const existing=slot.querySelector('.event-card');
+    if(existing) existing.remove();
+    if(id!==null){
+      const ev=TIMELINE_EVENTS[id];
+      const c=document.createElement('div');
+      c.className='event-card';
+      c.innerHTML=`${ev.emoji} ${ev.label}<br><span style="font-size:.72rem;color:var(--accent-teal)">${ev.date}</span>`;
+      c.style.cursor='default';
+      slot.appendChild(c);
+    }
+  }
+}
+function checkTimeline(){
+  const filled=tlSlotContents.filter(v=>v!==null).length;
+  if(filled<5){document.getElementById('tlFb').innerHTML=`<span class="wrong">⚠️ Fill all 5 slots first!</span>`;return;}
+  let correct=0;
+  SORTED_ORDER.forEach((expectedId,si)=>{
+    const slot=document.getElementById(`slot${si}`);
+    slot.classList.remove('correct-slot','wrong-slot');
+    if(tlSlotContents[si]===expectedId){correct++;slot.classList.add('correct-slot');}
+    else slot.classList.add('wrong-slot');
+  });
+  document.getElementById('tlFb').innerHTML=correct===5?
+    `<span class="correct">🌟 Perfect! You've mastered the timeline!</span>`:
+    `<span class="wrong">⭐ ${correct}/5 correct — check the dates again! Teal=correct, Pink=wrong</span>`;
+}
+buildTimelineUI();
+
+// Duration challenges
+const DUR_CHALLENGES=[
+  {q:'School starts on 4 Sep and ends on 19 Dec. How many days is that?',a:106},
+  {q:'A magical project takes 3 weeks. How many days is that?',a:21},
+  {q:'If a potion needs 45 days to brew starting 1 Jan, on what date is it ready? (type the day number in January + Feb)', a:14},
+];
+function buildDurChallenges(){
+  document.getElementById('durChallenges').innerHTML=DUR_CHALLENGES.map((c,i)=>`
+    <div class="challenge-box">
+      <p>🧪 <strong>Experiment ${i+1}:</strong> ${c.q}</p>
+      <input class="magic-input" id="dc${i}" type="number" placeholder="?" style="width:100px">
+      <div class="feedback" id="dcfb${i}"></div>
+    </div>
+  `).join('');
+}
+function checkDurChallenges(){
+  let c=0;
+  DUR_CHALLENGES.forEach((ch,i)=>{
+    const v=parseInt(document.getElementById(`dc${i}`).value);
+    const ok=v===ch.a;
+    if(ok)c++;
+    document.getElementById(`dcfb${i}`).innerHTML=ok?`<span class="correct">✅ Correct!</span>`:`<span class="wrong">❌ Answer: ${ch.a}</span>`;
+  });
+  document.getElementById('durFb').innerHTML=`<span style="color:var(--gold)">⭐ Score: ${c}/${DUR_CHALLENGES.length}</span>`;
+}
+buildDurChallenges();
+
+/* ============================
+   ACTIVITY 3: POTION SCHEDULE
+============================= */
+const POTIONS=[
+  {emoji:'🔴',name:'Fire Potion',days:[1,3]},      // Mon, Wed
+  {emoji:'🔵',name:'Ice Brew',days:[2,4]},          // Tue, Thu
+  {emoji:'🟡',name:'Lightning Mix',days:[0,5]},     // Sun, Fri
+  {emoji:'🟢',name:'Nature Elixir',days:[3,6]},     // Wed, Sat
+  {emoji:'🟣',name:'Dream Dust',days:[1,5]},        // Mon, Fri
+];
+const DAY_NAMES_SHORT=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const CORRECT_SCHEDULE={
+  0:[2],1:[0,4],2:[1],3:[0,3],4:[1,3],5:[2,4],6:[3]
+};
+
+let brewSchedule=Array(7).fill(null).map(()=>[]);
+let brewDragId=null;
+
+function buildBrewUI(){
+  const bank=document.getElementById('ingredientBank');
+  bank.innerHTML=POTIONS.map((p,i)=>`
+    <div class="ingredient-item" draggable="true" id="pot${i}" data-id="${i}"
+      ondragstart="startDragBrew(event,${i})">
+      ${p.emoji} ${p.name}
+      <span style="font-size:.72rem;color:var(--text-muted)">→ ${p.days.map(d=>DAY_NAMES_SHORT[d]).join(', ')}</span>
+    </div>
+  `).join('');
+
+  const weekEl=document.getElementById('weekDays');
+  weekEl.innerHTML=DAY_NAMES_SHORT.map((d,di)=>`
+    <div class="week-day-col">
+      <div class="week-day-header">${d}</div>
+      <div class="day-drop" id="daydrop${di}" data-day="${di}"
+        ondragover="allowDrop(event)" ondrop="dropBrew(event,${di})" ondragleave="leaveDrop(event)">
+      </div>
+    </div>
+  `).join('');
+  brewSchedule=Array(7).fill(null).map(()=>[]);
+}
+
+function startDragBrew(e,id){ brewDragId=id; }
+function dropBrew(e,day){
+  e.preventDefault();
+  const dropEl=document.getElementById(`daydrop${day}`);
+  dropEl.classList.remove('dragover');
+  if(brewDragId===null)return;
+  if(brewSchedule[day].includes(brewDragId))return;
+  brewSchedule[day].push(brewDragId);
+  renderBrew(day);
+  brewDragId=null;
+}
+function renderBrew(day){
+  const el=document.getElementById(`daydrop${day}`);
+  el.innerHTML=brewSchedule[day].map(pid=>`
+    <div class="placed-item">
+      ${POTIONS[pid].emoji} ${POTIONS[pid].name.split(' ')[0]}
+      <span class="remove-item" onclick="removeBrew(${day},${pid})">✕</span>
+    </div>
+  `).join('');
+  el.classList.toggle('has-item',brewSchedule[day].length>0);
+}
+function removeBrew(day,pid){
+  brewSchedule[day]=brewSchedule[day].filter(id=>id!==pid);
+  renderBrew(day);
+}
+
+function checkBrewSchedule(){
+  let correct=0,total=0;
+  POTIONS.forEach((p,pid)=>{
+    p.days.forEach(day=>{
+      total++;
+      if(brewSchedule[day].includes(pid)) correct++;
+    });
+  });
+  const stars=Math.round(correct/total*3);
+  const starsEl=document.getElementById('brewStars');
+  starsEl.innerHTML=[1,2,3].map(s=>`<span class="star-icon ${s<=stars?'lit':'dim'}">⭐</span>`).join('');
+  document.getElementById('brewFb').innerHTML=correct===total?
+    `<span class="correct">🌟 Perfect brew! ${correct}/${total} potions scheduled correctly!</span>`:
+    `<span class="wrong">🧪 ${correct}/${total} correct — check the potion hints! Brew again!</span>`;
+}
+
+// Owl questions
+const OWL_Qs=[
+  {q:'How many potions are brewed on Monday?', a:2},
+  {q:'Which day has the most potions? (type the day name)', a:'Wednesday', type:'text'},
+  {q:'How many total potion brews happen in the whole week?', a:10},
+];
+function buildOwlQs(){
+  document.getElementById('owlQuestions').innerHTML=OWL_Qs.map((q,i)=>`
+    <div class="quiz-q" style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.75rem;background:rgba(255,255,255,0.04);border-radius:12px;padding:1rem">
+      <p>🦉 <strong>Question ${i+1}:</strong> ${q.q}</p>
+      <input class="magic-input" id="owq${i}" placeholder="${q.type==='text'?'day name':'number'}" style="width:${q.type==='text'?'160px':'90px'}">
+      <div class="feedback" id="owfb${i}"></div>
+    </div>
+  `).join('');
+}
+function checkOwlQuestions(){
+  let c=0;
+  OWL_Qs.forEach((q,i)=>{
+    const v=document.getElementById(`owq${i}`).value.trim().toLowerCase();
+    const ok=v===String(q.a).toLowerCase();
+    if(ok)c++;
+    document.getElementById(`owfb${i}`).innerHTML=ok?`<span class="correct">✅ Correct!</span>`:`<span class="wrong">❌ Answer: ${q.a}</span>`;
+  });
+  document.getElementById('owlFb').innerHTML=`<span style="color:var(--gold)">🦉 ${c}/${OWL_Qs.length} answered correctly!</span>`;
+}
+
+buildBrewUI();
+buildOwlQs();
+</script>
+</body>
+</html>

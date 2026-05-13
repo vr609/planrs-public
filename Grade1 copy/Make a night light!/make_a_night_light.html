@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>MAKE A NIGHT LIGHT!</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════
+   ROOT & RESET
+══════════════════════════════════════════════ */
+:root{
+  --neon:#00ff88;--neon2:#00ddff;--neon3:#ff00cc;
+  --gold:#ffd700;--amber:#ffaa00;--deep:#000a18;
+  --mid:#001428;--surface:#002040;
+  --card:rgba(0,20,40,.88);--border:rgba(0,255,136,.2);
+  --glow:rgba(0,255,136,.45);
+  --led1:#ffff00;--led2:#ff8800;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif;user-select:none}
+body{background:#000a18;position:relative}
+
+/* ══════════════════════════════════════════════
+   VR BACKGROUND
+══════════════════════════════════════════════ */
+/* Grid floor */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(0,255,136,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,255,136,.06) 1px,transparent 1px);
+  background-size:40px 40px;
+  animation:gridMove 20s linear infinite;z-index:0;
+}
+@keyframes gridMove{0%{background-position:0 0}100%{background-position:40px 40px}}
+
+/* Glow blobs */
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 600px 400px at 15% 80%,rgba(0,255,136,.09) 0%,transparent 70%),
+    radial-gradient(ellipse 500px 300px at 85% 20%,rgba(0,221,255,.08) 0%,transparent 65%),
+    radial-gradient(ellipse 400px 300px at 60% 100%,rgba(255,0,204,.06) 0%,transparent 60%);
+  animation:blobPulse 7s ease-in-out infinite alternate;z-index:0;
+}
+@keyframes blobPulse{0%{opacity:.6}100%{opacity:1}}
+
+/* ── MATRIX RAIN CANVAS ── */
+#matrix{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.14}
+
+/* ── PORTAL RINGS ── */
+.portal{
+  position:fixed;border-radius:50%;pointer-events:none;z-index:1;
+  animation:portalSpin linear infinite;
+}
+@keyframes portalSpin{0%{transform:rotate(0) scale(1)}50%{transform:rotate(180deg) scale(1.06)}100%{transform:rotate(360deg) scale(1)}}
+
+/* ── DIGITAL PARTICLES ── */
+.digi-p{
+  position:fixed;border-radius:50%;pointer-events:none;z-index:2;
+  animation:digiFloat linear infinite;opacity:0;
+}
+@keyframes digiFloat{
+  0%{transform:translate(0,0);opacity:0}10%{opacity:.8}
+  90%{opacity:.4}100%{transform:translate(var(--dx),var(--dy));opacity:0}
+}
+
+/* ══════════════════════════════════════════════
+   LAYOUT
+══════════════════════════════════════════════ */
+#app{
+  position:relative;z-index:10;
+  width:100vw;height:100vh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:clamp(4px,1vh,14px) clamp(6px,1.5vw,18px);
+  gap:clamp(4px,1vh,10px);
+}
+
+/* ══════════════════════════════════════════════
+   HEADER
+══════════════════════════════════════════════ */
+#hdr{text-align:center;animation:hdrIn .8s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes hdrIn{from{transform:translateY(-55px);opacity:0}to{transform:translateY(0);opacity:1}}
+#hdr h1{
+  font-family:'Share Tech Mono',monospace;
+  font-size:clamp(17px,3.8vw,40px);letter-spacing:3px;
+  background:linear-gradient(135deg,var(--neon) 0%,var(--neon2) 40%,var(--gold) 65%,var(--neon3) 100%);
+  background-size:300% 300%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:titleShift 5s ease infinite;
+  filter:drop-shadow(0 0 18px rgba(0,255,136,.55));
+}
+@keyframes titleShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+
+/* Progress pips */
+#progress{display:flex;gap:8px;justify-content:center;margin-top:3px}
+.pip{width:clamp(34px,7vw,58px);height:7px;border-radius:2px;
+  background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.15);
+  transition:all .5s;position:relative;overflow:hidden}
+.pip.active::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,var(--neon),var(--neon2));
+  animation:pipFlow 1.2s ease-in-out infinite}
+.pip.done{background:linear-gradient(90deg,var(--neon),var(--neon2));
+  box-shadow:0 0 10px var(--glow);border-color:var(--neon)}
+@keyframes pipFlow{0%,100%{opacity:.55}50%{opacity:1}}
+#act-lbl{font-family:'Share Tech Mono',monospace;font-size:clamp(8px,1.3vw,12px);
+  letter-spacing:2px;text-transform:uppercase;color:var(--neon);margin-top:2px}
+
+/* ══════════════════════════════════════════════
+   GAME CARD
+══════════════════════════════════════════════ */
+#game-card{
+  width:100%;max-width:960px;
+  background:var(--card);border:1.5px solid var(--border);border-radius:6px;
+  backdrop-filter:blur(20px);
+  padding:clamp(10px,2.5vh,22px) clamp(12px,2.5vw,28px);
+  box-shadow:0 0 60px rgba(0,255,136,.07),inset 0 1px 0 rgba(0,255,136,.05);
+  display:flex;flex-direction:column;align-items:center;
+  gap:clamp(6px,1.4vh,14px);
+  flex:1;max-height:calc(100vh - 108px);
+  animation:cardGlow 4s ease-in-out infinite alternate;
+}
+@keyframes cardGlow{0%{border-color:rgba(0,255,136,.15)}100%{border-color:rgba(0,221,255,.28)}}
+
+.instr{
+  font-size:clamp(9px,1.5vw,13px);font-weight:700;
+  color:rgba(200,255,240,.8);text-align:center;
+  background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.18);
+  border-radius:4px;padding:6px 18px;max-width:660px;
+}
+
+/* ── DRAG ITEMS ── */
+.drag-item{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  cursor:grab;flex-shrink:0;border-radius:6px;
+  transition:transform .15s,box-shadow .15s,opacity .2s;
+}
+.drag-item:hover{transform:translateY(-4px) scale(1.1);box-shadow:0 6px 22px var(--glow)}
+.drag-item.dragging{opacity:.4;cursor:grabbing;transform:scale(1.14)}
+.d-ico{font-size:clamp(20px,3.5vw,34px);line-height:1}
+.d-lbl{font-size:clamp(7px,1vw,10px);font-weight:800;text-transform:uppercase;
+  letter-spacing:.5px;color:rgba(180,255,220,.8);text-align:center}
+
+/* ── DROP ZONES ── */
+.dz{
+  border:2px dashed rgba(0,255,136,.28);border-radius:6px;
+  background:rgba(0,255,136,.03);transition:all .2s;
+}
+.dz.hover{border-color:var(--neon);background:rgba(0,255,136,.1);
+  box-shadow:0 0 20px rgba(0,255,136,.35);transform:scale(1.03)}
+.dz.correct-fx{animation:correctGlow .55s ease}
+.dz.wrong-fx{animation:wrongShake .4s ease}
+@keyframes correctGlow{0%,100%{box-shadow:0 0 0 rgba(0,255,136,0)}50%{box-shadow:0 0 32px rgba(0,255,136,.9)}}
+@keyframes wrongShake{0%,100%{transform:scale(1)}30%{transform:translateX(-7px)}70%{transform:translateX(7px)}}
+
+/* ── BUTTON ── */
+.btn{
+  font-family:'Share Tech Mono',monospace;
+  font-size:clamp(11px,2vw,17px);
+  padding:clamp(7px,1.3vh,12px) clamp(18px,3.5vw,36px);
+  border-radius:4px;border:1.5px solid var(--neon);cursor:pointer;letter-spacing:2px;
+  background:transparent;color:var(--neon);font-weight:700;
+  box-shadow:0 0 18px rgba(0,255,136,.3),inset 0 0 18px rgba(0,255,136,.04);
+  transition:all .2s;text-transform:uppercase;
+}
+.btn:hover{background:rgba(0,255,136,.1);box-shadow:0 0 30px rgba(0,255,136,.6)}
+.btn:active{transform:scale(.97)}
+.btn.amber-btn{border-color:var(--amber);color:var(--amber);
+  box-shadow:0 0 18px rgba(255,170,0,.3)}
+.btn.amber-btn:hover{background:rgba(255,170,0,.1);box-shadow:0 0 30px rgba(255,170,0,.6)}
+
+/* ══════════════════════════════════════════════
+   POPUP
+══════════════════════════════════════════════ */
+.overlay{position:fixed;inset:0;z-index:200;
+  background:rgba(0,5,15,.9);backdrop-filter:blur(14px);
+  display:flex;align-items:center;justify-content:center;
+  animation:ovIn .3s ease}
+@keyframes ovIn{from{opacity:0}to{opacity:1}}
+.popup{
+  background:linear-gradient(160deg,rgba(0,20,45,.97),rgba(0,10,25,.98));
+  border:1.5px solid rgba(0,255,136,.35);border-radius:10px;
+  padding:clamp(22px,5vh,44px) clamp(24px,5vw,52px);
+  text-align:center;max-width:460px;width:90%;
+  box-shadow:0 0 80px rgba(0,255,136,.18),0 0 0 1px rgba(0,221,255,.06);
+  animation:popIn .45s cubic-bezier(.34,1.56,.64,1);
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+}
+@keyframes popIn{from{opacity:0;transform:scale(.55)}to{opacity:1;transform:scale(1)}}
+.p-ico{font-size:clamp(48px,9vw,76px);animation:icoSpin .7s ease}
+@keyframes icoSpin{from{transform:scale(0) rotate(-180deg)}to{transform:scale(1) rotate(0)}}
+.p-title{font-family:'Share Tech Mono',monospace;font-size:clamp(18px,4vw,30px);
+  background:linear-gradient(135deg,var(--neon),var(--neon2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.p-sub{font-size:clamp(11px,1.8vw,14px);color:rgba(200,255,240,.72);
+  font-weight:600;line-height:1.6}
+.p-stars{display:flex;gap:8px;font-size:clamp(26px,5vw,42px)}
+
+/* ══════════════════════════════════════════════
+   ACTIVITY 1 — DESIGN NIGHT LIGHT
+══════════════════════════════════════════════ */
+#act1{width:100%;display:flex;flex-direction:column;align-items:center;gap:clamp(6px,1.2vh,12px)}
+#a1-main{display:flex;gap:clamp(10px,2vw,22px);align-items:flex-start;justify-content:center;flex-wrap:wrap;width:100%}
+
+/* Night light canvas */
+#nl-canvas{
+  width:clamp(160px,26vw,240px);
+  height:clamp(200px,32vh,290px);
+  background:linear-gradient(180deg,#050f22,#020910);
+  border:2px solid rgba(0,255,136,.2);border-radius:8px;
+  position:relative;overflow:hidden;flex-shrink:0;
+  box-shadow:0 0 28px rgba(0,255,136,.08);
+  transition:box-shadow .4s;
+}
+#nl-canvas.lit{box-shadow:0 0 40px rgba(255,220,100,.35),0 0 80px rgba(255,180,50,.2)!important}
+/* Grid lines on canvas */
+#nl-canvas::before{
+  content:'';position:absolute;inset:0;
+  background-image:linear-gradient(rgba(0,255,136,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,255,136,.04) 1px,transparent 1px);
+  background-size:20px 20px;pointer-events:none;z-index:1;
+}
+
+/* Placed design elements */
+.placed-el{
+  position:absolute;font-size:clamp(18px,3vw,28px);
+  animation:placeSnap .35s cubic-bezier(.34,1.56,.64,1);pointer-events:none;z-index:2;
+}
+@keyframes placeSnap{from{transform:scale(0) rotate(-15deg)}to{transform:scale(1) rotate(0)}}
+
+/* Design shelf */
+#design-shelf{display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(5px,1vw,9px);align-content:start}
+.design-item{
+  width:clamp(50px,8.5vw,76px);height:clamp(50px,8.5vw,76px);
+  border-radius:8px;cursor:grab;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  background:rgba(0,255,136,.08);border:1.5px solid rgba(0,255,136,.2);
+  transition:transform .15s,box-shadow .15s;
+}
+.design-item:hover{transform:translateY(-3px) scale(1.1);box-shadow:0 6px 20px var(--glow)}
+.design-item .ico2{font-size:clamp(20px,3.5vw,30px)}
+.design-item .lbl2{font-size:clamp(7px,.9vw,9px);font-weight:800;text-transform:uppercase;
+  color:rgba(180,255,220,.8);letter-spacing:.4px;text-align:center}
+
+/* Info panel */
+#a1-info{display:flex;flex-direction:column;gap:8px;max-width:clamp(110px,17vw,175px)}
+.info-card{
+  padding:8px 12px;border-radius:8px;
+  background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.18);
+  font-size:clamp(8px,1.2vw,11px);font-weight:700;color:rgba(180,255,220,.75);line-height:1.5;
+}
+.info-card b{color:var(--neon)}
+
+#a1-score{font-family:'Share Tech Mono',monospace;font-size:clamp(11px,1.8vw,16px);color:var(--neon)}
+#a1-msg{font-size:clamp(9px,1.4vw,12px);font-weight:700;min-height:16px;text-align:center}
+
+/* ══════════════════════════════════════════════
+   ACTIVITY 2 — BUILD PARALLEL CIRCUIT
+══════════════════════════════════════════════ */
+#act2{width:100%;display:flex;flex-direction:column;align-items:center;gap:clamp(6px,1.2vh,12px)}
+#a2-main{display:flex;gap:clamp(10px,2vw,22px);align-items:flex-start;justify-content:center;flex-wrap:wrap;width:100%}
+
+/* Circuit board */
+#circ-board{
+  width:clamp(200px,32vw,300px);height:clamp(210px,33vh,300px);
+  background:linear-gradient(145deg,#030d1e,#020810);
+  border:2px solid rgba(0,255,136,.2);border-radius:8px;
+  position:relative;flex-shrink:0;overflow:hidden;
+}
+#circ-board::before{
+  content:'';position:absolute;inset:0;
+  background-image:linear-gradient(rgba(0,255,136,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,255,136,.04) 1px,transparent 1px);
+  background-size:18px 18px;pointer-events:none;
+}
+
+/* SVG circuit traces */
+#circ-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+.trace{stroke:rgba(0,255,136,.15);stroke-width:3;fill:none;stroke-dasharray:6 10;
+  stroke-linecap:round;animation:traceDash 1.8s linear infinite}
+.trace.active{stroke:#00ff88;stroke-dasharray:none;filter:drop-shadow(0 0 4px #00ff88)}
+@keyframes traceDash{0%{stroke-dashoffset:0}100%{stroke-dashoffset:-32}}
+
+/* Component drop zones */
+.comp-dz{
+  position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border-radius:8px;transition:all .2s;z-index:2;
+}
+.comp-dz .cz-lbl{font-family:'Share Tech Mono',monospace;font-size:clamp(7px,1vw,10px);
+  font-weight:700;text-transform:uppercase;color:rgba(0,255,136,.5);letter-spacing:.5px;text-align:center;margin-top:2px}
+
+/* LED glow when placed */
+.led-glow{
+  width:clamp(24px,4.5vw,38px);height:clamp(24px,4.5vw,38px);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:clamp(14px,2.5vw,22px);
+  transition:all .4s;
+}
+.led-glow.on{
+  box-shadow:0 0 18px var(--led1),0 0 36px rgba(255,255,0,.4);
+  animation:ledGlowPulse .8s ease-in-out infinite alternate;
+}
+@keyframes ledGlowPulse{0%{box-shadow:0 0 14px var(--led1),0 0 28px rgba(255,255,0,.3)}
+  100%{box-shadow:0 0 24px #fff,0 0 48px var(--led1),0 0 70px rgba(255,255,0,.4)}}
+
+/* Parts palette */
+#parts-palette{display:flex;flex-direction:column;gap:clamp(5px,1vh,9px)}
+.part-card{
+  padding:clamp(7px,1.4vh,11px) clamp(9px,1.8vw,15px);
+  border-radius:8px;cursor:grab;
+  display:flex;align-items:center;gap:10px;
+  border:1.5px solid rgba(0,255,136,.25);background:rgba(0,255,136,.07);
+  transition:transform .15s,box-shadow .15s,opacity .2s;
+}
+.part-card:hover{transform:translateX(5px) scale(1.05);box-shadow:0 5px 18px var(--glow)}
+.part-card.used{opacity:.28;cursor:not-allowed;pointer-events:none}
+.pc-ico{font-size:clamp(22px,3.8vw,34px)}
+.pc-info{display:flex;flex-direction:column;gap:2px}
+.pc-name{font-family:'Share Tech Mono',monospace;font-size:clamp(10px,1.6vw,14px);color:var(--neon)}
+.pc-desc{font-size:clamp(7px,.9vw,10px);color:rgba(180,255,220,.55);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+
+/* Circuit state panel */
+#circ-panel{
+  display:flex;flex-direction:column;gap:7px;max-width:clamp(110px,16vw,165px);
+  padding:clamp(7px,1.4vh,12px) clamp(8px,1.5vw,13px);
+  background:rgba(0,255,136,.03);border:1.5px solid rgba(0,255,136,.1);border-radius:8px;
+}
+.cp-state{display:flex;align-items:center;gap:8px;font-size:clamp(8px,1.2vw,11px);
+  font-weight:700;color:rgba(180,255,220,.5);transition:color .3s}
+.cp-state.active{color:var(--neon)}
+.cp-dot{width:8px;height:8px;border-radius:50%;background:rgba(0,255,136,.25);
+  flex-shrink:0;transition:all .3s}
+.cp-state.active .cp-dot{background:var(--neon);box-shadow:0 0 8px var(--neon)}
+
+#a2-msg{font-size:clamp(9px,1.4vw,12px);font-weight:700;min-height:16px;text-align:center}
+#a2-score{font-family:'Share Tech Mono',monospace;font-size:clamp(11px,1.8vw,16px);color:var(--neon)}
+
+/* ══════════════════════════════════════════════
+   ACTIVITY 3 — TEST PARALLEL BEHAVIOR
+══════════════════════════════════════════════ */
+#act3{width:100%;display:flex;flex-direction:column;align-items:center;gap:clamp(6px,1.2vh,12px)}
+#a3-main{display:flex;gap:clamp(10px,2vw,22px);align-items:flex-start;justify-content:center;flex-wrap:wrap;width:100%}
+
+/* Night light final display */
+#final-nl{
+  width:clamp(150px,24vw,220px);height:clamp(200px,32vh,285px);
+  position:relative;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+}
+#jar-svg-wrap{position:absolute;inset:0;width:100%;height:100%}
+/* LED displays inside jar */
+#jar-led-a,#jar-led-b{
+  position:absolute;border-radius:50%;
+  width:clamp(18px,3.5vw,28px);height:clamp(18px,3.5vw,28px);
+  display:flex;align-items:center;justify-content:center;font-size:clamp(10px,2vw,16px);
+  transition:all .4s;z-index:5;
+}
+#jar-led-a{top:28%;left:35%;transform:translate(-50%,-50%)}
+#jar-led-b{top:28%;left:65%;transform:translate(-50%,-50%)}
+.jar-led-on{
+  background:radial-gradient(circle,#fff 0%,#ffe700 30%,rgba(255,200,0,.4) 70%,transparent 100%);
+  box-shadow:0 0 18px #ffe700,0 0 36px rgba(255,200,0,.5);
+  animation:jarLedPulse .9s ease-in-out infinite alternate;
+}
+.jar-led-removed{opacity:.15;filter:grayscale(1)}
+@keyframes jarLedPulse{0%{box-shadow:0 0 14px #ffe700,0 0 28px rgba(255,200,0,.3)}
+  100%{box-shadow:0 0 22px #fff,0 0 44px #ffe700,0 0 70px rgba(255,220,0,.4)}}
+
+/* Jar glow overlay */
+#jar-glow{
+  position:absolute;inset:10%;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,220,100,.0),transparent 70%);
+  transition:all .5s;pointer-events:none;z-index:4;
+}
+#jar-glow.lit{background:radial-gradient(circle,rgba(255,220,100,.25) 0%,rgba(255,180,50,.1) 50%,transparent 70%)}
+
+/* Step sequence */
+#step-board{display:flex;flex-direction:column;gap:clamp(5px,1vh,8px);min-width:clamp(150px,24vw,230px)}
+.step-slot{
+  min-height:clamp(42px,7.5vh,65px);
+  border:2px dashed rgba(0,255,136,.25);border-radius:8px;
+  background:rgba(0,255,136,.04);
+  display:flex;align-items:center;gap:8px;padding:6px 10px;
+  transition:all .2s;
+}
+.step-slot.hover{border-color:var(--neon);background:rgba(0,255,136,.1);box-shadow:0 0 16px rgba(0,255,136,.3)}
+.step-slot.filled{border-style:solid;border-color:rgba(0,255,136,.45)}
+.sn{font-family:'Share Tech Mono',monospace;font-size:clamp(16px,2.8vw,24px);
+  color:rgba(0,255,136,.35);min-width:clamp(22px,4vw,34px);text-align:center}
+.step-slot.filled .sn{color:var(--neon)}
+.sp{font-size:clamp(8px,1.2vw,11px);font-weight:800;text-transform:uppercase;
+  color:rgba(0,255,136,.3);letter-spacing:.5px}
+
+/* Step cards */
+#step-pool{display:flex;flex-direction:column;gap:clamp(5px,1vh,8px)}
+.step-card{
+  padding:clamp(6px,1.2vh,10px) clamp(8px,1.5vw,14px);
+  border-radius:8px;cursor:grab;
+  display:flex;align-items:center;gap:10px;
+  border:1.5px solid rgba(0,255,136,.22);background:rgba(0,255,136,.07);
+  transition:transform .15s,box-shadow .15s,opacity .2s;
+}
+.step-card:hover{transform:translateX(-4px) scale(1.04);box-shadow:0 5px 18px var(--glow)}
+.step-card.dragging{opacity:.4;cursor:grabbing}
+.step-card.used{opacity:.28;cursor:not-allowed;pointer-events:none}
+.sk-ico{font-size:clamp(18px,3vw,27px)}
+.sk-text{font-size:clamp(8px,1.2vw,12px);font-weight:700;color:rgba(200,255,230,.85);line-height:1.3}
+
+#a3-msg{font-size:clamp(9px,1.4vw,12px);font-weight:700;min-height:16px;text-align:center}
+#a3-score{font-family:'Share Tech Mono',monospace;font-size:clamp(11px,1.8vw,15px);color:var(--neon)}
+#a3-status{font-family:'Share Tech Mono',monospace;font-size:clamp(9px,1.5vw,13px);
+  color:rgba(0,255,136,.45);text-align:center;min-height:16px;letter-spacing:1px}
+
+/* Confetti */
+.conf{position:fixed;pointer-events:none;z-index:300;font-size:16px;animation:confFall linear forwards}
+@keyframes confFall{0%{transform:translateY(-10px) rotate(0);opacity:1}
+  100%{transform:translateY(102vh) rotate(720deg);opacity:0}}
+</style>
+</head>
+<body>
+
+<!-- ══ MATRIX CANVAS ══ -->
+<canvas id="matrix"></canvas>
+
+<!-- ══ PORTAL RINGS ══ -->
+<div class="portal" style="width:340px;height:340px;left:-100px;top:10%;
+  border:2px solid rgba(0,255,136,.08);animation-duration:22s"></div>
+<div class="portal" style="width:260px;height:260px;right:-80px;bottom:15%;
+  border:2px solid rgba(0,221,255,.07);animation-duration:18s;animation-delay:-9s"></div>
+<div class="portal" style="width:180px;height:180px;left:30%;top:-40px;
+  border:2px solid rgba(255,0,204,.06);animation-duration:30s;animation-delay:-5s"></div>
+
+<!-- ══ APP ══ -->
+<div id="app">
+  <div id="hdr">
+    <h1>💡 MAKE A NIGHT LIGHT! 💡</h1>
+    <div id="progress">
+      <div class="pip active" id="p1"></div>
+      <div class="pip" id="p2"></div>
+      <div class="pip" id="p3"></div>
+    </div>
+    <div id="act-lbl">ACTIVITY 1 OF 3</div>
+  </div>
+
+  <div id="game-card">
+
+    <!-- ═══ ACT 1: DESIGN ═══ -->
+    <div id="act1">
+      <div class="instr">🎨 Design your Night Light! Drag decorations onto the jar canvas. Add at least 4 elements to make it beautiful!</div>
+      <div id="a1-main">
+
+        <div id="design-shelf">
+          <div class="design-item" id="di-rangoli" draggable="true" data-el="🔶" data-name="Rangoli">
+            <div class="ico2">🔶</div><div class="lbl2">Rangoli</div>
+          </div>
+          <div class="design-item" id="di-star" draggable="true" data-el="⭐" data-name="Star">
+            <div class="ico2">⭐</div><div class="lbl2">Star</div>
+          </div>
+          <div class="design-item" id="di-diya" draggable="true" data-el="🪔" data-name="Diya">
+            <div class="ico2">🪔</div><div class="lbl2">Diya</div>
+          </div>
+          <div class="design-item" id="di-flower" draggable="true" data-el="🌸" data-name="Flower">
+            <div class="ico2">🌸</div><div class="lbl2">Flower</div>
+          </div>
+          <div class="design-item" id="di-moon" draggable="true" data-el="🌙" data-name="Moon">
+            <div class="ico2">🌙</div><div class="lbl2">Moon</div>
+          </div>
+          <div class="design-item" id="di-firefly" draggable="true" data-el="✨" data-name="Jugnu">
+            <div class="ico2">✨</div><div class="lbl2">Jugnu</div>
+          </div>
+          <div class="design-item" id="di-butterfly" draggable="true" data-el="🦋" data-name="Butterfly">
+            <div class="ico2">🦋</div><div class="lbl2">Butterfly</div>
+          </div>
+          <div class="design-item" id="di-spark" draggable="true" data-el="💫" data-name="Sparkle">
+            <div class="ico2">💫</div><div class="lbl2">Sparkle</div>
+          </div>
+        </div>
+
+        <!-- Night light canvas -->
+        <div class="dz" id="nl-canvas">
+          <!-- Jar outline -->
+          <svg style="position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none" viewBox="0 0 240 290" xmlns="http://www.w3.org/2000/svg">
+            <!-- Horlicks-style jar -->
+            <rect x="60" y="30" width="120" height="18" rx="4" fill="rgba(0,255,136,.1)" stroke="rgba(0,255,136,.3)" stroke-width="1.5"/>
+            <rect x="50" y="48" width="140" height="210" rx="14" fill="rgba(0,255,136,.04)" stroke="rgba(0,255,136,.25)" stroke-width="1.5"/>
+            <rect x="50" y="248" width="140" height="12" rx="6" fill="rgba(0,255,136,.08)" stroke="rgba(0,255,136,.2)" stroke-width="1"/>
+            <!-- Label area -->
+            <rect x="65" y="88" width="110" height="100" rx="6" fill="rgba(0,255,136,.04)" stroke="rgba(0,255,136,.12)" stroke-width="1" stroke-dasharray="4 3"/>
+            <text x="120" y="200" font-size="9" fill="rgba(0,255,136,.25)" text-anchor="middle" font-family="Share Tech Mono,monospace" letter-spacing="1">MY NIGHT LIGHT</text>
+          </svg>
+          <!-- LED inside jar (hidden until lit) -->
+          <div id="a1-led" style="position:absolute;top:55%;left:50%;transform:translate(-50%,-50%);
+            width:clamp(16px,3vw,24px);height:clamp(16px,3vw,24px);border-radius:50%;
+            background:rgba(255,220,100,.06);border:1px dashed rgba(255,220,100,.2);
+            font-size:clamp(10px,2vw,16px);display:flex;align-items:center;justify-content:center;z-index:4">💡</div>
+        </div>
+
+        <div id="a1-info">
+          <div class="info-card">
+            💡 <b>Bijli (Electricity)</b> flows from a battery to the LED — making it glow!<br><br>
+            🏺 Use old <b>Horlicks jars</b>, chai cups, or sweet boxes to make night lights!<br><br>
+            ✨ This is <b>Jugaad</b> — creative reuse of everyday items!
+          </div>
+          <div class="info-card" style="background:rgba(0,221,255,.06);border-color:rgba(0,221,255,.18);color:rgba(180,230,255,.75)">
+            🪔 Like a <b>Diya</b> during Deepavali, a night light gives comfort and warmth in the dark!<br><br>
+            🌟 Indian festivals use <b>Kandil lanterns</b> and fairy lights — now you're making one!
+          </div>
+        </div>
+      </div>
+      <div id="a1-score">Decorations: <span id="a1-cnt">0</span> / 4 minimum</div>
+      <div id="a1-msg"></div>
+      <button class="btn" id="a1-next" style="display:none" onclick="showA1Done()">BUILD CIRCUIT →</button>
+    </div>
+
+    <!-- ═══ ACT 2: BUILD PARALLEL CIRCUIT ═══ -->
+    <div id="act2" style="display:none">
+      <div class="instr">⚡ Build a <b>PARALLEL circuit</b> with 2 LEDs! Both LEDs get the SAME power from one battery. Drag each part to its correct position!</div>
+      <div id="a2-main">
+
+        <!-- Parts palette -->
+        <div id="parts-palette">
+          <div class="part-card" id="pc-bat" draggable="true" data-comp="battery">
+            <div class="pc-ico">🔋</div>
+            <div class="pc-info">
+              <div class="pc-name">Coin Cell (3V)</div>
+              <div class="pc-desc">Button dabao • The power source!</div>
+            </div>
+          </div>
+          <div class="part-card" id="pc-led1" draggable="true" data-comp="led1">
+            <div class="pc-ico">💡</div>
+            <div class="pc-info">
+              <div class="pc-name">LED 1 (Choti Light)</div>
+              <div class="pc-desc">Long leg (+) Short leg (−)</div>
+            </div>
+          </div>
+          <div class="part-card" id="pc-led2" draggable="true" data-comp="led2">
+            <div class="pc-ico">💡</div>
+            <div class="pc-info">
+              <div class="pc-name">LED 2 (Choti Light)</div>
+              <div class="pc-desc">Parallel path — same power!</div>
+            </div>
+          </div>
+          <div class="part-card" id="pc-tape" draggable="true" data-comp="tape">
+            <div class="pc-ico">🟡</div>
+            <div class="pc-info">
+              <div class="pc-name">Copper Tape / Wire</div>
+              <div class="pc-desc">Bijli ki taar — conducts electricity</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Circuit board -->
+        <div id="circ-board">
+          <svg id="circ-svg" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+            <!-- Main bus lines -->
+            <path id="t-pos" class="trace" d="M 30,60 L 270,60"/>
+            <path id="t-neg" class="trace" d="M 30,240 L 270,240"/>
+            <!-- LED1 branch -->
+            <path id="t-led1" class="trace" d="M 90,60 L 90,240"/>
+            <!-- LED2 branch -->
+            <path id="t-led2" class="trace" d="M 210,60 L 210,240"/>
+            <!-- Battery connection -->
+            <path id="t-bat" class="trace" d="M 30,60 L 30,240"/>
+          </svg>
+          <!-- Drop zones -->
+          <div class="comp-dz dz" id="dz-bat" style="left:5%;top:35%;width:clamp(44px,8vw,68px);height:clamp(60px,11vh,90px);
+            border:2px dashed rgba(255,215,0,.35);background:rgba(255,215,0,.04)">
+            <div class="cz-lbl">🔋 Battery</div>
+          </div>
+          <div class="comp-dz dz" id="dz-led1" style="left:23%;top:40%;width:clamp(40px,7vw,60px);height:clamp(40px,7vw,60px);
+            border-radius:50%;border:2px dashed rgba(255,255,0,.35);background:rgba(255,255,0,.04)">
+            <div class="cz-lbl" style="font-size:clamp(6px,.8vw,9px)">LED 1</div>
+          </div>
+          <div class="comp-dz dz" id="dz-led2" style="right:8%;top:40%;width:clamp(40px,7vw,60px);height:clamp(40px,7vw,60px);
+            border-radius:50%;border:2px dashed rgba(255,180,0,.35);background:rgba(255,180,0,.04)">
+            <div class="cz-lbl" style="font-size:clamp(6px,.8vw,9px)">LED 2</div>
+          </div>
+          <div class="comp-dz dz" id="dz-tape" style="left:50%;top:8%;transform:translateX(-50%);
+            width:clamp(60px,11vw,90px);height:clamp(28px,5.5vh,44px);
+            border:2px dashed rgba(0,255,136,.3);background:rgba(0,255,136,.04)">
+            <div class="cz-lbl">🟡 Tape</div>
+          </div>
+        </div>
+
+        <!-- State panel -->
+        <div id="circ-panel">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:clamp(10px,1.6vw,13px);color:var(--neon)">Circuit Status</div>
+          <div class="cp-state" id="cs-bat"><div class="cp-dot"></div><span>Battery connected</span></div>
+          <div class="cp-state" id="cs-led1"><div class="cp-dot"></div><span>LED 1 in circuit</span></div>
+          <div class="cp-state" id="cs-led2"><div class="cp-dot"></div><span>LED 2 in circuit</span></div>
+          <div class="cp-state" id="cs-tape"><div class="cp-dot"></div><span>Tape/wire laid</span></div>
+          <div style="font-size:clamp(8px,1.2vw,11px);color:rgba(180,255,220,.5);font-weight:700;margin-top:4px;line-height:1.4">
+            ⚡ PARALLEL = both LEDs get <b>full power</b> from the same battery!
+          </div>
+        </div>
+      </div>
+      <div id="a2-score">Components: <span id="a2-cnt">0</span> / 4</div>
+      <div id="a2-msg"></div>
+      <button class="btn" id="a2-next" style="display:none" onclick="showA2Done()">TEST IT →</button>
+    </div>
+
+    <!-- ═══ ACT 3: TEST PARALLEL BEHAVIOR ═══ -->
+    <div id="act3" style="display:none">
+      <div class="instr">🔬 Test your parallel circuit! Drag the steps in the right order (1→4) to see why parallel is BETTER than series!</div>
+      <div id="a3-main">
+
+        <!-- Step pool (shuffled by JS) -->
+        <div id="step-pool"></div>
+
+        <!-- Step board -->
+        <div id="step-board">
+          <div class="step-slot dz" id="ss-1" data-slot="1"><span class="sn">1</span><span class="sp">First step…</span></div>
+          <div class="step-slot dz" id="ss-2" data-slot="2"><span class="sn">2</span><span class="sp">Second…</span></div>
+          <div class="step-slot dz" id="ss-3" data-slot="3"><span class="sn">3</span><span class="sp">Third…</span></div>
+          <div class="step-slot dz" id="ss-4" data-slot="4"><span class="sn">4</span><span class="sp">Final!</span></div>
+        </div>
+
+        <!-- Final night light visual -->
+        <div id="final-nl">
+          <div id="jar-glow"></div>
+          <div id="jar-led-a">💡</div>
+          <div id="jar-led-b">💡</div>
+          <svg id="jar-svg-wrap" viewBox="0 0 220 285" xmlns="http://www.w3.org/2000/svg">
+            <rect x="55" y="25" width="110" height="16" rx="4" fill="rgba(0,255,136,.12)" stroke="rgba(0,255,136,.35)" stroke-width="1.5"/>
+            <rect x="40" y="41" width="140" height="210" rx="14" fill="rgba(0,255,136,.05)" stroke="rgba(0,255,136,.28)" stroke-width="2"/>
+            <rect x="40" y="245" width="140" height="12" rx="6" fill="rgba(0,255,136,.1)" stroke="rgba(0,255,136,.25)" stroke-width="1"/>
+            <rect x="55" y="80" width="110" height="100" rx="6" fill="rgba(0,255,136,.04)" stroke="rgba(0,255,136,.12)" stroke-width="1" stroke-dasharray="4 3"/>
+            <text x="110" y="198" font-size="8" fill="rgba(0,255,136,.3)" text-anchor="middle" font-family="Share Tech Mono,monospace" letter-spacing="1">NIGHT LIGHT</text>
+          </svg>
+          <div id="a3-status">Both LEDs ready…</div>
+        </div>
+      </div>
+      <div id="a3-score">Steps correct: <span id="a3-cnt">0</span> / 4</div>
+      <div id="a3-msg"></div>
+      <button class="btn amber-btn" id="a3-finish" style="display:none" onclick="showFinal()">🏆 SEE MY BADGE!</button>
+    </div>
+
+  </div><!-- /game-card -->
+</div>
+
+<div id="pop-root"></div>
+
+<script>
+/* ══════════════════════════════════════════════
+   MATRIX RAIN
+══════════════════════════════════════════════ */
+(function(){
+  const canvas=document.getElementById('matrix');
+  const ctx=canvas.getContext('2d');
+  function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight}
+  resize();window.addEventListener('resize',resize);
+  const cols=Math.floor(canvas.width/18);
+  const drops=Array(cols).fill(1);
+  const chars='01アイウエオカキクケコサシスセソタチツテトナニヌネノ';
+  function draw(){
+    ctx.fillStyle='rgba(0,5,15,.05)';ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='rgba(0,255,136,.5)';ctx.font='14px Share Tech Mono,monospace';
+    drops.forEach((y,i)=>{
+      ctx.fillText(chars[Math.floor(Math.random()*chars.length)],i*18,y*18);
+      if(y*18>canvas.height&&Math.random()>.97) drops[i]=0;
+      drops[i]++;
+    });
+  }
+  setInterval(draw,55);
+
+  // Digital particles
+  const cols2=['#00ff88','#00ddff','#ff00cc','#ffd700','#ffaa00'];
+  for(let i=0;i<24;i++){
+    const p=document.createElement('div');p.className='digi-p';
+    const s=2+Math.random()*5;
+    const angle=Math.random()*Math.PI*2;const d=60+Math.random()*120;
+    p.style.cssText=`width:${s}px;height:${s}px;
+      left:${Math.random()*100}%;top:${Math.random()*80}%;
+      background:${cols2[i%cols2.length]};box-shadow:0 0 4px ${cols2[i%cols2.length]};
+      --dx:${Math.cos(angle)*d}px;--dy:${Math.sin(angle)*d}px;
+      animation-duration:${4+Math.random()*8}s;animation-delay:${-Math.random()*10}s;`;
+    document.body.appendChild(p);
+  }
+})();
+
+/* ══════════════════════════════════════════════
+   UTILS
+══════════════════════════════════════════════ */
+const $=id=>document.getElementById(id);
+const rand=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+let dragSrc=null,touchClone=null,touchEl=null;
+
+function updProg(n){
+  ['p1','p2','p3'].forEach((id,i)=>{
+    const el=$(id);el.className='pip';
+    if(i+1<n)el.classList.add('done');if(i+1===n)el.classList.add('active');
+  });
+  $('act-lbl').textContent=`ACTIVITY ${n} OF 3`;
+}
+
+function showPop(html,cb){
+  const root=$('pop-root');root.innerHTML=`<div class="overlay">${html}</div>`;
+  root.querySelector('.overlay').addEventListener('click',e=>{
+    if(e.target===root.querySelector('.overlay')){root.innerHTML='';if(cb)cb();}
+  });
+  const btn=root.querySelector('[data-close]');
+  if(btn)btn.addEventListener('click',()=>{root.innerHTML='';if(cb)cb();});
+}
+
+function neonConfetti(){
+  const items=['💡','⭐','✨','🌟','💫','🔆','🎉','⚡','🟢','🔵'];
+  for(let i=0;i<70;i++){
+    const c=document.createElement('div');c.className='conf';
+    c.textContent=items[rand(0,items.length-1)];
+    c.style.cssText=`left:${Math.random()*100}vw;top:-20px;
+      font-size:${12+rand(0,14)}px;
+      animation-duration:${1.5+Math.random()*2}s;animation-delay:${Math.random()*.9}s;`;
+    document.body.appendChild(c);setTimeout(()=>c.remove(),5000);
+  }
+}
+
+function switchAct(fromId,toId,n){
+  const f=$(fromId);
+  f.style.transition='opacity .28s,transform .28s';f.style.opacity='0';f.style.transform='scale(.95)';
+  setTimeout(()=>{
+    f.style.display='none';f.style.opacity='';f.style.transform='';f.style.transition='';
+    const t=$(toId);t.style.display='flex';t.style.flexDirection='column';
+    t.style.alignItems='center';t.style.width='100%';updProg(n);
+  },300);
+}
+
+/* ── DRAG ENGINE ── */
+function mkDrag(el){
+  el.draggable=true;
+  el.addEventListener('dragstart',e=>{
+    dragSrc=el;el.classList.add('dragging');
+    e.dataTransfer.setData('id',el.id);e.dataTransfer.effectAllowed='copy';
+  });
+  el.addEventListener('dragend',()=>{el.classList.remove('dragging');dragSrc=null;});
+}
+
+function mkDrop(el,fn){
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('hover')});
+  el.addEventListener('dragleave',()=>el.classList.remove('hover'));
+  el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('hover');if(dragSrc)fn(dragSrc,el);});
+}
+
+/* Touch */
+document.addEventListener('touchstart',e=>{
+  const src=e.target.closest('.design-item,.part-card,.step-card');
+  if(!src||src.classList.contains('used'))return;
+  touchEl=src;dragSrc=src;
+  const r=src.getBoundingClientRect();
+  touchClone=src.cloneNode(true);
+  touchClone.style.cssText=`position:fixed;z-index:999;pointer-events:none;opacity:.85;
+    width:${r.width}px;height:${r.height}px;top:${r.top}px;left:${r.left}px;transition:none;`;
+  document.body.appendChild(touchClone);src.classList.add('dragging');
+},{passive:true});
+document.addEventListener('touchmove',e=>{
+  if(!touchClone)return;e.preventDefault();
+  const t=e.touches[0];
+  touchClone.style.top=(t.clientY-touchClone.offsetHeight/2)+'px';
+  touchClone.style.left=(t.clientX-touchClone.offsetWidth/2)+'px';
+},{passive:false});
+document.addEventListener('touchend',e=>{
+  if(!touchEl||!touchClone)return;
+  const t=e.changedTouches[0];
+  touchClone.remove();touchClone=null;touchEl.classList.remove('dragging');
+  const hit=document.elementFromPoint(t.clientX,t.clientY);
+  if(hit){
+    const c=$('nl-canvas');const czdz=['dz-bat','dz-led1','dz-led2','dz-tape'].map(id=>$(id));
+    const ss=document.querySelectorAll('.step-slot');
+    if(c&&(c===hit||c.contains(hit))) handleDesignDrop(touchEl,c);
+    else{
+      czdz.forEach(z=>{if(z&&(z===hit||z.contains(hit))) handleCompDrop(touchEl,z);});
+      ss.forEach(s=>{if(s===hit||s.contains(hit)) handleStepDrop(touchEl,s);});
+    }
+  }
+  touchEl=null;dragSrc=null;
+},{passive:true});
+
+/* ══════════════════════════════════════════════
+   ACT 1 — DESIGN
+══════════════════════════════════════════════ */
+let a1Count=0;
+const positions=[
+  {top:'15%',left:'15%'},{top:'18%',left:'65%'},{top:'38%',left:'12%'},
+  {top:'40%',left:'68%'},{top:'58%',left:'20%'},{top:'60%',left:'62%'},
+  {top:'78%',left:'25%'},{top:'76%',left:'58%'},{top:'30%',left:'40%'},
+];
+let posIdx=0;
+
+function initA1(){
+  a1Count=0;posIdx=0;$('a1-cnt').textContent=0;
+  $('a1-msg').textContent='';$('a1-next').style.display='none';
+  const c=$('nl-canvas');
+  c.querySelectorAll('.placed-el').forEach(e=>e.remove());
+  mkDrop(c,handleDesignDrop);
+  document.querySelectorAll('.design-item').forEach(el=>mkDrag(el));
+}
+
+function handleDesignDrop(src,tgt){
+  const el=src.dataset.el;if(!el)return;
+  const pos=positions[posIdx%positions.length];posIdx++;
+  const d=document.createElement('div');
+  d.className='placed-el';d.textContent=el;
+  Object.assign(d.style,{top:pos.top,left:pos.left});
+  tgt.appendChild(d);
+  a1Count++;$('a1-cnt').textContent=a1Count;
+  tgt.classList.add('correct-fx');setTimeout(()=>tgt.classList.remove('correct-fx'),600);
+  $('a1-msg').style.color='var(--neon)';
+  $('a1-msg').textContent=`✅ ${src.dataset.name} added! Wah! Kya chamak hai! ✨`;
+  if(a1Count===4){
+    $('a1-led').style.boxShadow='0 0 14px rgba(255,220,100,.4)';
+    $('nl-canvas').classList.add('lit');
+  }
+  if(a1Count>=4)$('a1-next').style.display='inline-block';
+}
+
+function showA1Done(){
+  neonConfetti();
+  showPop(`<div class="popup">
+    <div class="p-ico">🏺</div>
+    <div class="p-title">NIGHT LIGHT DESIGNED!</div>
+    <div class="p-stars">⭐⭐⭐</div>
+    <div class="p-sub">Wah! Your jar is decorated with ${a1Count} beautiful designs!<br><br>
+    Like a <b>Kandil lantern</b> for Deepavali, or a <b>Jugnu</b> (firefly) in the dark!<br><br>
+    This is <b>Jugaad</b> — using an old Horlicks jar to create something magical!<br><br>
+    Now let's build the <b>PARALLEL circuit</b> inside!</div>
+    <button class="btn" data-close>BUILD CIRCUIT →</button>
+  </div>`,()=>{switchAct('act1','act2',2);initA2();});
+}
+
+/* ══════════════════════════════════════════════
+   ACT 2 — PARALLEL CIRCUIT
+══════════════════════════════════════════════ */
+const compInfo={
+  battery:{zone:'dz-bat',state:'cs-bat',trace:'t-bat',
+    icon:'🔋',label:'Battery (Power House)',fact:'3V coin cell connected! Bijli is ready to flow!'},
+  led1:{zone:'dz-led1',state:'cs-led1',trace:'t-led1',
+    icon:'💡',label:'LED 1',fact:'LED 1 placed! Long leg to + (positive wala)!'},
+  led2:{zone:'dz-led2',state:'cs-led2',trace:'t-led2',
+    icon:'💡',label:'LED 2',fact:'LED 2 placed in PARALLEL! Both get full power!'},
+  tape:{zone:'dz-tape',state:'cs-tape',trace:'t-pos',
+    icon:'🟡',label:'Copper tape',fact:'Bijli ki taar connected! The path is now complete!'},
+};
+let a2Count=0;
+const ledGlowColors={led1:'#ffff00',led2:'#ff8800'};
+
+function initA2(){
+  a2Count=0;$('a2-cnt').textContent=0;$('a2-msg').textContent='';$('a2-next').style.display='none';
+  document.querySelectorAll('.part-card').forEach(el=>mkDrag(el));
+  ['dz-bat','dz-led1','dz-led2','dz-tape'].forEach(id=>{
+    mkDrop($(id),(src,tgt)=>handleCompDrop(src,tgt));
+  });
+}
+
+function handleCompDrop(src,tgt){
+  const comp=src.dataset.comp;if(!comp||src.classList.contains('used'))return;
+  const info=compInfo[comp];if(!info)return;
+  if(tgt.id!==info.zone){
+    tgt.classList.add('wrong-fx');setTimeout(()=>tgt.classList.remove('wrong-fx'),450);
+    $('a2-msg').style.color='#f87171';
+    $('a2-msg').textContent='⚠️ Wrong spot! Check the labels on the circuit board!';
+    return;
+  }
+  a2Count++;$('a2-cnt').textContent=a2Count;
+  src.classList.add('used');
+  // Activate trace
+  const trace=$(info.trace);if(trace)trace.classList.add('active');
+  if(comp==='tape'){const pt=$('t-neg');if(pt)pt.classList.add('active');}
+  // Activate state
+  const st=$(info.state);if(st)st.classList.add('active');
+  // Update zone
+  const zone=$(info.zone);
+  zone.style.borderStyle='solid';zone.style.borderColor='rgba(0,255,136,.5)';
+  zone.style.boxShadow='0 0 14px rgba(0,255,136,.35)';
+  if(comp==='led1'||comp==='led2'){
+    zone.innerHTML=`<div style="font-size:clamp(20px,3.8vw,34px)">${info.icon}</div>
+      <div style="font-size:clamp(6px,.9vw,9px);font-weight:800;color:${comp==='led1'?'#ffff00':'#ff8800'};text-transform:uppercase">✓ ON</div>`;
+    zone.style.boxShadow=`0 0 18px ${comp==='led1'?ledGlowColors.led1:ledGlowColors.led2},0 0 36px rgba(255,200,0,.3)`;
+  } else {
+    zone.innerHTML=`<div style="font-size:clamp(18px,3.2vw,28px)">${info.icon}</div>
+      <div class="cz-lbl" style="color:var(--neon)">✓ ${info.label}</div>`;
+  }
+  zone.classList.add('correct-fx');setTimeout(()=>zone.classList.remove('correct-fx'),600);
+  $('a2-msg').style.color='var(--neon)';
+  $('a2-msg').textContent=`✅ ${info.fact}`;
+  if(a2Count>=4){
+    $('a2-msg').textContent='⚡ PARALLEL CIRCUIT COMPLETE! Both LEDs glow with full power!';
+    $('a2-next').style.display='inline-block';
+  }
+}
+
+function showA2Done(){
+  neonConfetti();
+  showPop(`<div class="popup">
+    <div class="p-ico">⚡</div>
+    <div class="p-title">CIRCUIT BUILT!</div>
+    <div class="p-stars">⭐⭐⭐</div>
+    <div class="p-sub">
+    Wah! You built a <b>Parallel Circuit</b>!<br><br>
+    🔋 The battery gives <b>full power</b> to BOTH LEDs at the same time!<br>
+    💡 LED 1 has its <b>own path</b> from battery<br>
+    💡 LED 2 has its <b>own path</b> from battery<br><br>
+    The <b>amazing part</b>: if one LED is removed, the OTHER still glows!<br><br>
+    Let's TEST this now! →</div>
+    <button class="btn" data-close>TEST IT →</button>
+  </div>`,()=>{switchAct('act2','act3',3);initA3();});
+}
+
+/* ══════════════════════════════════════════════
+   ACT 3 — TEST PARALLEL BEHAVIOR
+══════════════════════════════════════════════ */
+const STEPS=[
+  {id:'s-both',order:1,ico:'💡',text:'Connect battery — BOTH LEDs glow brightly!',
+    action:()=>{
+      $('jar-led-a').classList.add('jar-led-on');
+      $('jar-led-b').classList.add('jar-led-on');
+      $('jar-glow').classList.add('lit');
+      $('a3-status').textContent='✨ BOTH LEDs GLOWING!';
+      $('a3-status').style.color='var(--neon)';
+    }},
+  {id:'s-check',order:2,ico:'🔎',text:'Check: both LEDs shine at full brightness!',
+    action:()=>{
+      $('a3-status').textContent='✅ FULL BRIGHTNESS — parallel power!';
+    }},
+  {id:'s-remove',order:3,ico:'🔌',text:'Remove LED 1 — LED 2 STILL glows! Why?',
+    action:()=>{
+      $('jar-led-a').classList.remove('jar-led-on');
+      $('jar-led-a').classList.add('jar-led-removed');
+      $('a3-status').textContent='💡 LED 1 removed — LED 2 still glowing!';
+      $('a3-status').style.color='var(--amber)';
+    }},
+  {id:'s-explain',order:4,ico:'🧠',text:'Parallel = each LED has its OWN path from battery!',
+    action:()=>{
+      $('a3-status').textContent='⚡ PARALLEL POWER! Each LED = own Bijli path!';
+      $('a3-status').style.color='var(--gold)';
+      neonConfetti();
+    }},
+];
+let a3Score=0;
+const stageLabels=['Both LEDs ready…','Step 1 done!','Step 2 done!','LED 1 removed!','Parallel proven! ⚡'];
+
+function initA3(){
+  a3Score=0;$('a3-cnt').textContent=0;$('a3-msg').textContent='';$('a3-finish').style.display='none';
+  $('a3-status').textContent='Both LEDs ready…';$('a3-status').style.color='rgba(0,255,136,.45)';
+  $('jar-led-a').className='jar-led-b';$('jar-led-a').id='jar-led-a';
+  $('jar-led-a').className='';$('jar-led-a').textContent='💡';
+  $('jar-led-b').className='';$('jar-led-b').textContent='💡';
+  $('jar-glow').classList.remove('lit');
+
+  const pool=$('step-pool');pool.innerHTML='';
+  [...STEPS].sort(()=>Math.random()-.5).forEach(s=>{
+    const el=document.createElement('div');
+    el.className='step-card';el.id=s.id;el.draggable=true;el.dataset.order=s.order;
+    el._action=s.action;
+    el.innerHTML=`<div class="sk-ico">${s.ico}</div><div class="sk-text">${s.text}</div>`;
+    pool.appendChild(el);mkDrag(el);
+  });
+  document.querySelectorAll('.step-slot').forEach(sl=>{
+    mkDrop(sl,(src,tgt)=>handleStepDrop(src,tgt));
+  });
+}
+
+function handleStepDrop(src,tgt){
+  if(src.classList.contains('used'))return;
+  const ord=parseInt(src.dataset.order);
+  const slotN=parseInt(tgt.dataset.slot);
+  const correct=ord===slotN;
+  tgt.classList.remove('hover');
+  if(correct){
+    a3Score++;$('a3-cnt').textContent=a3Score;
+    src.classList.add('used');
+    tgt.classList.add('filled','correct-fx');setTimeout(()=>tgt.classList.remove('correct-fx'),600);
+    tgt.style.borderColor='rgba(0,255,136,.5)';tgt.style.boxShadow='0 0 14px rgba(0,255,136,.3)';
+    tgt.innerHTML=`<span class="sn" style="color:var(--neon)">${slotN}</span>
+      <div class="step-card" style="border:none;background:transparent;padding:2px 4px;pointer-events:none;gap:6px;flex:1">
+        <div class="sk-ico" style="font-size:clamp(14px,2.5vw,22px)">${src.querySelector('.sk-ico').textContent}</div>
+        <div class="sk-text">${src.querySelector('.sk-text').textContent}</div>
+      </div>`;
+    // Trigger visual action
+    if(src._action) src._action();
+    $('a3-msg').style.color='var(--neon)';
+    $('a3-msg').textContent=`✅ Step ${slotN} correct! ${a3Score===4?'PARALLEL PROVEN! ⚡':'Keep going!'}`;
+    if(a3Score>=4){$('a3-finish').style.display='inline-block';}
+  } else {
+    tgt.classList.add('wrong-fx');setTimeout(()=>tgt.classList.remove('wrong-fx'),450);
+    $('a3-msg').style.color='#f87171';
+    $('a3-msg').textContent=`🔍 Not step ${slotN}! Think — what happens FIRST when you connect the battery?`;
+  }
+}
+
+function showFinal(){
+  neonConfetti();setTimeout(neonConfetti,700);
+  showPop(`<div class="popup">
+    <div class="p-ico">💡</div>
+    <div class="p-title">NIGHT LIGHT COMPLETE!</div>
+    <div class="p-stars">⭐⭐⭐</div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:clamp(12px,2vw,16px);color:var(--gold)">
+      Wah! Kya chamak hai! ✨
+    </div>
+    <div class="p-sub">
+    You designed, wired, and tested a real <b>Night Light circuit</b>!<br><br>
+    🔋 <b>Battery</b> = Bijli ka source (3V coin cell)<br>
+    💡 <b>LED</b> = Choti Light (long leg +, short leg −)<br>
+    🟡 <b>Wire / Tape</b> = Bijli ki taar — the path<br>
+    ⚡ <b>PARALLEL</b> = each LED has its OWN Bijli path!<br><br>
+    If one LED fails — the other <b>STILL GLOWS!</b><br>
+    Just like lights at home during <b>Deepavali</b>! 🪔<br><br>
+    <span style="color:var(--neon)">Now show this to your Daadi / parents! 🏠</span>
+    </div>
+    <div style="font-size:clamp(26px,5vw,42px)">💡 ⚡ 🪔 🌟 🏆</div>
+    <button class="btn amber-btn" data-close onclick="resetAll()">🔄 BUILD AGAIN!</button>
+  </div>`);
+}
+
+function resetAll(){
+  ['act2','act3'].forEach(id=>{$(id).style.display='none'});
+  $('act1').style.display='flex';$('act1').style.flexDirection='column';
+  $('act1').style.alignItems='center';$('act1').style.width='100%';
+  updProg(1);
+  // Reset circuit zones
+  [['dz-bat','🔋<br>Battery'],['dz-led1','LED 1'],['dz-led2','LED 2'],['dz-tape','🟡 Tape']].forEach(([id,lbl])=>{
+    const z=$(id);if(!z)return;
+    z.removeAttribute('style');z.innerHTML=`<div class="cz-lbl">${lbl}</div>`;
+    z.className='comp-dz dz';
+  });
+  document.querySelectorAll('.part-card').forEach(e=>e.classList.remove('used'));
+  document.querySelectorAll('.trace').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.cp-state').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.step-slot').forEach(sl=>{
+    const n=sl.dataset.slot;sl.classList.remove('filled');sl.removeAttribute('style');
+    const phs={1:'First step…',2:'Second…',3:'Third…',4:'Final!'};
+    sl.innerHTML=`<span class="sn">${n}</span><span class="sp">${phs[n]}</span>`;
+  });
+  initA1();
+}
+
+/* INIT */
+updProg(1);initA1();
+</script>
+</body>
+</html>

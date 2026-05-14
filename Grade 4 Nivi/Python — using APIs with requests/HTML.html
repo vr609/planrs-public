@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PYTHON — USING APIs WITH REQUESTS</title>
+<style>
+/* ===== FONTS ===== */
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Space+Mono:wght@400;700&family=Unbounded:wght@400;700;900&display=swap');
+
+/* ===== ROOT VARS ===== */
+:root {
+  --ink:       #1a0a2e;
+  --canvas:    #fdf6e3;
+  --crimson:   #e63946;
+  --saffron:   #f4a11d;
+  --cobalt:    #2563eb;
+  --jade:      #16a34a;
+  --violet:    #7c3aed;
+  --teal:      #0d9488;
+  --cream:     #fff8ee;
+  --paint-1:   rgba(230,57,70,0.18);
+  --paint-2:   rgba(244,161,29,0.18);
+  --paint-3:   rgba(37,99,235,0.18);
+  --paint-4:   rgba(124,58,237,0.16);
+  --paint-5:   rgba(13,148,136,0.16);
+}
+
+/* ===== RESET ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100vw; height: 100vh; overflow: hidden;
+  font-family: 'Space Mono', monospace;
+  background: var(--canvas);
+  color: var(--ink);
+  user-select: none;
+}
+
+/* ===== ANIMATED CANVAS BACKGROUND ===== */
+#bg-canvas {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none;
+}
+
+/* paint blobs */
+.blob {
+  position: fixed; border-radius: 50%; filter: blur(60px);
+  animation: blobFloat 14s ease-in-out infinite alternate;
+  pointer-events: none; z-index: 0;
+}
+.b1{width:420px;height:380px;background:var(--paint-1);top:-80px;left:-60px;animation-duration:13s;}
+.b2{width:380px;height:420px;background:var(--paint-3);top:40%;right:-100px;animation-duration:17s;animation-delay:-4s;}
+.b3{width:340px;height:340px;background:var(--paint-2);bottom:-60px;left:30%;animation-duration:15s;animation-delay:-8s;}
+.b4{width:300px;height:360px;background:var(--paint-4);top:20%;left:45%;animation-duration:19s;animation-delay:-2s;}
+.b5{width:260px;height:260px;background:var(--paint-5);bottom:10%;right:20%;animation-duration:11s;animation-delay:-6s;}
+
+@keyframes blobFloat {
+  0%   { transform: translate(0,0) scale(1); }
+  33%  { transform: translate(30px,-25px) scale(1.05); }
+  66%  { transform: translate(-20px,20px) scale(0.97); }
+  100% { transform: translate(15px,10px) scale(1.03); }
+}
+
+/* paint drips */
+.drip {
+  position: fixed; width: 6px; border-radius: 0 0 50% 50%;
+  animation: drip linear infinite;
+  pointer-events: none; z-index: 0; top: -20px;
+}
+@keyframes drip {
+  0%  { transform: translateY(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 0.6; }
+  100%{ transform: translateY(110vh); opacity: 0; }
+}
+
+/* floating brushes */
+.brush-float {
+  position: fixed; font-size: 28px; opacity: 0.13;
+  animation: brushDrift ease-in-out infinite alternate;
+  pointer-events: none; z-index: 0;
+}
+@keyframes brushDrift {
+  from { transform: rotate(-15deg) translate(0,0); }
+  to   { transform: rotate(15deg) translate(20px,-15px); }
+}
+
+/* paint strokes SVG overlay */
+.stroke-overlay {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none; opacity: 0.07;
+}
+
+/* ===== MAIN LAYOUT ===== */
+#app {
+  position: relative; z-index: 1;
+  width: 100vw; height: 100vh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+/* ===== HEADER ===== */
+header {
+  flex-shrink: 0;
+  padding: 12px 28px 8px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(26,10,46,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 3px solid var(--saffron);
+  box-shadow: 0 4px 24px rgba(26,10,46,0.35);
+}
+.header-left {
+  display: flex; align-items: center; gap: 14px;
+}
+.palette-icon {
+  width: 42px; height: 42px;
+  background: conic-gradient(var(--crimson),var(--saffron),var(--cobalt),var(--jade),var(--violet),var(--crimson));
+  border-radius: 50%; border: 3px solid var(--canvas);
+  animation: spin 8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.site-title {
+  font-family: 'Unbounded', sans-serif;
+  font-size: clamp(11px, 1.6vw, 16px);
+  font-weight: 900; letter-spacing: 0.08em;
+  color: var(--canvas);
+  line-height: 1.1;
+}
+.site-sub {
+  font-family: 'Caveat', cursive;
+  font-size: clamp(12px, 1.4vw, 15px);
+  color: var(--saffron);
+  letter-spacing: 0.05em;
+}
+.progress-pills {
+  display: flex; gap: 8px; align-items: center;
+}
+.pill {
+  width: 38px; height: 38px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 700;
+  border: 2px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.4);
+  transition: all 0.4s;
+  position: relative;
+}
+.pill.active {
+  background: var(--saffron); color: var(--ink);
+  border-color: var(--saffron);
+  box-shadow: 0 0 16px var(--saffron);
+  transform: scale(1.1);
+}
+.pill.done {
+  background: var(--jade); color: white;
+  border-color: var(--jade);
+}
+.pill-arrow { color: rgba(255,255,255,0.25); font-size: 14px; }
+
+/* ===== ACTIVITY AREA ===== */
+#activity-area {
+  flex: 1; display: flex; flex-direction: column;
+  padding: 14px 24px 12px;
+  overflow: hidden;
+}
+
+.activity-card {
+  flex: 1; display: none; flex-direction: column;
+  background: rgba(255,248,238,0.88);
+  backdrop-filter: blur(16px);
+  border-radius: 20px;
+  border: 2px solid rgba(244,161,29,0.35);
+  box-shadow: 0 8px 40px rgba(26,10,46,0.18), inset 0 1px 0 rgba(255,255,255,0.8);
+  overflow: hidden;
+  animation: cardIn 0.5s cubic-bezier(.34,1.56,.64,1);
+}
+.activity-card.visible { display: flex; }
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(30px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* card header stripe */
+.card-header {
+  flex-shrink: 0;
+  padding: 10px 20px 8px;
+  display: flex; align-items: center; gap: 12px;
+  border-bottom: 2px dashed rgba(244,161,29,0.4);
+}
+.act-badge {
+  font-family: 'Unbounded', sans-serif; font-size: 10px; font-weight: 700;
+  padding: 3px 10px; border-radius: 20px;
+  letter-spacing: 0.08em; flex-shrink: 0;
+}
+.badge-1 { background: var(--crimson); color: white; }
+.badge-2 { background: var(--cobalt);  color: white; }
+.badge-3 { background: var(--violet);  color: white; }
+
+.card-title {
+  font-family: 'Unbounded', sans-serif;
+  font-size: clamp(11px,1.3vw,14px); font-weight: 700;
+  color: var(--ink); flex: 1;
+}
+.card-hint {
+  font-family: 'Caveat', cursive;
+  font-size: clamp(13px,1.4vw,16px);
+  color: var(--teal); font-weight: 700;
+}
+
+/* two-column layout */
+.card-body {
+  flex: 1; display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 0; overflow: hidden;
+}
+
+/* left panel — palette / source chips */
+.palette-panel {
+  padding: 12px 14px;
+  border-right: 2px dashed rgba(124,58,237,0.25);
+  display: flex; flex-direction: column; gap: 8px;
+  overflow: hidden;
+}
+.palette-label {
+  font-family: 'Caveat', cursive; font-size: 15px; font-weight: 700;
+  color: var(--violet); margin-bottom: 2px;
+}
+.chips-grid {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  align-content: flex-start;
+}
+
+/* right panel — canvas / drop zones */
+.canvas-panel {
+  padding: 12px 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  overflow: hidden;
+}
+.canvas-label {
+  font-family: 'Caveat', cursive; font-size: 15px; font-weight: 700;
+  color: var(--cobalt);
+}
+
+/* ===== CHIPS ===== */
+.chip {
+  display: inline-flex; align-items: center;
+  padding: 5px 11px; border-radius: 8px;
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(9px,0.95vw,11px); font-weight: 700;
+  cursor: grab; white-space: nowrap;
+  border: 2px solid transparent;
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+  position: relative;
+}
+.chip:hover { transform: scale(1.06) rotate(-1deg); }
+.chip:active { cursor: grabbing; transform: scale(1.1); }
+.chip.dragging { opacity: 0.35; pointer-events: none; }
+.chip.used { opacity: 0.3; pointer-events: none; filter: grayscale(60%); }
+
+/* chip colours by kind */
+.chip-kw  { background:#fde8ea; border-color:var(--crimson);  color:var(--crimson); }
+.chip-lib { background:#e8f0fe; border-color:var(--cobalt);   color:var(--cobalt); }
+.chip-fn  { background:#ede9ff; border-color:var(--violet);   color:var(--violet); }
+.chip-str { background:#dcfce7; border-color:var(--jade);     color:var(--jade); }
+.chip-var { background:#fff7e6; border-color:var(--saffron);  color:#b45309; }
+.chip-op  { background:#f0fdf4; border-color:var(--teal);     color:var(--teal); }
+.chip-val { background:#fef3c7; border-color:#d97706;         color:#92400e; }
+
+/* ===== DROP ZONES ===== */
+.drop-line {
+  display: flex; align-items: center; gap: 6px;
+  min-height: 36px; padding: 4px 8px;
+  border-radius: 10px;
+  border: 2.5px dashed rgba(37,99,235,0.3);
+  background: rgba(37,99,235,0.04);
+  transition: border-color 0.2s, background 0.2s;
+  flex-wrap: wrap;
+}
+.drop-line.drag-over {
+  border-color: var(--cobalt);
+  background: rgba(37,99,235,0.1);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.2);
+}
+.drop-line.correct {
+  border-color: var(--jade);
+  background: rgba(22,163,74,0.08);
+}
+.drop-line.wrong {
+  border-color: var(--crimson);
+  background: rgba(230,57,70,0.08);
+  animation: shake 0.4s ease;
+}
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+/* slot placeholder */
+.slot-ph {
+  font-family: 'Caveat', cursive; font-size: 14px;
+  color: rgba(37,99,235,0.4); font-style: italic;
+  pointer-events: none;
+}
+
+/* line number */
+.line-no {
+  font-family: 'Space Mono', monospace; font-size: 11px;
+  color: rgba(26,10,46,0.25); width: 18px; flex-shrink: 0;
+  text-align: right; font-weight: 400;
+}
+/* indent */
+.indent { width: 20px; flex-shrink: 0; }
+
+/* code label prefix (static part of line) */
+.code-prefix {
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(9px,0.95vw,11px); font-weight: 700;
+  color: var(--ink); white-space: nowrap;
+}
+.kw-col  { color: var(--crimson); }
+.fn-col  { color: var(--violet); }
+.str-col { color: var(--jade); }
+.var-col { color: #b45309; }
+
+/* dropped chip inside zone */
+.dropped {
+  display: inline-flex; align-items: center;
+  padding: 3px 9px; border-radius: 6px;
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(9px,0.95vw,11px); font-weight: 700;
+  cursor: pointer; transition: transform 0.1s;
+  position: relative;
+}
+.dropped:hover { transform: scale(1.05); }
+.dropped .remove-x {
+  margin-left: 5px; font-size: 10px; opacity: 0.6;
+  font-weight: 400; line-height: 1;
+}
+
+/* ===== OUTPUT PANEL ===== */
+.output-box {
+  background: #1a0a2e; border-radius: 12px;
+  padding: 10px 14px; font-family: 'Space Mono', monospace;
+  font-size: clamp(9px,0.9vw,11px); color: #a8ff78;
+  border: 2px solid rgba(124,58,237,0.4);
+  flex-shrink: 0; min-height: 60px; max-height: 90px;
+  overflow: hidden;
+  line-height: 1.6;
+}
+.output-box .out-label {
+  color: rgba(168,255,120,0.4); font-size: 10px;
+  display: block; margin-bottom: 4px;
+}
+.out-line { display: block; }
+.out-line.comment { color: #555; }
+.out-line.string  { color: #f9e784; }
+.out-line.number  { color: #79b8ff; }
+.out-line.key     { color: #ff79c6; }
+.out-line.val     { color: #a8ff78; }
+
+/* ===== CHECK BUTTON ===== */
+.check-btn {
+  align-self: flex-end; margin-top: 6px;
+  padding: 9px 22px; border-radius: 50px;
+  font-family: 'Unbounded', sans-serif; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.06em;
+  border: none; cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative; overflow: hidden;
+}
+.check-btn::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg,rgba(255,255,255,0.2),transparent);
+}
+.check-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+.check-btn:active { transform: translateY(0); }
+.btn-1 { background: linear-gradient(135deg,var(--crimson),#c1121f); color: white; }
+.btn-2 { background: linear-gradient(135deg,var(--cobalt),#1d4ed8);  color: white; }
+.btn-3 { background: linear-gradient(135deg,var(--violet),#6d28d9);  color: white; }
+
+/* ===== POPUP OVERLAY ===== */
+.overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(26,10,46,0.72);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.35s;
+}
+.overlay.open { opacity: 1; pointer-events: all; }
+
+.popup {
+  background: var(--cream);
+  border-radius: 24px;
+  padding: 36px 40px;
+  max-width: 440px; width: 90%;
+  text-align: center;
+  border: 3px solid;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.35);
+  transform: scale(0.8) translateY(30px);
+  transition: transform 0.4s cubic-bezier(.34,1.56,.64,1);
+  position: relative; overflow: hidden;
+}
+.overlay.open .popup { transform: scale(1) translateY(0); }
+
+.popup-splash {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0.08;
+  background: radial-gradient(ellipse at 20% 20%, var(--crimson) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 80%, var(--cobalt) 0%, transparent 60%);
+}
+
+.popup-emoji { font-size: 52px; line-height: 1; margin-bottom: 12px; display: block; }
+.popup-title {
+  font-family: 'Unbounded', sans-serif; font-size: 18px; font-weight: 900;
+  color: var(--ink); margin-bottom: 8px;
+}
+.popup-body {
+  font-family: 'Caveat', cursive; font-size: 18px;
+  color: #444; line-height: 1.5; margin-bottom: 20px;
+}
+.popup-next-btn {
+  padding: 12px 32px; border-radius: 50px;
+  font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 700;
+  border: none; cursor: pointer; color: white;
+  transition: transform 0.2s, box-shadow 0.2s;
+  letter-spacing: 0.05em;
+}
+.popup-next-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,0.25); }
+
+/* confetti */
+.confetti-piece {
+  position: fixed; width: 10px; height: 10px; border-radius: 2px;
+  animation: confettiFall linear forwards;
+  pointer-events: none; z-index: 200;
+}
+@keyframes confettiFall {
+  0%  { opacity: 1; transform: translateY(-20px) rotate(0deg); }
+  100%{ opacity: 0; transform: translateY(110vh) rotate(720deg); }
+}
+
+/* ===== SUCCESS STATE IN OUTPUT ===== */
+.output-run-anim { animation: outputPop 0.5s cubic-bezier(.34,1.56,.64,1); }
+@keyframes outputPop {
+  from { transform: scale(0.95); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+/* paint splash on correct answer */
+.splash {
+  position: fixed; z-index: 5; pointer-events: none;
+  font-size: 36px; animation: splashOut 0.7s ease forwards;
+}
+@keyframes splashOut {
+  from { transform: scale(0) rotate(-20deg); opacity: 1; }
+  50%  { transform: scale(1.4) rotate(10deg); opacity: 1; }
+  to   { transform: scale(1.8) rotate(20deg); opacity: 0; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== BACKGROUND ELEMENTS ===== -->
+<div class="blob b1"></div>
+<div class="blob b2"></div>
+<div class="blob b3"></div>
+<div class="blob b4"></div>
+<div class="blob b5"></div>
+
+<!-- animated SVG paint strokes -->
+<svg class="stroke-overlay" viewBox="0 0 1400 800" preserveAspectRatio="none">
+  <path d="M-50 200 Q200 100 450 250 Q700 400 950 180 Q1200 -40 1450 150" fill="none" stroke="#e63946" stroke-width="18" stroke-linecap="round">
+    <animate attributeName="d" dur="12s" repeatCount="indefinite"
+      values="M-50 200 Q200 100 450 250 Q700 400 950 180 Q1200 -40 1450 150;
+              M-50 280 Q200 150 450 200 Q700 300 950 250 Q1200 80 1450 220;
+              M-50 200 Q200 100 450 250 Q700 400 950 180 Q1200 -40 1450 150"/>
+  </path>
+  <path d="M-50 600 Q300 500 600 650 Q900 800 1200 580 Q1350 480 1450 600" fill="none" stroke="#2563eb" stroke-width="14" stroke-linecap="round">
+    <animate attributeName="d" dur="16s" repeatCount="indefinite"
+      values="M-50 600 Q300 500 600 650 Q900 800 1200 580 Q1350 480 1450 600;
+              M-50 520 Q300 600 600 580 Q900 700 1200 640 Q1350 550 1450 520;
+              M-50 600 Q300 500 600 650 Q900 800 1200 580 Q1350 480 1450 600"/>
+  </path>
+  <path d="M100 -30 Q180 200 120 450 Q60 700 200 830" fill="none" stroke="#f4a11d" stroke-width="22" stroke-linecap="round">
+    <animate attributeName="d" dur="10s" repeatCount="indefinite"
+      values="M100 -30 Q180 200 120 450 Q60 700 200 830;
+              M160 -30 Q100 200 180 450 Q220 700 140 830;
+              M100 -30 Q180 200 120 450 Q60 700 200 830"/>
+  </path>
+  <path d="M1300 -20 Q1220 250 1320 500 Q1420 720 1280 830" fill="none" stroke="#7c3aed" stroke-width="16" stroke-linecap="round">
+    <animate attributeName="d" dur="18s" repeatCount="indefinite"
+      values="M1300 -20 Q1220 250 1320 500 Q1420 720 1280 830;
+              M1260 -20 Q1350 250 1240 500 Q1150 720 1340 830;
+              M1300 -20 Q1220 250 1320 500 Q1420 720 1280 830"/>
+  </path>
+</svg>
+
+<!-- floating brushes -->
+<div class="brush-float" style="top:15%;left:8%;animation-duration:7s;">🖌️</div>
+<div class="brush-float" style="top:60%;left:91%;animation-duration:9s;animation-delay:-3s;font-size:22px;">🎨</div>
+<div class="brush-float" style="top:80%;left:5%;animation-duration:11s;animation-delay:-5s;font-size:20px;">✏️</div>
+<div class="brush-float" style="top:10%;left:85%;animation-duration:8s;animation-delay:-2s;">🖍️</div>
+
+<canvas id="bg-canvas"></canvas>
+
+<!-- ===== MAIN APP ===== -->
+<div id="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-left">
+      <div class="palette-icon"></div>
+      <div>
+        <div class="site-title">PYTHON — USING APIs WITH REQUESTS</div>
+        <div class="site-sub">🎨 The Code Art Studio · Planrs Academy</div>
+      </div>
+    </div>
+    <div class="progress-pills">
+      <div class="pill active" id="pill-1">1</div>
+      <div class="pill-arrow">›</div>
+      <div class="pill" id="pill-2">2</div>
+      <div class="pill-arrow">›</div>
+      <div class="pill" id="pill-3">3</div>
+    </div>
+  </header>
+
+  <!-- ACTIVITY AREA -->
+  <div id="activity-area">
+
+    <!-- ═══════════════════════════════════════
+         ACTIVITY 1 — Build the import + API call
+         ══════════════════════════════════════ -->
+    <div class="activity-card visible" id="act1">
+      <div class="card-header">
+        <span class="act-badge badge-1">ACTIVITY 1</span>
+        <span class="card-title">🖌️ Prime Your Canvas — Build the API Call</span>
+        <span class="card-hint">Drag the paint chips to fill in the code!</span>
+      </div>
+
+      <div class="card-body">
+        <!-- LEFT: source chips -->
+        <div class="palette-panel">
+          <div class="palette-label">🎨 Your Paint Palette</div>
+          <div class="chips-grid" id="chips1">
+            <div class="chip chip-kw"  draggable="true" data-val="import">import</div>
+            <div class="chip chip-lib" draggable="true" data-val="requests">requests</div>
+            <div class="chip chip-var" draggable="true" data-val="url">url</div>
+            <div class="chip chip-op"  draggable="true" data-val="=">=</div>
+            <div class="chip chip-str" draggable="true" data-val='"https://api.joke.com"'>"https://api.joke.com"</div>
+            <div class="chip chip-var" draggable="true" data-val="response">response</div>
+            <div class="chip chip-fn"  draggable="true" data-val="requests.get">requests.get</div>
+            <div class="chip chip-fn"  draggable="true" data-val="(url)">(url)</div>
+            <div class="chip chip-var" draggable="true" data-val="data">data</div>
+            <div class="chip chip-fn"  draggable="true" data-val=".json()">.json()</div>
+            <div class="chip chip-var" draggable="true" data-val="response.json()">response.json()</div>
+            <div class="chip chip-fn"  draggable="true" data-val="print">print</div>
+            <div class="chip chip-str" draggable="true" data-val='"Joke:"'>"Joke:"</div>
+            <div class="chip chip-val" draggable="true" data-val='data["joke"]'>data["joke"]</div>
+          </div>
+
+          <!-- concept box -->
+          <div style="margin-top:auto;padding:10px;background:rgba(124,58,237,0.08);border-radius:10px;border:1.5px dashed var(--violet);">
+            <div style="font-family:'Caveat',cursive;font-size:14px;color:var(--violet);font-weight:700;margin-bottom:4px;">💡 The Zomato Waiter:</div>
+            <div style="font-size:10px;line-height:1.5;color:#444;font-family:'Space Mono',monospace;">
+              You = Python code<br>
+              Waiter = API<br>
+              Kitchen = Server<br>
+              Order = Request<br>
+              Food = Response 🍛
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: drop canvas -->
+        <div class="canvas-panel">
+          <div class="canvas-label">📋 Your Code Canvas</div>
+
+          <!-- Line 1: import [?] -->
+          <div class="drop-line" id="dz1-1" data-correct='["import","requests"]' data-line="1">
+            <span class="line-no">1</span>
+            <div class="slot-ph">Drop 'import' and 'requests' here →</div>
+          </div>
+
+          <!-- Line 2: blank -->
+          <div style="height:6px;"></div>
+
+          <!-- Line 3: url = [?] -->
+          <div class="drop-line" id="dz1-2" data-correct='["url","=","\"https://api.joke.com\""]' data-line="3">
+            <span class="line-no">3</span>
+            <div class="slot-ph">url = ??? (drop the URL string)</div>
+          </div>
+
+          <!-- Line 4: response = requests.get(url) -->
+          <div class="drop-line" id="dz1-3" data-correct='["response","=","requests.get","(url)"]' data-line="4">
+            <span class="line-no">4</span>
+            <div class="slot-ph">response = ??? drop GET call</div>
+          </div>
+
+          <!-- Line 5: data = response.json() -->
+          <div class="drop-line" id="dz1-4" data-correct='["data","=","response.json()"]' data-line="5">
+            <span class="line-no">5</span>
+            <div class="slot-ph">data = ??? (parse the JSON!)</div>
+          </div>
+
+          <!-- Line 6: print("Joke:", data["joke"]) -->
+          <div class="drop-line" id="dz1-5" data-correct='["print","\"Joke:\"","data[\"joke\"]"]' data-line="6">
+            <span class="line-no">6</span>
+            <div class="slot-ph">print(???, ???) — show the result!</div>
+          </div>
+
+          <!-- Output preview -->
+          <div class="output-box" id="out1">
+            <span class="out-label">▶ OUTPUT (appears when code is correct)</span>
+          </div>
+
+          <button class="check-btn btn-1" onclick="checkActivity(1)">
+            🖌️ Run My Code!
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════
+         ACTIVITY 2 — Fetch & handle weather data
+         ══════════════════════════════════════ -->
+    <div class="activity-card" id="act2">
+      <div class="card-header">
+        <span class="act-badge badge-2">ACTIVITY 2</span>
+        <span class="card-title">🌦️ Fetch Weather — Order from the API Waiter</span>
+        <span class="card-hint">Get Bengaluru's weather data — drag the steps in order!</span>
+      </div>
+
+      <div class="card-body">
+        <div class="palette-panel">
+          <div class="palette-label">🎨 Steps Palette</div>
+          <div class="chips-grid" id="chips2">
+            <div class="chip chip-kw"  draggable="true" data-val="import">import</div>
+            <div class="chip chip-lib" draggable="true" data-val="requests">requests</div>
+            <div class="chip chip-str" draggable="true" data-val='"Bengaluru"'>"Bengaluru"</div>
+            <div class="chip chip-var" draggable="true" data-val="city">city</div>
+            <div class="chip chip-op"  draggable="true" data-val="=">=</div>
+            <div class="chip chip-str" draggable="true" data-val='"metric"'>"metric"</div>
+            <div class="chip chip-var" draggable="true" data-val="units">units</div>
+            <div class="chip chip-fn"  draggable="true" data-val="f-string url">f-string url</div>
+            <div class="chip chip-var" draggable="true" data-val="api_url">api_url</div>
+            <div class="chip chip-fn"  draggable="true" data-val="requests.get">requests.get</div>
+            <div class="chip chip-var" draggable="true" data-val="response">response</div>
+            <div class="chip chip-fn"  draggable="true" data-val=".json()">.json()</div>
+            <div class="chip chip-var" draggable="true" data-val="weather">weather</div>
+            <div class="chip chip-val" draggable="true" data-val='200'>200</div>
+            <div class="chip chip-fn"  draggable="true" data-val=".status_code">.status_code</div>
+            <div class="chip chip-kw"  draggable="true" data-val="if">if</div>
+            <div class="chip chip-fn"  draggable="true" data-val="print">print</div>
+          </div>
+
+          <div style="margin-top:auto;padding:10px;background:rgba(37,99,235,0.08);border-radius:10px;border:1.5px dashed var(--cobalt);">
+            <div style="font-family:'Caveat',cursive;font-size:14px;color:var(--cobalt);font-weight:700;margin-bottom:4px;">💡 Status Codes:</div>
+            <div style="font-size:10px;line-height:1.6;color:#444;font-family:'Space Mono',monospace;">
+              200 ✅ = All good!<br>
+              404 ❌ = Not found<br>
+              500 ⚠️ = Server error
+            </div>
+          </div>
+        </div>
+
+        <div class="canvas-panel">
+          <div class="canvas-label">📋 Weather Code Canvas</div>
+
+          <!-- Line 1: import requests -->
+          <div class="drop-line" id="dz2-1" data-correct='["import","requests"]'>
+            <span class="line-no">1</span>
+            <div class="slot-ph">import the library →</div>
+          </div>
+
+          <!-- Line 2: city = "Bengaluru" -->
+          <div class="drop-line" id="dz2-2" data-correct='["city","=","\"Bengaluru\""]'>
+            <span class="line-no">2</span>
+            <div class="slot-ph">city = ??? (our city)</div>
+          </div>
+
+          <!-- Line 3: units = "metric" -->
+          <div class="drop-line" id="dz2-3" data-correct='["units","=","\"metric\""]'>
+            <span class="line-no">3</span>
+            <div class="slot-ph">units = ??? (Celsius!)</div>
+          </div>
+
+          <!-- Line 4: api_url = f-string url -->
+          <div class="drop-line" id="dz2-4" data-correct='["api_url","=","f-string url"]'>
+            <span class="line-no">4</span>
+            <div class="slot-ph">api_url = ??? (build the URL)</div>
+          </div>
+
+          <!-- Line 5: response = requests.get(api_url) -->
+          <div class="drop-line" id="dz2-5" data-correct='["response","=","requests.get"]'>
+            <span class="line-no">5</span>
+            <div class="slot-ph">response = ??? (send request!)</div>
+          </div>
+
+          <!-- Line 6: if response.status_code == 200: -->
+          <div class="drop-line" id="dz2-6" data-correct='["if","response",".status_code","200"]'>
+            <span class="line-no">6</span>
+            <div class="slot-ph">if ??? == ??? (check success)</div>
+          </div>
+
+          <!-- Line 7: weather = response.json() -->
+          <div class="drop-line" id="dz2-7" data-correct='["weather","=","response",".json()"]'>
+            <span class="line-no">7</span>
+            <span class="indent"></span>
+            <div class="slot-ph">weather = ??? (parse JSON)</div>
+          </div>
+
+          <div class="output-box" id="out2">
+            <span class="out-label">▶ OUTPUT</span>
+          </div>
+
+          <button class="check-btn btn-2" onclick="checkActivity(2)">
+            🌦️ Fetch Weather!
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════
+         ACTIVITY 3 — Extract & display forecast
+         ══════════════════════════════════════ -->
+    <div class="activity-card" id="act3">
+      <div class="card-header">
+        <span class="act-badge badge-3">ACTIVITY 3</span>
+        <span class="card-title">🎭 Display Results — Show the Forecast!</span>
+        <span class="card-hint">Extract the right data fields from the JSON!</span>
+      </div>
+
+      <div class="card-body">
+        <div class="palette-panel">
+          <div class="palette-label">🎨 JSON Fields Palette</div>
+          <div class="chips-grid" id="chips3">
+            <div class="chip chip-val" draggable="true" data-val='weather["name"]'>weather["name"]</div>
+            <div class="chip chip-val" draggable="true" data-val='weather["main"]["temp"]'>weather["main"]["temp"]</div>
+            <div class="chip chip-val" draggable="true" data-val='weather["main"]["humidity"]'>weather["main"]["humidity"]</div>
+            <div class="chip chip-val" draggable="true" data-val='weather["weather"][0]["description"]'>weather["weather"][0]["desc"]</div>
+            <div class="chip chip-val" draggable="true" data-val='weather["wind"]["speed"]'>weather["wind"]["speed"]</div>
+            <div class="chip chip-fn"  draggable="true" data-val="print">print</div>
+            <div class="chip chip-fn"  draggable="true" data-val="f-string">f-string</div>
+            <div class="chip chip-str" draggable="true" data-val='"City:"'>"City:"</div>
+            <div class="chip chip-str" draggable="true" data-val='"Temp:"'>"Temp:"</div>
+            <div class="chip chip-str" draggable="true" data-val='"Feels:"'>"Feels:"</div>
+            <div class="chip chip-str" draggable="true" data-val='"Humidity:"'>"Humidity:"</div>
+            <div class="chip chip-str" draggable="true" data-val='"Wind:"'>"Wind:"</div>
+            <div class="chip chip-str" draggable="true" data-val='"Sky:"'>"Sky:"</div>
+            <div class="chip chip-val" draggable="true" data-val='weather["main"]["feels_like"]'>weather["main"]["feels"]</div>
+          </div>
+
+          <!-- JSON preview -->
+          <div style="margin-top:auto;padding:10px;background:#1a0a2e;border-radius:10px;font-family:'Space Mono',monospace;font-size:9px;line-height:1.7;color:#a8ff78;">
+            <div style="color:#ff79c6;margin-bottom:2px;">📦 JSON structure:</div>
+            <div style="color:#79b8ff;">"name"</div><div style="color:#a8ff78;">: "Bengaluru"</div>
+            <div style="color:#79b8ff;">"main"</div><div style="color:#a8ff78;">: {</div>
+            <div style="margin-left:10px;color:#79b8ff;">"temp"</div><div style="color:#a8ff78;margin-left:10px;">: 28.4</div>
+            <div style="margin-left:10px;color:#79b8ff;">"humidity"</div><div style="color:#a8ff78;margin-left:10px;">: 65</div>
+            <div style="color:#a8ff78;">}</div>
+          </div>
+        </div>
+
+        <div class="canvas-panel">
+          <div class="canvas-label">📋 Display Code Canvas</div>
+
+          <!-- print city -->
+          <div class="drop-line" id="dz3-1" data-correct='["print","\"City:\"","weather[\"name\"]"]'>
+            <span class="line-no">1</span>
+            <div class="slot-ph">print city name →</div>
+          </div>
+
+          <!-- print temp -->
+          <div class="drop-line" id="dz3-2" data-correct='["print","\"Temp:\"","weather[\"main\"][\"temp\"]"]'>
+            <span class="line-no">2</span>
+            <div class="slot-ph">print temperature →</div>
+          </div>
+
+          <!-- print humidity -->
+          <div class="drop-line" id="dz3-3" data-correct='["print","\"Humidity:\"","weather[\"main\"][\"humidity\"]"]'>
+            <span class="line-no">3</span>
+            <div class="slot-ph">print humidity % →</div>
+          </div>
+
+          <!-- print description -->
+          <div class="drop-line" id="dz3-4" data-correct='["print","\"Sky:\"","weather[\"weather\"][0][\"desc\"]"]'>
+            <span class="line-no">4</span>
+            <div class="slot-ph">print sky description →</div>
+          </div>
+
+          <!-- print wind -->
+          <div class="drop-line" id="dz3-5" data-correct='["print","\"Wind:\"","weather[\"wind\"][\"speed\"]"]'>
+            <span class="line-no">5</span>
+            <div class="slot-ph">print wind speed →</div>
+          </div>
+
+          <!-- print feels_like -->
+          <div class="drop-line" id="dz3-6" data-correct='["print","\"Feels:\"","weather[\"main\"][\"feels_like\"]"]'>
+            <span class="line-no">6</span>
+            <div class="slot-ph">print feels like temp →</div>
+          </div>
+
+          <div class="output-box" id="out3">
+            <span class="out-label">▶ FORECAST OUTPUT</span>
+          </div>
+
+          <button class="check-btn btn-3" onclick="checkActivity(3)">
+            🎭 Show Forecast!
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /activity-area -->
+</div><!-- /app -->
+
+<!-- ===== POPUPS ===== -->
+<!-- Success popup after Activity 1 -->
+<div class="overlay" id="pop1">
+  <div class="popup" style="border-color:var(--crimson);">
+    <div class="popup-splash"></div>
+    <span class="popup-emoji">🎨</span>
+    <div class="popup-title">Canvas Primed!</div>
+    <div class="popup-body">
+      Ekdum sahi! 🎉<br>
+      You've set up the <strong>requests</strong> import and made your first API call!<br><br>
+      The waiter (API) is ready to take your order! 🍛
+    </div>
+    <button class="popup-next-btn" style="background:linear-gradient(135deg,var(--cobalt),#1d4ed8);"
+      onclick="goToActivity(2)">
+      🌦️ Next: Fetch Weather Data →
+    </button>
+  </div>
+</div>
+
+<!-- Success popup after Activity 2 -->
+<div class="overlay" id="pop2">
+  <div class="popup" style="border-color:var(--cobalt);">
+    <div class="popup-splash"></div>
+    <span class="popup-emoji">🌤️</span>
+    <div class="popup-title">Data Fetched!</div>
+    <div class="popup-body">
+      Bahut accha! 🌟<br>
+      You've sent a real API request for Bengaluru's weather and checked the status code!<br><br>
+      The kitchen (server) sent back the food (data)! 📡
+    </div>
+    <button class="popup-next-btn" style="background:linear-gradient(135deg,var(--violet),#6d28d9);"
+      onclick="goToActivity(3)">
+      🎭 Final Act: Display Results →
+    </button>
+  </div>
+</div>
+
+<!-- Final success popup -->
+<div class="overlay" id="popFinal">
+  <div class="popup" style="border-color:var(--saffron); max-width:480px;">
+    <div class="popup-splash"></div>
+    <span class="popup-emoji">🏆</span>
+    <div class="popup-title" style="font-size:22px;">MASTERPIECE COMPLETE!</div>
+    <div class="popup-body" style="font-size:20px;">
+      You are now an <strong>API Artist</strong>! 🎨✨<br><br>
+      You can <strong>import</strong> libraries,<br>
+      make <strong>API requests</strong>,<br>
+      parse <strong>JSON data</strong>,<br>
+      and display <strong>real results</strong>! 🌟
+    </div>
+    <div style="background:rgba(244,161,29,0.12);border-radius:12px;padding:14px;margin-bottom:20px;font-family:'Space Mono',monospace;font-size:10px;line-height:1.8;color:#333;border:1.5px dashed var(--saffron);">
+      <strong style="color:var(--saffron);">🇮🇳 Remember:</strong><br>
+      import requests<br>
+      response = requests.get(url)<br>
+      data = response.json()<br>
+      print(data["field"])
+    </div>
+    <button class="popup-next-btn" style="background:linear-gradient(135deg,var(--saffron),#d97706);font-size:14px;padding:14px 36px;"
+      onclick="restartAll()">
+      🎨 Paint Again!
+    </button>
+  </div>
+</div>
+
+<script>
+/* ===== PAINT DRIPS GENERATOR ===== */
+(function() {
+  const colors = ['#e63946','#f4a11d','#2563eb','#7c3aed','#16a34a','#0d9488'];
+  const body = document.body;
+  for (let i = 0; i < 12; i++) {
+    const d = document.createElement('div');
+    d.className = 'drip';
+    const h = 30 + Math.random() * 120;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    d.style.cssText = `
+      left: ${Math.random()*100}%;
+      height: ${h}px;
+      background: ${color};
+      animation-duration: ${8 + Math.random()*14}s;
+      animation-delay: ${-Math.random()*20}s;
+      opacity: ${0.3 + Math.random()*0.4};
+      width: ${4 + Math.random()*5}px;
+    `;
+    body.appendChild(d);
+  }
+})();
+
+/* ===== ANIMATED CANVAS — paint splatters ===== */
+(function() {
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H;
+  const splats = [];
+  const COLS = ['#e6394620','#f4a11d20','#2563eb20','#7c3aed18','#16a34a18','#0d948818'];
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // seed static splats
+  for (let i = 0; i < 18; i++) {
+    splats.push({
+      x: Math.random() * 1400,
+      y: Math.random() * 900,
+      r: 30 + Math.random() * 80,
+      color: COLS[Math.floor(Math.random() * COLS.length)],
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.3 + Math.random() * 0.5,
+      ox: (Math.random() - 0.5) * 40,
+      oy: (Math.random() - 0.5) * 40,
+    });
+  }
+
+  let t = 0;
+  function frame() {
+    ctx.clearRect(0, 0, W, H);
+    t += 0.005;
+    splats.forEach(s => {
+      const nx = s.x + Math.sin(t * s.speed + s.phase) * s.ox;
+      const ny = s.y + Math.cos(t * s.speed + s.phase + 1) * s.oy;
+      const rr = s.r + Math.sin(t * s.speed * 0.7 + s.phase) * s.r * 0.15;
+      const g = ctx.createRadialGradient(nx, ny, 0, nx, ny, rr);
+      g.addColorStop(0, s.color);
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(nx, ny, rr, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    requestAnimationFrame(frame);
+  }
+  frame();
+})();
+
+/* ===== DRAG AND DROP ENGINE ===== */
+let dragVal   = null;
+let dragChip  = null;
+let dragColor = null;
+
+function getChipClass(chip) {
+  const cls = [...chip.classList];
+  return cls.find(c => c.startsWith('chip-')) || 'chip-var';
+}
+
+// Attach drag events to all chips
+function initDrag() {
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('dragstart', e => {
+      dragVal  = chip.dataset.val;
+      dragChip = chip;
+      dragColor = getChipClass(chip);
+      e.dataTransfer.effectAllowed = 'copy';
+      setTimeout(() => chip.classList.add('dragging'), 0);
+    });
+    chip.addEventListener('dragend', () => {
+      chip.classList.remove('dragging');
+    });
+  });
+
+  document.querySelectorAll('.drop-line').forEach(zone => {
+    zone.addEventListener('dragover', e => {
+      e.preventDefault();
+      zone.classList.add('drag-over');
+    });
+    zone.addEventListener('dragleave', () => {
+      zone.classList.remove('drag-over');
+    });
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      if (!dragVal) return;
+      dropIntoZone(zone, dragVal, dragColor, dragChip);
+    });
+  });
+}
+
+function dropIntoZone(zone, val, colorClass, sourceChip) {
+  // Remove placeholder
+  const ph = zone.querySelector('.slot-ph');
+  if (ph) ph.remove();
+
+  // Create dropped chip
+  const d = document.createElement('span');
+  d.className = `dropped ${colorClass}`;
+  d.dataset.val = val;
+  d.innerHTML = `${val}<span class="remove-x">✕</span>`;
+
+  // colour same as source
+  const colorMap = {
+    'chip-kw':  ['#fde8ea','#e63946'],
+    'chip-lib': ['#e8f0fe','#2563eb'],
+    'chip-fn':  ['#ede9ff','#7c3aed'],
+    'chip-str': ['#dcfce7','#16a34a'],
+    'chip-var': ['#fff7e6','#b45309'],
+    'chip-op':  ['#f0fdf4','#0d9488'],
+    'chip-val': ['#fef3c7','#92400e'],
+  };
+  const [bg, fg] = colorMap[colorClass] || ['#eee','#333'];
+  d.style.background = bg;
+  d.style.color = fg;
+  d.style.border = `1.5px solid ${fg}`;
+
+  // click to remove
+  d.addEventListener('click', () => {
+    d.remove();
+    zone.classList.remove('correct', 'wrong');
+    // restore placeholder if empty
+    const remaining = zone.querySelectorAll('.dropped');
+    if (remaining.length === 0) {
+      const newPh = document.createElement('div');
+      newPh.className = 'slot-ph';
+      newPh.textContent = zone.dataset.origph || 'Drop here →';
+      zone.appendChild(newPh);
+    }
+    // restore source chip
+    if (sourceChip) {
+      sourceChip.classList.remove('used');
+    }
+  });
+
+  zone.appendChild(d);
+
+  // Mark source as used
+  if (sourceChip) sourceChip.classList.add('used');
+
+  // small pop anim
+  d.animate([
+    {transform:'scale(0.7)',opacity:0},
+    {transform:'scale(1.1)',opacity:1},
+    {transform:'scale(1)',opacity:1}
+  ], {duration:250, easing:'cubic-bezier(.34,1.56,.64,1)'});
+}
+
+/* ===== ZONE CORRECTNESS CHECK ===== */
+function getZoneValues(zone) {
+  return [...zone.querySelectorAll('.dropped')].map(d => d.dataset.val);
+}
+
+function arraysLooseMatch(got, expected) {
+  // Both must include all expected tokens, order flexible for some, strict for others
+  if (got.length < expected.length) return false;
+  return expected.every(e => got.includes(e));
+}
+
+function markZone(zone, ok) {
+  zone.classList.remove('correct','wrong');
+  zone.classList.add(ok ? 'correct' : 'wrong');
+  if (!ok) {
+    setTimeout(() => zone.classList.remove('wrong'), 600);
+  }
+}
+
+/* ===== ACTIVITY CHECK LOGIC ===== */
+function checkActivity(n) {
+  const zones = document.querySelectorAll(`#act${n} .drop-line`);
+  let allOk = true;
+
+  zones.forEach(zone => {
+    const got      = getZoneValues(zone);
+    const expected = JSON.parse(zone.dataset.correct);
+    const ok       = arraysLooseMatch(got, expected);
+    markZone(zone, ok);
+    if (!ok) allOk = false;
+  });
+
+  if (allOk) {
+    showOutput(n);
+    spawnSplash();
+    setTimeout(() => {
+      if (n === 3) showPopup('popFinal', true);
+      else showPopup(`pop${n}`);
+    }, 700);
+  } else {
+    // shake the button
+    const btn = document.querySelector(`#act${n} .check-btn`);
+    btn.animate([
+      {transform:'translateX(0)'},{transform:'translateX(-8px)'},
+      {transform:'translateX(8px)'},{transform:'translateX(0)'}
+    ], {duration:300});
+  }
+}
+
+/* ===== OUTPUT DISPLAY ===== */
+function showOutput(n) {
+  const box = document.getElementById(`out${n}`);
+  box.classList.add('output-run-anim');
+  setTimeout(() => box.classList.remove('output-run-anim'), 500);
+
+  const outputs = {
+    1: `<span class="out-label">▶ OUTPUT</span>
+<span class="out-line comment"># Calling the Joke API...</span>
+<span class="out-line string">Joke: <span class="val">Why don't scientists trust atoms?</span></span>
+<span class="out-line val">      Because they make up everything! 😄</span>`,
+
+    2: `<span class="out-label">▶ OUTPUT</span>
+<span class="out-line comment"># Sending request to weather API...</span>
+<span class="out-line key">Status Code: <span class="val">200 ✅ (Success!)</span></span>
+<span class="out-line val">Weather data received for Bengaluru 🌤️</span>
+<span class="out-line string">JSON keys: name, main, weather, wind, clouds</span>`,
+
+    3: `<span class="out-label">▶ BENGALURU FORECAST</span>
+<span class="out-line key">City:     <span class="val">Bengaluru 🇮🇳</span></span>
+<span class="out-line key">Temp:     <span class="number">28.4 °C ☀️</span></span>
+<span class="out-line key">Humidity: <span class="number">65 %</span></span>
+<span class="out-line key">Sky:      <span class="string">partly cloudy ⛅</span></span>
+<span class="out-line key">Wind:     <span class="number">12 km/h 💨</span></span>
+<span class="out-line key">Feels:    <span class="number">30.1 °C 🌡️</span></span>`,
+  };
+
+  box.innerHTML = outputs[n];
+}
+
+/* ===== POPUP CONTROL ===== */
+function showPopup(id, confetti) {
+  document.getElementById(id).classList.add('open');
+  if (confetti) spawnConfetti();
+}
+
+function closePopup(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+function goToActivity(n) {
+  // close all popups
+  document.querySelectorAll('.overlay').forEach(o => o.classList.remove('open'));
+
+  // hide all cards
+  document.querySelectorAll('.activity-card').forEach(c => {
+    c.classList.remove('visible');
+    c.style.display = 'none';
+  });
+
+  // show target card
+  const card = document.getElementById(`act${n}`);
+  card.style.display = 'flex';
+  setTimeout(() => card.classList.add('visible'), 10);
+
+  // update pills
+  document.querySelectorAll('.pill').forEach((p, i) => {
+    p.classList.remove('active', 'done');
+    if (i + 1 < n)  p.classList.add('done');
+    if (i + 1 === n) p.classList.add('active');
+  });
+}
+
+function restartAll() {
+  document.querySelectorAll('.overlay').forEach(o => o.classList.remove('open'));
+
+  // reset all drop zones
+  document.querySelectorAll('.drop-line').forEach(zone => {
+    zone.classList.remove('correct','wrong');
+    zone.querySelectorAll('.dropped').forEach(d => d.remove());
+    // restore placeholder
+    if (!zone.querySelector('.slot-ph')) {
+      const ph = document.createElement('div');
+      ph.className = 'slot-ph';
+      ph.textContent = 'Drop here →';
+      zone.appendChild(ph);
+    }
+  });
+
+  // restore chips
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('used','dragging'));
+
+  // clear outputs
+  ['out1','out2','out3'].forEach(id => {
+    const b = document.getElementById(id);
+    const lbl = b.dataset.origlabel || '▶ OUTPUT';
+    b.innerHTML = `<span class="out-label">${lbl}</span>`;
+  });
+
+  goToActivity(1);
+}
+
+/* ===== CONFETTI ===== */
+function spawnConfetti() {
+  const colors = ['#e63946','#f4a11d','#2563eb','#7c3aed','#16a34a','#0d9488','#fff'];
+  for (let i = 0; i < 70; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti-piece';
+    c.style.cssText = `
+      left: ${Math.random()*100}vw;
+      background: ${colors[Math.floor(Math.random()*colors.length)]};
+      width: ${6+Math.random()*10}px;
+      height: ${6+Math.random()*10}px;
+      border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+      animation-duration: ${1.5+Math.random()*2}s;
+      animation-delay: ${Math.random()*0.8}s;
+    `;
+    document.body.appendChild(c);
+    c.addEventListener('animationend', () => c.remove());
+  }
+}
+
+/* ===== PAINT SPLASH ON CORRECT ===== */
+function spawnSplash() {
+  const emojis = ['🎨','✨','🌟','💥','🎉','🖌️'];
+  for (let i = 0; i < 5; i++) {
+    const s = document.createElement('div');
+    s.className = 'splash';
+    s.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+    s.style.cssText = `
+      left: ${20+Math.random()*60}%;
+      top:  ${20+Math.random()*60}%;
+      animation-delay: ${i*0.1}s;
+    `;
+    document.body.appendChild(s);
+    s.addEventListener('animationend', () => s.remove());
+  }
+}
+
+/* ===== INIT ===== */
+// store original placeholders
+document.querySelectorAll('.drop-line').forEach(zone => {
+  const ph = zone.querySelector('.slot-ph');
+  if (ph) zone.dataset.origph = ph.textContent;
+});
+
+// store output labels
+['out1','out2','out3'].forEach(id => {
+  const b = document.getElementById(id);
+  const lbl = b.querySelector('.out-label');
+  if (lbl) b.dataset.origlabel = lbl.textContent;
+});
+
+initDrag();
+
+// Initial card display fix
+document.querySelectorAll('.activity-card').forEach((c, i) => {
+  if (i === 0) {
+    c.style.display = 'flex';
+  } else {
+    c.style.display = 'none';
+    c.classList.remove('visible');
+  }
+});
+</script>
+</body>
+</html>

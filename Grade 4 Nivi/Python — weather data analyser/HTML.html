@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PYTHON — WEATHER DATA ANALYSER</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+
+  :root {
+    --orange:   #FF6B35;
+    --yellow:   #FFD23F;
+    --teal:     #1DBAAD;
+    --cream:    #FFF8EE;
+    --brown:    #6B3F1E;
+    --red:      #E63946;
+    --green:    #43AA8B;
+    --purple:   #7B5EA7;
+    --steam:    rgba(255,255,255,0.55);
+    --shadow:   0 4px 20px rgba(107,63,30,0.18);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100vw; height: 100vh; overflow: hidden;
+    font-family: 'Nunito', sans-serif;
+    background: var(--cream);
+    user-select: none;
+  }
+
+  /* ── BACKGROUND KITCHEN ─────────────────────────────── */
+  #bg {
+    position: fixed; inset: 0; overflow: hidden; z-index: 0;
+    background: linear-gradient(170deg, #fff9f0 0%, #ffe8c8 60%, #ffd2a0 100%);
+  }
+
+  /* Tile pattern */
+  #bg::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,210,63,.12) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,210,63,.12) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  /* Floating ingredients */
+  .float-item {
+    position: absolute; font-size: 2rem; opacity: .18;
+    animation: floatDrift linear infinite;
+    pointer-events: none;
+  }
+
+  @keyframes floatDrift {
+    0%   { transform: translateY(0)   rotate(0deg);   }
+    25%  { transform: translateY(-18px) rotate(8deg);  }
+    50%  { transform: translateY(0)   rotate(0deg);   }
+    75%  { transform: translateY(14px)  rotate(-6deg); }
+    100% { transform: translateY(0)   rotate(0deg);   }
+  }
+
+  /* Pot silhouettes */
+  .bg-pot {
+    position: absolute; bottom: -10px;
+    pointer-events: none; opacity: .10;
+  }
+  .bg-pot svg { display: block; }
+
+  /* Steam animations */
+  .steam-wrap { position: absolute; pointer-events: none; }
+  .steam-puff {
+    position: absolute; width: 18px; height: 50px;
+    border-radius: 50%;
+    background: var(--steam);
+    filter: blur(8px);
+    animation: steamRise 3s ease-in infinite;
+    opacity: 0;
+  }
+  .steam-puff:nth-child(2) { animation-delay: 1s;  left: 12px; }
+  .steam-puff:nth-child(3) { animation-delay: 2s;  left: -6px; }
+
+  @keyframes steamRise {
+    0%   { opacity: 0;   transform: translateY(0)   scaleX(1); }
+    20%  { opacity: .7;  transform: translateY(-20px) scaleX(1.2); }
+    80%  { opacity: .3;  transform: translateY(-60px) scaleX(1.6); }
+    100% { opacity: 0;   transform: translateY(-90px) scaleX(2); }
+  }
+
+  /* Bubble float around canvas */
+  .bubble {
+    position: absolute; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, rgba(255,255,255,.7), rgba(255,210,63,.15));
+    border: 1.5px solid rgba(255,210,63,.35);
+    animation: bubbleFloat linear infinite;
+    pointer-events: none;
+  }
+  @keyframes bubbleFloat {
+    0%   { transform: translateY(100vh) scale(0.8); opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: .6; }
+    100% { transform: translateY(-120px) scale(1.2); opacity: 0; }
+  }
+
+  /* ── MAIN PANEL ─────────────────────────────────────── */
+  #app {
+    position: relative; z-index: 10;
+    width: 100vw; height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 12px;
+  }
+
+  /* Header */
+  #header {
+    text-align: center; margin-bottom: 10px;
+  }
+  #header h1 {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(1.4rem, 3.5vw, 2.2rem);
+    color: var(--brown);
+    letter-spacing: .5px;
+    line-height: 1.1;
+    text-shadow: 2px 2px 0 rgba(255,210,63,.6);
+  }
+  #header h1 span { color: var(--orange); }
+
+  .chef-strip {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; margin-top: 3px;
+  }
+  .chef-strip .icon { font-size: 1.5rem; animation: wobble 3s ease-in-out infinite; }
+  .chef-strip .icon:nth-child(2) { animation-delay: .5s; }
+  .chef-strip .icon:nth-child(3) { animation-delay: 1s; }
+
+  @keyframes wobble {
+    0%,100% { transform: rotate(-6deg); }
+    50%      { transform: rotate(6deg); }
+  }
+
+  /* Progress bar */
+  #progress-bar {
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 8px;
+  }
+  .prog-step {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  .prog-dot {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: #e8d5b5;
+    border: 3px solid #c9a97a;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .8rem; font-weight: 800; color: #c9a97a;
+    transition: all .4s;
+    position: relative;
+  }
+  .prog-dot.done  { background: var(--green); border-color: var(--green); color: #fff; }
+  .prog-dot.active{ background: var(--orange); border-color: var(--orange); color: #fff;
+    animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
+
+  .prog-line {
+    width: 48px; height: 4px; background: #e8d5b5;
+    border-radius: 4px; transition: background .4s;
+  }
+  .prog-line.done { background: var(--green); }
+
+  .prog-label {
+    font-size: .6rem; font-weight: 700; color: var(--brown);
+    text-align: center; max-width: 60px; line-height: 1.1;
+  }
+
+  /* Main card */
+  #card {
+    background: rgba(255,255,255,.88);
+    backdrop-filter: blur(12px);
+    border-radius: 24px;
+    box-shadow: var(--shadow), 0 0 0 3px rgba(255,210,63,.3);
+    padding: 18px 22px 14px;
+    width: 100%;
+    max-width: 920px;
+    flex: 1;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Card corner steam pot decoration */
+  .card-deco {
+    position: absolute; top: -22px; right: 20px;
+    font-size: 2.4rem;
+    animation: potBob 2s ease-in-out infinite;
+    pointer-events: none;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,.15));
+  }
+  @keyframes potBob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+
+  #activity-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(1rem, 2.4vw, 1.5rem);
+    color: var(--brown);
+    margin-bottom: 4px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  #activity-title .act-badge {
+    background: var(--orange);
+    color: #fff; padding: 2px 10px;
+    border-radius: 20px; font-size: .75rem;
+    font-family: 'Nunito', sans-serif; font-weight: 800;
+  }
+
+  #instruction {
+    font-size: clamp(.72rem, 1.4vw, .9rem);
+    color: #8a6045; font-weight: 600;
+    margin-bottom: 10px; line-height: 1.3;
+  }
+
+  /* Two-column drag layout */
+  .drag-layout {
+    display: flex; gap: 14px; flex: 1; min-height: 0;
+  }
+
+  .source-panel {
+    flex: 0 0 auto; width: clamp(130px, 22%, 190px);
+    background: linear-gradient(160deg, #fff8ee, #fff0d8);
+    border: 2.5px dashed #f0c070;
+    border-radius: 16px; padding: 10px 8px;
+    display: flex; flex-direction: column; gap: 7px;
+    overflow-y: auto;
+    position: relative;
+  }
+  .source-panel::before {
+    content: '🧪 INGREDIENTS';
+    display: block;
+    font-size: .6rem; font-weight: 800; color: #d4952a;
+    letter-spacing: 1px; margin-bottom: 2px;
+    text-align: center;
+  }
+
+  .drag-chip {
+    background: linear-gradient(135deg, #fff, #fff5e6);
+    border: 2px solid #f0c070;
+    border-radius: 10px; padding: 7px 9px;
+    font-size: clamp(.62rem, 1.2vw, .78rem);
+    font-weight: 700; color: var(--brown);
+    cursor: grab; transition: transform .15s, box-shadow .15s, opacity .3s;
+    box-shadow: 0 2px 6px rgba(107,63,30,.12);
+    font-family: 'Courier New', monospace;
+    word-break: break-all; line-height: 1.3;
+    position: relative;
+  }
+  .drag-chip::before {
+    content: '⋮⋮';
+    color: #d4b080; margin-right: 5px; font-size: .7rem;
+  }
+  .drag-chip:hover { transform: scale(1.04); box-shadow: 0 4px 14px rgba(107,63,30,.22); }
+  .drag-chip:active { cursor: grabbing; transform: scale(.97); }
+  .drag-chip.used   { opacity: .35; pointer-events: none; }
+  .drag-chip.dragging { opacity: .5; transform: scale(1.07); box-shadow: 0 8px 24px rgba(107,63,30,.3); }
+
+  /* Drop zone column */
+  .drop-col {
+    flex: 1; display: flex; flex-direction: column; gap: 7px;
+    min-height: 0; overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .drop-slot {
+    min-height: 42px; border-radius: 12px;
+    border: 2.5px dashed #b8d4f0;
+    background: rgba(200,230,255,.25);
+    display: flex; align-items: center; padding: 6px 10px;
+    transition: all .25s;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .drop-slot.highlight {
+    border-color: var(--teal);
+    background: rgba(29,186,173,.12);
+    transform: scale(1.015);
+  }
+  .drop-slot.filled {
+    border-color: var(--green);
+    background: rgba(67,170,139,.1);
+    border-style: solid;
+  }
+  .drop-slot.wrong {
+    border-color: var(--red);
+    background: rgba(230,57,70,.1);
+    animation: shake .35s;
+  }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 20%{transform:translateX(-7px)} 60%{transform:translateX(7px)} 80%{transform:translateX(-4px)}
+  }
+
+  .slot-label {
+    font-size: .62rem; font-weight: 800; color: #8ab8e0;
+    position: absolute; top: 3px; left: 8px;
+    text-transform: uppercase; letter-spacing: .8px;
+    transition: opacity .2s;
+  }
+  .drop-slot.filled .slot-label { opacity: 0; }
+
+  .slot-content {
+    font-family: 'Courier New', monospace;
+    font-size: clamp(.6rem, 1.15vw, .76rem);
+    font-weight: 700; color: var(--brown);
+    padding-top: 6px; line-height: 1.4; width: 100%;
+  }
+  .slot-content .correct-chip {
+    background: linear-gradient(135deg, #e8faf5, #d0f5e8);
+    border: 2px solid var(--green);
+    border-radius: 8px; padding: 5px 9px;
+    display: inline-block; cursor: default;
+    box-shadow: 0 2px 8px rgba(67,170,139,.2);
+  }
+  .correct-chip::after { content: ' ✓'; color: var(--green); }
+
+  /* Result panel (activity 2 visual result) */
+  .result-strip {
+    background: linear-gradient(135deg, #e8faf5, #e0f2ff);
+    border-radius: 12px; border: 2px solid var(--teal);
+    padding: 8px 14px; margin-top: 6px;
+    font-size: .78rem; font-weight: 700; color: var(--brown);
+    display: none; gap: 18px; flex-wrap: wrap;
+    animation: fadeIn .4s ease;
+  }
+  .result-strip.show { display: flex; }
+  .result-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .result-item .r-val { font-size: 1.3rem; color: var(--orange); font-family:'Fredoka One',cursive; }
+  .result-item .r-lbl { font-size: .62rem; color: #8a6045; font-weight: 800; text-transform: uppercase; }
+
+  /* Chart canvas area */
+  #chart-area {
+    flex: 1; position: relative; min-height: 0;
+  }
+  #weatherChart {
+    border-radius: 12px; display: block;
+    width: 100% !important; height: 100% !important;
+  }
+
+  /* Chart drop slots for activity 3 */
+  .chart-config {
+    display: flex; gap: 10px; margin-bottom: 8px; flex-wrap: wrap;
+  }
+  .chart-slot {
+    flex: 1; min-width: 110px;
+    min-height: 36px; border-radius: 10px;
+    border: 2px dashed #b8d4f0;
+    background: rgba(200,230,255,.2);
+    display: flex; align-items: center; justify-content: center;
+    padding: 4px 8px;
+    transition: all .25s; position: relative;
+  }
+  .chart-slot .slot-label { top: 2px; left: 6px; }
+  .chart-slot.filled { border-color: var(--purple); border-style: solid; background: rgba(123,94,167,.1); }
+  .chart-slot.highlight { border-color: var(--teal); background: rgba(29,186,173,.1); transform: scale(1.02); }
+  .chart-slot.wrong { border-color: var(--red); background: rgba(230,57,70,.1); animation: shake .35s; }
+  .chart-slot .slot-content { text-align: center; padding-top: 0; }
+  .chart-slot .slot-content .correct-chip { background: linear-gradient(135deg, #f0eaff, #e4d8ff); border-color: var(--purple); }
+  .chart-slot .slot-content .correct-chip::after { color: var(--purple); }
+
+  /* Action buttons */
+  .action-row {
+    display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;
+  }
+  .btn {
+    padding: 9px 22px; border-radius: 40px;
+    border: none; cursor: pointer; font-family:'Nunito',sans-serif;
+    font-weight: 800; font-size: .85rem;
+    transition: transform .15s, box-shadow .15s;
+    box-shadow: 0 3px 10px rgba(0,0,0,.15);
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+  .btn:active { transform: translateY(0); }
+  .btn-check {
+    background: linear-gradient(135deg, var(--orange), #ff9255);
+    color: #fff;
+  }
+  .btn-reset {
+    background: #f0e6d2; color: var(--brown);
+  }
+
+  /* Feedback toast */
+  #toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--brown); color: #fff;
+    padding: 10px 24px; border-radius: 40px;
+    font-weight: 700; font-size: .85rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,.25);
+    transition: transform .35s cubic-bezier(.34,1.56,.64,1);
+    z-index: 200; pointer-events: none;
+    white-space: nowrap;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.success { background: var(--green); }
+  #toast.error   { background: var(--red); }
+
+  /* ── POPUP OVERLAY ──────────────────────────────────── */
+  #overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(107,63,30,.45);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity .35s;
+  }
+  #overlay.show { opacity: 1; pointer-events: all; }
+
+  #popup {
+    background: linear-gradient(160deg, #fff9f0, #fff3e0);
+    border-radius: 28px;
+    box-shadow: 0 12px 60px rgba(107,63,30,.35), 0 0 0 4px rgba(255,210,63,.4);
+    padding: 36px 40px;
+    max-width: 420px; width: 90%;
+    text-align: center;
+    transform: scale(.85) translateY(30px);
+    transition: transform .4s cubic-bezier(.34,1.56,.64,1);
+    position: relative; overflow: hidden;
+  }
+  #overlay.show #popup { transform: scale(1) translateY(0); }
+
+  .popup-emoji { font-size: 3.5rem; margin-bottom: 10px; display: block;
+    animation: popBounce .6s .2s cubic-bezier(.34,1.56,.64,1) both; }
+  @keyframes popBounce { from{transform:scale(0) rotate(-10deg)} to{transform:scale(1) rotate(0)} }
+
+  .popup-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.7rem; color: var(--brown); margin-bottom: 8px;
+  }
+  .popup-body {
+    font-size: .88rem; color: #8a6045; font-weight: 600; line-height: 1.5;
+    margin-bottom: 20px;
+  }
+  .popup-stars {
+    font-size: 1.8rem; margin-bottom: 14px;
+    animation: starSpin .6s .4s both;
+  }
+  @keyframes starSpin { from{transform:rotate(-180deg) scale(0)} to{transform:rotate(0) scale(1)} }
+
+  .popup-confetti { position: absolute; top: 0; left: 0; right: 0; height: 100%;
+    pointer-events: none; overflow: hidden; }
+  .conf-dot {
+    position: absolute; width: 8px; height: 8px; border-radius: 2px;
+    animation: confFall 1.5s ease-in forwards;
+    opacity: 0;
+  }
+  @keyframes confFall {
+    0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(320px) rotate(360deg); opacity: 0; }
+  }
+
+  .btn-next {
+    background: linear-gradient(135deg, var(--teal), #15a098);
+    color: #fff; padding: 12px 32px;
+    border-radius: 40px; border: none;
+    font-family:'Nunito',sans-serif; font-weight:800; font-size:1rem;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(29,186,173,.4);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .btn-next:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(29,186,173,.45); }
+  .btn-next.final { background: linear-gradient(135deg, var(--orange), #ff9255);
+    box-shadow: 0 4px 16px rgba(255,107,53,.4); }
+
+  /* Progress strip in popup */
+  .popup-progress {
+    display: flex; justify-content: center; gap: 8px; margin-bottom: 16px;
+  }
+  .pp-dot { width: 10px; height: 10px; border-radius: 50%;
+    background: #e8d5b5; transition: background .3s; }
+  .pp-dot.done { background: var(--green); }
+  .pp-dot.active { background: var(--orange); }
+
+  /* Scrollbar style */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #d4b080; border-radius: 3px; }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+
+  /* mini chart canvas */
+  #mini-chart-wrap {
+    flex: 1; min-height: 0;
+    border-radius: 12px; overflow: hidden;
+    border: 2px solid #d4e8ff;
+    background: #f8fbff;
+    position: relative;
+    display: none;
+  }
+  #mini-chart-wrap.show { display: block; }
+  #mini-chart-wrap canvas { display: block; width: 100% !important; height: 100% !important; }
+
+  /* Responsive tweaks */
+  @media (max-width: 600px) {
+    #card { padding: 12px 12px 10px; border-radius: 16px; }
+    .source-panel { width: 110px; }
+    .drag-chip { font-size: .58rem; padding: 5px 6px; }
+    .drop-slot { min-height: 36px; }
+    #header h1 { font-size: 1.1rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ BACKGROUND ══ -->
+<div id="bg" aria-hidden="true">
+  <!-- floating emoji ingredients injected by JS -->
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app">
+  <div id="header">
+    <h1>🍲 PYTHON — <span>WEATHER DATA ANALYSER</span> 🌡️</h1>
+    <div class="chef-strip">
+      <span class="icon">👨‍🍳</span>
+      <span style="font-size:.8rem;font-weight:700;color:#c9813a;">Cook up your Python skills with real weather data!</span>
+      <span class="icon">🧑‍🍳</span>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div id="progress-bar">
+    <div class="prog-step">
+      <div class="prog-dot active" id="pd1">1</div>
+      <div class="prog-label">Read CSV</div>
+    </div>
+    <div class="prog-line" id="pl1"></div>
+    <div class="prog-step">
+      <div class="prog-dot" id="pd2">2</div>
+      <div class="prog-label">Analyse</div>
+    </div>
+    <div class="prog-line" id="pl2"></div>
+    <div class="prog-step">
+      <div class="prog-dot" id="pd3">3</div>
+      <div class="prog-label">Visualise</div>
+    </div>
+  </div>
+
+  <!-- Main card -->
+  <div id="card">
+    <div class="card-deco">🍳</div>
+    <div id="activity-title">
+      <span class="act-badge" id="act-badge">ACTIVITY 1</span>
+      <span id="act-title-text">Read the Weather CSV File</span>
+    </div>
+    <div id="instruction">
+      Drag the correct Python ingredients into the recipe slots to build a program that reads a 30-day temperature CSV file!
+    </div>
+
+    <!-- ACTIVITY 1 -->
+    <div class="drag-layout" id="act1">
+      <div class="source-panel" id="src1"></div>
+      <div class="drop-col" id="drops1"></div>
+    </div>
+
+    <!-- ACTIVITY 2 -->
+    <div class="drag-layout" id="act2" style="display:none">
+      <div class="source-panel" id="src2"></div>
+      <div class="drop-col" id="drops2">
+        <!-- result strip appended by JS -->
+      </div>
+    </div>
+
+    <!-- ACTIVITY 3 -->
+    <div class="drag-layout" id="act3" style="display:none; flex-direction:column; gap:8px">
+      <div class="source-panel" id="src3" style="width:100%;flex-direction:row;flex-wrap:wrap;height:auto;min-height:54px;padding:8px 10px;"></div>
+      <div class="chart-config" id="chart-slots"></div>
+      <div id="mini-chart-wrap"><canvas id="mini-chart"></canvas></div>
+    </div>
+
+    <div class="action-row">
+      <button class="btn btn-reset" id="btn-reset">↺ Reset</button>
+      <button class="btn btn-check" id="btn-check">Check Recipe ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TOAST ══ -->
+<div id="toast"></div>
+
+<!-- ══ POPUP ══ -->
+<div id="overlay">
+  <div id="popup">
+    <div class="popup-confetti" id="popup-confetti"></div>
+    <span class="popup-emoji" id="popup-emoji">🎉</span>
+    <div class="popup-progress" id="popup-progress"></div>
+    <div class="popup-title" id="popup-title">Well Done!</div>
+    <div class="popup-body" id="popup-body"></div>
+    <div class="popup-stars" id="popup-stars"></div>
+    <button class="btn-next" id="btn-next">Next Activity →</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  BACKGROUND ANIMATIONS
+// ══════════════════════════════════════════════
+(function buildBg() {
+  const bg = document.getElementById('bg');
+  const items = ['🌶️','🧅','🧄','🫑','🍅','🥕','🌿','🍃','⭐','❄️','🌡️','☁️','🌤️','🌧️','🌈','💧'];
+  for (let i = 0; i < 22; i++) {
+    const el = document.createElement('div');
+    el.className = 'float-item';
+    el.textContent = items[Math.floor(Math.random()*items.length)];
+    el.style.cssText = `
+      left:${Math.random()*96}%;
+      top:${Math.random()*96}%;
+      font-size:${1.2+Math.random()*1.4}rem;
+      animation-duration:${4+Math.random()*6}s;
+      animation-delay:${Math.random()*5}s;
+    `;
+    bg.appendChild(el);
+  }
+
+  // Bubbles
+  function spawnBubble() {
+    const b = document.createElement('div');
+    b.className = 'bubble';
+    const sz = 12+Math.random()*30;
+    b.style.cssText = `
+      width:${sz}px; height:${sz}px;
+      left:${Math.random()*96}%;
+      animation-duration:${6+Math.random()*10}s;
+      animation-delay:${Math.random()*4}s;
+    `;
+    bg.appendChild(b);
+    setTimeout(() => b.remove(), 18000);
+  }
+  for (let i=0;i<12;i++) spawnBubble();
+  setInterval(spawnBubble, 2200);
+
+  // Steam wisps at bottom
+  for (let i=0;i<5;i++) {
+    const w = document.createElement('div');
+    w.className='steam-wrap';
+    w.style.cssText=`left:${8+i*19}%;bottom:${20+Math.random()*25}px;`;
+    for(let j=0;j<3;j++){const p=document.createElement('div');p.className='steam-puff';p.style.animationDelay=(j*1.1)+'s';w.appendChild(p);}
+    bg.appendChild(w);
+  }
+})();
+
+// ══════════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (type?' '+type:'');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ t.className=''; }, 2600);
+}
+
+// ══════════════════════════════════════════════
+//  POPUP
+// ══════════════════════════════════════════════
+function showPopup(data, onNext) {
+  const ov = document.getElementById('overlay');
+  document.getElementById('popup-emoji').textContent = data.emoji;
+  document.getElementById('popup-title').textContent = data.title;
+  document.getElementById('popup-body').textContent = data.body;
+  document.getElementById('popup-stars').textContent = data.stars || '⭐⭐⭐';
+
+  // progress dots
+  const pp = document.getElementById('popup-progress');
+  pp.innerHTML='';
+  [1,2,3].forEach(n=>{
+    const d=document.createElement('div');
+    d.className='pp-dot'+(n<data.step?' done':n===data.step?' active':'');
+    pp.appendChild(d);
+  });
+
+  // confetti
+  const cf = document.getElementById('popup-confetti');
+  cf.innerHTML='';
+  const cols=['#FF6B35','#FFD23F','#1DBAAD','#E63946','#43AA8B','#7B5EA7'];
+  for(let i=0;i<28;i++){
+    const d=document.createElement('div');
+    d.className='conf-dot';
+    d.style.cssText=`left:${Math.random()*100}%;top:${-10}px;
+      background:${cols[Math.floor(Math.random()*cols.length)]};
+      animation-delay:${Math.random()*.8}s;
+      animation-duration:${1+Math.random()*1}s;
+      width:${6+Math.random()*8}px;height:${6+Math.random()*8}px;
+      border-radius:${Math.random()>0.5?'50%':'2px'};
+    `;
+    cf.appendChild(d);
+  }
+
+  const btn = document.getElementById('btn-next');
+  btn.textContent = data.btnText || 'Next Activity →';
+  btn.className = 'btn-next' + (data.final?' final':'');
+  btn.onclick = ()=>{ ov.classList.remove('show'); onNext && onNext(); };
+
+  ov.classList.add('show');
+}
+
+// ══════════════════════════════════════════════
+//  DRAG-AND-DROP ENGINE
+// ══════════════════════════════════════════════
+let dragInfo = null; // { chip, sourceList, id }
+
+function makeDraggable(chip, id, sourceList) {
+  chip.setAttribute('draggable', true);
+  chip.dataset.id = id;
+
+  chip.addEventListener('dragstart', e => {
+    dragInfo = { chip, id, sourceList };
+    chip.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
+
+  // Touch support
+  let touchStartX, touchStartY, ghost;
+  chip.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    touchStartX = t.clientX; touchStartY = t.clientY;
+    dragInfo = { chip, id, sourceList };
+    ghost = chip.cloneNode(true);
+    ghost.style.cssText=`position:fixed;opacity:.75;pointer-events:none;z-index:999;
+      left:${t.clientX-50}px;top:${t.clientY-20}px;width:${chip.offsetWidth}px;`;
+    document.body.appendChild(ghost);
+  }, {passive:true});
+  chip.addEventListener('touchmove', e => {
+    if(!ghost)return;
+    const t = e.touches[0];
+    ghost.style.left = (t.clientX-50)+'px';
+    ghost.style.top  = (t.clientY-20)+'px';
+    // find slot under finger
+    ghost.style.display='none';
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    ghost.style.display='';
+    document.querySelectorAll('.drop-slot,.chart-slot').forEach(s=>s.classList.remove('highlight'));
+    const slot = el && (el.closest('.drop-slot') || el.closest('.chart-slot'));
+    if(slot && !slot.classList.contains('filled')) slot.classList.add('highlight');
+  }, {passive:true});
+  chip.addEventListener('touchend', e => {
+    if(ghost){ghost.remove();ghost=null;}
+    const t = e.changedTouches[0];
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    const slot = el && (el.closest('.drop-slot') || el.closest('.chart-slot'));
+    if(slot) tryDrop(slot);
+    document.querySelectorAll('.drop-slot,.chart-slot').forEach(s=>s.classList.remove('highlight'));
+    dragInfo=null;
+  });
+}
+
+function setupDropSlot(slot) {
+  slot.addEventListener('dragover', e => {
+    e.preventDefault();
+    if(!slot.classList.contains('filled')) slot.classList.add('highlight');
+  });
+  slot.addEventListener('dragleave', () => slot.classList.remove('highlight'));
+  slot.addEventListener('drop', e => {
+    e.preventDefault();
+    slot.classList.remove('highlight');
+    tryDrop(slot);
+  });
+}
+
+function tryDrop(slot) {
+  if(!dragInfo || slot.classList.contains('filled')) return;
+  const expected = slot.dataset.expect;
+  const got = dragInfo.id;
+
+  if(got === expected) {
+    // Correct!
+    slot.classList.add('filled');
+    const sc = slot.querySelector('.slot-content');
+    sc.innerHTML = `<span class="correct-chip">${escHtml(dragInfo.chip.textContent.replace('⋮⋮','').trim())}</span>`;
+    dragInfo.chip.classList.add('used');
+    showToast('🔥 Sizzling! Perfect ingredient!', 'success');
+    checkAllFilled();
+  } else {
+    slot.classList.add('wrong');
+    setTimeout(()=>slot.classList.remove('wrong'), 500);
+    showToast('🤔 Not quite — try a different ingredient!', 'error');
+  }
+  dragInfo = null;
+}
+
+function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ══════════════════════════════════════════════
+//  ACTIVITY DEFINITIONS
+// ══════════════════════════════════════════════
+
+const ACTIVITIES = {
+  1: {
+    badge: 'ACTIVITY 1',
+    titleText: 'Read the Weather CSV File',
+    instruction: 'Drag the correct Python ingredients into the recipe slots to build a program that reads a 30-day temperature CSV file from Indian cities!',
+    chips: [
+      {id:'c1', text:'import csv'},
+      {id:'c2', text:"open('weather.csv')"},
+      {id:'c3', text:'csv.reader(file)'},
+      {id:'c4', text:'for row in reader:'},
+      {id:'c5', text:'print(row)'},
+      {id:'cx1', text:"import pandas"},
+      {id:'cx2', text:"readlines()"},
+      {id:'cx3', text:'json.load(file)'},
+    ],
+    slots: [
+      {id:'s1', label:'Step 1 — Import module', expect:'c1',
+       hint:'# Step 1: Import the CSV module'},
+      {id:'s2', label:'Step 2 — Open the file', expect:'c2',
+       hint:'with __________ as file:'},
+      {id:'s3', label:'Step 3 — Create reader', expect:'c3',
+       hint:'    reader = __________'},
+      {id:'s4', label:'Step 4 — Loop through rows', expect:'c4',
+       hint:'    __________'},
+      {id:'s5', label:'Step 5 — Display each row', expect:'c5',
+       hint:"        __________"},
+    ],
+    popup: {
+      step:1, emoji:'🍜', stars:'⭐⭐⭐',
+      title:'Recipe Step 1 Done!',
+      body:'Your CSV reader is perfectly cooked! Python can now read all 30 days of weather data from cities like Mumbai, Delhi and Chennai.',
+    }
+  },
+  2: {
+    badge: 'ACTIVITY 2',
+    titleText: 'Analyse: Hottest, Coldest & Average',
+    instruction: 'Drag the analysis steps into order to find the hottest & coldest day and calculate the average temperature!',
+    chips: [
+      {id:'d1', text:'temps = [float(row[1]) for row in data]'},
+      {id:'d2', text:'max_temp = max(temps)'},
+      {id:'d3', text:'min_temp = min(temps)'},
+      {id:'d4', text:'avg_temp = sum(temps) / len(temps)'},
+      {id:'d5', text:'print(f"Hottest: {max_temp}°C")'},
+      {id:'dx1', text:'temps.sort(reverse=True)'},
+      {id:'dx2', text:'max_temp = temps[0]'},
+      {id:'dx3', text:'avg = temps[-1]'},
+    ],
+    slots: [
+      {id:'t1', label:'Step 1 — Extract temperatures', expect:'d1', hint:'__________ # list of floats'},
+      {id:'t2', label:'Step 2 — Find max temperature', expect:'d2', hint:'__________ # Python built-in'},
+      {id:'t3', label:'Step 3 — Find min temperature', expect:'d3', hint:'__________'},
+      {id:'t4', label:'Step 4 — Calculate average',   expect:'d4', hint:'__________ # sum ÷ count'},
+      {id:'t5', label:'Step 5 — Print the result',    expect:'d5', hint:'print(...)'},
+    ],
+    popup: {
+      step:2, emoji:'🌡️', stars:'⭐⭐⭐',
+      title:'Data Stew is Ready!',
+      body:'Brilliant analysis! You found the hottest day (45°C in Jaipur!), the coolest (18°C in Shimla!) and the monthly average. Your Python kitchen is on fire!',
+    }
+  },
+  3: {
+    badge: 'ACTIVITY 3',
+    titleText: 'Visualise: Draw the Temperature Chart',
+    instruction: 'Drag each chart ingredient to its correct pot slot to configure your Python line chart!',
+    chips: [
+      {id:'v1', text:'plt.plot(days, temps)'},
+      {id:'v2', text:'"Temperature (°C)"'},
+      {id:'v3', text:'"Day Number"'},
+      {id:'v4', text:'"30-Day Weather Report"'},
+      {id:'v5', text:'plt.show()'},
+      {id:'vx1', text:'plt.bar(temps)'},
+      {id:'vx2', text:'"Humidity (%)"'},
+      {id:'vx3', text:'plt.close()'},
+    ],
+    chartSlots: [
+      {id:'cs1', label:'📈 Plot Command', expect:'v1'},
+      {id:'cs2', label:'🔵 Y-Axis Label', expect:'v2'},
+      {id:'cs3', label:'🟠 X-Axis Label', expect:'v3'},
+      {id:'cs4', label:'🏷️ Chart Title', expect:'v4'},
+      {id:'cs5', label:'▶️ Display Chart', expect:'v5'},
+    ],
+    popup: {
+      step:3, emoji:'🎊', stars:'⭐⭐⭐',
+      title:'Master Chef Coder!',
+      body:'You built a complete Python Weather Data Analyser — from reading raw CSV data all the way to a beautiful temperature chart. Your Python recipe is a masterpiece!',
+      btnText:'🎉 Celebrate!',
+      final: true,
+    }
+  }
+};
+
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+let currentActivity = 1;
+let allFilledCallback = null;
+
+function checkAllFilled() {
+  const slots = document.querySelectorAll(
+    currentActivity < 3 ? '#drops'+currentActivity+' .drop-slot' : '#chart-slots .chart-slot'
+  );
+  const all = Array.from(slots).every(s => s.classList.contains('filled'));
+  if(all) {
+    setTimeout(()=>{
+      if(currentActivity === 2) showResultStrip();
+      allFilledCallback && allFilledCallback();
+    }, 380);
+  }
+}
+
+// ══════════════════════════════════════════════
+//  BUILD ACTIVITIES
+// ══════════════════════════════════════════════
+function buildActivity1() {
+  const def = ACTIVITIES[1];
+  const src = document.getElementById('src1');
+  const drp = document.getElementById('drops1');
+  src.innerHTML=''; drp.innerHTML='';
+
+  shuffle(def.chips).forEach(c => {
+    const el = makeChip(c.text, c.id);
+    makeDraggable(el, c.id, src);
+    src.appendChild(el);
+  });
+
+  def.slots.forEach(s => {
+    const slot = makeSlot(s.label, s.expect, s.hint);
+    setupDropSlot(slot);
+    drp.appendChild(slot);
+  });
+}
+
+function buildActivity2() {
+  const def = ACTIVITIES[2];
+  const src = document.getElementById('src2');
+  const drp = document.getElementById('drops2');
+  src.innerHTML=''; drp.innerHTML='';
+
+  shuffle(def.chips).forEach(c => {
+    const el = makeChip(c.text, c.id);
+    makeDraggable(el, c.id, src);
+    src.appendChild(el);
+  });
+
+  def.slots.forEach(s => {
+    const slot = makeSlot(s.label, s.expect, s.hint);
+    setupDropSlot(slot);
+    drp.appendChild(slot);
+  });
+
+  // result strip
+  const strip = document.createElement('div');
+  strip.className='result-strip'; strip.id='result-strip';
+  strip.innerHTML=`
+    <div class="result-item"><div class="r-val">45°C</div><div class="r-lbl">🔥 Hottest — Jaipur</div></div>
+    <div class="result-item"><div class="r-val">18°C</div><div class="r-lbl">❄️ Coldest — Shimla</div></div>
+    <div class="result-item"><div class="r-val">31.4°C</div><div class="r-lbl">📊 Monthly Avg</div></div>
+  `;
+  drp.appendChild(strip);
+}
+
+function buildActivity3() {
+  const def = ACTIVITIES[3];
+  const src = document.getElementById('src3');
+  const csl = document.getElementById('chart-slots');
+  src.innerHTML=''; csl.innerHTML='';
+  document.getElementById('mini-chart-wrap').classList.remove('show');
+
+  shuffle(def.chips).forEach(c => {
+    const el = makeChip(c.text, c.id);
+    makeDraggable(el, c.id, src);
+    src.appendChild(el);
+  });
+
+  def.chartSlots.forEach(s => {
+    const slot = document.createElement('div');
+    slot.className = 'chart-slot';
+    slot.dataset.expect = s.expect;
+    slot.innerHTML = `<span class="slot-label">${s.label}</span><div class="slot-content"></div>`;
+    setupDropSlot(slot);
+    csl.appendChild(slot);
+  });
+}
+
+function makeChip(text, id) {
+  const el = document.createElement('div');
+  el.className = 'drag-chip';
+  el.textContent = text;
+  el.dataset.id = id;
+  return el;
+}
+
+function makeSlot(label, expect, hint) {
+  const slot = document.createElement('div');
+  slot.className = 'drop-slot';
+  slot.dataset.expect = expect;
+  slot.innerHTML = `
+    <span class="slot-label">${label}</span>
+    <div class="slot-content">
+      <span style="color:#b8d4f0;font-size:.72rem;font-family:'Courier New',monospace">${escHtml(hint)}</span>
+    </div>`;
+  return slot;
+}
+
+function showResultStrip() {
+  const s = document.getElementById('result-strip');
+  if(s) s.classList.add('show');
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+
+// ══════════════════════════════════════════════
+//  MINI CHART (Activity 3 success)
+// ══════════════════════════════════════════════
+function drawMiniChart() {
+  const wrap = document.getElementById('mini-chart-wrap');
+  const canvas = document.getElementById('mini-chart');
+  wrap.classList.add('show');
+
+  const temps = [28,31,35,38,40,42,45,43,39,36,33,30,28,32,37,41,44,43,40,37,34,31,29,33,38,42,45,41,36,32];
+  const days  = temps.map((_,i)=>i+1);
+
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  const pad = {top:24, right:18, bottom:32, left:42};
+  const cw = W-pad.left-pad.right, ch = H-pad.top-pad.bottom;
+  const minT=Math.min(...temps)-3, maxT=Math.max(...temps)+3;
+
+  function xPx(d){ return pad.left + (d-1)/(days.length-1)*cw; }
+  function yPx(t){ return pad.top + (1-(t-minT)/(maxT-minT))*ch; }
+
+  // BG
+  ctx.fillStyle='#f8fbff'; ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle='rgba(180,210,240,.5)'; ctx.lineWidth=1;
+  for(let i=0;i<=5;i++){
+    const y=pad.top+i*(ch/5);
+    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left+cw,y); ctx.stroke();
+    const v=(maxT-(maxT-minT)*i/5).toFixed(0);
+    ctx.fillStyle='#8aabcc'; ctx.font='10px Nunito,sans-serif';
+    ctx.textAlign='right'; ctx.fillText(v+'°', pad.left-4, y+4);
+  }
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top+ch);
+  grad.addColorStop(0,'rgba(255,107,53,.35)');
+  grad.addColorStop(1,'rgba(255,107,53,.02)');
+  ctx.beginPath();
+  ctx.moveTo(xPx(1),yPx(temps[0]));
+  temps.forEach((t,i)=>{ if(i>0) ctx.lineTo(xPx(i+1),yPx(t)); });
+  ctx.lineTo(xPx(days.length),pad.top+ch);
+  ctx.lineTo(xPx(1),pad.top+ch);
+  ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
+
+  // Line
+  ctx.beginPath(); ctx.strokeStyle='#FF6B35'; ctx.lineWidth=2.5;
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.moveTo(xPx(1),yPx(temps[0]));
+  temps.forEach((t,i)=>{ if(i>0) ctx.lineTo(xPx(i+1),yPx(t)); });
+  ctx.stroke();
+
+  // Dots for hot/cold
+  [[temps.indexOf(Math.max(...temps))+1,'#FF6B35'],
+   [temps.indexOf(Math.min(...temps))+1,'#1DBAAD']].forEach(([d,col])=>{
+    ctx.beginPath(); ctx.arc(xPx(d),yPx(temps[d-1]),5,0,Math.PI*2);
+    ctx.fillStyle=col; ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+  });
+
+  // X labels
+  ctx.fillStyle='#8aabcc'; ctx.font='9px Nunito,sans-serif'; ctx.textAlign='center';
+  [1,5,10,15,20,25,30].forEach(d=>{
+    ctx.fillText('D'+d, xPx(d), pad.top+ch+14);
+  });
+
+  // Title
+  ctx.fillStyle='#6B3F1E'; ctx.font='bold 11px Nunito,sans-serif';
+  ctx.textAlign='left'; ctx.fillText('30-Day Temperature — Indian Cities (°C)', pad.left, pad.top-8);
+
+  // Animate entrance
+  let prog=0;
+  const anim = () => {
+    prog += 0.05; if(prog>1) prog=1;
+    const clipW = pad.left + cw*prog;
+    // redraw with clip
+    ctx.fillStyle='#f8fbff'; ctx.fillRect(0,0,W,H);
+    // grid
+    ctx.strokeStyle='rgba(180,210,240,.5)'; ctx.lineWidth=1;
+    for(let i=0;i<=5;i++){
+      const y=pad.top+i*(ch/5);
+      ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left+cw,y); ctx.stroke();
+      const v=(maxT-(maxT-minT)*i/5).toFixed(0);
+      ctx.fillStyle='#8aabcc'; ctx.font='10px Nunito,sans-serif';
+      ctx.textAlign='right'; ctx.fillText(v+'°', pad.left-4, y+4);
+    }
+    ctx.save(); ctx.rect(0,0,clipW,H); ctx.clip();
+    ctx.beginPath(); ctx.moveTo(xPx(1),yPx(temps[0]));
+    temps.forEach((t,i)=>{ if(i>0) ctx.lineTo(xPx(i+1),yPx(t)); });
+    ctx.lineTo(xPx(days.length),pad.top+ch);
+    ctx.lineTo(xPx(1),pad.top+ch); ctx.closePath();
+    ctx.fillStyle=grad; ctx.fill();
+    ctx.beginPath(); ctx.strokeStyle='#FF6B35'; ctx.lineWidth=2.5;
+    ctx.lineJoin='round'; ctx.moveTo(xPx(1),yPx(temps[0]));
+    temps.forEach((t,i)=>{ if(i>0) ctx.lineTo(xPx(i+1),yPx(t)); });
+    ctx.stroke(); ctx.restore();
+    // labels
+    ctx.fillStyle='#8aabcc'; ctx.font='9px Nunito,sans-serif'; ctx.textAlign='center';
+    [1,5,10,15,20,25,30].forEach(d=>{ctx.fillText('D'+d,xPx(d),pad.top+ch+14);});
+    ctx.fillStyle='#6B3F1E'; ctx.font='bold 11px Nunito,sans-serif';
+    ctx.textAlign='left'; ctx.fillText('30-Day Temperature — Indian Cities (°C)',pad.left,pad.top-8);
+    if(prog<1) requestAnimationFrame(anim);
+    else {
+      [[temps.indexOf(Math.max(...temps))+1,'#FF6B35'],
+       [temps.indexOf(Math.min(...temps))+1,'#1DBAAD']].forEach(([d,col])=>{
+        ctx.beginPath(); ctx.arc(xPx(d),yPx(temps[d-1]),5,0,Math.PI*2);
+        ctx.fillStyle=col; ctx.fill();
+        ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+      });
+    }
+  };
+  anim();
+}
+
+// ══════════════════════════════════════════════
+//  ACTIVITY SWITCHING
+// ══════════════════════════════════════════════
+function goToActivity(n) {
+  currentActivity = n;
+  const def = ACTIVITIES[n];
+
+  // Update badge + title + instruction
+  document.getElementById('act-badge').textContent = def.badge;
+  document.getElementById('act-title-text').textContent = def.titleText;
+  document.getElementById('instruction').textContent = def.instruction;
+
+  // Show/hide activity panels
+  document.getElementById('act1').style.display = n===1 ? 'flex' : 'none';
+  document.getElementById('act2').style.display = n===2 ? 'flex' : 'none';
+  document.getElementById('act3').style.display = n===3 ? 'flex' : 'none';
+
+  // Progress dots
+  [1,2,3].forEach(i=>{
+    const d=document.getElementById('pd'+i);
+    d.className='prog-dot'+(i<n?' done':i===n?' active':'');
+    if(i<3){const l=document.getElementById('pl'+i);l.className='prog-line'+(i<n?' done':'');}
+  });
+
+  // Card deco rotation
+  const decos=['🍳','🥘','🌡️'];
+  document.querySelector('.card-deco').textContent = decos[n-1];
+
+  // Build
+  if(n===1) buildActivity1();
+  else if(n===2) buildActivity2();
+  else buildActivity3();
+
+  // Callback
+  allFilledCallback = ()=>{
+    if(n<3){
+      showPopup(def.popup, ()=>goToActivity(n+1));
+    } else {
+      drawMiniChart();
+      setTimeout(()=>{
+        showPopup(def.popup, ()=>showFinalCelebration());
+      },900);
+    }
+  };
+}
+
+function showFinalCelebration() {
+  showPopup({
+    step:3, emoji:'🏆', stars:'🌟🌟🌟🌟🌟',
+    title:'Python Chef — Certified!',
+    body:'You completed all 3 activities! You can now read CSV files, analyse data, and visualise temperature charts with Python. Planrs Academy is proud of you!',
+    btnText:'🎉 Play Again!',
+    final: true,
+  }, ()=>{ goToActivity(1); });
+}
+
+// ══════════════════════════════════════════════
+//  BUTTONS
+// ══════════════════════════════════════════════
+document.getElementById('btn-check').addEventListener('click', ()=>{
+  // Count unfilled slots
+  const selector = currentActivity<3
+    ? '#drops'+currentActivity+' .drop-slot:not(.filled)'
+    : '#chart-slots .chart-slot:not(.filled)';
+  const missing = document.querySelectorAll(selector).length;
+  if(missing > 0) {
+    showToast(`🍲 Still ${missing} empty slot${missing>1?'s':''}! Keep cooking!`, 'error');
+  } else {
+    checkAllFilled();
+  }
+});
+
+document.getElementById('btn-reset').addEventListener('click', ()=>{
+  goToActivity(currentActivity);
+  showToast('↺ Recipe reset — start fresh!');
+});
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+goToActivity(1);
+</script>
+</body>
+</html>

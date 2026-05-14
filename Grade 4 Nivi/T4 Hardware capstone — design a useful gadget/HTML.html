@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HARDWARE CAPSTONE — DESIGN A USEFUL GADGET</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap');
+
+  :root {
+    --cyan: #00f5ff;
+    --magenta: #ff00cc;
+    --green: #00ff88;
+    --gold: #ffd700;
+    --dark: #020714;
+    --panel: rgba(0,20,40,0.85);
+    --glow-c: 0 0 10px #00f5ff, 0 0 30px #00f5ff55;
+    --glow-m: 0 0 10px #ff00cc, 0 0 30px #ff00cc55;
+    --glow-g: 0 0 10px #00ff88, 0 0 30px #00ff8855;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: 'Rajdhani', sans-serif;
+    background: var(--dark);
+    color: #e0f4ff;
+    user-select: none;
+  }
+
+  /* ── CANVAS LAYERS ── */
+  #bg-canvas {
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── PORTAL RINGS ── */
+  .portal {
+    position: fixed; border-radius: 50%;
+    border: 2px solid transparent;
+    pointer-events: none; z-index: 1;
+    animation: portalSpin linear infinite;
+  }
+  .portal-1 {
+    width: 320px; height: 320px;
+    top: -80px; right: -80px;
+    border-color: var(--cyan);
+    box-shadow: 0 0 20px var(--cyan), inset 0 0 20px var(--cyan);
+    animation-duration: 18s;
+  }
+  .portal-2 {
+    width: 200px; height: 200px;
+    bottom: -50px; left: -50px;
+    border-color: var(--magenta);
+    box-shadow: 0 0 15px var(--magenta), inset 0 0 15px var(--magenta);
+    animation-duration: 24s; animation-direction: reverse;
+  }
+  .portal-3 {
+    width: 140px; height: 140px;
+    bottom: 80px; right: 40px;
+    border-color: var(--green);
+    box-shadow: 0 0 12px var(--green), inset 0 0 12px var(--green);
+    animation-duration: 14s;
+  }
+  @keyframes portalSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  /* ── SCANLINE OVERLAY ── */
+  .scanlines {
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,245,255,0.015) 2px, rgba(0,245,255,0.015) 4px
+    );
+    pointer-events: none; z-index: 2;
+    animation: scanPan 8s linear infinite;
+  }
+  @keyframes scanPan {
+    0%   { background-position: 0 0; }
+    100% { background-position: 0 400px; }
+  }
+
+  /* ── MAIN WRAPPER ── */
+  #app {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    z-index: 10;
+    padding: 8px 12px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    text-align: center;
+    padding: 6px 0 4px;
+    flex-shrink: 0;
+  }
+  header h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(0.85rem, 2.2vw, 1.35rem);
+    font-weight: 900;
+    letter-spacing: 0.18em;
+    background: linear-gradient(90deg, var(--cyan), var(--magenta), var(--cyan));
+    background-size: 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s linear infinite;
+    text-shadow: none;
+  }
+  @keyframes shimmer {
+    0%   { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+  }
+  .tagline {
+    font-size: clamp(0.6rem, 1.2vw, 0.75rem);
+    color: var(--cyan);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    opacity: 0.7;
+    margin-top: 2px;
+  }
+
+  /* ── PROGRESS BAR ── */
+  #progress-bar {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; margin: 6px 0 4px;
+    flex-shrink: 0;
+  }
+  .prog-step {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .prog-dot {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid rgba(0,245,255,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Orbitron', monospace; font-size: 0.65rem; font-weight: 700;
+    color: rgba(0,245,255,0.4);
+    transition: all 0.4s ease;
+    position: relative;
+  }
+  .prog-dot.active {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: var(--glow-c);
+    animation: dotPulse 1.5s ease-in-out infinite;
+  }
+  .prog-dot.done {
+    border-color: var(--green);
+    color: var(--green);
+    background: rgba(0,255,136,0.1);
+    box-shadow: var(--glow-g);
+  }
+  @keyframes dotPulse {
+    0%,100% { box-shadow: 0 0 6px var(--cyan); }
+    50%      { box-shadow: 0 0 18px var(--cyan), 0 0 35px var(--cyan); }
+  }
+  .prog-label {
+    font-size: 0.6rem; letter-spacing: 0.08em;
+    color: rgba(200,240,255,0.5);
+    font-weight: 600; text-transform: uppercase;
+  }
+  .prog-label.active { color: var(--cyan); }
+  .prog-label.done   { color: var(--green); }
+  .prog-line {
+    width: 40px; height: 2px;
+    background: rgba(0,245,255,0.15);
+    border-radius: 2px; transition: all 0.4s ease;
+  }
+  .prog-line.done { background: var(--green); box-shadow: var(--glow-g); }
+
+  /* ── ACTIVITY PANELS ── */
+  .activity-panel {
+    flex: 1; display: none; flex-direction: column;
+    gap: 8px; min-height: 0;
+  }
+  .activity-panel.active { display: flex; }
+
+  .act-header {
+    text-align: center; flex-shrink: 0;
+  }
+  .act-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(0.8rem, 2vw, 1.1rem);
+    font-weight: 700; letter-spacing: 0.1em;
+    color: var(--cyan);
+    text-shadow: var(--glow-c);
+  }
+  .act-subtitle {
+    font-size: clamp(0.65rem, 1.4vw, 0.82rem);
+    color: rgba(200,240,255,0.65);
+    margin-top: 2px; letter-spacing: 0.05em;
+  }
+
+  /* ── DRAG/DROP ZONES ── */
+  .dnd-layout {
+    flex: 1; display: flex;
+    gap: 10px; min-height: 0;
+    align-items: stretch;
+  }
+
+  .source-zone, .target-zone {
+    border-radius: 12px;
+    padding: 10px 8px;
+    display: flex; flex-direction: column;
+    gap: 6px;
+  }
+
+  .source-zone {
+    flex: 1.1;
+    background: rgba(0,10,25,0.7);
+    border: 1px solid rgba(0,245,255,0.2);
+  }
+
+  .target-zone {
+    flex: 1;
+    background: rgba(0,5,20,0.8);
+    border: 2px dashed rgba(0,245,255,0.3);
+    transition: border-color 0.3s, background 0.3s;
+    min-height: 0;
+  }
+  .target-zone.drag-over {
+    border-color: var(--cyan);
+    background: rgba(0,245,255,0.06);
+    box-shadow: inset 0 0 20px rgba(0,245,255,0.08);
+  }
+
+  .zone-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.58rem; letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--cyan); opacity: 0.7;
+    text-align: center; flex-shrink: 0;
+    margin-bottom: 2px;
+  }
+
+  /* ── DRAGGABLE ITEMS ── */
+  .drag-item {
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(0,245,255,0.3);
+    background: rgba(0,30,60,0.8);
+    cursor: grab;
+    font-size: clamp(0.6rem, 1.3vw, 0.78rem);
+    font-weight: 600; letter-spacing: 0.04em;
+    color: #d0eeff;
+    transition: all 0.2s ease;
+    display: flex; align-items: center; gap: 7px;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .drag-item::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(0,245,255,0.05), transparent);
+    pointer-events: none;
+  }
+  .drag-item:hover {
+    border-color: var(--cyan);
+    box-shadow: var(--glow-c);
+    transform: translateY(-2px) scale(1.02);
+    color: #fff;
+  }
+  .drag-item:active { cursor: grabbing; }
+  .drag-item.dragging {
+    opacity: 0.3; transform: scale(0.95);
+  }
+  .drag-item.placed {
+    border-color: var(--green);
+    background: rgba(0,40,20,0.8);
+    color: var(--green);
+    cursor: default;
+    box-shadow: var(--glow-g);
+  }
+  .drag-item .icon {
+    font-size: 1.1rem; flex-shrink: 0;
+  }
+
+  /* ── DROP SLOTS ── */
+  .drop-slot {
+    flex: 1;
+    border-radius: 8px;
+    border: 1px dashed rgba(0,245,255,0.2);
+    background: rgba(0,245,255,0.02);
+    display: flex; align-items: center;
+    padding: 6px 8px; gap: 6px;
+    min-height: 36px;
+    transition: all 0.2s ease;
+    font-size: clamp(0.58rem, 1.2vw, 0.73rem);
+    color: rgba(0,245,255,0.35);
+    font-style: italic;
+  }
+  .drop-slot.filled {
+    border-color: var(--green);
+    background: rgba(0,255,136,0.06);
+    color: var(--green);
+    font-style: normal; font-weight: 600;
+    font-size: clamp(0.58rem, 1.2vw, 0.73rem);
+  }
+
+  /* ── PROCEED BUTTON ── */
+  #proceed-btn {
+    display: none;
+    margin: 4px auto 0;
+    padding: 10px 30px;
+    background: linear-gradient(135deg, rgba(0,245,255,0.15), rgba(0,245,255,0.05));
+    border: 2px solid var(--cyan);
+    border-radius: 30px;
+    color: var(--cyan);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem; font-weight: 700;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: var(--glow-c);
+    flex-shrink: 0;
+    animation: btnGlow 2s ease-in-out infinite;
+  }
+  #proceed-btn:hover {
+    background: rgba(0,245,255,0.25);
+    transform: scale(1.05);
+    box-shadow: 0 0 20px var(--cyan), 0 0 50px var(--cyan);
+  }
+  @keyframes btnGlow {
+    0%,100% { box-shadow: 0 0 8px var(--cyan); }
+    50%      { box-shadow: 0 0 22px var(--cyan), 0 0 45px rgba(0,245,255,0.3); }
+  }
+
+  /* ── FEEDBACK MESSAGE ── */
+  #feedback-msg {
+    text-align: center; font-size: 0.72rem;
+    font-weight: 600; letter-spacing: 0.08em;
+    min-height: 18px; flex-shrink: 0;
+    transition: all 0.3s ease;
+  }
+  #feedback-msg.good  { color: var(--green); text-shadow: var(--glow-g); }
+  #feedback-msg.warn  { color: var(--gold); }
+  #feedback-msg.error { color: var(--magenta); }
+
+  /* ── ACTIVITY 2 BLUEPRINT ── */
+  .blueprint-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+    gap: 6px;
+    min-height: 0;
+  }
+  .bp-slot {
+    border-radius: 8px;
+    border: 1px dashed rgba(0,245,255,0.25);
+    background: rgba(0,10,30,0.6);
+    display: flex; align-items: center; justify-content: center;
+    padding: 6px;
+    text-align: center;
+    font-size: clamp(0.55rem, 1.1vw, 0.68rem);
+    color: rgba(0,245,255,0.3);
+    font-style: italic;
+    transition: all 0.3s ease;
+    flex-direction: column; gap: 4px;
+  }
+  .bp-slot.filled {
+    border-color: var(--magenta);
+    border-style: solid;
+    background: rgba(255,0,204,0.07);
+    color: #ffaaee;
+    font-style: normal; font-weight: 700;
+    font-size: clamp(0.6rem, 1.2vw, 0.72rem);
+    box-shadow: inset 0 0 10px rgba(255,0,204,0.08);
+  }
+  .bp-slot .bp-icon { font-size: 1.2rem; }
+
+  /* ── ACTIVITY 3 SEQUENCE ── */
+  .seq-layout {
+    flex: 1; display: flex; gap: 10px; min-height: 0;
+  }
+  .seq-source { flex: 1.1; display: flex; flex-direction: column; gap: 6px; }
+  .seq-target { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+  .seq-slot {
+    flex: 1;
+    border-radius: 8px;
+    border: 1px dashed rgba(255,215,0,0.3);
+    background: rgba(255,215,0,0.02);
+    display: flex; align-items: center;
+    padding: 6px 10px; gap: 8px;
+    min-height: 0;
+    transition: all 0.2s ease;
+  }
+  .seq-slot.filled {
+    border-color: var(--gold); border-style: solid;
+    background: rgba(255,215,0,0.07);
+    box-shadow: 0 0 8px rgba(255,215,0,0.3);
+  }
+  .seq-num {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem; font-weight: 700;
+    color: var(--gold); opacity: 0.6;
+    flex-shrink: 0; width: 18px;
+  }
+  .seq-slot.filled .seq-num { opacity: 1; }
+  .seq-text {
+    font-size: clamp(0.58rem, 1.15vw, 0.7rem);
+    color: rgba(255,215,0,0.35); font-style: italic;
+  }
+  .seq-slot.filled .seq-text {
+    color: #ffe080; font-style: normal; font-weight: 600;
+  }
+
+  /* ── POPUP OVERLAY ── */
+  #popup-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,10,0.88);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.4s ease;
+    backdrop-filter: blur(4px);
+  }
+  #popup-overlay.show {
+    opacity: 1; pointer-events: all;
+  }
+
+  .popup-box {
+    background: linear-gradient(135deg, rgba(0,15,35,0.97), rgba(0,5,20,0.97));
+    border-radius: 16px;
+    padding: 28px 32px;
+    max-width: 480px; width: 90%;
+    text-align: center;
+    transform: scale(0.8) translateY(20px);
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    position: relative;
+    overflow: hidden;
+  }
+  #popup-overlay.show .popup-box {
+    transform: scale(1) translateY(0);
+  }
+
+  .popup-box::before {
+    content: '';
+    position: absolute; inset: 0;
+    border-radius: 16px;
+    padding: 2px;
+    background: linear-gradient(135deg, var(--cyan), var(--magenta), var(--green));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .popup-icon { font-size: 2.8rem; margin-bottom: 8px; }
+  .popup-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.1rem; font-weight: 900;
+    background: linear-gradient(90deg, var(--cyan), var(--magenta));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px;
+  }
+  .popup-body {
+    font-size: 0.82rem; color: rgba(200,240,255,0.8);
+    line-height: 1.55; margin-bottom: 16px;
+  }
+  .popup-body strong { color: var(--cyan); }
+
+  .popup-btn {
+    padding: 10px 28px;
+    background: linear-gradient(135deg, rgba(0,245,255,0.2), rgba(255,0,204,0.1));
+    border: 2px solid var(--cyan);
+    border-radius: 30px;
+    color: var(--cyan);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem; font-weight: 700;
+    letter-spacing: 0.15em; cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-block;
+  }
+  .popup-btn:hover {
+    background: rgba(0,245,255,0.3);
+    box-shadow: var(--glow-c);
+    transform: scale(1.05);
+  }
+
+  /* ── SUCCESS POPUP EXTRAS ── */
+  .success-stars {
+    position: absolute;
+    inset: 0; overflow: hidden;
+    pointer-events: none; border-radius: 16px;
+  }
+  .star-burst {
+    position: absolute;
+    animation: starFloat 3s ease-in-out infinite;
+    opacity: 0.6; font-size: 1rem;
+  }
+  @keyframes starFloat {
+    0%   { transform: translateY(0) rotate(0deg); opacity: 0.6; }
+    50%  { opacity: 1; }
+    100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+  }
+
+  /* ── SCROLL CONTAINER FOR SOURCE ── */
+  .scroll-items {
+    flex: 1; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 6px;
+    padding-right: 2px;
+  }
+  .scroll-items::-webkit-scrollbar { width: 3px; }
+  .scroll-items::-webkit-scrollbar-track { background: transparent; }
+  .scroll-items::-webkit-scrollbar-thumb { background: rgba(0,245,255,0.3); border-radius: 3px; }
+
+  .drop-area {
+    flex: 1; overflow-y: auto;
+    display: flex; flex-direction: column;
+    gap: 5px; padding: 2px;
+  }
+  .drop-area::-webkit-scrollbar { width: 3px; }
+  .drop-area::-webkit-scrollbar-thumb { background: rgba(0,255,136,0.3); border-radius: 3px; }
+
+  /* ── FLOATING PARTICLES (CSS) ── */
+  .css-particle {
+    position: fixed;
+    width: 2px; height: 2px;
+    border-radius: 50%;
+    pointer-events: none; z-index: 1;
+    animation: floatUp linear infinite;
+  }
+  @keyframes floatUp {
+    0%   { transform: translateY(0) translateX(0); opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 0.5; }
+    100% { transform: translateY(-100vh) translateX(30px); opacity: 0; }
+  }
+
+  /* ── DRAG GHOST ── */
+  #drag-ghost {
+    position: fixed; pointer-events: none;
+    z-index: 999; display: none;
+    padding: 7px 12px;
+    border-radius: 8px;
+    border: 2px solid var(--cyan);
+    background: rgba(0,30,60,0.95);
+    color: #d0eeff; font-size: 0.78rem; font-weight: 600;
+    box-shadow: var(--glow-c);
+    white-space: nowrap;
+    transform: rotate(-3deg);
+  }
+
+  /* ── CORRECTION BUTTON ── */
+  .reset-btn {
+    font-size: 0.58rem; color: rgba(0,245,255,0.4);
+    cursor: pointer; text-decoration: underline;
+    text-align: center; flex-shrink: 0;
+    font-family: 'Rajdhani', sans-serif;
+    letter-spacing: 0.05em;
+  }
+  .reset-btn:hover { color: var(--cyan); }
+
+  /* ── ACTIVITY INTRO BADGE ── */
+  .act-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, rgba(0,245,255,0.15), rgba(255,0,204,0.1));
+    border: 1px solid rgba(0,245,255,0.4);
+    border-radius: 20px;
+    padding: 2px 12px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.55rem; letter-spacing: 0.12em;
+    color: var(--cyan); text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+</style>
+</head>
+<body>
+
+<!-- BACKGROUND CANVAS (matrix rain + particles) -->
+<canvas id="bg-canvas"></canvas>
+
+<!-- PORTAL RINGS -->
+<div class="portal portal-1"></div>
+<div class="portal portal-2"></div>
+<div class="portal portal-3"></div>
+
+<!-- SCANLINES -->
+<div class="scanlines"></div>
+
+<!-- DRAG GHOST -->
+<div id="drag-ghost"></div>
+
+<!-- MAIN APP -->
+<div id="app">
+
+  <!-- HEADER -->
+  <header>
+    <h1>HARDWARE CAPSTONE — DESIGN A USEFUL GADGET</h1>
+    <div class="tagline">THINK ✦ MAKE ✦ SHARE</div>
+  </header>
+
+  <!-- PROGRESS BAR -->
+  <div id="progress-bar">
+    <div class="prog-step">
+      <div class="prog-dot active" id="dot-1">1</div>
+      <div class="prog-label active" id="lbl-1">Choose Problem</div>
+    </div>
+    <div class="prog-line" id="line-1"></div>
+    <div class="prog-step">
+      <div class="prog-dot" id="dot-2">2</div>
+      <div class="prog-label" id="lbl-2">Design Gadget</div>
+    </div>
+    <div class="prog-line" id="line-2"></div>
+    <div class="prog-step">
+      <div class="prog-dot" id="dot-3">3</div>
+      <div class="prog-label" id="lbl-3">Build & Share</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ ACTIVITY 1 ══════════════════════════════ -->
+  <div class="activity-panel active" id="act-1">
+    <div class="act-header">
+      <div class="act-badge">Activity 1 of 3</div>
+      <div class="act-title">🔍 Choose Your Problem</div>
+      <div class="act-subtitle">Drag 3 real-world problems into the Problem Portal!</div>
+    </div>
+
+    <div class="dnd-layout">
+      <!-- SOURCE -->
+      <div class="source-zone">
+        <div class="zone-label">Problem Bank</div>
+        <div class="scroll-items" id="act1-source">
+          <div class="drag-item" data-id="p1" draggable="true"><span class="icon">🌑</span>Dark room at night</div>
+          <div class="drag-item" data-id="p2" draggable="true"><span class="icon">🚪</span>Intruder at door</div>
+          <div class="drag-item" data-id="p3" draggable="true"><span class="icon">🔊</span>Loud noise nearby</div>
+          <div class="drag-item" data-id="p4" draggable="true"><span class="icon">💧</span>Dripping tap waste</div>
+          <div class="drag-item" data-id="p5" draggable="true"><span class="icon">🌡️</span>No fan in summer</div>
+          <div class="drag-item" data-id="p6" draggable="true"><span class="icon">📚</span>Books fall off desk</div>
+          <div class="drag-item" data-id="p7" draggable="true"><span class="icon">🔑</span>Lost keys again</div>
+          <div class="drag-item" data-id="p8" draggable="true"><span class="icon">🧺</span>Wet clothes in rain</div>
+        </div>
+      </div>
+
+      <!-- TARGET -->
+      <div class="target-zone" id="act1-target">
+        <div class="zone-label">Problem Portal (pick 3)</div>
+        <div class="drop-area" id="act1-drops">
+          <div class="drop-slot" data-slot="0"><span>Drop a problem here...</span></div>
+          <div class="drop-slot" data-slot="1"><span>Drop a problem here...</span></div>
+          <div class="drop-slot" data-slot="2"><span>Drop a problem here...</span></div>
+        </div>
+        <div class="reset-btn" onclick="resetActivity(1)">↺ Reset</div>
+      </div>
+    </div>
+
+    <div id="feedback-msg"></div>
+    <button id="proceed-btn" onclick="openActivityPopup(1)">LOCK IN PROBLEMS ⟶</button>
+  </div>
+
+  <!-- ══════════════════════════════ ACTIVITY 2 ══════════════════════════════ -->
+  <div class="activity-panel" id="act-2">
+    <div class="act-header">
+      <div class="act-badge">Activity 2 of 3</div>
+      <div class="act-title">⚙️ Design Your Gadget</div>
+      <div class="act-subtitle">Drag hardware parts into the Gadget Blueprint!</div>
+    </div>
+
+    <div class="dnd-layout">
+      <!-- SOURCE -->
+      <div class="source-zone">
+        <div class="zone-label">Component Vault</div>
+        <div class="scroll-items" id="act2-source">
+          <div class="drag-item" data-id="c1" draggable="true"><span class="icon">💡</span>LED Light Sensor</div>
+          <div class="drag-item" data-id="c2" draggable="true"><span class="icon">🔋</span>Battery Pack</div>
+          <div class="drag-item" data-id="c3" draggable="true"><span class="icon">🔔</span>Buzzer / Alarm</div>
+          <div class="drag-item" data-id="c4" draggable="true"><span class="icon">📡</span>Motion Detector</div>
+          <div class="drag-item" data-id="c5" draggable="true"><span class="icon">🖲️</span>Push Button</div>
+          <div class="drag-item" data-id="c6" draggable="true"><span class="icon">🌀</span>Mini Motor / Fan</div>
+          <div class="drag-item" data-id="c7" draggable="true"><span class="icon">📟</span>Microcontroller</div>
+          <div class="drag-item" data-id="c8" draggable="true"><span class="icon">🔌</span>Wiring / Cables</div>
+        </div>
+      </div>
+
+      <!-- BLUEPRINT TARGET -->
+      <div class="target-zone" id="act2-target" style="flex:1.2;">
+        <div class="zone-label">Gadget Blueprint (fill 4 slots)</div>
+        <div class="blueprint-grid" id="act2-blueprint">
+          <div class="bp-slot" data-slot="0"><span>⬡</span><span>Core Component</span></div>
+          <div class="bp-slot" data-slot="1"><span>⬡</span><span>Power Source</span></div>
+          <div class="bp-slot" data-slot="2"><span>⬡</span><span>Input/Sensor</span></div>
+          <div class="bp-slot" data-slot="3"><span>⬡</span><span>Output/Action</span></div>
+          <div class="bp-slot" data-slot="4"><span>⬡</span><span>Control Unit</span></div>
+          <div class="bp-slot" data-slot="5"><span>⬡</span><span>Connection</span></div>
+        </div>
+        <div class="reset-btn" onclick="resetActivity(2)">↺ Reset</div>
+      </div>
+    </div>
+
+    <div id="feedback-msg-2"></div>
+    <button id="proceed-btn-2" style="display:none;" class="proceed-btn-cls" onclick="openActivityPopup(2)">LOCK IN BLUEPRINT ⟶</button>
+  </div>
+
+  <!-- ══════════════════════════════ ACTIVITY 3 ══════════════════════════════ -->
+  <div class="activity-panel" id="act-3">
+    <div class="act-header">
+      <div class="act-badge">Activity 3 of 3</div>
+      <div class="act-title">🚀 Build &amp; Present</div>
+      <div class="act-subtitle">Arrange the steps to build and show your gadget idea!</div>
+    </div>
+
+    <div class="dnd-layout">
+      <!-- SOURCE -->
+      <div class="source-zone">
+        <div class="zone-label">Step Cards</div>
+        <div class="scroll-items" id="act3-source">
+          <div class="drag-item" data-id="s1" draggable="true"><span class="icon">🔍</span>Spot your problem</div>
+          <div class="drag-item" data-id="s2" draggable="true"><span class="icon">✏️</span>Sketch your idea</div>
+          <div class="drag-item" data-id="s3" draggable="true"><span class="icon">🧰</span>Gather materials</div>
+          <div class="drag-item" data-id="s4" draggable="true"><span class="icon">🔨</span>Assemble gadget</div>
+          <div class="drag-item" data-id="s5" draggable="true"><span class="icon">🧪</span>Test it out</div>
+          <div class="drag-item" data-id="s6" draggable="true"><span class="icon">🔧</span>Fix &amp; improve</div>
+          <div class="drag-item" data-id="s7" draggable="true"><span class="icon">🎤</span>Present to class</div>
+        </div>
+      </div>
+
+      <!-- SEQUENCE TARGET -->
+      <div class="target-zone" id="act3-target" style="flex:1.1;">
+        <div class="zone-label">Build Sequence (all 7 in order)</div>
+        <div class="drop-area" id="act3-sequence">
+          <div class="seq-slot" data-slot="0"><span class="seq-num">1</span><span class="seq-text">Drop step here...</span></div>
+          <div class="seq-slot" data-slot="1"><span class="seq-num">2</span><span class="seq-text">Drop step here...</span></div>
+          <div class="seq-slot" data-slot="2"><span class="seq-num">3</span><span class="seq-text">Drop step here...</span></div>
+          <div class="seq-slot" data-slot="3"><span class="seq-num">4</span><span class="seq-text">Drop step here...</span></div>
+          <div class="seq-slot" data-slot="4"><span class="seq-num">5</span><span class="seq-text">Drop step here...</span></div>
+          <div class="seq-slot" data-slot="5"><span class="seq-num">6</span><span class="seq-text">Drop step here...</span></div>
+          <div class="seq-slot" data-slot="6"><span class="seq-num">7</span><span class="seq-text">Drop step here...</span></div>
+        </div>
+        <div class="reset-btn" onclick="resetActivity(3)">↺ Reset</div>
+      </div>
+    </div>
+
+    <div id="feedback-msg-3"></div>
+    <button id="proceed-btn-3" style="display:none;" class="proceed-btn-cls" onclick="openActivityPopup(3)">COMPLETE MISSION 🚀</button>
+  </div>
+
+</div><!-- #app -->
+
+<!-- ══════════════════════════════ POPUP OVERLAY ══════════════════════════════ -->
+<div id="popup-overlay">
+  <div class="popup-box" id="popup-box">
+    <div class="success-stars" id="popup-stars"></div>
+    <div class="popup-icon" id="popup-icon">🎉</div>
+    <div class="popup-title" id="popup-title">GREAT WORK!</div>
+    <div class="popup-body" id="popup-body">You did it!</div>
+    <button class="popup-btn" id="popup-action" onclick="handlePopupAction()">CONTINUE</button>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   BACKGROUND CANVAS — Matrix Rain + Particle Field
+   ═══════════════════════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Matrix rain columns
+  const fontSize = 11;
+  let cols, drops;
+  function initMatrix() {
+    cols = Math.floor(canvas.width / fontSize);
+    drops = Array.from({length: cols}, () => Math.random() * -100);
+  }
+  initMatrix();
+
+  const chars = '01アイウエオカキクケコ∇∆⊕⊗◈◆▲▼⬡⬢'.split('');
+
+  let frame = 0;
+  function draw() {
+    frame++;
+    ctx.fillStyle = 'rgba(2,7,20,0.08)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.font = `${fontSize}px monospace`;
+
+    for (let i = 0; i < drops.length; i++) {
+      const char = chars[Math.floor(Math.random() * chars.length)];
+      const x = i * fontSize;
+      const y = drops[i] * fontSize;
+
+      // Lead char brighter
+      ctx.fillStyle = `rgba(0,255,136,${0.9})`;
+      ctx.fillText(char, x, y);
+
+      // Trail
+      const trailChars = chars[Math.floor(Math.random() * chars.length)];
+      ctx.fillStyle = `rgba(0,200,100,0.15)`;
+      ctx.fillText(trailChars, x, y - fontSize);
+
+      if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+        drops[i] = 0;
+      }
+      drops[i] += 0.35;
+    }
+
+    // Subtle grid overlay
+    if (frame % 2 === 0) {
+      ctx.strokeStyle = 'rgba(0,245,255,0.025)';
+      ctx.lineWidth = 0.5;
+      const gSize = 60;
+      for (let x = 0; x < canvas.width; x += gSize) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += gSize) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+      }
+    }
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   CSS FLOATING PARTICLES
+   ═══════════════════════════════════════════════════════════ */
+(function() {
+  const colors = ['#00f5ff','#ff00cc','#00ff88','#ffd700'];
+  for (let i = 0; i < 25; i++) {
+    const p = document.createElement('div');
+    p.className = 'css-particle';
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.bottom = '-5px';
+    p.style.background = colors[i % 4];
+    p.style.boxShadow = `0 0 4px ${colors[i % 4]}`;
+    p.style.animationDuration = (8 + Math.random() * 14) + 's';
+    p.style.animationDelay = (Math.random() * 12) + 's';
+    p.style.width = p.style.height = (1 + Math.random() * 2.5) + 'px';
+    p.style.borderRadius = '50%';
+    document.body.appendChild(p);
+  }
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   DRAG & DROP STATE
+   ═══════════════════════════════════════════════════════════ */
+let currentActivity = 1;
+let currentPopupActivity = 0;
+
+// Act 1 state
+const act1State = { slots: [null, null, null] };
+// Act 2 state
+const act2State = { slots: [null, null, null, null, null, null], filled: 0 };
+// Act 3 state
+const correctOrder = ['s1','s2','s3','s4','s5','s6','s7'];
+const act3State = { slots: Array(7).fill(null) };
+
+let draggingId = null;
+let draggingEl = null;
+let draggingFrom = null; // 'source' or slot index
+
+const ghost = document.getElementById('drag-ghost');
+
+/* ─── UNIVERSAL DRAG SETUP ─── */
+function setupDrag(selector, onDragStart) {
+  document.querySelectorAll(selector).forEach(el => {
+    el.addEventListener('dragstart', e => {
+      if (el.classList.contains('placed')) { e.preventDefault(); return; }
+      draggingId = el.dataset.id;
+      draggingEl = el;
+      draggingFrom = 'source';
+      ghost.textContent = el.textContent.trim();
+      ghost.style.display = 'block';
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => { ghost.style.display = 'block'; }, 0);
+    });
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+      ghost.style.display = 'none';
+    });
+  });
+}
+
+document.addEventListener('dragover', e => {
+  e.preventDefault();
+  ghost.style.left = (e.clientX + 14) + 'px';
+  ghost.style.top  = (e.clientY - 16) + 'px';
+});
+
+/* ═══════════════════════════════════════════════════════════
+   ACTIVITY 1 — CHOOSE A PROBLEM
+   ═══════════════════════════════════════════════════════════ */
+function initAct1() {
+  setupDrag('#act1-source .drag-item');
+
+  const target = document.getElementById('act1-target');
+  target.addEventListener('dragover', e => {
+    e.preventDefault();
+    target.classList.add('drag-over');
+  });
+  target.addEventListener('dragleave', () => target.classList.remove('drag-over'));
+  target.addEventListener('drop', e => {
+    e.preventDefault();
+    target.classList.remove('drag-over');
+    if (!draggingId) return;
+
+    // Check if already placed
+    if (act1State.slots.includes(draggingId)) return;
+
+    // Find empty slot
+    const emptyIdx = act1State.slots.findIndex(s => s === null);
+    if (emptyIdx === -1) {
+      setFeedback('feedback-msg', '⚠️ Already 3 problems chosen! Reset to change.', 'warn');
+      return;
+    }
+
+    act1State.slots[emptyIdx] = draggingId;
+    draggingEl.classList.add('placed');
+
+    // Fill slot in UI
+    const slot = document.querySelector(`#act1-drops .drop-slot[data-slot="${emptyIdx}"]`);
+    slot.classList.add('filled');
+    slot.innerHTML = `<span>${draggingEl.querySelector('.icon').textContent}</span><span>${draggingEl.childNodes[1].textContent.trim()}</span>`;
+
+    setFeedback('feedback-msg', `✔ Problem ${emptyIdx + 1} locked in!`, 'good');
+
+    if (act1State.slots.every(s => s !== null)) {
+      document.getElementById('proceed-btn').style.display = 'block';
+      setFeedback('feedback-msg', '🎯 All 3 problems chosen! Proceed when ready.', 'good');
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ACTIVITY 2 — DESIGN GADGET
+   ═══════════════════════════════════════════════════════════ */
+function initAct2() {
+  setupDrag('#act2-source .drag-item');
+
+  const target = document.getElementById('act2-target');
+  target.addEventListener('dragover', e => { e.preventDefault(); target.classList.add('drag-over'); });
+  target.addEventListener('dragleave', () => target.classList.remove('drag-over'));
+  target.addEventListener('drop', e => {
+    e.preventDefault();
+    target.classList.remove('drag-over');
+    if (!draggingId) return;
+    if (act2State.slots.includes(draggingId)) return;
+
+    const emptyIdx = act2State.slots.findIndex(s => s === null);
+    if (emptyIdx === -1) {
+      setFeedback('feedback-msg-2', '⚠️ Blueprint full! Reset to rearrange.', 'warn');
+      return;
+    }
+
+    act2State.slots[emptyIdx] = draggingId;
+    act2State.filled++;
+    draggingEl.classList.add('placed');
+
+    const slot = document.querySelector(`#act2-blueprint .bp-slot[data-slot="${emptyIdx}"]`);
+    slot.classList.add('filled');
+    slot.innerHTML = `<span class="bp-icon">${draggingEl.querySelector('.icon').textContent}</span><span>${draggingEl.childNodes[1].textContent.trim()}</span>`;
+
+    setFeedback('feedback-msg-2', `⚙️ Component ${act2State.filled} added to blueprint!`, 'good');
+
+    if (act2State.filled >= 4) {
+      document.getElementById('proceed-btn-2').style.display = 'block';
+      setFeedback('feedback-msg-2', '🔩 Gadget blueprint taking shape! Lock it in!', 'good');
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ACTIVITY 3 — BUILD & PRESENT
+   ═══════════════════════════════════════════════════════════ */
+function initAct3() {
+  setupDrag('#act3-source .drag-item');
+
+  const target = document.getElementById('act3-target');
+  target.addEventListener('dragover', e => { e.preventDefault(); target.classList.add('drag-over'); });
+  target.addEventListener('dragleave', () => target.classList.remove('drag-over'));
+  target.addEventListener('drop', e => {
+    e.preventDefault();
+    target.classList.remove('drag-over');
+    if (!draggingId) return;
+    if (act3State.slots.includes(draggingId)) return;
+
+    const emptyIdx = act3State.slots.findIndex(s => s === null);
+    if (emptyIdx === -1) {
+      setFeedback('feedback-msg-3', '⚠️ All slots filled! Reset to change order.', 'warn');
+      return;
+    }
+
+    act3State.slots[emptyIdx] = draggingId;
+    draggingEl.classList.add('placed');
+
+    const slot = document.querySelector(`#act3-sequence .seq-slot[data-slot="${emptyIdx}"]`);
+    slot.classList.add('filled');
+    slot.querySelector('.seq-text').innerHTML = `<span>${draggingEl.querySelector('.icon').textContent}</span> ${draggingEl.childNodes[1].textContent.trim()}`;
+
+    const filled = act3State.slots.filter(s => s !== null).length;
+    setFeedback('feedback-msg-3', `✔ Step ${filled} placed!`, 'good');
+
+    if (filled === 7) {
+      // Check order
+      const isCorrect = act3State.slots.every((s, i) => s === correctOrder[i]);
+      if (isCorrect) {
+        setFeedback('feedback-msg-3', '🏆 Perfect sequence! You\'re a real inventor!', 'good');
+      } else {
+        setFeedback('feedback-msg-3', '✔ All steps placed! Every inventor has their own way!', 'good');
+      }
+      document.getElementById('proceed-btn-3').style.display = 'block';
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FEEDBACK HELPER
+   ═══════════════════════════════════════════════════════════ */
+function setFeedback(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = type;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESET ACTIVITIES
+   ═══════════════════════════════════════════════════════════ */
+function resetActivity(n) {
+  if (n === 1) {
+    act1State.slots = [null, null, null];
+    document.querySelectorAll('#act1-source .drag-item').forEach(el => el.classList.remove('placed', 'dragging'));
+    document.querySelectorAll('#act1-drops .drop-slot').forEach(sl => {
+      sl.classList.remove('filled');
+      sl.innerHTML = '<span>Drop a problem here...</span>';
+    });
+    document.getElementById('proceed-btn').style.display = 'none';
+    setFeedback('feedback-msg', '', '');
+  }
+  if (n === 2) {
+    act2State.slots = [null, null, null, null, null, null];
+    act2State.filled = 0;
+    document.querySelectorAll('#act2-source .drag-item').forEach(el => el.classList.remove('placed', 'dragging'));
+    document.querySelectorAll('#act2-blueprint .bp-slot').forEach((sl, i) => {
+      sl.classList.remove('filled');
+      const labels = ['Core Component','Power Source','Input/Sensor','Output/Action','Control Unit','Connection'];
+      sl.innerHTML = `<span>⬡</span><span>${labels[i]}</span>`;
+    });
+    document.getElementById('proceed-btn-2').style.display = 'none';
+    setFeedback('feedback-msg-2', '', '');
+  }
+  if (n === 3) {
+    act3State.slots = Array(7).fill(null);
+    document.querySelectorAll('#act3-source .drag-item').forEach(el => el.classList.remove('placed', 'dragging'));
+    document.querySelectorAll('#act3-sequence .seq-slot').forEach(sl => {
+      sl.classList.remove('filled');
+      sl.querySelector('.seq-text').textContent = 'Drop step here...';
+    });
+    document.getElementById('proceed-btn-3').style.display = 'none';
+    setFeedback('feedback-msg-3', '', '');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   POPUP SYSTEM
+   ═══════════════════════════════════════════════════════════ */
+const popupData = {
+  1: {
+    icon: '🧠',
+    title: 'PROBLEMS IDENTIFIED!',
+    body: `Amazing! You've spotted <strong>3 real-world problems</strong> worth solving! Great inventors always start by noticing what's not working. Now let's design your gadget solution!`,
+    btn: 'DESIGN MY GADGET ⟶'
+  },
+  2: {
+    icon: '⚙️',
+    title: 'BLUEPRINT COMPLETE!',
+    body: `Incredible work! Your <strong>gadget blueprint</strong> is taking shape with real hardware components. You think like a true engineer! Now let's plan how to build and present it!`,
+    btn: 'PLAN THE BUILD ⟶'
+  },
+  3: {
+    icon: '🏆',
+    title: 'MISSION ACCOMPLISHED!',
+    body: `<strong>WOW — You are a real inventor!</strong><br><br>You spotted a problem, designed a gadget, and planned your build! Remember: <strong>THINK → MAKE → SHARE</strong>.<br><br>Every great gadget started exactly like this! 🚀`,
+    btn: '🎉 CELEBRATE!'
+  }
+};
+
+function openActivityPopup(actNum) {
+  currentPopupActivity = actNum;
+  const d = popupData[actNum];
+  document.getElementById('popup-icon').textContent = d.icon;
+  document.getElementById('popup-title').textContent = d.title;
+  document.getElementById('popup-body').innerHTML = d.body;
+  document.getElementById('popup-action').textContent = d.btn;
+
+  // Add stars for final
+  const stars = document.getElementById('popup-stars');
+  stars.innerHTML = '';
+  if (actNum === 3) {
+    const emojis = ['⭐','🌟','✨','💫','🎊','🎉','🔧','💡'];
+    for (let i = 0; i < 12; i++) {
+      const s = document.createElement('div');
+      s.className = 'star-burst';
+      s.textContent = emojis[i % emojis.length];
+      s.style.left = (5 + Math.random() * 90) + '%';
+      s.style.bottom = '-20px';
+      s.style.animationDelay = (Math.random() * 2) + 's';
+      s.style.animationDuration = (2 + Math.random() * 2) + 's';
+      stars.appendChild(s);
+    }
+  }
+
+  document.getElementById('popup-overlay').classList.add('show');
+}
+
+function handlePopupAction() {
+  document.getElementById('popup-overlay').classList.remove('show');
+
+  if (currentPopupActivity === 1) {
+    goToActivity(2);
+  } else if (currentPopupActivity === 2) {
+    goToActivity(3);
+  } else if (currentPopupActivity === 3) {
+    openFinalSuccess();
+  }
+}
+
+function openFinalSuccess() {
+  document.getElementById('popup-icon').textContent = '🚀';
+  document.getElementById('popup-title').textContent = 'YOU\'RE AN INVENTOR!';
+  document.getElementById('popup-body').innerHTML = `
+    Your design journey is complete!<br><br>
+    <strong>🔍 THINK</strong> — You spotted a real problem<br>
+    <strong>⚙️ MAKE</strong> — You built a gadget blueprint<br>
+    <strong>🎤 SHARE</strong> — You planned your presentation<br><br>
+    <em>"Every great invention started as someone's annoying Tuesday problem."</em>
+  `;
+  document.getElementById('popup-action').textContent = '🌟 PLAY AGAIN';
+
+  // Mega celebration stars
+  const stars = document.getElementById('popup-stars');
+  stars.innerHTML = '';
+  const emojis = ['⭐','🌟','✨','💫','🎊','🎉','🔧','💡','🏆','🚀','⚡','🎯'];
+  for (let i = 0; i < 20; i++) {
+    const s = document.createElement('div');
+    s.className = 'star-burst';
+    s.textContent = emojis[i % emojis.length];
+    s.style.left = (Math.random() * 100) + '%';
+    s.style.bottom = '-20px';
+    s.style.animationDelay = (Math.random() * 3) + 's';
+    s.style.animationDuration = (2 + Math.random() * 3) + 's';
+    stars.appendChild(s);
+  }
+
+  currentPopupActivity = 99;
+  document.getElementById('popup-overlay').classList.add('show');
+}
+
+// Override action for final
+const originalHandle = handlePopupAction;
+window.handlePopupAction = function() {
+  if (currentPopupActivity === 99) {
+    document.getElementById('popup-overlay').classList.remove('show');
+    playAgain();
+    return;
+  }
+  originalHandle();
+};
+
+function playAgain() {
+  resetActivity(1); resetActivity(2); resetActivity(3);
+  goToActivity(1);
+  updateProgress(1);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NAVIGATION
+   ═══════════════════════════════════════════════════════════ */
+function goToActivity(n) {
+  document.querySelectorAll('.activity-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`act-${n}`).classList.add('active');
+  currentActivity = n;
+  updateProgress(n);
+}
+
+function updateProgress(active) {
+  for (let i = 1; i <= 3; i++) {
+    const dot = document.getElementById(`dot-${i}`);
+    const lbl = document.getElementById(`lbl-${i}`);
+    dot.className = 'prog-dot';
+    lbl.className = 'prog-label';
+    if (i < active) { dot.classList.add('done'); lbl.classList.add('done'); dot.textContent = '✓'; }
+    else if (i === active) { dot.classList.add('active'); lbl.classList.add('active'); dot.textContent = i; }
+    else { dot.textContent = i; }
+  }
+  for (let i = 1; i <= 2; i++) {
+    const line = document.getElementById(`line-${i}`);
+    line.className = 'prog-line' + (i < active ? ' done' : '');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PROCEED BUTTONS STYLE SYNC
+   ═══════════════════════════════════════════════════════════ */
+// Style act2 & act3 proceed buttons same as act1
+document.querySelectorAll('.proceed-btn-cls').forEach(btn => {
+  btn.style.cssText = `
+    display:none; margin:4px auto 0; padding:10px 30px;
+    background:linear-gradient(135deg,rgba(0,245,255,0.15),rgba(0,245,255,0.05));
+    border:2px solid #00f5ff; border-radius:30px; color:#00f5ff;
+    font-family:'Orbitron',monospace; font-size:0.75rem; font-weight:700;
+    letter-spacing:0.15em; text-transform:uppercase; cursor:pointer;
+    transition:all 0.3s ease; box-shadow:0 0 8px #00f5ff; flex-shrink:0;
+    animation:btnGlow 2s ease-in-out infinite;
+  `;
+});
+
+/* ═══════════════════════════════════════════════════════════
+   TOUCH DRAG SUPPORT (mobile)
+   ═══════════════════════════════════════════════════════════ */
+let touchItem = null, touchClone = null;
+
+function addTouchDrag(selector, dropTargetId, onDrop) {
+  document.querySelectorAll(selector).forEach(el => {
+    el.addEventListener('touchstart', e => {
+      if (el.classList.contains('placed')) return;
+      touchItem = el;
+      draggingId = el.dataset.id;
+      draggingEl = el;
+
+      touchClone = el.cloneNode(true);
+      touchClone.style.cssText = `position:fixed;z-index:999;opacity:0.85;pointer-events:none;
+        border:2px solid #00f5ff;box-shadow:0 0 15px #00f5ff;border-radius:8px;
+        background:rgba(0,30,60,0.95);padding:7px 10px;font-size:0.78rem;
+        min-width:120px;transform:rotate(-3deg);`;
+      document.body.appendChild(touchClone);
+      el.classList.add('dragging');
+    }, {passive: true});
+
+    el.addEventListener('touchmove', e => {
+      if (!touchClone) return;
+      const t = e.touches[0];
+      touchClone.style.left = (t.clientX - 60) + 'px';
+      touchClone.style.top  = (t.clientY - 20) + 'px';
+    }, {passive: true});
+
+    el.addEventListener('touchend', e => {
+      if (!touchClone) return;
+      const t = e.changedTouches[0];
+      const dropTarget = document.getElementById(dropTargetId);
+      const rect = dropTarget.getBoundingClientRect();
+      if (t.clientX >= rect.left && t.clientX <= rect.right &&
+          t.clientY >= rect.top  && t.clientY <= rect.bottom) {
+        onDrop();
+      }
+      touchClone.remove(); touchClone = null;
+      el.classList.remove('dragging');
+      touchItem = null;
+    }, {passive: true});
+  });
+}
+
+// Touch drops for each activity
+addTouchDrag('#act1-source .drag-item', 'act1-target', () => {
+  if (!draggingId || act1State.slots.includes(draggingId)) return;
+  const emptyIdx = act1State.slots.findIndex(s => s === null);
+  if (emptyIdx === -1) return;
+  act1State.slots[emptyIdx] = draggingId;
+  draggingEl.classList.add('placed');
+  const slot = document.querySelector(`#act1-drops .drop-slot[data-slot="${emptyIdx}"]`);
+  slot.classList.add('filled');
+  slot.innerHTML = `<span>${draggingEl.querySelector('.icon').textContent}</span><span>${draggingEl.childNodes[1].textContent.trim()}</span>`;
+  setFeedback('feedback-msg', `✔ Problem ${emptyIdx + 1} locked in!`, 'good');
+  if (act1State.slots.every(s => s !== null)) {
+    document.getElementById('proceed-btn').style.display = 'block';
+  }
+});
+
+addTouchDrag('#act2-source .drag-item', 'act2-target', () => {
+  if (!draggingId || act2State.slots.includes(draggingId)) return;
+  const emptyIdx = act2State.slots.findIndex(s => s === null);
+  if (emptyIdx === -1) return;
+  act2State.slots[emptyIdx] = draggingId;
+  act2State.filled++;
+  draggingEl.classList.add('placed');
+  const slot = document.querySelector(`#act2-blueprint .bp-slot[data-slot="${emptyIdx}"]`);
+  slot.classList.add('filled');
+  slot.innerHTML = `<span class="bp-icon">${draggingEl.querySelector('.icon').textContent}</span><span>${draggingEl.childNodes[1].textContent.trim()}</span>`;
+  setFeedback('feedback-msg-2', `⚙️ Component ${act2State.filled} added!`, 'good');
+  if (act2State.filled >= 4) document.getElementById('proceed-btn-2').style.display = 'block';
+});
+
+addTouchDrag('#act3-source .drag-item', 'act3-target', () => {
+  if (!draggingId || act3State.slots.includes(draggingId)) return;
+  const emptyIdx = act3State.slots.findIndex(s => s === null);
+  if (emptyIdx === -1) return;
+  act3State.slots[emptyIdx] = draggingId;
+  draggingEl.classList.add('placed');
+  const slot = document.querySelector(`#act3-sequence .seq-slot[data-slot="${emptyIdx}"]`);
+  slot.classList.add('filled');
+  slot.querySelector('.seq-text').innerHTML = `${draggingEl.querySelector('.icon').textContent} ${draggingEl.childNodes[1].textContent.trim()}`;
+  const filled = act3State.slots.filter(s => s !== null).length;
+  setFeedback('feedback-msg-3', `✔ Step ${filled} placed!`, 'good');
+  if (filled === 7) document.getElementById('proceed-btn-3').style.display = 'block';
+});
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════════════ */
+initAct1();
+initAct2();
+initAct3();
+updateProgress(1);
+
+// Intro popup on load
+setTimeout(() => {
+  document.getElementById('popup-icon').textContent = '🛸';
+  document.getElementById('popup-title').textContent = 'WELCOME, INVENTOR!';
+  document.getElementById('popup-body').innerHTML = `
+    You are about to enter the <strong>Gadget Design Lab</strong>!<br><br>
+    Complete <strong>3 activities</strong> to design your very own gadget:<br><br>
+    🔍 <strong>Activity 1</strong> — Choose a problem to solve<br>
+    ⚙️ <strong>Activity 2</strong> — Design your gadget blueprint<br>
+    🚀 <strong>Activity 3</strong> — Plan your build &amp; presentation<br><br>
+    <em>Drag &amp; drop to play. Let's invent something amazing!</em>
+  `;
+  document.getElementById('popup-action').textContent = '🚀 START INVENTING!';
+  currentPopupActivity = 0;
+  document.getElementById('popup-overlay').classList.add('show');
+}, 600);
+
+// Override for intro popup
+const realHandle = window.handlePopupAction;
+window.handlePopupAction = function() {
+  if (currentPopupActivity === 0) {
+    document.getElementById('popup-overlay').classList.remove('show');
+    return;
+  }
+  realHandle();
+};
+</script>
+</body>
+</html>

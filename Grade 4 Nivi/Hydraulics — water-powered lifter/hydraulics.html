@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>HYDRAULICS — WATER-POWERED LIFTER</title>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════ ROOT ══════════════════════ */
+:root{
+  --bg:#020d14;--bg2:#041824;--bg3:#071f2e;
+  --cell1:#0a4a6e;--cell2:#0d6e8a;--cell3:#00b4d8;
+  --dna1:#7b2fbe;--dna2:#c77dff;--dna3:#e0aaff;
+  --bio1:#00f5d4;--bio2:#06d6a0;--bio3:#1db954;
+  --amber:#ffb703;--rose:#ff6b6b;--warm:#ffd166;
+  --water:#00b4d8;--water2:#90e0ef;--water-deep:#023e8a;
+  --card:rgba(4,24,36,.88);--border:rgba(0,180,216,.18);
+  --code:#020a10;--ok:#06d6a0;--err:#ff6b6b;--warn:#ffb703;
+  --txt:rgba(224,255,252,.85);--txt2:rgba(144,224,239,.6);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Exo 2',sans-serif;user-select:none}
+body{background:var(--bg);position:relative;color:var(--txt)}
+
+/* ══════════════════════ ANIMATED BG ══════════════════════ */
+#bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+/* Floating cell organelles */
+.organelle{position:fixed;border-radius:50%;pointer-events:none;z-index:1;animation:orgFloat ease-in-out infinite alternate}
+@keyframes orgFloat{0%{transform:translate(0,0) scale(1)}100%{transform:translate(var(--dx),var(--dy)) scale(var(--ds))}}
+
+/* DNA helix lines */
+.dna-strand{position:fixed;pointer-events:none;z-index:1;animation:dnaFlow linear infinite}
+@keyframes dnaFlow{0%{transform:translateY(-100%)}100%{transform:translateY(100vh)}}
+
+/* Flowing liquid channel */
+#flow-layer{position:fixed;inset:0;z-index:1;pointer-events:none;overflow:hidden}
+.flow-bubble{position:absolute;border-radius:50%;animation:bubbleRise linear infinite;opacity:0}
+@keyframes bubbleRise{
+  0%{transform:translateY(0) scale(1);opacity:0}
+  15%{opacity:.7}80%{opacity:.3}
+  100%{transform:translateY(-100vh) scale(1.4);opacity:0}
+}
+
+/* Microscope overlay rings */
+#scope-ring{
+  position:fixed;border-radius:50%;border:1px solid rgba(0,180,216,.07);
+  pointer-events:none;z-index:1;animation:scopePulse 6s ease-in-out infinite alternate;
+}
+@keyframes scopePulse{0%{box-shadow:inset 0 0 80px rgba(0,180,216,.04),0 0 40px rgba(0,180,216,.03)}
+  100%{box-shadow:inset 0 0 140px rgba(0,180,216,.09),0 0 80px rgba(0,180,216,.06)}}
+
+/* Glowing aurora */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:1;
+  background:
+    radial-gradient(ellipse 55% 30% at 15% 20%,rgba(0,212,255,.06) 0%,transparent 70%),
+    radial-gradient(ellipse 45% 25% at 85% 70%,rgba(123,47,190,.07) 0%,transparent 65%),
+    radial-gradient(ellipse 50% 35% at 50% 95%,rgba(6,214,160,.05) 0%,transparent 60%);
+  animation:auroraShift 10s ease-in-out infinite alternate;
+}
+@keyframes auroraShift{0%{opacity:.6}100%{opacity:1}}
+
+/* ══════════════════════ APP ══════════════════════ */
+#app{
+  position:relative;z-index:10;width:100vw;height:100vh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:clamp(3px,.8vh,10px) clamp(6px,1.4vw,16px);
+  gap:clamp(3px,.7vh,8px);
+}
+
+/* ══════════════════════ HEADER ══════════════════════ */
+#hdr{text-align:center;animation:hdrIn .8s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes hdrIn{from{transform:translateY(-40px);opacity:0}to{transform:translateY(0);opacity:1}}
+#hdr h1{
+  font-family:'Exo 2',sans-serif;font-size:clamp(11px,2.2vw,20px);
+  letter-spacing:2.5px;font-weight:900;text-transform:uppercase;
+  background:linear-gradient(135deg,var(--bio1) 0%,var(--water) 35%,var(--dna2) 70%,var(--warm) 100%);
+  background-size:300% 300%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:titleFlow 7s ease infinite;
+  filter:drop-shadow(0 0 12px rgba(0,180,216,.5));
+}
+@keyframes titleFlow{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+#progress{display:flex;gap:8px;justify-content:center;margin-top:3px}
+.pip{width:clamp(26px,4.5vw,46px);height:5px;border-radius:2px;
+  background:rgba(0,180,216,.07);border:1px solid rgba(0,180,216,.14);transition:all .5s;position:relative;overflow:hidden}
+.pip.active::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,var(--bio1),var(--water));animation:pipFlow 1.5s ease-in-out infinite}
+.pip.done{background:linear-gradient(90deg,var(--ok),var(--bio1));box-shadow:0 0 10px rgba(6,214,160,.4);border-color:var(--ok)}
+@keyframes pipFlow{0%,100%{opacity:.5}50%{opacity:1}}
+#act-lbl{font-family:'JetBrains Mono',monospace;font-size:clamp(7px,.9vw,10px);
+  letter-spacing:3px;text-transform:uppercase;color:var(--bio1);margin-top:2px;opacity:.7}
+
+/* ══════════════════════ GAME CARD ══════════════════════ */
+#game-card{
+  width:100%;max-width:1020px;
+  background:var(--card);border:1.5px solid var(--border);border-radius:16px;
+  backdrop-filter:blur(28px);
+  padding:clamp(7px,1.6vh,18px) clamp(10px,2vw,24px);
+  box-shadow:0 0 80px rgba(0,180,216,.06),inset 0 1px 0 rgba(0,180,216,.06);
+  display:flex;flex-direction:column;align-items:center;
+  gap:clamp(5px,1vh,11px);
+  flex:1;max-height:calc(100vh - 96px);
+  animation:cardBreath 7s ease-in-out infinite alternate;
+}
+@keyframes cardBreath{0%{border-color:rgba(0,180,216,.14)}100%{border-color:rgba(123,47,190,.24)}}
+.instr{
+  font-size:clamp(9px,1.25vw,12px);font-weight:700;color:rgba(200,245,255,.8);
+  text-align:center;background:rgba(0,180,216,.07);border:1px solid rgba(0,180,216,.18);
+  border-radius:8px;padding:5px 16px;max-width:720px;line-height:1.4;
+}
+
+/* ══════════════════════ SHARED DROP/DRAG ══════════════════════ */
+.dslot{
+  border:2px dashed rgba(0,180,216,.3);border-radius:8px;
+  background:rgba(0,180,216,.04);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'JetBrains Mono',monospace;font-size:clamp(8px,1.15vw,11px);
+  color:rgba(0,180,216,.35);transition:all .22s;cursor:default;
+  position:relative;
+}
+/* CRITICAL: children of drop slots must not intercept pointer events */
+.dslot *,.drop-zone *,.podium-slot *{pointer-events:none}
+.dslot.hover,.drop-zone.hover{border-color:var(--bio1);background:rgba(0,245,212,.08);
+  box-shadow:0 0 18px rgba(0,245,212,.35);transform:scale(1.03)}
+.dslot.placed,.drop-zone.placed{border-style:solid;border-color:rgba(6,214,160,.5);background:rgba(6,214,160,.07)}
+.dslot.ok-fx{animation:okFx .5s ease}
+.dslot.bad-fx,.drop-zone.bad-fx{animation:badFx .4s ease}
+@keyframes okFx{0%,100%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 28px rgba(6,214,160,.9)}}
+@keyframes badFx{0%,100%{transform:scale(1)}30%{transform:translateX(-7px)}70%{transform:translateX(7px)}}
+
+/* Token / draggable chips */
+.chip{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  border-radius:10px;cursor:grab;border:1.5px solid rgba(255,255,255,.1);
+  font-family:'JetBrains Mono',monospace;font-size:clamp(9px,1.2vw,12px);
+  transition:transform .15s,box-shadow .15s,opacity .2s;font-weight:600;
+}
+.chip:hover{transform:translateY(-3px) scale(1.06);box-shadow:0 6px 22px rgba(0,180,216,.4)}
+.chip.dragging{opacity:.35;cursor:grabbing;transform:scale(1.08)}
+.chip.used{opacity:.12;cursor:not-allowed;pointer-events:none}
+.chip-water{background:rgba(0,180,216,.15);color:var(--water2);border-color:rgba(0,180,216,.3)}
+.chip-bio{background:rgba(6,214,160,.12);color:var(--bio1);border-color:rgba(6,214,160,.28);font-weight:700}
+.chip-dna{background:rgba(123,47,190,.14);color:var(--dna2);border-color:rgba(123,47,190,.3)}
+.chip-warn{background:rgba(255,183,3,.1);color:var(--amber);border-color:rgba(255,183,3,.28)}
+.chip-rose{background:rgba(255,107,107,.1);color:var(--rose);border-color:rgba(255,107,107,.28)}
+.chip-ok{background:rgba(6,214,160,.12);color:var(--ok);border-color:rgba(6,214,160,.28)}
+
+/* Token bank */
+.bank{display:flex;flex-wrap:wrap;gap:clamp(4px,.8vw,8px);justify-content:center;
+  padding:clamp(5px,1vh,9px);background:rgba(0,0,0,.3);
+  border:1px solid rgba(0,180,216,.1);border-radius:8px;width:100%}
+
+/* Buttons */
+.btn{font-family:'JetBrains Mono',monospace;font-size:clamp(9px,1.5vw,13px);
+  padding:clamp(6px,1vh,10px) clamp(12px,2.4vw,26px);border-radius:6px;
+  border:1.5px solid var(--bio1);cursor:pointer;letter-spacing:1px;
+  background:transparent;color:var(--bio1);font-weight:700;
+  box-shadow:0 0 14px rgba(0,245,212,.18);transition:all .2s;text-transform:uppercase}
+.btn:hover{background:rgba(0,245,212,.1);box-shadow:0 0 26px rgba(0,245,212,.45)}
+.btn:active{transform:scale(.97)}
+.btn.dna{border-color:var(--dna2);color:var(--dna2);box-shadow:0 0 14px rgba(199,125,255,.18)}
+.btn.dna:hover{background:rgba(199,125,255,.1);box-shadow:0 0 26px rgba(199,125,255,.45)}
+.score-row{font-family:'JetBrains Mono',monospace;font-size:clamp(9px,1.35vw,12px);color:var(--bio1);opacity:.8}
+.msg{font-size:clamp(9px,1.3vw,12px);font-weight:700;min-height:14px;text-align:center}
+
+/* Popup */
+.overlay{position:fixed;inset:0;z-index:200;background:rgba(2,8,16,.9);backdrop-filter:blur(18px);
+  display:flex;align-items:center;justify-content:center;animation:ovIn .3s ease}
+@keyframes ovIn{from{opacity:0}to{opacity:1}}
+.popup{
+  background:linear-gradient(155deg,rgba(4,18,30,.97),rgba(2,10,18,.98));
+  border:1.5px solid rgba(0,180,216,.35);border-radius:18px;
+  padding:clamp(18px,4vh,38px) clamp(20px,5vw,46px);
+  text-align:center;max-width:480px;width:90%;
+  box-shadow:0 0 80px rgba(0,180,216,.14),0 0 0 1px rgba(0,180,216,.06);
+  animation:popIn .45s cubic-bezier(.34,1.56,.64,1);
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+}
+@keyframes popIn{from{opacity:0;transform:scale(.5)}to{opacity:1;transform:scale(1)}}
+.p-ico{font-size:clamp(38px,8vw,64px);animation:icoSpin .7s ease}
+@keyframes icoSpin{from{transform:scale(0) rotate(-180deg)}to{transform:scale(1) rotate(0)}}
+.p-title{font-family:'Exo 2',sans-serif;font-size:clamp(15px,3vw,24px);font-weight:900;
+  background:linear-gradient(135deg,var(--bio1),var(--water),var(--dna2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.p-sub{font-size:clamp(10px,1.6vw,13px);color:rgba(180,240,255,.7);font-weight:600;line-height:1.65}
+.p-stars{display:flex;gap:8px;font-size:clamp(20px,4vw,34px)}
+.conf{position:fixed;pointer-events:none;z-index:300;animation:confFall linear forwards}
+@keyframes confFall{0%{transform:translateY(-10px) rotate(0deg);opacity:1}100%{transform:translateY(102vh) rotate(720deg);opacity:0}}
+
+/* ══════════════════════ ACT 1 — ASSEMBLE SYSTEM ══════════════════════ */
+#a1-bench{
+  display:flex;align-items:center;justify-content:center;gap:clamp(10px,2vw,22px);
+  width:100%;flex-wrap:nowrap;
+}
+.bench-slot{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+}
+.slot-label{font-family:'JetBrains Mono',monospace;font-size:clamp(7px,.9vw,10px);
+  color:var(--txt2);letter-spacing:1px;text-transform:uppercase;text-align:center}
+.syringe-slot{
+  width:clamp(64px,10vw,100px);height:clamp(110px,18vh,170px);
+  border:2px dashed rgba(0,180,216,.28);border-radius:10px;
+  background:rgba(0,180,216,.04);
+  display:flex;align-items:center;justify-content:center;
+  font-size:clamp(24px,4vw,40px);
+  transition:all .22s;position:relative;
+}
+.syringe-slot.hover{border-color:var(--bio1);background:rgba(0,245,212,.08);box-shadow:0 0 16px rgba(0,245,212,.3);transform:scale(1.04)}
+.syringe-slot.placed{border-style:solid;border-color:rgba(6,214,160,.5);background:rgba(6,214,160,.06)}
+.syringe-slot.ok-fx{animation:okFx .5s ease}
+.syringe-slot.bad-fx{animation:badFx .4s ease}
+.syringe-slot *{pointer-events:none}
+.tube-slot{
+  width:clamp(120px,18vw,220px);height:clamp(40px,7vh,65px);
+  border:2px dashed rgba(0,180,216,.28);border-radius:30px;
+  background:rgba(0,180,216,.04);
+  display:flex;align-items:center;justify-content:center;
+  font-size:clamp(20px,3.5vw,32px);
+  transition:all .22s;position:relative;
+}
+.tube-slot.hover{border-color:var(--bio1);background:rgba(0,245,212,.08);box-shadow:0 0 16px rgba(0,245,212,.3);transform:scale(1.04)}
+.tube-slot.placed{border-style:solid;border-color:rgba(0,180,216,.5);background:rgba(0,180,216,.08)}
+.tube-slot.ok-fx{animation:okFx .5s ease}
+.tube-slot.bad-fx{animation:badFx .4s ease}
+.tube-slot *{pointer-events:none}
+
+/* Water flow animation inside tube */
+.tube-flow{
+  position:absolute;inset:4px;border-radius:26px;overflow:hidden;
+  background:linear-gradient(90deg,transparent,rgba(0,180,216,.25),transparent);
+  animation:tubeWave 1.5s ease-in-out infinite;
+}
+@keyframes tubeWave{0%,100%{background-position:-100% 0}50%{background-position:100% 0}}
+
+/* Connected state: glowing tube */
+.tube-slot.placed .tube-glow{
+  position:absolute;inset:6px;border-radius:24px;
+  background:linear-gradient(90deg,var(--water-deep),var(--water),var(--bio1),var(--water),var(--water-deep));
+  background-size:200% 100%;
+  animation:waterFlow 2s linear infinite;opacity:.7;
+}
+@keyframes waterFlow{0%{background-position:100% 0}100%{background-position:-100% 0}}
+
+/* Syringe visual when placed */
+.syringe-body{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  width:100%;height:100%;padding:8px 6px;
+}
+.syr-barrel{
+  flex:1;width:60%;border-radius:4px;
+  border:2px solid rgba(0,180,216,.5);
+  background:linear-gradient(180deg,rgba(0,180,216,.08),rgba(0,180,216,.18));
+  position:relative;overflow:hidden;
+}
+.syr-liquid{
+  position:absolute;bottom:0;left:0;right:0;
+  background:linear-gradient(180deg,rgba(0,212,255,.4),rgba(0,150,200,.6));
+  transition:height .6s ease;border-radius:0 0 2px 2px;
+}
+.syr-plunger{width:80%;height:12px;background:rgba(144,224,239,.3);border-radius:3px;border:1px solid rgba(144,224,239,.4)}
+.syr-needle{width:4px;height:20px;background:rgba(144,224,239,.4);border-radius:0 0 2px 2px}
+
+/* ══════════════════════ ACT 2 — PRESSURE TRANSFER ══════════════════════ */
+#a2-main{display:flex;gap:clamp(8px,1.5vw,18px);width:100%;justify-content:center;align-items:flex-start;flex-wrap:wrap}
+#a2-diagram{
+  position:relative;display:flex;align-items:center;justify-content:center;
+  gap:clamp(8px,1.4vw,16px);flex:1;min-width:clamp(260px,40vw,420px);
+}
+.a2-syr{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  background:rgba(0,0,0,.3);border:1.5px solid rgba(0,180,216,.18);
+  border-radius:10px;padding:clamp(6px,1.2vh,12px) clamp(8px,1.5vw,14px);
+  min-width:clamp(80px,12vw,130px);
+}
+.a2-syr-title{font-family:'JetBrains Mono',monospace;font-size:clamp(7px,.9vw,10px);
+  color:var(--txt2);text-transform:uppercase;letter-spacing:1px}
+.a2-barrel-wrap{
+  width:clamp(38px,6vw,60px);height:clamp(90px,14vh,140px);
+  border:2px solid rgba(0,180,216,.4);border-radius:5px;
+  background:rgba(0,0,0,.4);position:relative;overflow:hidden;
+}
+.a2-liquid{
+  position:absolute;bottom:0;left:0;right:0;
+  background:linear-gradient(180deg,rgba(0,212,255,.5),rgba(0,100,180,.7));
+  transition:height .8s cubic-bezier(.34,1.56,.64,1);
+}
+.a2-piston{
+  position:absolute;left:-2px;right:-2px;height:10px;
+  background:rgba(144,224,239,.5);border:1px solid rgba(144,224,239,.6);
+  border-radius:2px;transition:top .8s cubic-bezier(.34,1.56,.64,1);cursor:default;
+  z-index:2;
+}
+.a2-connector{
+  height:clamp(6px,1.2vh,12px);
+  background:linear-gradient(90deg,rgba(0,150,200,.4),rgba(0,212,255,.6),rgba(0,150,200,.4));
+  border-radius:6px;flex:1;min-width:clamp(30px,6vw,70px);
+  animation:waterPulse 2s ease-in-out infinite;border:1px solid rgba(0,180,216,.3);
+}
+@keyframes waterPulse{0%,100%{background:linear-gradient(90deg,rgba(0,150,200,.4),rgba(0,212,255,.6),rgba(0,150,200,.4))}
+  50%{background:linear-gradient(90deg,rgba(0,212,255,.5),rgba(0,245,212,.5),rgba(0,212,255,.5))}}
+
+#a2-controls{
+  display:flex;flex-direction:column;gap:clamp(5px,1vh,10px);
+  min-width:clamp(140px,22vw,200px);
+}
+.ctrl-slot{
+  min-height:clamp(36px,6.5vh,52px);padding:6px 10px;
+  border:2px dashed rgba(0,180,216,.28);border-radius:8px;
+  background:rgba(0,180,216,.04);
+  display:flex;align-items:center;gap:8px;
+  transition:all .22s;font-family:'JetBrains Mono',monospace;
+  font-size:clamp(8px,1.1vw,12px);color:rgba(0,180,216,.35);
+}
+.ctrl-slot *{pointer-events:none}
+.ctrl-slot.hover{border-color:var(--bio1);background:rgba(0,245,212,.07);box-shadow:0 0 14px rgba(0,245,212,.28);transform:scale(1.02)}
+.ctrl-slot.placed{border-style:solid;border-color:rgba(6,214,160,.45);background:rgba(6,214,160,.06)}
+.ctrl-slot.ok-fx{animation:okFx .5s ease}.ctrl-slot.bad-fx{animation:badFx .4s ease}
+.ctrl-icon{font-size:clamp(16px,2.6vw,22px)}
+
+/* Force/pressure indicator bar */
+#pressure-bar-wrap{width:100%;height:8px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden}
+#pressure-bar{height:100%;width:0%;border-radius:99px;
+  background:linear-gradient(90deg,var(--water),var(--bio1));transition:width .6s ease}
+#pressure-label{font-family:'JetBrains Mono',monospace;font-size:clamp(7px,.9vw,10px);color:var(--txt2);text-align:center}
+
+/* ══════════════════════ ACT 3 — LIFT THE LOAD ══════════════════════ */
+#a3-main{display:flex;gap:clamp(8px,1.5vw,18px);width:100%;justify-content:center;align-items:flex-end;flex-wrap:wrap}
+#a3-lifter{
+  display:flex;flex-direction:column;align-items:center;gap:clamp(4px,.8vh,8px);
+  min-width:clamp(180px,28vw,280px);
+}
+#platform-wrap{
+  position:relative;width:clamp(140px,22vw,220px);
+  display:flex;flex-direction:column;align-items:center;
+}
+#lift-platform{
+  width:100%;height:clamp(14px,2.5vh,22px);
+  background:linear-gradient(180deg,rgba(0,180,216,.6),rgba(0,100,160,.8));
+  border-radius:4px;border:2px solid rgba(0,180,216,.5);
+  transition:transform .9s cubic-bezier(.34,1.56,.64,1);
+  position:relative;z-index:2;
+}
+#load-zone{
+  position:absolute;top:clamp(-52px,-10vh,-38px);left:50%;transform:translateX(-50%);
+  width:clamp(70px,12vw,110px);height:clamp(42px,7vh,60px);
+  border:2px dashed rgba(255,183,3,.3);border-radius:6px;
+  background:rgba(255,183,3,.04);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'JetBrains Mono',monospace;font-size:clamp(7px,.9vw,10px);
+  color:rgba(255,183,3,.35);transition:all .22s;
+}
+#load-zone *{pointer-events:none}
+#load-zone.hover{border-color:var(--amber);background:rgba(255,183,3,.08);box-shadow:0 0 14px rgba(255,183,3,.3)}
+#load-zone.placed{border-style:solid;border-color:rgba(255,183,3,.5);background:rgba(255,183,3,.07)}
+#load-zone.ok-fx{animation:okFx .5s ease}.load-zone.bad-fx{animation:badFx .4s ease}
+
+#lift-col{
+  width:clamp(12px,2vw,20px);height:clamp(60px,10vh,100px);
+  background:linear-gradient(180deg,rgba(0,180,216,.5),rgba(0,100,160,.7));
+  border-radius:0 0 2px 2px;border:1px solid rgba(0,180,216,.3);
+  transition:height .9s cubic-bezier(.34,1.56,.64,1);
+}
+#lift-base{
+  width:clamp(100px,16vw,160px);height:clamp(12px,2.2vh,18px);
+  background:rgba(0,0,0,.5);border:1.5px solid rgba(0,180,216,.25);border-radius:3px;
+}
+#height-indicator{
+  font-family:'JetBrains Mono',monospace;font-size:clamp(7px,.9vw,10px);
+  color:var(--bio1);text-align:center;transition:all .4s;
+}
+
+#a3-weight-pool{display:flex;flex-direction:column;gap:clamp(4px,.8vh,7px);min-width:clamp(130px,20vw,190px)}
+.weight-chip{
+  padding:clamp(6px,1.1vh,10px) clamp(8px,1.4vw,14px);border-radius:8px;cursor:grab;
+  display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;
+  font-size:clamp(9px,1.25vw,12px);transition:transform .15s,box-shadow .15s,opacity .2s;
+}
+.weight-chip:hover{transform:translateX(-3px) scale(1.04);box-shadow:0 4px 14px rgba(255,183,3,.35)}
+.weight-chip.dragging{opacity:.4;cursor:grabbing}
+.weight-chip.used{opacity:.12;cursor:not-allowed;pointer-events:none}
+
+#a3-info{
+  display:flex;flex-direction:column;gap:clamp(5px,1vh,9px);
+  min-width:clamp(130px,20vw,190px);max-width:210px;
+  background:rgba(0,0,0,.45);border:1.5px solid rgba(0,180,216,.12);border-radius:10px;
+  padding:clamp(7px,1.3vh,13px) clamp(9px,1.6vw,14px);
+}
+.info-title{font-family:'JetBrains Mono',monospace;font-size:clamp(9px,1.3vw,11px);color:var(--bio1);font-weight:700}
+.info-line{font-family:'JetBrains Mono',monospace;font-size:clamp(8px,1.05vw,11px);
+  color:var(--txt2);padding:2px 5px;border-radius:4px;transition:all .4s;opacity:.35;
+  display:flex;align-items:center;gap:5px;border-left:2px solid transparent}
+.info-line.lit{opacity:1;border-left-color:var(--bio1);transform:translateX(3px)}
+#a3-bar-wrap{width:100%;height:7px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-top:2px}
+#a3-bar{height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,var(--water),var(--bio1));transition:width .5s ease}
+</style>
+</head>
+<body>
+
+<!-- BACKGROUND -->
+<canvas id="bg-canvas"></canvas>
+<div id="flow-layer"></div>
+<div id="scope-ring"></div>
+
+<!-- APP -->
+<div id="app">
+  <div id="hdr">
+    <h1>💧 Hydraulics — Water-Powered Lifter</h1>
+    <div id="progress">
+      <div class="pip active" id="p1"></div>
+      <div class="pip" id="p2"></div>
+      <div class="pip" id="p3"></div>
+    </div>
+    <div id="act-lbl">ACTIVITY 1 OF 3</div>
+  </div>
+
+  <div id="game-card">
+
+    <!-- ═══ ACT 1: ASSEMBLE THE SYSTEM ═══ -->
+    <div id="act1">
+      <div class="instr">🔬 <b>Build the Hydraulic System!</b> Drag each component to its correct slot — place both syringes and connect them with the water-filled tube.</div>
+
+      <div id="a1-bench">
+        <!-- Left Syringe -->
+        <div class="bench-slot">
+          <div class="slot-label">Input Syringe<br><span style="color:var(--bio1)">(Push side)</span></div>
+          <div class="syringe-slot dslot" id="sl-left" data-ans="syringe">
+            <span style="font-size:clamp(10px,1.6vw,14px)">drop here</span>
+            <div class="tube-glow" style="display:none"></div>
+          </div>
+        </div>
+
+        <!-- Connector Tube -->
+        <div class="bench-slot">
+          <div class="slot-label">Water Tube<br><span style="color:var(--water2)">(filled with water)</span></div>
+          <div class="tube-slot dslot" id="sl-tube" data-ans="tube">
+            <span style="font-size:clamp(10px,1.6vw,14px)">drop here</span>
+            <div class="tube-glow"></div>
+          </div>
+        </div>
+
+        <!-- Right Syringe -->
+        <div class="bench-slot">
+          <div class="slot-label">Output Syringe<br><span style="color:var(--dna2)">(Lift side)</span></div>
+          <div class="syringe-slot dslot" id="sl-right" data-ans="syringe">
+            <span style="font-size:clamp(10px,1.6vw,14px)">drop here</span>
+            <div class="tube-glow" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Visual connector arrows -->
+      <div style="display:flex;align-items:center;justify-content:center;gap:6px;opacity:.4;font-size:clamp(10px,1.6vw,14px);color:var(--water2);font-family:'JetBrains Mono',monospace">
+        <span>PUSH →</span>
+        <span style="animation:waterPulse 2s infinite;background:linear-gradient(90deg,var(--water),var(--bio1));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">⟿⟿⟿ WATER TRANSFERS FORCE ⟿⟿⟿</span>
+        <span>→ LIFT</span>
+      </div>
+
+      <div class="bank" id="a1-bank">
+        <div class="chip chip-water" style="padding:8px 16px;font-size:clamp(10px,1.5vw,13px)" draggable="true" data-val="syringe">💉 Syringe A</div>
+        <div class="chip chip-bio" style="padding:8px 16px;font-size:clamp(10px,1.5vw,13px)" draggable="true" data-val="tube">🌊 Water Tube</div>
+        <div class="chip chip-dna" style="padding:8px 16px;font-size:clamp(10px,1.5vw,13px)" draggable="true" data-val="syringe">💉 Syringe B</div>
+        <!-- Distractors -->
+        <div class="chip chip-warn" style="padding:8px 16px;font-size:clamp(10px,1.5vw,13px)" draggable="true" data-val="air-tube">💨 Air Tube</div>
+        <div class="chip chip-rose" style="padding:8px 16px;font-size:clamp(10px,1.5vw,13px)" draggable="true" data-val="spring">🔩 Spring</div>
+      </div>
+      <div class="score-row">Placed: <span id="a1-cnt">0</span> / 3</div>
+      <div class="msg" id="a1-msg"></div>
+      <button class="btn" id="a1-next" style="display:none" onclick="showA1Done()">Next: Apply Pressure! 💪</button>
+    </div>
+
+    <!-- ═══ ACT 2: PRESSURE TRANSFER ═══ -->
+    <div id="act2" style="display:none">
+      <div class="instr">⚡ <b>Pascal's Law in Action!</b> Drag the correct actions onto the control panel. When you push one syringe, water transfers the force — and the other side moves!</div>
+
+      <div id="a2-main">
+        <!-- Diagram -->
+        <div id="a2-diagram">
+          <div class="a2-syr" id="a2-left">
+            <div class="a2-syr-title">Input</div>
+            <div class="a2-barrel-wrap" id="left-barrel">
+              <div class="a2-liquid" id="left-liquid" style="height:70%"></div>
+              <div class="a2-piston" id="left-piston" style="top:26%"></div>
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:clamp(7px,.9vw,9px);color:var(--txt2)">PUSH ↓</div>
+          </div>
+          <div class="a2-connector" id="a2-pipe"></div>
+          <div class="a2-syr" id="a2-right">
+            <div class="a2-syr-title">Output</div>
+            <div class="a2-barrel-wrap" id="right-barrel">
+              <div class="a2-liquid" id="right-liquid" style="height:30%"></div>
+              <div class="a2-piston" id="right-piston" style="top:67%"></div>
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:clamp(7px,.9vw,9px);color:var(--bio1)">RISES ↑</div>
+          </div>
+        </div>
+
+        <!-- Control panel -->
+        <div id="a2-controls">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:clamp(8px,1vw,11px);color:var(--txt2);text-transform:uppercase;letter-spacing:1px">Control Panel</div>
+
+          <div class="ctrl-slot" id="cs-action" data-ans="push-water">
+            <span class="ctrl-icon">❓</span>
+            <span>What action?</span>
+          </div>
+          <div class="ctrl-slot" id="cs-medium" data-ans="water">
+            <span class="ctrl-icon">❓</span>
+            <span>What medium?</span>
+          </div>
+          <div class="ctrl-slot" id="cs-effect" data-ans="rises">
+            <span class="ctrl-icon">❓</span>
+            <span>Output effect?</span>
+          </div>
+
+          <div id="pressure-bar-wrap"><div id="pressure-bar"></div></div>
+          <div id="pressure-label">Pressure: 0%</div>
+        </div>
+      </div>
+
+      <div class="bank" id="a2-bank">
+        <div class="chip chip-bio" style="padding:7px 14px" draggable="true" data-val="push-water">👇 Push the Plunger</div>
+        <div class="chip chip-water" style="padding:7px 14px" draggable="true" data-val="water">💧 Water (liquid)</div>
+        <div class="chip chip-dna" style="padding:7px 14px" draggable="true" data-val="rises">⬆️ Other side rises</div>
+        <!-- Distractors -->
+        <div class="chip chip-warn" style="padding:7px 14px" draggable="true" data-val="air">💨 Air (gas)</div>
+        <div class="chip chip-rose" style="padding:7px 14px" draggable="true" data-val="falls">⬇️ Other side falls</div>
+        <div class="chip chip-dna" style="padding:7px 14px" draggable="true" data-val="pull">↑ Pull the Plunger</div>
+      </div>
+      <div class="score-row">Controls set: <span id="a2-cnt">0</span> / 3</div>
+      <div class="msg" id="a2-msg"></div>
+      <button class="btn dna" id="a2-next" style="display:none" onclick="showA2Done()">Lift Something! 🏗️</button>
+    </div>
+
+    <!-- ═══ ACT 3: LIFT THE LOAD ═══ -->
+    <div id="act3" style="display:none">
+      <div class="instr">🏗️ <b>Hydraulic Hero!</b> Drag weights onto the platform in order — lightest first! Watch water pressure lift each one higher!</div>
+
+      <div id="a3-main">
+        <div id="a3-weight-pool"></div>
+
+        <div id="a3-lifter">
+          <div id="height-indicator">Height: 0 cm</div>
+          <div id="platform-wrap">
+            <div id="load-zone" class="drop-zone" data-slot="load">
+              drop weight here
+            </div>
+            <div id="lift-platform"></div>
+          </div>
+          <div id="lift-col"></div>
+          <div id="lift-base"></div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:clamp(7px,.9vw,10px);color:var(--txt2);text-align:center;opacity:.6">Hydraulic Base</div>
+        </div>
+
+        <div id="a3-info">
+          <div class="info-title">▶ System Status</div>
+          <div class="info-line" id="inf1">💧 Water fills the tube</div>
+          <div class="info-line" id="inf2">👇 Pressure applied</div>
+          <div class="info-line" id="inf3">⬆️ Platform rising</div>
+          <div class="info-line" id="inf4">📦 Load being lifted</div>
+          <div class="info-line" id="inf5">✅ Hydraulic Hero!</div>
+          <div id="a3-bar-wrap"><div id="a3-bar"></div></div>
+          <div id="a3-status" style="font-family:'JetBrains Mono',monospace;font-size:clamp(7px,.9vw,10px);color:var(--txt2);text-align:center">Waiting for load…</div>
+        </div>
+      </div>
+
+      <div class="score-row">Lifts: <span id="a3-cnt">0</span> / 3</div>
+      <div class="msg" id="a3-msg"></div>
+      <button class="btn" id="a3-finish" style="display:none" onclick="showFinal()">🏆 Claim Badge!</button>
+    </div>
+
+  </div>
+</div>
+<div id="pop-root"></div>
+
+<script>
+/* ══════════════════════ BACKGROUND ══════════════════════ */
+(function(){
+  // Canvas: cell membrane pattern
+  const cv=document.getElementById('bg-canvas');
+  const ctx=cv.getContext('2d');
+  cv.width=window.innerWidth;cv.height=window.innerHeight;
+  // Draw faint hexagonal cell pattern
+  function drawHex(cx,cy,r,col){
+    ctx.beginPath();
+    for(let i=0;i<6;i++){
+      const a=Math.PI/3*i-Math.PI/6;
+      const x=cx+r*Math.cos(a),y=cy+r*Math.sin(a);
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.closePath();ctx.strokeStyle=col;ctx.lineWidth=1;ctx.stroke();
+  }
+  const hexR=clamp(30,50,70);
+  const cols=Math.ceil(cv.width/(hexR*1.73))+2;
+  const rows=Math.ceil(cv.height/(hexR*1.5))+2;
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const x=c*hexR*1.73+(r%2?hexR*.87:0);
+      const y=r*hexR*1.5;
+      drawHex(x,y,hexR-2,'rgba(0,180,216,0.025)');
+    }
+  }
+  // DNA helix dots
+  for(let i=0;i<12;i++){
+    const el=document.createElement('div');el.className='dna-strand';
+    const x=Math.random()*100;
+    el.style.cssText=`left:${x}%;top:-80px;width:2px;height:${60+Math.random()*80}px;
+      background:linear-gradient(180deg,transparent,rgba(123,47,190,.${Math.floor(2+Math.random()*4)}),transparent);
+      animation-duration:${12+Math.random()*16}s;animation-delay:${-Math.random()*14}s;`;
+    document.body.appendChild(el);
+  }
+  // Organelles
+  const orgCols=['rgba(0,180,216,.09)','rgba(123,47,190,.08)','rgba(6,214,160,.07)','rgba(0,212,255,.07)'];
+  for(let i=0;i<18;i++){
+    const o=document.createElement('div');o.className='organelle';
+    const sz=20+Math.random()*80;
+    const dx=(Math.random()-.5)*40,dy=(Math.random()-.5)*30,ds=.85+Math.random()*.3;
+    o.style.cssText=`width:${sz}px;height:${sz*.65}px;
+      left:${Math.random()*100}%;top:${Math.random()*100}%;
+      background:${orgCols[Math.floor(Math.random()*orgCols.length)]};
+      border:1px solid rgba(0,180,216,0.06);
+      --dx:${dx}px;--dy:${dy}px;--ds:${ds};
+      animation-duration:${6+Math.random()*10}s;animation-delay:${-Math.random()*8}s;`;
+    document.body.appendChild(o);
+  }
+  // Bubbles
+  const fl=document.getElementById('flow-layer');
+  for(let i=0;i<30;i++){
+    const b=document.createElement('div');b.className='flow-bubble';
+    const sz=3+Math.random()*8;
+    b.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;
+      bottom:${Math.random()*30}%;
+      background:radial-gradient(circle,rgba(0,212,255,.5),transparent 70%);
+      animation-duration:${6+Math.random()*10}s;animation-delay:${-Math.random()*10}s;`;
+    fl.appendChild(b);
+  }
+  // Scope ring
+  const sr=document.getElementById('scope-ring');
+  const rSz=Math.min(window.innerWidth,window.innerHeight)*1.1;
+  sr.style.cssText=`width:${rSz}px;height:${rSz}px;
+    top:50%;left:50%;transform:translate(-50%,-50%);`;
+
+  function clamp(min,val,max){return Math.min(max,Math.max(min,val))}
+})();
+
+/* ══════════════════════ UTILS ══════════════════════ */
+const $=id=>document.getElementById(id);
+let dragSrc=null,touchClone=null,touchEl=null;
+
+function updProg(n){
+  ['p1','p2','p3'].forEach((id,i)=>{
+    const el=$(id);el.className='pip';
+    if(i+1<n)el.classList.add('done');
+    if(i+1===n)el.classList.add('active');
+  });
+  $('act-lbl').textContent=`ACTIVITY ${n} OF 3`;
+}
+function showPop(html,cb){
+  const root=$('pop-root');root.innerHTML=`<div class="overlay">${html}</div>`;
+  root.querySelector('.overlay').addEventListener('click',e=>{
+    if(e.target===root.querySelector('.overlay')){root.innerHTML='';if(cb)cb();}
+  });
+  const btn=root.querySelector('[data-close]');
+  if(btn)btn.addEventListener('click',()=>{root.innerHTML='';if(cb)cb();});
+}
+function bioConf(){
+  const items=['💧','🔬','⚡','✨','🧬','💉','🌊','🏆','⭐','🔵','🟢','💫'];
+  for(let i=0;i<65;i++){
+    const c=document.createElement('div');c.className='conf';
+    c.textContent=items[Math.floor(Math.random()*items.length)];
+    const dur=1.6+Math.random()*2;
+    c.style.cssText=`left:${Math.random()*100}vw;top:-20px;font-size:${11+Math.floor(Math.random()*14)}px;
+      animation-duration:${dur}s;animation-delay:${Math.random()*.8}s;`;
+    document.body.appendChild(c);setTimeout(()=>c.remove(),5000);
+  }
+}
+function switchAct(from,to,n){
+  const fr=$(from);fr.style.transition='opacity .3s,transform .3s';fr.style.opacity='0';fr.style.transform='scale(.94)';
+  setTimeout(()=>{
+    fr.style.display='none';fr.style.opacity='';fr.style.transform='';fr.style.transition='';
+    const t=$(to);t.style.display='flex';t.style.flexDirection='column';
+    t.style.alignItems='center';t.style.width='100%';updProg(n);
+  },300);
+}
+
+/* ── DRAG ENGINE (fixed: pointer-events:none on children prevents miss-targeting) ── */
+function mkDrag(el){
+  el.draggable=true;
+  el.addEventListener('dragstart',e=>{
+    dragSrc=el;el.classList.add('dragging');
+    e.dataTransfer.setData('val',el.dataset.val||'');
+    e.dataTransfer.effectAllowed='copy';
+  });
+  el.addEventListener('dragend',()=>{el.classList.remove('dragging');dragSrc=null;});
+}
+function mkDrop(slot,fn){
+  slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('hover');});
+  slot.addEventListener('dragleave',e=>{
+    if(!slot.contains(e.relatedTarget))slot.classList.remove('hover');
+  });
+  slot.addEventListener('drop',e=>{
+    e.preventDefault();e.stopPropagation();slot.classList.remove('hover');
+    const val=e.dataTransfer.getData('val')||dragSrc?.dataset.val;
+    if(val)fn(slot,val,dragSrc);
+  });
+}
+// Touch support
+document.addEventListener('touchstart',e=>{
+  const src=e.target.closest('.chip,.weight-chip');
+  if(!src||src.classList.contains('used'))return;
+  touchEl=src;dragSrc=src;
+  const r=src.getBoundingClientRect();
+  touchClone=src.cloneNode(true);
+  touchClone.style.cssText=`position:fixed;z-index:999;pointer-events:none;opacity:.85;
+    width:${r.width}px;height:${r.height}px;top:${r.top}px;left:${r.left}px;transition:none;`;
+  document.body.appendChild(touchClone);src.classList.add('dragging');
+},{passive:true});
+document.addEventListener('touchmove',e=>{
+  if(!touchClone)return;e.preventDefault();
+  const t=e.touches[0];
+  touchClone.style.top=(t.clientY-touchClone.offsetHeight/2)+'px';
+  touchClone.style.left=(t.clientX-touchClone.offsetWidth/2)+'px';
+},{passive:false});
+document.addEventListener('touchend',e=>{
+  if(!touchEl||!touchClone)return;
+  const t=e.changedTouches[0];
+  touchClone.remove();touchClone=null;touchEl.classList.remove('dragging');
+  const hit=document.elementFromPoint(t.clientX,t.clientY);
+  if(hit&&touchEl.dataset.val){
+    const sl=hit.closest('.syringe-slot,.tube-slot,.ctrl-slot,.dslot,.drop-zone');
+    if(sl&&sl._fn)sl._fn(sl,touchEl.dataset.val,touchEl);
+  }
+  touchEl=null;dragSrc=null;
+},{passive:true});
+
+/* ══════════════════════ ACT 1 ══════════════════════ */
+let a1Count=0;
+const A1_SLOTS={
+  'sl-left':{ans:'syringe',label:'Input Syringe',wrongMsg:'Only syringes go here! Air tubes or springs won\'t work.'},
+  'sl-tube':{ans:'tube',label:'Water Tube',wrongMsg:'The tube goes in the middle — it connects the syringes!'},
+  'sl-right':{ans:'syringe',label:'Output Syringe',wrongMsg:'This slot needs a syringe — it\'s the lift side!'},
+};
+
+function makeSyringeHTML(color){
+  return `<div class="syringe-body">
+    <div class="syr-plunger"></div>
+    <div class="syr-barrel" style="border-color:${color}">
+      <div class="syr-liquid" style="height:65%;background:linear-gradient(180deg,rgba(0,212,255,.4),rgba(0,100,200,.6))"></div>
+    </div>
+    <div class="syr-needle" style="background:${color};opacity:.6"></div>
+  </div>`;
+}
+function makeTubeHTML(){
+  return `<div style="position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center">
+    <div style="width:90%;height:55%;border-radius:20px;background:linear-gradient(90deg,rgba(0,100,160,.3),rgba(0,212,255,.4),rgba(0,100,160,.3));
+      border:1.5px solid rgba(0,180,216,.5);overflow:hidden;position:relative">
+      <div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(0,245,212,.3),transparent);
+        animation:waterFlow 2s linear infinite;border-radius:inherit"></div>
+      <div style="position:absolute;top:20%;left:10%;width:6px;height:6px;border-radius:50%;background:rgba(0,245,212,.7);animation:bubbleRise 1.5s linear infinite"></div>
+      <div style="position:absolute;top:50%;left:40%;width:4px;height:4px;border-radius:50%;background:rgba(0,245,212,.5);animation:bubbleRise 2s linear infinite .6s"></div>
+      <div style="position:absolute;top:30%;left:70%;width:5px;height:5px;border-radius:50%;background:rgba(0,212,255,.6);animation:bubbleRise 1.8s linear infinite 1s"></div>
+    </div>
+  </div>`;
+}
+
+function initA1(){
+  a1Count=0;$('a1-cnt').textContent=0;$('a1-msg').textContent='';$('a1-next').style.display='none';
+  document.querySelectorAll('#a1-bank .chip').forEach(el=>{el.classList.remove('used');mkDrag(el);});
+  Object.entries(A1_SLOTS).forEach(([id,cfg])=>{
+    const sl=$(id);
+    sl.classList.remove('placed','ok-fx','bad-fx');
+    delete sl.dataset.filled;
+    if(id==='sl-left'||id==='sl-right'){
+      sl.innerHTML='<span style="font-size:clamp(10px,1.6vw,14px)">drop here</span>';
+    } else {
+      sl.innerHTML='<span style="font-size:clamp(10px,1.6vw,14px)">drop here</span><div class="tube-glow"></div>';
+    }
+    const fn=(s,val,src)=>{
+      if(s.dataset.filled)return;
+      if(val===cfg.ans){
+        s.dataset.filled='1';s.classList.add('placed','ok-fx');setTimeout(()=>s.classList.remove('ok-fx'),600);
+        if(id==='sl-left') s.innerHTML=makeSyringeHTML('rgba(0,180,216,.8)');
+        else if(id==='sl-right') s.innerHTML=makeSyringeHTML('rgba(199,125,255,.8)');
+        else s.innerHTML=makeTubeHTML();
+        if(src)src.classList.add('used');
+        a1Count++;$('a1-cnt').textContent=a1Count;
+        $('a1-msg').style.color='#06d6a0';
+        const msgs={'sl-left':'💉 Input syringe placed! This is where you apply force.','sl-tube':'🌊 Water tube connected! Water fills the pipe — it cannot be squished!','sl-right':'💉 Output syringe placed! This will rise when you push the other side.'};
+        $('a1-msg').textContent=msgs[id]||'✅ Correct!';
+        if(a1Count>=3){$('a1-next').style.display='inline-block';bioConf();$('a1-msg').textContent='🎉 System assembled! Water cannot be compressed — force travels through!';}
+      } else {
+        s.classList.add('bad-fx');setTimeout(()=>s.classList.remove('bad-fx'),450);
+        $('a1-msg').style.color='#ff6b6b';
+        $('a1-msg').textContent=`❌ ${cfg.wrongMsg}`;
+      }
+    };
+    mkDrop(sl,fn);sl._fn=fn;
+  });
+}
+
+function showA1Done(){
+  bioConf();
+  showPop(`<div class="popup">
+    <div class="p-ico">💉</div>
+    <div class="p-title">System Assembled!</div>
+    <div class="p-stars">⭐⭐⭐</div>
+    <div class="p-sub">You built the hydraulic system!<br><br>
+    💉 <b>Input Syringe</b> → where force is applied<br>
+    🌊 <b>Water Tube</b> → transmits pressure equally<br>
+    💉 <b>Output Syringe</b> → rises when pushed<br><br>
+    Key insight: Water can't be squished! Like a Gulab Jamun vs. a drop of water — you can squish the sponge, but not the water. That's why force travels through!</div>
+    <button class="btn" data-close>Apply Pressure! 💪</button>
+  </div>`,()=>{switchAct('act1','act2',2);initA2();});
+}
+
+/* ══════════════════════ ACT 2 ══════════════════════ */
+let a2Count=0;
+const A2_CFG={
+  'cs-action':{ans:'push-water',icon:'👇',text:'Push the Plunger',wrong:'You need to push the plunger to create pressure!'},
+  'cs-medium':{ans:'water',icon:'💧',text:'Water (liquid)',wrong:'Water is the medium — not air! Air compresses; water does not.'},
+  'cs-effect':{ans:'rises',icon:'⬆️',text:'Other side rises',wrong:'Pascal\'s Law: pressure spreads equally — the other side rises!'},
+};
+let a2AnimRunning=false;
+
+function animatePressure(step){
+  const pct=[33,66,100][step];
+  $('pressure-bar').style.width=pct+'%';
+  $('pressure-label').textContent=`Pressure: ${pct}% — ${['Force applied!','Water transmits!','Lift complete!'][step]}`;
+  // Animate pistons
+  if(step===2){
+    $('left-liquid').style.height='30%';
+    $('left-piston').style.top='67%';
+    $('right-liquid').style.height='70%';
+    $('right-piston').style.top='26%';
+    $('a2-pipe').style.boxShadow='0 0 16px rgba(0,245,212,.5)';
+  }
+}
+
+function initA2(){
+  a2Count=0;$('a2-cnt').textContent=0;$('a2-msg').textContent='';$('a2-next').style.display='none';
+  $('pressure-bar').style.width='0%';$('pressure-label').textContent='Pressure: 0%';
+  $('left-liquid').style.height='70%';$('left-piston').style.top='26%';
+  $('right-liquid').style.height='30%';$('right-piston').style.top='67%';
+  $('a2-pipe').style.boxShadow='';
+  document.querySelectorAll('#a2-bank .chip').forEach(el=>{el.classList.remove('used');mkDrag(el);});
+  Object.entries(A2_CFG).forEach(([id,cfg])=>{
+    const sl=$(id);
+    sl.classList.remove('placed','ok-fx','bad-fx');
+    delete sl.dataset.filled;
+    sl.innerHTML=`<span class="ctrl-icon">❓</span><span>${{
+      'cs-action':'What action?','cs-medium':'What medium?','cs-effect':'Output effect?'}[id]}</span>`;
+    const fn=(s,val,src)=>{
+      if(s.dataset.filled)return;
+      if(val===cfg.ans){
+        s.dataset.filled='1';s.classList.add('placed','ok-fx');setTimeout(()=>s.classList.remove('ok-fx'),600);
+        s.innerHTML=`<span class="ctrl-icon">${cfg.icon}</span><span style="color:var(--ok)">${cfg.text}</span>`;
+        if(src)src.classList.add('used');
+        a2Count++;$('a2-cnt').textContent=a2Count;
+        animatePressure(a2Count-1);
+        $('a2-msg').style.color='#06d6a0';
+        const msgs={'cs-action':'✅ Push the plunger — force enters the water!','cs-medium':'✅ Water! It can\'t be squished, so pressure goes everywhere equally.','cs-effect':'✅ The output rises! Pascal\'s Law: same pressure, other side lifts!'};
+        $('a2-msg').textContent=msgs[id]||'✅ Correct!';
+        if(a2Count>=3){$('a2-next').style.display='inline-block';bioConf();$('a2-msg').textContent='⚡ Pascal\'s Law mastered! Pressure travels through water like magic!';}
+      } else {
+        s.classList.add('bad-fx');setTimeout(()=>s.classList.remove('bad-fx'),450);
+        $('a2-msg').style.color='#ff6b6b';$('a2-msg').textContent=`❌ ${cfg.wrong}`;
+      }
+    };
+    mkDrop(sl,fn);sl._fn=fn;
+  });
+}
+
+function showA2Done(){
+  bioConf();
+  showPop(`<div class="popup">
+    <div class="p-ico">⚡</div>
+    <div class="p-title">Pressure Mastered!</div>
+    <div class="p-stars">⭐⭐⭐</div>
+    <div class="p-sub">You understood Pascal's Law!<br><br>
+    👇 <b>Push one syringe</b> → force enters<br>
+    💧 <b>Water carries it</b> → cannot be compressed<br>
+    ⬆️ <b>Other side rises</b> → pressure transfers equally!<br><br>
+    This is how the JCB lifts heavy rocks at construction sites, and how the puncture-wala's hydraulic jack lifts your car!</div>
+    <button class="btn dna" data-close>Lift Something! 🏗️</button>
+  </div>`,()=>{switchAct('act2','act3',3);initA3();});
+}
+
+/* ══════════════════════ ACT 3 ══════════════════════ */
+const WEIGHTS=[
+  {id:'w1',order:1,emoji:'🧽',name:'Eraser',mass:'5g',height:2,color:'rgba(6,214,160,.12)',borderColor:'rgba(6,214,160,.28)'},
+  {id:'w2',order:2,emoji:'✏️',name:'Sharpener',mass:'15g',height:5,color:'rgba(255,183,3,.12)',borderColor:'rgba(255,183,3,.28)'},
+  {id:'w3',order:3,emoji:'🪨',name:'Small Stone',mass:'50g',height:8,color:'rgba(255,107,107,.12)',borderColor:'rgba(255,107,107,.28)'},
+];
+let a3Count=0;
+let currentHeight=0;
+
+function initA3(){
+  a3Count=0;currentHeight=0;
+  $('a3-cnt').textContent=0;$('a3-msg').textContent='';$('a3-finish').style.display='none';
+  $('a3-bar').style.width='0%';$('a3-status').textContent='Waiting for load…';
+  ['inf1','inf2','inf3','inf4','inf5'].forEach(id=>$(id).classList.remove('lit'));
+  $('lift-platform').style.transform='translateY(0)';
+  $('lift-col').style.height='clamp(60px,10vh,100px)';
+  $('height-indicator').textContent='Height: 0 cm';
+  const lz=$('load-zone');lz.classList.remove('placed','ok-fx');lz.innerHTML='drop weight here';delete lz.dataset.filled;
+
+  // Build weight pool
+  const pool=$('a3-weight-pool');pool.innerHTML='';
+  pool.innerHTML=`<div style="font-family:'JetBrains Mono',monospace;font-size:clamp(8px,1.1vw,11px);color:var(--txt2);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Available Weights</div>`;
+  [...WEIGHTS].sort(()=>Math.random()-.5).forEach(w=>{
+    const el=document.createElement('div');
+    el.className='weight-chip';el.id=w.id;el.dataset.val=w.id;el.dataset.order=w.order;
+    el.style.cssText=`background:${w.color};border:1.5px solid ${w.borderColor};color:rgba(220,250,255,.85)`;
+    el.innerHTML=`<span style="font-size:clamp(14px,2.4vw,20px)">${w.emoji}</span>
+      <div><div style="font-weight:700;font-size:clamp(9px,1.25vw,12px)">${w.name}</div>
+      <div style="font-size:clamp(7px,.95vw,10px);opacity:.6">${w.mass}</div></div>`;
+    mkDrag(el);pool.appendChild(el);
+  });
+
+  // Load zone drop
+  const lzEl=$('load-zone');
+  const fn=(s,val,src)=>{
+    if(s.dataset.filled)return;
+    const w=WEIGHTS.find(x=>x.id===val);
+    if(!w){s.classList.add('bad-fx');setTimeout(()=>s.classList.remove('bad-fx'),450);return;}
+    const expectedOrder=a3Count+1;
+    if(w.order!==expectedOrder){
+      s.classList.add('bad-fx');setTimeout(()=>s.classList.remove('bad-fx'),450);
+      $('a3-msg').style.color='#ff6b6b';
+      $('a3-msg').textContent=`❌ Start with the lightest! Try the ${WEIGHTS[a3Count].name} first.`;
+      return;
+    }
+    // Correct!
+    s.dataset.filled='1';s.classList.add('placed','ok-fx');setTimeout(()=>{s.classList.remove('ok-fx');delete s.dataset.filled;},800);
+    s.innerHTML=`<span style="font-size:clamp(20px,3.5vw,30px)">${w.emoji}</span><span style="font-family:'JetBrains Mono',monospace;font-size:clamp(8px,1.1vw,11px);color:var(--ok)">${w.name}</span>`;
+    if(src)src.classList.add('used');
+    a3Count++;$('a3-cnt').textContent=a3Count;
+    currentHeight=w.height;
+
+    // Animate lift
+    const liftPx=clamp(10,w.height*8,70);
+    $('lift-platform').style.transform=`translateY(-${liftPx}px)`;
+    $('lift-col').style.height=`calc(clamp(60px,10vh,100px) + ${liftPx}px)`;
+    $('height-indicator').textContent=`Height: ${w.height} cm ↑`;
+
+    $(`inf${Math.min(a3Count+1,5)}`).classList.add('lit');
+    if(a3Count===1)$('inf1').classList.add('lit');
+    if(a3Count>=2)$('inf2').classList.add('lit');
+    if(a3Count>=2)$('inf3').classList.add('lit');
+    if(a3Count>=3){$('inf4').classList.add('lit');$('inf5').classList.add('lit');}
+
+    $('a3-bar').style.width=(a3Count/3*100)+'%';
+    $('a3-status').textContent=['Eraser lifted! 2cm up!','Sharpener lifted! 5cm up!','Stone lifted! 8cm up! HERO!'][a3Count-1];
+    $('a3-msg').style.color='#06d6a0';
+    $('a3-msg').textContent=[
+      `⬆️ ${w.emoji} ${w.name} lifted ${w.height}cm! Water pressure works!`,
+      `⬆️ ${w.emoji} ${w.name} lifted ${w.height}cm! Pressure increases!`,
+      `🏆 ${w.emoji} ${w.name} lifted ${w.height}cm! Hydraulic Hero!`,
+    ][a3Count-1];
+    if(a3Count>=3){bioConf();$('a3-finish').style.display='inline-block';setTimeout(()=>s.innerHTML='drop weight here',900);}
+    else{setTimeout(()=>{s.innerHTML='drop weight here';delete s.dataset.filled;},900);}
+  };
+  mkDrop(lzEl,fn);lzEl._fn=fn;
+
+  function clamp(a,b,c){return Math.min(c,Math.max(a,b))}
+}
+
+function showFinal(){
+  bioConf();setTimeout(bioConf,600);
+  showPop(`<div class="popup">
+    <div class="p-ico">🏗️</div>
+    <div class="p-title">Hydraulic Hero!</div>
+    <div class="p-stars">⭐⭐⭐</div>
+    <div class="p-sub">You mastered the Water-Powered Lifter!<br><br>
+    💉 <b>Syringes</b> → apply and receive force<br>
+    🌊 <b>Water tube</b> → transmits pressure equally<br>
+    ⚡ <b>Pascal's Law</b> → pressure goes everywhere<br>
+    ⬆️ <b>Incompressibility</b> → water can't be squished!<br><br>
+    🚧 Just like the JCB at construction sites!<br>
+    🚗 Like the hydraulic jack at the puncture-wala!<br>
+    🚆 Like the brakes on Indian Railways!<br><br>
+    <span style="color:var(--bio1)">The student's model lifted an object over 5cm — mission complete! 🎯</span></div>
+    <div style="font-size:clamp(20px,3.8vw,32px)">💧 🔬 ⚡ 🏗️ 🏆</div>
+    <button class="btn" data-close onclick="resetAll()">🔄 Try Again!</button>
+  </div>`);
+}
+
+function resetAll(){
+  ['act2','act3'].forEach(id=>{$(id).style.display='none';});
+  const a1=$('act1');a1.style.display='flex';a1.style.flexDirection='column';
+  a1.style.alignItems='center';a1.style.width='100%';
+  updProg(1);initA1();
+}
+
+/* INIT */
+updProg(1);initA1();
+</script>
+</body>
+</html>

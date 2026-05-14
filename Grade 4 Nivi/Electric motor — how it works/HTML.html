@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELECTRIC MOTOR — HOW IT WORKS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --neon-cyan: #00fff5;
+  --neon-pink: #ff006e;
+  --neon-yellow: #ffee00;
+  --neon-green: #39ff14;
+  --neon-orange: #ff6b00;
+  --neon-purple: #bf00ff;
+  --bg-dark: #030712;
+  --bg-grid: #0a0f1e;
+  --panel-bg: rgba(0,15,40,0.85);
+  --panel-border: rgba(0,255,245,0.25);
+  --text-primary: #e0f4ff;
+  --text-dim: rgba(180,220,255,0.6);
+  --glow-cyan: 0 0 10px #00fff5, 0 0 30px rgba(0,255,245,0.4);
+  --glow-pink: 0 0 10px #ff006e, 0 0 30px rgba(255,0,110,0.4);
+  --glow-yellow: 0 0 10px #ffee00, 0 0 30px rgba(255,238,0,0.4);
+  --glow-green: 0 0 10px #39ff14, 0 0 30px rgba(57,255,20,0.4);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  font-family: 'Rajdhani', sans-serif;
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  user-select: none;
+}
+
+/* ─── BACKGROUND SYSTEM ─────────────────────────────── */
+#bg-canvas {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none;
+}
+
+.grid-overlay {
+  position: fixed; inset: 0; z-index: 1;
+  background-image:
+    linear-gradient(rgba(0,255,245,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,245,0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+}
+
+.scanline {
+  position: fixed; inset: 0; z-index: 2;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0,0,0,0.07) 3px,
+    rgba(0,0,0,0.07) 4px
+  );
+  pointer-events: none;
+}
+
+.vignette {
+  position: fixed; inset: 0; z-index: 2;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.75) 100%);
+  pointer-events: none;
+}
+
+/* ─── FLOATING NEON SIGNS ────────────────────────────── */
+.neon-sign {
+  position: fixed;
+  font-family: 'Orbitron', monospace;
+  font-weight: 900;
+  pointer-events: none;
+  z-index: 2;
+  animation: signFlicker 8s infinite;
+}
+.neon-sign.s1 { top: 3vh; left: 1vw; font-size: clamp(8px,1.1vw,14px); color: var(--neon-pink); text-shadow: var(--glow-pink); opacity: 0.5; }
+.neon-sign.s2 { top: 8vh; right: 1.5vw; font-size: clamp(7px,0.9vw,12px); color: var(--neon-cyan); text-shadow: var(--glow-cyan); opacity: 0.4; }
+.neon-sign.s3 { bottom: 6vh; left: 0.8vw; font-size: clamp(6px,0.8vw,11px); color: var(--neon-green); text-shadow: var(--glow-green); opacity: 0.45; animation-delay: 2s; }
+.neon-sign.s4 { bottom: 10vh; right: 1vw; font-size: clamp(7px,0.9vw,12px); color: var(--neon-yellow); text-shadow: var(--glow-yellow); opacity: 0.4; animation-delay: 4s; }
+
+@keyframes signFlicker {
+  0%,95%,100% { opacity: var(--op,0.45); }
+  96% { opacity: 0.1; }
+  97% { opacity: var(--op,0.45); }
+  98% { opacity: 0.05; }
+  99% { opacity: var(--op,0.45); }
+}
+
+/* ─── ENERGY PULSES (SVG lines) ─────────────────────── */
+.pulse-svg {
+  position: fixed; inset: 0; z-index: 2;
+  pointer-events: none;
+}
+
+/* ─── APP SHELL ──────────────────────────────────────── */
+#app {
+  position: fixed; inset: 0; z-index: 10;
+  display: flex; flex-direction: column;
+}
+
+/* ─── HEADER ─────────────────────────────────────────── */
+header {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.6vh 2vw;
+  background: linear-gradient(180deg, rgba(0,5,20,0.98) 0%, rgba(0,10,30,0.9) 100%);
+  border-bottom: 1px solid rgba(0,255,245,0.2);
+  box-shadow: 0 2px 30px rgba(0,255,245,0.1);
+  position: relative;
+  z-index: 20;
+}
+
+.header-left {
+  display: flex; align-items: center; gap: 1vw;
+}
+
+.logo-spark {
+  width: clamp(28px,3.5vw,48px);
+  height: clamp(28px,3.5vw,48px);
+  position: relative;
+}
+
+.logo-spark svg { width: 100%; height: 100%; }
+
+.header-title {
+  font-family: 'Orbitron', monospace;
+  font-weight: 900;
+  font-size: clamp(10px,1.6vw,22px);
+  letter-spacing: 0.12em;
+  color: var(--neon-cyan);
+  text-shadow: var(--glow-cyan);
+  line-height: 1.1;
+}
+
+.header-subtitle {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: clamp(7px,0.8vw,11px);
+  color: var(--text-dim);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.progress-track {
+  display: flex; gap: 0.8vw; align-items: center;
+}
+
+.prog-step {
+  display: flex; align-items: center; gap: 0.4vw;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: clamp(7px,0.75vw,10px);
+  color: rgba(0,255,245,0.35);
+  transition: all 0.4s;
+}
+
+.prog-step.active { color: var(--neon-cyan); text-shadow: var(--glow-cyan); }
+.prog-step.done   { color: var(--neon-green); text-shadow: var(--glow-green); }
+
+.prog-dot {
+  width: clamp(6px,0.7vw,10px);
+  height: clamp(6px,0.7vw,10px);
+  border-radius: 50%;
+  background: rgba(0,255,245,0.2);
+  border: 1px solid rgba(0,255,245,0.3);
+  transition: all 0.4s;
+}
+.prog-step.active .prog-dot { background: var(--neon-cyan); box-shadow: var(--glow-cyan); }
+.prog-step.done   .prog-dot { background: var(--neon-green); box-shadow: var(--glow-green); }
+
+.prog-line { width: clamp(12px,1.5vw,24px); height: 1px; background: rgba(0,255,245,0.2); }
+
+.header-right {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: clamp(7px,0.75vw,10px);
+  color: var(--neon-green);
+  text-shadow: var(--glow-green);
+  text-align: right;
+  animation: statusPulse 2s infinite;
+}
+
+@keyframes statusPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+/* ─── MAIN CONTENT ───────────────────────────────────── */
+main {
+  flex: 1 1 auto;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ─── ACTIVITY SCREENS ───────────────────────────────── */
+.screen {
+  position: absolute; inset: 0;
+  display: flex;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.5s;
+}
+
+.screen.active { opacity: 1; pointer-events: all; }
+
+/* ─── SIDEBAR (instructions + parts) ────────────────── */
+.sidebar {
+  flex: 0 0 clamp(160px,18vw,240px);
+  display: flex; flex-direction: column; gap: 0.8vh;
+  padding: 1.2vh 1vw;
+  background: linear-gradient(180deg, rgba(0,8,25,0.95), rgba(0,5,18,0.95));
+  border-right: 1px solid rgba(0,255,245,0.12);
+  overflow: hidden;
+}
+
+.sidebar-label {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(7px,0.75vw,10px);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--neon-cyan);
+  text-shadow: var(--glow-cyan);
+  padding-bottom: 0.4vh;
+  border-bottom: 1px solid rgba(0,255,245,0.15);
+}
+
+.instruction-box {
+  background: rgba(0,255,245,0.04);
+  border: 1px solid rgba(0,255,245,0.12);
+  border-radius: 6px;
+  padding: 0.8vh 0.7vw;
+  font-size: clamp(8px,0.85vw,12px);
+  line-height: 1.5;
+  color: var(--text-dim);
+  flex: 0 0 auto;
+}
+
+.instruction-box strong {
+  color: var(--neon-cyan);
+  display: block;
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(7px,0.75vw,10px);
+  margin-bottom: 0.3vh;
+}
+
+.parts-list {
+  flex: 1 1 auto;
+  display: flex; flex-direction: column; gap: 0.6vh;
+  overflow: hidden;
+}
+
+.part-item {
+  background: rgba(0,20,50,0.7);
+  border: 1px solid rgba(0,255,245,0.18);
+  border-radius: 8px;
+  padding: 0.6vh 0.6vw;
+  cursor: grab;
+  transition: all 0.25s;
+  display: flex; align-items: center; gap: 0.5vw;
+  position: relative;
+  flex: 0 0 auto;
+  touch-action: none;
+}
+
+.part-item:active { cursor: grabbing; }
+
+.part-item:hover {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 12px rgba(0,255,245,0.2);
+  transform: translateX(3px);
+}
+
+.part-item.used {
+  opacity: 0.3;
+  pointer-events: none;
+  filter: grayscale(0.8);
+}
+
+.part-icon {
+  width: clamp(28px,3.2vw,44px);
+  height: clamp(28px,3.2vw,44px);
+  flex: 0 0 auto;
+}
+
+.part-info { flex: 1; min-width: 0; }
+
+.part-name {
+  font-family: 'Orbitron', monospace;
+  font-weight: 700;
+  font-size: clamp(7px,0.75vw,10px);
+  color: var(--neon-cyan);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.part-desc {
+  font-size: clamp(6px,0.65vw,9px);
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+
+/* ─── ARENA ──────────────────────────────────────────── */
+.arena {
+  flex: 1 1 auto;
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 50%, rgba(0,30,70,0.5) 0%, rgba(0,5,15,0.8) 100%);
+}
+
+/* Motor base diagram */
+.motor-base {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  width: clamp(280px,42vw,560px);
+  height: clamp(220px,34vh,400px);
+}
+
+/* Drop zones */
+.drop-zone {
+  position: absolute;
+  border: 2px dashed rgba(0,255,245,0.3);
+  border-radius: 10px;
+  background: rgba(0,255,245,0.04);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.3s;
+  cursor: default;
+}
+
+.drop-zone.hover {
+  border-color: var(--neon-cyan);
+  background: rgba(0,255,245,0.12);
+  box-shadow: 0 0 20px rgba(0,255,245,0.2);
+}
+
+.drop-zone.filled {
+  border-color: var(--neon-green);
+  border-style: solid;
+  background: rgba(57,255,20,0.06);
+  box-shadow: 0 0 15px rgba(57,255,20,0.15);
+}
+
+.drop-zone.wrong {
+  border-color: var(--neon-pink);
+  background: rgba(255,0,110,0.08);
+  box-shadow: 0 0 15px rgba(255,0,110,0.2);
+  animation: wrongShake 0.4s ease;
+}
+
+@keyframes wrongShake {
+  0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)}
+}
+
+.zone-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: clamp(7px,0.7vw,10px);
+  color: rgba(0,255,245,0.4);
+  text-align: center;
+  pointer-events: none;
+  letter-spacing: 0.1em;
+}
+
+.drop-zone.filled .zone-label { display: none; }
+
+/* ─── DRAGGABLE GHOST ────────────────────────────────── */
+#drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.85;
+  transform: translate(-50%,-50%) scale(1.1);
+  filter: drop-shadow(0 0 12px var(--neon-cyan));
+  display: none;
+}
+
+/* ─── FEEDBACK BANNER ────────────────────────────────── */
+.feedback-bar {
+  position: absolute;
+  bottom: 1.5vh; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,255,245,0.1);
+  border: 1px solid rgba(0,255,245,0.3);
+  border-radius: 20px;
+  padding: 0.6vh 2vw;
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(8px,0.9vw,12px);
+  color: var(--neon-cyan);
+  text-shadow: var(--glow-cyan);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.feedback-bar.show { opacity: 1; }
+.feedback-bar.success { color: var(--neon-green); border-color: var(--neon-green); background: rgba(57,255,20,0.08); text-shadow: var(--glow-green); }
+.feedback-bar.error   { color: var(--neon-pink);  border-color: var(--neon-pink);  background: rgba(255,0,110,0.08); text-shadow: var(--glow-pink); }
+
+/* ─── RIGHT PANEL ────────────────────────────────────── */
+.right-panel {
+  flex: 0 0 clamp(130px,14vw,180px);
+  display: flex; flex-direction: column; gap: 0.8vh;
+  padding: 1.2vh 0.8vw;
+  background: linear-gradient(180deg, rgba(0,8,25,0.95), rgba(0,5,18,0.95));
+  border-left: 1px solid rgba(0,255,245,0.12);
+}
+
+.fact-box {
+  background: rgba(255,238,0,0.05);
+  border: 1px solid rgba(255,238,0,0.2);
+  border-radius: 6px;
+  padding: 0.8vh 0.7vw;
+  font-size: clamp(7px,0.75vw,10px);
+  color: rgba(255,238,0,0.8);
+  line-height: 1.5;
+}
+
+.fact-box .fact-head {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(6px,0.65vw,9px);
+  color: var(--neon-yellow);
+  text-shadow: var(--glow-yellow);
+  margin-bottom: 0.3vh;
+  display: block;
+}
+
+.concept-list { display: flex; flex-direction: column; gap: 0.5vh; flex: 1; }
+
+.concept-chip {
+  background: rgba(191,0,255,0.08);
+  border: 1px solid rgba(191,0,255,0.25);
+  border-radius: 5px;
+  padding: 0.5vh 0.6vw;
+  font-size: clamp(7px,0.72vw,10px);
+  color: rgba(200,150,255,0.8);
+  line-height: 1.4;
+}
+
+.concept-chip strong {
+  color: var(--neon-purple);
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(6px,0.65vw,9px);
+  display: block;
+  text-shadow: 0 0 8px rgba(191,0,255,0.5);
+}
+
+/* ─── MOTOR ANIMATION (Act 2) ────────────────────────── */
+.rotor-group { transform-origin: 50% 50%; }
+.rotor-spinning { animation: rotorSpin 1.2s linear infinite; }
+@keyframes rotorSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+
+.current-flow { stroke-dasharray: 8 4; animation: flowDash 0.6s linear infinite; }
+@keyframes flowDash { to { stroke-dashoffset: -24; } }
+
+.force-arrow { animation: forceArrow 1s ease-in-out infinite alternate; }
+@keyframes forceArrow { from{opacity:0.5;transform:scale(0.9)} to{opacity:1;transform:scale(1.1)} }
+
+/* ─── HOMOPOLAR MOTOR (Act 3) ────────────────────────── */
+.wire-placed { animation: wireGlow 1s ease-in-out infinite alternate; }
+@keyframes wireGlow { from{filter:drop-shadow(0 0 4px #ff6b00)} to{filter:drop-shadow(0 0 14px #ff6b00)} }
+
+.spin-indicator { animation: spinFade 1.5s ease-in-out infinite; }
+@keyframes spinFade { 0%,100%{opacity:0.3;transform:translate(-50%,-50%) scale(0.9)} 50%{opacity:1;transform:translate(-50%,-50%) scale(1.1)} }
+
+/* ─── POPUP OVERLAY ──────────────────────────────────── */
+#popup-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,10,0.88);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.4s;
+  backdrop-filter: blur(6px);
+}
+
+#popup-overlay.show { opacity: 1; pointer-events: all; }
+
+.popup-card {
+  background: linear-gradient(145deg, rgba(0,15,45,0.98), rgba(0,5,20,0.98));
+  border: 1px solid rgba(0,255,245,0.3);
+  border-radius: 16px;
+  padding: clamp(16px,2.5vh,32px) clamp(20px,3vw,48px);
+  max-width: clamp(300px,40vw,520px);
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(0,255,245,0.12), inset 0 0 40px rgba(0,0,0,0.5);
+  position: relative;
+  overflow: hidden;
+  animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+@keyframes popIn { from{transform:scale(0.7) translateY(20px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
+
+.popup-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--neon-cyan), var(--neon-purple), var(--neon-pink), transparent);
+  animation: rainbowLine 3s linear infinite;
+}
+
+@keyframes rainbowLine { 0%{background-position:0%} 100%{background-position:200%} }
+
+.popup-icon {
+  font-size: clamp(32px,5vw,64px);
+  margin-bottom: 1vh;
+  animation: iconBounce 1s ease-in-out infinite alternate;
+}
+@keyframes iconBounce { from{transform:translateY(0)} to{transform:translateY(-6px)} }
+
+.popup-title {
+  font-family: 'Orbitron', monospace;
+  font-weight: 900;
+  font-size: clamp(14px,1.8vw,24px);
+  color: var(--neon-cyan);
+  text-shadow: var(--glow-cyan);
+  letter-spacing: 0.1em;
+  margin-bottom: 0.8vh;
+}
+
+.popup-subtitle {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: clamp(11px,1.2vw,16px);
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin-bottom: 1.5vh;
+}
+
+.popup-fact {
+  background: rgba(255,238,0,0.06);
+  border: 1px solid rgba(255,238,0,0.2);
+  border-radius: 8px;
+  padding: 0.8vh 1.2vw;
+  font-size: clamp(9px,0.9vw,12px);
+  color: rgba(255,238,0,0.85);
+  margin-bottom: 1.5vh;
+  line-height: 1.5;
+}
+
+.popup-btn {
+  display: inline-block;
+  background: linear-gradient(135deg, rgba(0,255,245,0.15), rgba(0,200,255,0.08));
+  border: 1.5px solid var(--neon-cyan);
+  border-radius: 8px;
+  padding: 0.8vh 2.5vw;
+  font-family: 'Orbitron', monospace;
+  font-weight: 700;
+  font-size: clamp(9px,1vw,14px);
+  color: var(--neon-cyan);
+  text-shadow: var(--glow-cyan);
+  cursor: pointer;
+  transition: all 0.3s;
+  letter-spacing: 0.12em;
+  box-shadow: 0 0 15px rgba(0,255,245,0.1);
+}
+
+.popup-btn:hover {
+  background: rgba(0,255,245,0.18);
+  box-shadow: 0 0 25px rgba(0,255,245,0.3);
+  transform: translateY(-2px);
+}
+
+.popup-btn.success-btn {
+  border-color: var(--neon-green);
+  color: var(--neon-green);
+  text-shadow: var(--glow-green);
+  box-shadow: 0 0 15px rgba(57,255,20,0.15);
+}
+
+.popup-stars {
+  display: flex; justify-content: center; gap: 0.5vw;
+  font-size: clamp(16px,2vw,28px);
+  margin-bottom: 0.8vh;
+}
+
+/* ─── TITLE SCREEN ───────────────────────────────────── */
+#title-screen {
+  position: fixed; inset: 0; z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+  gap: 2vh;
+  background: rgba(0,3,12,0.96);
+  transition: opacity 0.6s;
+}
+
+.title-main {
+  font-family: 'Orbitron', monospace;
+  font-weight: 900;
+  font-size: clamp(18px,3.5vw,52px);
+  color: var(--neon-cyan);
+  text-shadow: 0 0 20px #00fff5, 0 0 60px rgba(0,255,245,0.4), 0 0 100px rgba(0,255,245,0.2);
+  letter-spacing: 0.08em;
+  text-align: center;
+  animation: titlePulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes titlePulse {
+  from { text-shadow: 0 0 20px #00fff5, 0 0 60px rgba(0,255,245,0.3); }
+  to   { text-shadow: 0 0 30px #00fff5, 0 0 80px rgba(0,255,245,0.5), 0 0 120px rgba(0,255,245,0.25); }
+}
+
+.title-sub {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: clamp(10px,1.2vw,16px);
+  color: var(--text-dim);
+  letter-spacing: 0.3em;
+  text-align: center;
+}
+
+.title-divider {
+  width: clamp(200px,30vw,400px); height: 1px;
+  background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+  box-shadow: 0 0 10px rgba(0,255,245,0.4);
+}
+
+.title-tagline {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: clamp(11px,1.3vw,18px);
+  color: rgba(255,238,0,0.8);
+  text-shadow: 0 0 10px rgba(255,238,0,0.3);
+  text-align: center;
+  max-width: 50vw;
+  line-height: 1.5;
+}
+
+.start-btn {
+  background: linear-gradient(135deg, rgba(0,255,245,0.1), rgba(0,100,200,0.1));
+  border: 2px solid var(--neon-cyan);
+  border-radius: 10px;
+  padding: 1.2vh 4vw;
+  font-family: 'Orbitron', monospace;
+  font-weight: 900;
+  font-size: clamp(11px,1.3vw,18px);
+  color: var(--neon-cyan);
+  text-shadow: var(--glow-cyan);
+  cursor: pointer;
+  letter-spacing: 0.15em;
+  box-shadow: 0 0 20px rgba(0,255,245,0.15), inset 0 0 20px rgba(0,255,245,0.05);
+  transition: all 0.3s;
+  animation: btnPulse 2s ease-in-out infinite;
+}
+
+@keyframes btnPulse {
+  0%,100% { box-shadow: 0 0 20px rgba(0,255,245,0.15); }
+  50%      { box-shadow: 0 0 40px rgba(0,255,245,0.35), 0 0 80px rgba(0,255,245,0.1); }
+}
+
+.start-btn:hover {
+  background: rgba(0,255,245,0.12);
+  transform: scale(1.04);
+}
+
+/* ─── ACT 2 SPECIFIC ─────────────────────────────────── */
+.rotation-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px dashed rgba(0,255,245,0.2);
+  animation: ringRotate 4s linear infinite;
+}
+@keyframes ringRotate { to { transform: translate(-50%,-50%) rotate(360deg); } }
+
+/* ─── ACT 3 SPECIFIC ─────────────────────────────────── */
+.battery-indicator {
+  position: absolute;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: clamp(7px,0.72vw,10px);
+  color: var(--neon-green);
+  text-shadow: var(--glow-green);
+}
+
+/* ─── SCROLLING TEXT TICKER ──────────────────────────── */
+.ticker {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: clamp(18px,2.2vh,28px);
+  background: rgba(0,0,0,0.6);
+  border-top: 1px solid rgba(0,255,245,0.1);
+  overflow: hidden;
+  display: flex; align-items: center;
+}
+
+.ticker-inner {
+  white-space: nowrap;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: clamp(7px,0.72vw,10px);
+  color: rgba(0,255,245,0.5);
+  animation: tickerScroll 30s linear infinite;
+  padding-left: 100%;
+}
+
+@keyframes tickerScroll { to { transform: translateX(-100%); } }
+
+/* ─── PLACED PART IN ZONE ────────────────────────────── */
+.placed-part {
+  position: absolute;
+  inset: 4px;
+  display: flex; align-items: center; justify-content: center;
+  animation: placeGlow 0.4s ease;
+}
+
+@keyframes placeGlow { from{transform:scale(0.5);opacity:0} to{transform:scale(1);opacity:1} }
+
+.check-mark {
+  position: absolute;
+  top: -8px; right: -8px;
+  width: 18px; height: 18px;
+  background: var(--neon-green);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+  box-shadow: var(--glow-green);
+  animation: checkPop 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+@keyframes checkPop { from{transform:scale(0)} to{transform:scale(1)} }
+
+/* ─── FINAL CONFETTI ─────────────────────────────────── */
+.confetti-piece {
+  position: fixed;
+  width: 8px; height: 8px;
+  pointer-events: none;
+  z-index: 2000;
+  border-radius: 2px;
+  animation: confettiFall linear forwards;
+}
+
+@keyframes confettiFall {
+  0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+/* ─── CIRCUIT DECORATIONS ────────────────────────────── */
+.circuit-corner {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.25;
+}
+</style>
+</head>
+<body>
+
+<!-- Background Canvas -->
+<canvas id="bg-canvas"></canvas>
+<div class="grid-overlay"></div>
+<div class="scanline"></div>
+<div class="vignette"></div>
+
+<!-- Neon Signs -->
+<div class="neon-sign s1">⚡ ELECTRO LAB</div>
+<div class="neon-sign s2">∿ FIELD ACTIVE</div>
+<div class="neon-sign s3">◉ MOTOR CORE</div>
+<div class="neon-sign s4">▶ FLUX ENGAGED</div>
+
+<!-- Floating SVG pulses -->
+<svg class="pulse-svg" id="pulse-svg"></svg>
+
+<!-- Drag ghost -->
+<div id="drag-ghost"></div>
+
+<!-- ═══ TITLE SCREEN ═══════════════════════════════════ -->
+<div id="title-screen">
+  <div class="title-sub">PLANRS ACADEMY // SCIENCE MODULE</div>
+  <div class="title-main">⚡ ELECTRIC MOTOR</div>
+  <div class="title-main" style="font-size:clamp(12px,2vw,30px);color:var(--neon-purple);text-shadow:0 0 20px #bf00ff;">HOW IT WORKS</div>
+  <div class="title-divider"></div>
+  <div class="title-tagline">Discover the invisible forces of electricity &amp; magnetism that spin our world — through 3 interactive challenges</div>
+  <div style="display:flex;gap:2vw;flex-wrap:wrap;justify-content:center;font-family:'Share Tech Mono',monospace;font-size:clamp(8px,0.85vw,11px);color:var(--text-dim);">
+    <span style="color:var(--neon-green)">▶ ACT 1: ASSEMBLE</span>
+    <span>→</span>
+    <span style="color:var(--neon-yellow)">▶ ACT 2: ENERGISE</span>
+    <span>→</span>
+    <span style="color:var(--neon-orange)">▶ ACT 3: BUILD</span>
+  </div>
+  <button class="start-btn" onclick="startApp()">INITIALISE ⚡</button>
+</div>
+
+<!-- ═══ APP SHELL ══════════════════════════════════════ -->
+<div id="app" style="display:none;">
+
+  <!-- Header -->
+  <header>
+    <div class="header-left">
+      <div class="logo-spark">
+        <svg viewBox="0 0 48 48" fill="none">
+          <circle cx="24" cy="24" r="22" stroke="rgba(0,255,245,0.3)" stroke-width="1.5"/>
+          <path d="M28 8L14 26h12l-6 14L38 22H26L28 8z" fill="none" stroke="#00fff5" stroke-width="2" stroke-linejoin="round"/>
+          <circle cx="24" cy="24" r="3" fill="#00fff5" opacity="0.6"/>
+          <circle cx="24" cy="24" r="22" stroke="rgba(0,255,245,0.1)" stroke-width="8" fill="none"/>
+        </svg>
+      </div>
+      <div>
+        <div class="header-title">ELECTRIC MOTOR</div>
+        <div class="header-subtitle">HOW IT WORKS // INTERACTIVE LAB</div>
+      </div>
+    </div>
+    <div class="progress-track" id="progress-track">
+      <div class="prog-step active" id="prog-1">
+        <div class="prog-dot"></div><span>ACT&nbsp;1</span>
+      </div>
+      <div class="prog-line"></div>
+      <div class="prog-step" id="prog-2">
+        <div class="prog-dot"></div><span>ACT&nbsp;2</span>
+      </div>
+      <div class="prog-line"></div>
+      <div class="prog-step" id="prog-3">
+        <div class="prog-dot"></div><span>ACT&nbsp;3</span>
+      </div>
+    </div>
+    <div class="header-right">● SYS ONLINE<br><span id="status-text">AWAITING INPUT</span></div>
+  </header>
+
+  <!-- ═══ SCREEN 1: ASSEMBLE THE MOTOR ════════════════ -->
+  <main>
+
+  <div class="screen active" id="screen-1">
+    <div class="sidebar">
+      <div class="sidebar-label">⚙ COMPONENTS</div>
+      <div class="instruction-box">
+        <strong>ACT 1 — ASSEMBLE</strong>
+        Drag each component into its correct slot on the motor frame. Place all 3 parts to complete the circuit!
+      </div>
+      <div class="parts-list" id="parts-1">
+        <div class="part-item" data-part="coil" data-act="1"
+             draggable="true" id="p1-coil">
+          <svg class="part-icon" viewBox="0 0 44 44">
+            <ellipse cx="22" cy="22" rx="18" ry="10" fill="none" stroke="#00fff5" stroke-width="2"/>
+            <ellipse cx="22" cy="19" rx="18" ry="10" fill="rgba(0,20,50,0.8)" stroke="#00fff5" stroke-width="2"/>
+            <ellipse cx="22" cy="16" rx="18" ry="10" fill="rgba(0,20,50,0.8)" stroke="#00fff5" stroke-width="2"/>
+            <ellipse cx="22" cy="13" rx="18" ry="10" fill="rgba(0,20,50,0.8)" stroke="#00fff5" stroke-width="1.5"/>
+            <line x1="4" y1="13" x2="4" y2="22" stroke="#00fff5" stroke-width="1.5"/>
+            <line x1="40" y1="13" x2="40" y2="22" stroke="#00fff5" stroke-width="1.5"/>
+          </svg>
+          <div class="part-info">
+            <div class="part-name">WIRE COIL</div>
+            <div class="part-desc">Copper coil — becomes electromagnet</div>
+          </div>
+        </div>
+        <div class="part-item" data-part="magnet" data-act="1"
+             draggable="true" id="p1-magnet">
+          <svg class="part-icon" viewBox="0 0 44 44">
+            <rect x="4" y="8" width="16" height="28" rx="4" fill="rgba(255,0,110,0.2)" stroke="#ff006e" stroke-width="2"/>
+            <rect x="24" y="8" width="16" height="28" rx="4" fill="rgba(57,255,20,0.2)" stroke="#39ff14" stroke-width="2"/>
+            <text x="12" y="26" text-anchor="middle" fill="#ff006e" font-size="10" font-weight="bold" font-family="monospace">N</text>
+            <text x="32" y="26" text-anchor="middle" fill="#39ff14" font-size="10" font-weight="bold" font-family="monospace">S</text>
+          </svg>
+          <div class="part-info">
+            <div class="part-name">MAGNETS</div>
+            <div class="part-desc">N–S poles create magnetic field</div>
+          </div>
+        </div>
+        <div class="part-item" data-part="battery" data-act="1"
+             draggable="true" id="p1-battery">
+          <svg class="part-icon" viewBox="0 0 44 44">
+            <rect x="6" y="12" width="28" height="20" rx="3" fill="rgba(255,238,0,0.15)" stroke="#ffee00" stroke-width="2"/>
+            <rect x="34" y="17" width="5" height="10" rx="2" fill="#ffee00"/>
+            <line x1="16" y1="19" x2="16" y2="25" stroke="#ffee00" stroke-width="2"/>
+            <line x1="13" y1="22" x2="19" y2="22" stroke="#ffee00" stroke-width="2"/>
+            <line x1="24" y1="20" x2="28" y2="20" stroke="rgba(255,238,0,0.5)" stroke-width="2"/>
+          </svg>
+          <div class="part-info">
+            <div class="part-name">BATTERY</div>
+            <div class="part-desc">Provides electrical energy (EMF)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arena" id="arena-1">
+      <!-- Motor frame SVG -->
+      <svg style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:clamp(280px,50vw,600px);height:clamp(220px,40vh,450px);overflow:visible" viewBox="0 0 500 380" id="motor-frame-1">
+        <!-- Outer housing -->
+        <rect x="80" y="60" width="340" height="260" rx="20" fill="rgba(0,10,30,0.6)" stroke="rgba(0,255,245,0.2)" stroke-width="1.5" stroke-dasharray="6 3"/>
+        <!-- Center shaft -->
+        <line x1="250" y1="30" x2="250" y2="350" stroke="rgba(0,255,245,0.15)" stroke-width="2" stroke-dasharray="4 4"/>
+        <!-- Left bracket -->
+        <path d="M80 120 Q50 190 80 260" fill="none" stroke="rgba(0,255,245,0.25)" stroke-width="2"/>
+        <!-- Right bracket -->
+        <path d="M420 120 Q450 190 420 260" fill="none" stroke="rgba(0,255,245,0.25)" stroke-width="2"/>
+        <!-- Shaft bearing dots -->
+        <circle cx="250" cy="40" r="8" fill="rgba(0,20,50,0.8)" stroke="rgba(0,255,245,0.4)" stroke-width="1.5"/>
+        <circle cx="250" cy="340" r="8" fill="rgba(0,20,50,0.8)" stroke="rgba(0,255,245,0.4)" stroke-width="1.5"/>
+        <!-- Zone outlines (decorative) -->
+        <text x="250" y="22" text-anchor="middle" fill="rgba(0,255,245,0.3)" font-size="10" font-family="monospace">SHAFT</text>
+        <!-- Commutator hint -->
+        <ellipse cx="250" cy="190" rx="25" ry="8" fill="rgba(0,255,245,0.05)" stroke="rgba(0,255,245,0.15)" stroke-width="1"/>
+      </svg>
+
+      <!-- Drop zones -->
+      <div class="drop-zone" id="dz1-coil" data-accept="coil" data-act="1"
+           style="width:clamp(80px,14vw,170px);height:clamp(60px,11vh,130px);top:50%;left:50%;transform:translate(-50%,-50%);">
+        <div class="zone-label">COIL<br>SLOT</div>
+      </div>
+      <div class="drop-zone" id="dz1-magnet" data-accept="magnet" data-act="1"
+           style="width:clamp(55px,9vw,110px);height:clamp(90px,16vh,180px);top:50%;left:18%;transform:translate(-50%,-50%);">
+        <div class="zone-label">MAGNET<br>LEFT</div>
+      </div>
+      <div class="drop-zone" id="dz1-battery" data-accept="battery" data-act="1"
+           style="width:clamp(65px,10vw,120px);height:clamp(40px,7vh,80px);top:82%;left:50%;transform:translate(-50%,-50%);">
+        <div class="zone-label">POWER<br>SOURCE</div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="sidebar-label">⚡ DID YOU KNOW?</div>
+      <div class="fact-box">
+        <span class="fact-head">🔋 ENERGY CONVERSION</span>
+        A motor converts electrical energy into mechanical (movement) energy. Switch ON → things spin!
+      </div>
+      <div class="concept-list">
+        <div class="concept-chip"><strong>⚙ COIL</strong>Wire wound in loops — when current flows, it becomes a temporary magnet.</div>
+        <div class="concept-chip"><strong>🧲 MAGNET</strong>Creates a fixed magnetic field. N and S poles push &amp; pull the coil.</div>
+        <div class="concept-chip"><strong>⚡ BATTERY</strong>Pushes electric current through the coil to start the magic.</div>
+      </div>
+    </div>
+
+    <div class="feedback-bar" id="fb-1"></div>
+  </div>
+
+  <!-- ═══ SCREEN 2: ENERGISE — SHOW ROTATION ══════════ -->
+  <div class="screen" id="screen-2">
+    <div class="sidebar">
+      <div class="sidebar-label">⚙ FORCE ELEMENTS</div>
+      <div class="instruction-box">
+        <strong>ACT 2 — ENERGISE</strong>
+        Drag the Current Flow and Magnetic Force arrows to the correct positions to make the coil spin!
+      </div>
+      <div class="parts-list" id="parts-2">
+        <div class="part-item" data-part="current" data-act="2"
+             draggable="true" id="p2-current">
+          <svg class="part-icon" viewBox="0 0 44 44">
+            <path d="M8 22 Q16 8 22 22 Q28 36 36 22" fill="none" stroke="#00fff5" stroke-width="2.5" stroke-linecap="round"/>
+            <polygon points="36,22 30,18 32,25" fill="#00fff5"/>
+            <circle cx="8" cy="22" r="3" fill="#ffee00"/>
+            <text x="22" y="42" text-anchor="middle" fill="rgba(0,255,245,0.5)" font-size="7" font-family="monospace">CURRENT</text>
+          </svg>
+          <div class="part-info">
+            <div class="part-name">CURRENT FLOW</div>
+            <div class="part-desc">Electric current through the coil wire</div>
+          </div>
+        </div>
+        <div class="part-item" data-part="force" data-act="2"
+             draggable="true" id="p2-force">
+          <svg class="part-icon" viewBox="0 0 44 44">
+            <circle cx="22" cy="22" r="14" fill="rgba(255,0,110,0.1)" stroke="#ff006e" stroke-width="2" stroke-dasharray="4 2"/>
+            <path d="M22 8 L26 16 L22 14 L18 16Z" fill="#ff006e"/>
+            <path d="M36 22 L28 26 L30 22 L28 18Z" fill="#ff006e"/>
+            <path d="M22 36 L18 28 L22 30 L26 28Z" fill="#ff006e"/>
+            <path d="M8 22 L16 18 L14 22 L16 26Z" fill="#ff006e"/>
+            <circle cx="22" cy="22" r="3" fill="#ff006e"/>
+          </svg>
+          <div class="part-info">
+            <div class="part-name">MAGNETIC FORCE</div>
+            <div class="part-desc">Push &amp; pull from the fixed magnets</div>
+          </div>
+        </div>
+        <div class="part-item" data-part="switch" data-act="2"
+             draggable="true" id="p2-switch">
+          <svg class="part-icon" viewBox="0 0 44 44">
+            <rect x="6" y="16" width="32" height="12" rx="6" fill="rgba(57,255,20,0.15)" stroke="#39ff14" stroke-width="2"/>
+            <circle cx="30" cy="22" r="7" fill="rgba(57,255,20,0.3)" stroke="#39ff14" stroke-width="2"/>
+            <circle cx="30" cy="22" r="3" fill="#39ff14"/>
+            <text x="22" y="40" text-anchor="middle" fill="rgba(57,255,20,0.5)" font-size="7" font-family="monospace">ON/OFF</text>
+          </svg>
+          <div class="part-info">
+            <div class="part-name">SWITCH ON</div>
+            <div class="part-desc">Closes the circuit — starts the flow</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arena" id="arena-2">
+      <!-- Motor diagram with rotor -->
+      <svg style="position:absolute;top:50%;left:50%;transform:translate(-50%,-52%);width:clamp(260px,46vw,560px);height:clamp(200px,38vh,440px);overflow:visible" viewBox="0 0 500 400" id="motor-frame-2">
+        <!-- Fixed magnets -->
+        <rect x="40" y="100" width="60" height="200" rx="10" fill="rgba(255,0,110,0.15)" stroke="#ff006e" stroke-width="2"/>
+        <text x="70" y="205" text-anchor="middle" fill="#ff006e" font-size="20" font-weight="bold" font-family="monospace">N</text>
+        <rect x="400" y="100" width="60" height="200" rx="10" fill="rgba(57,255,20,0.15)" stroke="#39ff14" stroke-width="2"/>
+        <text x="430" y="205" text-anchor="middle" fill="#39ff14" font-size="20" font-weight="bold" font-family="monospace">S</text>
+        <!-- Field lines -->
+        <path d="M100 150 Q250 130 400 150" fill="none" stroke="rgba(255,200,0,0.15)" stroke-width="1" stroke-dasharray="6 3"/>
+        <path d="M100 200 Q250 180 400 200" fill="none" stroke="rgba(255,200,0,0.2)" stroke-width="1.5" stroke-dasharray="6 3"/>
+        <path d="M100 250 Q250 270 400 250" fill="none" stroke="rgba(255,200,0,0.15)" stroke-width="1" stroke-dasharray="6 3"/>
+        <!-- Rotor group -->
+        <g id="rotor" transform="translate(250,200)">
+          <rect x="-70" y="-12" width="140" height="24" rx="5" fill="rgba(0,100,200,0.3)" stroke="#00fff5" stroke-width="2"/>
+          <rect x="-12" y="-70" width="24" height="140" rx="5" fill="rgba(0,100,200,0.3)" stroke="#00fff5" stroke-width="2"/>
+          <circle cx="0" cy="0" r="20" fill="rgba(0,20,60,0.9)" stroke="#00fff5" stroke-width="2"/>
+          <circle cx="0" cy="0" r="6" fill="#00fff5"/>
+          <!-- Coil decorations -->
+          <ellipse cx="50" cy="0" rx="12" ry="6" fill="none" stroke="rgba(0,255,245,0.5)" stroke-width="1.5"/>
+          <ellipse cx="-50" cy="0" rx="12" ry="6" fill="none" stroke="rgba(0,255,245,0.5)" stroke-width="1.5"/>
+        </g>
+        <!-- Commutator -->
+        <rect x="230" y="255" width="40" height="16" rx="4" fill="rgba(255,180,0,0.2)" stroke="rgba(255,180,0,0.5)" stroke-width="1.5"/>
+        <!-- Brushes -->
+        <rect x="222" y="260" width="12" height="8" rx="2" fill="rgba(180,100,0,0.4)" stroke="rgba(255,180,0,0.5)" stroke-width="1"/>
+        <rect x="266" y="260" width="12" height="8" rx="2" fill="rgba(180,100,0,0.4)" stroke="rgba(255,180,0,0.5)" stroke-width="1"/>
+      </svg>
+
+      <!-- Drop zones for act 2 -->
+      <div class="drop-zone" id="dz2-current" data-accept="current" data-act="2"
+           style="width:clamp(55px,8vw,95px);height:clamp(55px,9vh,100px);top:35%;left:50%;transform:translate(-50%,-50%);">
+        <div class="zone-label">CURRENT<br>PATH</div>
+      </div>
+      <div class="drop-zone" id="dz2-force" data-accept="force" data-act="2"
+           style="width:clamp(55px,8vw,95px);height:clamp(55px,9vh,100px);top:65%;left:50%;transform:translate(-50%,-50%);">
+        <div class="zone-label">FORCE<br>ZONE</div>
+      </div>
+      <div class="drop-zone" id="dz2-switch" data-accept="switch" data-act="2"
+           style="width:clamp(55px,7vw,85px);height:clamp(40px,7vh,80px);top:84%;left:50%;transform:translate(-50%,-50%);">
+        <div class="zone-label">SWITCH</div>
+      </div>
+
+      <!-- Rotation ring (hidden till filled) -->
+      <div id="rotation-ring" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-54%);width:clamp(60px,10vw,120px);height:clamp(60px,10vw,120px);border-radius:50%;border:2px dashed rgba(0,255,245,0.15);display:none;"></div>
+    </div>
+
+    <div class="right-panel">
+      <div class="sidebar-label">⚡ HOW IT WORKS</div>
+      <div class="fact-box">
+        <span class="fact-head">🔄 FLEMINGS RULE</span>
+        Current in a magnetic field creates a force — and that force causes ROTATION!
+      </div>
+      <div class="concept-list">
+        <div class="concept-chip"><strong>〰 CURRENT</strong>Electricity flows through the coil, making it an electromagnet.</div>
+        <div class="concept-chip"><strong>↕ FORCE</strong>The magnetic field pushes and pulls the coil causing it to spin.</div>
+        <div class="concept-chip"><strong>⚙ COMMUTATOR</strong>Flips current direction every half turn — keeps the spin going!</div>
+      </div>
+    </div>
+
+    <div class="feedback-bar" id="fb-2"></div>
+  </div>
+
+  <!-- ═══ SCREEN 3: HOMOPOLAR MOTOR ════════════════════ -->
+  <div class="screen" id="screen-3">
+    <div class="sidebar">
+      <div class="sidebar-label">⚙ BUILD KIT</div>
+      <div class="instruction-box">
+        <strong>ACT 3 — BUILD</strong>
+        Arrange the homopolar motor setup! Place the neodymium magnet, battery, and wire into the correct positions.
+      </div>
+      <div class="parts-list" id="parts-3">
+        <div class="part-item" data-part="neo-magnet" data-act="3"
+             draggable="true" id="p3-neomagnet">
+          <svg class="part-icon" viewBox="0 0 44 44">
+            <circle cx="22" cy="22" r="16" fill="rgba(191,0,255,0.2)" stroke="#bf00ff" stroke-width="2"/>
+            <circle cx="22" cy="22" r="10" fill="rgba(191,0,255,0.15)" stroke="#bf00ff" stroke-width="1.5" stroke-dasharray="3 2"/>
+            <circle cx="22" cy="22" r="4" fill="#bf00ff"/>
+            <text x="22" y="43" text-anchor="middle" fill="rgba(191,0,255,0.6)" font-size="7" font-family="monospace">NEO</text>
+          </svg>
+          <div class="part-info">
+            <div class="part-name">NEO MAGNET</div>
+            <div class="part-desc">Neodymium — ultra-strong disc magnet</div>
+          </div>
+        </div>
+        <div class="part-item" data-part="aa-battery" data-act="3"
+             draggable="true" id="p3-battery">
+          <svg class="part-icon" viewBox="0 0 44 44">
+            <rect x="14" y="8" width="16" height="30" rx="4" fill="rgba(255,238,0,0.2)" stroke="#ffee00" stroke-width="2"/>
+            <rect x="17" y="5" width="10" height="5" rx="2" fill="#ffee00"/>
+            <line x1="22" y1="17" x2="22" y2="22" stroke="#ffee00" stroke-width="2"/>
+            <line x1="19" y1="19.5" x2="25" y2="19.5" stroke="#ffee00" stroke-width="2"/>
+            <line x1="19" y1="27" x2="25" y2="27" stroke="#ffee00" stroke-width="1.5"/>
+          </svg>
+          <div class="part-info">
+            <div class="part-name">AA BATTERY</div>
+            <div class="part-desc">Stands upright — positive tip UP</div>
+          </div>
+        </div>
+        <div class="part-item" data-part="copper-wire" data-act="3"
+             draggable="true" id="p3-wire">
+          <svg class="part-icon" viewBox="0 0 44 44">
+            <path d="M8 10 Q22 6 36 10 L38 34 Q22 38 6 34 Z" fill="rgba(255,107,0,0.15)" stroke="#ff6b00" stroke-width="2" fill-rule="evenodd"/>
+            <path d="M22 6 L22 38" stroke="#ff6b00" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.5"/>
+            <path d="M8 10 L22 22 L36 10" fill="none" stroke="#ff6b00" stroke-width="2"/>
+            <text x="22" y="43" text-anchor="middle" fill="rgba(255,107,0,0.6)" font-size="7" font-family="monospace">WIRE</text>
+          </svg>
+          <div class="part-info">
+            <div class="part-name">COPPER WIRE</div>
+            <div class="part-desc">Bent to hang and touch battery &amp; magnet</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arena" id="arena-3">
+      <!-- Homopolar motor diagram -->
+      <svg style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:clamp(240px,40vw,500px);height:clamp(200px,38vh,420px);overflow:visible" viewBox="0 0 440 380" id="motor-frame-3">
+        <!-- Table surface -->
+        <rect x="60" y="300" width="320" height="14" rx="4" fill="rgba(0,30,60,0.8)" stroke="rgba(0,255,245,0.15)" stroke-width="1"/>
+        <!-- Battery outline (placeholder) -->
+        <rect x="195" y="140" width="50" height="160" rx="10" fill="rgba(0,10,25,0.6)" stroke="rgba(255,238,0,0.2)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <text x="220" y="228" text-anchor="middle" fill="rgba(255,238,0,0.25)" font-size="11" font-family="monospace">BATTERY</text>
+        <!-- Magnet base outline -->
+        <ellipse cx="220" cy="300" rx="50" ry="10" fill="rgba(0,10,25,0.6)" stroke="rgba(191,0,255,0.2)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <text x="220" y="302" text-anchor="middle" fill="rgba(191,0,255,0.25)" font-size="10" font-family="monospace">MAGNET</text>
+        <!-- Wire hint arcs -->
+        <path d="M220 135 Q330 200 220 300 Q110 200 220 135" fill="none" stroke="rgba(255,107,0,0.12)" stroke-width="2" stroke-dasharray="8 4"/>
+        <!-- Labels -->
+        <text x="350" y="200" fill="rgba(0,255,245,0.3)" font-size="10" font-family="monospace">+ TIP</text>
+        <text x="350" y="295" fill="rgba(191,0,255,0.3)" font-size="10" font-family="monospace">BASE</text>
+        <line x1="345" y1="195" x2="250" y2="142" stroke="rgba(0,255,245,0.15)" stroke-width="1" stroke-dasharray="3 3"/>
+        <line x1="345" y1="290" x2="272" y2="295" stroke="rgba(191,0,255,0.15)" stroke-width="1" stroke-dasharray="3 3"/>
+        <!-- Spin arrows (hidden) -->
+        <g id="spin-arrows" opacity="0">
+          <path d="M175 218 Q160 190 175 162" fill="none" stroke="#ff6b00" stroke-width="2" marker-end="url(#arr)"/>
+          <path d="M265 218 Q280 190 265 162" fill="none" stroke="#ff6b00" stroke-width="2"/>
+          <path d="M175 218 Q160 246 175 274" fill="none" stroke="#ff6b00" stroke-width="2"/>
+          <path d="M265 218 Q280 246 265 274" fill="none" stroke="#ff6b00" stroke-width="2" marker-end="url(#arr)"/>
+        </g>
+        <defs>
+          <marker id="arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+            <path d="M0 0L6 3L0 6Z" fill="#ff6b00"/>
+          </marker>
+        </defs>
+      </svg>
+
+      <!-- Drop zones for act 3 -->
+      <div class="drop-zone" id="dz3-neo-magnet" data-accept="neo-magnet" data-act="3"
+           style="width:clamp(65px,10vw,110px);height:clamp(28px,4.5vh,50px);top:79%;left:50%;transform:translate(-50%,-50%);">
+        <div class="zone-label">MAGNET BASE</div>
+      </div>
+      <div class="drop-zone" id="dz3-aa-battery" data-accept="aa-battery" data-act="3"
+           style="width:clamp(40px,5.5vw,65px);height:clamp(70px,13vh,150px);top:52%;left:50%;transform:translate(-50%,-50%);">
+        <div class="zone-label">BATTERY<br>SLOT</div>
+      </div>
+      <div class="drop-zone" id="dz3-copper-wire" data-accept="copper-wire" data-act="3"
+           style="width:clamp(80px,13vw,155px);height:clamp(90px,16vh,170px);top:52%;left:50%;transform:translate(-50%,-50%);border-radius:50%;opacity:0.7;">
+        <div class="zone-label">WIRE<br>LOOP</div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="sidebar-label">⚡ FUN FACTS</div>
+      <div class="fact-box">
+        <span class="fact-head">🌀 HOMOPOLAR MOTOR</span>
+        The simplest electric motor ever! Invented in 1821 by Michael Faraday using just a wire, battery &amp; magnet.
+      </div>
+      <div class="concept-list">
+        <div class="concept-chip"><strong>💜 NEO MAGNET</strong>Super-strong neodymium magnet sticks to battery base and creates the field.</div>
+        <div class="concept-chip"><strong>🔋 AA BATTERY</strong>Stands upright — current flows from positive tip down through the wire.</div>
+        <div class="concept-chip"><strong>🔶 COPPER WIRE</strong>Touches both battery tip and magnet edge — it spins due to the Lorentz force!</div>
+      </div>
+    </div>
+
+    <div class="feedback-bar" id="fb-3"></div>
+  </div>
+
+  </main>
+
+  <!-- Ticker -->
+  <div class="ticker">
+    <div class="ticker-inner" id="ticker-text">
+      ⚡ ELECTRIC MOTOR — Converting electricity into mechanical motion since 1821 &nbsp;|&nbsp;
+      🔋 A motor uses: MAGNET + COIL OF WIRE + POWER SOURCE &nbsp;|&nbsp;
+      🌀 Ceiling fan, mixer-grinder, water pump, toy car — ALL run on electric motors &nbsp;|&nbsp;
+      🧲 Like poles REPEL — unlike poles ATTRACT — this push-pull SPINS the coil &nbsp;|&nbsp;
+      ⚡ COMMUTATOR flips current direction every half turn to keep rotation going &nbsp;|&nbsp;
+      🚇 Delhi Metro, Ola Electric, E-auto — all powered by electric motors! &nbsp;|&nbsp;
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══ POPUP OVERLAY ═════════════════════════════════════ -->
+<div id="popup-overlay">
+  <div class="popup-card" id="popup-card">
+    <div class="popup-icon" id="popup-icon">⚡</div>
+    <div class="popup-title" id="popup-title">TITLE</div>
+    <div class="popup-subtitle" id="popup-subtitle">Subtitle</div>
+    <div class="popup-fact" id="popup-fact" style="display:none"></div>
+    <div class="popup-stars" id="popup-stars" style="display:none"></div>
+    <button class="popup-btn" id="popup-btn" onclick="popupAction()">CONTINUE</button>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   BACKGROUND CANVAS — animated circuit lines & energy pulses
+════════════════════════════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [], lines = [];
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    initLines();
+  }
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  function initLines() {
+    lines = [];
+    const count = Math.floor(W / 120);
+    for (let i = 0; i < count; i++) {
+      lines.push({
+        x: rand(0, W), y: rand(0, H),
+        dx: rand(-0.3, 0.3), dy: rand(-0.2, 0.2),
+        len: rand(60, 200),
+        angle: rand(0, Math.PI * 2),
+        color: ['#00fff5','#ff006e','#bf00ff','#39ff14','#ffee00'][Math.floor(rand(0,5))],
+        alpha: rand(0.03, 0.1),
+        speed: rand(0.002, 0.008),
+        pulse: rand(0, Math.PI * 2),
+      });
+    }
+    // Floating particles
+    particles = [];
+    for (let i = 0; i < 40; i++) {
+      particles.push({
+        x: rand(0, W), y: rand(0, H),
+        r: rand(1, 3),
+        color: ['#00fff5','#ff006e','#ffee00','#39ff14'][Math.floor(rand(0,4))],
+        alpha: rand(0.1, 0.4),
+        vx: rand(-0.4, 0.4), vy: rand(-0.4, 0.4),
+        phase: rand(0, Math.PI * 2),
+      });
+    }
+  }
+
+  let t = 0;
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    t += 0.008;
+
+    // Draw flowing energy lines
+    for (const l of lines) {
+      l.pulse += l.speed;
+      l.x += l.dx; l.y += l.dy;
+      if (l.x < -200) l.x = W + 200;
+      if (l.x > W + 200) l.x = -200;
+      if (l.y < -200) l.y = H + 200;
+      if (l.y > H + 200) l.y = -200;
+      const alpha = l.alpha * (0.5 + 0.5 * Math.sin(l.pulse));
+      ctx.save();
+      ctx.translate(l.x, l.y);
+      ctx.rotate(l.angle + Math.sin(l.pulse) * 0.2);
+      const grad = ctx.createLinearGradient(-l.len/2, 0, l.len/2, 0);
+      grad.addColorStop(0, 'transparent');
+      grad.addColorStop(0.5, l.color);
+      grad.addColorStop(1, 'transparent');
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-l.len/2, 0);
+      ctx.lineTo(l.len/2, 0);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Draw particles
+    for (const p of particles) {
+      p.phase += 0.02;
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+      ctx.globalAlpha = p.alpha * (0.5 + 0.5 * Math.sin(p.phase));
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Draw circuit nodes
+    ctx.globalAlpha = 0.06 + 0.03 * Math.sin(t);
+    ctx.strokeStyle = '#00fff5';
+    ctx.lineWidth = 0.5;
+    const step = 96;
+    for (let x = 0; x < W; x += step) {
+      for (let y = 0; y < H; y += step) {
+        if (Math.random() < 0.002) {
+          ctx.beginPath();
+          ctx.arc(x, y, 2, 0, Math.PI * 2);
+          ctx.fillStyle = '#00fff5';
+          ctx.globalAlpha = 0.15;
+          ctx.fill();
+        }
+      }
+    }
+
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  draw();
+})();
+
+/* ════════════════════════════════════════════════════════════════
+   APP STATE
+════════════════════════════════════════════════════════════════ */
+const state = {
+  currentAct: 1,
+  placements: { 1: {}, 2: {}, 3: {} },
+  required: {
+    1: ['coil','magnet','battery'],
+    2: ['current','force','switch'],
+    3: ['neo-magnet','aa-battery','copper-wire']
+  }
+};
+
+/* ════════════════════════════════════════════════════════════════
+   DRAG & DROP SYSTEM
+════════════════════════════════════════════════════════════════ */
+let dragging = null;
+let dragData = null;
+const ghost = document.getElementById('drag-ghost');
+
+function initDrag() {
+  document.querySelectorAll('.part-item').forEach(el => {
+    el.addEventListener('mousedown', startDrag);
+    el.addEventListener('touchstart', startDragTouch, {passive:false});
+  });
+  document.addEventListener('mousemove', onDrag);
+  document.addEventListener('mouseup', endDrag);
+  document.addEventListener('touchmove', onDragTouch, {passive:false});
+  document.addEventListener('touchend', endDragTouch);
+}
+
+function startDrag(e) {
+  const item = e.currentTarget;
+  if (item.classList.contains('used')) return;
+  dragData = { part: item.dataset.part, act: parseInt(item.dataset.act), sourceEl: item };
+  dragging = true;
+  ghost.innerHTML = item.querySelector('svg').outerHTML;
+  ghost.style.display = 'block';
+  ghost.style.width = '52px'; ghost.style.height = '52px';
+  moveDrag(e.clientX, e.clientY);
+  e.preventDefault();
+}
+
+function startDragTouch(e) {
+  const touch = e.touches[0];
+  startDrag({ currentTarget: e.currentTarget, clientX: touch.clientX, clientY: touch.clientY, preventDefault: ()=>e.preventDefault() });
+}
+
+function moveDrag(x, y) {
+  ghost.style.left = x + 'px';
+  ghost.style.top  = y + 'px';
+  highlightZone(x, y);
+}
+
+function onDrag(e) { if (dragging) moveDrag(e.clientX, e.clientY); }
+function onDragTouch(e) { if (dragging) { const t = e.touches[0]; moveDrag(t.clientX, t.clientY); e.preventDefault(); } }
+
+function highlightZone(x, y) {
+  document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('hover'));
+  const zone = getZoneAt(x, y);
+  if (zone) zone.classList.add('hover');
+}
+
+function getZoneAt(x, y) {
+  const zones = document.querySelectorAll(`#screen-${state.currentAct} .drop-zone`);
+  for (const z of zones) {
+    const r = z.getBoundingClientRect();
+    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return z;
+  }
+  return null;
+}
+
+function endDrag(e) {
+  if (!dragging) return;
+  ghost.style.display = 'none';
+  dragging = false;
+  document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('hover'));
+  const zone = getZoneAt(e.clientX, e.clientY);
+  handleDrop(zone);
+}
+
+function endDragTouch(e) {
+  if (!dragging) return;
+  ghost.style.display = 'none';
+  dragging = false;
+  document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('hover'));
+  const t = e.changedTouches[0];
+  const zone = getZoneAt(t.clientX, t.clientY);
+  handleDrop(zone);
+}
+
+function handleDrop(zone) {
+  if (!zone || !dragData) return;
+  const accept  = zone.dataset.accept;
+  const actZone = parseInt(zone.dataset.act);
+  if (actZone !== state.currentAct) return;
+
+  if (accept === dragData.part && !zone.classList.contains('filled')) {
+    // Correct placement
+    placePart(zone, dragData);
+    dragData.sourceEl.classList.add('used');
+    state.placements[state.currentAct][dragData.part] = true;
+    checkComplete(state.currentAct);
+    showFeedback(state.currentAct, getFeedbackMsg(dragData.part), 'success');
+  } else if (zone.classList.contains('filled')) {
+    showFeedback(state.currentAct, 'SLOT ALREADY OCCUPIED', 'error');
+  } else {
+    zone.classList.add('wrong');
+    setTimeout(() => zone.classList.remove('wrong'), 500);
+    showFeedback(state.currentAct, 'WRONG POSITION — Try a different slot!', 'error');
+  }
+  dragData = null;
+}
+
+function getFeedbackMsg(part) {
+  const msgs = {
+    coil: '✓ COIL PLACED — Electromagnet ready!',
+    magnet: '✓ MAGNETS SET — Magnetic field active!',
+    battery: '✓ POWER CONNECTED — Circuit closed!',
+    current: '✓ CURRENT FLOWING — Coil energised!',
+    force: '✓ MAGNETIC FORCE APPLIED — Rotation begins!',
+    switch: '✓ SWITCH ON — Motor running!',
+    'neo-magnet': '✓ NEO MAGNET PLACED — Strong field ready!',
+    'aa-battery': '✓ BATTERY STANDING — Current ready!',
+    'copper-wire': '✓ WIRE PLACED — Lorentz force engaged!',
+  };
+  return msgs[part] || '✓ PLACED!';
+}
+
+function placePart(zone, data) {
+  zone.classList.add('filled');
+  const icon = data.sourceEl.querySelector('svg').cloneNode(true);
+  icon.style.width = '100%'; icon.style.height = '100%';
+  const wrap = document.createElement('div');
+  wrap.className = 'placed-part';
+  wrap.appendChild(icon);
+  const tick = document.createElement('div');
+  tick.className = 'check-mark'; tick.textContent = '✓';
+  wrap.appendChild(tick);
+  zone.innerHTML = '';
+  zone.appendChild(wrap);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   COMPLETION CHECKS
+════════════════════════════════════════════════════════════════ */
+function checkComplete(act) {
+  const required = state.required[act];
+  const placed   = state.placements[act];
+  const done     = required.every(k => placed[k]);
+  if (!done) return;
+
+  // Trigger act-specific visual effects
+  if (act === 2) triggerRotorSpin();
+  if (act === 3) triggerHomopolarSpin();
+
+  setTimeout(() => showCompletionPopup(act), 800);
+}
+
+function triggerRotorSpin() {
+  const rotor = document.getElementById('rotor');
+  if (rotor) {
+    rotor.style.transformOrigin = '250px 200px';
+    rotor.style.animation = 'rotorSpin 1.0s linear infinite';
+  }
+  const ring = document.getElementById('rotation-ring');
+  if (ring) { ring.style.display = 'block'; ring.style.animation = 'ringRotate 3s linear infinite'; }
+  document.getElementById('status-text').textContent = 'MOTOR SPINNING ⚡';
+}
+
+function triggerHomopolarSpin() {
+  const arrows = document.getElementById('spin-arrows');
+  if (arrows) { arrows.style.opacity = '1'; arrows.style.animation = 'forceArrow 1s ease-in-out infinite alternate'; }
+  document.getElementById('status-text').textContent = 'WIRE SPINNING ⚡';
+}
+
+/* ════════════════════════════════════════════════════════════════
+   FEEDBACK BAR
+════════════════════════════════════════════════════════════════ */
+let fbTimer = null;
+function showFeedback(act, msg, type) {
+  const bar = document.getElementById(`fb-${act}`);
+  if (!bar) return;
+  bar.textContent = msg;
+  bar.className = `feedback-bar show ${type}`;
+  clearTimeout(fbTimer);
+  fbTimer = setTimeout(() => bar.classList.remove('show'), 2200);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   POPUP SYSTEM
+════════════════════════════════════════════════════════════════ */
+const POPUP_DATA = {
+  1: {
+    icon: '🧲',
+    title: 'MOTOR ASSEMBLED!',
+    subtitle: 'Outstanding! You\'ve placed the three core parts: Wire Coil, Magnets, and Battery. Together they form the heart of every electric motor!',
+    fact: '⚡ FUN FACT: The ceiling fan in your home spins about 400 times every minute — all because of this exact setup!',
+    btnText: 'ACT 2: ENERGISE →',
+    type: 'progress'
+  },
+  2: {
+    icon: '🔄',
+    title: 'ROTATION ENGAGED!',
+    subtitle: 'Brilliant! You\'ve simulated how current flow and magnetic force combine to create continuous rotation — the core principle of every electric motor!',
+    fact: '🌀 FUN FACT: A mixer-grinder motor spins 18,000 times per minute! That\'s why it can grind coconut chutney in seconds.',
+    btnText: 'ACT 3: BUILD →',
+    type: 'progress'
+  },
+  3: {
+    icon: '🏆',
+    title: 'MISSION COMPLETE!',
+    subtitle: 'You\'ve built a homopolar motor — the simplest electric motor in the world, invented by Michael Faraday in 1821! The copper wire spins due to the Lorentz force between the current and the magnetic field.',
+    fact: '🚇 FUN FACT: Delhi Metro, Mumbai Metro, and every electric vehicle on Indian roads — all run on this same principle you just mastered!',
+    btnText: null,
+    type: 'final'
+  }
+};
+
+let popupActionFn = null;
+
+function showCompletionPopup(act) {
+  const d = POPUP_DATA[act];
+  const overlay = document.getElementById('popup-overlay');
+  const card    = document.getElementById('popup-card');
+
+  document.getElementById('popup-icon').textContent   = d.icon;
+  document.getElementById('popup-title').textContent  = d.title;
+  document.getElementById('popup-subtitle').textContent = d.subtitle;
+
+  const factEl  = document.getElementById('popup-fact');
+  const starsEl = document.getElementById('popup-stars');
+  const btnEl   = document.getElementById('popup-btn');
+
+  factEl.textContent = d.fact;
+  factEl.style.display = 'block';
+
+  if (d.type === 'final') {
+    starsEl.innerHTML = '⭐⭐⭐';
+    starsEl.style.display = 'flex';
+    btnEl.textContent = '🎉 CELEBRATE!';
+    btnEl.className = 'popup-btn success-btn';
+    popupActionFn = showFinalCelebration;
+  } else {
+    starsEl.style.display = 'none';
+    btnEl.textContent = d.btnText;
+    btnEl.className = 'popup-btn';
+    const nextAct = act + 1;
+    popupActionFn = () => goToAct(nextAct);
+  }
+
+  // Rebuild card to retrigger animation
+  card.style.animation = 'none';
+  card.offsetHeight;
+  card.style.animation = 'popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+
+  overlay.classList.add('show');
+}
+
+function popupAction() {
+  document.getElementById('popup-overlay').classList.remove('show');
+  if (popupActionFn) { setTimeout(popupActionFn, 300); }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   NAVIGATION
+════════════════════════════════════════════════════════════════ */
+function goToAct(n) {
+  // Mark previous done
+  const prevProg = document.getElementById(`prog-${state.currentAct}`);
+  if (prevProg) { prevProg.classList.remove('active'); prevProg.classList.add('done'); }
+
+  // Hide current screen
+  document.getElementById(`screen-${state.currentAct}`).classList.remove('active');
+
+  // Show next
+  state.currentAct = n;
+  document.getElementById(`screen-${n}`).classList.add('active');
+
+  // Update progress
+  const prog = document.getElementById(`prog-${n}`);
+  if (prog) prog.classList.add('active');
+
+  document.getElementById('status-text').textContent = `ACT ${n} ACTIVE`;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   FINAL CELEBRATION
+════════════════════════════════════════════════════════════════ */
+function showFinalCelebration() {
+  // Confetti burst
+  const colors = ['#00fff5','#ff006e','#ffee00','#39ff14','#bf00ff','#ff6b00'];
+  for (let i = 0; i < 80; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti-piece';
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.top = '-10px';
+    c.style.background = colors[Math.floor(Math.random() * colors.length)];
+    c.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    c.style.width = (6 + Math.random() * 8) + 'px';
+    c.style.height = (6 + Math.random() * 8) + 'px';
+    c.style.animationDuration = (2 + Math.random() * 3) + 's';
+    c.style.animationDelay = (Math.random() * 1.5) + 's';
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 6000);
+  }
+
+  // Final popup
+  const overlay = document.getElementById('popup-overlay');
+  const card    = document.getElementById('popup-card');
+
+  document.getElementById('popup-icon').innerHTML = '🎓⚡🏆';
+  document.getElementById('popup-title').textContent = 'YOU ARE AN ELECTRO-ENGINEER!';
+  document.getElementById('popup-subtitle').innerHTML =
+    'You assembled a motor, simulated electromagnetic rotation, and built a homopolar motor. ' +
+    'Every fan, train, mixer, and electric vehicle in India runs on these exact principles.<br><br>' +
+    '<strong style="color:var(--neon-yellow)">Magnet + Coil + Current = MOTION ⚡</strong>';
+  document.getElementById('popup-fact').textContent = '🌟 From Faraday\'s 1821 discovery to today\'s Delhi Metro — electric motors power our world!';
+  document.getElementById('popup-stars').innerHTML = '⭐⭐⭐⭐⭐';
+  document.getElementById('popup-stars').style.display = 'flex';
+
+  const btn = document.getElementById('popup-btn');
+  btn.textContent = '🔄 PLAY AGAIN';
+  btn.className = 'popup-btn success-btn';
+  popupActionFn = () => location.reload();
+
+  card.style.animation = 'none';
+  card.offsetHeight;
+  card.style.animation = 'popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+  overlay.classList.add('show');
+
+  // Mark act 3 done
+  const p3 = document.getElementById('prog-3');
+  if (p3) { p3.classList.remove('active'); p3.classList.add('done'); }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TITLE → APP
+════════════════════════════════════════════════════════════════ */
+function startApp() {
+  const ts = document.getElementById('title-screen');
+  ts.style.opacity = '0';
+  ts.style.pointerEvents = 'none';
+  setTimeout(() => { ts.style.display = 'none'; }, 600);
+  document.getElementById('app').style.display = 'flex';
+  initDrag();
+  // Show opening popup
+  setTimeout(() => {
+    showInfoPopup(
+      '⚡',
+      'WELCOME TO ELECTRO LAB',
+      'You\'ll complete 3 hands-on challenges to discover how electric motors work — the machines that power EVERYTHING around us!',
+      'ACT 1: Assemble the basic motor parts. Drag each component into its correct position.',
+      'BEGIN ACT 1 ⚡'
+    );
+  }, 400);
+}
+
+function showInfoPopup(icon, title, sub, fact, btnTxt) {
+  document.getElementById('popup-icon').textContent   = icon;
+  document.getElementById('popup-title').textContent  = title;
+  document.getElementById('popup-subtitle').textContent = sub;
+  document.getElementById('popup-fact').textContent   = fact;
+  document.getElementById('popup-fact').style.display = 'block';
+  document.getElementById('popup-stars').style.display = 'none';
+  const btn = document.getElementById('popup-btn');
+  btn.textContent = btnTxt;
+  btn.className = 'popup-btn';
+  popupActionFn = () => {};
+  const card = document.getElementById('popup-card');
+  card.style.animation = 'none'; card.offsetHeight;
+  card.style.animation = 'popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+  document.getElementById('popup-overlay').classList.add('show');
+}
+</script>
+</body>
+</html>

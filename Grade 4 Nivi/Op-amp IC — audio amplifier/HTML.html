@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>OP-AMP IC — AUDIO AMPLIFIER</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Rajdhani:wght@400;600;700&display=swap');
+
+  :root {
+    --lava-red: #ff2200;
+    --lava-orange: #ff6600;
+    --lava-yellow: #ffcc00;
+    --lava-deep: #8b1a00;
+    --lava-dark: #1a0500;
+    --rock-dark: #1c1208;
+    --rock-mid: #2e1f0a;
+    --rock-light: #4a3015;
+    --glow-orange: rgba(255,102,0,0.6);
+    --glow-yellow: rgba(255,200,0,0.4);
+    --text-bright: #fff5e0;
+    --text-gold: #ffcc00;
+    --text-ember: #ff8844;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    font-family: 'Rajdhani', sans-serif;
+    background: #0d0200;
+    color: var(--text-bright);
+    user-select: none;
+  }
+
+  /* ─── CANVAS BACKGROUND ─── */
+  #bg-canvas {
+    position: fixed; inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  /* ─── LAVA FLOW LAYERS ─── */
+  .lava-bg {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    overflow: hidden;
+  }
+  .lava-river {
+    position: absolute; bottom: 0; left: -10%;
+    width: 120%; height: 22%;
+    background: linear-gradient(180deg,
+      transparent 0%,
+      #8b1a00 20%,
+      #cc3300 45%,
+      #ff5500 65%,
+      #ff8800 85%,
+      #ffcc00 100%);
+    border-radius: 60% 60% 0 0 / 40% 40% 0 0;
+    animation: lavaFlow 6s ease-in-out infinite alternate;
+    opacity: 0.85;
+    filter: blur(1px);
+  }
+  .lava-river::before {
+    content:'';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      90deg,
+      transparent 0%, transparent 18%,
+      rgba(255,180,0,0.25) 20%, rgba(255,180,0,0.25) 22%,
+      transparent 24%
+    );
+    animation: lavaStreak 3s linear infinite;
+  }
+  .lava-river-2 {
+    position: absolute; bottom: 0; right: -5%;
+    width: 55%; height: 14%;
+    background: linear-gradient(180deg, transparent, #8b1a00 30%, #ff4400 70%, #ff8800 100%);
+    border-radius: 70% 30% 0 0 / 50% 50% 0 0;
+    animation: lavaFlow2 8s ease-in-out infinite alternate;
+    opacity: 0.7;
+    filter: blur(1.5px);
+  }
+  @keyframes lavaFlow {
+    0%  { transform: scaleY(1) translateX(0); }
+    50% { transform: scaleY(1.06) translateX(1%); }
+    100%{ transform: scaleY(0.95) translateX(-1%); }
+  }
+  @keyframes lavaFlow2 {
+    0%  { transform: scaleY(1) translateX(0); height: 14%; }
+    100%{ transform: scaleY(1.1) translateX(-2%); height: 17%; }
+  }
+  @keyframes lavaStreak {
+    0%  { background-position: 0 0; }
+    100%{ background-position: 100px 0; }
+  }
+
+  /* Rock formations */
+  .rock-left {
+    position: fixed; left: 0; bottom: 0; width: 13vw; height: 55vh;
+    background: linear-gradient(160deg, #2e1a06 0%, #1a0d02 60%, #0d0200 100%);
+    clip-path: polygon(0 100%, 0 40%, 20% 15%, 40% 30%, 60% 8%, 80% 25%, 100% 0%, 100% 100%);
+    z-index: 2;
+    filter: drop-shadow(4px 0 12px rgba(255,80,0,0.4));
+  }
+  .rock-right {
+    position: fixed; right: 0; bottom: 0; width: 13vw; height: 50vh;
+    background: linear-gradient(200deg, #2e1a06 0%, #1a0d02 60%, #0d0200 100%);
+    clip-path: polygon(0 0%, 20% 20%, 40% 5%, 60% 25%, 80% 10%, 100% 30%, 100% 100%, 0 100%);
+    z-index: 2;
+    filter: drop-shadow(-4px 0 12px rgba(255,80,0,0.4));
+  }
+  .rock-crack-left {
+    position: fixed; left: 2vw; bottom: 10vh; width: 8vw; height: 30vh;
+    background: linear-gradient(to right, transparent 40%, rgba(255,80,0,0.6) 50%, transparent 60%);
+    z-index: 3; pointer-events: none;
+    animation: crackGlow 2s ease-in-out infinite alternate;
+  }
+  @keyframes crackGlow {
+    0%  { opacity: 0.5; }
+    100%{ opacity: 1; }
+  }
+
+  /* Heat shimmer overlay */
+  .heat-shimmer {
+    position: fixed; inset: 0; z-index: 4; pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent 0px, transparent 3px,
+      rgba(255,100,0,0.015) 3px, rgba(255,100,0,0.015) 4px
+    );
+    animation: shimmer 0.15s steps(2) infinite;
+  }
+  @keyframes shimmer {
+    0%  { transform: translateY(0); }
+    100%{ transform: translateY(2px); }
+  }
+
+  /* ─── PARTICLES CONTAINER ─── */
+  #particles { position: fixed; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
+  .ember {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff8aa, #ff6600, transparent);
+    animation: floatEmber linear infinite;
+    pointer-events: none;
+  }
+  @keyframes floatEmber {
+    0%   { transform: translateY(0) translateX(0) scale(1); opacity: 0.9; }
+    50%  { transform: translateY(-40vh) translateX(var(--drift)) scale(0.7); opacity: 0.8; }
+    100% { transform: translateY(-90vh) translateX(var(--drift2)) scale(0.1); opacity: 0; }
+  }
+  .lava-drop {
+    position: absolute;
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    background: radial-gradient(circle at 40% 30%, #ffcc00, #ff4400, #8b1a00);
+    animation: lavaDrop linear infinite;
+    pointer-events: none;
+    box-shadow: 0 0 6px 2px rgba(255,100,0,0.8);
+  }
+  @keyframes lavaDrop {
+    0%  { transform: translateY(-10px) scale(1); opacity: 1; }
+    80% { opacity: 0.9; }
+    100%{ transform: translateY(100vh) scale(0.4); opacity: 0; }
+  }
+
+  /* ─── MAIN LAYOUT ─── */
+  #app {
+    position: relative; z-index: 10;
+    width: 100vw; height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center;
+  }
+
+  /* ─── HEADER ─── */
+  #header {
+    width: 100%; padding: 10px 16px 6px;
+    text-align: center;
+    background: linear-gradient(180deg, rgba(30,5,0,0.95) 0%, rgba(20,4,0,0.8) 100%);
+    border-bottom: 2px solid var(--lava-orange);
+    box-shadow: 0 4px 24px rgba(255,80,0,0.5);
+    flex-shrink: 0;
+  }
+  #header h1 {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(0.9rem, 2.5vw, 1.5rem);
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    background: linear-gradient(90deg, #ff6600, #ffcc00, #ff4400, #ffcc00, #ff6600);
+    background-size: 300% 100%;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    animation: shimmerTitle 4s linear infinite;
+    text-shadow: none;
+    line-height: 1.2;
+  }
+  @keyframes shimmerTitle {
+    0%  { background-position: 0% 50%; }
+    100%{ background-position: 300% 50%; }
+  }
+  #subtitle {
+    font-size: clamp(0.55rem, 1.5vw, 0.8rem);
+    color: var(--text-ember);
+    letter-spacing: 0.2em;
+    margin-top: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ─── PROGRESS BAR ─── */
+  #progress-row {
+    display: flex; gap: 8px; align-items: center;
+    justify-content: center; margin-top: 5px;
+  }
+  .progress-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--rock-light);
+    border: 1.5px solid var(--lava-deep);
+    transition: all 0.4s;
+  }
+  .progress-dot.active {
+    background: var(--lava-orange);
+    box-shadow: 0 0 8px var(--lava-orange);
+    border-color: var(--lava-yellow);
+  }
+  .progress-dot.done {
+    background: var(--lava-yellow);
+    box-shadow: 0 0 8px var(--lava-yellow);
+    border-color: #fff;
+  }
+  .progress-label {
+    font-size: 0.65rem; color: var(--text-ember);
+    letter-spacing: 0.08em;
+  }
+
+  /* ─── ACTIVITY PANEL ─── */
+  #activity-area {
+    flex: 1; width: 100%; min-height: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 8px 10px;
+    position: relative;
+  }
+
+  .activity-card {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    width: 100%; max-width: 860px;
+    height: 100%;
+    background: linear-gradient(160deg, rgba(30,10,2,0.97) 0%, rgba(20,8,2,0.98) 100%);
+    border: 1.5px solid var(--lava-deep);
+    border-radius: 14px;
+    box-shadow: 0 0 30px rgba(255,80,0,0.3), inset 0 0 20px rgba(0,0,0,0.5);
+    padding: 10px 14px 8px;
+    overflow: hidden;
+  }
+  .activity-card.active { display: flex; }
+
+  .act-title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(0.7rem, 1.8vw, 1.1rem);
+    color: var(--lava-yellow);
+    text-shadow: 0 0 12px var(--lava-orange);
+    text-align: center;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+    flex-shrink: 0;
+  }
+  .act-instruction {
+    font-size: clamp(0.6rem, 1.3vw, 0.8rem);
+    color: var(--text-bright);
+    text-align: center;
+    margin-bottom: 6px;
+    opacity: 0.9;
+    line-height: 1.4;
+    flex-shrink: 0;
+  }
+
+  /* ─── DRAG ITEMS BANK ─── */
+  .item-bank {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    justify-content: center; align-items: center;
+    width: 100%;
+    flex-shrink: 0;
+    margin-bottom: 6px;
+  }
+  .drag-item {
+    cursor: grab;
+    padding: 5px 10px;
+    border-radius: 8px;
+    border: 1.5px solid var(--lava-orange);
+    background: linear-gradient(135deg, #2e1005, #1a0800);
+    color: var(--text-bright);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: clamp(0.55rem, 1.2vw, 0.75rem);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    transition: all 0.2s;
+    white-space: nowrap;
+    box-shadow: 0 0 8px rgba(255,80,0,0.2);
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    text-align: center;
+  }
+  .drag-item:active { cursor: grabbing; }
+  .drag-item:hover {
+    border-color: var(--lava-yellow);
+    background: linear-gradient(135deg, #4a2010, #2e1005);
+    box-shadow: 0 0 14px rgba(255,150,0,0.5);
+    transform: scale(1.05);
+  }
+  .drag-item.dragging {
+    opacity: 0.4;
+    transform: scale(0.95);
+  }
+  .drag-item .di-icon { font-size: 1.4em; line-height: 1; }
+  .drag-item .di-label { font-size: 0.85em; }
+
+  /* ─── DROP ZONES ─── */
+  .drop-zone {
+    border: 2px dashed rgba(255,100,0,0.5);
+    border-radius: 10px;
+    background: rgba(255,60,0,0.05);
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,150,80,0.5);
+    font-size: clamp(0.5rem, 1.1vw, 0.7rem);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-align: center;
+    transition: all 0.25s;
+    position: relative;
+    padding: 4px;
+  }
+  .drop-zone.over {
+    border-color: var(--lava-yellow);
+    background: rgba(255,180,0,0.12);
+    color: var(--lava-yellow);
+    box-shadow: 0 0 16px rgba(255,200,0,0.4);
+  }
+  .drop-zone.filled {
+    border-style: solid;
+    border-color: var(--lava-orange);
+    background: linear-gradient(135deg, rgba(80,25,5,0.7), rgba(40,12,2,0.7));
+    color: var(--text-bright);
+    box-shadow: 0 0 12px rgba(255,100,0,0.4);
+  }
+  .drop-zone.correct {
+    border-color: #44ff88;
+    background: rgba(0,255,80,0.08);
+    box-shadow: 0 0 16px rgba(0,255,80,0.3);
+    animation: correctPulse 0.5s ease;
+  }
+  .drop-zone.wrong {
+    border-color: #ff2244;
+    background: rgba(255,20,40,0.1);
+    animation: wrongShake 0.4s ease;
+  }
+  @keyframes correctPulse {
+    0%,100% { transform: scale(1); }
+    50%      { transform: scale(1.04); }
+  }
+  @keyframes wrongShake {
+    0%,100% { transform: translateX(0); }
+    25%     { transform: translateX(-6px); }
+    75%     { transform: translateX(6px); }
+  }
+
+  /* ─── ACTIVITY 1 — CIRCUIT BOARD ─── */
+  #act1-board {
+    flex: 1; min-height: 0;
+    width: 100%; max-width: 700px;
+    display: grid;
+    grid-template-columns: 1fr 1.3fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 8px;
+    padding: 4px;
+  }
+  #act1-board .drop-zone { min-height: 60px; }
+  #act1-board .drop-zone .dz-label {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  .dz-hint {
+    font-size: 0.75em; opacity: 0.6;
+    font-style: italic;
+  }
+
+  /* Circuit wires SVG */
+  #circuit-wires {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    opacity: 0.4;
+  }
+
+  /* ─── ACTIVITY 2 — SIGNAL FLOW ─── */
+  #act2-flow {
+    flex: 1; min-height: 0; width: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 6px;
+  }
+  #act2-slots {
+    display: flex; gap: 8px; align-items: center;
+    width: 100%; justify-content: center;
+    flex-wrap: wrap;
+  }
+  .flow-slot {
+    width: clamp(80px, 15vw, 130px);
+    height: clamp(55px, 10vh, 75px);
+    font-size: clamp(0.5rem, 1.1vw, 0.68rem);
+  }
+  .flow-arrow {
+    color: var(--lava-orange);
+    font-size: clamp(1rem, 2.5vw, 1.6rem);
+    animation: arrowPulse 1.2s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  @keyframes arrowPulse {
+    0%,100% { opacity: 0.4; transform: translateX(0); }
+    50%     { opacity: 1; transform: translateX(3px); }
+  }
+  #act2-wave-vis {
+    width: 90%; max-width: 500px;
+    height: 50px;
+    border: 1px solid rgba(255,100,0,0.3);
+    border-radius: 6px;
+    overflow: hidden;
+    background: rgba(0,0,0,0.4);
+    flex-shrink: 0;
+  }
+  #wave-canvas { width: 100%; height: 100%; }
+
+  /* ─── ACTIVITY 3 — NOISE DEMO ─── */
+  #act3-area {
+    flex: 1; min-height: 0; width: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 8px;
+  }
+  #act3-circuit {
+    display: flex; gap: 10px; align-items: center;
+    justify-content: center; flex-wrap: wrap;
+    width: 100%;
+  }
+  #act3-circuit .drop-zone {
+    width: clamp(70px, 14vw, 110px);
+    height: clamp(55px, 9vh, 70px);
+    font-size: clamp(0.5rem, 1.1vw, 0.65rem);
+  }
+  #noise-meter {
+    width: 90%; max-width: 420px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--lava-deep);
+    border-radius: 8px;
+    padding: 8px 12px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  #noise-meter .meter-label {
+    font-size: 0.7rem; color: var(--text-ember);
+    letter-spacing: 0.08em; margin-bottom: 5px;
+  }
+  #noise-bar-bg {
+    width: 100%; height: 14px;
+    background: rgba(30,5,0,0.8);
+    border-radius: 20px;
+    border: 1px solid rgba(255,80,0,0.3);
+    overflow: hidden;
+  }
+  #noise-bar {
+    height: 100%; width: 5%;
+    border-radius: 20px;
+    background: linear-gradient(90deg, #22ff66, #ffcc00, #ff2200);
+    transition: width 0.3s, background 0.3s;
+    box-shadow: 0 0 8px rgba(255,100,0,0.5);
+  }
+  #noise-status {
+    font-size: 0.65rem; margin-top: 5px;
+    color: var(--text-gold);
+    min-height: 1.2em;
+    letter-spacing: 0.05em;
+  }
+  #act3-canvas {
+    width: 90%; max-width: 420px; height: 45px;
+    border: 1px solid rgba(255,80,0,0.3);
+    border-radius: 6px;
+    background: rgba(0,0,0,0.5);
+    flex-shrink: 0;
+  }
+
+  /* ─── CHECK BUTTON ─── */
+  .check-btn {
+    margin-top: 6px;
+    padding: 7px 28px;
+    background: linear-gradient(135deg, #cc3300, #ff6600);
+    color: #fff5e0;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(0.6rem, 1.4vw, 0.82rem);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    border: none; border-radius: 30px;
+    cursor: pointer;
+    box-shadow: 0 0 16px rgba(255,80,0,0.6);
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .check-btn:hover {
+    background: linear-gradient(135deg, #ff4400, #ffaa00);
+    box-shadow: 0 0 24px rgba(255,150,0,0.8);
+    transform: scale(1.04);
+  }
+  .check-btn:active { transform: scale(0.97); }
+
+  /* ─── FEEDBACK STRIP ─── */
+  .feedback-strip {
+    font-size: clamp(0.55rem, 1.2vw, 0.75rem);
+    text-align: center;
+    padding: 4px 12px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.3);
+    min-height: 1.6em;
+    width: 100%;
+    max-width: 500px;
+    flex-shrink: 0;
+    letter-spacing: 0.04em;
+    transition: all 0.3s;
+  }
+
+  /* ─── POPUP OVERLAY ─── */
+  .popup-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    z-index: 100;
+    background: rgba(5,0,0,0.85);
+    backdrop-filter: blur(4px);
+    align-items: center; justify-content: center;
+  }
+  .popup-overlay.show { display: flex; }
+
+  .popup-box {
+    background: linear-gradient(160deg, #2a0e02, #150600);
+    border: 2px solid var(--lava-orange);
+    border-radius: 16px;
+    padding: 24px 30px;
+    max-width: min(88vw, 480px);
+    text-align: center;
+    box-shadow: 0 0 50px rgba(255,80,0,0.5), 0 0 100px rgba(255,40,0,0.2);
+    animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    position: relative;
+    overflow: hidden;
+  }
+  .popup-box::before {
+    content:'';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      45deg,
+      transparent, transparent 20px,
+      rgba(255,80,0,0.03) 20px, rgba(255,80,0,0.03) 22px
+    );
+    pointer-events: none;
+  }
+  @keyframes popIn {
+    0%   { transform: scale(0.5) rotate(-3deg); opacity: 0; }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+  }
+  .popup-icon { font-size: 3rem; margin-bottom: 10px; animation: iconBounce 0.6s ease 0.3s both; }
+  @keyframes iconBounce {
+    0%   { transform: scale(0); }
+    60%  { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+  .popup-title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(1rem, 3vw, 1.4rem);
+    color: var(--lava-yellow);
+    text-shadow: 0 0 16px var(--lava-orange);
+    margin-bottom: 8px;
+  }
+  .popup-body {
+    font-size: clamp(0.65rem, 1.6vw, 0.9rem);
+    color: var(--text-bright);
+    line-height: 1.55;
+    margin-bottom: 16px;
+    opacity: 0.95;
+  }
+  .popup-body strong { color: var(--lava-yellow); }
+  .popup-btn {
+    padding: 9px 32px;
+    background: linear-gradient(135deg, #cc3300, #ff6600);
+    color: #fff8e0;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(0.65rem, 1.6vw, 0.9rem);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    border: none; border-radius: 30px;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(255,80,0,0.6);
+    transition: all 0.2s;
+  }
+  .popup-btn:hover {
+    background: linear-gradient(135deg, #ff4400, #ffcc00);
+    box-shadow: 0 0 30px rgba(255,200,0,0.7);
+    transform: scale(1.05);
+  }
+
+  /* Final popup extras */
+  .confetti-line {
+    display: flex; gap: 6px; justify-content: center;
+    flex-wrap: wrap; margin: 10px 0;
+  }
+  .confetti-line span { font-size: 1.2rem; animation: confettiBounce 0.5s ease calc(var(--d)*0.08s) both; }
+  @keyframes confettiBounce {
+    0%  { transform: translateY(20px); opacity: 0; }
+    100%{ transform: translateY(0); opacity: 1; }
+  }
+
+  /* ─── FACT CHIP ─── */
+  .fact-chip {
+    background: linear-gradient(90deg, rgba(255,80,0,0.15), rgba(255,150,0,0.1));
+    border: 1px solid rgba(255,100,0,0.35);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: clamp(0.5rem, 1.1vw, 0.65rem);
+    color: var(--text-ember);
+    text-align: center;
+    flex-shrink: 0;
+    max-width: 480px;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+
+<!-- Animated background layers -->
+<canvas id="bg-canvas"></canvas>
+<div class="lava-bg">
+  <div class="lava-river"></div>
+  <div class="lava-river-2"></div>
+</div>
+<div class="rock-left"></div>
+<div class="rock-right"></div>
+<div class="rock-crack-left"></div>
+<div class="heat-shimmer"></div>
+<div id="particles"></div>
+
+<!-- Main App -->
+<div id="app">
+
+  <!-- Header -->
+  <div id="header">
+    <h1>OP-AMP IC — AUDIO AMPLIFIER</h1>
+    <div id="subtitle">🔥 The Sound Power Challenge 🔥</div>
+    <div id="progress-row">
+      <span class="progress-label">ACT</span>
+      <div class="progress-dot active" id="dot1"></div>
+      <div class="progress-dot" id="dot2"></div>
+      <div class="progress-dot" id="dot3"></div>
+      <span class="progress-label">DONE</span>
+    </div>
+  </div>
+
+  <!-- Activity Area -->
+  <div id="activity-area">
+
+    <!-- ══════════════ ACTIVITY 1 ══════════════ -->
+    <div class="activity-card active" id="act1">
+      <div class="act-title">⚡ Activity 1 — Build the Circuit!</div>
+      <div class="act-instruction">
+        Drag each part to its correct slot on the circuit board!
+      </div>
+
+      <!-- Item Bank -->
+      <div class="item-bank" id="bank1">
+        <div class="drag-item" draggable="true" data-id="opamp" id="item-opamp">
+          <span class="di-icon">🖥️</span>
+          <span class="di-label">LM386 Op-Amp IC</span>
+        </div>
+        <div class="drag-item" draggable="true" data-id="mic" id="item-mic">
+          <span class="di-icon">🎙️</span>
+          <span class="di-label">Mic Input</span>
+        </div>
+        <div class="drag-item" draggable="true" data-id="speaker" id="item-speaker">
+          <span class="di-icon">🔊</span>
+          <span class="di-label">Speaker</span>
+        </div>
+        <div class="drag-item" draggable="true" data-id="battery" id="item-battery">
+          <span class="di-icon">🔋</span>
+          <span class="di-label">Power Source</span>
+        </div>
+      </div>
+
+      <!-- Circuit board grid -->
+      <div id="act1-board">
+        <!-- Row 1 -->
+        <div class="drop-zone" data-accept="mic" data-pos="1" style="grid-row:1;grid-column:1;">
+          <div class="dz-label">INPUT<div class="dz-hint">small signal</div></div>
+        </div>
+        <div class="drop-zone" data-accept="opamp" data-pos="2" style="grid-row:1;grid-column:2;grid-row-end:3;">
+          <div class="dz-label">AMPLIFIER<div class="dz-hint">centre chip</div></div>
+        </div>
+        <div class="drop-zone" data-accept="speaker" data-pos="3" style="grid-row:1;grid-column:3;">
+          <div class="dz-label">OUTPUT<div class="dz-hint">big signal</div></div>
+        </div>
+        <!-- Row 2 -->
+        <div class="drop-zone" data-accept="battery" data-pos="4" style="grid-row:2;grid-column:1;">
+          <div class="dz-label">POWER<div class="dz-hint">supply</div></div>
+        </div>
+        <div class="drop-zone" style="grid-row:2;grid-column:3;opacity:0.3;border-style:dotted;pointer-events:none;">
+          <div class="dz-label">GND<div class="dz-hint">ground</div></div>
+        </div>
+      </div>
+
+      <div class="fact-chip">💡 IC = Integrated Circuit — tiny chip with many parts inside!</div>
+      <div class="feedback-strip" id="fb1"></div>
+      <button class="check-btn" onclick="checkAct1()">CHECK CIRCUIT 🌋</button>
+    </div>
+
+    <!-- ══════════════ ACTIVITY 2 ══════════════ -->
+    <div class="activity-card" id="act2">
+      <div class="act-title">🌊 Activity 2 — Follow the Signal Flow!</div>
+      <div class="act-instruction">
+        Drag the steps into the correct order to show how sound travels through the amplifier!
+      </div>
+
+      <div class="item-bank" id="bank2">
+        <div class="drag-item" draggable="true" data-id="s3" id="item-s3">
+          <span class="di-icon">🔊</span>
+          <span class="di-label">SPEAKER OUTPUT</span>
+        </div>
+        <div class="drag-item" draggable="true" data-id="s1" id="item-s1">
+          <span class="di-icon">🎙️</span>
+          <span class="di-label">SOUND IN</span>
+        </div>
+        <div class="drag-item" draggable="true" data-id="s2" id="item-s2">
+          <span class="di-icon">⚡</span>
+          <span class="di-label">AMPLIFICATION</span>
+        </div>
+      </div>
+
+      <div id="act2-flow">
+        <div id="act2-slots">
+          <div class="drop-zone flow-slot" data-accept="s1" data-pos="1">
+            <div class="dz-label">STEP 1<div class="dz-hint">signal starts here</div></div>
+          </div>
+          <div class="flow-arrow">▶</div>
+          <div class="drop-zone flow-slot" data-accept="s2" data-pos="2">
+            <div class="dz-label">STEP 2<div class="dz-hint">IC does its job</div></div>
+          </div>
+          <div class="flow-arrow">▶</div>
+          <div class="drop-zone flow-slot" data-accept="s3" data-pos="3">
+            <div class="dz-label">STEP 3<div class="dz-hint">you hear sound</div></div>
+          </div>
+        </div>
+
+        <div id="act2-wave-vis">
+          <canvas id="wave-canvas"></canvas>
+        </div>
+      </div>
+
+      <div class="fact-chip">💡 INPUT (small whisper) → Op-Amp → OUTPUT (loud shout)!</div>
+      <div class="feedback-strip" id="fb2"></div>
+      <button class="check-btn" onclick="checkAct2()">CHECK FLOW 🌋</button>
+    </div>
+
+    <!-- ══════════════ ACTIVITY 3 ══════════════ -->
+    <div class="activity-card" id="act3">
+      <div class="act-title">🎛️ Activity 3 — Explore the Noise!</div>
+      <div class="act-instruction">
+        Drag "Touch Input" to the INPUT slot and see what happens to the sound!
+      </div>
+
+      <div class="item-bank" id="bank3">
+        <div class="drag-item" draggable="true" data-id="touch" id="item-touch">
+          <span class="di-icon">👆</span>
+          <span class="di-label">Touch Input</span>
+        </div>
+        <div class="drag-item" draggable="true" data-id="shield" id="item-shield">
+          <span class="di-icon">🛡️</span>
+          <span class="di-label">Shielded Cable</span>
+        </div>
+        <div class="drag-item" draggable="true" data-id="cap" id="item-cap">
+          <span class="di-icon">⚙️</span>
+          <span class="di-label">Bypass Cap</span>
+        </div>
+      </div>
+
+      <div id="act3-area">
+        <div id="act3-circuit">
+          <div class="drop-zone" data-accept="touch,cap,shield" data-pos="input" style="">
+            <div class="dz-label">INPUT PIN<div class="dz-hint">drag here</div></div>
+          </div>
+          <div style="font-size:1.4rem;color:var(--lava-orange);">▶</div>
+          <div style="padding:8px 14px;border:1.5px solid var(--lava-orange);border-radius:8px;
+                      background:linear-gradient(135deg,#2e1005,#1a0800);text-align:center;
+                      font-size:clamp(0.55rem,1.2vw,0.72rem);color:var(--text-bright);">
+            🖥️<br>LM386<br><span style="opacity:0.6">Op-Amp</span>
+          </div>
+          <div style="font-size:1.4rem;color:var(--lava-orange);">▶</div>
+          <div style="padding:8px 14px;border:1.5px solid rgba(255,100,0,0.4);border-radius:8px;
+                      background:linear-gradient(135deg,#1a0d02,#100800);text-align:center;
+                      font-size:clamp(0.55rem,1.2vw,0.72rem);color:var(--text-bright);">
+            🔊<br>Speaker
+          </div>
+        </div>
+
+        <div id="noise-meter">
+          <div class="meter-label">🔴 NOISE / HUM LEVEL</div>
+          <div id="noise-bar-bg"><div id="noise-bar"></div></div>
+          <div id="noise-status">Connect something to the input to test it!</div>
+        </div>
+
+        <canvas id="act3-canvas"></canvas>
+      </div>
+
+      <div class="fact-chip">💡 Touching an open input causes hum — use shielded cables to stop noise!</div>
+      <div class="feedback-strip" id="fb3"></div>
+      <button class="check-btn" onclick="checkAct3()">CHECK BEHAVIOUR 🌋</button>
+    </div>
+
+  </div><!-- /activity-area -->
+</div><!-- /app -->
+
+<!-- ══════ POPUPS ══════ -->
+
+<!-- Act1 Success -->
+<div class="popup-overlay" id="popup1">
+  <div class="popup-box">
+    <div class="popup-icon">🔥</div>
+    <div class="popup-title">Circuit Built!</div>
+    <div class="popup-body">
+      Amazing! You've placed the <strong>LM386 Op-Amp IC</strong> at the centre — just like in a real amplifier!<br><br>
+      The mic sends a tiny signal → the IC makes it BIGGER → the speaker makes it LOUD!<br><br>
+      🇮🇳 <em>This same chip is used in Indian school PA systems!</em>
+    </div>
+    <button class="popup-btn" onclick="nextActivity(2)">NEXT CHALLENGE ▶</button>
+  </div>
+</div>
+
+<!-- Act2 Success -->
+<div class="popup-overlay" id="popup2">
+  <div class="popup-box">
+    <div class="popup-icon">⚡</div>
+    <div class="popup-title">Signal Flow Mastered!</div>
+    <div class="popup-body">
+      Brilliant! You know the amplifier process:<br><br>
+      🎙️ <strong>Sound In</strong> → ⚡ <strong>Amplification</strong> → 🔊 <strong>Speaker Output</strong><br><br>
+      INPUT = small whisper → Op-Amp borrows battery power → OUTPUT = loud shout!<br><br>
+      🏟️ <em>Chepauk Stadium uses this to reach 50,000 fans!</em>
+    </div>
+    <button class="popup-btn" onclick="nextActivity(3)">FINAL CHALLENGE ▶</button>
+  </div>
+</div>
+
+<!-- Act3 Success -->
+<div class="popup-overlay" id="popup3">
+  <div class="popup-box">
+    <div class="popup-icon">🎛️</div>
+    <div class="popup-title">Behaviour Explored!</div>
+    <div class="popup-body">
+      Excellent! When you touch an open INPUT pin, your body acts like an antenna and picks up electrical noise — causing HUM in the speaker!<br><br>
+      Engineers use <strong>shielded cables</strong> and <strong>bypass capacitors</strong> to stop this.<br><br>
+      🚀 <em>ISRO engineers solve this in space circuits too!</em>
+    </div>
+    <button class="popup-btn" onclick="showFinal()">SEE RESULTS 🏆</button>
+  </div>
+</div>
+
+<!-- Final popup -->
+<div class="popup-overlay" id="popupFinal">
+  <div class="popup-box">
+    <div class="popup-icon">🏆</div>
+    <div class="popup-title">Mission Complete!</div>
+    <div class="confetti-line">
+      <span style="--d:0">🔥</span>
+      <span style="--d:1">⚡</span>
+      <span style="--d:2">🎙️</span>
+      <span style="--d:3">🖥️</span>
+      <span style="--d:4">🔊</span>
+      <span style="--d:5">🔥</span>
+    </div>
+    <div class="popup-body">
+      You are now an <strong>Op-Amp Explorer</strong>!<br><br>
+      ✅ You built a real audio amplifier circuit<br>
+      ✅ You traced the signal flow: Input → IC → Output<br>
+      ✅ You discovered why noise happens & how to fix it<br><br>
+      <strong>IC = Integrated Circuit — many tiny parts in ONE small chip!</strong><br><br>
+      🇮🇳 <em>Indian engineers at ISRO & DRDO use Op-Amp ICs in SPACE and DEFENCE!</em>
+    </div>
+    <button class="popup-btn" onclick="restartAll()">🌋 PLAY AGAIN</button>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   PARTICLE ENGINE
+══════════════════════════════════════════ */
+const particleContainer = document.getElementById('particles');
+
+function spawnEmber() {
+  const e = document.createElement('div');
+  e.className = 'ember';
+  const sz = 3 + Math.random() * 6;
+  e.style.cssText = `
+    width:${sz}px; height:${sz}px;
+    left:${Math.random()*100}%;
+    bottom:${15 + Math.random()*15}%;
+    --drift:${(Math.random()-0.5)*80}px;
+    --drift2:${(Math.random()-0.5)*120}px;
+    animation-duration:${3 + Math.random()*4}s;
+    animation-delay:${Math.random()*3}s;
+  `;
+  particleContainer.appendChild(e);
+  setTimeout(()=>e.remove(), 8000);
+}
+
+function spawnLavaDrop() {
+  const d = document.createElement('div');
+  d.className = 'lava-drop';
+  const sz = 8 + Math.random() * 14;
+  d.style.cssText = `
+    width:${sz}px; height:${sz*1.3}px;
+    left:${5 + Math.random()*90}%;
+    top:-20px;
+    animation-duration:${2 + Math.random()*3}s;
+    animation-delay:${Math.random()}s;
+  `;
+  particleContainer.appendChild(d);
+  setTimeout(()=>d.remove(), 6000);
+}
+
+setInterval(spawnEmber, 220);
+setInterval(spawnLavaDrop, 400);
+
+/* ══════════════════════════════════════════
+   BG CANVAS — glowing magma blobs
+══════════════════════════════════════════ */
+const bgCanvas = document.getElementById('bg-canvas');
+const bgCtx = bgCanvas.getContext('2d');
+bgCanvas.width = window.innerWidth;
+bgCanvas.height = window.innerHeight;
+
+const blobs = Array.from({length:6}, ()=>({
+  x: Math.random()*bgCanvas.width,
+  y: Math.random()*bgCanvas.height,
+  r: 60+Math.random()*100,
+  vx:(Math.random()-0.5)*0.4,
+  vy:(Math.random()-0.5)*0.3,
+  hue: 10+Math.random()*30
+}));
+
+function drawBg() {
+  bgCtx.clearRect(0,0,bgCanvas.width,bgCanvas.height);
+  blobs.forEach(b=>{
+    b.x+=b.vx; b.y+=b.vy;
+    if(b.x<-b.r) b.x=bgCanvas.width+b.r;
+    if(b.x>bgCanvas.width+b.r) b.x=-b.r;
+    if(b.y<-b.r) b.y=bgCanvas.height+b.r;
+    if(b.y>bgCanvas.height+b.r) b.y=-b.r;
+    const g = bgCtx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r);
+    g.addColorStop(0,`hsla(${b.hue},100%,60%,0.12)`);
+    g.addColorStop(1,'transparent');
+    bgCtx.fillStyle=g;
+    bgCtx.beginPath();
+    bgCtx.arc(b.x,b.y,b.r,0,Math.PI*2);
+    bgCtx.fill();
+  });
+  requestAnimationFrame(drawBg);
+}
+drawBg();
+
+/* ══════════════════════════════════════════
+   WAVE CANVAS — Act 2
+══════════════════════════════════════════ */
+const waveCanvas = document.getElementById('wave-canvas');
+const wCtx = waveCanvas.getContext('2d');
+let wavePhase = 0;
+let waveAmplitude = 8;
+let waveTarget = 8;
+
+function resizeWave() {
+  waveCanvas.width = waveCanvas.offsetWidth;
+  waveCanvas.height = waveCanvas.offsetHeight;
+}
+resizeWave();
+window.addEventListener('resize', resizeWave);
+
+function drawWave() {
+  waveAmplitude += (waveTarget - waveAmplitude) * 0.05;
+  const W = waveCanvas.width, H = waveCanvas.height;
+  wCtx.clearRect(0,0,W,H);
+  // small wave (input)
+  wCtx.beginPath();
+  wCtx.strokeStyle = 'rgba(255,150,80,0.6)';
+  wCtx.lineWidth = 1.5;
+  const amp1 = waveAmplitude * 0.3;
+  for(let x=0;x<W;x++){
+    const y = H/2 + amp1*Math.sin((x/W)*Math.PI*6 + wavePhase);
+    x===0 ? wCtx.moveTo(x,y) : wCtx.lineTo(x,y);
+  }
+  wCtx.stroke();
+  // big wave (output)
+  wCtx.beginPath();
+  wCtx.strokeStyle = 'rgba(255,220,0,0.85)';
+  wCtx.lineWidth = 2;
+  const amp2 = waveAmplitude;
+  for(let x=0;x<W;x++){
+    const y = H/2 + amp2*Math.sin((x/W)*Math.PI*6 + wavePhase + 0.5);
+    x===0 ? wCtx.moveTo(x,y) : wCtx.lineTo(x,y);
+  }
+  wCtx.stroke();
+  wavePhase += 0.06;
+  requestAnimationFrame(drawWave);
+}
+drawWave();
+
+/* ══════════════════════════════════════════
+   NOISE CANVAS — Act 3
+══════════════════════════════════════════ */
+const noiseCanvas = document.getElementById('act3-canvas');
+const nCtx = noiseCanvas.getContext('2d');
+let noiseLevel = 0;
+let noiseTarget = 0;
+
+function resizeNoise() {
+  noiseCanvas.width = noiseCanvas.offsetWidth;
+  noiseCanvas.height = noiseCanvas.offsetHeight;
+}
+resizeNoise();
+window.addEventListener('resize', resizeNoise);
+
+let noisePhase = 0;
+function drawNoise() {
+  noiseLevel += (noiseTarget - noiseLevel) * 0.08;
+  const W = noiseCanvas.width, H = noiseCanvas.height;
+  nCtx.clearRect(0,0,W,H);
+  nCtx.beginPath();
+  nCtx.strokeStyle = noiseLevel > 50 ? '#ff4444' : '#44ff88';
+  nCtx.lineWidth = 2;
+  for(let x=0;x<W;x++){
+    const base = Math.sin((x/W)*Math.PI*8 + noisePhase) * (H/2 * 0.3);
+    const noise = (Math.random()-0.5) * (noiseLevel/100) * H * 0.7;
+    const y = H/2 + base + noise;
+    x===0 ? nCtx.moveTo(x,y) : nCtx.lineTo(x,y);
+  }
+  nCtx.stroke();
+  noisePhase += 0.04;
+  requestAnimationFrame(drawNoise);
+}
+drawNoise();
+
+/* ══════════════════════════════════════════
+   DRAG & DROP ENGINE
+══════════════════════════════════════════ */
+let draggedItem = null;
+let draggedId = null;
+let dragSource = null; // element being dragged
+
+document.addEventListener('dragstart', e=>{
+  const item = e.target.closest('.drag-item');
+  if(!item) return;
+  draggedItem = item;
+  draggedId = item.dataset.id;
+  dragSource = item;
+  setTimeout(()=>item.classList.add('dragging'), 0);
+});
+
+document.addEventListener('dragend', e=>{
+  if(draggedItem) draggedItem.classList.remove('dragging');
+  document.querySelectorAll('.drop-zone').forEach(z=>z.classList.remove('over'));
+  draggedItem = null;
+  draggedId = null;
+  dragSource = null;
+});
+
+document.addEventListener('dragover', e=>{
+  const zone = e.target.closest('.drop-zone');
+  if(zone && !zone.classList.contains('filled')) {
+    e.preventDefault();
+    document.querySelectorAll('.drop-zone').forEach(z=>z.classList.remove('over'));
+    zone.classList.add('over');
+  }
+});
+
+document.addEventListener('dragleave', e=>{
+  const zone = e.target.closest('.drop-zone');
+  if(zone) zone.classList.remove('over');
+});
+
+document.addEventListener('drop', e=>{
+  e.preventDefault();
+  const zone = e.target.closest('.drop-zone');
+  if(!zone || zone.classList.contains('filled') || !draggedItem) return;
+  zone.classList.remove('over');
+
+  const accepts = zone.dataset.accept ? zone.dataset.accept.split(',') : [];
+  const isCorrect = accepts.includes(draggedId);
+
+  if(isCorrect) {
+    // Clone the item into the zone
+    const clone = draggedItem.cloneNode(true);
+    clone.style.cssText = 'cursor:default;transform:none;box-shadow:none;border-color:var(--lava-yellow);';
+    clone.draggable = false;
+    zone.innerHTML = '';
+    zone.appendChild(clone);
+    zone.classList.add('filled','correct');
+    draggedItem.style.opacity='0.3';
+    draggedItem.draggable = false;
+    draggedItem.style.cursor = 'default';
+
+    // Remove correct class after animation
+    setTimeout(()=>zone.classList.remove('correct'), 600);
+
+    // Act3 noise update
+    if(zone.closest('#act3')) updateNoiseMeter(draggedId, zone);
+  } else {
+    zone.classList.add('wrong');
+    setTimeout(()=>zone.classList.remove('wrong'), 500);
+  }
+});
+
+/* ─── Touch drag support ─── */
+let touchDragItem = null;
+let touchClone = null;
+let touchStartX, touchStartY;
+
+document.addEventListener('touchstart', e=>{
+  const item = e.target.closest('.drag-item');
+  if(!item || !item.draggable || item.draggable===false) return;
+  touchDragItem = item;
+  draggedId = item.dataset.id;
+  const t = e.touches[0];
+  touchStartX = t.clientX; touchStartY = t.clientY;
+  // create visual clone
+  touchClone = item.cloneNode(true);
+  touchClone.style.cssText = `
+    position:fixed; z-index:9999; pointer-events:none;
+    left:${t.clientX-40}px; top:${t.clientY-30}px;
+    opacity:0.85; transform:scale(1.1);
+    transition: none;
+  `;
+  document.body.appendChild(touchClone);
+  item.classList.add('dragging');
+}, {passive:true});
+
+document.addEventListener('touchmove', e=>{
+  if(!touchDragItem) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  if(touchClone) {
+    touchClone.style.left = (t.clientX-40)+'px';
+    touchClone.style.top  = (t.clientY-30)+'px';
+  }
+  // highlight zones
+  const el = document.elementFromPoint(t.clientX, t.clientY);
+  const zone = el && el.closest('.drop-zone');
+  document.querySelectorAll('.drop-zone').forEach(z=>z.classList.remove('over'));
+  if(zone && !zone.classList.contains('filled')) zone.classList.add('over');
+}, {passive:false});
+
+document.addEventListener('touchend', e=>{
+  if(!touchDragItem) return;
+  const t = e.changedTouches[0];
+  const el = document.elementFromPoint(t.clientX, t.clientY);
+  const zone = el && el.closest('.drop-zone');
+
+  if(touchClone) { touchClone.remove(); touchClone = null; }
+  touchDragItem.classList.remove('dragging');
+  document.querySelectorAll('.drop-zone').forEach(z=>z.classList.remove('over'));
+
+  if(zone && !zone.classList.contains('filled') && draggedId) {
+    const accepts = zone.dataset.accept ? zone.dataset.accept.split(',') : [];
+    if(accepts.includes(draggedId)) {
+      const clone = touchDragItem.cloneNode(true);
+      clone.style.cssText = 'cursor:default;transform:none;box-shadow:none;border-color:var(--lava-yellow);';
+      clone.draggable = false;
+      zone.innerHTML = '';
+      zone.appendChild(clone);
+      zone.classList.add('filled','correct');
+      touchDragItem.style.opacity='0.3';
+      touchDragItem.draggable = false;
+      touchDragItem.style.cursor = 'default';
+      setTimeout(()=>zone.classList.remove('correct'), 600);
+      if(zone.closest('#act3')) updateNoiseMeter(draggedId, zone);
+    } else {
+      zone.classList.add('wrong');
+      setTimeout(()=>zone.classList.remove('wrong'), 500);
+    }
+  }
+
+  touchDragItem = null; draggedId = null;
+});
+
+/* ══════════════════════════════════════════
+   ACTIVITY 1 CHECK
+══════════════════════════════════════════ */
+function checkAct1() {
+  const zones = document.querySelectorAll('#act1-board .drop-zone');
+  let filled = 0;
+  zones.forEach(z=>{ if(z.classList.contains('filled')) filled++; });
+  const fb = document.getElementById('fb1');
+  if(filled < 4) {
+    fb.textContent = `⚠️ Place all 4 parts! You've placed ${filled}/4 so far.`;
+    fb.style.color = 'var(--lava-orange)';
+  } else {
+    fb.textContent = '🔥 All parts in place! Perfect circuit!';
+    fb.style.color = '#44ff88';
+    setTimeout(()=>document.getElementById('popup1').classList.add('show'), 400);
+  }
+}
+
+/* ══════════════════════════════════════════
+   ACTIVITY 2 CHECK
+══════════════════════════════════════════ */
+function checkAct2() {
+  const slots = document.querySelectorAll('#act2-slots .drop-zone');
+  let correct = 0;
+  slots.forEach(z=>{ if(z.classList.contains('filled')) correct++; });
+  const fb = document.getElementById('fb2');
+  if(correct < 3) {
+    fb.textContent = `⚠️ Place all 3 steps! You've placed ${correct}/3.`;
+    fb.style.color = 'var(--lava-orange)';
+  } else {
+    fb.textContent = '🔥 Perfect signal flow! You traced it exactly right!';
+    fb.style.color = '#44ff88';
+    waveTarget = 28;
+    setTimeout(()=>document.getElementById('popup2').classList.add('show'), 400);
+  }
+}
+
+/* ══════════════════════════════════════════
+   ACTIVITY 3 — NOISE METER
+══════════════════════════════════════════ */
+let act3DroppedId = null;
+
+function updateNoiseMeter(id, zone) {
+  act3DroppedId = id;
+  const bar = document.getElementById('noise-bar');
+  const status = document.getElementById('noise-status');
+  if(id === 'touch') {
+    noiseTarget = 88;
+    bar.style.background = 'linear-gradient(90deg,#ffcc00,#ff2200)';
+    status.textContent = '🔴 HIGH NOISE! Touching the input creates HUM!';
+    status.style.color = '#ff4444';
+  } else if(id === 'shield') {
+    noiseTarget = 12;
+    bar.style.background = 'linear-gradient(90deg,#22ff66,#44cc44)';
+    status.textContent = '✅ Shielded cable blocks noise — clean signal!';
+    status.style.color = '#44ff88';
+  } else if(id === 'cap') {
+    noiseTarget = 25;
+    bar.style.background = 'linear-gradient(90deg,#22ff66,#ffcc00)';
+    status.textContent = '✅ Bypass cap reduces noise — much better!';
+    status.style.color = '#ffcc00';
+  }
+  bar.style.width = noiseTarget + '%';
+}
+
+function checkAct3() {
+  const zones = document.querySelectorAll('#act3 .drop-zone');
+  let filled = 0;
+  zones.forEach(z=>{ if(z.classList.contains('filled')) filled++; });
+  const fb = document.getElementById('fb3');
+  if(!filled) {
+    fb.textContent = '⚠️ Drag something to the INPUT PIN first!';
+    fb.style.color = 'var(--lava-orange)';
+  } else if(act3DroppedId === 'touch') {
+    fb.textContent = '🔥 Correct! Touching an open input causes noise/hum!';
+    fb.style.color = '#44ff88';
+    setTimeout(()=>document.getElementById('popup3').classList.add('show'), 400);
+  } else {
+    fb.textContent = '🔥 Good! Try "Touch Input" to see the noise effect!';
+    fb.style.color = '#ffcc00';
+    setTimeout(()=>document.getElementById('popup3').classList.add('show'), 400);
+  }
+}
+
+/* ══════════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════════ */
+function nextActivity(n) {
+  // Hide all popups
+  document.querySelectorAll('.popup-overlay').forEach(p=>p.classList.remove('show'));
+  // Hide all activities
+  document.querySelectorAll('.activity-card').forEach(c=>c.classList.remove('active'));
+  // Show target
+  document.getElementById('act'+n).classList.add('active');
+  // Update dots
+  for(let i=1;i<=3;i++){
+    const dot = document.getElementById('dot'+i);
+    if(i < n) { dot.className='progress-dot done'; }
+    else if(i===n) { dot.className='progress-dot active'; }
+    else { dot.className='progress-dot'; }
+  }
+}
+
+function showFinal() {
+  document.querySelectorAll('.popup-overlay').forEach(p=>p.classList.remove('show'));
+  document.getElementById('dot3').className='progress-dot done';
+  document.getElementById('popupFinal').classList.add('show');
+}
+
+function restartAll() {
+  document.querySelectorAll('.popup-overlay').forEach(p=>p.classList.remove('show'));
+  // Reset all drop zones
+  document.querySelectorAll('.drop-zone').forEach(z=>{
+    z.classList.remove('filled','correct','wrong');
+    // restore label
+    const acc = z.dataset.accept || '';
+    const pos = z.dataset.pos || '';
+    const hint = z.querySelector('.dz-hint');
+    const hintText = hint ? hint.textContent : '';
+    const label = z.querySelector('.dz-label');
+    if(label && !z.querySelector('.drag-item')) {
+      // only rebuild if emptied
+    }
+    z.innerHTML = (() => {
+      if(pos==='1') return '<div class="dz-label">INPUT<div class="dz-hint">small signal</div></div>';
+      if(pos==='2') return '<div class="dz-label">AMPLIFIER<div class="dz-hint">centre chip</div></div>';
+      if(pos==='3') return '<div class="dz-label">OUTPUT<div class="dz-hint">big signal</div></div>';
+      if(pos==='4') return '<div class="dz-label">POWER<div class="dz-hint">supply</div></div>';
+      if(pos==='input') return '<div class="dz-label">INPUT PIN<div class="dz-hint">drag here</div></div>';
+      if(pos) return `<div class="dz-label">STEP ${pos}<div class="dz-hint">${pos===1?'signal starts here':pos===2?'IC does its job':'you hear sound'}</div></div>`;
+      return z.innerHTML;
+    })();
+  });
+
+  // Restore drag items
+  document.querySelectorAll('.drag-item').forEach(it=>{
+    it.style.opacity='1';
+    it.draggable=true;
+    it.style.cursor='grab';
+  });
+
+  // Reset noise
+  noiseTarget = 0;
+  act3DroppedId = null;
+  document.getElementById('noise-bar').style.width='5%';
+  document.getElementById('noise-status').textContent='Connect something to the input to test it!';
+  document.getElementById('noise-status').style.color='var(--text-gold)';
+
+  // Reset wave
+  waveTarget = 8;
+
+  // Reset feedback
+  ['fb1','fb2','fb3'].forEach(id=>{ document.getElementById(id).textContent=''; });
+
+  // Go to act1
+  nextActivity(1);
+  document.getElementById('dot1').className='progress-dot active';
+  document.getElementById('dot2').className='progress-dot';
+  document.getElementById('dot3').className='progress-dot';
+}
+
+/* ══════════════════════════════════════════
+   RESIZE
+══════════════════════════════════════════ */
+window.addEventListener('resize', ()=>{
+  bgCanvas.width = window.innerWidth;
+  bgCanvas.height = window.innerHeight;
+  resizeWave();
+  resizeNoise();
+});
+</script>
+</body>
+</html>

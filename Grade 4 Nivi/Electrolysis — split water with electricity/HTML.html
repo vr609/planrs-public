@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELECTROLYSIS — SPLIT WATER WITH ELECTRICITY</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Exo+2:wght@300;400;600;700&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg:        #040d1a;
+  --bg2:       #071426;
+  --cyan:      #00f5ff;
+  --blue:      #0066ff;
+  --green:     #39ff14;
+  --acid:      #b4ff00;
+  --orange:    #ff6b00;
+  --pink:      #ff00aa;
+  --gold:      #ffd700;
+  --red:       #ff2244;
+  --white:     #e8f4ff;
+  --dim:       #4a6a8a;
+  --panel:     rgba(0,20,50,0.85);
+  --glow-c:    0 0 8px #00f5ff, 0 0 20px #00f5ff44;
+  --glow-g:    0 0 8px #39ff14, 0 0 20px #39ff1444;
+  --glow-o:    0 0 8px #ff6b00, 0 0 20px #ff6b0044;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+  font-family: 'Exo 2', sans-serif;
+  background: var(--bg);
+  color: var(--white);
+  user-select: none;
+}
+
+/* ═══════════════════════════ BACKGROUND ═══════════════════════════ */
+#bg-canvas {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none;
+}
+
+.hex-grid {
+  position: fixed; inset: 0; z-index: 0;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,200,255,0.04) 40px),
+    repeating-linear-gradient(60deg, transparent, transparent 39px, rgba(0,200,255,0.04) 40px),
+    repeating-linear-gradient(120deg, transparent, transparent 39px, rgba(0,200,255,0.04) 40px);
+  pointer-events: none;
+}
+
+.ambient {
+  position: fixed; z-index: 0; border-radius: 50%; filter: blur(80px);
+  pointer-events: none; animation: pulse-ambient 6s ease-in-out infinite;
+}
+.amb1 { width:400px;height:400px;top:-100px;left:-100px;background:rgba(0,100,255,0.12); animation-delay:0s;}
+.amb2 { width:300px;height:300px;bottom:-80px;right:-80px;background:rgba(0,245,255,0.09); animation-delay:2s;}
+.amb3 { width:250px;height:250px;top:40%;left:60%;background:rgba(57,255,20,0.07); animation-delay:4s;}
+
+@keyframes pulse-ambient {
+  0%,100% { transform: scale(1); opacity:0.8; }
+  50% { transform: scale(1.15); opacity:1; }
+}
+
+/* Periodic table elements decoration */
+.pt-elem {
+  position: fixed; z-index: 1; pointer-events: none;
+  font-family: 'Share Tech Mono', monospace;
+  border: 1px solid;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 3px; opacity: 0.18;
+  animation: float-elem 8s ease-in-out infinite;
+}
+.pt-elem .num { font-size: 0.45em; line-height:1; }
+.pt-elem .sym { font-size: 1.1em; font-weight:700; line-height:1.1; }
+.pt-elem .name { font-size: 0.3em; line-height:1; }
+
+/* ═══════════════════════════ LAYOUT ═══════════════════════════ */
+#app {
+  position: relative; z-index: 10;
+  width: 100vw; height: 100vh;
+  display: flex; flex-direction: column;
+}
+
+/* HEADER */
+#header {
+  flex: 0 0 auto;
+  padding: 10px 24px 6px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid rgba(0,245,255,0.15);
+  background: rgba(4,13,26,0.9);
+  backdrop-filter: blur(10px);
+}
+#title-block h1 {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.9rem, 2.2vw, 1.3rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  background: linear-gradient(90deg, var(--cyan), var(--blue), var(--green));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
+}
+#title-block p {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem; color: var(--dim); letter-spacing: 0.15em;
+  margin-top: 2px;
+}
+.h2o-formula {
+  font-family: 'Orbitron', monospace; font-size: 1.8rem;
+  color: var(--cyan); text-shadow: var(--glow-c);
+  animation: formula-glow 3s ease-in-out infinite;
+}
+@keyframes formula-glow {
+  0%,100%{text-shadow:0 0 8px #00f5ff,0 0 20px #00f5ff44;}
+  50%{text-shadow:0 0 16px #00f5ff,0 0 40px #00f5ff88,0 0 60px #00f5ff22;}
+}
+
+/* PROGRESS BAR */
+#progress-bar {
+  flex: 0 0 auto;
+  display: flex; gap: 8px; padding: 8px 24px; align-items: center;
+  background: rgba(4,13,26,0.7);
+}
+.prog-step {
+  display: flex; align-items: center; gap: 6px;
+  font-family: 'Exo 2', sans-serif; font-size: 0.68rem; font-weight: 600;
+  letter-spacing: 0.05em; color: var(--dim); transition: color 0.4s;
+}
+.prog-step.active { color: var(--cyan); }
+.prog-step.done { color: var(--green); }
+.prog-dot {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--dim);
+  display: flex; align-items:center; justify-content:center;
+  font-size: 0.6rem; font-weight: 700; transition: all 0.4s;
+  font-family: 'Share Tech Mono', monospace;
+}
+.prog-step.active .prog-dot {
+  border-color: var(--cyan); color: var(--cyan);
+  box-shadow: var(--glow-c); background: rgba(0,245,255,0.1);
+}
+.prog-step.done .prog-dot {
+  border-color: var(--green); color: var(--green);
+  box-shadow: var(--glow-g); background: rgba(57,255,20,0.1);
+}
+.prog-line {
+  flex: 1; height: 2px; max-width: 60px;
+  background: linear-gradient(90deg, var(--dim), var(--dim));
+  border-radius: 2px; transition: background 0.4s;
+}
+.prog-line.done { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+
+/* MAIN STAGE */
+#stage {
+  flex: 1 1 auto;
+  position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ACTIVITY PANELS */
+.activity {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 12px 20px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+.activity.active { opacity: 1; pointer-events: all; }
+
+.act-title {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.75rem, 1.6vw, 1rem);
+  letter-spacing: 0.12em; font-weight: 700;
+  color: var(--cyan); text-shadow: var(--glow-c);
+  margin-bottom: 6px; text-align: center;
+}
+.act-instruction {
+  font-size: clamp(0.65rem, 1.2vw, 0.8rem);
+  color: rgba(200,230,255,0.75); text-align: center;
+  margin-bottom: 10px; max-width: 700px; line-height: 1.5;
+  font-family: 'Exo 2', sans-serif;
+}
+
+/* DRAG ITEMS */
+.drag-item {
+  cursor: grab; transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+  position: absolute; z-index: 100;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; border-radius: 10px;
+  font-family: 'Exo 2', sans-serif; font-weight: 700;
+  font-size: 0.68rem; text-align: center;
+  border: 2px solid; padding: 8px 10px;
+  user-select: none; touch-action: none;
+  backdrop-filter: blur(6px);
+}
+.drag-item:hover { transform: scale(1.06); z-index: 200; }
+.drag-item.dragging { cursor: grabbing; opacity: 0.85; transform: scale(1.1) rotate(2deg); z-index: 999; }
+.drag-item.placed { opacity: 0; pointer-events: none; }
+
+.drag-item.battery {
+  background: rgba(255,107,0,0.15); border-color: var(--orange);
+  color: var(--orange); box-shadow: 0 0 12px rgba(255,107,0,0.3);
+  width: 88px; min-height: 60px;
+}
+.drag-item.electrode {
+  background: rgba(57,255,20,0.1); border-color: var(--green);
+  color: var(--green); box-shadow: var(--glow-g);
+  width: 80px; min-height: 55px;
+}
+.drag-item.saltwater {
+  background: rgba(0,100,255,0.15); border-color: var(--blue);
+  color: #60aaff; box-shadow: 0 0 12px rgba(0,100,255,0.3);
+  width: 90px; min-height: 55px;
+}
+.drag-item.wire-pos {
+  background: rgba(255,34,68,0.12); border-color: var(--red);
+  color: var(--red); box-shadow: 0 0 10px rgba(255,34,68,0.3);
+  width: 86px; min-height: 52px;
+}
+.drag-item.wire-neg {
+  background: rgba(0,102,255,0.12); border-color: #0066ff;
+  color: #4488ff; box-shadow: 0 0 10px rgba(0,102,255,0.3);
+  width: 86px; min-height: 52px;
+}
+.drag-item.label-h2 {
+  background: rgba(57,255,20,0.12); border-color: var(--green);
+  color: var(--green); box-shadow: var(--glow-g);
+  width: 82px; min-height: 50px;
+}
+.drag-item.label-o2 {
+  background: rgba(255,107,0,0.12); border-color: var(--orange);
+  color: var(--orange); box-shadow: var(--glow-o);
+  width: 82px; min-height: 50px;
+}
+.drag-item.label-elec {
+  background: rgba(0,245,255,0.1); border-color: var(--cyan);
+  color: var(--cyan); box-shadow: var(--glow-c);
+  width: 90px; min-height: 50px;
+}
+
+.drag-icon { font-size: 1.4em; line-height: 1; }
+
+/* DROP ZONES */
+.drop-zone {
+  position: absolute; border-radius: 12px;
+  border: 2px dashed;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; font-size: 0.6rem; font-weight: 600;
+  letter-spacing: 0.06em; text-align: center;
+  transition: all 0.25s;
+  pointer-events: all;
+  font-family: 'Exo 2', sans-serif;
+}
+.drop-zone.hovered {
+  transform: scale(1.04);
+  filter: brightness(1.3);
+}
+.drop-zone.filled { border-style: solid; }
+.drop-zone.correct { border-color: var(--green); box-shadow: var(--glow-g); background: rgba(57,255,20,0.08); }
+.drop-zone.wrong { border-color: var(--red); box-shadow: 0 0 10px rgba(255,34,68,0.4); background: rgba(255,34,68,0.06); animation: shake 0.4s; }
+
+@keyframes shake {
+  0%,100%{transform:translateX(0);}
+  20%{transform:translateX(-6px);}
+  40%{transform:translateX(6px);}
+  60%{transform:translateX(-4px);}
+  80%{transform:translateX(4px);}
+}
+
+/* ═══════════════════════════ ACTIVITY 1 LAYOUT ═══════════════════════════ */
+#act1-scene {
+  position: relative; width: min(640px, 92vw); height: min(340px, 56vh);
+  margin: 0 auto;
+}
+
+/* The electrolysis beaker illustration */
+.beaker-container {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  width: 260px; height: 200px;
+}
+.beaker-svg { width: 100%; height: 100%; overflow: visible; }
+
+/* ACT1 drop zones */
+#dz-battery { width:90px;height:60px; border-color:var(--orange); color:var(--orange);
+  background:rgba(255,107,0,0.05); top:10px; left:50%; transform:translateX(-50%); }
+#dz-elec-l  { width:70px;height:140px; border-color:var(--green); color:var(--green);
+  background:rgba(57,255,20,0.03); top:60px; left:80px; }
+#dz-elec-r  { width:70px;height:140px; border-color:var(--green); color:var(--green);
+  background:rgba(57,255,20,0.03); top:60px; right:80px; }
+#dz-water   { width:180px;height:70px; border-color:#0066ff; color:#4488ff;
+  background:rgba(0,100,255,0.04); bottom:8px; left:50%; transform:translateX(-50%); }
+
+/* ═══════════════════════════ ACTIVITY 2 LAYOUT ═══════════════════════════ */
+#act2-scene {
+  position: relative; width: min(700px, 94vw); height: min(360px, 58vh);
+  margin: 0 auto;
+}
+
+.act2-beaker {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 280px; height: 220px;
+}
+
+/* act2 drop zones */
+#dz2-pos { width:88px;height:52px; border-color:var(--red); color:var(--red);
+  background:rgba(255,34,68,0.05); top:8px; left:30px; font-size:0.58rem; }
+#dz2-neg { width:88px;height:52px; border-color:#0066ff; color:#4488ff;
+  background:rgba(0,100,255,0.05); top:8px; right:30px; font-size:0.58rem; }
+#dz2-current { width:100px;height:48px; border-color:var(--cyan); color:var(--cyan);
+  background:rgba(0,245,255,0.04); bottom:12px; left:50%; transform:translateX(-50%); font-size:0.58rem; }
+
+/* ═══════════════════════════ ACTIVITY 3 LAYOUT ═══════════════════════════ */
+#act3-scene {
+  position: relative; width: min(680px, 94vw); height: min(360px, 58vh);
+  margin: 0 auto;
+}
+
+#dz3-h2 { width:88px;height:60px; border-color:var(--green); color:var(--green);
+  background:rgba(57,255,20,0.04); top:14px; left:60px; }
+#dz3-o2 { width:88px;height:60px; border-color:var(--orange); color:var(--orange);
+  background:rgba(255,107,0,0.04); top:14px; right:60px; }
+
+/* FEEDBACK LABEL */
+.fb-label {
+  position: absolute; bottom: -30px; left:50%; transform:translateX(-50%);
+  font-family:'Exo 2',sans-serif; font-size:0.7rem; font-weight:700;
+  letter-spacing:0.08em; white-space: nowrap;
+  opacity: 0; transition: opacity 0.4s;
+}
+.fb-label.show { opacity: 1; }
+.fb-label.ok { color: var(--green); text-shadow: var(--glow-g); }
+.fb-label.err { color: var(--red); }
+
+/* NEXT BUTTON */
+#next-btn {
+  position: absolute; bottom: 16px; right: 24px;
+  font-family: 'Orbitron', monospace; font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 10px 24px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--cyan), var(--blue));
+  color: var(--bg); border: none; cursor: pointer;
+  box-shadow: 0 0 20px rgba(0,245,255,0.4);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.5s, transform 0.2s, box-shadow 0.2s;
+  z-index: 50;
+}
+#next-btn.show { opacity: 1; pointer-events: all; }
+#next-btn:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(0,245,255,0.6); }
+
+/* ═══════════════════════════ BUBBLES ═══════════════════════════ */
+.bubble-container {
+  position: absolute; pointer-events: none; overflow: hidden;
+}
+.bubble {
+  position: absolute; border-radius: 50%;
+  animation: rise-bubble linear infinite;
+}
+@keyframes rise-bubble {
+  0% { transform: translateY(0) scale(1); opacity: 0.8; }
+  80% { opacity: 0.6; }
+  100% { transform: translateY(-200px) scale(0.5); opacity: 0; }
+}
+
+/* ═══════════════════════════ POPUP OVERLAYS ═══════════════════════════ */
+.popup-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(2,8,20,0.88); backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.4s;
+}
+.popup-overlay.show { opacity: 1; pointer-events: all; }
+
+.popup-card {
+  background: linear-gradient(135deg, rgba(5,20,50,0.98), rgba(2,10,30,0.98));
+  border: 1px solid var(--cyan); border-radius: 18px;
+  padding: 30px 36px; max-width: 460px; width: 90%;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(0,245,255,0.2), inset 0 1px 0 rgba(0,245,255,0.1);
+  animation: popup-in 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes popup-in {
+  from { transform: scale(0.7) translateY(30px); opacity:0; }
+  to   { transform: scale(1) translateY(0); opacity:1; }
+}
+
+.popup-icon { font-size: 3rem; margin-bottom: 12px; display:block; }
+.popup-card h2 {
+  font-family: 'Orbitron', monospace; font-size: 1.1rem; font-weight: 800;
+  letter-spacing: 0.1em; margin-bottom: 10px;
+  background: linear-gradient(90deg, var(--cyan), var(--green));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.popup-card p {
+  font-size: 0.82rem; color: rgba(200,230,255,0.8);
+  line-height: 1.65; margin-bottom: 18px;
+  font-family: 'Exo 2', sans-serif;
+}
+.popup-card .fact-box {
+  background: rgba(0,245,255,0.06); border: 1px solid rgba(0,245,255,0.2);
+  border-radius: 10px; padding: 10px 14px; margin-bottom: 18px;
+  font-size: 0.75rem; color: var(--cyan); font-family: 'Share Tech Mono', monospace;
+  line-height: 1.5;
+}
+.popup-btn {
+  font-family: 'Orbitron', monospace; font-size: 0.75rem; font-weight: 700;
+  letter-spacing: 0.1em; padding: 12px 30px; border-radius: 8px;
+  border: none; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+}
+.popup-btn.primary {
+  background: linear-gradient(135deg, var(--cyan), var(--blue));
+  color: var(--bg); box-shadow: 0 0 20px rgba(0,245,255,0.35);
+}
+.popup-btn.primary:hover { transform: scale(1.05); box-shadow: 0 0 35px rgba(0,245,255,0.55); }
+.popup-btn.success {
+  background: linear-gradient(135deg, var(--green), var(--acid));
+  color: var(--bg); box-shadow: 0 0 20px rgba(57,255,20,0.35);
+  font-size: 0.8rem; padding: 13px 34px;
+}
+
+/* SUCCESS POPUP extras */
+.success-molecules {
+  display: flex; justify-content: center; gap: 30px; margin: 14px 0;
+}
+.mol-card {
+  padding: 10px 16px; border-radius: 10px; text-align: center;
+  font-family: 'Share Tech Mono', monospace; font-size: 0.78rem;
+}
+.mol-card.h2 { background: rgba(57,255,20,0.1); border: 1px solid var(--green); color: var(--green); }
+.mol-card.o2 { background: rgba(255,107,0,0.1); border: 1px solid var(--orange); color: var(--orange); }
+.mol-card .mol-sym { font-size: 1.4rem; font-weight: 700; display: block; margin-bottom: 4px; }
+.mol-card .mol-name { font-size: 0.6rem; opacity: 0.8; }
+
+/* score stars */
+.stars { font-size: 1.6rem; letter-spacing: 4px; margin: 8px 0; }
+
+/* ═══════════════════════════ ACT3 ELECTRODE DISPLAY ═══════════════════════════ */
+.electrode-display {
+  position: absolute;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  font-family: 'Share Tech Mono', monospace;
+}
+.elec-label {
+  font-size: 0.7rem; padding: 3px 10px; border-radius: 4px;
+  font-weight: 700; letter-spacing: 0.05em;
+}
+.elec-label.pos { background: rgba(255,34,68,0.2); color: var(--red); border: 1px solid var(--red); }
+.elec-label.neg { background: rgba(0,102,255,0.2); color: #4488ff; border: 1px solid #0066ff; }
+.elec-rod {
+  width: 10px; height: 100px; border-radius: 4px;
+  background: linear-gradient(180deg, #888, #555);
+  position: relative;
+}
+
+/* ═══════════════════════════ FLOATING MOLECULES (BG) ═══════════════════════════ */
+.mol-float {
+  position: fixed; pointer-events: none; z-index: 1;
+  opacity: 0.1;
+  animation: mol-drift linear infinite;
+}
+@keyframes mol-drift {
+  0% { transform: translateY(110vh) rotate(0deg); }
+  100% { transform: translateY(-20vh) rotate(360deg); }
+}
+@keyframes float-elem {
+  0%,100% { transform: translateY(0) rotate(0deg); opacity:0.15; }
+  50% { transform: translateY(-12px) rotate(3deg); opacity:0.25; }
+}
+
+/* Connector line (act2) */
+.wire-line {
+  position: absolute; pointer-events: none;
+  height: 3px; border-radius: 2px;
+  transform-origin: left center;
+  opacity: 0; transition: opacity 0.5s;
+}
+.wire-line.show { opacity: 1; animation: wire-pulse 1.5s ease-in-out infinite; }
+@keyframes wire-pulse {
+  0%,100% { filter: brightness(1); }
+  50% { filter: brightness(1.6) drop-shadow(0 0 4px currentColor); }
+}
+
+/* check marks on zones */
+.zone-check {
+  position: absolute; top: -10px; right: -10px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--green); color: var(--bg);
+  font-size: 0.75rem; font-weight: 900;
+  display: flex; align-items:center; justify-content:center;
+  box-shadow: var(--glow-g);
+  opacity: 0; transition: opacity 0.3s;
+  z-index: 10;
+}
+.drop-zone.correct .zone-check { opacity: 1; }
+
+/* act1 placed item preview inside zone */
+.zone-preview {
+  font-size: 1.3em; display: block;
+}
+
+/* Ticker */
+#score-ticker {
+  position: absolute; top: 8px; left: 24px;
+  font-family: 'Share Tech Mono', monospace; font-size: 0.65rem;
+  color: var(--dim); letter-spacing: 0.1em;
+}
+#score-val { color: var(--gold); }
+
+</style>
+</head>
+<body>
+
+<!-- ═══ BACKGROUND LAYERS ═══ -->
+<canvas id="bg-canvas"></canvas>
+<div class="hex-grid"></div>
+<div class="ambient amb1"></div>
+<div class="ambient amb2"></div>
+<div class="ambient amb3"></div>
+
+<!-- Floating periodic table elements -->
+<div class="pt-elem" style="width:52px;height:52px;top:8%;left:3%;border-color:#0af;color:#0af;font-size:0.7rem;animation-delay:0s;animation-duration:9s">
+  <span class="num">1</span><span class="sym">H</span><span class="name">Hydrogen</span>
+</div>
+<div class="pt-elem" style="width:52px;height:52px;top:15%;right:4%;border-color:#f80;color:#f80;font-size:0.7rem;animation-delay:1.5s;animation-duration:11s">
+  <span class="num">8</span><span class="sym">O</span><span class="name">Oxygen</span>
+</div>
+<div class="pt-elem" style="width:48px;height:48px;bottom:12%;left:5%;border-color:#0f0;color:#0f0;font-size:0.65rem;animation-delay:3s;animation-duration:13s">
+  <span class="num">11</span><span class="sym">Na</span><span class="name">Sodium</span>
+</div>
+<div class="pt-elem" style="width:48px;height:48px;bottom:18%;right:3%;border-color:#f0f;color:#f0f;font-size:0.65rem;animation-delay:0.8s;animation-duration:10s">
+  <span class="num">17</span><span class="sym">Cl</span><span class="name">Chlorine</span>
+</div>
+<div class="pt-elem" style="width:44px;height:44px;top:50%;left:1%;border-color:#ff0;color:#ff0;font-size:0.62rem;animation-delay:2.2s;animation-duration:12s">
+  <span class="num">29</span><span class="sym">Cu</span><span class="name">Copper</span>
+</div>
+
+<!-- ═══ APP ═══ -->
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div id="title-block">
+      <h1>⚡ ELECTROLYSIS — SPLIT WATER WITH ELECTRICITY</h1>
+      <p>INTERACTIVE SCIENCE LAB · DRAG & DROP EXPERIMENTS</p>
+    </div>
+    <div class="h2o-formula">H₂O</div>
+  </div>
+
+  <!-- PROGRESS -->
+  <div id="progress-bar">
+    <div class="prog-step active" id="ps1">
+      <div class="prog-dot">1</div>ASSEMBLE SETUP
+    </div>
+    <div class="prog-line" id="pl1"></div>
+    <div class="prog-step" id="ps2">
+      <div class="prog-dot">2</div>CONNECT & FLOW
+    </div>
+    <div class="prog-line" id="pl2"></div>
+    <div class="prog-step" id="ps3">
+      <div class="prog-dot">3</div>IDENTIFY OUTPUTS
+    </div>
+  </div>
+
+  <!-- STAGE -->
+  <div id="stage">
+
+    <div id="score-ticker">CORRECT PLACEMENTS: <span id="score-val">0</span></div>
+
+    <!-- ═══════════ ACTIVITY 1 ═══════════ -->
+    <div class="activity active" id="activity1">
+      <div class="act-title">⚗️ ACTIVITY 1 — ASSEMBLE THE SETUP</div>
+      <div class="act-instruction">Drag each component into the correct position on the electrolysis diagram to build your experiment!</div>
+
+      <div id="act1-scene">
+        <!-- Drop zones -->
+        <div class="drop-zone" id="dz-battery" data-accepts="battery" data-label="BATTERY (+/−)">
+          <div class="zone-check">✓</div>
+          <span>🔋</span><span>BATTERY</span>
+        </div>
+        <div class="drop-zone" id="dz-elec-l" data-accepts="electrode" data-label="ELECTRODE">
+          <div class="zone-check">✓</div>
+          <span>✏️</span><span>LEFT<br>ELECTRODE</span>
+        </div>
+        <div class="drop-zone" id="dz-elec-r" data-accepts="electrode2" data-label="ELECTRODE">
+          <div class="zone-check">✓</div>
+          <span>✏️</span><span>RIGHT<br>ELECTRODE</span>
+        </div>
+        <div class="drop-zone" id="dz-water" data-accepts="saltwater" data-label="SALT WATER">
+          <div class="zone-check">✓</div>
+          <span>🧂 SALT WATER (Electrolyte)</span>
+        </div>
+
+        <!-- SVG Beaker background -->
+        <svg viewBox="0 0 260 200" class="beaker-svg" style="position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none">
+          <!-- Beaker body -->
+          <path d="M55 60 L40 185 Q40 195 52 195 L208 195 Q220 195 220 185 L205 60 Z"
+                fill="rgba(0,100,200,0.08)" stroke="rgba(0,200,255,0.4)" stroke-width="1.5"/>
+          <!-- Water level -->
+          <path d="M47 140 Q55 135 80 140 Q130 150 180 140 Q205 135 213 140 L213 185 Q213 193 208 193 L52 193 Q47 193 47 185 Z"
+                fill="rgba(0,80,220,0.18)" stroke="rgba(0,150,255,0.3)" stroke-width="1"/>
+          <!-- water shimmer -->
+          <line x1="70" y1="148" x2="110" y2="148" stroke="rgba(100,200,255,0.3)" stroke-width="1" stroke-linecap="round"/>
+          <line x1="140" y1="153" x2="180" y2="153" stroke="rgba(100,200,255,0.2)" stroke-width="1" stroke-linecap="round"/>
+          <!-- Grid lines on beaker -->
+          <line x1="50" y1="100" x2="210" y2="100" stroke="rgba(0,200,255,0.08)" stroke-width="0.5" stroke-dasharray="3,4"/>
+          <line x1="48" y1="130" x2="212" y2="130" stroke="rgba(0,200,255,0.08)" stroke-width="0.5" stroke-dasharray="3,4"/>
+          <!-- Electrode slots -->
+          <rect x="88" y="58" width="14" height="2" fill="rgba(57,255,20,0.3)" rx="1"/>
+          <rect x="158" y="58" width="14" height="2" fill="rgba(57,255,20,0.3)" rx="1"/>
+          <!-- + − labels -->
+          <text x="95" y="55" font-family="monospace" font-size="9" fill="rgba(255,100,100,0.5)" text-anchor="middle">+</text>
+          <text x="165" y="55" font-family="monospace" font-size="9" fill="rgba(100,100,255,0.5)" text-anchor="middle">−</text>
+        </svg>
+
+        <!-- Background bubbles in beaker (always) -->
+        <div id="a1-bubbles" style="position:absolute;left:55px;top:100px;width:150px;height:80px;overflow:hidden;pointer-events:none;z-index:0"></div>
+      </div>
+
+      <!-- Draggable items palette -->
+      <div style="position:relative;width:min(640px,92vw);height:70px;margin-top:10px;">
+        <div class="drag-item battery" id="di-battery" data-type="battery" style="left:20px;top:5px;">
+          <span class="drag-icon">🔋</span>BATTERY<br><span style="font-size:0.55rem;opacity:0.7">9V DC</span>
+        </div>
+        <div class="drag-item electrode" id="di-elec1" data-type="electrode" style="left:150px;top:5px;">
+          <span class="drag-icon">✏️</span>ELECTRODE<br><span style="font-size:0.55rem;opacity:0.7">GRAPHITE</span>
+        </div>
+        <div class="drag-item electrode" id="di-elec2" data-type="electrode2" style="left:270px;top:5px;">
+          <span class="drag-icon">✏️</span>ELECTRODE<br><span style="font-size:0.55rem;opacity:0.7">GRAPHITE</span>
+        </div>
+        <div class="drag-item saltwater" id="di-saltwater" data-type="saltwater" style="left:400px;top:5px;">
+          <span class="drag-icon">🧂</span>SALT WATER<br><span style="font-size:0.55rem;opacity:0.7">ELECTROLYTE</span>
+        </div>
+      </div>
+      <div id="fb1" class="fb-label" style="position:relative;margin-top:4px;">⚠ Wrong spot! Try another position.</div>
+    </div>
+
+    <!-- ═══════════ ACTIVITY 2 ═══════════ -->
+    <div class="activity" id="activity2">
+      <div class="act-title">⚡ ACTIVITY 2 — SIMULATE THE CURRENT FLOW</div>
+      <div class="act-instruction">Drag the correct wire connections to complete the circuit and watch the bubbles form at each electrode!</div>
+
+      <div id="act2-scene">
+        <!-- Drop zones -->
+        <div class="drop-zone" id="dz2-pos" data-accepts="wire-pos" style="top:8px;left:30px;">
+          <div class="zone-check">✓</div>
+          <span>🔴</span><span>+ POSITIVE<br>WIRE</span>
+        </div>
+        <div class="drop-zone" id="dz2-neg" data-accepts="wire-neg" style="top:8px;right:30px;">
+          <div class="zone-check">✓</div>
+          <span>🔵</span><span>− NEGATIVE<br>WIRE</span>
+        </div>
+        <div class="drop-zone" id="dz2-current" data-accepts="label-elec" style="bottom:12px;left:50%;transform:translateX(-50%);">
+          <div class="zone-check">✓</div>
+          <span>⚡ ELECTRICITY<br>FLOWS THROUGH</span>
+        </div>
+
+        <!-- Main diagram SVG -->
+        <svg viewBox="0 0 280 220" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:280px;height:220px;z-index:0;pointer-events:none" id="act2-svg">
+          <!-- Beaker -->
+          <path d="M55 65 L42 190 Q42 198 54 198 L226 198 Q238 198 238 190 L225 65 Z"
+                fill="rgba(0,100,200,0.09)" stroke="rgba(0,200,255,0.35)" stroke-width="1.5"/>
+          <!-- Water -->
+          <path d="M49 145 Q130 158 231 145 L231 190 Q231 197 226 197 L54 197 Q49 197 49 190 Z"
+                fill="rgba(0,80,220,0.2)" stroke="rgba(0,150,255,0.25)" stroke-width="1"/>
+          <!-- Left pencil/electrode -->
+          <rect x="87" y="55" width="10" height="130" rx="3" fill="rgba(57,255,20,0.15)" stroke="rgba(57,255,20,0.5)" stroke-width="1"/>
+          <rect x="88" y="158" width="8" height="20" rx="2" fill="rgba(57,255,20,0.35)"/>
+          <!-- Right pencil/electrode -->
+          <rect x="183" y="55" width="10" height="130" rx="3" fill="rgba(57,255,20,0.15)" stroke="rgba(57,255,20,0.5)" stroke-width="1"/>
+          <rect x="184" y="158" width="8" height="20" rx="2" fill="rgba(57,255,20,0.35)"/>
+          <!-- Battery shape (centre top) -->
+          <rect x="116" y="8" width="48" height="28" rx="5" fill="rgba(255,107,0,0.15)" stroke="rgba(255,107,0,0.6)" stroke-width="1.5"/>
+          <text x="140" y="26" font-family="monospace" font-size="10" fill="rgba(255,160,0,0.9)" text-anchor="middle">⚡ 9V</text>
+          <!-- Wire paths (hidden initially, shown when correct wires placed) -->
+          <path id="wire-l-path" d="M92 55 Q92 30 116 22" fill="none" stroke="rgba(255,50,50,0.7)" stroke-width="2.5" stroke-dasharray="5,3" opacity="0"/>
+          <path id="wire-r-path" d="M188 55 Q188 30 164 22" fill="none" stroke="rgba(50,100,255,0.7)" stroke-width="2.5" stroke-dasharray="5,3" opacity="0"/>
+          <!-- + − on battery -->
+          <text x="120" y="20" font-family="monospace" font-size="8" fill="rgba(255,80,80,0.8)">+</text>
+          <text x="155" y="20" font-family="monospace" font-size="8" fill="rgba(80,100,255,0.8)">−</text>
+          <!-- Electrode labels -->
+          <text x="92" y="50" font-family="monospace" font-size="8" fill="rgba(255,80,80,0.7)" text-anchor="middle">+</text>
+          <text x="188" y="50" font-family="monospace" font-size="8" fill="rgba(80,100,255,0.7)" text-anchor="middle">−</text>
+        </svg>
+
+        <!-- Bubble containers for act2 -->
+        <div id="a2-bubbles-l" style="position:absolute;left:calc(50% - 53px);top:100px;width:18px;height:70px;overflow:hidden;pointer-events:none;"></div>
+        <div id="a2-bubbles-r" style="position:absolute;left:calc(50% + 35px);top:100px;width:18px;height:70px;overflow:hidden;pointer-events:none;"></div>
+        <div id="a2-bubble-label-l" style="position:absolute;left:calc(50% - 80px);top:85px;font-family:'Share Tech Mono',monospace;font-size:0.58rem;color:rgba(57,255,20,0.7);text-align:center;width:48px;opacity:0;transition:opacity 0.5s;">MORE<br>BUBBLES</div>
+        <div id="a2-bubble-label-r" style="position:absolute;left:calc(50% + 38px);top:85px;font-family:'Share Tech Mono',monospace;font-size:0.58rem;color:rgba(255,107,0,0.7);text-align:center;width:48px;opacity:0;transition:opacity 0.5s;">FEWER<br>BUBBLES</div>
+      </div>
+
+      <!-- Draggable items palette -->
+      <div style="position:relative;width:min(700px,94vw);height:65px;margin-top:8px;">
+        <div class="drag-item wire-pos" id="di-wpos" data-type="wire-pos" style="left:40px;top:5px;">
+          <span class="drag-icon">🔴</span>+ RED WIRE<br><span style="font-size:0.55rem;opacity:0.7">POSITIVE</span>
+        </div>
+        <div class="drag-item wire-neg" id="di-wneg" data-type="wire-neg" style="left:180px;top:5px;">
+          <span class="drag-icon">🔵</span>− BLUE WIRE<br><span style="font-size:0.55rem;opacity:0.7">NEGATIVE</span>
+        </div>
+        <div class="drag-item label-elec" id="di-elecflow" data-type="label-elec" style="left:340px;top:5px;">
+          <span class="drag-icon">⚡</span>CURRENT<br><span style="font-size:0.55rem;opacity:0.7">ELECTROLYTE</span>
+        </div>
+      </div>
+      <div id="fb2" class="fb-label" style="position:relative;margin-top:4px;">⚠ Wrong connection! Check polarity.</div>
+    </div>
+
+    <!-- ═══════════ ACTIVITY 3 ═══════════ -->
+    <div class="activity" id="activity3">
+      <div class="act-title">🧪 ACTIVITY 3 — IDENTIFY THE OUTPUTS</div>
+      <div class="act-instruction">Drag the correct gas labels to the right electrode. Remember: more bubbles appear on the negative (−) side!</div>
+
+      <div id="act3-scene">
+        <!-- Drop zones -->
+        <div class="drop-zone" id="dz3-h2" data-accepts="label-h2" style="top:14px;left:55px;">
+          <div class="zone-check">✓</div>
+          <span style="font-size:0.7rem;">GAS AT<br>+ ELECTRODE</span>
+        </div>
+        <div class="drop-zone" id="dz3-o2" data-accepts="label-o2" style="top:14px;right:55px;">
+          <div class="zone-check">✓</div>
+          <span style="font-size:0.7rem;">GAS AT<br>− ELECTRODE</span>
+        </div>
+
+        <!-- Main diagram -->
+        <svg viewBox="0 0 320 240" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(300px,80vw);height:auto;z-index:0;pointer-events:none">
+          <!-- Beaker -->
+          <path d="M50 65 L35 205 Q35 215 48 215 L272 215 Q285 215 285 205 L270 65 Z"
+                fill="rgba(0,100,200,0.09)" stroke="rgba(0,200,255,0.35)" stroke-width="1.5"/>
+          <!-- Water -->
+          <path d="M42 150 Q160 165 278 150 L278 205 Q278 213 272 213 L48 213 Q42 213 42 205 Z"
+                fill="rgba(0,80,220,0.2)" stroke="rgba(0,150,255,0.2)" stroke-width="1"/>
+          <!-- Left electrode (+ positive → O2) -->
+          <rect x="93" y="55" width="12" height="145" rx="3" fill="rgba(255,100,50,0.15)" stroke="rgba(255,80,80,0.6)" stroke-width="1.5"/>
+          <!-- Right electrode (− negative → H2) -->
+          <rect x="215" y="55" width="12" height="145" rx="3" fill="rgba(50,100,255,0.15)" stroke="rgba(80,120,255,0.6)" stroke-width="1.5"/>
+          <!-- Battery -->
+          <rect x="130" y="8" width="60" height="32" rx="6" fill="rgba(255,107,0,0.15)" stroke="rgba(255,107,0,0.6)" stroke-width="1.5"/>
+          <text x="160" y="28" font-family="monospace" font-size="11" fill="rgba(255,160,0,0.9)" text-anchor="middle">⚡9V</text>
+          <!-- Wires shown -->
+          <path d="M99 55 Q99 24 130 24" fill="none" stroke="rgba(255,50,50,0.7)" stroke-width="2" stroke-dasharray="4,3"/>
+          <path d="M221 55 Q221 24 190 24" fill="none" stroke="rgba(50,100,255,0.7)" stroke-width="2" stroke-dasharray="4,3"/>
+          <!-- Pole labels on electrodes -->
+          <text x="99" y="50" font-family="monospace" font-size="11" fill="rgba(255,80,80,0.9)" text-anchor="middle" font-weight="bold">+</text>
+          <text x="221" y="50" font-family="monospace" font-size="11" fill="rgba(80,120,255,0.9)" text-anchor="middle" font-weight="bold">−</text>
+          <!-- Bubble groups (static lines to represent bubbles) -->
+          <!-- Right side (more bubbles - H2) -->
+          <circle cx="221" cy="130" r="4" fill="none" stroke="rgba(57,255,20,0.5)" stroke-width="1"/>
+          <circle cx="218" cy="118" r="3" fill="none" stroke="rgba(57,255,20,0.4)" stroke-width="1"/>
+          <circle cx="224" cy="107" r="3.5" fill="none" stroke="rgba(57,255,20,0.45)" stroke-width="1"/>
+          <circle cx="220" cy="96" r="2.5" fill="none" stroke="rgba(57,255,20,0.35)" stroke-width="1"/>
+          <circle cx="223" cy="86" r="2" fill="none" stroke="rgba(57,255,20,0.3)" stroke-width="1"/>
+          <circle cx="217" cy="142" r="3" fill="none" stroke="rgba(57,255,20,0.4)" stroke-width="1"/>
+          <!-- Left side (fewer bubbles - O2) -->
+          <circle cx="99" cy="128" r="4" fill="none" stroke="rgba(255,107,0,0.45)" stroke-width="1"/>
+          <circle cx="96" cy="112" r="3" fill="none" stroke="rgba(255,107,0,0.35)" stroke-width="1"/>
+          <circle cx="101" cy="99" r="2.5" fill="none" stroke="rgba(255,107,0,0.3)" stroke-width="1"/>
+          <!-- Quantity labels -->
+          <text x="86" y="75" font-family="Share Tech Mono" font-size="7" fill="rgba(255,107,0,0.7)" text-anchor="middle">FEWER</text>
+          <text x="86" y="83" font-family="Share Tech Mono" font-size="7" fill="rgba(255,107,0,0.7)" text-anchor="middle">BUBBLES</text>
+          <text x="234" y="75" font-family="Share Tech Mono" font-size="7" fill="rgba(57,255,20,0.7)" text-anchor="middle">MORE</text>
+          <text x="234" y="83" font-family="Share Tech Mono" font-size="7" fill="rgba(57,255,20,0.7)" text-anchor="middle">BUBBLES</text>
+        </svg>
+
+        <!-- Animated bubbles act3 -->
+        <div id="a3-bubbles-l" style="position:absolute;left:calc(50% - 56px);top:90px;width:16px;height:80px;overflow:hidden;pointer-events:none;"></div>
+        <div id="a3-bubbles-r" style="position:absolute;left:calc(50% + 44px);top:90px;width:16px;height:80px;overflow:hidden;pointer-events:none;"></div>
+      </div>
+
+      <!-- Draggable labels palette -->
+      <div style="position:relative;width:min(680px,94vw);height:65px;margin-top:8px;">
+        <div class="drag-item label-o2" id="di-o2" data-type="label-o2" style="left:80px;top:5px;">
+          <span class="drag-icon">🟠</span>OXYGEN (O₂)<br><span style="font-size:0.55rem;opacity:0.7">+ ELECTRODE</span>
+        </div>
+        <div class="drag-item label-h2" id="di-h2" data-type="label-h2" style="left:280px;top:5px;">
+          <span class="drag-icon">🟢</span>HYDROGEN (H₂)<br><span style="font-size:0.55rem;opacity:0.7">− ELECTRODE</span>
+        </div>
+      </div>
+      <div id="fb3" class="fb-label" style="position:relative;margin-top:4px;">⚠ Check which gas forms at which electrode!</div>
+    </div>
+
+    <!-- NEXT BUTTON -->
+    <button id="next-btn" onclick="nextActivity()">NEXT ACTIVITY ▶</button>
+
+  </div><!-- /stage -->
+</div><!-- /app -->
+
+<!-- ═══════════════════ POPUPS ═══════════════════ -->
+
+<!-- Activity 1 Complete -->
+<div class="popup-overlay" id="pop1">
+  <div class="popup-card">
+    <span class="popup-icon">⚗️</span>
+    <h2>SETUP COMPLETE!</h2>
+    <p>You've assembled the electrolysis apparatus! The <strong style="color:var(--orange)">battery</strong> provides electrical energy, the <strong style="color:var(--green)">graphite pencil electrodes</strong> dip into the water, and the <strong style="color:#60aaff">salt water</strong> acts as the electrolyte — carrying the current.</p>
+    <div class="fact-box">
+      ⚡ SCIENCE FACT: Pure water barely conducts electricity.<br>
+      Salt (NaCl) dissolves into Na⁺ and Cl⁻ ions that carry<br>
+      the electric charge through the solution!
+    </div>
+    <button class="popup-btn primary" onclick="startActivity(2)">START ACTIVITY 2 ▶</button>
+  </div>
+</div>
+
+<!-- Activity 2 Complete -->
+<div class="popup-overlay" id="pop2">
+  <div class="popup-card">
+    <span class="popup-icon">⚡</span>
+    <h2>CIRCUIT COMPLETE!</h2>
+    <p>Electricity is now flowing! The <strong style="color:var(--red)">positive (+) wire</strong> connects to one electrode and the <strong style="color:#4488ff">negative (−) wire</strong> to the other. The current passing through the salt water is splitting the water molecules!</p>
+    <div class="fact-box">
+      🔬 SCIENCE FACT: You should see TWICE as many bubbles<br>
+      at the negative electrode as at the positive one.<br>
+      That's because H₂O has 2 hydrogen atoms but only 1 oxygen!
+    </div>
+    <button class="popup-btn primary" onclick="startActivity(3)">START ACTIVITY 3 ▶</button>
+  </div>
+</div>
+
+<!-- Final Success -->
+<div class="popup-overlay" id="pop-success">
+  <div class="popup-card" style="max-width:500px;">
+    <span class="popup-icon">🏆</span>
+    <h2>ELECTROLYSIS MASTER!</h2>
+    <div class="stars">⭐⭐⭐</div>
+    <p>Outstanding! You've successfully split water into its two elements using electricity. Here's what you discovered:</p>
+    <div class="success-molecules">
+      <div class="mol-card h2">
+        <span class="mol-sym">H₂</span>
+        <span>HYDROGEN GAS</span><br>
+        <span class="mol-name">at − electrode<br>MORE bubbles<br>Lightest gas!</span>
+      </div>
+      <div class="mol-card o2">
+        <span class="mol-sym">O₂</span>
+        <span>OXYGEN GAS</span><br>
+        <span class="mol-name">at + electrode<br>FEWER bubbles<br>The air we breathe!</span>
+      </div>
+    </div>
+    <div class="fact-box" style="font-size:0.7rem;text-align:left">
+      🚀 REAL WORLD: India's National Green Hydrogen Mission uses<br>
+      electrolysis to make clean hydrogen fuel from water!<br><br>
+      💉 Hospital oxygen &amp; ✨ gold electroplating ALSO use this process!
+    </div>
+    <button class="popup-btn success" onclick="restartAll()">🔄 RESTART EXPERIMENT</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  BACKGROUND CANVAS — Rising bubbles + particle field
+// ═══════════════════════════════════════════════════════════════════
+(function(){
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [], bgBubbles = [];
+
+  function resize(){
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Particles (glowing dots)
+  for(let i=0;i<60;i++){
+    particles.push({
+      x: Math.random()*2000, y: Math.random()*1200,
+      r: Math.random()*1.8+0.3,
+      vx: (Math.random()-0.5)*0.15,
+      vy: (Math.random()-0.5)*0.12,
+      hue: [180,200,220,140][Math.floor(Math.random()*4)],
+      alpha: Math.random()*0.4+0.1,
+      pulse: Math.random()*Math.PI*2
+    });
+  }
+
+  // Background rising bubbles
+  for(let i=0;i<18;i++){
+    bgBubbles.push({
+      x: Math.random()*2000,
+      y: Math.random()*1200,
+      r: Math.random()*6+2,
+      speed: Math.random()*0.4+0.15,
+      wobble: Math.random()*Math.PI*2,
+      alpha: Math.random()*0.12+0.04,
+      hue: [180,200,160,220][Math.floor(Math.random()*4)]
+    });
+  }
+
+  let t = 0;
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    t += 0.008;
+
+    // particles
+    particles.forEach(p=>{
+      p.x += p.vx; p.y += p.vy; p.pulse += 0.02;
+      if(p.x<0)p.x=W; if(p.x>W)p.x=0;
+      if(p.y<0)p.y=H; if(p.y>H)p.y=0;
+      const a = p.alpha*(0.7+0.3*Math.sin(p.pulse));
+      ctx.beginPath();
+      ctx.arc(p.x % W, p.y % H, p.r, 0, Math.PI*2);
+      ctx.fillStyle = `hsla(${p.hue},100%,70%,${a})`;
+      ctx.fill();
+    });
+
+    // background bubbles
+    bgBubbles.forEach(b=>{
+      b.y -= b.speed;
+      b.wobble += 0.02;
+      b.x += Math.sin(b.wobble)*0.3;
+      if(b.y < -b.r*2){
+        b.y = H + b.r;
+        b.x = Math.random()*W;
+      }
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI*2);
+      ctx.strokeStyle = `hsla(${b.hue},100%,70%,${b.alpha})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      // inner glow
+      const g = ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r);
+      g.addColorStop(0, `hsla(${b.hue},100%,90%,${b.alpha*0.3})`);
+      g.addColorStop(1, `hsla(${b.hue},100%,70%,0)`);
+      ctx.fillStyle = g;
+      ctx.fill();
+    });
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+//  BUBBLE SPAWNER (for containers inside activities)
+// ═══════════════════════════════════════════════════════════════════
+function spawnBubbles(containerId, color, count, speed){
+  const c = document.getElementById(containerId);
+  if(!c) return;
+  c.innerHTML = '';
+  const h = c.offsetHeight || 80;
+  const w = c.offsetWidth || 20;
+  for(let i=0;i<count;i++){
+    const b = document.createElement('div');
+    b.className = 'bubble';
+    const r = Math.random()*4+2;
+    b.style.cssText = `
+      width:${r*2}px;height:${r*2}px;
+      left:${Math.random()*(w-r*2)}px;
+      bottom:${Math.random()*-20}px;
+      background:transparent;
+      border:1px solid ${color};
+      box-shadow:0 0 4px ${color}44;
+      animation-duration:${speed*(0.7+Math.random()*0.8)}s;
+      animation-delay:${Math.random()*speed}s;
+    `;
+    c.appendChild(b);
+  }
+}
+
+// Spawn background bubbles in act1 beaker always
+spawnBubbles('a1-bubbles','rgba(0,150,255,0.5)', 6, 3.5);
+
+// ═══════════════════════════════════════════════════════════════════
+//  DRAG & DROP ENGINE
+// ═══════════════════════════════════════════════════════════════════
+let dragEl = null, dragOffX = 0, dragOffY = 0;
+let origX = {}, origY = {};
+let score = 0;
+const scoreEl = document.getElementById('score-val');
+
+// Store original positions
+document.querySelectorAll('.drag-item').forEach(el=>{
+  const r = el.getBoundingClientRect();
+  origX[el.id] = el.offsetLeft;
+  origY[el.id] = el.offsetTop;
+});
+
+function startDrag(e){
+  const item = e.currentTarget;
+  if(item.classList.contains('placed')) return;
+  dragEl = item;
+  item.classList.add('dragging');
+
+  const touch = e.touches ? e.touches[0] : e;
+  const rect = item.getBoundingClientRect();
+  dragOffX = touch.clientX - rect.left;
+  dragOffY = touch.clientY - rect.top;
+
+  document.addEventListener('mousemove', moveDrag);
+  document.addEventListener('touchmove', moveDrag, {passive:false});
+  document.addEventListener('mouseup', endDrag);
+  document.addEventListener('touchend', endDrag);
+  e.preventDefault();
+}
+
+function moveDrag(e){
+  if(!dragEl) return;
+  const touch = e.touches ? e.touches[0] : e;
+  const parent = dragEl.parentElement;
+  const pr = parent.getBoundingClientRect();
+  const x = touch.clientX - pr.left - dragOffX;
+  const y = touch.clientY - pr.top - dragOffY;
+  dragEl.style.left = x + 'px';
+  dragEl.style.top  = y + 'px';
+
+  // Highlight hovered drop zones
+  document.querySelectorAll('.drop-zone').forEach(z=>{
+    const zr = z.getBoundingClientRect();
+    const inside = touch.clientX > zr.left && touch.clientX < zr.right &&
+                   touch.clientY > zr.top  && touch.clientY < zr.bottom;
+    z.classList.toggle('hovered', inside && !z.classList.contains('filled'));
+  });
+  e.preventDefault();
+}
+
+function endDrag(e){
+  if(!dragEl) return;
+  document.removeEventListener('mousemove', moveDrag);
+  document.removeEventListener('touchmove', moveDrag);
+  document.removeEventListener('mouseup', endDrag);
+  document.removeEventListener('touchend', endDrag);
+
+  const touch = e.changedTouches ? e.changedTouches[0] : e;
+  let dropped = false;
+
+  document.querySelectorAll('.drop-zone').forEach(z=>{
+    z.classList.remove('hovered');
+    const zr = z.getBoundingClientRect();
+    const inside = touch.clientX > zr.left && touch.clientX < zr.right &&
+                   touch.clientY > zr.top  && touch.clientY < zr.bottom;
+    if(inside && !z.classList.contains('filled')){
+      const accepts = z.dataset.accepts;
+      const type    = dragEl.dataset.type;
+      if(accepts === type){
+        // CORRECT
+        z.classList.add('correct','filled');
+        z.innerHTML = `<div class="zone-check" style="opacity:1">✓</div><span class="zone-preview">${dragEl.querySelector('.drag-icon').textContent}</span><span style="font-size:0.6rem;font-weight:700">${dragEl.childNodes[1].textContent.trim()}</span>`;
+        dragEl.classList.add('placed');
+        score++;
+        scoreEl.textContent = score;
+        onCorrectDrop(z.id, dragEl.id);
+        dropped = true;
+        checkActivityComplete();
+      } else {
+        // WRONG
+        z.classList.add('wrong');
+        setTimeout(()=>z.classList.remove('wrong'), 600);
+        showFeedback(false);
+      }
+    }
+  });
+
+  if(!dropped){
+    // Return to original position
+    dragEl.style.left = origX[dragEl.id] + 'px';
+    dragEl.style.top  = origY[dragEl.id] + 'px';
+  }
+  dragEl.classList.remove('dragging');
+  dragEl = null;
+}
+
+// Attach drag to all items
+document.querySelectorAll('.drag-item').forEach(el=>{
+  el.addEventListener('mousedown', startDrag);
+  el.addEventListener('touchstart', startDrag, {passive:false});
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  ACTIVITY LOGIC
+// ═══════════════════════════════════════════════════════════════════
+let currentActivity = 1;
+let act1Correct = 0, act2Correct = 0, act3Correct = 0;
+const actCounts = {1:4, 2:3, 3:2};
+
+function onCorrectDrop(zoneId, itemId){
+  // Act2: show wires in SVG when placed
+  if(zoneId === 'dz2-pos'){
+    document.getElementById('wire-l-path').style.opacity = '1';
+  }
+  if(zoneId === 'dz2-neg'){
+    document.getElementById('wire-r-path').style.opacity = '1';
+  }
+  if(zoneId === 'dz2-current'){
+    // Start bubbles for act2
+    spawnBubbles('a2-bubbles-l','rgba(57,255,20,0.7)', 8, 1.8);
+    spawnBubbles('a2-bubbles-r','rgba(255,107,0,0.6)', 4, 2.2);
+    document.getElementById('a2-bubble-label-l').style.opacity = '1';
+    document.getElementById('a2-bubble-label-r').style.opacity = '1';
+  }
+  // Act3: show animated bubbles when any correct
+  if(zoneId === 'dz3-h2' || zoneId === 'dz3-o2'){
+    spawnBubbles('a3-bubbles-l','rgba(255,107,0,0.7)', 3, 2.5);
+    spawnBubbles('a3-bubbles-r','rgba(57,255,20,0.7)', 7, 1.6);
+  }
+  showFeedback(true, zoneId);
+}
+
+function showFeedback(ok, zoneId){
+  const fbId = 'fb' + currentActivity;
+  const fb = document.getElementById(fbId);
+  if(!fb) return;
+  if(ok){
+    fb.textContent = '✅ Correct! Well done!';
+    fb.className = 'fb-label show ok';
+  } else {
+    fb.textContent = '⚠ Wrong position! Try again.';
+    fb.className = 'fb-label show err';
+  }
+  setTimeout(()=>{ if(fb) fb.className = 'fb-label'; }, 2000);
+}
+
+function checkActivityComplete(){
+  const zones = document.querySelectorAll(`#activity${currentActivity} .drop-zone.correct`);
+  const needed = actCounts[currentActivity];
+  if(zones.length >= needed){
+    setTimeout(()=>{
+      document.getElementById('next-btn').classList.remove('show');
+      showPopup('pop' + currentActivity);
+    }, 500);
+  }
+}
+
+function showPopup(id){
+  document.getElementById(id).classList.add('show');
+}
+function hidePopup(id){
+  document.getElementById(id).classList.remove('show');
+}
+
+function nextActivity(){
+  // Only used if next button was visible (fallback)
+  const pops = {1:'pop1', 2:'pop2'};
+  if(pops[currentActivity]) showPopup(pops[currentActivity]);
+}
+
+function startActivity(n){
+  hidePopup('pop' + (n-1));
+  // Update progress
+  const prev = document.getElementById('ps' + (n-1));
+  if(prev){ prev.classList.remove('active'); prev.classList.add('done'); }
+  const line = document.getElementById('pl' + (n-1));
+  if(line) line.classList.add('done');
+  const cur = document.getElementById('ps' + n);
+  if(cur) cur.classList.add('active');
+
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.getElementById('activity' + n).classList.add('active');
+  currentActivity = n;
+
+  // Special setup per activity
+  if(n===3){
+    spawnBubbles('a3-bubbles-l','rgba(255,107,0,0.5)', 3, 2.5);
+    spawnBubbles('a3-bubbles-r','rgba(57,255,20,0.6)', 6, 1.8);
+  }
+}
+
+// After activity 3 pop (success)
+// Override pop3 to show success
+const orig3Check = checkActivityComplete;
+let lastAct3Zones = 0;
+
+// Patch: act3 fires success popup
+function checkActivityComplete(){
+  const n = currentActivity;
+  const zones = document.querySelectorAll(`#activity${n} .drop-zone.correct`);
+  const needed = actCounts[n];
+  if(zones.length >= needed){
+    setTimeout(()=>{
+      if(n === 3){
+        document.getElementById('ps3').classList.remove('active');
+        document.getElementById('ps3').classList.add('done');
+        showPopup('pop-success');
+      } else {
+        document.getElementById('next-btn').classList.remove('show');
+        showPopup('pop' + n);
+      }
+    }, 600);
+  }
+}
+
+function restartAll(){
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  INIT — store original positions after layout
+// ═══════════════════════════════════════════════════════════════════
+window.addEventListener('load', ()=>{
+  document.querySelectorAll('.drag-item').forEach(el=>{
+    origX[el.id] = el.offsetLeft;
+    origY[el.id] = el.offsetTop;
+  });
+
+  // Spawn initial act1 beaker ambiance bubbles
+  spawnBubbles('a1-bubbles','rgba(0,180,255,0.45)', 8, 3.5);
+});
+</script>
+</body>
+</html>

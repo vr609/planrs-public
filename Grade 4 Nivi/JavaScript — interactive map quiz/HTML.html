@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JAVASCRIPT — INTERACTIVE MAP QUIZ</title>
+<style>
+/* ===== FONTS ===== */
+@import url('https://fonts.googleapis.com/css2?family=Pirata+One&family=Cinzel:wght@400;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+
+/* ===== VARIABLES ===== */
+:root {
+  --ocean-deep: #0a1628;
+  --ocean-mid: #0d2347;
+  --ocean-light: #1a3a6e;
+  --ocean-foam: #2d6ea8;
+  --wave-blue: #1e4d8c;
+  --gold: #f0c040;
+  --gold-light: #ffd966;
+  --gold-dark: #c8960a;
+  --treasure: #e8a020;
+  --parchment: #f5e6c8;
+  --parchment-dark: #d4b483;
+  --wood: #8b4513;
+  --wood-light: #a0522d;
+  --rope: #c8a050;
+  --success: #2ecc71;
+  --danger: #e74c3c;
+  --white: #fff8f0;
+  --shadow: rgba(0,0,0,0.4);
+}
+
+/* ===== RESET ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  font-family: 'Crimson Text', Georgia, serif;
+  background: var(--ocean-deep);
+  color: var(--white);
+  user-select: none;
+}
+
+/* ===== OCEAN BACKGROUND ===== */
+#ocean-bg {
+  position: fixed; inset: 0;
+  background: linear-gradient(180deg,
+    #06101f 0%, #0a1a35 25%, #0d2347 55%, #143060 80%, #1a3d75 100%);
+  overflow: hidden;
+  z-index: 0;
+}
+
+/* Stars */
+.star {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  animation: twinkle var(--dur, 3s) ease-in-out infinite alternate;
+  opacity: var(--op, 0.6);
+}
+@keyframes twinkle { from { opacity: 0.2; transform: scale(0.8); } to { opacity: 1; transform: scale(1.2); } }
+
+/* Moon */
+#moon {
+  position: absolute;
+  top: 4%;
+  right: 12%;
+  width: 80px; height: 80px;
+  background: radial-gradient(circle at 35% 35%, #fffde0, #f0c060 50%, #c89020);
+  border-radius: 50%;
+  box-shadow: 0 0 30px 10px rgba(240,192,60,0.3), 0 0 80px 30px rgba(240,192,60,0.1);
+  animation: moonGlow 4s ease-in-out infinite alternate;
+}
+@keyframes moonGlow { from { box-shadow: 0 0 30px 10px rgba(240,192,60,0.3); } to { box-shadow: 0 0 50px 20px rgba(240,192,60,0.5); } }
+
+/* Floating islands */
+.island {
+  position: absolute;
+  bottom: 18%;
+  animation: islandBob var(--dur,6s) ease-in-out infinite alternate;
+}
+@keyframes islandBob { from { transform: translateY(0); } to { transform: translateY(-8px); } }
+
+/* Waves */
+.wave-layer {
+  position: absolute;
+  bottom: 0;
+  left: -200px;
+  width: calc(100% + 400px);
+  height: 200px;
+  animation: waveMove var(--speed, 8s) linear infinite;
+}
+.wave-layer svg { width: 100%; height: 100%; }
+@keyframes waveMove { from { transform: translateX(0); } to { transform: translateX(-200px); } }
+
+/* Floating elements */
+.float-el {
+  position: absolute;
+  animation: floatAround var(--dur, 8s) ease-in-out infinite alternate;
+  font-size: var(--sz, 2rem);
+  opacity: 0.7;
+  pointer-events: none;
+}
+@keyframes floatAround {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(10px, -15px) rotate(5deg); }
+  66% { transform: translate(-8px, -8px) rotate(-3deg); }
+  100% { transform: translate(5px, -20px) rotate(7deg); }
+}
+
+/* Bubbles */
+.bubble {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.4), rgba(100,180,255,0.1));
+  border: 1px solid rgba(255,255,255,0.2);
+  animation: bubbleRise var(--dur, 5s) ease-in infinite;
+  bottom: -20px;
+}
+@keyframes bubbleRise {
+  0% { transform: translateY(0) translateX(0) scale(1); opacity: 0.6; }
+  50% { transform: translateY(-200px) translateX(var(--sway,20px)) scale(1.1); opacity: 0.4; }
+  100% { transform: translateY(-500px) translateX(0) scale(0.8); opacity: 0; }
+}
+
+/* Ship */
+#pirate-ship {
+  position: absolute;
+  bottom: 22%;
+  left: 3%;
+  font-size: 5rem;
+  animation: shipSail 20s ease-in-out infinite;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+  z-index: 1;
+}
+@keyframes shipSail {
+  0%   { transform: translateX(0) rotate(-2deg); }
+  25%  { transform: translateX(40px) rotate(1deg); }
+  50%  { transform: translateX(20px) rotate(-1deg); }
+  75%  { transform: translateX(60px) rotate(2deg); }
+  100% { transform: translateX(0) rotate(-2deg); }
+}
+
+/* ===== MAIN LAYOUT ===== */
+#app {
+  position: fixed; inset: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  padding: 8px 14px 6px;
+}
+
+/* ===== HEADER ===== */
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, rgba(8,20,45,0.92) 0%, rgba(15,35,70,0.88) 100%);
+  border: 2px solid var(--gold-dark);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5), inset 0 1px 0 rgba(240,192,60,0.2);
+  flex-shrink: 0;
+  margin-bottom: 8px;
+}
+
+#header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+#header-title .skull { font-size: 2rem; animation: skullBob 2s ease-in-out infinite; }
+@keyframes skullBob { 0%,100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+
+#header-title h1 {
+  font-family: 'Pirata One', cursive;
+  font-size: 1.3rem;
+  color: var(--gold);
+  text-shadow: 0 0 20px rgba(240,192,60,0.5), 2px 2px 0 rgba(0,0,0,0.8);
+  letter-spacing: 1px;
+  line-height: 1.1;
+}
+#header-title p {
+  font-family: 'Crimson Text', serif;
+  font-size: 0.75rem;
+  color: var(--parchment-dark);
+  font-style: italic;
+  line-height: 1;
+}
+
+/* Progress in header */
+#progress-bar-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.act-dot {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 2px solid var(--gold-dark);
+  background: rgba(0,0,0,0.4);
+  color: var(--parchment-dark);
+  transition: all 0.4s ease;
+  position: relative;
+}
+.act-dot.active {
+  background: var(--gold);
+  color: var(--ocean-deep);
+  border-color: var(--gold-light);
+  box-shadow: 0 0 12px rgba(240,192,60,0.6);
+}
+.act-dot.done {
+  background: var(--success);
+  color: white;
+  border-color: #27ae60;
+}
+.act-line {
+  width: 24px; height: 2px;
+  background: var(--gold-dark);
+  opacity: 0.5;
+}
+
+/* Score */
+#score-display {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--gold-dark);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  color: var(--gold);
+}
+
+/* ===== MAIN CONTENT AREA ===== */
+#main {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ===== LEFT PANEL (Instructions + Drag Items) ===== */
+#left-panel {
+  width: 260px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.panel-box {
+  background: linear-gradient(160deg, rgba(20,40,80,0.92) 0%, rgba(10,22,50,0.95) 100%);
+  border: 2px solid var(--gold-dark);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(240,192,60,0.15);
+  position: relative;
+  overflow: hidden;
+}
+.panel-box::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23f0c040' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+.panel-box h3 {
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Activity title */
+#act-title {
+  font-family: 'Pirata One', cursive;
+  font-size: 1rem;
+  color: var(--gold-light);
+  text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
+  margin-bottom: 4px;
+}
+#act-desc {
+  font-size: 0.8rem;
+  color: var(--parchment);
+  line-height: 1.4;
+  opacity: 0.9;
+}
+
+/* Drag items */
+#drag-items-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.drag-item {
+  background: linear-gradient(135deg, #1a3a6e, #0d2347);
+  border: 2px solid var(--rope);
+  border-radius: 8px;
+  padding: 7px 10px;
+  cursor: grab;
+  font-family: 'Courier New', monospace;
+  font-size: 0.7rem;
+  color: var(--gold-light);
+  transition: all 0.2s ease;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.drag-item::before {
+  content: '⚓';
+  margin-right: 6px;
+  font-size: 0.65rem;
+  opacity: 0.7;
+}
+.drag-item:hover {
+  border-color: var(--gold);
+  background: linear-gradient(135deg, #224080, #112a5a);
+  transform: translateX(3px);
+  box-shadow: 0 4px 12px rgba(240,192,60,0.2);
+}
+.drag-item.dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+.drag-item.used {
+  opacity: 0.35;
+  pointer-events: none;
+  border-color: var(--success);
+  background: linear-gradient(135deg, #0d3020, #081a10);
+}
+.drag-item.used::after {
+  content: '✓';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--success);
+  font-size: 0.9rem;
+}
+
+/* ===== MIDDLE (MAP + DROP ZONES) ===== */
+#center-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Drop zones row */
+#drop-zones {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.drop-zone {
+  background: rgba(10,22,50,0.7);
+  border: 2px dashed var(--ocean-foam);
+  border-radius: 10px;
+  padding: 8px;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+.drop-zone .zone-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  color: var(--ocean-foam);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: absolute;
+  top: 3px;
+  left: 6px;
+  opacity: 0.7;
+}
+.drop-zone .zone-content {
+  font-family: 'Courier New', monospace;
+  font-size: 0.65rem;
+  color: var(--gold-light);
+  word-break: break-all;
+  line-height: 1.3;
+  margin-top: 10px;
+}
+.drop-zone.drag-over {
+  border-color: var(--gold);
+  background: rgba(240,192,60,0.1);
+  box-shadow: 0 0 12px rgba(240,192,60,0.3);
+  transform: scale(1.02);
+}
+.drop-zone.correct {
+  border-color: var(--success);
+  border-style: solid;
+  background: rgba(46,204,113,0.1);
+}
+.drop-zone.wrong {
+  border-color: var(--danger);
+  animation: wrongShake 0.4s ease;
+}
+@keyframes wrongShake {
+  0%,100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* Map container */
+#map-container {
+  flex: 1;
+  min-height: 0;
+  background: linear-gradient(160deg, rgba(10,22,50,0.9), rgba(5,15,35,0.95));
+  border: 2px solid var(--gold-dark);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6), inset 0 0 30px rgba(0,0,20,0.5);
+  overflow: hidden;
+}
+#map-container::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, rgba(30,77,140,0.1), transparent 70%);
+  pointer-events: none;
+}
+
+/* Map title overlay */
+#map-overlay-text {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  color: var(--gold-dark);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
+/* India Map SVG */
+#india-svg {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+}
+#india-svg .state-path {
+  fill: #1a3a6e;
+  stroke: var(--gold-dark);
+  stroke-width: 1.2;
+  transition: fill 0.3s ease, filter 0.3s ease;
+  cursor: default;
+}
+#india-svg .state-path.clickable {
+  cursor: pointer;
+}
+#india-svg .state-path.clickable:hover {
+  fill: #2a5a9e;
+}
+#india-svg .state-path.highlighted {
+  fill: var(--treasure) !important;
+  filter: drop-shadow(0 0 6px rgba(240,160,32,0.7));
+}
+#india-svg .state-path.hover-enabled:hover {
+  fill: var(--gold) !important;
+  filter: drop-shadow(0 0 8px rgba(240,192,60,0.8));
+}
+
+/* Info popup on map */
+#state-popup {
+  position: absolute;
+  background: linear-gradient(135deg, rgba(10,20,50,0.97), rgba(15,30,70,0.97));
+  border: 2px solid var(--gold);
+  border-radius: 10px;
+  padding: 10px 14px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  z-index: 20;
+  min-width: 160px;
+  max-width: 200px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.7);
+}
+#state-popup.visible { opacity: 1; }
+#state-popup h4 {
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  color: var(--gold);
+  margin-bottom: 4px;
+}
+#state-popup .sp-capital {
+  font-size: 0.75rem;
+  color: var(--parchment);
+  margin-bottom: 3px;
+}
+#state-popup .sp-fact {
+  font-size: 0.7rem;
+  color: var(--parchment-dark);
+  font-style: italic;
+  line-height: 1.3;
+}
+
+/* Treasure chest icon on map */
+#chest-icon {
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+  font-size: 2rem;
+  animation: chestPulse 2s ease-in-out infinite;
+  cursor: default;
+}
+@keyframes chestPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.1) rotate(3deg); } }
+
+/* ===== RIGHT PANEL ===== */
+#right-panel {
+  width: 200px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Hint box */
+#hint-box {
+  flex: 1;
+}
+#hint-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+#hint-list li {
+  font-size: 0.72rem;
+  color: var(--parchment);
+  line-height: 1.3;
+  padding: 5px 8px;
+  background: rgba(0,0,0,0.25);
+  border-radius: 6px;
+  border-left: 2px solid var(--rope);
+  transition: all 0.3s;
+}
+#hint-list li.done-hint {
+  border-left-color: var(--success);
+  color: var(--success);
+  opacity: 0.7;
+}
+#hint-list li::before { content: '🗺 '; }
+#hint-list li.done-hint::before { content: '✓ '; }
+
+/* Legend */
+#legend-box {}
+#legend-box .legend-row {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.7rem; color: var(--parchment-dark);
+  margin-bottom: 5px;
+}
+#legend-box .legend-swatch {
+  width: 14px; height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.2);
+  flex-shrink: 0;
+}
+
+/* Check button */
+#check-btn {
+  background: linear-gradient(135deg, var(--gold-dark), var(--treasure));
+  border: 2px solid var(--gold);
+  border-radius: 10px;
+  padding: 10px;
+  font-family: 'Pirata One', cursive;
+  font-size: 1rem;
+  color: var(--ocean-deep);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(200,150,10,0.4);
+  text-align: center;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+#check-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(200,150,10,0.6);
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+}
+#check-btn:active { transform: translateY(0); }
+#check-btn:disabled {
+  opacity: 0.5; cursor: not-allowed; transform: none;
+}
+
+/* Feedback */
+#feedback-area {
+  padding: 8px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 8px;
+  font-size: 0.75rem;
+  min-height: 36px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-style: italic;
+  color: var(--parchment-dark);
+  transition: all 0.3s;
+  flex-shrink: 0;
+}
+#feedback-area.success { color: var(--success); background: rgba(46,204,113,0.1); border: 1px solid var(--success); }
+#feedback-area.error   { color: var(--danger);  background: rgba(231,76,60,0.1);  border: 1px solid var(--danger);  }
+
+/* ===== POPUPS ===== */
+.popup-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  animation: fadeInOverlay 0.3s ease;
+}
+@keyframes fadeInOverlay { from { opacity: 0; } to { opacity: 1; } }
+.popup-overlay.hidden { display: none; }
+
+.popup-card {
+  background: linear-gradient(160deg, #0d2347, #06101f);
+  border: 3px solid var(--gold);
+  border-radius: 20px;
+  padding: 30px 36px;
+  max-width: 500px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(240,192,60,0.3), 0 20px 60px rgba(0,0,0,0.8);
+  animation: popupIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  position: relative;
+  overflow: hidden;
+}
+@keyframes popupIn { from { opacity:0; transform:scale(0.7) translateY(30px); } to { opacity:1; transform:scale(1) translateY(0); } }
+
+.popup-card::before {
+  content: '';
+  position: absolute;
+  top: -50%; left: -50%;
+  width: 200%; height: 200%;
+  background: radial-gradient(ellipse at center, rgba(240,192,60,0.04), transparent 60%);
+  pointer-events: none;
+}
+
+.popup-badge {
+  font-size: 4rem;
+  margin-bottom: 12px;
+  display: block;
+  animation: badgeSpin 0.6s ease 0.2s both;
+}
+@keyframes badgeSpin { from { transform: scale(0) rotate(-180deg); } to { transform: scale(1) rotate(0deg); } }
+
+.popup-card h2 {
+  font-family: 'Pirata One', cursive;
+  font-size: 1.8rem;
+  color: var(--gold);
+  margin-bottom: 10px;
+  text-shadow: 0 0 20px rgba(240,192,60,0.5);
+}
+.popup-card p {
+  font-size: 0.95rem;
+  color: var(--parchment);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.popup-card .act-preview {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--rope);
+  border-radius: 10px;
+  padding: 12px;
+  margin: 12px 0;
+  text-align: left;
+  font-size: 0.8rem;
+  color: var(--parchment-dark);
+  line-height: 1.5;
+}
+.popup-card .act-preview strong { color: var(--gold-light); }
+
+.popup-btn {
+  background: linear-gradient(135deg, var(--gold-dark), var(--treasure));
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  padding: 12px 28px;
+  font-family: 'Pirata One', cursive;
+  font-size: 1.1rem;
+  color: var(--ocean-deep);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 16px rgba(200,150,10,0.4);
+  margin-top: 8px;
+}
+.popup-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(200,150,10,0.6);
+}
+
+/* Confetti */
+.confetti-piece {
+  position: fixed;
+  width: 8px; height: 14px;
+  opacity: 0;
+  animation: confettiFall var(--dur, 3s) ease-in var(--delay, 0s) forwards;
+  border-radius: 2px;
+  z-index: 200;
+}
+@keyframes confettiFall {
+  0%   { transform: translateY(-20px) rotate(0deg) translateX(0); opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg) translateX(var(--sx, 40px)); opacity: 0; }
+}
+
+/* Success fireworks */
+.firework {
+  position: fixed;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  animation: fireworkBurst var(--dur, 1s) ease-out var(--delay, 0s) forwards;
+  z-index: 200;
+}
+@keyframes fireworkBurst {
+  0%   { transform: translate(0,0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--tx,50px), var(--ty,-50px)) scale(0); opacity: 0; }
+}
+
+/* ===== DRAG GHOST ===== */
+#drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 999;
+  background: linear-gradient(135deg, #2a5aaa, #1a3a6e);
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.7rem;
+  color: var(--gold-light);
+  opacity: 0.9;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  display: none;
+  transform: rotate(3deg);
+  white-space: nowrap;
+}
+
+/* ===== ANIMATIONS for state highlights ===== */
+@keyframes stateGlow {
+  0%,100% { filter: drop-shadow(0 0 4px rgba(240,160,32,0.5)); }
+  50%      { filter: drop-shadow(0 0 12px rgba(240,160,32,0.9)); }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== OCEAN BACKGROUND ===== -->
+<div id="ocean-bg">
+  <div id="moon"></div>
+
+  <!-- Stars generated by JS -->
+
+  <!-- Floating decorative elements -->
+  <div class="float-el" style="top:8%;left:5%;--dur:7s;--sz:1.5rem;">⚓</div>
+  <div class="float-el" style="top:15%;left:22%;--dur:9s;--sz:1.2rem;animation-delay:-3s;">🦜</div>
+  <div class="float-el" style="top:5%;right:25%;--dur:8s;--sz:1.3rem;animation-delay:-1s;">🔱</div>
+  <div class="float-el" style="top:20%;right:5%;--dur:6s;--sz:1.8rem;animation-delay:-4s;">🗺️</div>
+  <div class="float-el" style="top:35%;left:2%;--dur:10s;--sz:1rem;animation-delay:-2s;">💎</div>
+
+  <!-- Ship -->
+  <div id="pirate-ship">⛵</div>
+
+  <!-- Waves -->
+  <div class="wave-layer" style="--speed:12s;bottom:0;opacity:0.6;">
+    <svg viewBox="0 0 1200 200" preserveAspectRatio="none">
+      <path d="M0,120 C150,60 300,180 450,120 C600,60 750,180 900,120 C1050,60 1150,180 1200,140 L1200,200 L0,200 Z" fill="#0d2347"/>
+    </svg>
+  </div>
+  <div class="wave-layer" style="--speed:9s;bottom:0;opacity:0.4;animation-direction:reverse;">
+    <svg viewBox="0 0 1200 200" preserveAspectRatio="none">
+      <path d="M0,140 C100,80 250,160 400,110 C550,60 700,160 850,100 C1000,40 1100,160 1200,120 L1200,200 L0,200 Z" fill="#143060"/>
+    </svg>
+  </div>
+  <div class="wave-layer" style="--speed:6s;bottom:0;opacity:0.7;">
+    <svg viewBox="0 0 1200 200" preserveAspectRatio="none">
+      <path d="M0,160 C200,100 350,180 500,150 C650,120 800,180 950,150 C1050,130 1150,170 1200,155 L1200,200 L0,200 Z" fill="#0a1628"/>
+    </svg>
+  </div>
+</div>
+
+<!-- ===== DRAG GHOST ===== -->
+<div id="drag-ghost"></div>
+
+<!-- ===== ACTIVITY POPUPS ===== -->
+
+<!-- Intro popup -->
+<div class="popup-overlay" id="intro-popup">
+  <div class="popup-card">
+    <span class="popup-badge">🏴‍☠️</span>
+    <h2>Ahoy, Code Explorer!</h2>
+    <p>Welcome aboard the <em>JavaScript Galleon!</em><br>Ye must complete <strong>3 Challenges</strong> to unlock the Treasure of India's Map!</p>
+    <div class="act-preview">
+      <strong>⚓ Challenge 1:</strong> Build the Map Interaction — drag code pieces to make the map clickable!<br><br>
+      <strong>🦜 Challenge 2:</strong> Display Data — drag elements to show state info on click!<br><br>
+      <strong>💎 Challenge 3:</strong> Enhance UI — drag CSS powers to add hover magic!
+    </div>
+    <button class="popup-btn" onclick="startActivity(1)">⚔️ Set Sail!</button>
+  </div>
+</div>
+
+<!-- Activity 2 unlock popup -->
+<div class="popup-overlay hidden" id="act2-popup">
+  <div class="popup-card">
+    <span class="popup-badge">🦜</span>
+    <h2>First Treasure Found!</h2>
+    <p>Yer map is now <strong>clickable</strong>! The crew cheers — Rajasthan, Maharashtra and more respond to yer commands!</p>
+    <div class="act-preview">
+      <strong>Next Quest:</strong> Make the map <em>talk!</em><br>Drag the right code pieces to show the state name, capital city, and a fun fact when a sailor clicks a region!
+    </div>
+    <button class="popup-btn" onclick="startActivity(2)">🗺️ Continue Voyage!</button>
+  </div>
+</div>
+
+<!-- Activity 3 unlock popup -->
+<div class="popup-overlay hidden" id="act3-popup">
+  <div class="popup-card">
+    <span class="popup-badge">💎</span>
+    <h2>Chart is Talking!</h2>
+    <p>Brilliant work! Yer map now <strong>reveals secrets</strong> when clicked — every state shares its story!</p>
+    <div class="act-preview">
+      <strong>Final Quest:</strong> Polish yer creation with CSS magic!<br>Drag the right CSS properties to make states <em>glow and highlight</em> when sailors hover over them!
+    </div>
+    <button class="popup-btn" onclick="startActivity(3)">✨ Final Challenge!</button>
+  </div>
+</div>
+
+<!-- Final success popup -->
+<div class="popup-overlay hidden" id="success-popup">
+  <div class="popup-card">
+    <span class="popup-badge">🏆</span>
+    <h2>TREASURE UNLOCKED!</h2>
+    <p>Ye have conquered all three challenges and built a <strong>fully interactive India Map Quiz</strong> with JavaScript!</p>
+    <div class="act-preview">
+      <strong>⚓ Variables</strong> — stored the map data<br>
+      <strong>🦜 Functions</strong> — ran when states were clicked<br>
+      <strong>💎 If-Else Logic</strong> — showed right or wrong answers<br>
+      <strong>✨ CSS Properties</strong> — styled the hover effects
+    </div>
+    <p style="color:var(--gold);font-family:'Pirata One',cursive;font-size:1.1rem;">Now ye speak the language of the web!</p>
+    <button class="popup-btn" onclick="restartAll()">🔄 Sail Again!</button>
+  </div>
+</div>
+
+<!-- ===== MAIN APP ===== -->
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div id="header-title">
+      <span class="skull">☠️</span>
+      <div>
+        <h1>JAVASCRIPT — INTERACTIVE MAP QUIZ</h1>
+        <p>Planrs Academy · Code Explorer's Voyage</p>
+      </div>
+    </div>
+
+    <div id="progress-bar-area">
+      <div class="act-dot active" id="dot-1">1</div>
+      <div class="act-line"></div>
+      <div class="act-dot" id="dot-2">2</div>
+      <div class="act-line"></div>
+      <div class="act-dot" id="dot-3">3</div>
+    </div>
+
+    <div id="score-display">
+      🏆 <span id="score-num">0</span> Doubloons
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+
+    <!-- LEFT PANEL -->
+    <div id="left-panel">
+      <div class="panel-box">
+        <h3>⚔️ Quest Log</h3>
+        <div id="act-title">Challenge 1</div>
+        <div id="act-desc">Drag the code pieces to their correct slots below the map to build the click interaction!</div>
+      </div>
+
+      <div class="panel-box" style="flex:1;overflow-y:auto;">
+        <h3>⚓ Code Pieces</h3>
+        <div id="drag-items-container"></div>
+      </div>
+    </div>
+
+    <!-- CENTER PANEL -->
+    <div id="center-panel">
+
+      <!-- Drop zones -->
+      <div id="drop-zones"></div>
+
+      <!-- Map -->
+      <div id="map-container">
+        <div id="map-overlay-text">🗺️ INDIA — TREASURE MAP</div>
+
+        <svg id="india-svg" viewBox="0 0 500 560" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+          <!-- Simplified but recognisable India state paths -->
+          <!-- Rajasthan -->
+          <path class="state-path" id="s-rajasthan" data-state="Rajasthan"
+            d="M120,80 L220,75 L230,100 L240,140 L220,180 L200,200 L160,200 L130,190 L100,170 L95,140 L100,110 Z"/>
+          <!-- Punjab/Haryana (combined simple) -->
+          <path class="state-path" id="s-punjab" data-state="Punjab"
+            d="M160,55 L220,50 L225,75 L220,75 L120,80 L118,65 Z"/>
+          <!-- Himachal/J&K simplified -->
+          <path class="state-path" id="s-himachal" data-state="Himachal Pradesh"
+            d="M200,20 L270,15 L280,50 L260,60 L225,50 L220,50 L160,55 L155,35 Z"/>
+          <!-- Uttar Pradesh -->
+          <path class="state-path" id="s-up" data-state="Uttar Pradesh"
+            d="M230,100 L320,85 L340,100 L355,130 L340,170 L310,185 L270,190 L240,190 L220,180 L240,140 L230,100 Z"/>
+          <!-- Bihar -->
+          <path class="state-path" id="s-bihar" data-state="Bihar"
+            d="M340,100 L400,95 L415,115 L410,145 L385,160 L355,155 L340,170 L340,100 Z"/>
+          <!-- West Bengal -->
+          <path class="state-path" id="s-wb" data-state="West Bengal"
+            d="M400,95 L435,100 L445,130 L440,175 L415,200 L400,220 L385,210 L380,185 L385,160 L410,145 L415,115 Z"/>
+          <!-- Jharkhand/Odisha simplified -->
+          <path class="state-path" id="s-odisha" data-state="Odisha"
+            d="M355,155 L385,160 L380,185 L385,210 L400,220 L395,255 L365,265 L340,250 L330,220 L330,190 L340,170 L355,155 Z"/>
+          <!-- Madhya Pradesh -->
+          <path class="state-path" id="s-mp" data-state="Madhya Pradesh"
+            d="M200,200 L220,180 L240,190 L310,185 L330,190 L330,220 L315,250 L280,265 L240,270 L210,255 L195,235 L190,215 Z"/>
+          <!-- Gujarat -->
+          <path class="state-path" id="s-gujarat" data-state="Gujarat"
+            d="M60,175 L100,170 L130,190 L160,200 L190,215 L195,235 L175,260 L140,280 L100,265 L70,240 L50,210 L55,190 Z"/>
+          <!-- Maharashtra -->
+          <path class="state-path" id="s-maharashtra" data-state="Maharashtra"
+            d="M190,215 L210,255 L240,270 L280,265 L315,250 L320,280 L295,310 L265,325 L230,320 L200,310 L175,285 L140,280 L175,260 Z"/>
+          <!-- Chhattisgarh -->
+          <path class="state-path" id="s-cg" data-state="Chhattisgarh"
+            d="M330,220 L340,250 L365,265 L370,300 L350,320 L320,330 L295,310 L320,280 L315,250 L330,220 Z"/>
+          <!-- Andhra Pradesh -->
+          <path class="state-path" id="s-ap" data-state="Andhra Pradesh"
+            d="M265,325 L295,310 L320,330 L350,320 L360,350 L345,380 L315,395 L285,390 L260,370 L255,345 Z"/>
+          <!-- Telangana -->
+          <path class="state-path" id="s-telangana" data-state="Telangana"
+            d="M230,320 L265,325 L255,345 L260,370 L235,375 L215,360 L210,335 Z"/>
+          <!-- Karnataka -->
+          <path class="state-path" id="s-karnataka" data-state="Karnataka"
+            d="M175,285 L200,310 L230,320 L210,335 L215,360 L195,380 L170,400 L145,395 L130,370 L125,340 L140,315 L155,300 Z"/>
+          <!-- Tamil Nadu -->
+          <path class="state-path" id="s-tn" data-state="Tamil Nadu"
+            d="M145,395 L170,400 L195,380 L215,360 L235,375 L260,370 L285,390 L275,420 L255,450 L230,470 L205,480 L185,465 L165,440 L148,415 Z"/>
+          <!-- Kerala -->
+          <path class="state-path" id="s-kerala" data-state="Kerala"
+            d="M130,370 L145,395 L148,415 L165,440 L185,465 L170,480 L155,475 L135,450 L120,420 L115,395 L120,375 Z"/>
+          <!-- Goa -->
+          <path class="state-path" id="s-goa" data-state="Goa"
+            d="M140,315 L155,300 L165,310 L165,330 L148,335 Z"/>
+          <!-- Uttarakhand -->
+          <path class="state-path" id="s-uttarakhand" data-state="Uttarakhand"
+            d="M260,60 L300,55 L320,85 L280,85 L230,100 L225,75 L260,60 Z"/>
+          <!-- Delhi (small) -->
+          <path class="state-path" id="s-delhi" data-state="Delhi"
+            d="M228,108 L240,106 L243,118 L231,120 Z"/>
+          <!-- Assam / NE simplified -->
+          <path class="state-path" id="s-assam" data-state="Assam"
+            d="M435,100 L470,90 L480,110 L475,140 L450,150 L440,175 L435,130 L445,130 Z"/>
+        </svg>
+
+        <!-- State info popup -->
+        <div id="state-popup">
+          <h4 id="sp-name">State Name</h4>
+          <div class="sp-capital" id="sp-capital">🏛️ Capital: —</div>
+          <div class="sp-fact" id="sp-fact">Loading treasure...</div>
+        </div>
+
+        <div id="chest-icon">🎁</div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div id="right-panel">
+      <div class="panel-box" id="hint-box">
+        <h3>🦜 Pirate's Hints</h3>
+        <ul id="hint-list"></ul>
+      </div>
+
+      <div class="panel-box" id="legend-box">
+        <h3>📜 Map Legend</h3>
+        <div class="legend-row">
+          <div class="legend-swatch" style="background:#1a3a6e;border-color:var(--gold-dark);"></div>
+          <span>Uncharted State</span>
+        </div>
+        <div class="legend-row" id="leg-clickable" style="display:none;">
+          <div class="legend-swatch" style="background:#2a5a9e;border-color:var(--gold);"></div>
+          <span>Clickable State</span>
+        </div>
+        <div class="legend-row" id="leg-highlighted" style="display:none;">
+          <div class="legend-swatch" style="background:var(--treasure);border-color:var(--gold);"></div>
+          <span>Selected State</span>
+        </div>
+        <div class="legend-row" id="leg-hover" style="display:none;">
+          <div class="legend-swatch" style="background:var(--gold);border-color:var(--gold-light);"></div>
+          <span>Hover Glow</span>
+        </div>
+      </div>
+
+      <div id="feedback-area">⚓ Awaiting yer command, Captain...</div>
+
+      <button id="check-btn" onclick="checkActivity()" disabled>⚔️ Check Treasure!</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   DATA
+============================================================ */
+const stateData = {
+  'Rajasthan':        { capital: 'Jaipur',          fact: 'The Pink City — home of the Hawa Mahal! 🏯' },
+  'Maharashtra':      { capital: 'Mumbai',           fact: 'Bollywood lives here! The Gateway of India stands tall. 🎬' },
+  'Tamil Nadu':       { capital: 'Chennai',          fact: 'Land of classical Bharatanatyam dance & Marina Beach! 💃' },
+  'Kerala':           { capital: 'Thiruvananthapuram', fact: 'God\'s Own Country — backwaters, coconuts & spices! 🌴' },
+  'West Bengal':      { capital: 'Kolkata',          fact: 'Victoria Memorial & the famous Durga Puja festival! 🪔' },
+  'Delhi':            { capital: 'New Delhi',        fact: 'India\'s capital — Red Fort & India Gate call it home! 🏛️' },
+  'Karnataka':        { capital: 'Bengaluru',        fact: 'India\'s Silicon Valley — the tech capital! 💻' },
+  'Gujarat':          { capital: 'Gandhinagar',      fact: 'Land of the Gir Lions and the Statue of Unity! 🦁' },
+  'Uttar Pradesh':    { capital: 'Lucknow',          fact: 'The Taj Mahal gleams in Agra — jewel of the world! 💎' },
+  'Madhya Pradesh':   { capital: 'Bhopal',           fact: 'Heart of India — Khajuraho temples are UNESCO gems! 🏛️' },
+  'Bihar':            { capital: 'Patna',            fact: 'Ancient Nalanda University was here! 📚' },
+  'Punjab':           { capital: 'Chandigarh',       fact: 'Land of the Golden Temple — Waheguru! 🙏' },
+  'Himachal Pradesh': { capital: 'Shimla',           fact: 'Snow-capped peaks, apple orchards & Manali! 🍎' },
+  'Odisha':           { capital: 'Bhubaneswar',      fact: 'Konark Sun Temple is a stone chariot! ☀️' },
+  'Andhra Pradesh':   { capital: 'Amaravati',        fact: 'Tirupati Temple draws crores of devotees yearly! 🕌' },
+  'Telangana':        { capital: 'Hyderabad',        fact: 'City of Nizams — biryani capital of India! 🍛' },
+  'Chhattisgarh':     { capital: 'Raipur',           fact: 'Rich forests & the Chitrakote waterfall! 🌊' },
+  'Uttarakhand':      { capital: 'Dehradun',         fact: 'Gateway to the Himalayas & Char Dham! ⛰️' },
+  'Assam':            { capital: 'Dispur',           fact: 'One-horned rhinos & the mighty Brahmaputra river! 🦏' },
+  'Goa':              { capital: 'Panaji',           fact: 'Beaches, cashews & the smallest Indian state! 🏖️' },
+};
+
+/* ============================================================
+   ACTIVITY DEFINITIONS
+============================================================ */
+const activities = {
+  1: {
+    title: 'Challenge 1: Build the Click!',
+    desc: 'Drag the JavaScript code pieces into the correct slots to make the India map respond to clicks!',
+    dragItems: [
+      { id: 'd1a', text: "state.addEventListener('click', fn)" },
+      { id: 'd1b', text: "function handleClick(e) { ... }" },
+      { id: 'd1c', text: "let clickedState = e.target.id;" },
+      { id: 'd1d', text: "document.querySelectorAll('.state')" },
+    ],
+    zones: [
+      { id: 'z1a', label: 'Select all states', correct: 'd1d', placeholder: 'Drop: get all states...' },
+      { id: 'z1b', label: 'Define function',   correct: 'd1b', placeholder: 'Drop: create the handler...' },
+      { id: 'z1c', label: 'Get clicked state', correct: 'd1c', placeholder: 'Drop: who was clicked?...' },
+    ],
+    hints: [
+      'querySelector gets elements from the page',
+      'Functions group instructions together',
+      'event.target tells us what was clicked',
+    ],
+    onComplete: () => {
+      document.querySelectorAll('.state-path').forEach(p => {
+        p.classList.add('clickable');
+      });
+      document.getElementById('leg-clickable').style.display = 'flex';
+    }
+  },
+  2: {
+    title: 'Challenge 2: Display the Data!',
+    desc: 'Drag the pieces to display the state name, its capital, and a fun fact when a region is clicked!',
+    dragItems: [
+      { id: 'd2a', text: "popup.style.display = 'block';" },
+      { id: 'd2b', text: "stateData[stateName].capital" },
+      { id: 'd2c', text: "nameEl.textContent = stateName;" },
+      { id: 'd2d', text: "stateData[stateName].fact" },
+    ],
+    zones: [
+      { id: 'z2a', label: 'Show the popup',    correct: 'd2a', placeholder: 'Drop: make popup appear...' },
+      { id: 'z2b', label: 'Set state name',    correct: 'd2c', placeholder: 'Drop: fill in the name...' },
+      { id: 'z2c', label: 'Get capital city',  correct: 'd2b', placeholder: 'Drop: find the capital...' },
+    ],
+    hints: [
+      'stateData object holds all the info',
+      'textContent sets what text shows',
+      'style.display shows a hidden element',
+    ],
+    onComplete: () => {
+      document.querySelectorAll('.state-path').forEach(p => {
+        p.addEventListener('click', showStatePopup);
+      });
+      document.getElementById('leg-highlighted').style.display = 'flex';
+    }
+  },
+  3: {
+    title: 'Challenge 3: Add Hover Magic!',
+    desc: 'Drag the CSS property pieces to their correct slots to make states glow and highlight on hover!',
+    dragItems: [
+      { id: 'd3a', text: "transition: fill 0.3s ease;" },
+      { id: 'd3b', text: "cursor: pointer;" },
+      { id: 'd3c', text: "fill: #f0c040;" },
+      { id: 'd3d', text: "filter: drop-shadow(...);" },
+    ],
+    zones: [
+      { id: 'z3a', label: 'Smooth colour change', correct: 'd3a', placeholder: 'Drop: smooth animation...' },
+      { id: 'z3b', label: 'Gold hover fill',       correct: 'd3c', placeholder: 'Drop: hover colour...' },
+      { id: 'z3c', label: 'Hand cursor',           correct: 'd3b', placeholder: 'Drop: pointer style...' },
+    ],
+    hints: [
+      'transition makes changes smooth and animated',
+      'fill sets the colour of SVG shapes',
+      'cursor:pointer shows a hand on hover',
+    ],
+    onComplete: () => {
+      document.querySelectorAll('.state-path').forEach(p => {
+        p.classList.add('hover-enabled');
+      });
+      document.getElementById('leg-hover').style.display = 'flex';
+    }
+  }
+};
+
+/* ============================================================
+   STATE
+============================================================ */
+let currentActivity = 0;
+let score = 0;
+let droppedItems = {}; // zoneId -> dragItemId
+let draggedItem = null;
+let activityComplete = false;
+
+/* ============================================================
+   BACKGROUND SETUP
+============================================================ */
+function createBackground() {
+  const bg = document.getElementById('ocean-bg');
+  // Stars
+  for (let i = 0; i < 80; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = Math.random() * 2.5 + 0.5;
+    s.style.cssText = `
+      left:${Math.random()*100}%;
+      top:${Math.random()*55}%;
+      width:${sz}px;height:${sz}px;
+      --dur:${2+Math.random()*4}s;
+      --op:${0.3+Math.random()*0.7};
+      animation-delay:${Math.random()*5}s;
+    `;
+    bg.appendChild(s);
+  }
+  // Bubbles
+  const colors = ['rgba(100,180,255,0.3)','rgba(200,220,255,0.2)','rgba(150,200,255,0.25)'];
+  for (let i = 0; i < 12; i++) {
+    const b = document.createElement('div');
+    b.className = 'bubble';
+    const sz = 6 + Math.random() * 20;
+    b.style.cssText = `
+      left:${Math.random()*100}%;
+      width:${sz}px;height:${sz}px;
+      --dur:${4+Math.random()*8}s;
+      --sway:${(Math.random()-0.5)*60}px;
+      animation-delay:${Math.random()*8}s;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+    `;
+    bg.appendChild(b);
+  }
+}
+
+/* ============================================================
+   ACTIVITY SETUP
+============================================================ */
+function startActivity(num) {
+  currentActivity = num;
+  activityComplete = false;
+  droppedItems = {};
+
+  // Hide all popups
+  document.querySelectorAll('.popup-overlay').forEach(p => p.classList.add('hidden'));
+
+  const act = activities[num];
+  document.getElementById('act-title').textContent = act.title;
+  document.getElementById('act-desc').textContent = act.desc;
+
+  // Update dots
+  for (let i = 1; i <= 3; i++) {
+    const dot = document.getElementById('dot-'+i);
+    dot.classList.remove('active','done');
+    if (i < num)  dot.classList.add('done');
+    if (i === num) dot.classList.add('active');
+  }
+
+  // Build drag items
+  const container = document.getElementById('drag-items-container');
+  container.innerHTML = '';
+  act.dragItems.forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'drag-item';
+    el.id = 'di-' + item.id;
+    el.textContent = item.text;
+    el.dataset.itemId = item.id;
+    el.dataset.text = item.text;
+    el.addEventListener('mousedown', onDragStart);
+    el.addEventListener('touchstart', onTouchStart, {passive: false});
+    container.appendChild(el);
+  });
+
+  // Build drop zones
+  const zonesEl = document.getElementById('drop-zones');
+  zonesEl.innerHTML = '';
+  act.zones.forEach(zone => {
+    const el = document.createElement('div');
+    el.className = 'drop-zone';
+    el.id = zone.id;
+    el.dataset.correct = zone.correct;
+    el.innerHTML = `<span class="zone-label">${zone.label}</span><span class="zone-content">${zone.placeholder}</span>`;
+    el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag-over'); });
+    el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+    el.addEventListener('drop', onDrop);
+    zonesEl.appendChild(el);
+  });
+
+  // Hints
+  const hintList = document.getElementById('hint-list');
+  hintList.innerHTML = '';
+  act.hints.forEach(h => {
+    const li = document.createElement('li');
+    li.textContent = h;
+    hintList.appendChild(li);
+  });
+
+  // Reset feedback & button
+  setFeedback('⚓ Drag the pieces to their correct slots, Captain!', '');
+  const btn = document.getElementById('check-btn');
+  btn.disabled = false;
+}
+
+/* ============================================================
+   DRAG AND DROP (Mouse)
+============================================================ */
+let ghostEl, ghostOffX, ghostOffY;
+
+function onDragStart(e) {
+  const item = e.currentTarget;
+  if (item.classList.contains('used')) return;
+  draggedItem = item;
+  item.classList.add('dragging');
+
+  ghostEl = document.getElementById('drag-ghost');
+  ghostEl.textContent = item.dataset.text;
+  ghostEl.style.display = 'block';
+
+  const rect = item.getBoundingClientRect();
+  ghostOffX = e.clientX - rect.left;
+  ghostOffY = e.clientY - rect.top;
+
+  moveGhost(e.clientX, e.clientY);
+
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragEnd);
+  e.preventDefault();
+}
+
+function onDragMove(e) {
+  moveGhost(e.clientX, e.clientY);
+
+  // Highlight zones on hover
+  document.querySelectorAll('.drop-zone').forEach(z => {
+    const r = z.getBoundingClientRect();
+    if (e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom) {
+      z.classList.add('drag-over');
+    } else {
+      z.classList.remove('drag-over');
+    }
+  });
+}
+
+function moveGhost(x, y) {
+  ghostEl.style.left = (x - ghostOffX + 10) + 'px';
+  ghostEl.style.top  = (y - ghostOffY + 10) + 'px';
+}
+
+function onDragEnd(e) {
+  if (!draggedItem) return;
+
+  ghostEl.style.display = 'none';
+  draggedItem.classList.remove('dragging');
+
+  // Find target zone
+  let targetZone = null;
+  document.querySelectorAll('.drop-zone').forEach(z => {
+    z.classList.remove('drag-over');
+    const r = z.getBoundingClientRect();
+    if (e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom) {
+      targetZone = z;
+    }
+  });
+
+  if (targetZone) {
+    dropItemInZone(draggedItem, targetZone);
+  }
+
+  draggedItem = null;
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup', onDragEnd);
+}
+
+/* ============================================================
+   DRAG AND DROP (Touch)
+============================================================ */
+function onTouchStart(e) {
+  const item = e.currentTarget;
+  if (item.classList.contains('used')) return;
+  draggedItem = item;
+  item.classList.add('dragging');
+
+  ghostEl = document.getElementById('drag-ghost');
+  ghostEl.textContent = item.dataset.text;
+  ghostEl.style.display = 'block';
+
+  const t = e.touches[0];
+  const rect = item.getBoundingClientRect();
+  ghostOffX = t.clientX - rect.left;
+  ghostOffY = t.clientY - rect.top;
+  moveGhost(t.clientX, t.clientY);
+
+  document.addEventListener('touchmove', onTouchMove, {passive:false});
+  document.addEventListener('touchend', onTouchEnd);
+  e.preventDefault();
+}
+
+function onTouchMove(e) {
+  const t = e.touches[0];
+  moveGhost(t.clientX, t.clientY);
+  document.querySelectorAll('.drop-zone').forEach(z => {
+    const r = z.getBoundingClientRect();
+    if (t.clientX > r.left && t.clientX < r.right && t.clientY > r.top && t.clientY < r.bottom) {
+      z.classList.add('drag-over');
+    } else {
+      z.classList.remove('drag-over');
+    }
+  });
+  e.preventDefault();
+}
+
+function onTouchEnd(e) {
+  if (!draggedItem) return;
+  const t = e.changedTouches[0];
+  ghostEl.style.display = 'none';
+  draggedItem.classList.remove('dragging');
+
+  let targetZone = null;
+  document.querySelectorAll('.drop-zone').forEach(z => {
+    z.classList.remove('drag-over');
+    const r = z.getBoundingClientRect();
+    if (t.clientX > r.left && t.clientX < r.right && t.clientY > r.top && t.clientY < r.bottom) {
+      targetZone = z;
+    }
+  });
+
+  if (targetZone) dropItemInZone(draggedItem, targetZone);
+  draggedItem = null;
+  document.removeEventListener('touchmove', onTouchMove);
+  document.removeEventListener('touchend', onTouchEnd);
+}
+
+function onDrop(e) {
+  e.preventDefault();
+}
+
+/* ============================================================
+   DROP LOGIC
+============================================================ */
+function dropItemInZone(item, zone) {
+  const itemId = item.dataset.itemId;
+  const itemText = item.dataset.text;
+
+  // If zone already has something, return the old item
+  if (droppedItems[zone.id]) {
+    const oldId = droppedItems[zone.id];
+    const oldEl = document.getElementById('di-' + oldId);
+    if (oldEl) oldEl.classList.remove('used');
+  }
+
+  droppedItems[zone.id] = itemId;
+
+  // Update zone display
+  zone.querySelector('.zone-content').textContent = itemText;
+  zone.classList.remove('correct','wrong');
+
+  // Mark item as used
+  item.classList.add('used');
+}
+
+/* ============================================================
+   CHECK ACTIVITY
+============================================================ */
+function checkActivity() {
+  const act = activities[currentActivity];
+  let allCorrect = true;
+  let filled = 0;
+
+  act.zones.forEach(zoneData => {
+    const zone = document.getElementById(zoneData.id);
+    const dropped = droppedItems[zoneData.id];
+
+    if (!dropped) {
+      allCorrect = false;
+      return;
+    }
+    filled++;
+
+    if (dropped === zoneData.correct) {
+      zone.classList.add('correct');
+      zone.classList.remove('wrong');
+      // Mark hint done
+      const hints = document.querySelectorAll('#hint-list li');
+      const idx = act.zones.indexOf(zoneData);
+      if (hints[idx]) hints[idx].classList.add('done-hint');
+    } else {
+      zone.classList.add('wrong');
+      zone.classList.remove('correct');
+      allCorrect = false;
+      // Return wrong item
+      const droppedEl = document.getElementById('di-' + dropped);
+      if (droppedEl) droppedEl.classList.remove('used');
+      droppedItems[zoneData.id] = null;
+      zone.querySelector('.zone-content').textContent = zoneData.placeholder || 'Try again...';
+    }
+  });
+
+  if (filled === 0) {
+    setFeedback('🦜 Drag at least one piece first, matey!', 'error');
+    return;
+  }
+
+  if (allCorrect) {
+    activityComplete = true;
+    score += 30;
+    document.getElementById('score-num').textContent = score;
+    setFeedback('⚓ Brilliant! All pieces locked in correctly, Captain!', 'success');
+
+    // Run the completion effect for this activity
+    act.onComplete();
+    spawnConfetti();
+
+    document.getElementById('check-btn').disabled = true;
+
+    // Show next popup after delay
+    setTimeout(() => {
+      if (currentActivity < 3) {
+        document.getElementById('act' + (currentActivity+1) + '-popup').classList.remove('hidden');
+      } else {
+        document.getElementById('dot-3').classList.remove('active');
+        document.getElementById('dot-3').classList.add('done');
+        setTimeout(() => {
+          showSuccessPopup();
+        }, 400);
+      }
+    }, 1200);
+
+  } else {
+    setFeedback('☠️ Some pieces are in the wrong spot — keep trying!', 'error');
+    spawnParticles('wrong');
+  }
+}
+
+/* ============================================================
+   MAP INTERACTIONS
+============================================================ */
+let lastHighlighted = null;
+let popupTimeout;
+
+function showStatePopup(e) {
+  const path = e.currentTarget;
+  const stateName = path.dataset.state;
+  if (!stateName || !stateData[stateName]) return;
+
+  // Remove old highlight
+  if (lastHighlighted && lastHighlighted !== path) {
+    lastHighlighted.classList.remove('highlighted');
+  }
+  path.classList.add('highlighted');
+  lastHighlighted = path;
+
+  const popup = document.getElementById('state-popup');
+  const data = stateData[stateName];
+
+  document.getElementById('sp-name').textContent = '🗺️ ' + stateName;
+  document.getElementById('sp-capital').textContent = '🏛️ Capital: ' + data.capital;
+  document.getElementById('sp-fact').textContent = data.fact;
+
+  // Position popup
+  const mapRect = document.getElementById('map-container').getBoundingClientRect();
+  const pathRect = path.getBoundingClientRect();
+  let px = pathRect.left - mapRect.left + pathRect.width/2 - 80;
+  let py = pathRect.top  - mapRect.top  - 10;
+  // Clamp
+  px = Math.max(4, Math.min(px, mapRect.width - 210));
+  py = Math.max(4, Math.min(py, mapRect.height - 120));
+
+  popup.style.left = px + 'px';
+  popup.style.top  = py + 'px';
+  popup.classList.add('visible');
+
+  clearTimeout(popupTimeout);
+  popupTimeout = setTimeout(() => popup.classList.remove('visible'), 4000);
+
+  // Score bonus
+  score += 2;
+  document.getElementById('score-num').textContent = score;
+}
+
+/* ============================================================
+   FEEDBACK
+============================================================ */
+function setFeedback(msg, type) {
+  const fb = document.getElementById('feedback-area');
+  fb.textContent = msg;
+  fb.className = 'feedback-area';
+  if (type) fb.classList.add(type);
+  document.getElementById('feedback-area').className = type ? type : '';
+  fb.id = 'feedback-area';
+}
+
+/* ============================================================
+   SUCCESS POPUP
+============================================================ */
+function showSuccessPopup() {
+  spawnConfetti();
+  spawnFireworks();
+  document.getElementById('success-popup').classList.remove('hidden');
+}
+
+/* ============================================================
+   CONFETTI
+============================================================ */
+function spawnConfetti() {
+  const colors = ['#f0c040','#e74c3c','#2ecc71','#3498db','#9b59b6','#f39c12','#1abc9c'];
+  for (let i = 0; i < 40; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti-piece';
+    const col = colors[Math.floor(Math.random()*colors.length)];
+    c.style.cssText = `
+      left:${10+Math.random()*80}%;
+      top:0;
+      background:${col};
+      --dur:${2+Math.random()*2}s;
+      --delay:${Math.random()*0.8}s;
+      --sx:${(Math.random()-0.5)*200}px;
+      transform:rotate(${Math.random()*360}deg);
+      width:${6+Math.random()*6}px;
+      height:${10+Math.random()*8}px;
+    `;
+    document.body.appendChild(c);
+    c.addEventListener('animationend', () => c.remove());
+  }
+}
+
+function spawnFireworks() {
+  const colors = ['#f0c040','#ff6b6b','#4ecdc4','#ffe66d','#a8e6cf'];
+  for (let burst = 0; burst < 5; burst++) {
+    const bx = 20 + Math.random() * 60;
+    const by = 10 + Math.random() * 40;
+    setTimeout(() => {
+      for (let i = 0; i < 16; i++) {
+        const f = document.createElement('div');
+        f.className = 'firework';
+        const angle = (i / 16) * Math.PI * 2;
+        const dist = 60 + Math.random() * 80;
+        f.style.cssText = `
+          left:${bx}%;top:${by}%;
+          background:${colors[Math.floor(Math.random()*colors.length)]};
+          --tx:${Math.cos(angle)*dist}px;
+          --ty:${Math.sin(angle)*dist}px;
+          --dur:${0.6+Math.random()*0.5}s;
+          --delay:0s;
+        `;
+        document.body.appendChild(f);
+        f.addEventListener('animationend', () => f.remove());
+      }
+    }, burst * 300);
+  }
+}
+
+function spawnParticles(type) {
+  // Brief red flash on wrong
+  const fb = document.getElementById('feedback-area');
+  fb.style.animation = 'none';
+  setTimeout(() => { fb.style.animation = ''; }, 10);
+}
+
+/* ============================================================
+   RESTART
+============================================================ */
+function restartAll() {
+  score = 0;
+  document.getElementById('score-num').textContent = 0;
+  // Remove all clickable/hover/highlight classes from map
+  document.querySelectorAll('.state-path').forEach(p => {
+    p.classList.remove('clickable','highlighted','hover-enabled');
+    p.replaceWith(p.cloneNode(true)); // remove event listeners
+  });
+  document.getElementById('leg-clickable').style.display = 'none';
+  document.getElementById('leg-highlighted').style.display = 'none';
+  document.getElementById('leg-hover').style.display = 'none';
+  document.getElementById('state-popup').classList.remove('visible');
+  document.querySelectorAll('.popup-overlay').forEach(p => p.classList.add('hidden'));
+  document.getElementById('intro-popup').classList.remove('hidden');
+
+  // Reset dots
+  for (let i = 1; i <= 3; i++) {
+    const d = document.getElementById('dot-'+i);
+    d.classList.remove('active','done');
+  }
+  document.getElementById('dot-1').classList.add('active');
+  document.getElementById('drop-zones').innerHTML = '';
+  document.getElementById('drag-items-container').innerHTML = '';
+  document.getElementById('feedback-area').textContent = '⚓ Awaiting yer command, Captain...';
+  document.getElementById('feedback-area').className = '';
+  document.getElementById('check-btn').disabled = true;
+}
+
+/* ============================================================
+   INIT
+============================================================ */
+createBackground();
+// Show intro popup on load
+window.addEventListener('load', () => {
+  document.getElementById('check-btn').disabled = true;
+  // Map hover for exploration (even before activities)
+  document.querySelectorAll('.state-path').forEach(p => {
+    p.addEventListener('mouseenter', () => {
+      if (!p.classList.contains('clickable') && !p.classList.contains('hover-enabled')) {
+        p.style.fill = '#244d88';
+      }
+    });
+    p.addEventListener('mouseleave', () => {
+      if (!p.classList.contains('highlighted') && !p.classList.contains('hover-enabled')) {
+        p.style.fill = '';
+      }
+    });
+  });
+});
+</script>
+</body>
+</html>

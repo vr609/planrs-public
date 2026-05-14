@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PNEUMATICS — AIR-POWERED ARM</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --cyan:#00f5d4;--cyan2:#00bcd4;--lime:#b5f44a;--purple:#7c3aed;
+    --pink:#f472b6;--orange:#fb923c;--bg:#030b14;--card:#0a1628;
+    --card2:#0d1f38;--text:#e2f0ff;--muted:#6b8cae;
+    --success:#22c55e;--warn:#facc15;
+  }
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);}
+  body{font-family:'Nunito',sans-serif;color:var(--text);}
+
+  /* ─── BIO CANVAS ─── */
+  #bio-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;}
+
+  /* ─── HEADER ─── */
+  #header{
+    position:fixed;top:0;left:0;right:0;z-index:10;
+    padding:10px 32px;
+    display:flex;align-items:center;justify-content:space-between;
+    background:linear-gradient(180deg,rgba(3,11,20,.97) 60%,transparent);
+    border-bottom:1px solid rgba(0,245,212,.18);
+  }
+  .logo-text{
+    font-family:'Space Mono',monospace;font-size:13px;letter-spacing:.15em;
+    color:var(--cyan);text-transform:uppercase;
+  }
+  .title-main{
+    font-family:'Space Mono',monospace;font-size:17px;font-weight:700;
+    letter-spacing:.1em;color:var(--text);text-align:center;
+    text-shadow:0 0 20px rgba(0,245,212,.4);
+  }
+  .title-sub{font-size:11px;letter-spacing:.3em;color:var(--muted);text-align:center;margin-top:2px;}
+  .step-pills{display:flex;gap:8px;align-items:center;}
+  .pill{
+    width:28px;height:28px;border-radius:50%;border:1.5px solid var(--muted);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);
+    transition:all .4s;
+  }
+  .pill.active{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 12px rgba(0,245,212,.4);}
+  .pill.done{border-color:var(--success);background:rgba(34,197,94,.15);color:var(--success);}
+
+  /* ─── MAIN STAGE ─── */
+  #stage{
+    position:fixed;inset:0;z-index:5;
+    display:flex;align-items:center;justify-content:center;
+    padding:70px 24px 20px;
+  }
+  .activity-panel{
+    width:100%;max-width:860px;height:100%;
+    display:none;flex-direction:column;align-items:center;gap:14px;
+  }
+  .activity-panel.active{display:flex;}
+
+  .act-title{
+    font-family:'Space Mono',monospace;font-size:22px;font-weight:700;
+    color:var(--cyan);text-align:center;letter-spacing:.05em;
+    text-shadow:0 0 30px rgba(0,245,212,.5);
+    flex-shrink:0;
+  }
+  .act-subtitle{font-size:14px;color:var(--muted);text-align:center;flex-shrink:0;max-width:600px;}
+
+  /* ─── DRAG ARENA ─── */
+  .arena{
+    width:100%;flex:1;
+    background:rgba(10,22,40,.7);border:1px solid rgba(0,245,212,.15);
+    border-radius:16px;backdrop-filter:blur(6px);
+    position:relative;overflow:hidden;min-height:0;
+  }
+  .arena-label{
+    position:absolute;top:10px;left:50%;transform:translateX(-50%);
+    font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.2em;
+    color:rgba(0,245,212,.3);text-transform:uppercase;pointer-events:none;
+  }
+
+  /* Parts shelf */
+  .shelf{
+    width:100%;padding:10px 16px;
+    display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+    background:rgba(13,31,56,.8);border:1px solid rgba(0,245,212,.12);
+    border-radius:12px;flex-shrink:0;
+  }
+  .shelf-label{font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;flex-shrink:0;}
+
+  .part{
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    cursor:grab;user-select:none;padding:8px;
+    background:rgba(0,245,212,.06);border:1.5px solid rgba(0,245,212,.25);
+    border-radius:10px;transition:all .2s;min-width:64px;
+    font-size:11px;color:var(--cyan2);text-align:center;
+  }
+  .part:hover{background:rgba(0,245,212,.14);border-color:var(--cyan);transform:scale(1.05);}
+  .part.dragging{opacity:.4;transform:scale(.9);}
+  .part svg,.part .part-icon{width:36px;height:36px;pointer-events:none;}
+
+  /* Drop zones */
+  .dropzone{
+    position:absolute;border:2px dashed rgba(0,245,212,.3);
+    border-radius:10px;display:flex;align-items:center;justify-content:center;
+    transition:all .3s;font-size:11px;color:rgba(0,245,212,.4);
+    font-family:'Space Mono',monospace;letter-spacing:.05em;text-align:center;
+    padding:4px;
+  }
+  .dropzone.hover{border-color:var(--cyan);background:rgba(0,245,212,.1);box-shadow:0 0 20px rgba(0,245,212,.2);}
+  .dropzone.filled{border-color:var(--success);border-style:solid;background:rgba(34,197,94,.08);}
+  .dropzone.filled .dz-hint{display:none;}
+  .dropzone .placed-part{
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    font-size:10px;color:var(--success);
+  }
+  .dropzone .placed-part svg{width:30px;height:30px;}
+
+  /* Btn */
+  .btn-next{
+    padding:12px 36px;border:none;border-radius:30px;cursor:pointer;
+    font-family:'Space Mono',monospace;font-size:13px;letter-spacing:.1em;
+    font-weight:700;text-transform:uppercase;transition:all .3s;flex-shrink:0;
+    background:linear-gradient(135deg,var(--cyan) 0%,var(--cyan2) 100%);
+    color:#030b14;box-shadow:0 0 24px rgba(0,245,212,.4);
+  }
+  .btn-next:hover{transform:translateY(-2px);box-shadow:0 6px 30px rgba(0,245,212,.6);}
+  .btn-next:disabled{opacity:.3;cursor:not-allowed;transform:none;box-shadow:none;}
+
+  .progress-bar-wrap{width:100%;max-width:400px;flex-shrink:0;}
+  .progress-bar-bg{width:100%;height:4px;background:rgba(255,255,255,.08);border-radius:2px;}
+  .progress-bar-fill{height:4px;background:var(--cyan);border-radius:2px;transition:width .6s cubic-bezier(.4,0,.2,1);}
+  .progress-label{font-size:11px;color:var(--muted);text-align:center;margin-top:4px;font-family:'Space Mono',monospace;}
+
+  /* ─── POPUP OVERLAY ─── */
+  .popup-overlay{
+    position:fixed;inset:0;z-index:100;
+    background:rgba(3,11,20,.88);backdrop-filter:blur(8px);
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;pointer-events:none;transition:opacity .4s;
+  }
+  .popup-overlay.visible{opacity:1;pointer-events:all;}
+  .popup{
+    background:var(--card);border:1px solid rgba(0,245,212,.3);
+    border-radius:20px;padding:36px 40px;max-width:480px;width:90%;
+    text-align:center;position:relative;
+    box-shadow:0 0 60px rgba(0,245,212,.2),0 30px 80px rgba(0,0,0,.6);
+    transform:scale(.85);transition:transform .4s cubic-bezier(.34,1.56,.64,1);
+  }
+  .popup-overlay.visible .popup{transform:scale(1);}
+  .popup-icon{font-size:48px;margin-bottom:12px;display:block;}
+  .popup-title{
+    font-family:'Space Mono',monospace;font-size:20px;font-weight:700;
+    color:var(--cyan);margin-bottom:8px;
+  }
+  .popup-body{font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:24px;}
+  .popup-fact{
+    background:rgba(0,245,212,.07);border:1px solid rgba(0,245,212,.2);
+    border-radius:10px;padding:12px 16px;font-size:13px;color:var(--text);
+    margin-bottom:20px;line-height:1.6;
+  }
+  .popup-fact strong{color:var(--cyan);}
+
+  /* ─── SUCCESS CONFETTI ─── */
+  #confetti-canvas{position:fixed;inset:0;z-index:99;pointer-events:none;}
+
+  /* ─── ACT2 COMPARE ─── */
+  .compare-grid{
+    width:100%;flex:1;display:grid;grid-template-columns:1fr 1fr;gap:16px;min-height:0;
+  }
+  .compare-col{
+    background:rgba(10,22,40,.7);border:1px solid rgba(0,245,212,.15);
+    border-radius:14px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:12px;
+    position:relative;overflow:hidden;
+  }
+  .compare-col h3{
+    font-family:'Space Mono',monospace;font-size:13px;letter-spacing:.1em;
+    text-align:center;
+  }
+  .compare-col.water h3{color:#38bdf8;}
+  .compare-col.air h3{color:var(--cyan);}
+
+  .piston-wrap{width:100%;flex:1;position:relative;display:flex;align-items:flex-end;justify-content:center;min-height:100px;}
+  .cylinder{
+    width:60px;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.15);
+    border-radius:6px 6px 0 0;position:relative;overflow:hidden;
+    display:flex;flex-direction:column;justify-content:flex-end;
+  }
+  .fluid-fill{
+    width:100%;transition:height .5s ease;border-radius:0 0 4px 4px;
+  }
+  .piston-rod{
+    position:absolute;left:50%;transform:translateX(-50%);
+    width:12px;background:rgba(200,200,200,.3);border:1px solid rgba(255,255,255,.2);
+    border-radius:3px;transition:bottom .5s ease,height .5s ease;
+  }
+  .force-slider-wrap{width:100%;display:flex;flex-direction:column;gap:6px;align-items:center;}
+  .force-slider-wrap label{font-size:12px;color:var(--muted);}
+  .force-slider-wrap input[type=range]{width:100%;accent-color:var(--cyan);}
+  .force-val{font-family:'Space Mono',monospace;font-size:18px;font-weight:700;}
+  .compare-col.water .force-val{color:#38bdf8;}
+  .compare-col.air .force-val{color:var(--cyan);}
+
+  .compress-badge{
+    font-size:11px;padding:4px 10px;border-radius:20px;font-family:'Space Mono',monospace;
+    letter-spacing:.05em;
+  }
+  .badge-no{background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);}
+  .badge-yes{background:rgba(0,245,212,.12);color:var(--cyan);border:1px solid rgba(0,245,212,.3);}
+
+  .bounce-anim{animation:bounce-pill 1s infinite;}
+  @keyframes bounce-pill{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
+
+  /* ─── ACT3 GRIPPER ─── */
+  .gripper-arena{
+    width:100%;flex:1;display:grid;grid-template-columns:160px 1fr;gap:14px;min-height:0;
+  }
+  .parts-list{
+    background:rgba(10,22,40,.6);border:1px solid rgba(0,245,212,.12);
+    border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;
+  }
+  .parts-list-label{font-size:10px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;margin-bottom:4px;}
+  .gripper-stage{
+    background:rgba(10,22,40,.6);border:1px solid rgba(0,245,212,.12);
+    border-radius:12px;position:relative;overflow:hidden;
+  }
+
+  /* floating ghost */
+  #drag-ghost{
+    position:fixed;pointer-events:none;z-index:1000;
+    transform:translate(-50%,-50%);
+    background:rgba(0,245,212,.12);border:1.5px solid var(--cyan);
+    border-radius:10px;padding:8px;font-size:11px;color:var(--cyan);
+    display:none;align-items:center;gap:6px;
+    font-family:'Space Mono',monospace;white-space:nowrap;
+  }
+
+  /* Arm SVG animation */
+  @keyframes arm-flex{
+    0%,100%{transform:rotate(0deg);}
+    50%{transform:rotate(-20deg);}
+  }
+  .arm-anim{transform-origin:80px 150px;animation:arm-flex 2s ease-in-out infinite;}
+
+  @keyframes float-up{
+    0%{transform:translateY(0);opacity:1;}
+    100%{transform:translateY(-30px);opacity:0;}
+  }
+  .float-bubble{
+    position:absolute;border-radius:50%;
+    background:rgba(0,245,212,.2);
+    animation:float-up 2s ease-out forwards;
+    pointer-events:none;
+  }
+</style>
+</head>
+<body>
+
+<!-- BIO CANVAS -->
+<canvas id="bio-canvas"></canvas>
+
+<!-- CONFETTI -->
+<canvas id="confetti-canvas"></canvas>
+
+<!-- DRAG GHOST -->
+<div id="drag-ghost"></div>
+
+<!-- HEADER -->
+<div id="header">
+  <div class="logo-text">PLANRS ACADEMY</div>
+  <div>
+    <div class="title-main">PNEUMATICS — AIR-POWERED ARM</div>
+    <div class="title-sub">STEM · ENGINEERING · INTERACTIVE LAB</div>
+  </div>
+  <div class="step-pills">
+    <div class="pill active" id="pill1">1</div>
+    <div style="width:16px;height:1px;background:var(--muted);opacity:.4;"></div>
+    <div class="pill" id="pill2">2</div>
+    <div style="width:16px;height:1px;background:var(--muted);opacity:.4;"></div>
+    <div class="pill" id="pill3">3</div>
+  </div>
+</div>
+
+<!-- STAGE -->
+<div id="stage">
+
+  <!-- ══════════ ACTIVITY 1 ══════════ -->
+  <div class="activity-panel active" id="act1">
+    <div class="act-title">⚗️ Build the Air System</div>
+    <div class="act-subtitle">Drag the correct components from the shelf into the matching slots to assemble your pneumatic circuit.</div>
+
+    <!-- shelf -->
+    <div class="shelf">
+      <div class="shelf-label">Parts :</div>
+      <div class="part" id="part-syringe-a" draggable="true" data-type="syringe">
+        <svg viewBox="0 0 36 36"><rect x="13" y="4" width="10" height="22" rx="3" fill="none" stroke="#00f5d4" stroke-width="1.5"/><rect x="15" y="6" width="6" height="14" rx="1" fill="rgba(0,245,212,.15)"/><rect x="10" y="8" width="3" height="6" rx="1" fill="rgba(0,245,212,.3)"/><rect x="11" y="26" width="14" height="3" rx="1.5" fill="rgba(0,245,212,.3)"/><line x1="18" y1="26" x2="18" y2="32" stroke="#00f5d4" stroke-width="2"/><circle cx="18" cy="32" r="1.5" fill="#00f5d4"/></svg>
+        Syringe
+      </div>
+      <div class="part" id="part-tube" draggable="true" data-type="tube">
+        <svg viewBox="0 0 36 36"><path d="M6 18 Q18 6 30 18" fill="none" stroke="#00bcd4" stroke-width="2.5" stroke-linecap="round"/><path d="M6 22 Q18 10 30 22" fill="none" stroke="#00bcd4" stroke-width="2.5" stroke-linecap="round"/></svg>
+        Air Tube
+      </div>
+      <div class="part" id="part-pump" draggable="true" data-type="pump">
+        <svg viewBox="0 0 36 36"><rect x="8" y="16" width="20" height="14" rx="3" fill="none" stroke="#b5f44a" stroke-width="1.5"/><rect x="16" y="8" width="4" height="10" rx="1.5" fill="rgba(181,244,74,.3)" stroke="#b5f44a" stroke-width="1"/><rect x="6" y="28" width="24" height="4" rx="2" fill="rgba(181,244,74,.2)"/><line x1="18" y1="22" x2="18" y2="26" stroke="#b5f44a" stroke-width="1.5"/></svg>
+        Air Pump
+      </div>
+      <div class="part" id="part-valve" draggable="true" data-type="valve">
+        <svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="10" fill="none" stroke="#f472b6" stroke-width="1.5"/><path d="M14 18 l4-6 l4 6 Z" fill="rgba(244,114,182,.3)" stroke="#f472b6" stroke-width="1"/><line x1="12" y1="22" x2="24" y2="22" stroke="#f472b6" stroke-width="1.5"/><line x1="8" y1="18" x2="14" y2="18" stroke="#f472b6" stroke-width="1.5"/><line x1="22" y1="18" x2="28" y2="18" stroke="#f472b6" stroke-width="1.5"/></svg>
+        Valve
+      </div>
+      <div class="part" id="part-arm" draggable="true" data-type="arm">
+        <svg viewBox="0 0 36 36"><rect x="8" y="24" width="20" height="6" rx="2" fill="none" stroke="#fb923c" stroke-width="1.5"/><rect x="14" y="10" width="8" height="16" rx="2" fill="rgba(251,146,60,.15)" stroke="#fb923c" stroke-width="1.5"/><line x1="10" y1="10" x2="26" y2="10" stroke="#fb923c" stroke-width="2"/></svg>
+        Arm
+      </div>
+      <div class="part" id="part-seal" draggable="true" data-type="seal">
+        <svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="10" fill="none" stroke="#7c3aed" stroke-width="1.5"/><circle cx="18" cy="18" r="6" fill="rgba(124,58,237,.2)" stroke="#7c3aed" stroke-width="1"/><circle cx="18" cy="18" r="2.5" fill="#7c3aed"/></svg>
+        Seal
+      </div>
+    </div>
+
+    <!-- arena with drop zones -->
+    <div class="arena" id="arena1">
+      <span class="arena-label">Assembly Zone</span>
+
+      <!-- SVG background diagram lines -->
+      <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;" id="circuit-svg">
+        <defs><marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="rgba(0,245,212,.3)"/></marker></defs>
+        <line x1="130" y1="50%" x2="230" y2="50%" stroke="rgba(0,245,212,.2)" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arrow)"/>
+        <line x1="330" y1="50%" x2="430" y2="50%" stroke="rgba(0,245,212,.2)" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arrow)"/>
+        <line x1="530" y1="50%" x2="630" y2="50%" stroke="rgba(0,245,212,.2)" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arrow)"/>
+        <line x1="730" y1="50%" x2="800" y2="50%" stroke="rgba(0,245,212,.2)" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arrow)"/>
+      </svg>
+
+      <div class="dropzone" id="dz1" data-accept="pump" style="left:4%;top:25%;width:11%;height:50%">
+        <span class="dz-hint">Air Pump</span>
+      </div>
+      <div class="dropzone" id="dz2" data-accept="tube" style="left:20%;top:30%;width:11%;height:40%">
+        <span class="dz-hint">Air Tube</span>
+      </div>
+      <div class="dropzone" id="dz3" data-accept="valve" style="left:36%;top:25%;width:11%;height:50%">
+        <span class="dz-hint">Valve</span>
+      </div>
+      <div class="dropzone" id="dz4" data-accept="syringe" style="left:52%;top:25%;width:11%;height:50%">
+        <span class="dz-hint">Syringe</span>
+      </div>
+      <div class="dropzone" id="dz5" data-accept="seal" style="left:68%;top:30%;width:11%;height:40%">
+        <span class="dz-hint">Seal</span>
+      </div>
+      <div class="dropzone" id="dz6" data-accept="arm" style="left:83%;top:25%;width:13%;height:50%">
+        <span class="dz-hint">Arm</span>
+      </div>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="pb1" style="width:0%"></div></div>
+      <div class="progress-label" id="pb1-label">0 / 6 components placed</div>
+    </div>
+    <button class="btn-next" id="btn1" disabled onclick="completeAct1()">Continue →</button>
+  </div>
+
+  <!-- ══════════ ACTIVITY 2 ══════════ -->
+  <div class="activity-panel" id="act2">
+    <div class="act-title">💧 Air vs Water: The Squish Test</div>
+    <div class="act-subtitle">Drag the Force Slider to apply pressure. Watch how air (compressible) behaves differently from water (non-compressible).</div>
+
+    <div class="compare-grid">
+      <!-- WATER -->
+      <div class="compare-col water">
+        <h3>WATER (HYDRAULIC)</h3>
+        <div class="compress-badge badge-no">NON-SQUISHABLE</div>
+        <div class="piston-wrap">
+          <div class="cylinder" id="water-cyl" style="height:140px;">
+            <div class="fluid-fill" id="water-fluid" style="height:60%;background:linear-gradient(180deg,rgba(56,189,248,.4),rgba(56,189,248,.7));"></div>
+            <div class="piston-rod" id="water-rod" style="bottom:60%;height:20px;background:rgba(56,189,248,.4);border-color:rgba(56,189,248,.5);"></div>
+          </div>
+        </div>
+        <div class="force-slider-wrap">
+          <label>Force Applied</label>
+          <input type="range" min="0" max="100" value="0" id="water-slider" oninput="updateWater(this.value)">
+          <div class="force-val" id="water-val">0%</div>
+        </div>
+        <div id="water-msg" style="font-size:12px;color:#38bdf8;text-align:center;min-height:32px;"></div>
+      </div>
+
+      <!-- AIR -->
+      <div class="compare-col air">
+        <h3>AIR (PNEUMATIC)</h3>
+        <div class="compress-badge badge-yes">SQUISHABLE ✓</div>
+        <div class="piston-wrap">
+          <div class="cylinder" id="air-cyl" style="height:140px;">
+            <div class="fluid-fill" id="air-fluid" style="height:80%;background:linear-gradient(180deg,rgba(0,245,212,.1),rgba(0,245,212,.3));border-radius:0;position:relative;overflow:hidden;">
+              <div id="air-bubbles"></div>
+            </div>
+            <div class="piston-rod" id="air-rod" style="bottom:80%;height:20px;background:rgba(0,245,212,.3);border-color:rgba(0,245,212,.5);"></div>
+          </div>
+        </div>
+        <div class="force-slider-wrap">
+          <label>Force Applied</label>
+          <input type="range" min="0" max="100" value="0" id="air-slider" oninput="updateAir(this.value)">
+          <div class="force-val" id="air-val">0%</div>
+        </div>
+        <div id="air-msg" style="font-size:12px;color:var(--cyan);text-align:center;min-height:32px;"></div>
+      </div>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="pb2" style="width:0%"></div></div>
+      <div class="progress-label" id="pb2-label">Interact with both sliders to continue</div>
+    </div>
+    <button class="btn-next" id="btn2" disabled onclick="completeAct2()">Continue →</button>
+  </div>
+
+  <!-- ══════════ ACTIVITY 3 ══════════ -->
+  <div class="activity-panel" id="act3">
+    <div class="act-title">🤖 Design the Gripper Arm</div>
+    <div class="act-subtitle">Drag the arm components into position on the stage to build a working air-powered gripper. Click ACTIVATE when ready!</div>
+
+    <div class="gripper-arena">
+      <!-- parts list -->
+      <div class="parts-list">
+        <div class="parts-list-label">Components</div>
+        <div class="part" id="gp-base" draggable="true" data-gtype="base" style="min-width:0;width:100%;">
+          <svg viewBox="0 0 36 28" width="36" height="28"><rect x="2" y="16" width="32" height="10" rx="3" fill="rgba(181,244,74,.2)" stroke="#b5f44a" stroke-width="1.5"/><line x1="18" y1="4" x2="18" y2="16" stroke="#b5f44a" stroke-width="2"/><circle cx="18" cy="4" r="3" fill="rgba(181,244,74,.4)" stroke="#b5f44a" stroke-width="1.5"/></svg>
+          Base
+        </div>
+        <div class="part" id="gp-upper" draggable="true" data-gtype="upper" style="min-width:0;width:100%;">
+          <svg viewBox="0 0 36 28" width="36" height="28"><rect x="10" y="4" width="16" height="24" rx="3" fill="rgba(0,245,212,.1)" stroke="#00f5d4" stroke-width="1.5"/><line x1="14" y1="10" x2="22" y2="10" stroke="#00f5d4" stroke-width="1"/><line x1="14" y1="15" x2="22" y2="15" stroke="#00f5d4" stroke-width="1"/></svg>
+          Upper Arm
+        </div>
+        <div class="part" id="gp-lower" draggable="true" data-gtype="lower" style="min-width:0;width:100%;">
+          <svg viewBox="0 0 36 28" width="36" height="28"><rect x="10" y="4" width="16" height="24" rx="3" fill="rgba(251,146,60,.1)" stroke="#fb923c" stroke-width="1.5"/><circle cx="18" cy="28" r="3" fill="rgba(251,146,60,.3)" stroke="#fb923c" stroke-width="1.5"/></svg>
+          Lower Arm
+        </div>
+        <div class="part" id="gp-gripper" draggable="true" data-gtype="gripper" style="min-width:0;width:100%;">
+          <svg viewBox="0 0 36 28" width="36" height="28"><path d="M10 14 L18 4 L26 14" fill="rgba(244,114,182,.15)" stroke="#f472b6" stroke-width="1.5"/><rect x="14" y="14" width="8" height="12" rx="2" fill="rgba(244,114,182,.1)" stroke="#f472b6" stroke-width="1.5"/></svg>
+          Gripper
+        </div>
+        <div class="part" id="gp-syr2" draggable="true" data-gtype="syringe2" style="min-width:0;width:100%;">
+          <svg viewBox="0 0 36 28" width="36" height="28"><rect x="13" y="2" width="10" height="20" rx="3" fill="none" stroke="#7c3aed" stroke-width="1.5"/><rect x="15" y="4" width="6" height="12" rx="1" fill="rgba(124,58,237,.15)"/></svg>
+          Syringe
+        </div>
+      </div>
+
+      <!-- gripper stage -->
+      <div class="gripper-stage" id="gripper-stage">
+        <svg id="arm-svg" style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 500 360" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <radialGradient id="glow-grad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="rgba(0,245,212,.15)"/>
+              <stop offset="100%" stop-color="transparent"/>
+            </radialGradient>
+          </defs>
+          <!-- Workspace glow -->
+          <ellipse cx="380" cy="300" rx="80" ry="20" fill="rgba(0,245,212,.06)"/>
+
+          <!-- Object to grab -->
+          <rect id="target-obj" x="340" y="260" width="40" height="30" rx="4" fill="rgba(251,146,60,.2)" stroke="#fb923c" stroke-width="1.5"/>
+          <text x="360" y="280" text-anchor="middle" font-size="10" fill="#fb923c" font-family="monospace">CUBE</text>
+
+          <!-- Arm (hidden until built) -->
+          <g id="arm-group" opacity="0" style="transition:opacity .6s;">
+            <!-- Base -->
+            <rect id="arm-base" x="160" y="310" width="100" height="20" rx="4" fill="rgba(181,244,74,.25)" stroke="#b5f44a" stroke-width="1.5"/>
+            <!-- Upper arm -->
+            <rect id="arm-upper" x="196" y="230" width="28" height="82" rx="4" fill="rgba(0,245,212,.2)" stroke="#00f5d4" stroke-width="1.5"/>
+            <!-- Syringe on upper arm -->
+            <rect id="arm-syr" x="226" y="248" width="12" height="36" rx="3" fill="rgba(124,58,237,.2)" stroke="#7c3aed" stroke-width="1.5"/>
+            <rect id="arm-syr-piston" x="229" y="252" width="6" height="16" rx="1" fill="rgba(124,58,237,.3)"/>
+            <!-- Lower arm (pivots) -->
+            <g id="lower-arm-g">
+              <rect x="192" y="160" width="36" height="74" rx="4" fill="rgba(251,146,60,.2)" stroke="#fb923c" stroke-width="1.5"/>
+              <circle cx="210" cy="236" r="5" fill="rgba(251,146,60,.4)" stroke="#fb923c" stroke-width="1.5"/>
+            </g>
+            <!-- Gripper fingers -->
+            <g id="gripper-g">
+              <path d="M198 162 L210 145 L222 162" fill="rgba(244,114,182,.2)" stroke="#f472b6" stroke-width="1.5"/>
+              <rect x="206" y="118" width="8" height="28" rx="2" fill="rgba(244,114,182,.1)" stroke="#f472b6" stroke-width="1.5"/>
+              <!-- fingers -->
+              <line id="f-left" x1="206" y1="118" x2="190" y2="100" stroke="#f472b6" stroke-width="3" stroke-linecap="round"/>
+              <line id="f-right" x1="214" y1="118" x2="230" y2="100" stroke="#f472b6" stroke-width="3" stroke-linecap="round"/>
+            </g>
+          </g>
+
+          <!-- Assembled indicator -->
+          <text id="arm-hint" x="250" y="200" text-anchor="middle" font-size="12" fill="rgba(0,245,212,.35)" font-family="monospace">Drop components to build →</text>
+        </svg>
+
+        <!-- Drop zones overlaid on SVG area -->
+        <div style="position:absolute;left:10%;top:55%;width:20%;height:18%;border:2px dashed rgba(181,244,74,.4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;color:rgba(181,244,74,.6);font-family:monospace;" id="gdz-base">Base</div>
+        <div style="position:absolute;left:28%;top:35%;width:15%;height:28%;border:2px dashed rgba(0,245,212,.4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;color:rgba(0,245,212,.5);font-family:monospace;" id="gdz-upper">Upper</div>
+        <div style="position:absolute;left:28%;top:10%;width:15%;height:24%;border:2px dashed rgba(251,146,60,.4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;color:rgba(251,146,60,.5);font-family:monospace;" id="gdz-lower">Lower</div>
+        <div style="position:absolute;left:35%;top:2%;width:14%;height:20%;border:2px dashed rgba(244,114,182,.4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;color:rgba(244,114,182,.5);font-family:monospace;" id="gdz-gripper">Gripper</div>
+        <div style="position:absolute;left:50%;top:32%;width:14%;height:22%;border:2px dashed rgba(124,58,237,.4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;color:rgba(124,58,237,.5);font-family:monospace;" id="gdz-syringe2">Syringe</div>
+
+        <!-- Activate button -->
+        <button id="activate-btn" style="position:absolute;bottom:14px;right:14px;display:none;padding:10px 22px;border:none;border-radius:20px;background:linear-gradient(135deg,#f472b6,#7c3aed);color:#fff;font-family:monospace;font-size:12px;cursor:pointer;box-shadow:0 0 20px rgba(244,114,182,.4);letter-spacing:.1em;" onclick="activateArm()">
+          ⚡ ACTIVATE ARM
+        </button>
+      </div>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="pb3" style="width:0%"></div></div>
+      <div class="progress-label" id="pb3-label">0 / 5 components placed</div>
+    </div>
+    <button class="btn-next" id="btn3" disabled onclick="completeAct3()">Finish Lab →</button>
+  </div>
+
+</div><!-- /stage -->
+
+<!-- ══════════ POPUPS ══════════ -->
+
+<!-- Pop 1: intro -->
+<div class="popup-overlay visible" id="pop-intro">
+  <div class="popup">
+    <span class="popup-icon">🌬️</span>
+    <div class="popup-title">Welcome to the Air Lab!</div>
+    <div class="popup-body">Air is everywhere — and it has a superpower: it can be squeezed and stored to do real work. That's <strong style="color:var(--cyan)">Pneumatics</strong>!</div>
+    <div class="popup-fact">
+      💡 <strong>Did you know?</strong> The "hissssss" sound when a bus door opens? That's compressed air escaping — the same principle you'll master today!
+    </div>
+    <button class="btn-next" onclick="closePopup('pop-intro')">Start Activity 1 →</button>
+  </div>
+</div>
+
+<!-- Pop 2: act1 done -->
+<div class="popup-overlay" id="pop-act1">
+  <div class="popup">
+    <span class="popup-icon">✅</span>
+    <div class="popup-title">System Assembled!</div>
+    <div class="popup-body">You've connected all 6 components of the pneumatic circuit. Air can now flow from the pump through the tube, past the valve and into the syringe — moving the arm!</div>
+    <div class="popup-fact">🔬 <strong>Cell Connection:</strong> Just like how blood vessels carry fluid under pressure through your body, tubes carry compressed air through your pneumatic system.</div>
+    <button class="btn-next" onclick="goAct2()">Activity 2: The Squish Test →</button>
+  </div>
+</div>
+
+<!-- Pop 3: act2 done -->
+<div class="popup-overlay" id="pop-act2">
+  <div class="popup">
+    <span class="popup-icon">🧪</span>
+    <div class="popup-title">Discovery Unlocked!</div>
+    <div class="popup-body">You found the key difference: water can't be squished, but air can! This makes air perfect for storing energy and releasing it as a powerful snap.</div>
+    <div class="popup-fact">🏏 <strong>Indian Example:</strong> The air horns at cricket matches? They store compressed air and release it in one big burst — just like your syringe!</div>
+    <button class="btn-next" onclick="goAct3()">Activity 3: Build the Gripper →</button>
+  </div>
+</div>
+
+<!-- Pop 4: final success -->
+<div class="popup-overlay" id="pop-final">
+  <div class="popup">
+    <span class="popup-icon">🏆</span>
+    <div class="popup-title">Pneumatic Pilot — Certified!</div>
+    <div class="popup-body">You built a full air-powered gripper arm! You understand how compressed air flows, stores energy, and creates powerful movement.</div>
+    <div class="popup-fact">
+      🚛 <strong>Real World:</strong> Huge trucks and buses use air brakes — the same squish-and-release principle you just mastered keeps thousands of people safe every day in India!
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+      <button class="btn-next" style="background:linear-gradient(135deg,#b5f44a,#00f5d4);padding:10px 24px;font-size:12px;" onclick="restartAll()">🔄 Restart Lab</button>
+      <button class="btn-next" style="padding:10px 24px;font-size:12px;" onclick="closePopup('pop-final')">🌟 Explore More</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+//  BIO CANVAS — Animated cell world
+// ═══════════════════════════════════════
+const bioCanvas = document.getElementById('bio-canvas');
+const bCtx = bioCanvas.getContext('2d');
+let W, H;
+let particles=[], cells=[], dna=[];
+
+function resize(){
+  W = bioCanvas.width = window.innerWidth;
+  H = bioCanvas.height = window.innerHeight;
+  initBio();
+}
+
+function rand(a,b){return a + Math.random()*(b-a);}
+
+function initBio(){
+  particles=[];cells=[];dna=[];
+  // floating particles
+  for(let i=0;i<60;i++){
+    particles.push({
+      x:rand(0,W),y:rand(0,H),
+      r:rand(1,3.5),
+      vx:rand(-.3,.3),vy:rand(-.5,-.1),
+      alpha:rand(.2,.7),
+      color:`hsl(${rand(160,200)},80%,65%)`
+    });
+  }
+  // cells
+  for(let i=0;i<10;i++){
+    cells.push({
+      x:rand(60,W-60),y:rand(60,H-60),
+      rx:rand(30,70),ry:rand(20,50),
+      rot:rand(0,Math.PI*2),
+      vrot:rand(-.002,.002),
+      alpha:rand(.04,.1),
+      pulse:rand(0,Math.PI*2),
+      pulseSpeed:rand(.01,.03)
+    });
+  }
+  // DNA strands
+  for(let i=0;i<3;i++){
+    dna.push({
+      x:rand(100,W-100),y:rand(0,H),
+      vy:rand(.2,.5),
+      phase:rand(0,Math.PI*2),
+      len:rand(80,160),
+      alpha:.15
+    });
+  }
+}
+
+function drawBio(t){
+  bCtx.clearRect(0,0,W,H);
+
+  // draw DNA strands
+  dna.forEach(d=>{
+    d.y+=d.vy;if(d.y>H+200)d.y=-200;
+    const steps=16;
+    for(let i=0;i<steps;i++){
+      const y=d.y + (i/steps)*d.len;
+      const xL=d.x+Math.sin(d.phase+i*.4+t*.001)*18;
+      const xR=d.x+Math.sin(d.phase+i*.4+t*.001+Math.PI)*18;
+      bCtx.beginPath();
+      bCtx.arc(xL,y,2.5,0,Math.PI*2);
+      bCtx.fillStyle=`rgba(0,245,212,${d.alpha*(.5+.5*Math.sin(i))})`;
+      bCtx.fill();
+      bCtx.beginPath();
+      bCtx.arc(xR,y,2.5,0,Math.PI*2);
+      bCtx.fillStyle=`rgba(181,244,74,${d.alpha*(.5+.5*Math.sin(i+1))})`;
+      bCtx.fill();
+      if(i%2===0){
+        bCtx.beginPath();bCtx.moveTo(xL,y);bCtx.lineTo(xR,y);
+        bCtx.strokeStyle=`rgba(0,245,212,${d.alpha*.5})`;
+        bCtx.lineWidth=.8;bCtx.stroke();
+      }
+    }
+  });
+
+  // cells
+  cells.forEach(c=>{
+    c.rot+=c.vrot;
+    c.pulse+=c.pulseSpeed;
+    const scale=1+.04*Math.sin(c.pulse);
+    bCtx.save();
+    bCtx.translate(c.x,c.y);
+    bCtx.rotate(c.rot);
+    bCtx.scale(scale,scale);
+    bCtx.beginPath();
+    bCtx.ellipse(0,0,c.rx,c.ry,0,0,Math.PI*2);
+    bCtx.strokeStyle=`rgba(0,245,212,${c.alpha*2})`;
+    bCtx.lineWidth=1;
+    bCtx.stroke();
+    bCtx.fillStyle=`rgba(0,245,212,${c.alpha})`;
+    bCtx.fill();
+    // nucleus
+    bCtx.beginPath();
+    bCtx.ellipse(0,0,c.rx*.4,c.ry*.4,0,0,Math.PI*2);
+    bCtx.strokeStyle=`rgba(181,244,74,${c.alpha*2})`;
+    bCtx.lineWidth=.8;
+    bCtx.stroke();
+    bCtx.restore();
+  });
+
+  // particles
+  particles.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.y<-10)p.y=H+10;
+    if(p.x<0)p.x=W;if(p.x>W)p.x=0;
+    bCtx.beginPath();
+    bCtx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    bCtx.fillStyle=p.color.replace(')',`,${p.alpha})`).replace('hsl','hsla');
+    bCtx.fill();
+  });
+}
+
+// ═══════════════════════════════════════
+//  CONFETTI
+// ═══════════════════════════════════════
+const confCanvas=document.getElementById('confetti-canvas');
+const cCtx=confCanvas.getContext('2d');
+let confetti=[],confettiActive=false;
+function launchConfetti(){
+  confCanvas.width=window.innerWidth;confCanvas.height=window.innerHeight;
+  confetti=[];
+  for(let i=0;i<120;i++){
+    confetti.push({
+      x:rand(0,confCanvas.width),y:rand(-50,0),
+      w:rand(6,14),h:rand(8,16),
+      rot:rand(0,360),vrot:rand(-4,4),
+      vx:rand(-3,3),vy:rand(2,7),
+      color:`hsl(${rand(0,360)},80%,60%)`,
+      alpha:1
+    });
+  }
+  confettiActive=true;
+  animConfetti();
+}
+function animConfetti(){
+  cCtx.clearRect(0,0,confCanvas.width,confCanvas.height);
+  confetti.forEach(c=>{
+    c.y+=c.vy;c.x+=c.vx;c.rot+=c.vrot;c.alpha-=.006;
+    if(c.alpha<=0)return;
+    cCtx.save();
+    cCtx.globalAlpha=c.alpha;
+    cCtx.translate(c.x,c.y);
+    cCtx.rotate(c.rot*Math.PI/180);
+    cCtx.fillStyle=c.color;
+    cCtx.fillRect(-c.w/2,-c.h/2,c.w,c.h);
+    cCtx.restore();
+  });
+  if(confetti.some(c=>c.alpha>0))requestAnimationFrame(animConfetti);
+  else{cCtx.clearRect(0,0,confCanvas.width,confCanvas.height);confettiActive=false;}
+}
+
+// ═══════════════════════════════════════
+//  MAIN ANIMATION LOOP
+// ═══════════════════════════════════════
+function animLoop(t){
+  drawBio(t);
+  requestAnimationFrame(animLoop);
+}
+window.addEventListener('resize',resize);
+resize();
+requestAnimationFrame(animLoop);
+
+// ═══════════════════════════════════════
+//  POPUP HELPERS
+// ═══════════════════════════════════════
+function closePopup(id){
+  document.getElementById(id).classList.remove('visible');
+}
+function openPopup(id){
+  document.getElementById(id).classList.add('visible');
+}
+
+// ═══════════════════════════════════════
+//  ACT 1 — DRAG & DROP
+// ═══════════════════════════════════════
+let dragData={type:null,sourceId:null};
+const act1Filled={};
+
+document.querySelectorAll('.part[draggable]').forEach(p=>{
+  p.addEventListener('dragstart',e=>{
+    const type=p.dataset.type||p.dataset.gtype;
+    dragData={type,sourceId:p.id};
+    p.classList.add('dragging');
+    // set ghost text
+    const ghost=document.getElementById('drag-ghost');
+    ghost.style.display='flex';
+    ghost.textContent='+ '+p.querySelector('svg')?'':p.textContent.trim();
+    e.dataTransfer.setData('text/plain',type);
+    e.dataTransfer.effectAllowed='copy';
+  });
+  p.addEventListener('dragend',()=>{
+    p.classList.remove('dragging');
+    document.getElementById('drag-ghost').style.display='none';
+  });
+});
+
+document.addEventListener('dragover',e=>{
+  e.preventDefault();
+  const ghost=document.getElementById('drag-ghost');
+  if(ghost.style.display!=='none'){
+    ghost.style.left=e.clientX+'px';
+    ghost.style.top=e.clientY+'px';
+  }
+});
+
+// ── Act1 dropzones ──
+document.querySelectorAll('#arena1 .dropzone').forEach(dz=>{
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('hover');});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('hover'));
+  dz.addEventListener('drop',e=>{
+    e.preventDefault();
+    dz.classList.remove('hover');
+    const accept=dz.dataset.accept;
+    const type=dragData.type;
+    if(type!==accept||dz.classList.contains('filled'))return;
+    placeInDZ(dz,type);
+    act1Filled[dz.id]=true;
+    updateAct1Progress();
+    // hide source part
+    const src=document.getElementById(dragData.sourceId);
+    if(src)src.style.visibility='hidden';
+    spawnBubbles(e.clientX,e.clientY);
+  });
+});
+
+function placeInDZ(dz,type){
+  dz.classList.add('filled');
+  const icons={
+    pump:'<svg width="28" height="28" viewBox="0 0 36 36"><rect x="8" y="16" width="20" height="14" rx="3" fill="none" stroke="#22c55e" stroke-width="1.5"/><rect x="16" y="8" width="4" height="10" rx="1.5" fill="rgba(34,197,94,.3)" stroke="#22c55e" stroke-width="1"/></svg>',
+    tube:'<svg width="28" height="28" viewBox="0 0 36 36"><path d="M6 18 Q18 6 30 18" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round"/></svg>',
+    valve:'<svg width="28" height="28" viewBox="0 0 36 36"><circle cx="18" cy="18" r="10" fill="none" stroke="#22c55e" stroke-width="1.5"/><path d="M14 18 l4-6 l4 6 Z" fill="rgba(34,197,94,.3)"/></svg>',
+    syringe:'<svg width="28" height="28" viewBox="0 0 36 36"><rect x="13" y="4" width="10" height="22" rx="3" fill="none" stroke="#22c55e" stroke-width="1.5"/><line x1="18" y1="26" x2="18" y2="32" stroke="#22c55e" stroke-width="2"/></svg>',
+    seal:'<svg width="28" height="28" viewBox="0 0 36 36"><circle cx="18" cy="18" r="10" fill="none" stroke="#22c55e" stroke-width="1.5"/><circle cx="18" cy="18" r="4" fill="rgba(34,197,94,.3)"/></svg>',
+    arm:'<svg width="28" height="28" viewBox="0 0 36 36"><rect x="8" y="24" width="20" height="6" rx="2" fill="none" stroke="#22c55e" stroke-width="1.5"/><rect x="14" y="10" width="8" height="16" rx="2" fill="rgba(34,197,94,.1)" stroke="#22c55e" stroke-width="1.5"/></svg>',
+  };
+  dz.innerHTML=`<div class="placed-part">${icons[type]||'✓'}<span>✓</span></div>`;
+}
+
+function updateAct1Progress(){
+  const n=Object.keys(act1Filled).length;
+  const pct=Math.round(n/6*100);
+  document.getElementById('pb1').style.width=pct+'%';
+  document.getElementById('pb1-label').textContent=`${n} / 6 components placed`;
+  if(n===6){document.getElementById('btn1').disabled=false;}
+}
+
+function completeAct1(){openPopup('pop-act1');}
+
+// ═══════════════════════════════════════
+//  ACT 2 — SLIDERS
+// ═══════════════════════════════════════
+let waterDone=false,airDone=false;
+
+function updateWater(v){
+  v=parseInt(v);
+  document.getElementById('water-val').textContent=v+'%';
+  const fluidH=Math.max(10,100-v*.5);
+  document.getElementById('water-fluid').style.height=fluidH+'%';
+  document.getElementById('water-rod').style.bottom=fluidH+'%';
+  document.getElementById('water-rod').style.height=(v*.2+10)+'px';
+  // water is incompressible — fluid level drops proportionally, no spring
+  const msgs=['','Push harder — water moves the piston directly!','Water transmits force completely — no energy lost!','Max force! Water cannot compress — all force goes to the piston!'];
+  const idx=v<25?0:v<60?1:v<85?2:3;
+  document.getElementById('water-msg').textContent=msgs[idx];
+  if(v>50){waterDone=true;checkAct2();}
+}
+
+function updateAir(v){
+  v=parseInt(v);
+  document.getElementById('air-val').textContent=v+'%';
+  // air compresses — fluid shrinks more than piston moves
+  const compress=v*.7;
+  const fluidH=Math.max(5,80-compress);
+  document.getElementById('air-fluid').style.height=fluidH+'%';
+  document.getElementById('air-rod').style.bottom=fluidH+'%';
+  document.getElementById('air-rod').style.height=(v*.3+10)+'px';
+  // add bouncy bubbles in air column
+  const bubb=document.getElementById('air-bubbles');
+  if(v>20&&Math.random()<.3){
+    const b=document.createElement('div');
+    b.style.cssText=`position:absolute;border-radius:50%;background:rgba(0,245,212,.4);
+      width:${rand(3,8)}px;height:${rand(3,8)}px;
+      left:${rand(10,80)}%;bottom:${rand(5,90)}%;
+      animation:float-up .8s ease-out forwards;`;
+    bubb.appendChild(b);
+    setTimeout(()=>b.remove(),900);
+  }
+  const msgs=['','Air is being squished into a smaller space!','Feel the spring! Air stores energy like a coiled spring!','SNAP! Compressed air releases energy explosively!'];
+  const idx=v<25?0:v<60?1:v<85?2:3;
+  document.getElementById('air-msg').textContent=msgs[idx];
+  if(v>50){airDone=true;checkAct2();}
+}
+
+function checkAct2(){
+  const both=(waterDone?1:0)+(airDone?1:0);
+  const pct=both*50;
+  document.getElementById('pb2').style.width=pct+'%';
+  if(both===2){
+    document.getElementById('pb2-label').textContent='Both systems explored — great comparison!';
+    document.getElementById('btn2').disabled=false;
+  } else {
+    document.getElementById('pb2-label').textContent=`Try the ${waterDone?'air':'water'} slider too!`;
+  }
+}
+
+function completeAct2(){openPopup('pop-act2');}
+
+// ═══════════════════════════════════════
+//  ACT 3 — GRIPPER BUILD
+// ═══════════════════════════════════════
+const gripperFilled={};
+const gripperMap={base:'gdz-base',upper:'gdz-upper',lower:'gdz-lower',gripper:'gdz-gripper',syringe2:'gdz-syringe2'};
+
+document.querySelectorAll('[data-gtype]').forEach(p=>{
+  p.addEventListener('dragstart',e=>{
+    dragData={type:p.dataset.gtype,sourceId:p.id};
+    p.classList.add('dragging');
+    e.dataTransfer.setData('text/plain',p.dataset.gtype);
+  });
+  p.addEventListener('dragend',()=>p.classList.remove('dragging'));
+});
+
+Object.values(gripperMap).forEach(dzId=>{
+  const dz=document.getElementById(dzId);
+  if(!dz)return;
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.style.borderColor='var(--cyan)';dz.style.background='rgba(0,245,212,.08)';});
+  dz.addEventListener('dragleave',()=>{dz.style.borderColor='';dz.style.background='';});
+  dz.addEventListener('drop',e=>{
+    e.preventDefault();
+    dz.style.borderColor='';dz.style.background='';
+    const type=dragData.type;
+    const expectedType=Object.keys(gripperMap).find(k=>gripperMap[k]===dzId);
+    if(type!==expectedType||gripperFilled[dzId])return;
+    gripperFilled[dzId]=true;
+    dz.style.borderStyle='solid';dz.style.borderColor='var(--success)';dz.style.background='rgba(34,197,94,.08)';
+    dz.innerHTML='<span style="color:var(--success);font-family:monospace;font-size:12px;">✓ PLACED</span>';
+    const src=document.getElementById(dragData.sourceId);
+    if(src)src.style.visibility='hidden';
+    spawnBubbles(e.clientX,e.clientY);
+    updateAct3Progress();
+  });
+});
+
+function updateAct3Progress(){
+  const n=Object.keys(gripperFilled).length;
+  const pct=Math.round(n/5*100);
+  document.getElementById('pb3').style.width=pct+'%';
+  document.getElementById('pb3-label').textContent=`${n} / 5 components placed`;
+  if(n===5){
+    document.getElementById('arm-group').style.opacity='1';
+    document.getElementById('arm-hint').style.display='none';
+    document.getElementById('activate-btn').style.display='block';
+  }
+}
+
+let armActivated=false;
+function activateArm(){
+  if(armActivated)return;
+  armActivated=true;
+  const btn=document.getElementById('activate-btn');
+  btn.textContent='⚡ ARM ACTIVE!';
+  btn.style.background='var(--success)';
+  // animate arm picking up cube
+  let t=0;
+  const obj=document.getElementById('target-obj');
+  const lowerG=document.getElementById('lower-arm-g');
+  const gripG=document.getElementById('gripper-g');
+  let phase=0; // 0=reaching, 1=grabbed, 2=lifting
+  const armAnim=setInterval(()=>{
+    t+=.04;
+    if(phase===0){
+      // reach down
+      const angle=Math.sin(t)*15;
+      lowerG.setAttribute('transform',`rotate(${angle},210,236)`);
+      const spread=20+Math.abs(Math.sin(t))*12;
+      document.getElementById('f-left').setAttribute('x2',190-spread*.3);
+      document.getElementById('f-right').setAttribute('x2',230+spread*.3);
+      if(t>1.5)phase=1;
+    } else if(phase===1){
+      // close fingers
+      const spread=20-t*3;
+      document.getElementById('f-left').setAttribute('x2',Math.max(195,190-spread*.3));
+      document.getElementById('f-right').setAttribute('x2',Math.min(225,230+spread*.3));
+      if(t>2.5){phase=2;t=0;}
+    } else {
+      // lift object
+      const lift=t*20;
+      obj.setAttribute('y',260-lift);
+      if(t>1.5){clearInterval(armAnim);document.getElementById('btn3').disabled=false;}
+    }
+  },30);
+}
+
+function completeAct3(){openPopup('pop-final');launchConfetti();}
+
+// ═══════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════
+function goAct2(){
+  closePopup('pop-act1');
+  document.getElementById('act1').classList.remove('active');
+  document.getElementById('act2').classList.add('active');
+  document.getElementById('pill1').classList.remove('active');
+  document.getElementById('pill1').classList.add('done');
+  document.getElementById('pill2').classList.add('active');
+}
+function goAct3(){
+  closePopup('pop-act2');
+  document.getElementById('act2').classList.remove('active');
+  document.getElementById('act3').classList.add('active');
+  document.getElementById('pill2').classList.remove('active');
+  document.getElementById('pill2').classList.add('done');
+  document.getElementById('pill3').classList.add('active');
+}
+
+function restartAll(){
+  closePopup('pop-final');
+  location.reload();
+}
+
+// ═══════════════════════════════════════
+//  BUBBLE FX
+// ═══════════════════════════════════════
+function spawnBubbles(x,y){
+  for(let i=0;i<6;i++){
+    const b=document.createElement('div');
+    const size=rand(6,18);
+    b.style.cssText=`
+      position:fixed;border-radius:50%;pointer-events:none;z-index:50;
+      background:rgba(0,245,212,${rand(.2,.5)});
+      width:${size}px;height:${size}px;
+      left:${x+rand(-20,20)}px;top:${y+rand(-20,20)}px;
+      animation:float-up ${rand(.5,1.2)}s ease-out forwards;
+    `;
+    document.body.appendChild(b);
+    setTimeout(()=>b.remove(),1300);
+  }
+}
+</script>
+</body>
+</html>

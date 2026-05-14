@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>SUDOKU AND LOGIC PUZZLES</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════
+   ROOT & RESET
+═══════════════════════════════════════════════ */
+:root{
+  --ink:#1a0050;--deep:#0d0030;--mid:#160045;
+  --v1:#7c3aed;--v2:#a855f7;--v3:#c084fc;
+  --mint:#10b981;--gold:#f59e0b;--rose:#f43f5e;
+  --sky:#38bdf8;--lime:#84cc16;
+  --card:rgba(13,0,48,.88);--border:rgba(167,107,250,.25);
+  --glow:rgba(167,107,250,.4);
+  --c1:#ef4444;--c2:#3b82f6;--c3:#22c55e;--c4:#f59e0b;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif;user-select:none}
+body{
+  background:radial-gradient(ellipse at 30% 20%,#2e0070 0%,#0d0030 45%,#000018 100%);
+  position:relative;
+}
+
+/* ═══════════════════════════════════════════════
+   BACKGROUND — MATH WORLD
+═══════════════════════════════════════════════ */
+/* Graph grid */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(124,58,237,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(124,58,237,.06) 1px,transparent 1px);
+  background-size:50px 50px;
+  animation:gridShift 25s linear infinite;z-index:0;
+}
+@keyframes gridShift{0%{background-position:0 0}100%{background-position:50px 50px}}
+
+/* Glow blobs */
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 500px 350px at 10% 80%,rgba(124,58,237,.14) 0%,transparent 70%),
+    radial-gradient(ellipse 400px 280px at 90% 15%,rgba(56,189,248,.1) 0%,transparent 65%),
+    radial-gradient(ellipse 350px 250px at 60% 90%,rgba(16,185,129,.09) 0%,transparent 60%);
+  animation:blobShift 8s ease-in-out infinite alternate;z-index:0;
+}
+@keyframes blobShift{0%{opacity:.6}100%{opacity:1}}
+
+/* Floating numbers & symbols */
+#math-bg{position:fixed;inset:0;pointer-events:none;z-index:1;overflow:hidden}
+.math-float{
+  position:absolute;font-family:'Fredoka One',cursive;
+  pointer-events:none;animation:floatDrift linear infinite;opacity:0;
+}
+@keyframes floatDrift{
+  0%{transform:translateY(0) rotate(0deg);opacity:0}
+  8%{opacity:.22}90%{opacity:.14}
+  100%{transform:translateY(-105vh) rotate(400deg);opacity:0}
+}
+
+/* Geometric shapes */
+.geo-shape{
+  position:fixed;pointer-events:none;z-index:1;
+  animation:geoSpin linear infinite;opacity:.06;
+}
+@keyframes geoSpin{
+  0%{transform:rotate(0deg) scale(1)}
+  50%{transform:rotate(180deg) scale(1.08)}
+  100%{transform:rotate(360deg) scale(1)}
+}
+
+/* ═══════════════════════════════════════════════
+   APP LAYOUT
+═══════════════════════════════════════════════ */
+#app{
+  position:relative;z-index:10;
+  width:100vw;height:100vh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:clamp(4px,1vh,14px) clamp(6px,1.5vw,18px);
+  gap:clamp(4px,1vh,10px);
+}
+
+/* ═══════════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════════ */
+#hdr{text-align:center;animation:hdrIn .8s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes hdrIn{from{transform:translateY(-55px);opacity:0}to{transform:translateY(0);opacity:1}}
+#hdr h1{
+  font-family:'Fredoka One',cursive;font-size:clamp(18px,4vw,42px);
+  letter-spacing:2px;
+  background:linear-gradient(135deg,var(--sky) 0%,var(--v2) 40%,var(--rose) 65%,var(--gold) 100%);
+  background-size:300% 300%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:titleShift 5s ease infinite;
+  filter:drop-shadow(0 0 20px rgba(167,107,250,.5));
+}
+@keyframes titleShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+
+/* Progress */
+#progress{display:flex;gap:8px;justify-content:center;margin-top:3px}
+.pip{width:clamp(36px,7vw,60px);height:7px;border-radius:99px;
+  background:rgba(167,107,250,.1);border:1px solid rgba(167,107,250,.2);transition:all .5s;
+  position:relative;overflow:hidden}
+.pip.active::after{content:'';position:absolute;inset:0;border-radius:99px;
+  background:linear-gradient(90deg,var(--v2),var(--sky));
+  animation:pipFlow 1.5s ease-in-out infinite}
+.pip.done{background:linear-gradient(90deg,var(--mint),var(--v2));
+  box-shadow:0 0 10px var(--glow);border-color:var(--v2)}
+@keyframes pipFlow{0%,100%{opacity:.6}50%{opacity:1}}
+#act-lbl{font-size:clamp(9px,1.4vw,13px);font-weight:800;letter-spacing:2px;
+  text-transform:uppercase;color:var(--v3);margin-top:2px}
+
+/* ═══════════════════════════════════════════════
+   GAME CARD
+═══════════════════════════════════════════════ */
+#game-card{
+  width:100%;max-width:960px;
+  background:var(--card);
+  border:1.5px solid var(--border);border-radius:18px;
+  backdrop-filter:blur(20px);
+  padding:clamp(10px,2.5vh,22px) clamp(12px,2.5vw,28px);
+  box-shadow:0 0 60px rgba(124,58,237,.08),inset 0 1px 0 rgba(255,255,255,.05);
+  display:flex;flex-direction:column;align-items:center;
+  gap:clamp(6px,1.4vh,14px);
+  flex:1;max-height:calc(100vh - 108px);
+  animation:cardGlow 4s ease-in-out infinite alternate;
+}
+@keyframes cardGlow{0%{border-color:rgba(167,107,250,.18)}100%{border-color:rgba(56,189,248,.28)}}
+
+.instr{
+  font-size:clamp(9px,1.5vw,13px);font-weight:700;
+  color:rgba(220,200,255,.8);text-align:center;
+  background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);
+  border-radius:10px;padding:6px 18px;max-width:660px;
+}
+
+/* ═══════════════════════════════════════════════
+   SUDOKU GRID (shared style for acts 1 & 3)
+═══════════════════════════════════════════════ */
+.sudoku-grid{
+  display:grid;
+  border:3px solid rgba(167,107,250,.5);
+  border-radius:8px;overflow:hidden;
+  flex-shrink:0;
+  box-shadow:0 0 24px rgba(124,58,237,.2);
+}
+.s-cell{
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid rgba(167,107,250,.2);
+  background:rgba(255,255,255,.04);
+  transition:all .2s;position:relative;
+  font-family:'Fredoka One',cursive;
+}
+.s-cell.prefilled{
+  background:rgba(124,58,237,.12);
+  font-weight:900;cursor:default;
+}
+.s-cell.drop-target{cursor:default}
+.s-cell.hover-target{
+  background:rgba(167,107,250,.18)!important;
+  box-shadow:inset 0 0 14px rgba(167,107,250,.4);
+  transform:scale(1.04);
+}
+.s-cell.correct{
+  background:rgba(16,185,129,.15)!important;
+  border-color:rgba(16,185,129,.4)!important;
+  animation:cellCorrect .45s ease;
+}
+@keyframes cellCorrect{0%,100%{box-shadow:inset 0 0 0 rgba(16,185,129,0)}50%{box-shadow:inset 0 0 22px rgba(16,185,129,.7)}}
+.s-cell.wrong{
+  background:rgba(244,63,94,.15)!important;
+  animation:cellWrong .4s ease;
+}
+@keyframes cellWrong{0%,100%{transform:scale(1)}30%{transform:translateX(-5px)}70%{transform:translateX(5px)}}
+.s-cell.blocked{background:rgba(167,107,250,.06)!important;cursor:not-allowed}
+
+/* Thick 2×2 sub-box borders for 4×4 */
+.thick-right{border-right:3px solid rgba(167,107,250,.5)!important}
+.thick-bottom{border-bottom:3px solid rgba(167,107,250,.5)!important}
+
+/* Number in cell */
+.cell-num{
+  font-family:'Fredoka One',cursive;
+  font-size:clamp(16px,3vw,28px);
+  font-weight:900;pointer-events:none;
+}
+
+/* ═══════════════════════════════════════════════
+   NUMBER BANK
+═══════════════════════════════════════════════ */
+.num-bank{
+  display:flex;gap:clamp(6px,1.2vw,14px);
+  align-items:center;justify-content:center;
+  flex-wrap:wrap;
+}
+.num-tile{
+  width:clamp(40px,7vw,64px);height:clamp(40px,7vw,64px);
+  border-radius:12px;cursor:grab;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Fredoka One',cursive;font-size:clamp(18px,3.5vw,30px);
+  border:2px solid rgba(255,255,255,.15);
+  box-shadow:0 4px 18px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.15);
+  transition:transform .15s,box-shadow .15s,opacity .2s;
+  user-select:none;
+}
+.num-tile:hover{transform:translateY(-3px) scale(1.1);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.num-tile.dragging{opacity:.4;cursor:grabbing;transform:scale(1.15)}
+.num-tile.used{opacity:.25;cursor:not-allowed;pointer-events:none}
+/* Color coding per number */
+.n1{background:linear-gradient(135deg,#991b1b,var(--c1));}
+.n2{background:linear-gradient(135deg,#1e3a8a,var(--c2));}
+.n3{background:linear-gradient(135deg,#14532d,var(--c3));}
+.n4{background:linear-gradient(135deg,#78350f,var(--c4));}
+
+/* ═══════════════════════════════════════════════
+   ACT 1 — 4×4 SUDOKU
+═══════════════════════════════════════════════ */
+#act1{width:100%;display:flex;flex-direction:column;align-items:center;gap:clamp(6px,1.3vh,12px)}
+#a1-main{display:flex;gap:clamp(10px,2vw,24px);align-items:flex-start;justify-content:center;flex-wrap:wrap;width:100%}
+#a1-grid{grid-template-columns:repeat(4,1fr);
+  width:clamp(180px,30vw,280px);height:clamp(180px,30vw,280px)}
+#a1-grid .s-cell{font-size:clamp(18px,3.5vw,32px)}
+
+/* Detective badge & legend */
+#a1-side{display:flex;flex-direction:column;gap:clamp(8px,1.5vh,14px);max-width:clamp(130px,20vw,200px)}
+.detect-badge{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 12px;border-radius:12px;
+  background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.25);
+}
+.detect-badge .b-ico{font-size:clamp(20px,3.5vw,32px)}
+.detect-badge .b-text{font-size:clamp(9px,1.4vw,12px);font-weight:700;color:rgba(220,200,255,.8);line-height:1.4}
+.the-rule{
+  padding:8px 12px;border-radius:10px;
+  background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);
+  font-size:clamp(8px,1.2vw,11px);font-weight:700;color:rgba(255,220,150,.8);line-height:1.5;
+}
+
+#a1-score{font-family:'Fredoka One',cursive;font-size:clamp(12px,2vw,18px);color:var(--v3)}
+#a1-msg{font-size:clamp(9px,1.4vw,12px);font-weight:700;min-height:16px;text-align:center}
+
+/* ═══════════════════════════════════════════════
+   ACT 2 — KenKen-style GROUPS
+═══════════════════════════════════════════════ */
+#act2{width:100%;display:flex;flex-direction:column;align-items:center;gap:clamp(6px,1.3vh,12px)}
+#a2-main{display:flex;gap:clamp(10px,2vw,24px);align-items:flex-start;justify-content:center;flex-wrap:wrap;width:100%}
+
+/* KenKen grid */
+#a2-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  width:clamp(180px,30vw,280px);height:clamp(180px,30vw,280px);
+  border:3px solid rgba(56,189,248,.5);border-radius:8px;overflow:hidden;
+  flex-shrink:0;box-shadow:0 0 24px rgba(56,189,248,.15);
+}
+.kk-cell{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border:1px solid rgba(56,189,248,.15);
+  background:rgba(255,255,255,.04);
+  position:relative;transition:all .2s;cursor:default;
+}
+.kk-hint{position:absolute;top:2px;left:3px;font-size:clamp(6px,.9vw,9px);
+  font-weight:900;color:rgba(56,189,248,.7);letter-spacing:-.3px;line-height:1}
+.kk-cell.kk-drop{cursor:default}
+.kk-cell.hover-target{background:rgba(56,189,248,.18)!important;box-shadow:inset 0 0 14px rgba(56,189,248,.4)}
+.kk-cell.correct{background:rgba(16,185,129,.15)!important;animation:cellCorrect .45s ease}
+.kk-cell.wrong{background:rgba(244,63,94,.15)!important;animation:cellWrong .4s ease}
+.kk-cell.prefilled{background:rgba(56,189,248,.1)!important;font-weight:900}
+/* Group borders */
+.kk-thick-right{border-right:3px solid rgba(56,189,248,.5)!important}
+.kk-thick-bottom{border-bottom:3px solid rgba(56,189,248,.5)!important}
+.kk-thick-top{border-top:3px solid rgba(56,189,248,.5)!important}
+.kk-thick-left{border-left:3px solid rgba(56,189,248,.5)!important}
+
+/* Legend */
+#a2-legend{
+  display:flex;flex-direction:column;gap:6px;
+  max-width:clamp(120px,18vw,190px);
+}
+.group-legend{
+  padding:6px 10px;border-radius:8px;
+  font-size:clamp(8px,1.2vw,11px);font-weight:700;line-height:1.4;
+}
+
+#a2-score{font-family:'Fredoka One',cursive;font-size:clamp(12px,2vw,18px);color:var(--sky)}
+#a2-msg{font-size:clamp(9px,1.4vw,12px);font-weight:700;min-height:16px;text-align:center}
+
+/* ═══════════════════════════════════════════════
+   ACT 3 — LOGIC RACE (mixed 4×4 with timer)
+═══════════════════════════════════════════════ */
+#act3{width:100%;display:flex;flex-direction:column;align-items:center;gap:clamp(6px,1.3vh,12px)}
+#a3-main{display:flex;gap:clamp(10px,2vw,24px);align-items:flex-start;justify-content:center;flex-wrap:wrap;width:100%}
+#a3-grid{grid-template-columns:repeat(4,1fr);
+  width:clamp(180px,30vw,280px);height:clamp(180px,30vw,280px)}
+#a3-grid .s-cell{font-size:clamp(18px,3.5vw,32px)}
+
+/* Timer */
+#timer-bar-wrap{width:100%;max-width:380px;height:10px;
+  background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden}
+#timer-bar{height:100%;border-radius:99px;width:100%;
+  background:linear-gradient(90deg,var(--mint),var(--sky));
+  transition:width .1s linear}
+#timer-display{font-family:'Fredoka One',cursive;font-size:clamp(14px,2.5vw,22px);
+  color:var(--gold);text-align:center}
+
+#a3-score{font-family:'Fredoka One',cursive;font-size:clamp(12px,2vw,18px);color:var(--v3)}
+#a3-msg{font-size:clamp(9px,1.4vw,12px);font-weight:700;min-height:16px;text-align:center}
+#race-status{font-family:'Fredoka One',cursive;font-size:clamp(10px,1.6vw,14px);
+  color:rgba(220,200,255,.55);text-align:center;min-height:16px}
+
+/* ═══════════════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════════════ */
+.btn{
+  font-family:'Fredoka One',cursive;font-size:clamp(12px,2.2vw,20px);
+  padding:clamp(7px,1.3vh,12px) clamp(18px,3.5vw,38px);
+  border-radius:99px;border:none;cursor:pointer;letter-spacing:1px;
+  background:linear-gradient(135deg,var(--v1),var(--v2),var(--sky));
+  color:#fff;box-shadow:0 4px 22px rgba(124,58,237,.45);
+  transition:transform .15s,box-shadow .15s;
+}
+.btn:hover{transform:translateY(-2px) scale(1.05);box-shadow:0 8px 30px rgba(124,58,237,.6)}
+.btn:active{transform:scale(.97)}
+.btn.gold-btn{background:linear-gradient(135deg,#b45309,var(--gold),#fde68a);color:#1a0000}
+
+/* ═══════════════════════════════════════════════
+   POPUP
+═══════════════════════════════════════════════ */
+.overlay{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(8,0,24,.88);backdrop-filter:blur(12px);
+  display:flex;align-items:center;justify-content:center;
+  animation:ovIn .3s ease;
+}
+@keyframes ovIn{from{opacity:0}to{opacity:1}}
+.popup{
+  background:linear-gradient(160deg,rgba(20,0,55,.97),rgba(10,0,32,.98));
+  border:1.5px solid rgba(167,107,250,.35);border-radius:24px;
+  padding:clamp(22px,5vh,44px) clamp(24px,5vw,52px);
+  text-align:center;max-width:460px;width:90%;
+  box-shadow:0 0 80px rgba(124,58,237,.2),0 0 0 1px rgba(255,255,255,.04);
+  animation:popIn .45s cubic-bezier(.34,1.56,.64,1);
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+}
+@keyframes popIn{from{opacity:0;transform:scale(.55)}to{opacity:1;transform:scale(1)}}
+.p-ico{font-size:clamp(48px,9vw,76px);animation:icoSpin .7s ease}
+@keyframes icoSpin{from{transform:scale(0) rotate(-180deg)}to{transform:scale(1) rotate(0)}}
+.p-title{font-family:'Fredoka One',cursive;font-size:clamp(22px,4.5vw,36px);
+  background:linear-gradient(135deg,var(--v2),var(--sky));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.p-sub{font-size:clamp(11px,1.8vw,14px);color:rgba(220,200,255,.75);font-weight:600;line-height:1.6}
+.p-stars{display:flex;gap:8px;font-size:clamp(26px,5vw,42px)}
+
+/* Confetti */
+.conf{position:fixed;pointer-events:none;z-index:300;font-size:16px;animation:confFall linear forwards}
+@keyframes confFall{0%{transform:translateY(-10px) rotate(0);opacity:1}
+  100%{transform:translateY(102vh) rotate(720deg);opacity:0}}
+</style>
+</head>
+<body>
+
+<!-- ══ MATH WORLD BACKGROUND ══ -->
+<div id="math-bg"></div>
+
+<!-- ══ APP ══ -->
+<div id="app">
+  <div id="hdr">
+    <h1>🔢 SUDOKU &amp; LOGIC PUZZLES 🔢</h1>
+    <div id="progress">
+      <div class="pip active" id="p1"></div>
+      <div class="pip" id="p2"></div>
+      <div class="pip" id="p3"></div>
+    </div>
+    <div id="act-lbl">ACTIVITY 1 OF 3</div>
+  </div>
+
+  <div id="game-card">
+
+    <!-- ═══ ACT 1: 4×4 SUDOKU ═══ -->
+    <div id="act1">
+      <div class="instr">🔍 Be a <b>Number Detective (Jasoos)</b>! Drag numbers 1–4 into empty cells. Each row and column must have 1, 2, 3, and 4 — NO repeats (Khali jagah bharo)!</div>
+      <div id="a1-main">
+        <div>
+          <div class="sudoku-grid" id="a1-grid"></div>
+        </div>
+        <div id="a1-side">
+          <div class="detect-badge">
+            <div class="b-ico">🔎</div>
+            <div class="b-text">Act like a <b>Jasoos</b>!<br>Scan each row &amp; column before placing!</div>
+          </div>
+          <div class="the-rule">
+            📏 <b>THE ONE RULE:</b><br>No number repeats in any row, column, or 2×2 box!<br><br>
+            🥭 Imagine 4 friends: <b>Aman (1), Bina (2), Chirag (3), Diya (4)</b> — each wants their own seat!
+          </div>
+          <div class="detect-badge" style="background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.25)">
+            <div class="b-ico">✏️</div>
+            <div class="b-text"><b>Scan first, place second!</b><br>"Khali jagah" = empty space</div>
+          </div>
+        </div>
+      </div>
+      <div class="num-bank" id="a1-bank"></div>
+      <div id="a1-score">Placed: <span id="a1-cnt">0</span> / <span id="a1-total">8</span></div>
+      <div id="a1-msg"></div>
+      <button class="btn" id="a1-next" style="display:none" onclick="showA1Done()">Next Challenge! 🎯</button>
+    </div>
+
+    <!-- ═══ ACT 2: KenKen GROUPS ═══ -->
+    <div id="act2" style="display:none">
+      <div class="instr">🧩 <b>Group Puzzle!</b> Each coloured group has a target sum. Drag numbers so the group adds up correctly AND no repeats in any row or column!</div>
+      <div id="a2-main">
+        <div>
+          <div id="a2-grid"></div>
+        </div>
+        <div id="a2-legend">
+          <div style="font-family:'Fredoka One',cursive;font-size:clamp(12px,2vw,16px);color:var(--sky)">Group Clues!</div>
+          <!-- populated by JS -->
+        </div>
+      </div>
+      <div class="num-bank" id="a2-bank"></div>
+      <div id="a2-score">Placed: <span id="a2-cnt">0</span> / <span id="a2-total">8</span></div>
+      <div id="a2-msg"></div>
+      <button class="btn" id="a2-next" style="display:none" onclick="showA2Done()">Final Race! 🏁</button>
+    </div>
+
+    <!-- ═══ ACT 3: LOGIC RACE ═══ -->
+    <div id="act3" style="display:none">
+      <div class="instr">🏁 <b>Logic Race!</b> Solve the hardest puzzle yet! Fill all empty cells correctly before time runs out!</div>
+      <div id="a3-main">
+        <div>
+          <div class="sudoku-grid" id="a3-grid"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:clamp(8px,1.5vh,14px);max-width:clamp(130px,20vw,200px)">
+          <div id="timer-display">⏱ 90s</div>
+          <div id="timer-bar-wrap"><div id="timer-bar"></div></div>
+          <div id="race-status">Race started!</div>
+          <div class="the-rule" style="background:rgba(56,189,248,.08);border-color:rgba(56,189,248,.2);color:rgba(180,230,255,.8)">
+            🏅 <b>DETECTIVE TIPS:</b><br>
+            • Scan rows first<br>
+            • Check 2×2 boxes<br>
+            • If stuck, try another cell and come back!<br>
+            • "Sahi ya Galat?" = Right or Wrong?
+          </div>
+        </div>
+      </div>
+      <div class="num-bank" id="a3-bank"></div>
+      <div id="a3-score">Correct: <span id="a3-cnt">0</span> / <span id="a3-total">8</span></div>
+      <div id="a3-msg"></div>
+      <button class="btn gold-btn" id="a3-finish" style="display:none" onclick="showFinal()">🏆 See My Badge!</button>
+    </div>
+
+  </div><!-- /game-card -->
+</div>
+
+<div id="pop-root"></div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   BACKGROUND SETUP
+═══════════════════════════════════════════════ */
+(function(){
+  const bg=document.getElementById('math-bg');
+  const symbols=['1','2','3','4','+','=','?','×','÷','<','>','≠','∑','√','π','Δ'];
+  const colors=['#7c3aed','#a855f7','#38bdf8','#10b981','#f59e0b','#f43f5e','#84cc16'];
+  // Float symbols
+  for(let i=0;i<32;i++){
+    const el=document.createElement('div');
+    el.className='math-float';
+    el.textContent=symbols[i%symbols.length];
+    el.style.cssText=`left:${Math.random()*100}%;bottom:-60px;
+      font-size:${12+Math.random()*24}px;
+      color:${colors[i%colors.length]};
+      animation-duration:${10+Math.random()*20}s;
+      animation-delay:${-Math.random()*24}s;`;
+    bg.appendChild(el);
+  }
+  // Geo shapes (SVG)
+  const shapes=[
+    '<polygon points="50,5 95,40 78,95 22,95 5,40" fill="none" stroke="currentColor" stroke-width="2"/>',
+    '<rect x="5" y="5" width="90" height="90" rx="8" fill="none" stroke="currentColor" stroke-width="2"/>',
+    '<circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="2"/>',
+    '<polygon points="50,5 95,95 5,95" fill="none" stroke="currentColor" stroke-width="2"/>',
+  ];
+  for(let i=0;i<8;i++){
+    const el=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    const s=50+Math.random()*100;
+    el.setAttribute('viewBox','0 0 100 100');el.setAttribute('class','geo-shape');
+    el.style.cssText=`width:${s}px;height:${s}px;
+      left:${Math.random()*96}%;top:${Math.random()*96}%;
+      color:${colors[i%colors.length]};
+      animation-duration:${14+Math.random()*24}s;
+      animation-delay:${-Math.random()*20}s;`;
+    el.innerHTML=shapes[i%shapes.length];
+    document.body.appendChild(el);
+  }
+})();
+
+/* ═══════════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════════ */
+const $=id=>document.getElementById(id);
+const rand=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+let dragSrc=null, touchClone=null, touchEl=null;
+
+const NUM_COLORS=['','n1','n2','n3','n4']; // index 1-4
+
+function updProg(n){
+  ['p1','p2','p3'].forEach((id,i)=>{
+    const el=$(id);el.className='pip';
+    if(i+1<n)el.classList.add('done');
+    if(i+1===n)el.classList.add('active');
+  });
+  $('act-lbl').textContent=`ACTIVITY ${n} OF 3`;
+}
+
+function showPop(html,cb){
+  const root=$('pop-root');
+  root.innerHTML=`<div class="overlay">${html}</div>`;
+  root.querySelector('.overlay').addEventListener('click',e=>{
+    if(e.target===root.querySelector('.overlay')){root.innerHTML='';if(cb)cb();}
+  });
+  const btn=root.querySelector('[data-close]');
+  if(btn)btn.addEventListener('click',()=>{root.innerHTML='';if(cb)cb();});
+}
+
+function confetti(){
+  const items=['🔢','⭐','✨','🎯','🔎','💡','🎉','🌟','💫','🏆'];
+  for(let i=0;i<65;i++){
+    const c=document.createElement('div');c.className='conf';
+    c.textContent=items[rand(0,items.length-1)];
+    c.style.cssText=`left:${Math.random()*100}vw;top:-20px;
+      font-size:${12+rand(0,14)}px;
+      animation-duration:${1.5+Math.random()*2}s;
+      animation-delay:${Math.random()*.9}s;`;
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(),4500);
+  }
+}
+
+function switchAct(fromId,toId,n){
+  const f=$(fromId);
+  f.style.transition='opacity .28s,transform .28s';
+  f.style.opacity='0';f.style.transform='scale(.95)';
+  setTimeout(()=>{
+    f.style.display='none';f.style.opacity='';f.style.transform='';f.style.transition='';
+    const t=$(toId);
+    t.style.display='flex';t.style.flexDirection='column';
+    t.style.alignItems='center';t.style.width='100%';
+    updProg(n);
+  },300);
+}
+
+/* ═══════════════════════════════════════════════
+   DRAG ENGINE — MOUSE
+═══════════════════════════════════════════════ */
+function mkDrag(el){
+  el.draggable=true;
+  el.addEventListener('dragstart',e=>{
+    dragSrc=el;el.classList.add('dragging');
+    e.dataTransfer.setData('val',el.dataset.val||'');
+    e.dataTransfer.effectAllowed='copy';
+  });
+  el.addEventListener('dragend',()=>{el.classList.remove('dragging');dragSrc=null;});
+}
+
+function mkDrop(el,fn){
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('hover-target')});
+  el.addEventListener('dragleave',()=>el.classList.remove('hover-target'));
+  el.addEventListener('drop',e=>{
+    e.preventDefault();el.classList.remove('hover-target');
+    const val=e.dataTransfer.getData('val')||dragSrc?.dataset.val;
+    if(val) fn(el,parseInt(val),dragSrc);
+  });
+}
+
+/* ── TOUCH ENGINE ── */
+document.addEventListener('touchstart',e=>{
+  const src=e.target.closest('.num-tile');
+  if(!src||src.classList.contains('used')) return;
+  touchEl=src;dragSrc=src;
+  const r=src.getBoundingClientRect();
+  touchClone=src.cloneNode(true);
+  touchClone.style.cssText=`position:fixed;z-index:999;pointer-events:none;opacity:.85;
+    width:${r.width}px;height:${r.height}px;top:${r.top}px;left:${r.left}px;transition:none;`;
+  document.body.appendChild(touchClone);
+  src.classList.add('dragging');
+},{passive:true});
+
+document.addEventListener('touchmove',e=>{
+  if(!touchClone) return;e.preventDefault();
+  const t=e.touches[0];
+  touchClone.style.top=(t.clientY-touchClone.offsetHeight/2)+'px';
+  touchClone.style.left=(t.clientX-touchClone.offsetWidth/2)+'px';
+},{passive:false});
+
+document.addEventListener('touchend',e=>{
+  if(!touchEl||!touchClone) return;
+  const t=e.changedTouches[0];
+  touchClone.remove();touchClone=null;touchEl.classList.remove('dragging');
+  const hit=document.elementFromPoint(t.clientX,t.clientY);
+  if(hit&&touchEl.dataset.val){
+    const val=parseInt(touchEl.dataset.val);
+    // Try each grid cell hit
+    const cell=hit.closest('.s-cell,.kk-cell');
+    if(cell&&cell._dropHandler) cell._dropHandler(cell,val,touchEl);
+  }
+  touchEl=null;dragSrc=null;
+},{passive:true});
+
+/* ═══════════════════════════════════════════════
+   SUDOKU HELPER
+═══════════════════════════════════════════════ */
+// A valid 4×4 solution
+const SOLUTION_4X4=[
+  [1,2,3,4],
+  [3,4,1,2],
+  [2,1,4,3],
+  [4,3,2,1]
+];
+
+function createGrid4x4(containerId, solution, prefilledMask, onCorrect, onWrong, extraCellClass){
+  const grid=$(containerId);grid.innerHTML='';
+  const cells=[];
+  for(let r=0;r<4;r++){
+    for(let c=0;c<4;c++){
+      const cell=document.createElement('div');
+      cell.className='s-cell'+(extraCellClass?' '+extraCellClass:'');
+      // Thick sub-box borders
+      if(c===1) cell.classList.add('thick-right');
+      if(r===1) cell.classList.add('thick-bottom');
+      cell.dataset.row=r;cell.dataset.col=c;
+      cell.dataset.answer=solution[r][c];
+      const isPre=prefilledMask[r][c];
+      if(isPre){
+        cell.classList.add('prefilled');
+        const num=document.createElement('span');
+        num.className=`cell-num ${NUM_COLORS[solution[r][c]]}`;
+        num.style.cssText=`background:none;-webkit-text-fill-color:unset;
+          color:${['','#ef4444','#60a5fa','#4ade80','#fbbf24'][solution[r][c]]};`;
+        num.textContent=solution[r][c];
+        cell.appendChild(num);
+      } else {
+        cell.classList.add('drop-target');
+        const handler=(el,val,src)=>{
+          if(el.dataset.filled) return;
+          if(val===parseInt(el.dataset.answer)){
+            el.dataset.filled='1';
+            const num=document.createElement('span');
+            num.className='cell-num';
+            num.style.color=['','#ef4444','#60a5fa','#4ade80','#fbbf24'][val];
+            num.textContent=val;
+            el.appendChild(num);
+            el.classList.add('correct');
+            setTimeout(()=>el.classList.remove('correct'),600);
+            onCorrect(el,val,src);
+          } else {
+            el.classList.add('wrong');
+            setTimeout(()=>el.classList.remove('wrong'),450);
+            onWrong(el,val);
+          }
+        };
+        mkDrop(cell,(el,val,src)=>handler(el,val,src));
+        cell._dropHandler=handler;
+      }
+      grid.appendChild(cell);
+      cells.push(cell);
+    }
+  }
+  return cells;
+}
+
+function createNumBank(containerId, numbers){
+  const bank=$(containerId);bank.innerHTML='';
+  numbers.forEach(n=>{
+    const tile=document.createElement('div');
+    tile.className=`num-tile ${NUM_COLORS[n]}`;
+    tile.dataset.val=n;tile.textContent=n;
+    mkDrag(tile);
+    bank.appendChild(tile);
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   ACTIVITY 1 — 4×4 SUDOKU
+═══════════════════════════════════════════════ */
+let a1Count=0,a1Total=0;
+
+// Prefilled mask: 1=prefilled, 0=empty
+const A1_MASK=[
+  [1,0,1,0],
+  [0,1,0,1],
+  [1,0,0,1],
+  [0,1,1,0]
+];
+
+function initA1(){
+  a1Count=0;
+  a1Total=A1_MASK.flat().filter(x=>x===0).length;
+  $('a1-total').textContent=a1Total;
+  $('a1-cnt').textContent=0;
+  $('a1-msg').textContent='';
+  $('a1-next').style.display='none';
+
+  createGrid4x4('a1-grid',SOLUTION_4X4,A1_MASK,
+    (el,val,src)=>{
+      a1Count++;$('a1-cnt').textContent=a1Count;
+      $('a1-msg').style.color='#4ade80';
+      $('a1-msg').textContent=`✅ Sahi! ${val} fits perfectly in that spot!`;
+      checkA1Complete();
+    },
+    (el,val)=>{
+      $('a1-msg').style.color='#f87171';
+      $('a1-msg').textContent=`🔍 Re-scan that row like a detective — there's already a ${val} somewhere!`;
+    }
+  );
+  createNumBank('a1-bank',[1,2,3,4,1,2,3,4]);
+}
+
+function checkA1Complete(){
+  if(a1Count>=a1Total){
+    $('a1-msg').textContent='🌟 Brilliant! You solved the Sudoku, Jasoos!';
+    $('a1-next').style.display='inline-block';
+    confetti();
+  }
+}
+
+function showA1Done(){
+  confetti();
+  showPop(`<div class="popup">
+    <div class="p-ico">🔎</div>
+    <div class="p-title">Sudoku Solved!</div>
+    <div class="p-stars">⭐⭐⭐</div>
+    <div class="p-sub">Wah! You're a real <b>Jasoos</b> (Detective)!<br><br>
+    You found every <b>Khali jagah</b> and placed numbers so no repeats appeared in any row, column, or box!<br><br>
+    Think of it like the <b>Bazaar stall</b> — every shelf must have different items!<br><br>
+    Ready for the GROUP puzzle?</div>
+    <button class="btn" data-close>Group Challenge! 🧩</button>
+  </div>`,()=>{switchAct('act1','act2',2);initA2();});
+}
+
+/* ═══════════════════════════════════════════════
+   ACTIVITY 2 — KenKen-style GROUPS
+═══════════════════════════════════════════════ */
+// Solution: same 4×4 grid
+const A2_SOLUTION=[
+  [1,2,3,4],
+  [3,4,1,2],
+  [2,1,4,3],
+  [4,3,2,1]
+];
+
+// Prefilled
+const A2_MASK=[
+  [1,0,1,0],
+  [0,0,1,0],
+  [1,0,0,1],
+  [0,1,0,0]
+];
+
+// Groups (cells [r,c], label, color, target)
+const GROUPS=[
+  {cells:[[0,1],[1,1]],label:'6+',sum:6,color:'#ff6b6b',bg:'rgba(255,107,107,.12)',border:'rgba(255,107,107,.5)'},
+  {cells:[[0,3],[1,3]],label:'6+',sum:6,color:'#ffd93d',bg:'rgba(255,217,61,.1)',border:'rgba(255,217,61,.5)'},
+  {cells:[[1,0],[2,0]],label:'5+',sum:5,color:'#6bceff',bg:'rgba(107,206,255,.1)',border:'rgba(107,206,255,.5)'},
+  {cells:[[2,2],[2,1]],label:'5+',sum:5,color:'#a8ff78',bg:'rgba(168,255,120,.1)',border:'rgba(168,255,120,.5)'},
+  {cells:[[3,0],[3,2]],label:'6+',sum:6,color:'#c77dff',bg:'rgba(199,125,255,.1)',border:'rgba(199,125,255,.5)'},
+  {cells:[[3,3],[1,3]],label:'6+',sum:6,color:'#ffd93d',bg:'rgba(255,217,61,.1)',border:'rgba(255,217,61,.5)'},
+];
+
+let a2Count=0,a2Total=0;
+
+function initA2(){
+  a2Count=0;
+  a2Total=A2_MASK.flat().filter(x=>x===0).length;
+  $('a2-total').textContent=a2Total;
+  $('a2-cnt').textContent=0;
+  $('a2-msg').textContent='';
+  $('a2-next').style.display='none';
+
+  const grid=$('a2-grid');grid.innerHTML='';
+  const cells=[];
+  const groupMap={};
+  GROUPS.forEach((g,gi)=>g.cells.forEach(([r,c])=>groupMap[`${r},${c}`]=gi));
+
+  for(let r=0;r<4;r++){
+    for(let c=0;c<4;c++){
+      const cell=document.createElement('div');
+      cell.className='kk-cell';
+      const gi=groupMap[`${r},${c}`];
+      const g=gi!==undefined?GROUPS[gi]:null;
+      if(g){
+        cell.style.background=g.bg;
+        // Check group borders
+        const gCells=g.cells;
+        const isTop=!gCells.some(([gr,gc])=>gr===r-1&&gc===c);
+        const isBottom=!gCells.some(([gr,gc])=>gr===r+1&&gc===c);
+        const isLeft=!gCells.some(([gr,gc])=>gr===r&&gc===c-1);
+        const isRight=!gCells.some(([gr,gc])=>gr===r&&gc===c+1);
+        if(isTop)cell.classList.add('kk-thick-top');
+        if(isBottom)cell.classList.add('kk-thick-bottom');
+        if(isLeft)cell.classList.add('kk-thick-left');
+        if(isRight)cell.classList.add('kk-thick-right');
+        // Hint on first cell
+        const isFirst=gCells[0][0]===r&&gCells[0][1]===c;
+        if(isFirst){
+          const hint=document.createElement('div');
+          hint.className='kk-hint';hint.textContent=g.label;
+          hint.style.color=g.color;cell.appendChild(hint);
+        }
+      }
+      // Standard sub-box borders too
+      if(c===1)cell.style.borderRight=`2px solid rgba(56,189,248,.2)`;
+      if(r===1)cell.style.borderBottom=`2px solid rgba(56,189,248,.2)`;
+      cell.dataset.row=r;cell.dataset.col=c;
+      cell.dataset.answer=A2_SOLUTION[r][c];
+      const isPre=A2_MASK[r][c];
+      if(isPre){
+        cell.classList.add('prefilled');
+        const num=document.createElement('span');
+        num.className='cell-num';
+        num.style.color=['','#ef4444','#60a5fa','#4ade80','#fbbf24'][A2_SOLUTION[r][c]];
+        num.textContent=A2_SOLUTION[r][c];
+        cell.appendChild(num);
+      } else {
+        cell.classList.add('kk-drop');
+        const handler=(el,val,src)=>{
+          if(el.dataset.filled) return;
+          if(val===parseInt(el.dataset.answer)){
+            el.dataset.filled='1';
+            const num=document.createElement('span');
+            num.className='cell-num';
+            num.style.color=['','#ef4444','#60a5fa','#4ade80','#fbbf24'][val];
+            num.textContent=val;el.appendChild(num);
+            el.classList.add('correct');
+            setTimeout(()=>el.classList.remove('correct'),600);
+            a2Count++;$('a2-cnt').textContent=a2Count;
+            $('a2-msg').style.color='#4ade80';
+            $('a2-msg').textContent=`✅ ${val} fits! Check if the group sum works!`;
+            if(a2Count>=a2Total){
+              confetti();
+              $('a2-msg').textContent='🌟 All groups complete! You cracked the pattern!';
+              $('a2-next').style.display='inline-block';
+            }
+          } else {
+            el.classList.add('wrong');setTimeout(()=>el.classList.remove('wrong'),450);
+            $('a2-msg').style.color='#f87171';
+            $('a2-msg').textContent=`🔍 Re-scan! Check what's already in that row and column.`;
+          }
+        };
+        mkDrop(cell,(el,val,src)=>handler(el,val,src));
+        cell._dropHandler=handler;
+      }
+      grid.appendChild(cell);cells.push(cell);
+    }
+  }
+
+  // Legend
+  const legend=$('a2-legend');
+  while(legend.children.length>1)legend.removeChild(legend.lastChild);
+  const seen=new Set();
+  GROUPS.forEach(g=>{
+    const k=g.label+g.color;if(seen.has(k))return;seen.add(k);
+    const item=document.createElement('div');
+    item.className='group-legend';
+    item.style.cssText=`background:${g.bg};border:1px solid ${g.border};color:${g.color}`;
+    item.innerHTML=`<b>${g.label}</b> group — cells must add to <b>${g.sum}</b>!`;
+    legend.appendChild(item);
+  });
+  legend.insertAdjacentHTML('beforeend',`
+    <div style="font-size:clamp(8px,1.2vw,11px);color:rgba(180,230,255,.6);font-weight:700;line-height:1.5;margin-top:4px">
+    ⚠️ Also: no repeats in any row or column!<br><br>
+    Think of it like a <b>Panti</b> (meal row) — every seat needs a different plate colour!
+    </div>`);
+
+  createNumBank('a2-bank',[1,2,3,4,1,2,3,4]);
+}
+
+function showA2Done(){
+  confetti();
+  showPop(`<div class="popup">
+    <div class="p-ico">🧩</div>
+    <div class="p-title">Groups Cracked!</div>
+    <div class="p-stars">⭐⭐⭐</div>
+    <div class="p-sub">Amazing logic! You solved the group puzzle!<br><br>
+    You checked that:<br>✅ Each row has no repeats<br>✅ Each column has no repeats<br>✅ Each coloured group adds up correctly!<br><br>
+    This is <b>pure logic</b> — no Maths needed, just pattern-thinking!<br><br>
+    FINAL CHALLENGE: The Logic Race! ⏱️</div>
+    <button class="btn" data-close>Start the Race! 🏁</button>
+  </div>`,()=>{switchAct('act2','act3',3);initA3();});
+}
+
+/* ═══════════════════════════════════════════════
+   ACTIVITY 3 — LOGIC RACE
+═══════════════════════════════════════════════ */
+const A3_SOLUTION=[
+  [2,1,4,3],
+  [4,3,2,1],
+  [1,2,3,4],
+  [3,4,1,2]
+];
+const A3_MASK=[
+  [1,0,0,1],
+  [0,1,1,0],
+  [0,0,1,0],
+  [1,0,0,1]
+];
+
+let a3Count=0,a3Total=0,a3Timer=null,a3TimeLeft=90,a3Finished=false;
+
+function initA3(){
+  a3Count=0;a3Finished=false;
+  a3Total=A3_MASK.flat().filter(x=>x===0).length;
+  $('a3-total').textContent=a3Total;
+  $('a3-cnt').textContent=0;
+  $('a3-msg').textContent='';
+  $('a3-finish').style.display='none';
+  a3TimeLeft=90;
+  $('timer-display').textContent='⏱ 90s';
+  $('timer-display').style.color='var(--gold)';
+  $('timer-bar').style.width='100%';
+  $('timer-bar').style.background='linear-gradient(90deg,var(--mint),var(--sky))';
+  $('race-status').textContent='Race started — go Jasoos!';
+  $('race-status').style.color='rgba(220,200,255,.55)';
+
+  createGrid4x4('a3-grid',A3_SOLUTION,A3_MASK,
+    (el,val,src)=>{
+      a3Count++;$('a3-cnt').textContent=a3Count;
+      $('a3-msg').style.color='#4ade80';
+      $('a3-msg').textContent=`✅ Sahi! ${val} is correct — keep scanning!`;
+      if(a3Count>=a3Total) finishRace(true);
+    },
+    (el,val)=>{
+      $('a3-msg').style.color='#f87171';
+      $('a3-msg').textContent=`🔍 Re-scan that row! Is there already a ${val} somewhere in it?`;
+    }
+  );
+  createNumBank('a3-bank',[1,2,3,4,1,2,3,4]);
+  startTimer();
+}
+
+function startTimer(){
+  clearInterval(a3Timer);
+  a3Timer=setInterval(()=>{
+    if(a3Finished){clearInterval(a3Timer);return;}
+    a3TimeLeft--;
+    const pct=(a3TimeLeft/90)*100;
+    $('timer-bar').style.width=pct+'%';
+    $('timer-display').textContent=`⏱ ${a3TimeLeft}s`;
+    if(a3TimeLeft<=20){
+      $('timer-display').style.color='#f87171';
+      $('timer-bar').style.background='linear-gradient(90deg,#f43f5e,#f59e0b)';
+      $('race-status').textContent='Almost out of time — scan quickly!';
+    } else if(a3TimeLeft<=40){
+      $('timer-display').style.color='var(--gold)';
+      $('timer-bar').style.background='linear-gradient(90deg,#f59e0b,var(--sky))';
+    }
+    if(a3TimeLeft<=0){
+      clearInterval(a3Timer);
+      if(!a3Finished) finishRace(false);
+    }
+  },1000);
+}
+
+function finishRace(won){
+  a3Finished=true;
+  clearInterval(a3Timer);
+  if(won){
+    confetti();
+    const timeUsed=90-a3TimeLeft;
+    $('race-status').style.color='var(--mint)';
+    $('race-status').textContent=`🏆 Solved in ${timeUsed}s!`;
+    $('a3-finish').style.display='inline-block';
+    $('a3-msg').textContent='🎉 PERFECT! You completed the Logic Race!';
+  } else {
+    $('a3-msg').style.color='#f87171';
+    $('a3-msg').textContent=`⏰ Time's up! You got ${a3Count}/${a3Total}. You're still a Jasoos — try again!`;
+    $('a3-finish').style.display='inline-block';
+  }
+}
+
+function showFinal(){
+  confetti();setTimeout(confetti,600);
+  const stars=a3Count>=a3Total?3:a3Count>=(a3Total/2)?2:1;
+  showPop(`<div class="popup">
+    <div class="p-ico">🏆</div>
+    <div class="p-title">Number Detective!</div>
+    <div class="p-stars">${'⭐'.repeat(stars)}${'☆'.repeat(3-stars)}</div>
+    <div style="font-family:'Fredoka One',cursive;font-size:clamp(13px,2.2vw,18px);color:var(--gold)">
+      ${a3Count}/${a3Total} correct in the Logic Race!
+    </div>
+    <div class="p-sub">
+      You mastered <b>Sudoku logic</b>, cracked <b>group puzzles</b>, and raced against the clock!<br><br>
+      🔎 The <b>ONE RULE</b>: No repeats in any row, column, or box!<br>
+      🥭 Like 4 friends — <b>Aman, Bina, Chirag, Diya</b> — each needs their own seat!<br>
+      ✏️ Always <b>scan first, place second</b> — that's what real detectives do!<br><br>
+      <span style="color:var(--sky)">Next challenge: 6×6 grids await! 🎯</span>
+    </div>
+    <div style="font-size:clamp(26px,5vw,42px)">🔢 🔎 🧩 ⭐ 🏆</div>
+    <button class="btn gold-btn" data-close onclick="resetAll()">🔄 Play Again!</button>
+  </div>`);
+}
+
+function resetAll(){
+  clearInterval(a3Timer);
+  a1Count=0;a2Count=0;a3Count=0;a3Finished=false;
+  ['act2','act3'].forEach(id=>{$(id).style.display='none'});
+  $('act1').style.display='flex';$('act1').style.flexDirection='column';
+  $('act1').style.alignItems='center';$('act1').style.width='100%';
+  updProg(1);
+  initA1();
+}
+
+/* ══ INIT ══ */
+updProg(1);
+initA1();
+</script>
+</body>
+</html>

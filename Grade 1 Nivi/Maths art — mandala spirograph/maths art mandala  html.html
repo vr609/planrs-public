@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MATHS ART — MANDALA SPIROGRAPH</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',sans-serif}
+body{background:#0a0e1a;color:#e8f4fd;position:relative}
+
+/* ── BACKGROUND SCENE ── */
+#bg-canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none}
+
+/* ── LAYOUT ── */
+#app{position:relative;z-index:1;width:100vw;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+
+/* ── HEADER ── */
+#header{text-align:center;margin-bottom:10px;user-select:none}
+#header h1{font-size:clamp(18px,2.5vw,28px);font-weight:700;letter-spacing:3px;color:#7dd3fc;text-shadow:0 0 20px rgba(125,211,252,0.4)}
+#header p{font-size:clamp(11px,1.3vw,14px);color:#94a3b8;letter-spacing:2px;margin-top:3px}
+
+/* ── PROGRESS BAR ── */
+#progress-bar{display:flex;gap:8px;margin-bottom:12px;align-items:center}
+.prog-step{width:80px;height:4px;border-radius:2px;background:#1e293b;transition:background .5s}
+.prog-step.done{background:#7dd3fc}
+.prog-step.active{background:linear-gradient(90deg,#7dd3fc,#a78bfa)}
+
+/* ── MAIN STAGE ── */
+#stage{position:relative;background:rgba(10,20,40,0.85);border:1px solid rgba(125,211,252,0.2);border-radius:12px;overflow:hidden;backdrop-filter:blur(6px)}
+
+/* ── ACTIVITY CONTAINER ── */
+.activity{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:10px}
+.activity.active{display:flex}
+
+.act-title{font-size:clamp(13px,1.6vw,17px);font-weight:700;color:#7dd3fc;letter-spacing:1.5px;text-align:center}
+.act-subtitle{font-size:clamp(10px,1.2vw,13px);color:#94a3b8;text-align:center;max-width:560px;line-height:1.5}
+
+/* ── CANVASES ── */
+.act-canvas-wrap{position:relative;border:1px solid rgba(125,211,252,0.25);border-radius:8px;overflow:hidden;background:rgba(5,15,30,0.9)}
+
+canvas.act-canvas{display:block;cursor:crosshair}
+
+/* ── TOOLBOX ── */
+.toolbox{display:flex;flex-direction:column;gap:8px;padding:12px;background:rgba(15,25,50,0.9);border:1px solid rgba(125,211,252,0.2);border-radius:8px;min-width:90px}
+.tool-label{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;text-align:center}
+
+.tool-item{width:64px;height:64px;border:1px solid rgba(125,211,252,0.3);border-radius:8px;background:rgba(30,50,90,0.7);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:grab;transition:all .2s;gap:4px;user-select:none;position:relative}
+.tool-item:active{cursor:grabbing}
+.tool-item:hover{border-color:#7dd3fc;background:rgba(125,211,252,0.1)}
+.tool-item.used{opacity:.35;cursor:not-allowed;pointer-events:none}
+.tool-item svg{width:32px;height:32px}
+.tool-item span{font-size:9px;color:#94a3b8;text-align:center}
+
+/* ── COLOR PALETTE (act3) ── */
+.color-palette{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.color-swatch{width:36px;height:36px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .2s;box-shadow:0 0 0 0 transparent}
+.color-swatch.selected{border-color:#fff;box-shadow:0 0 10px rgba(255,255,255,.4);transform:scale(1.15)}
+
+/* ── STATUS ── */
+.status-bar{font-size:11px;color:#7dd3fc;text-align:center;height:18px;letter-spacing:.5px}
+
+/* ── POPUP OVERLAY ── */
+#popup-overlay{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)}
+#popup-overlay.show{display:flex}
+#popup-box{background:#0f1b35;border:1px solid rgba(125,211,252,0.4);border-radius:16px;padding:32px 40px;text-align:center;max-width:400px;animation:popIn .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes popIn{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.popup-icon{font-size:48px;margin-bottom:12px}
+.popup-title{font-size:22px;font-weight:700;color:#7dd3fc;margin-bottom:8px}
+.popup-msg{font-size:14px;color:#94a3b8;line-height:1.6;margin-bottom:24px}
+.popup-btn{padding:12px 32px;border-radius:8px;border:none;background:linear-gradient(135deg,#1d4ed8,#7c3aed);color:#fff;font-size:15px;font-weight:600;cursor:pointer;transition:transform .15s,box-shadow .15s;letter-spacing:.5px}
+.popup-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(125,211,252,0.3)}
+
+/* ── GEAR SPINNER ── */
+.gear-badge{position:absolute;bottom:12px;right:12px;opacity:.15;animation:spinGear 8s linear infinite;pointer-events:none}
+@keyframes spinGear{to{transform:rotate(360deg)}}
+
+/* ── ACT3 SECTOR HOVER ── */
+#cv3{cursor:pointer}
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<div id="app">
+  <div id="header">
+    <h1>MATHS ART — MANDALA SPIROGRAPH</h1>
+    <p>CONSTRUCTION LAB · ENGINEERING WORKSHOP</p>
+  </div>
+
+  <div id="progress-bar">
+    <div class="prog-step active" id="ps1"></div>
+    <div class="prog-step" id="ps2"></div>
+    <div class="prog-step" id="ps3"></div>
+  </div>
+
+  <div id="stage">
+    <!-- ACTIVITY 1: Concentric Circles -->
+    <div class="activity active" id="act1">
+      <div class="act-title">⬡ ACTIVITY 1 — CONCENTRIC CIRCLES</div>
+      <div class="act-subtitle">Drag the compass tool onto the blueprint canvas and drop it at the centre mark to draw each circle. Draw all 4 concentric circles to complete the blueprint.</div>
+      <div style="display:flex;gap:14px;align-items:center">
+        <div class="toolbox" id="compass-box">
+          <div class="tool-label">TOOLS</div>
+          <div class="tool-item" id="compass-tool" draggable="true">
+            <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <line x1="16" y1="4" x2="10" y2="24" stroke="#7dd3fc" stroke-width="1.8" stroke-linecap="round"/>
+              <line x1="16" y1="4" x2="22" y2="24" stroke="#7dd3fc" stroke-width="1.8" stroke-linecap="round"/>
+              <circle cx="16" cy="4" r="2.2" fill="#a78bfa"/>
+              <circle cx="10" cy="24" r="1.8" fill="#7dd3fc"/>
+              <circle cx="22" cy="24" r="1.8" fill="#7dd3fc"/>
+              <path d="M10 24 Q16 22 22 24" stroke="#7dd3fc" stroke-width="1.2" fill="none" stroke-dasharray="2 2"/>
+            </svg>
+            <span>COMPASS</span>
+          </div>
+          <div style="height:1px;background:rgba(125,211,252,.15)"></div>
+          <div style="font-size:9px;color:#475569;text-align:center;line-height:1.4">CIRCLES<br/>REMAINING</div>
+          <div id="circles-left" style="font-size:22px;font-weight:700;color:#7dd3fc;text-align:center">4</div>
+        </div>
+        <div class="act-canvas-wrap">
+          <canvas class="act-canvas" id="cv1" width="440" height="340"></canvas>
+        </div>
+      </div>
+      <div class="status-bar" id="st1">Drop the compass on the centre point to begin drawing</div>
+    </div>
+
+    <!-- ACTIVITY 2: Radial Lines -->
+    <div class="activity" id="act2">
+      <div class="act-title">⬡ ACTIVITY 2 — RADIAL DIVISION</div>
+      <div class="act-subtitle">Drag the ruler to the circle centre, then drop it at the correct angle marker to draw each radial line. Create 8 equal sections to divide the Mandala.</div>
+      <div style="display:flex;gap:14px;align-items:center">
+        <div class="toolbox" id="ruler-box">
+          <div class="tool-label">TOOLS</div>
+          <div class="tool-item" id="ruler-tool" draggable="true">
+            <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="13" width="26" height="7" rx="1.5" stroke="#a78bfa" stroke-width="1.5" fill="rgba(167,139,250,0.12)"/>
+              <line x1="7" y1="13" x2="7" y2="17" stroke="#a78bfa" stroke-width="1.2"/>
+              <line x1="11" y1="13" x2="11" y2="19" stroke="#a78bfa" stroke-width="1.2"/>
+              <line x1="15" y1="13" x2="15" y2="17" stroke="#a78bfa" stroke-width="1.2"/>
+              <line x1="19" y1="13" x2="19" y2="19" stroke="#a78bfa" stroke-width="1.2"/>
+              <line x1="23" y1="13" x2="23" y2="17" stroke="#a78bfa" stroke-width="1.2"/>
+              <circle cx="16" cy="16.5" r="1.5" fill="#7dd3fc" opacity=".6"/>
+            </svg>
+            <span>RULER</span>
+          </div>
+          <div style="height:1px;background:rgba(125,211,252,.15)"></div>
+          <div style="font-size:9px;color:#475569;text-align:center;line-height:1.4">LINES<br/>REMAINING</div>
+          <div id="lines-left" style="font-size:22px;font-weight:700;color:#a78bfa;text-align:center">8</div>
+        </div>
+        <div class="act-canvas-wrap">
+          <canvas class="act-canvas" id="cv2" width="440" height="340" style="cursor:default"></canvas>
+        </div>
+      </div>
+      <div class="status-bar" id="st2">Drag the ruler and drop it on an angle marker to draw a radial line</div>
+    </div>
+
+    <!-- ACTIVITY 3: Colour & Pattern -->
+    <div class="activity" id="act3">
+      <div class="act-title">⬡ ACTIVITY 3 — COLOUR YOUR MANDALA</div>
+      <div class="act-subtitle">Select a colour from the palette, then click any section of the Mandala to fill it. Create a beautiful repeating pattern using all 4 colours.</div>
+      <div style="display:flex;gap:14px;align-items:center">
+        <div class="toolbox">
+          <div class="tool-label">PALETTE</div>
+          <div class="color-palette" style="flex-direction:column;align-items:center">
+            <div class="color-swatch selected" style="background:#f97316" data-color="#f97316" id="sw1"></div>
+            <div class="color-swatch" style="background:#a78bfa" data-color="#a78bfa" id="sw2"></div>
+            <div class="color-swatch" style="background:#34d399" data-color="#34d399" id="sw3"></div>
+            <div class="color-swatch" style="background:#fbbf24" data-color="#fbbf24" id="sw4"></div>
+          </div>
+          <div style="height:1px;background:rgba(125,211,252,.15);margin-top:4px"></div>
+          <div style="font-size:9px;color:#475569;text-align:center;line-height:1.4;margin-top:2px">SECTIONS<br/>FILLED</div>
+          <div id="sections-filled" style="font-size:22px;font-weight:700;color:#34d399;text-align:center">0</div>
+          <div style="font-size:9px;color:#475569;text-align:center">of 32</div>
+          <div style="height:1px;background:rgba(125,211,252,.15);margin-top:4px"></div>
+          <button id="btn-clear" style="font-size:9px;padding:4px 6px;border-radius:4px;border:1px solid rgba(125,211,252,.3);background:transparent;color:#94a3b8;cursor:pointer;width:100%;margin-top:2px">CLEAR</button>
+        </div>
+        <div class="act-canvas-wrap">
+          <canvas id="cv3" width="440" height="340"></canvas>
+        </div>
+      </div>
+      <div class="status-bar" id="st3">Pick a colour then click a section to fill it</div>
+    </div>
+
+    <!-- Gear badge decoration -->
+    <div class="gear-badge">
+      <svg width="60" height="60" viewBox="0 0 60 60" fill="rgba(125,211,252,0.6)">
+        <path d="M30 20a10 10 0 100 20 10 10 0 000-20zm0 16a6 6 0 110-12 6 6 0 010 12z"/>
+        <path d="M28 4h4l1 5a17 17 0 014 1.7l4.3-2.5 2.8 2.8-2.5 4.3A17 17 0 0144 19l5 1v4l-5 1a17 17 0 01-1.7 4l2.5 4.3-2.8 2.8-4.3-2.5A17 17 0 0134 35l-1 5h-4l-1-5a17 17 0 01-4-1.7l-4.3 2.5-2.8-2.8 2.5-4.3A17 17 0 0117 25l-5-1v-4l5-1a17 17 0 011.7-4l-2.5-4.3 2.8-2.8 4.3 2.5A17 17 0 0127 9l1-5z"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- POPUP -->
+<div id="popup-overlay">
+  <div id="popup-box">
+    <div class="popup-icon" id="popup-icon">🎉</div>
+    <div class="popup-title" id="popup-title">Activity Complete!</div>
+    <div class="popup-msg" id="popup-msg">Great work! Ready for the next challenge?</div>
+    <button class="popup-btn" id="popup-btn">Next Activity →</button>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// BACKGROUND ANIMATION
+// ─────────────────────────────────────────────
+const bgC = document.getElementById('bg-canvas');
+const bgX = bgC.getContext('2d');
+let bW, bH;
+
+function resizeBg(){bW=bgC.width=window.innerWidth;bH=bgC.height=window.innerHeight}
+resizeBg();
+window.addEventListener('resize',resizeBg);
+
+// Blueprint grid lines
+function drawGrid(ctx,w,h){
+  ctx.strokeStyle='rgba(30,80,140,0.3)';ctx.lineWidth=.5;
+  const s=40;
+  for(let x=0;x<w;x+=s){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
+  for(let y=0;y<h;y+=s){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
+}
+
+// Cranes
+const cranes=[
+  {x:0.05,y:0.3,scale:0.7,speed:0.0008,offset:0},
+  {x:0.88,y:0.25,scale:0.85,speed:0.0006,offset:1.2},
+  {x:0.72,y:0.6,scale:0.55,speed:0.001,offset:2.4}
+];
+
+function drawCrane(ctx,cx,cy,sc,t){
+  ctx.save();ctx.translate(cx,cy);ctx.scale(sc,sc);
+  const sw=rgba(125,211,252,0.25);
+  // Tower
+  ctx.strokeStyle=sw;ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,-160);ctx.stroke();
+  // Horizontal arm
+  ctx.beginPath();ctx.moveTo(-20,-155);ctx.lineTo(100,-155);ctx.stroke();
+  // Counter arm
+  ctx.beginPath();ctx.moveTo(-20,-155);ctx.lineTo(-60,-155);ctx.stroke();
+  // Diagonal supports
+  ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(0,-155);ctx.lineTo(80,-130);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(0,-155);ctx.lineTo(-50,-130);ctx.stroke();
+  // Hanging cable - animated sway
+  const swayX=Math.sin(t*2+cy)*8;
+  ctx.setLineDash([3,3]);ctx.lineWidth=1;
+  const hookX=60+swayX,hookY=-155+Math.sin(t+cx)*6;
+  ctx.beginPath();ctx.moveTo(60,-155);ctx.lineTo(hookX,-100+hookY);ctx.stroke();
+  ctx.setLineDash([]);
+  // Hook
+  ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(hookX,-100+hookY,5,0,Math.PI*2);ctx.stroke();
+  // Cabin
+  ctx.strokeStyle=rgba(167,139,250,0.4);ctx.lineWidth=2;
+  ctx.strokeRect(-12,-145,24,18);
+  // Counter weight
+  ctx.strokeStyle=sw;
+  ctx.strokeRect(-72,-168,24,16);
+  ctx.restore();
+}
+
+// Gears
+const gears=[
+  {x:0.15,y:0.85,r:45,teeth:12,speed:0.3,col:'rgba(125,211,252,0.12)'},
+  {x:0.82,y:0.8,r:35,teeth:9,speed:-0.4,col:'rgba(167,139,250,0.12)'},
+  {x:0.5,y:0.95,r:28,teeth:8,speed:0.5,col:'rgba(52,211,153,0.1)'},
+];
+
+function drawGear(ctx,cx,cy,r,teeth,angle,col){
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(angle);
+  ctx.strokeStyle=col;ctx.lineWidth=2;
+  ctx.beginPath();
+  for(let i=0;i<teeth*2;i++){
+    const a=i*Math.PI/teeth,rr=(i%2===0)?r+10:r;
+    i===0?ctx.moveTo(Math.cos(a)*rr,Math.sin(a)*rr):ctx.lineTo(Math.cos(a)*rr,Math.sin(a)*rr);
+  }
+  ctx.closePath();ctx.stroke();
+  ctx.beginPath();ctx.arc(0,0,r*0.4,0,Math.PI*2);ctx.stroke();
+  ctx.restore();
+}
+
+// Blueprint circles (decorative)
+const bpCircles=[
+  {x:0.9,y:0.1,r:80,col:'rgba(30,80,140,0.2)'},
+  {x:0.1,y:0.9,r:60,col:'rgba(30,80,140,0.18)'},
+  {x:0.55,y:0.05,r:50,col:'rgba(30,100,180,0.15)'},
+];
+
+function rgba(r,g,b,a){return`rgba(${r},${g},${b},${a})`}
+
+let gearAngles=[0,0,0];
+let bgT=0;
+
+function animBg(ts){
+  bgX.clearRect(0,0,bW,bH);
+  bgX.fillStyle='#0a0e1a';bgX.fillRect(0,0,bW,bH);
+  bgT=ts*.001;
+  drawGrid(bgX,bW,bH);
+  // Blueprint circles
+  bpCircles.forEach(c=>{
+    bgX.strokeStyle=c.col;bgX.lineWidth=1;bgX.setLineDash([6,6]);
+    bgX.beginPath();bgX.arc(c.x*bW,c.y*bH,c.r,0,Math.PI*2);bgX.stroke();
+    bgX.setLineDash([]);
+  });
+  // Gears
+  gears.forEach((g,i)=>{
+    gearAngles[i]+=g.speed*.016;
+    drawGear(bgX,g.x*bW,g.y*bH,g.r,g.teeth,gearAngles[i],g.col);
+  });
+  // Cranes
+  cranes.forEach(c=>{drawCrane(bgX,c.x*bW,c.y*bH,c.scale,bgT*c.speed*1000+c.offset)});
+  // Glowing blueprint lines (animated)
+  const lineY=Math.sin(bgT*.7)*bH*.08+bH*.5;
+  bgX.strokeStyle='rgba(125,211,252,0.05)';bgX.lineWidth=1;bgX.setLineDash([20,40]);
+  bgX.beginPath();bgX.moveTo(0,lineY);bgX.lineTo(bW,lineY);bgX.stroke();
+  bgX.setLineDash([]);
+  requestAnimationFrame(animBg);
+}
+requestAnimationFrame(animBg);
+
+// ─────────────────────────────────────────────
+// STAGE SIZE
+// ─────────────────────────────────────────────
+(function setStageDims(){
+  const s=document.getElementById('stage');
+  const vw=window.innerWidth,vh=window.innerHeight;
+  const w=Math.min(vw-40,620),h=Math.min(vh-140,480);
+  s.style.width=w+'px';s.style.height=h+'px';
+})();
+
+// ─────────────────────────────────────────────
+// POPUP MANAGER
+// ─────────────────────────────────────────────
+let currentAct=1;
+const popupOverlay=document.getElementById('popup-overlay');
+const popupBtn=document.getElementById('popup-btn');
+
+function showPopup(icon,title,msg,btnLabel,onBtn){
+  document.getElementById('popup-icon').textContent=icon;
+  document.getElementById('popup-title').textContent=title;
+  document.getElementById('popup-msg').textContent=msg;
+  popupBtn.textContent=btnLabel;
+  popupOverlay.classList.add('show');
+  popupBtn.onclick=()=>{popupOverlay.classList.remove('show');onBtn&&onBtn()};
+}
+
+function advanceTo(n){
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  ['ps1','ps2','ps3'].forEach((id,i)=>{
+    const el=document.getElementById(id);
+    el.classList.remove('active','done');
+    if(i+1<n)el.classList.add('done');
+    else if(i+1===n)el.classList.add('active');
+  });
+  if(n<=3){
+    document.getElementById('act'+n).classList.add('active');
+    currentAct=n;
+    if(n===2)initAct2();
+    if(n===3)initAct3();
+  }
+}
+
+// ─────────────────────────────────────────────
+// ACTIVITY 1 — CONCENTRIC CIRCLES (DRAG)
+// ─────────────────────────────────────────────
+(function act1(){
+  const cv=document.getElementById('cv1');
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  const cx=W/2,cy=H/2;
+  const radii=[30,65,100,135];
+  const colors=['#7dd3fc','#a78bfa','#34d399','#fbbf24'];
+  let drawn=[];
+  let dragging=false;
+  let dragGhost=null;
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // Blueprint background
+    ctx.fillStyle='rgba(5,12,28,0.95)';ctx.fillRect(0,0,W,H);
+    // Grid
+    ctx.strokeStyle='rgba(30,80,140,0.4)';ctx.lineWidth=.5;ctx.setLineDash([4,4]);
+    for(let x=0;x<W;x+=30){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+    for(let y=0;y<H;y+=30){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+    ctx.setLineDash([]);
+    // Center cross
+    ctx.strokeStyle='rgba(125,211,252,0.6)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(cx-20,cy);ctx.lineTo(cx+20,cy);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(cx,cy-20);ctx.lineTo(cx,cy+20);ctx.stroke();
+    // Center point glow
+    ctx.fillStyle='#7dd3fc';ctx.shadowColor='#7dd3fc';ctx.shadowBlur=12;
+    ctx.beginPath();ctx.arc(cx,cy,4,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+    // Guide circles (dashed, where next should go)
+    const next=drawn.length;
+    if(next<radii.length){
+      ctx.strokeStyle='rgba(125,211,252,0.2)';ctx.lineWidth=1;ctx.setLineDash([4,6]);
+      ctx.beginPath();ctx.arc(cx,cy,radii[next],0,Math.PI*2);ctx.stroke();
+      ctx.setLineDash([]);
+      // Radius measurement label
+      ctx.fillStyle='rgba(125,211,252,0.4)';ctx.font='9px monospace';
+      ctx.fillText('r='+(radii[next])+'u',cx+radii[next]+4,cy-4);
+    }
+    // Drawn circles
+    drawn.forEach((r,i)=>{
+      ctx.strokeStyle=colors[i];ctx.lineWidth=2;ctx.shadowColor=colors[i];ctx.shadowBlur=8;
+      ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+      ctx.shadowBlur=0;
+      // Tick marks
+      for(let a=0;a<Math.PI*2;a+=Math.PI/8){
+        const cos=Math.cos(a),sin=Math.sin(a);
+        ctx.strokeStyle=colors[i];ctx.lineWidth=.8;ctx.globalAlpha=.4;
+        ctx.beginPath();ctx.moveTo(cx+cos*r,cy+sin*r);ctx.lineTo(cx+cos*(r-6),cy+sin*(r-6));ctx.stroke();
+        ctx.globalAlpha=1;
+      }
+    });
+  }
+
+  draw();
+
+  // Drag the compass tool
+  const tool=document.getElementById('compass-tool');
+  let ghostEl=null;
+
+  tool.addEventListener('dragstart',e=>{
+    if(drawn.length>=radii.length)return;
+    dragging=true;
+    e.dataTransfer.setData('text/plain','compass');
+    // Create ghost
+    ghostEl=document.createElement('div');
+    ghostEl.style.cssText='position:fixed;pointer-events:none;z-index:200;opacity:.8;';
+    ghostEl.innerHTML=tool.innerHTML;
+    document.body.appendChild(ghostEl);
+    e.dataTransfer.setDragImage(new Image(),0,0);
+  });
+
+  document.addEventListener('dragover',e=>{
+    if(ghostEl){ghostEl.style.left=(e.clientX-32)+'px';ghostEl.style.top=(e.clientY-32)+'px'}
+  });
+
+  cv.addEventListener('dragover',e=>{e.preventDefault()});
+  cv.addEventListener('drop',e=>{
+    e.preventDefault();
+    if(drawn.length>=radii.length)return;
+    const rect=cv.getBoundingClientRect();
+    const dx=e.clientX-rect.left-cx,dy=e.clientY-rect.top-cy;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    // Accept if dropped near center (within 40px)
+    if(dist<40){
+      const r=radii[drawn.length];
+      drawn.push(r);
+      document.getElementById('circles-left').textContent=radii.length-drawn.length;
+      draw();
+      // Flash ring animation
+      flashRing(r,colors[drawn.length-1]);
+      if(drawn.length===radii.length){
+        document.getElementById('st1').textContent='All 4 circles complete! Blueprint ready!';
+        tool.classList.add('used');
+        setTimeout(()=>{
+          showPopup('📐','Concentric Circles Complete!','Brilliant! You\'ve laid the foundational rings of the Mandala. The blueprint is ready for radial division.','Next: Radial Lines →',()=>advanceTo(2));
+        },800);
+      } else {
+        document.getElementById('st1').textContent=`Circle ${drawn.length} drawn! ${radii.length-drawn.length} remaining.`;
+      }
+    } else {
+      document.getElementById('st1').textContent='Drop closer to the centre point!';
+      shakeCanvas(cv);
+    }
+    if(ghostEl){document.body.removeChild(ghostEl);ghostEl=null}
+    dragging=false;
+  });
+
+  document.addEventListener('dragend',()=>{if(ghostEl){document.body.removeChild(ghostEl);ghostEl=null}dragging=false});
+
+  function flashRing(r,col){
+    let alpha=1,fr=r;
+    function anim(){
+      if(alpha<=0)return;
+      ctx.save();ctx.globalAlpha=alpha;ctx.strokeStyle=col;ctx.lineWidth=3+((1-alpha)*8);
+      ctx.shadowColor=col;ctx.shadowBlur=20;
+      ctx.beginPath();ctx.arc(cx,cy,fr,0,Math.PI*2);ctx.stroke();
+      ctx.restore();
+      alpha-=.04;fr+=1;
+      requestAnimationFrame(anim);
+    }
+    anim();
+  }
+
+  function shakeCanvas(cv){
+    let n=0;
+    const id=setInterval(()=>{
+      cv.style.transform=`translateX(${n%2===0?-3:3}px)`;
+      if(++n>5){cv.style.transform='';clearInterval(id)}
+    },40);
+  }
+})();
+
+// ─────────────────────────────────────────────
+// ACTIVITY 2 — RADIAL LINES (ANGLE MARKERS)
+// ─────────────────────────────────────────────
+function initAct2(){
+  const cv=document.getElementById('cv2');
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  const cx=W/2,cy=H/2;
+  const outerR=135,markerR=155;
+  const totalLines=8;
+  const angles=Array.from({length:totalLines},(_,i)=>i*Math.PI/4);
+  let drawnAngles=[];
+  let tool=document.getElementById('ruler-tool');
+  let ghostEl=null;
+  let hoveredMarker=null;
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='rgba(5,12,28,0.95)';ctx.fillRect(0,0,W,H);
+    // Grid
+    ctx.strokeStyle='rgba(30,80,140,0.4)';ctx.lineWidth=.5;ctx.setLineDash([4,4]);
+    for(let x=0;x<W;x+=30){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+    for(let y=0;y<H;y+=30){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+    ctx.setLineDash([]);
+    // 4 concentric circles (from act1)
+    const radii=[30,65,100,135];
+    const cols=['#7dd3fc','#a78bfa','#34d399','#fbbf24'];
+    radii.forEach((r,i)=>{
+      ctx.strokeStyle=cols[i]+'88';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+    });
+    // Angle markers
+    angles.forEach((a,i)=>{
+      const isDone=drawnAngles.includes(i);
+      const isHover=hoveredMarker===i;
+      const mx=cx+Math.cos(a)*markerR,my=cy+Math.sin(a)*markerR;
+      ctx.beginPath();ctx.arc(mx,my,isDone?6:isHover?9:7,0,Math.PI*2);
+      ctx.fillStyle=isDone?'#34d399':isHover?'#fbbf24':'rgba(125,211,252,0.4)';
+      ctx.fill();
+      ctx.strokeStyle=isDone?'#34d399':'#7dd3fc';ctx.lineWidth=1.5;ctx.stroke();
+      if(!isDone){
+        ctx.fillStyle='rgba(125,211,252,0.5)';ctx.font='8px monospace';
+        ctx.fillText(Math.round(i*45)+'°',mx+10,my+3);
+      }
+    });
+    // Drawn lines
+    drawnAngles.forEach(i=>{
+      const a=angles[i];
+      ctx.strokeStyle='rgba(52,211,153,0.85)';ctx.lineWidth=1.5;ctx.shadowColor='#34d399';ctx.shadowBlur=6;
+      ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*outerR,cy+Math.sin(a)*outerR);ctx.stroke();
+      ctx.shadowBlur=0;
+    });
+    // Center
+    ctx.fillStyle='#7dd3fc';ctx.shadowColor='#7dd3fc';ctx.shadowBlur=10;
+    ctx.beginPath();ctx.arc(cx,cy,4,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+  }
+
+  draw();
+
+  // Hover effect on markers
+  cv.addEventListener('mousemove',e=>{
+    const rect=cv.getBoundingClientRect();
+    const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+    let found=null;
+    angles.forEach((a,i)=>{
+      if(drawnAngles.includes(i))return;
+      const ax=cx+Math.cos(a)*markerR,ay=cy+Math.sin(a)*markerR;
+      if(Math.sqrt((mx-ax)**2+(my-ay)**2)<14)found=i;
+    });
+    if(hoveredMarker!==found){hoveredMarker=found;draw()}
+    cv.style.cursor=found!==null?'pointer':'default';
+  });
+
+  // Click on angle marker (after dragging ruler to canvas)
+  let rulerActive=false;
+
+  tool.addEventListener('dragstart',e=>{
+    rulerActive=true;
+    ghostEl=document.createElement('div');
+    ghostEl.style.cssText='position:fixed;pointer-events:none;z-index:200;opacity:.8;';
+    ghostEl.innerHTML=tool.innerHTML;
+    document.body.appendChild(ghostEl);
+    e.dataTransfer.setDragImage(new Image(),0,0);
+  });
+
+  document.addEventListener('dragover',e=>{
+    if(ghostEl){ghostEl.style.left=(e.clientX-32)+'px';ghostEl.style.top=(e.clientY-32)+'px'}
+  });
+
+  cv.addEventListener('dragover',e=>{e.preventDefault()});
+  cv.addEventListener('drop',e=>{
+    e.preventDefault();
+    if(!rulerActive)return;
+    const rect=cv.getBoundingClientRect();
+    const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+    // Find nearest marker
+    let nearest=null,nearD=999;
+    angles.forEach((a,i)=>{
+      if(drawnAngles.includes(i))return;
+      const ax=cx+Math.cos(a)*markerR,ay=cy+Math.sin(a)*markerR;
+      const d=Math.sqrt((mx-ax)**2+(my-ay)**2);
+      if(d<nearD){nearD=d;nearest=i}
+    });
+    if(nearest!==null&&nearD<28){
+      drawnAngles.push(nearest);
+      document.getElementById('lines-left').textContent=totalLines-drawnAngles.length;
+      document.getElementById('st2').textContent=`Line ${drawnAngles.length} drawn! ${totalLines-drawnAngles.length} remaining.`;
+      draw();
+      if(drawnAngles.length===totalLines){
+        tool.classList.add('used');
+        setTimeout(()=>{
+          showPopup('📏','Radial Lines Complete!','Incredible precision! You\'ve divided the Mandala into 8 equal sections — just like a master engineer. Now for the most artistic step!','Next: Colour & Pattern →',()=>advanceTo(3));
+        },800);
+      }
+    } else {
+      document.getElementById('st2').textContent='Drop closer to an angle marker!';
+    }
+    if(ghostEl){document.body.removeChild(ghostEl);ghostEl=null}
+    rulerActive=false;
+  });
+
+  document.addEventListener('dragend',()=>{if(ghostEl){document.body.removeChild(ghostEl);ghostEl=null}rulerActive=false});
+}
+
+// ─────────────────────────────────────────────
+// ACTIVITY 3 — COLOUR MANDALA
+// ─────────────────────────────────────────────
+function initAct3(){
+  const cv=document.getElementById('cv3');
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  const cx=W/2,cy=H/2;
+  const radii=[30,65,100,135];
+  const radialCount=8;
+  const palette=['#f97316','#a78bfa','#34d399','#fbbf24'];
+  let selectedColor=palette[0];
+  let sectionColors={};
+  let filledCount=0;
+  const totalSections=(radii.length)*radialCount; // 4 rings * 8 = 32
+
+  // Setup swatches
+  document.querySelectorAll('.color-swatch').forEach(sw=>{
+    sw.addEventListener('click',()=>{
+      document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));
+      sw.classList.add('selected');
+      selectedColor=sw.dataset.color;
+    });
+  });
+
+  document.getElementById('btn-clear').addEventListener('click',()=>{
+    sectionColors={};filledCount=0;
+    document.getElementById('sections-filled').textContent=0;
+    document.getElementById('st3').textContent='Cleared! Pick a colour to begin again.';
+    draw();
+  });
+
+  function getSectorKey(ring,sector){return ring+'_'+sector}
+
+  function hitTest(mx,my){
+    const dx=mx-cx,dy=my-cy;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    // Must be within the outermost ring
+    if(dist>radii[radii.length-1])return null;
+    // Find which ring: first ring where dist <= radii[i]
+    let ring=-1;
+    for(let i=0;i<radii.length;i++){
+      if(dist<=radii[i]){ring=i;break}
+    }
+    if(ring<0)return null;
+    let angle=Math.atan2(dy,dx);
+    if(angle<0)angle+=Math.PI*2;
+    const sector=Math.floor(angle/(Math.PI*2/radialCount))%radialCount;
+    return{ring,sector,key:getSectorKey(ring,sector)};
+  }
+
+  function drawSector(ring,sector,color){
+    const r0=ring>0?radii[ring-1]:0,r1=radii[ring];
+    const a0=sector*(Math.PI*2/radialCount),a1=a0+(Math.PI*2/radialCount);
+    ctx.save();
+    ctx.beginPath();
+    if(r0===0){
+      // Innermost ring: pie slice from centre
+      ctx.moveTo(cx,cy);
+      ctx.arc(cx,cy,r1,a0,a1);
+      ctx.lineTo(cx,cy);
+    } else {
+      // Annular wedge: outer arc forward, inner arc backward, closed
+      ctx.arc(cx,cy,r1,a0,a1);
+      ctx.arc(cx,cy,r0,a1,a0,true);
+    }
+    ctx.closePath();
+    ctx.globalAlpha=0.82;
+    ctx.fillStyle=color;
+    ctx.fill();
+    ctx.globalAlpha=0.5;
+    ctx.strokeStyle=color;
+    ctx.lineWidth=0.8;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  let hoveredSector=null;
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='rgba(5,12,28,0.95)';ctx.fillRect(0,0,W,H);
+    // Grid
+    ctx.strokeStyle='rgba(30,80,140,0.4)';ctx.lineWidth=.5;ctx.setLineDash([4,4]);
+    for(let x=0;x<W;x+=30){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+    for(let y=0;y<H;y+=30){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+    ctx.setLineDash([]);
+    // Hover highlight
+    if(hoveredSector&&!sectionColors[hoveredSector.key]){
+      drawSectorShape(hoveredSector.ring,hoveredSector.sector,'rgba(255,255,255,0.08)',null);
+    }
+    // Filled sectors
+    Object.entries(sectionColors).forEach(([key,col])=>{
+      const[ring,sector]=key.split('_').map(Number);
+      drawSector(ring,sector,col);
+    });
+    // Circles — drawn on top of fills so outlines remain crisp
+    const cols=['#7dd3fc','#a78bfa','#34d399','#fbbf24'];
+    radii.forEach((r,i)=>{
+      ctx.strokeStyle=cols[i];ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+    });
+    // Radial lines — drawn on top of fills
+    for(let s=0;s<radialCount;s++){
+      const a=s*(Math.PI*2/radialCount);
+      ctx.strokeStyle='rgba(125,211,252,0.45)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*radii[radii.length-1],cy+Math.sin(a)*radii[radii.length-1]);ctx.stroke();
+    }
+    // Centre dot
+    ctx.fillStyle='#7dd3fc';ctx.shadowColor='#7dd3fc';ctx.shadowBlur=8;
+    ctx.beginPath();ctx.arc(cx,cy,3,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+    // Pattern check indicator
+    if(filledCount>=16){
+      const colsUsed=new Set(Object.values(sectionColors));
+      if(colsUsed.size>=4){
+        ctx.fillStyle='rgba(52,211,153,0.12)';ctx.beginPath();ctx.arc(cx,cy,radii[radii.length-1]+10,0,Math.PI*2);ctx.fill();
+      }
+    }
+  }
+
+  // Helper: draw sector path only (for hover)
+  function drawSectorShape(ring,sector,fillColor,strokeColor){
+    const r0=ring>0?radii[ring-1]:0,r1=radii[ring];
+    const a0=sector*(Math.PI*2/radialCount),a1=a0+(Math.PI*2/radialCount);
+    ctx.save();
+    ctx.beginPath();
+    if(r0===0){
+      ctx.moveTo(cx,cy);
+      ctx.arc(cx,cy,r1,a0,a1);
+      ctx.lineTo(cx,cy);
+    } else {
+      ctx.arc(cx,cy,r1,a0,a1);
+      ctx.arc(cx,cy,r0,a1,a0,true);
+    }
+    ctx.closePath();
+    if(fillColor){ctx.fillStyle=fillColor;ctx.fill();}
+    if(strokeColor){ctx.strokeStyle=strokeColor;ctx.lineWidth=0.8;ctx.stroke();}
+    ctx.restore();
+  }
+
+  draw();
+
+  function handleClick(e){
+    const rect=cv.getBoundingClientRect();
+    const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+    const hit=hitTest(mx,my);
+    if(!hit)return;
+    const wasEmpty=!sectionColors[hit.key];
+    sectionColors[hit.key]=selectedColor;
+    if(wasEmpty){
+      filledCount++;
+      document.getElementById('sections-filled').textContent=filledCount;
+    }
+    draw();
+    // Check win: all 32 filled, at least 3 colours used
+    const colsUsed=new Set(Object.values(sectionColors));
+    if(filledCount>=totalSections&&colsUsed.size>=3){
+      document.getElementById('st3').textContent='Masterpiece complete! Your Mandala is beautiful!';
+      setTimeout(()=>{
+        showPopup('🌟','Mandala Complete!','Incredible work! You\'ve designed a stunning Mandala Spirograph using mathematics and art together. You\'re a Maths Artist!','Celebrate! 🎉',()=>{
+          showFinalCelebration();
+        });
+      },800);
+    } else if(filledCount>=totalSections){
+      document.getElementById('st3').textContent='Try using more colours for a richer pattern!';
+    } else {
+      document.getElementById('st3').textContent=`${filledCount} of ${totalSections} sections filled — keep going!`;
+    }
+  }
+
+  cv.addEventListener('click',handleClick);
+  cv.addEventListener('mousemove',e=>{
+    const rect=cv.getBoundingClientRect();
+    const hit=hitTest(e.clientX-rect.left,e.clientY-rect.top);
+    const prev=hoveredSector;
+    hoveredSector=hit||null;
+    cv.style.cursor=hit?'pointer':'default';
+    // Redraw only if hover changed
+    const prevKey=prev?prev.key:null;
+    const newKey=hoveredSector?hoveredSector.key:null;
+    if(prevKey!==newKey)draw();
+  });
+}
+
+function showFinalCelebration(){
+  popupOverlay.classList.remove('show');
+  // Launch confetti-like particles
+  const canvas=document.createElement('canvas');
+  canvas.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:300';
+  canvas.width=window.innerWidth;canvas.height=window.innerHeight;
+  document.body.appendChild(canvas);
+  const ctx=canvas.getContext('2d');
+  const particles=Array.from({length:80},()=>({
+    x:Math.random()*canvas.width,
+    y:canvas.height+10,
+    vx:(Math.random()-0.5)*4,
+    vy:-(Math.random()*6+4),
+    r:Math.random()*5+3,
+    color:['#7dd3fc','#a78bfa','#34d399','#fbbf24','#f97316'][Math.floor(Math.random()*5)],
+    life:1,decay:Math.random()*.015+.008
+  }));
+  function animParticles(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    let alive=false;
+    particles.forEach(p=>{
+      if(p.life<=0)return;
+      alive=true;
+      p.x+=p.vx;p.y+=p.vy;p.vy+=0.12;p.life-=p.decay;
+      ctx.globalAlpha=p.life;ctx.fillStyle=p.color;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+    });
+    ctx.globalAlpha=1;
+    if(alive)requestAnimationFrame(animParticles);
+    else document.body.removeChild(canvas);
+  }
+  animParticles();
+  // Show final popup
+  setTimeout(()=>{
+    showPopup('🏆','You are a Maths Artist!','You built a Mandala from scratch — using circles, radial lines, and colour patterns. Every great Mandala begins with mathematics. Well done!','Play Again 🔄',()=>{location.reload()});
+  },1200);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design Patterns — MVC & Observer</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sky: #b8e4f7;
+  --sky2: #d4f0fb;
+  --grass: #5cb85c;
+  --grass2: #4a9e4a;
+  --soil: #8B6340;
+  --sun: #FFD700;
+  --model-col: #e74c3c;
+  --model-light: #fdecea;
+  --view-col: #2980b9;
+  --view-light: #eaf4fd;
+  --ctrl-col: #27ae60;
+  --ctrl-light: #eafaf1;
+  --subject-col: #8e44ad;
+  --observer-col: #e67e22;
+  --notif-col: #16a085;
+  --card-bg: rgba(255,255,255,0.92);
+  --shadow: 0 4px 24px rgba(0,0,0,0.13);
+  --radius: 14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif}
+
+/* ===== SCENE ===== */
+#scene{
+  position:fixed;inset:0;
+  background:linear-gradient(180deg,#b8e4f7 0%,#d4f0fb 40%,#a8d8a8 70%,#5cb85c 100%);
+  overflow:hidden;
+}
+
+/* Sky gradient layers */
+.sky-layer{position:absolute;top:0;left:0;right:0;height:60%;
+  background:linear-gradient(180deg,#87ceeb 0%,#b8e4f7 60%,transparent 100%);
+}
+
+/* Sun */
+.sun{position:absolute;top:4%;left:8%;width:70px;height:70px;
+  background:radial-gradient(circle,#FFE156 60%,#FFD700 100%);
+  border-radius:50%;box-shadow:0 0 40px 20px rgba(255,220,80,0.35);
+  animation:sunPulse 4s ease-in-out infinite;
+}
+@keyframes sunPulse{0%,100%{box-shadow:0 0 40px 20px rgba(255,220,80,0.35)}50%{box-shadow:0 0 60px 30px rgba(255,220,80,0.5)}}
+
+/* Clouds */
+.cloud{position:absolute;background:white;border-radius:50px;opacity:0.88;animation:cloudDrift linear infinite;}
+.cloud::before,.cloud::after{content:'';position:absolute;background:white;border-radius:50%;}
+.cloud.c1{top:6%;left:-200px;width:160px;height:45px;animation-duration:28s;animation-delay:0s;}
+.cloud.c1::before{width:80px;height:70px;top:-30px;left:20px;}
+.cloud.c1::after{width:60px;height:55px;top:-20px;left:70px;}
+.cloud.c2{top:12%;left:-300px;width:120px;height:35px;animation-duration:38s;animation-delay:8s;}
+.cloud.c2::before{width:60px;height:55px;top:-25px;left:15px;}
+.cloud.c2::after{width:50px;height:40px;top:-15px;left:55px;}
+.cloud.c3{top:18%;left:-250px;width:180px;height:50px;animation-duration:45s;animation-delay:15s;}
+.cloud.c3::before{width:90px;height:75px;top:-35px;left:25px;}
+.cloud.c3::after{width:70px;height:60px;top:-25px;left:85px;}
+@keyframes cloudDrift{from{transform:translateX(0)}to{transform:translateX(110vw)}}
+
+/* Windmill */
+.windmill-wrap{position:absolute;bottom:28%;left:5%;}
+.windmill-pole{width:12px;height:100px;background:linear-gradient(90deg,#d4c9b0,#b8a98a);border-radius:3px;margin:0 auto;}
+.windmill-head{position:relative;width:100px;height:100px;margin:0 auto;}
+.windmill-body{position:absolute;top:35px;left:35px;width:30px;height:30px;background:#d4c9b0;border-radius:50%;}
+.windmill-blades{position:absolute;top:0;left:0;width:100%;height:100%;animation:windmillSpin 3s linear infinite;}
+.blade{position:absolute;width:42px;height:14px;background:linear-gradient(90deg,#e8e0cc,#c9b99a);border-radius:7px;transform-origin:50px 7px;}
+.blade:nth-child(1){top:43px;left:8px;transform:rotate(0deg);}
+.blade:nth-child(2){top:43px;left:8px;transform:rotate(90deg);}
+.blade:nth-child(3){top:43px;left:8px;transform:rotate(180deg);}
+.blade:nth-child(4){top:43px;left:8px;transform:rotate(270deg);}
+@keyframes windmillSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+.windmill-wrap2{position:absolute;bottom:26%;right:6%;transform:scale(0.75);}
+
+/* Sunflowers */
+.sunflower{position:absolute;bottom:26%;}
+.sf-stem{width:7px;height:70px;background:linear-gradient(180deg,#5cb85c,#4a9e4a);border-radius:3px;margin:0 auto;animation:sfSway 2.5s ease-in-out infinite;}
+.sf-head{position:relative;width:52px;height:52px;margin:0 auto;animation:sfSway 2.5s ease-in-out infinite;}
+.sf-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:22px;height:22px;background:#5D4037;border-radius:50%;z-index:2;}
+.sf-petal{position:absolute;width:14px;height:26px;background:#FFD600;border-radius:50%;transform-origin:50% 100%;}
+@keyframes sfSway{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+
+/* Petals arranged around center */
+.sf-petal:nth-child(1){top:0px;left:19px;transform-origin:50% 100%;transform:rotate(0deg);}
+.sf-petal:nth-child(2){top:6px;left:34px;transform:rotate(45deg);transform-origin:50% 100%;}
+.sf-petal:nth-child(3){top:19px;left:38px;transform:rotate(90deg);transform-origin:50% 100%;}
+.sf-petal:nth-child(4){top:32px;left:34px;transform:rotate(135deg);transform-origin:50% 100%;}
+.sf-petal:nth-child(5){top:38px;left:19px;transform:rotate(180deg);transform-origin:50% 100%;}
+.sf-petal:nth-child(6){top:32px;left:6px;transform:rotate(225deg);transform-origin:50% 100%;}
+.sf-petal:nth-child(7){top:19px;left:0px;transform:rotate(270deg);transform-origin:50% 100%;}
+.sf-petal:nth-child(8){top:6px;left:4px;transform:rotate(315deg);transform-origin:50% 100%;}
+.sf1{left:2%;bottom:27%;}
+.sf2{left:6%;bottom:27%;animation-delay:0.5s;}
+.sf3{right:3%;bottom:27%;animation-delay:1s;}
+.sf4{right:8%;bottom:27%;animation-delay:0.3s;}
+.sf5{left:18%;bottom:27%;animation-delay:0.8s;}
+.sf6{right:18%;bottom:27%;animation-delay:1.2s;}
+
+/* Grass strip */
+.grass-strip{position:absolute;bottom:0;left:0;right:0;height:28%;background:linear-gradient(180deg,#5cb85c 0%,#4a9e4a 60%,#3d8b3d 100%);}
+.grass-blades{position:absolute;top:0;left:0;right:0;height:30px;display:flex;gap:0;}
+.gb{display:inline-block;width:8px;height:28px;background:linear-gradient(180deg,#6ecc6e,#4a9e4a);border-radius:4px 4px 0 0;transform-origin:50% 100%;animation:gSway ease-in-out infinite;flex-shrink:0;}
+@keyframes gSway{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
+
+/* Floating pollen */
+.pollen{position:absolute;border-radius:50%;opacity:0;animation:pollenFloat linear infinite;}
+@keyframes pollenFloat{
+  0%{transform:translateY(0) translateX(0);opacity:0}
+  15%{opacity:0.7}
+  85%{opacity:0.5}
+  100%{transform:translateY(-180px) translateX(60px);opacity:0}
+}
+
+/* Bee */
+.bee{position:absolute;animation:beeFly ease-in-out infinite;}
+.bee-body{width:28px;height:18px;background:linear-gradient(90deg,#FFD600,#f9a825);border-radius:50%;position:relative;}
+.bee-body::before{content:'';position:absolute;top:3px;left:0;right:0;height:4px;background:#333;border-radius:2px;}
+.bee-body::after{content:'';position:absolute;top:9px;left:4px;right:4px;height:4px;background:#333;border-radius:2px;}
+.bee-wing{position:absolute;width:16px;height:10px;background:rgba(200,240,255,0.75);border-radius:50%;top:-6px;animation:beeWing 0.15s linear infinite;}
+.bee-wing.left{left:4px;transform-origin:50% 100%;}
+.bee-wing.right{right:4px;transform-origin:50% 100%;}
+@keyframes beeWing{0%,100%{transform:scaleY(1)}50%{transform:scaleY(0.4)}}
+.bee1{top:28%;left:15%;animation-duration:8s;animation-delay:0s;}
+.bee2{top:35%;right:20%;animation-duration:11s;animation-delay:3s;}
+@keyframes beeFly{
+  0%{transform:translate(0,0) scaleX(1)}
+  25%{transform:translate(40px,-30px) scaleX(1)}
+  50%{transform:translate(80px,0) scaleX(-1)}
+  75%{transform:translate(40px,30px) scaleX(-1)}
+  100%{transform:translate(0,0) scaleX(1)}
+}
+
+/* Cow */
+.cow{position:absolute;bottom:27%;right:12%;font-size:2.5rem;animation:cowGraze 5s ease-in-out infinite;}
+@keyframes cowGraze{0%,100%{transform:translateX(0)}50%{transform:translateX(18px)}}
+.cow2{position:absolute;bottom:27%;left:26%;font-size:2rem;animation:cowGraze 7s ease-in-out infinite;animation-delay:2s;}
+
+/* ===== OVERLAY UI ===== */
+#ui{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;z-index:10;pointer-events:none;}
+
+/* Header */
+#header{
+  pointer-events:all;
+  text-align:center;
+  padding:10px 20px 6px;
+  background:rgba(255,255,255,0.82);
+  backdrop-filter:blur(8px);
+  border-radius:0 0 20px 20px;
+  box-shadow:0 3px 18px rgba(0,0,0,0.10);
+  width:100%;
+}
+#header h1{
+  font-family:'Fredoka One',cursive;
+  font-size:1.6rem;
+  color:#2c3e50;
+  letter-spacing:1px;
+  line-height:1.1;
+}
+#header p{font-size:0.82rem;color:#5d7a6b;font-weight:700;}
+.progress-bar{display:flex;gap:10px;justify-content:center;margin-top:6px;}
+.prog-dot{width:28px;height:8px;border-radius:4px;background:#ddd;transition:background 0.4s;}
+.prog-dot.active{background:var(--grass);}
+.prog-dot.done{background:#aed6ae;}
+
+/* Activity Card */
+#activity-card{
+  pointer-events:all;
+  margin-top:8px;
+  width:97%;max-width:980px;
+  background:rgba(255,255,255,0.93);
+  border-radius:18px;
+  box-shadow:0 6px 32px rgba(0,0,0,0.13);
+  padding:14px 18px 10px;
+  backdrop-filter:blur(10px);
+  border:2px solid rgba(255,255,255,0.7);
+  flex:1;
+  display:flex;flex-direction:column;
+  min-height:0;
+}
+#act-title{font-family:'Fredoka One',cursive;font-size:1.15rem;color:#2c3e50;margin-bottom:4px;}
+#act-desc{font-size:0.78rem;color:#5d6d7e;font-weight:600;margin-bottom:8px;line-height:1.4;}
+
+/* ===== ACTIVITY 1: MVC Sort ===== */
+#act1{display:flex;flex-direction:column;flex:1;min-height:0;}
+.mvc-layout{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;flex:1;min-height:0;}
+.mvc-zone{
+  border-radius:12px;
+  border:2.5px dashed #ccc;
+  padding:8px;
+  display:flex;flex-direction:column;align-items:center;
+  min-height:0;
+  transition:border-color 0.3s,background 0.3s;
+}
+.mvc-zone.dragover{border-style:solid;transform:scale(1.02);}
+.zone-header{font-family:'Fredoka One',cursive;font-size:1rem;padding:5px 14px;border-radius:8px;color:white;margin-bottom:6px;text-align:center;}
+.zone-body{flex:1;width:100%;display:flex;flex-direction:column;gap:5px;overflow-y:auto;min-height:40px;padding:2px;}
+.model-z{border-color:var(--model-col);background:var(--model-light);}
+.view-z{border-color:var(--view-col);background:var(--view-light);}
+.ctrl-z{border-color:var(--ctrl-col);background:var(--ctrl-light);}
+
+.source-bank{display:flex;flex-wrap:wrap;gap:7px;padding:8px;background:rgba(240,240,240,0.7);border-radius:10px;margin-bottom:8px;min-height:52px;justify-content:center;}
+
+.drag-chip{
+  padding:5px 12px;border-radius:20px;font-size:0.76rem;font-weight:700;
+  cursor:grab;user-select:none;
+  border:2px solid rgba(0,0,0,0.12);
+  background:white;
+  transition:transform 0.15s,box-shadow 0.15s,opacity 0.3s;
+  box-shadow:0 2px 8px rgba(0,0,0,0.10);
+  display:flex;align-items:center;gap:5px;
+}
+.drag-chip:active{cursor:grabbing;transform:scale(1.08);box-shadow:0 4px 16px rgba(0,0,0,0.18);}
+.drag-chip.placed{opacity:0.6;cursor:default;}
+.chip-icon{font-size:0.95rem;}
+
+/* Correct/Wrong feedback */
+.drag-chip.correct{background:#eafaf1;border-color:#27ae60;color:#1a6e3c;}
+.drag-chip.wrong{background:#fdecea;border-color:#e74c3c;color:#922b21;animation:shake 0.4s;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+
+.mvc-legend{display:flex;gap:10px;justify-content:center;font-size:0.72rem;font-weight:700;margin-top:4px;}
+.leg{display:flex;align-items:center;gap:4px;}
+.leg-dot{width:10px;height:10px;border-radius:50%;}
+
+/* ===== ACTIVITY 2: Refactor ===== */
+#act2{display:flex;flex-direction:column;flex:1;min-height:0;}
+.refactor-layout{display:grid;grid-template-columns:1fr 3fr;gap:10px;flex:1;min-height:0;}
+.messy-block{
+  background:rgba(200,100,100,0.1);border:2.5px dashed #c0392b;border-radius:12px;
+  padding:8px;display:flex;flex-direction:column;
+}
+.messy-title{font-family:'Fredoka One',cursive;font-size:0.9rem;color:#c0392b;text-align:center;margin-bottom:6px;}
+.mvc-3col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;flex:1;}
+
+/* ===== ACTIVITY 3: Observer ===== */
+#act3{display:flex;flex-direction:column;flex:1;min-height:0;}
+.obs-layout{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;flex:1;min-height:0;}
+.obs-zone{
+  border-radius:12px;border:2.5px dashed;padding:8px;
+  display:flex;flex-direction:column;align-items:center;min-height:0;
+}
+.obs-zone.subj-z{border-color:var(--subject-col);background:#f9f3fd;}
+.obs-zone.obsvr-z{border-color:var(--observer-col);background:#fef9f0;}
+.obs-zone.notif-z{border-color:var(--notif-col);background:#eafaf7;}
+.obs-zone.dragover{border-style:solid;transform:scale(1.02);}
+
+/* Notification pulse animation */
+@keyframes notifPop{
+  0%{transform:scale(0.7);opacity:0}
+  60%{transform:scale(1.1)}
+  100%{transform:scale(1);opacity:1}
+}
+.notif-pulse{animation:notifPop 0.5s ease-out;}
+
+/* ===== BUTTONS ===== */
+.btn{
+  padding:9px 28px;border-radius:30px;border:none;cursor:pointer;
+  font-family:'Fredoka One',cursive;font-size:1rem;
+  transition:transform 0.15s,box-shadow 0.15s;
+  box-shadow:0 3px 12px rgba(0,0,0,0.15);
+}
+.btn:hover{transform:translateY(-2px);box-shadow:0 5px 16px rgba(0,0,0,0.18);}
+.btn-green{background:linear-gradient(135deg,#27ae60,#2ecc71);color:white;}
+.btn-blue{background:linear-gradient(135deg,#2980b9,#3498db);color:white;}
+.btn-row{display:flex;justify-content:flex-end;gap:10px;margin-top:8px;}
+
+/* ===== POPUP ===== */
+.popup-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;
+  display:flex;align-items:center;justify-content:center;
+  animation:fadeIn 0.3s ease;
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.popup-box{
+  background:white;border-radius:22px;padding:30px 36px;text-align:center;
+  box-shadow:0 8px 48px rgba(0,0,0,0.25);
+  max-width:420px;width:90%;
+  animation:popIn 0.35s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes popIn{from{transform:scale(0.7);opacity:0}to{transform:scale(1);opacity:1}}
+.popup-icon{font-size:3.5rem;margin-bottom:10px;}
+.popup-title{font-family:'Fredoka One',cursive;font-size:1.5rem;color:#2c3e50;margin-bottom:8px;}
+.popup-msg{font-size:0.9rem;color:#5d6d7e;font-weight:600;line-height:1.5;margin-bottom:18px;}
+.popup-fact{background:#f0f9ff;border-radius:10px;padding:10px 14px;font-size:0.82rem;color:#2980b9;font-weight:700;margin-bottom:16px;line-height:1.4;}
+.stars{font-size:1.8rem;margin-bottom:6px;}
+.confetti-wrap{position:relative;overflow:hidden;}
+
+/* Stars celebration */
+.star-burst{position:absolute;font-size:1.2rem;animation:starFly 1.2s ease-out forwards;}
+@keyframes starFly{0%{transform:translate(0,0) scale(0);opacity:1}100%{transform:translate(var(--tx),var(--ty)) scale(1.5);opacity:0}}
+
+/* Hidden */
+.hidden{display:none!important;}
+
+/* Hint tooltip */
+.hint{font-size:0.68rem;color:#999;font-style:italic;margin-top:2px;text-align:center;}
+
+/* Flow arrow in act3 */
+.flow-arrow{font-size:1.4rem;display:flex;align-items:center;justify-content:center;color:#999;align-self:center;}
+
+/* Check button */
+#check1,#check2,#check3{pointer-events:all;}
+
+/* Score indicator */
+.score-badge{
+  display:inline-block;padding:3px 12px;border-radius:20px;
+  background:linear-gradient(135deg,#f39c12,#f1c40f);
+  color:white;font-weight:800;font-size:0.8rem;
+  margin-left:8px;
+}
+</style>
+</head>
+<body>
+
+<!-- ===== BACKGROUND SCENE ===== -->
+<div id="scene">
+  <div class="sky-layer"></div>
+  <div class="sun"></div>
+
+  <!-- Clouds -->
+  <div class="cloud c1"></div>
+  <div class="cloud c2"></div>
+  <div class="cloud c3"></div>
+
+  <!-- Windmills -->
+  <div class="windmill-wrap">
+    <div class="windmill-head">
+      <div class="windmill-blades">
+        <div class="blade"></div><div class="blade"></div>
+        <div class="blade"></div><div class="blade"></div>
+      </div>
+      <div class="windmill-body"></div>
+    </div>
+    <div class="windmill-pole"></div>
+  </div>
+  <div class="windmill-wrap2">
+    <div class="windmill-head">
+      <div class="windmill-blades" style="animation-duration:4s">
+        <div class="blade"></div><div class="blade"></div>
+        <div class="blade"></div><div class="blade"></div>
+      </div>
+      <div class="windmill-body"></div>
+    </div>
+    <div class="windmill-pole"></div>
+  </div>
+
+  <!-- Sunflowers -->
+  <div class="sunflower sf1"><div class="sf-head"><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-center"></div></div><div class="sf-stem"></div></div>
+  <div class="sunflower sf2"><div class="sf-head"><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-center"></div></div><div class="sf-stem"></div></div>
+  <div class="sunflower sf3"><div class="sf-head"><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-center"></div></div><div class="sf-stem"></div></div>
+  <div class="sunflower sf4"><div class="sf-head"><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-center"></div></div><div class="sf-stem"></div></div>
+  <div class="sunflower sf5"><div class="sf-head"><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-center"></div></div><div class="sf-stem"></div></div>
+  <div class="sunflower sf6"><div class="sf-head"><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-petal"></div><div class="sf-center"></div></div><div class="sf-stem"></div></div>
+
+  <!-- Cows -->
+  <div class="cow">🐄</div>
+  <div class="cow2">🐄</div>
+
+  <!-- Bees -->
+  <div class="bee bee1">
+    <div class="bee-body">
+      <div class="bee-wing left"></div>
+      <div class="bee-wing right"></div>
+    </div>
+  </div>
+  <div class="bee bee2">
+    <div class="bee-body">
+      <div class="bee-wing left"></div>
+      <div class="bee-wing right"></div>
+    </div>
+  </div>
+
+  <!-- Pollen particles (generated by JS) -->
+  <div id="pollenContainer"></div>
+
+  <!-- Grass -->
+  <div class="grass-strip">
+    <div class="grass-blades" id="grassBladesContainer"></div>
+  </div>
+</div>
+
+<!-- ===== UI OVERLAY ===== -->
+<div id="ui">
+
+  <!-- Header -->
+  <div id="header">
+    <h1>🌻 Design Patterns — MVC &amp; Observer 🌻</h1>
+    <p>Drag &amp; drop to explore how great apps are built!</p>
+    <div class="progress-bar">
+      <div class="prog-dot active" id="pd1"></div>
+      <div class="prog-dot" id="pd2"></div>
+      <div class="prog-dot" id="pd3"></div>
+    </div>
+  </div>
+
+  <!-- Activity Card -->
+  <div id="activity-card">
+    <!-- ACTIVITY 1 -->
+    <div id="act1">
+      <div id="act-title">🏗️ Activity 1 — Sort the MVC Team! <span class="score-badge" id="score1">0/6</span></div>
+      <div id="act-desc">Drag each component card into the correct section. The <b style="color:var(--model-col)">Model</b> is the brain (data), the <b style="color:var(--view-col)">View</b> is the face (display), and the <b style="color:var(--ctrl-col)">Controller</b> is the manager (logic).</div>
+
+      <!-- Source bank -->
+      <div class="source-bank" id="bank1">
+        <div class="drag-chip" draggable="true" data-id="c1" data-answer="model"><span class="chip-icon">🗄️</span>User Database</div>
+        <div class="drag-chip" draggable="true" data-id="c2" data-answer="view"><span class="chip-icon">🖥️</span>Login Screen</div>
+        <div class="drag-chip" draggable="true" data-id="c3" data-answer="controller"><span class="chip-icon">⚙️</span>Form Validator</div>
+        <div class="drag-chip" draggable="true" data-id="c4" data-answer="model"><span class="chip-icon">📊</span>Score Records</div>
+        <div class="drag-chip" draggable="true" data-id="c5" data-answer="view"><span class="chip-icon">📱</span>Score Display</div>
+        <div class="drag-chip" draggable="true" data-id="c6" data-answer="controller"><span class="chip-icon">🔘</span>Submit Button Logic</div>
+      </div>
+
+      <div class="mvc-layout">
+        <div class="mvc-zone model-z" data-zone="model" id="zone-model">
+          <div class="zone-header" style="background:var(--model-col)">🗄️ Model — The Brain</div>
+          <div class="zone-body" id="body-model"></div>
+          <div class="hint">Data &amp; storage</div>
+        </div>
+        <div class="mvc-zone view-z" data-zone="view" id="zone-view">
+          <div class="zone-header" style="background:var(--view-col)">🖥️ View — The Face</div>
+          <div class="zone-body" id="body-view"></div>
+          <div class="hint">What the user sees</div>
+        </div>
+        <div class="mvc-zone ctrl-z" data-zone="controller" id="zone-ctrl">
+          <div class="zone-header" style="background:var(--ctrl-col)">⚙️ Controller — The Manager</div>
+          <div class="zone-body" id="body-ctrl"></div>
+          <div class="hint">Handles user actions</div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-green" id="check1" onclick="checkAct1()">Check Answers ✓</button>
+      </div>
+    </div>
+
+    <!-- ACTIVITY 2 -->
+    <div id="act2" class="hidden">
+      <div id="act-title">🔧 Activity 2 — Refactor the Messy App! <span class="score-badge" id="score2">0/6</span></div>
+      <div id="act-desc">A developer crammed everything into one messy block. Drag each feature into its proper MVC layer to organize the app properly!</div>
+
+      <div class="refactor-layout" style="flex:1;min-height:0;">
+        <div class="messy-block">
+          <div class="messy-title">😵 Messy App</div>
+          <div id="bank2" style="display:flex;flex-direction:column;gap:6px;flex:1;overflow-y:auto;">
+            <div class="drag-chip" draggable="true" data-id="m1" data-answer="model"><span class="chip-icon">🧾</span>Order History</div>
+            <div class="drag-chip" draggable="true" data-id="m2" data-answer="view"><span class="chip-icon">🎨</span>Product Card UI</div>
+            <div class="drag-chip" draggable="true" data-id="m3" data-answer="controller"><span class="chip-icon">🛒</span>Add to Cart Logic</div>
+            <div class="drag-chip" draggable="true" data-id="m4" data-answer="model"><span class="chip-icon">🏷️</span>Item Price Data</div>
+            <div class="drag-chip" draggable="true" data-id="m5" data-answer="view"><span class="chip-icon">🔔</span>Notification Banner</div>
+            <div class="drag-chip" draggable="true" data-id="m6" data-answer="controller"><span class="chip-icon">🔍</span>Search Handler</div>
+          </div>
+        </div>
+        <div class="mvc-3col">
+          <div class="mvc-zone model-z" data-zone="model" id="zone2-model">
+            <div class="zone-header" style="background:var(--model-col)">🗄️ Model</div>
+            <div class="zone-body" id="body2-model"></div>
+            <div class="hint">Holds data &amp; state</div>
+          </div>
+          <div class="mvc-zone view-z" data-zone="view" id="zone2-view">
+            <div class="zone-header" style="background:var(--view-col)">🖥️ View</div>
+            <div class="zone-body" id="body2-view"></div>
+            <div class="hint">Shows info to user</div>
+          </div>
+          <div class="mvc-zone ctrl-z" data-zone="controller" id="zone2-ctrl">
+            <div class="zone-header" style="background:var(--ctrl-col)">⚙️ Controller</div>
+            <div class="zone-body" id="body2-ctrl"></div>
+            <div class="hint">Responds to actions</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-green" id="check2" onclick="checkAct2()">Check Answers ✓</button>
+      </div>
+    </div>
+
+    <!-- ACTIVITY 3 -->
+    <div id="act3" class="hidden">
+      <div id="act-title">📡 Activity 3 — Build the Observer System! <span class="score-badge" id="score3">0/6</span></div>
+      <div id="act-desc">In the Observer pattern, a <b style="color:var(--subject-col)">Subject</b> announces changes, <b style="color:var(--observer-col)">Observers</b> listen &amp; react, and <b style="color:var(--notif-col)">Notifications</b> carry the news. Sort the items!</div>
+
+      <div class="source-bank" id="bank3">
+        <div class="drag-chip" draggable="true" data-id="o1" data-answer="subject" style="border-color:var(--subject-col);"><span class="chip-icon">📢</span>Cricket Score App</div>
+        <div class="drag-chip" draggable="true" data-id="o2" data-answer="observer" style="border-color:var(--observer-col);"><span class="chip-icon">📺</span>Hotstar Screen</div>
+        <div class="drag-chip" draggable="true" data-id="o3" data-answer="notification" style="border-color:var(--notif-col);"><span class="chip-icon">🔔</span>"New wicket!" Alert</div>
+        <div class="drag-chip" draggable="true" data-id="o4" data-answer="subject" style="border-color:var(--subject-col);"><span class="chip-icon">📡</span>Live Score Server</div>
+        <div class="drag-chip" draggable="true" data-id="o5" data-answer="observer" style="border-color:var(--observer-col);"><span class="chip-icon">📱</span>Cricbuzz Follower</div>
+        <div class="drag-chip" draggable="true" data-id="o6" data-answer="notification" style="border-color:var(--notif-col);"><span class="chip-icon">✉️</span>Score Update Message</div>
+      </div>
+
+      <div class="obs-layout">
+        <div class="obs-zone subj-z" data-zone="subject" id="zone3-subj">
+          <div class="zone-header" style="background:var(--subject-col);border-radius:8px;color:white;padding:5px 10px;margin-bottom:6px;font-family:'Fredoka One',cursive;">📢 Subject</div>
+          <div class="zone-body" id="body3-subj"></div>
+          <div class="hint">Broadcasts changes</div>
+        </div>
+        <div class="obs-zone obsvr-z" data-zone="observer" id="zone3-obsvr">
+          <div class="zone-header" style="background:var(--observer-col);border-radius:8px;color:white;padding:5px 10px;margin-bottom:6px;font-family:'Fredoka One',cursive;">👂 Observers</div>
+          <div class="zone-body" id="body3-obsvr"></div>
+          <div class="hint">React to changes</div>
+        </div>
+        <div class="obs-zone notif-z" data-zone="notification" id="zone3-notif">
+          <div class="zone-header" style="background:var(--notif-col);border-radius:8px;color:white;padding:5px 10px;margin-bottom:6px;font-family:'Fredoka One',cursive;">🔔 Notifications</div>
+          <div class="zone-body" id="body3-notif"></div>
+          <div class="hint">The message sent</div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-green" id="check3" onclick="checkAct3()">Check Answers ✓</button>
+      </div>
+    </div>
+
+  </div><!-- end activity-card -->
+</div><!-- end ui -->
+
+<!-- POPUP container -->
+<div id="popup-overlay" class="popup-overlay hidden">
+  <div class="popup-box" id="popup-box">
+    <div class="popup-icon" id="popup-icon">🎉</div>
+    <div class="stars" id="popup-stars"></div>
+    <div class="popup-title" id="popup-title">Fantastic!</div>
+    <div class="popup-fact" id="popup-fact"></div>
+    <div class="popup-msg" id="popup-msg"></div>
+    <button class="btn btn-blue" id="popup-btn" onclick="nextActivity()">Next Activity →</button>
+  </div>
+</div>
+
+<script>
+// ===== BACKGROUND GENERATION =====
+(function generateBg(){
+  // Grass blades
+  const gc = document.getElementById('grassBladesContainer');
+  const bladeCount = Math.floor(window.innerWidth / 8) + 5;
+  for(let i=0;i<bladeCount;i++){
+    const b = document.createElement('div');
+    b.className='gb';
+    b.style.animationDuration=(1.5+Math.random()*2)+'s';
+    b.style.animationDelay=(Math.random()*2)+'s';
+    b.style.height=(18+Math.random()*14)+'px';
+    b.style.background=`hsl(${115+Math.random()*20},${55+Math.random()*15}%,${40+Math.random()*15}%)`;
+    gc.appendChild(b);
+  }
+
+  // Pollen
+  const pc = document.getElementById('pollenContainer');
+  const colors=['#FFE156','#FFD700','#fff9c4','#c8e6c9','#e1bee7'];
+  for(let i=0;i<22;i++){
+    const p=document.createElement('div');
+    p.className='pollen';
+    const size=3+Math.random()*5;
+    p.style.cssText=`
+      width:${size}px;height:${size}px;
+      left:${Math.random()*100}%;
+      bottom:${20+Math.random()*40}%;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-duration:${4+Math.random()*8}s;
+      animation-delay:${Math.random()*6}s;
+    `;
+    pc.appendChild(p);
+  }
+})();
+
+// ===== DRAG & DROP ENGINE =====
+let dragChip = null;
+
+function initDrag(bankId, zoneIds){
+  // chips in bank
+  const bank = document.getElementById(bankId);
+  if(!bank) return;
+  bank.querySelectorAll('.drag-chip').forEach(chip => {
+    chip.addEventListener('dragstart', e => {
+      dragChip = chip;
+      e.dataTransfer.effectAllowed='move';
+      setTimeout(()=>chip.classList.add('dragging'),0);
+    });
+    chip.addEventListener('dragend', ()=> chip.classList.remove('dragging'));
+  });
+
+  zoneIds.forEach(zid => {
+    const zone = document.getElementById(zid);
+    if(!zone) return;
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', ()=> zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      if(dragChip) dropChip(dragChip, zone);
+    });
+  });
+}
+
+function dropChip(chip, zone){
+  const zoneType = zone.dataset.zone;
+  const answer = chip.dataset.answer;
+  // Find the body div
+  const body = zone.querySelector('.zone-body');
+  if(!body) return;
+
+  // Remove from bank or previous zone
+  chip.parentElement && chip.parentElement !== body && chip.remove();
+  body.appendChild(chip);
+  chip.classList.remove('correct','wrong');
+
+  // Visual feedback
+  if(answer === zoneType){
+    chip.classList.add('correct');
+    spawnParticles(chip);
+  } else {
+    chip.classList.add('wrong');
+    setTimeout(()=>{
+      chip.classList.remove('wrong');
+    },600);
+  }
+}
+
+function spawnParticles(chip){
+  const rect = chip.getBoundingClientRect();
+  const cx = rect.left + rect.width/2;
+  const cy = rect.top + rect.height/2;
+  ['🌟','✨','⭐','💫'].forEach((s,i)=>{
+    const el = document.createElement('div');
+    el.textContent=s;
+    el.style.cssText=`
+      position:fixed;left:${cx}px;top:${cy}px;font-size:1rem;
+      pointer-events:none;z-index:200;
+      animation:starFly 0.8s ease-out forwards;
+      --tx:${(Math.random()-0.5)*80}px;
+      --ty:${-40-Math.random()*50}px;
+    `;
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),900);
+  });
+}
+
+// ===== SCORE HELPERS =====
+function countCorrect(bodyIds){
+  let correct=0,total=0;
+  bodyIds.forEach(({bodyId, zoneType})=>{
+    const body=document.getElementById(bodyId);
+    if(!body) return;
+    body.querySelectorAll('.drag-chip').forEach(chip=>{
+      total++;
+      if(chip.dataset.answer===zoneType) correct++;
+    });
+  });
+  return {correct,total};
+}
+
+// ===== ACT 1 =====
+initDrag('bank1',['zone-model','zone-view','zone-ctrl']);
+
+function checkAct1(){
+  const zones=[
+    {bodyId:'body-model',zoneType:'model'},
+    {bodyId:'body-view',zoneType:'view'},
+    {bodyId:'body-ctrl',zoneType:'controller'},
+  ];
+  const allChips = document.querySelectorAll('#act1 .drag-chip');
+  const total = allChips.length;
+  let correct=0;
+  allChips.forEach(chip=>{
+    const parent = chip.parentElement;
+    const zone = parent.closest('.mvc-zone');
+    if(zone && chip.dataset.answer===zone.dataset.zone) correct++;
+  });
+  document.getElementById('score1').textContent=correct+'/'+total;
+  if(correct===total){
+    showPopup(1,correct,total);
+  } else {
+    highlightWrong(1);
+  }
+}
+
+function highlightWrong(act){
+  const prefix = act===1?'':'2-';
+  document.querySelectorAll(`#act${act} .drag-chip`).forEach(chip=>{
+    const parent = chip.parentElement;
+    const zone = parent && parent.closest('.mvc-zone, .obs-zone');
+    if(zone && chip.dataset.answer!==zone.dataset.zone){
+      chip.classList.add('wrong');
+      setTimeout(()=>chip.classList.remove('wrong'),800);
+    }
+  });
+}
+
+// ===== ACT 2 =====
+function initAct2(){
+  initDrag('bank2',['zone2-model','zone2-view','zone2-ctrl']);
+}
+
+function checkAct2(){
+  const allChips = document.querySelectorAll('#act2 .drag-chip');
+  const total = allChips.length;
+  let correct=0;
+  allChips.forEach(chip=>{
+    const parent = chip.parentElement;
+    const zone = parent && parent.closest('.mvc-zone');
+    if(zone && chip.dataset.answer===zone.dataset.zone) correct++;
+  });
+  document.getElementById('score2').textContent=correct+'/'+total;
+  if(correct===total){
+    showPopup(2,correct,total);
+  } else {
+    highlightWrong(2);
+  }
+}
+
+// ===== ACT 3 =====
+function initAct3(){
+  initDrag('bank3',['zone3-subj','zone3-obsvr','zone3-notif']);
+}
+
+function checkAct3(){
+  const allChips = document.querySelectorAll('#act3 .drag-chip');
+  const total = allChips.length;
+  let correct=0;
+  allChips.forEach(chip=>{
+    const parent = chip.parentElement;
+    const zone = parent && parent.closest('.obs-zone');
+    if(zone && chip.dataset.answer===zone.dataset.zone) correct++;
+  });
+  document.getElementById('score3').textContent=correct+'/'+total;
+  if(correct===total){
+    showPopup(3,correct,total);
+  } else {
+    highlightWrong(3);
+  }
+}
+
+// ===== POPUP =====
+let currentActivity=1;
+
+const popupData={
+  1:{
+    icon:'🏆',
+    title:'MVC Master!',
+    fact:'📚 Real Talk: Apps like Zomato and Swiggy use MVC so hundreds of engineers can work on the same app without getting in each other\'s way!',
+    msg:'You correctly sorted all components into Model, View & Controller. Each layer has its own job — just like a restaurant where the chef, waiter, and kitchen are all separate!',
+    btnText:'Next: Refactor the App →'
+  },
+  2:{
+    icon:'🌟',
+    title:'Refactor Champion!',
+    fact:'💡 Pro Secret: When code is organized by MVC, fixing a bug in the database (Model) never breaks the screen (View). They\'re decoupled — like different puzzle pieces!',
+    msg:'You\'ve organized the messy app perfectly! Now each layer knows exactly what it\'s responsible for. Clean code = happy developers!',
+    btnText:'Next: Observer Pattern →'
+  },
+  3:{
+    icon:'🎊',
+    title:'Observer Expert!',
+    fact:'🚀 Mind-Blowing Fact: When Cricbuzz updates a cricket score (Subject), it instantly notifies millions of phones (Observers) worldwide — all using the Observer Pattern you just mastered!',
+    msg:'You\'ve built a complete Observer system! One Subject broadcasts to many Observers through Notifications — that\'s the power of one-to-many communication!',
+    btnText:'See Final Score 🎉'
+  }
+};
+
+function showPopup(actNum, correct, total){
+  currentActivity=actNum;
+  const d=popupData[actNum];
+  document.getElementById('popup-icon').textContent=d.icon;
+  document.getElementById('popup-title').textContent=d.title;
+  document.getElementById('popup-fact').textContent=d.fact;
+  document.getElementById('popup-msg').textContent=d.msg;
+  document.getElementById('popup-btn').textContent=d.btnText;
+  document.getElementById('popup-stars').textContent='⭐⭐⭐';
+  document.getElementById('popup-overlay').classList.remove('hidden');
+
+  // Mark progress
+  document.getElementById('pd'+actNum).classList.add('done');
+  document.getElementById('pd'+actNum).classList.remove('active');
+  if(actNum<3) document.getElementById('pd'+(actNum+1)).classList.add('active');
+
+  // Celebration particles
+  launchConfetti();
+}
+
+function launchConfetti(){
+  const emojis=['🌻','⭐','🌸','✨','💫','🎊','🏆'];
+  for(let i=0;i<12;i++){
+    setTimeout(()=>{
+      const el=document.createElement('div');
+      el.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+      const x=10+Math.random()*80;
+      el.style.cssText=`
+        position:fixed;left:${x}%;top:50%;font-size:1.6rem;
+        pointer-events:none;z-index:300;
+        animation:starFly 1.2s ease-out forwards;
+        --tx:${(Math.random()-0.5)*120}px;
+        --ty:${-80-Math.random()*100}px;
+      `;
+      document.body.appendChild(el);
+      setTimeout(()=>el.remove(),1400);
+    }, i*80);
+  }
+}
+
+function nextActivity(){
+  document.getElementById('popup-overlay').classList.add('hidden');
+  if(currentActivity===1){
+    document.getElementById('act1').classList.add('hidden');
+    document.getElementById('act2').classList.remove('hidden');
+    initAct2();
+  } else if(currentActivity===2){
+    document.getElementById('act2').classList.add('hidden');
+    document.getElementById('act3').classList.remove('hidden');
+    initAct3();
+  } else {
+    showFinalPopup();
+  }
+}
+
+function showFinalPopup(){
+  document.getElementById('popup-icon').textContent='🌻';
+  document.getElementById('popup-title').textContent='Pattern Architect! 🏆';
+  document.getElementById('popup-fact').textContent='🎓 You now know the same patterns used by engineers at Google, Microsoft, and top tech companies worldwide. MVC and Observer are the secret blueprints of great software!';
+  document.getElementById('popup-msg').textContent='You\'ve completed all 3 activities! You can sort MVC components, refactor messy code, and build Observer systems. You\'re thinking like a real software architect!';
+  document.getElementById('popup-stars').textContent='⭐⭐⭐⭐⭐';
+  const btn=document.getElementById('popup-btn');
+  btn.textContent='Play Again 🔄';
+  btn.onclick=resetAll;
+  document.getElementById('popup-overlay').classList.remove('hidden');
+  launchConfetti();
+  setTimeout(launchConfetti,600);
+  setTimeout(launchConfetti,1200);
+}
+
+function resetAll(){
+  location.reload();
+}
+
+// Prevent popup close on overlay click (intentional - must click button)
+document.getElementById('popup-overlay').addEventListener('click', e=>{
+  if(e.target===e.currentTarget){/* do nothing */}
+});
+
+// Initial drag setup
+initDrag('bank1',['zone-model','zone-view','zone-ctrl']);
+</script>
+</body>
+</html>

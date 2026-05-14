@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build a Simple ML Model with Scikit-Learn</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+
+  :root {
+    --green: #2ECC71;
+    --orange: #FF6B35;
+    --yellow: #FFD700;
+    --pink: #FF4F9A;
+    --blue: #3A9EE4;
+    --purple: #9B59B6;
+    --dark: #1A1A2E;
+    --canvas: #FFF8F0;
+    --ink: #2C2C4A;
+    --splash1: rgba(46,204,113,0.18);
+    --splash2: rgba(255,107,53,0.18);
+    --splash3: rgba(58,158,228,0.18);
+    --splash4: rgba(255,79,154,0.18);
+    --splash5: rgba(155,89,182,0.18);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    font-family: 'Nunito', sans-serif;
+    background: var(--dark);
+    color: var(--ink);
+    user-select: none;
+  }
+
+  /* ===== ANIMATED BACKGROUND ===== */
+  #bg-canvas {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    overflow: hidden;
+  }
+
+  .paint-splash {
+    position: absolute; border-radius: 60% 40% 55% 45% / 50% 60% 40% 50%;
+    filter: blur(2px);
+    animation: splashFloat 12s ease-in-out infinite;
+    opacity: 0.65;
+  }
+  @keyframes splashFloat {
+    0%,100%{transform:translate(0,0) scale(1) rotate(0deg);}
+    25%{transform:translate(15px,-20px) scale(1.07) rotate(4deg);}
+    50%{transform:translate(-10px,12px) scale(0.95) rotate(-3deg);}
+    75%{transform:translate(20px,8px) scale(1.04) rotate(6deg);}
+  }
+
+  .color-wheel {
+    position: absolute;
+    border-radius: 50%;
+    animation: wheelSpin linear infinite;
+    opacity: 0.22;
+  }
+  @keyframes wheelSpin {
+    from{transform:rotate(0deg);}
+    to{transform:rotate(360deg);}
+  }
+
+  .brush-stroke {
+    position: absolute;
+    border-radius: 50px;
+    animation: brushDrift ease-in-out infinite;
+    opacity: 0.13;
+  }
+  @keyframes brushDrift {
+    0%,100%{transform:translateX(0) rotate(var(--angle));}
+    50%{transform:translateX(30px) rotate(calc(var(--angle) + 8deg));}
+  }
+
+  .float-particle {
+    position: absolute; border-radius: 50%;
+    animation: particleFly ease-in-out infinite;
+    opacity: 0;
+  }
+  @keyframes particleFly {
+    0%{opacity:0;transform:translateY(0) scale(0.5);}
+    20%{opacity:0.8;}
+    80%{opacity:0.6;}
+    100%{opacity:0;transform:translateY(-120px) scale(1.2);}
+  }
+
+  /* ===== MAIN LAYOUT ===== */
+  #app {
+    position: relative; z-index: 1;
+    width: 100vw; height: 100vh;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ===== HEADER ===== */
+  #header {
+    flex-shrink: 0;
+    padding: 10px 28px 6px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(26,26,46,0.88);
+    backdrop-filter: blur(8px);
+    border-bottom: 2px solid rgba(255,107,53,0.3);
+  }
+  #header h1 {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(1rem, 2.2vw, 1.5rem);
+    background: linear-gradient(90deg, var(--green), var(--orange), var(--yellow));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: 1px;
+  }
+  .progress-track {
+    display: flex; gap: 10px; align-items: center;
+  }
+  .prog-dot {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.9rem;
+    border: 2.5px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.35);
+    transition: all 0.4s;
+    background: rgba(255,255,255,0.04);
+  }
+  .prog-dot.active {
+    border-color: var(--orange);
+    color: var(--orange);
+    background: rgba(255,107,53,0.15);
+    box-shadow: 0 0 12px rgba(255,107,53,0.4);
+  }
+  .prog-dot.done {
+    border-color: var(--green);
+    color: var(--green);
+    background: rgba(46,204,113,0.15);
+  }
+  .prog-line { width: 22px; height: 2px; background: rgba(255,255,255,0.12); border-radius: 2px; }
+  .prog-line.done { background: var(--green); }
+
+  /* ===== ACTIVITY STAGE ===== */
+  #stage {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    padding: 10px 16px;
+    min-height: 0;
+  }
+
+  .activity-panel {
+    display: none;
+    width: 100%; max-width: 1100px;
+    height: 100%;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .activity-panel.visible { display: flex; }
+
+  .act-header {
+    flex-shrink: 0;
+    text-align: center;
+  }
+  .act-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--orange), var(--pink));
+    color: #fff;
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.7rem;
+    padding: 2px 14px;
+    border-radius: 20px;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .act-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(1.1rem, 2.5vw, 1.7rem);
+    color: #fff;
+  }
+  .act-subtitle {
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.55);
+    margin-top: 2px;
+  }
+
+  .act-body {
+    flex: 1;
+    display: flex;
+    gap: 14px;
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  /* ===== DRAG ITEMS ===== */
+  .source-pool {
+    flex-shrink: 0;
+    width: 190px;
+    background: rgba(255,255,255,0.05);
+    border: 1.5px solid rgba(255,255,255,0.1);
+    border-radius: 18px;
+    padding: 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    overflow-y: auto;
+  }
+  .pool-label {
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+    padding-left: 4px;
+  }
+
+  .drag-item {
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: grab;
+    border: 2px solid transparent;
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+    position: relative;
+    line-height: 1.3;
+    text-align: center;
+  }
+  .drag-item:active { cursor: grabbing; }
+  .drag-item.dragging {
+    opacity: 0.4;
+    transform: scale(0.95);
+  }
+  .drag-item.placed {
+    opacity: 0.4;
+    cursor: default;
+    pointer-events: none;
+  }
+  .drag-item:hover:not(.dragging):not(.placed) {
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  }
+
+  .item-green { background: rgba(46,204,113,0.15); border-color: rgba(46,204,113,0.4); color: var(--green); }
+  .item-orange { background: rgba(255,107,53,0.15); border-color: rgba(255,107,53,0.4); color: var(--orange); }
+  .item-blue { background: rgba(58,158,228,0.15); border-color: rgba(58,158,228,0.4); color: var(--blue); }
+  .item-pink { background: rgba(255,79,154,0.15); border-color: rgba(255,79,154,0.4); color: var(--pink); }
+  .item-yellow { background: rgba(255,215,0,0.15); border-color: rgba(255,215,0,0.4); color: var(--yellow); }
+  .item-purple { background: rgba(155,89,182,0.15); border-color: rgba(155,89,182,0.4); color: var(--purple); }
+
+  /* ===== DROP ZONES ===== */
+  .drop-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .drop-zone {
+    flex: 1;
+    border-radius: 16px;
+    border: 2.5px dashed rgba(255,255,255,0.18);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: border-color 0.2s, background 0.2s;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .drop-zone.over {
+    border-color: var(--yellow);
+    background: rgba(255,215,0,0.06);
+  }
+  .drop-zone.correct-zone { border-color: rgba(46,204,113,0.5); background: rgba(46,204,113,0.05); }
+  .drop-zone.wrong-zone { border-color: rgba(255,79,154,0.5); background: rgba(255,79,154,0.05); }
+
+  .zone-header {
+    display: flex; align-items: center; gap: 8px;
+    flex-shrink: 0;
+  }
+  .zone-icon {
+    width: 28px; height: 28px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; flex-shrink: 0;
+  }
+  .zone-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.8);
+  }
+  .zone-desc { font-size: 0.67rem; color: rgba(255,255,255,0.35); margin-top: 1px; }
+
+  .zone-items {
+    flex: 1;
+    display: flex; flex-wrap: wrap; gap: 5px;
+    align-content: flex-start;
+    min-height: 30px;
+  }
+  .zone-item {
+    padding: 5px 10px;
+    border-radius: 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    animation: popIn 0.25s ease;
+  }
+  @keyframes popIn {
+    from{transform:scale(0.6);opacity:0;}
+    to{transform:scale(1);opacity:1;}
+  }
+  .zone-item.correct-tag { background: rgba(46,204,113,0.2); color: var(--green); border: 1.5px solid rgba(46,204,113,0.5); }
+  .zone-item.wrong-tag { background: rgba(255,79,154,0.2); color: var(--pink); border: 1.5px solid rgba(255,79,154,0.5); }
+
+  .zone-placeholder {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.2);
+    font-style: italic;
+    text-align: center;
+    padding: 6px;
+    width: 100%;
+  }
+
+  /* ===== FEEDBACK BAR ===== */
+  .feedback-bar {
+    flex-shrink: 0;
+    min-height: 36px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px;
+  }
+  .feedback-msg {
+    font-size: 0.8rem; font-weight: 700;
+    color: rgba(255,255,255,0.5);
+    transition: color 0.3s;
+  }
+  .feedback-msg.success { color: var(--green); }
+  .feedback-msg.error { color: var(--pink); }
+
+  .btn-next {
+    padding: 8px 24px;
+    border-radius: 30px;
+    border: none;
+    background: linear-gradient(135deg, var(--green), var(--blue));
+    color: #fff;
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.85rem;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+    opacity: 0;
+    pointer-events: none;
+    box-shadow: 0 4px 18px rgba(46,204,113,0.35);
+  }
+  .btn-next.show { opacity: 1; pointer-events: all; animation: btnAppear 0.4s ease; }
+  .btn-next:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(46,204,113,0.45); }
+  @keyframes btnAppear {
+    from{transform:scale(0.8);opacity:0;}
+    to{transform:scale(1);opacity:1;}
+  }
+
+  /* ===== ACTIVITY 2 - SEQUENCE ===== */
+  .sequence-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+  }
+  .seq-slots {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow: hidden;
+  }
+  .seq-slot {
+    flex: 1;
+    border-radius: 14px;
+    border: 2.5px dashed rgba(255,255,255,0.15);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 12px;
+    transition: border-color 0.2s, background 0.2s;
+    min-height: 0;
+  }
+  .seq-slot.over { border-color: var(--yellow); background: rgba(255,215,0,0.05); }
+  .seq-slot.filled-correct { border-color: var(--green); background: rgba(46,204,113,0.07); }
+  .seq-slot.filled-wrong { border-color: var(--pink); background: rgba(255,79,154,0.07); }
+
+  .slot-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(255,255,255,0.07);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.35);
+    flex-shrink: 0;
+  }
+  .slot-content {
+    flex: 1;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.85);
+    font-weight: 700;
+  }
+  .slot-placeholder { color: rgba(255,255,255,0.2); font-style: italic; font-weight: 400; }
+  .slot-icon { font-size: 1.1rem; flex-shrink: 0; }
+
+  .progress-anim {
+    height: 6px; background: rgba(255,255,255,0.07); border-radius: 3px; overflow: hidden;
+    flex-shrink: 0;
+  }
+  .progress-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, var(--green), var(--blue));
+    width: 0%;
+    transition: width 0.6s ease;
+  }
+
+  /* ===== ACTIVITY 3 - EVALUATION ===== */
+  .eval-layout {
+    flex: 1;
+    display: flex;
+    gap: 12px;
+    min-height: 0;
+  }
+  .eval-source { width: 170px; flex-shrink: 0; }
+  .eval-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+  }
+  .eval-row {
+    display: flex;
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+  }
+  .mini-matrix {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    flex: 1;
+  }
+  .matrix-cell {
+    border-radius: 12px;
+    border: 2.5px dashed rgba(255,255,255,0.12);
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    gap: 4px;
+    transition: border-color 0.2s, background 0.2s;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .matrix-cell.over { border-color: var(--yellow); background: rgba(255,215,0,0.05); }
+  .matrix-cell.cell-correct { border-color: var(--green); background: rgba(46,204,113,0.07); }
+  .matrix-cell.cell-wrong { border-color: var(--pink); background: rgba(255,79,154,0.07); }
+  .cell-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.6;
+  }
+  .cell-items { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; align-content: flex-start; }
+
+  .accuracy-zone {
+    border-radius: 14px;
+    border: 2.5px dashed rgba(255,255,255,0.15);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .accuracy-zone.over { border-color: var(--yellow); background: rgba(255,215,0,0.05); }
+  .accuracy-zone.cell-correct { border-color: var(--green); background: rgba(46,204,113,0.07); }
+  .acc-label {
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.7);
+  }
+  .acc-value {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.3rem;
+    color: var(--yellow);
+    min-width: 60px;
+  }
+
+  /* ===== POPUPS ===== */
+  .popup-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(10,8,30,0.85);
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(6px);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .popup-overlay.show { opacity: 1; pointer-events: all; }
+
+  .popup-box {
+    background: linear-gradient(145deg, #1E1E3A, #16162A);
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 24px;
+    padding: 36px 40px;
+    text-align: center;
+    max-width: 420px;
+    width: 90%;
+    transform: scale(0.8);
+    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  }
+  .popup-overlay.show .popup-box { transform: scale(1); }
+
+  .popup-emoji { font-size: 3rem; margin-bottom: 10px; animation: emojiPop 0.6s ease; }
+  @keyframes emojiPop {
+    0%{transform:scale(0) rotate(-20deg);}
+    60%{transform:scale(1.2) rotate(5deg);}
+    100%{transform:scale(1) rotate(0);}
+  }
+  .popup-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.6rem;
+    background: linear-gradient(90deg, var(--green), var(--yellow));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .popup-desc {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.6);
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+  .popup-fact {
+    background: rgba(255,255,255,0.05);
+    border-left: 3px solid var(--orange);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.5);
+    text-align: left;
+    margin-bottom: 20px;
+    font-style: italic;
+  }
+  .btn-popup {
+    padding: 11px 36px;
+    border-radius: 30px;
+    border: none;
+    background: linear-gradient(135deg, var(--orange), var(--pink));
+    color: #fff;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 6px 20px rgba(255,107,53,0.4);
+  }
+  .btn-popup:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(255,107,53,0.5); }
+
+  /* FINAL success */
+  .star-row { display: flex; justify-content: center; gap: 6px; margin-bottom: 12px; }
+  .star { font-size: 1.8rem; animation: starPop 0.5s ease both; }
+  .star:nth-child(2) { animation-delay: 0.1s; }
+  .star:nth-child(3) { animation-delay: 0.2s; }
+  @keyframes starPop {
+    from{transform:scale(0) rotate(-30deg); opacity:0;}
+    to{transform:scale(1) rotate(0deg); opacity:1;}
+  }
+  .confetti-burst { position:absolute; pointer-events:none; }
+  .confetti-piece {
+    position:absolute; width:8px; height:8px; border-radius:2px;
+    animation: confettiFall 1.4s ease-out both;
+  }
+  @keyframes confettiFall {
+    from{opacity:1;transform:translate(0,0) rotate(0);}
+    to{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--dr));}
+  }
+
+  /* ===== GHOST DRAG ===== */
+  #drag-ghost {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.85;
+    transform: translate(-50%, -50%) rotate(3deg) scale(1.05);
+    display: none;
+    padding: 8px 14px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- BACKGROUND -->
+<div id="bg-canvas"></div>
+
+<!-- DRAG GHOST -->
+<div id="drag-ghost"></div>
+
+<!-- POPUP overlays -->
+<div class="popup-overlay" id="popup1">
+  <div class="popup-box">
+    <div class="popup-emoji">🎨</div>
+    <div class="popup-title">Canvas Unlocked!</div>
+    <div class="popup-desc">You sorted the Iris dataset perfectly! Features are the clues, Labels are the answers, and Predictions are what the model guesses.</div>
+    <div class="popup-fact">💡 The Iris dataset has 150 flower samples — just like showing 150 mangoes to help someone learn the difference!</div>
+    <button class="btn-popup" onclick="startActivity(2)">Paint Activity 2 →</button>
+  </div>
+</div>
+
+<div class="popup-overlay" id="popup2">
+  <div class="popup-box">
+    <div class="popup-emoji">🖌️</div>
+    <div class="popup-title">Model Trained!</div>
+    <div class="popup-desc">You followed the correct sequence to train a Decision Tree! The model has now learned from the data and is ready to predict.</div>
+    <div class="popup-fact">💡 A Decision Tree works like a game of "20 Questions" — it keeps asking: "Is petal length &gt; 2.5cm? Then it's probably setosa!"</div>
+    <button class="btn-popup" onclick="startActivity(3)">Paint Activity 3 →</button>
+  </div>
+</div>
+
+<div class="popup-overlay" id="popupFinal">
+  <div class="popup-box" style="position:relative; overflow:visible;">
+    <div class="confetti-burst" id="confettiBurst"></div>
+    <div class="star-row">
+      <span class="star">⭐</span><span class="star">⭐</span><span class="star">⭐</span>
+    </div>
+    <div class="popup-emoji">🏆</div>
+    <div class="popup-title">ML Master!</div>
+    <div class="popup-desc">You trained, tested, and evaluated your first ML model with scikit-learn! You explored features, built a Decision Tree, and read a confusion matrix like a data scientist!</div>
+    <div class="popup-fact">🎓 Remember: Train → Test → Predict. More examples = smarter model. Features are your clues!</div>
+    <button class="btn-popup" onclick="restartAll()" style="background:linear-gradient(135deg,var(--green),var(--blue));">🔁 Paint Again!</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div id="header">
+    <h1>🎨 Build a Simple ML Model with Scikit-Learn</h1>
+    <div class="progress-track">
+      <div class="prog-dot active" id="pd1">1</div>
+      <div class="prog-line" id="pl1"></div>
+      <div class="prog-dot" id="pd2">2</div>
+      <div class="prog-line" id="pl2"></div>
+      <div class="prog-dot" id="pd3">3</div>
+    </div>
+  </div>
+
+  <div id="stage">
+
+    <!-- ===== ACTIVITY 1 ===== -->
+    <div class="activity-panel visible" id="act1">
+      <div class="act-header">
+        <div class="act-badge">Activity 1 · Iris Dataset</div>
+        <div class="act-title">Sort the ML Canvas — Features, Labels & Predictions</div>
+        <div class="act-subtitle">Drag each card into the correct category below ↓</div>
+      </div>
+      <div class="act-body">
+        <div class="source-pool" id="pool1">
+          <div class="pool-label">Drag from here</div>
+          <!-- items injected by JS -->
+        </div>
+        <div class="drop-area" id="dropArea1">
+          <!-- zones injected by JS -->
+        </div>
+      </div>
+      <div class="feedback-bar">
+        <div class="feedback-msg" id="fb1">Sort all 9 cards to unlock the next activity.</div>
+        <button class="btn-next" id="btn1" onclick="showPopup('popup1')">Continue →</button>
+      </div>
+    </div>
+
+    <!-- ===== ACTIVITY 2 ===== -->
+    <div class="activity-panel" id="act2">
+      <div class="act-header">
+        <div class="act-badge">Activity 2 · Training Pipeline</div>
+        <div class="act-title">Sequence the Scikit-Learn Training Steps</div>
+        <div class="act-subtitle">Drag each step into the correct numbered slot ↓</div>
+      </div>
+      <div class="act-body">
+        <div class="source-pool" id="pool2">
+          <div class="pool-label">Training Steps</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px;min-height:0;">
+          <div class="seq-slots" id="seqSlots">
+            <!-- slots injected by JS -->
+          </div>
+          <div class="progress-anim"><div class="progress-fill" id="trainProgress"></div></div>
+        </div>
+      </div>
+      <div class="feedback-bar">
+        <div class="feedback-msg" id="fb2">Fill all 6 slots in the right order to train the model.</div>
+        <button class="btn-next" id="btn2" onclick="showPopup('popup2')">Continue →</button>
+      </div>
+    </div>
+
+    <!-- ===== ACTIVITY 3 ===== -->
+    <div class="activity-panel" id="act3">
+      <div class="act-header">
+        <div class="act-badge">Activity 3 · Model Evaluation</div>
+        <div class="act-title">Evaluate the Model — Accuracy & Confusion Matrix</div>
+        <div class="act-subtitle">Drag each result card to the right section of the evaluation board ↓</div>
+      </div>
+      <div class="act-body">
+        <div class="eval-layout">
+          <div class="source-pool eval-source" id="pool3">
+            <div class="pool-label">Results</div>
+          </div>
+          <div class="eval-right">
+            <div class="accuracy-zone" id="accZone" data-accepts="accuracy">
+              <div class="acc-label">🎯 Model Accuracy</div>
+              <div class="acc-value" id="accDisplay">Drop here</div>
+            </div>
+            <div class="eval-row">
+              <div class="mini-matrix">
+                <div class="matrix-cell" data-accepts="TP" id="cellTP">
+                  <div class="cell-title" style="color:var(--green)">✅ True Positive</div>
+                  <div class="cell-items" id="ciTP"><span class="zone-placeholder">Drop correct predictions</span></div>
+                </div>
+                <div class="matrix-cell" data-accepts="FP" id="cellFP">
+                  <div class="cell-title" style="color:var(--pink)">❌ False Positive</div>
+                  <div class="cell-items" id="ciFP"><span class="zone-placeholder">Drop wrong predictions</span></div>
+                </div>
+                <div class="matrix-cell" data-accepts="TN" id="cellTN">
+                  <div class="cell-title" style="color:var(--blue)">✅ True Negative</div>
+                  <div class="cell-items" id="ciTN"><span class="zone-placeholder">Drop correct rejections</span></div>
+                </div>
+                <div class="matrix-cell" data-accepts="FN" id="cellFN">
+                  <div class="cell-title" style="color:var(--orange)">⚠️ False Negative</div>
+                  <div class="cell-items" id="ciFN"><span class="zone-placeholder">Drop missed ones</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="feedback-bar">
+        <div class="feedback-msg" id="fb3">Place all 8 result cards to complete the evaluation.</div>
+        <button class="btn-next" id="btn3" onclick="showPopup('popupFinal')">Finish! →</button>
+      </div>
+    </div>
+
+  </div><!-- /stage -->
+</div><!-- /app -->
+
+<script>
+// ===================== BACKGROUND GENERATION =====================
+function buildBackground() {
+  const bg = document.getElementById('bg-canvas');
+  const W = window.innerWidth, H = window.innerHeight;
+
+  // Paint splashes
+  const splashColors = [
+    '#2ECC71','#FF6B35','#3A9EE4','#FF4F9A','#FFD700','#9B59B6','#00BCD4','#FF8A50'
+  ];
+  for (let i = 0; i < 18; i++) {
+    const el = document.createElement('div');
+    el.className = 'paint-splash';
+    const sz = 60 + Math.random() * 160;
+    el.style.cssText = `
+      width:${sz}px;height:${sz*0.7}px;
+      left:${Math.random()*105-5}%;top:${Math.random()*105-5}%;
+      background:${splashColors[i%splashColors.length]};
+      opacity:${0.07+Math.random()*0.13};
+      animation-duration:${9+Math.random()*8}s;
+      animation-delay:${-Math.random()*10}s;
+      transform:rotate(${Math.random()*360}deg);
+    `;
+    bg.appendChild(el);
+  }
+
+  // Color wheels
+  const wheelGrads = [
+    'conic-gradient(#FF6B35,#FFD700,#2ECC71,#3A9EE4,#9B59B6,#FF4F9A,#FF6B35)',
+    'conic-gradient(#2ECC71,#3A9EE4,#9B59B6,#FF4F9A,#FFD700,#FF6B35,#2ECC71)',
+    'conic-gradient(#FFD700,#FF4F9A,#3A9EE4,#2ECC71,#FF6B35,#9B59B6,#FFD700)',
+  ];
+  for (let i = 0; i < 5; i++) {
+    const el = document.createElement('div');
+    el.className = 'color-wheel';
+    const sz = 80 + Math.random() * 180;
+    el.style.cssText = `
+      width:${sz}px;height:${sz}px;
+      left:${Math.random()*100}%;top:${Math.random()*100}%;
+      background:${wheelGrads[i%3]};
+      animation-duration:${18+Math.random()*20}s;
+      animation-direction:${i%2===0?'normal':'reverse'};
+    `;
+    bg.appendChild(el);
+  }
+
+  // Brush strokes
+  for (let i = 0; i < 14; i++) {
+    const el = document.createElement('div');
+    el.className = 'brush-stroke';
+    const angle = Math.random() * 180;
+    const colors = ['#2ECC71','#FF6B35','#3A9EE4','#FF4F9A','#FFD700','#9B59B6'];
+    el.style.cssText = `
+      width:${100+Math.random()*200}px;height:${8+Math.random()*14}px;
+      left:${Math.random()*100}%;top:${Math.random()*100}%;
+      background:${colors[i%colors.length]};
+      --angle:${angle}deg;
+      transform:rotate(${angle}deg);
+      animation-duration:${7+Math.random()*8}s;
+      animation-delay:${-Math.random()*8}s;
+    `;
+    bg.appendChild(el);
+  }
+
+  // Floating particles
+  function spawnParticle() {
+    const el = document.createElement('div');
+    el.className = 'float-particle';
+    const colors = ['#2ECC71','#FF6B35','#3A9EE4','#FF4F9A','#FFD700','#9B59B6','#FF8A50','#00BCD4'];
+    const sz = 4 + Math.random() * 10;
+    const dur = 3 + Math.random() * 4;
+    el.style.cssText = `
+      width:${sz}px;height:${sz}px;
+      left:${Math.random()*100}%;bottom:${Math.random()*80}%;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-duration:${dur}s;
+      animation-delay:0s;
+    `;
+    bg.appendChild(el);
+    setTimeout(() => el.remove(), dur * 1000 + 200);
+  }
+  setInterval(spawnParticle, 200);
+}
+
+buildBackground();
+
+// ===================== DRAG STATE =====================
+let dragData = null;
+const ghost = document.getElementById('drag-ghost');
+
+document.addEventListener('mousemove', e => {
+  if (dragData) {
+    ghost.style.left = e.clientX + 'px';
+    ghost.style.top = e.clientY + 'px';
+  }
+});
+document.addEventListener('mouseup', e => {
+  if (!dragData) return;
+  // check if dropped on a valid zone
+  const target = document.elementFromPoint(e.clientX, e.clientY);
+  if (!target) { cancelDrag(); return; }
+  const zone = target.closest('[data-zone],[data-accepts],[data-slot]');
+  if (zone) {
+    handleDrop(zone);
+  } else {
+    cancelDrag();
+  }
+});
+
+function startDrag(item, label, colorClass, id, actNum) {
+  dragData = { item, label, colorClass, id, actNum };
+  item.classList.add('dragging');
+  ghost.className = `drag-item ${colorClass}`;
+  ghost.textContent = label;
+  ghost.style.display = 'block';
+}
+
+function cancelDrag() {
+  if (!dragData) return;
+  dragData.item.classList.remove('dragging');
+  ghost.style.display = 'none';
+  dragData = null;
+  clearOverHighlights();
+}
+
+function clearOverHighlights() {
+  document.querySelectorAll('.over').forEach(z => z.classList.remove('over'));
+}
+
+document.addEventListener('mouseover', e => {
+  if (!dragData) return;
+  const zone = e.target.closest('[data-zone],[data-accepts],[data-slot]');
+  clearOverHighlights();
+  if (zone) zone.classList.add('over');
+});
+
+// ===================== ACTIVITY 1 =====================
+const act1Items = [
+  { id:'f1', label:'🌸 Petal Length', color:'item-green', zone:'features' },
+  { id:'f2', label:'🌿 Sepal Width', color:'item-green', zone:'features' },
+  { id:'f3', label:'📏 Petal Width', color:'item-green', zone:'features' },
+  { id:'l1', label:'🌺 Iris Setosa', color:'item-orange', zone:'labels' },
+  { id:'l2', label:'🌷 Iris Versicolor', color:'item-pink', zone:'labels' },
+  { id:'l3', label:'🌻 Iris Virginica', color:'item-yellow', zone:'labels' },
+  { id:'p1', label:'🔮 model.predict()', color:'item-blue', zone:'predictions' },
+  { id:'p2', label:'📊 Probability: 0.93', color:'item-blue', zone:'predictions' },
+  { id:'p3', label:'🎯 Class Guess: Setosa', color:'item-purple', zone:'predictions' },
+];
+
+const act1Zones = [
+  { id:'features', icon:'🔍', title:'Features', desc:'The clues (measurable inputs)', bg:'rgba(46,204,113,0.08)', border:'rgba(46,204,113,0.3)' },
+  { id:'labels', icon:'🏷️', title:'Labels', desc:'The known answers (flower species)', bg:'rgba(255,107,53,0.08)', border:'rgba(255,107,53,0.3)' },
+  { id:'predictions', icon:'🤖', title:'Predictions', desc:'What the model outputs', bg:'rgba(58,158,228,0.08)', border:'rgba(58,158,228,0.3)' },
+];
+
+let act1State = {};
+
+function buildAct1() {
+  const pool = document.getElementById('pool1');
+  const dropArea = document.getElementById('dropArea1');
+
+  act1Items.forEach(item => {
+    const el = document.createElement('div');
+    el.className = `drag-item ${item.color}`;
+    el.id = `di1_${item.id}`;
+    el.textContent = item.label;
+    el.addEventListener('mousedown', e => { e.preventDefault(); startDrag(el, item.label, item.color, item.id, 1); });
+    pool.appendChild(el);
+  });
+
+  act1Zones.forEach(z => {
+    const zone = document.createElement('div');
+    zone.className = 'drop-zone';
+    zone.dataset.zone = z.id;
+    zone.style.background = z.bg;
+    zone.style.borderColor = z.border;
+    act1State[z.id] = [];
+    zone.innerHTML = `
+      <div class="zone-header">
+        <div class="zone-icon" style="background:${z.bg};border:1.5px solid ${z.border}">${z.icon}</div>
+        <div><div class="zone-title">${z.title}</div><div class="zone-desc">${z.desc}</div></div>
+      </div>
+      <div class="zone-items" id="zi_${z.id}">
+        <span class="zone-placeholder">Drop items here…</span>
+      </div>`;
+    dropArea.appendChild(zone);
+  });
+}
+
+function handleDrop(zone) {
+  if (!dragData) return;
+  const { item, label, colorClass, id, actNum } = dragData;
+  item.classList.remove('dragging');
+  ghost.style.display = 'none';
+  dragData = null;
+  clearOverHighlights();
+
+  if (actNum === 1) dropAct1(zone, item, label, colorClass, id);
+  else if (actNum === 2) dropAct2(zone, item, label, colorClass, id);
+  else if (actNum === 3) dropAct3(zone, item, label, colorClass, id);
+}
+
+function dropAct1(zone, item, label, colorClass, id) {
+  const zoneId = zone.dataset.zone;
+  if (!zoneId) return;
+  const correct = act1Items.find(i => i.id === id)?.zone;
+  const isCorrect = zoneId === correct;
+
+  item.classList.add('placed');
+  act1State[zoneId].push(id);
+
+  const container = document.getElementById(`zi_${zoneId}`);
+  const placeholder = container.querySelector('.zone-placeholder');
+  if (placeholder) placeholder.remove();
+
+  const tag = document.createElement('div');
+  tag.className = `zone-item ${isCorrect ? 'correct-tag' : 'wrong-tag'}`;
+  tag.textContent = label;
+  container.appendChild(tag);
+
+  if (!isCorrect) {
+    document.getElementById('fb1').textContent = `❌ "${label}" doesn't belong in ${zoneId}. Try again!`;
+    document.getElementById('fb1').className = 'feedback-msg error';
+    setTimeout(() => {
+      tag.remove();
+      act1State[zoneId].pop();
+      item.classList.remove('placed');
+      if (container.children.length === 0) {
+        container.innerHTML = '<span class="zone-placeholder">Drop items here…</span>';
+      }
+      document.getElementById('fb1').textContent = 'Sort all 9 cards to unlock the next activity.';
+      document.getElementById('fb1').className = 'feedback-msg';
+    }, 900);
+    return;
+  }
+
+  document.getElementById('fb1').textContent = `✅ Correct! "${label}" is a ${zoneId === 'features' ? 'Feature (clue)' : zoneId === 'labels' ? 'Label (answer)' : 'Prediction (output)'}!`;
+  document.getElementById('fb1').className = 'feedback-msg success';
+
+  const total = Object.values(act1State).flat().length;
+  if (total === act1Items.length) {
+    setTimeout(() => {
+      document.getElementById('btn1').classList.add('show');
+      document.getElementById('fb1').textContent = '🎨 All sorted! Click Continue to advance.';
+    }, 400);
+  }
+}
+
+// ===================== ACTIVITY 2 =====================
+const act2Steps = [
+  { id:'s1', label:'📦 import sklearn datasets', color:'item-green', order:1 },
+  { id:'s2', label:'🌸 Load Iris dataset', color:'item-blue', order:2 },
+  { id:'s3', label:'✂️ Split: train_test_split()', color:'item-orange', order:3 },
+  { id:'s4', label:'🌳 Create DecisionTreeClassifier()', color:'item-yellow', order:4 },
+  { id:'s5', label:'🧠 model.fit(X_train, y_train)', color:'item-pink', order:5 },
+  { id:'s6', label:'🎯 model.predict(X_test)', color:'item-purple', order:6 },
+];
+
+const act2SlotLabels = [
+  'Step 1: Import the library',
+  'Step 2: Load your data',
+  'Step 3: Split data for training & testing',
+  'Step 4: Build the model structure',
+  'Step 5: Train (fit) the model',
+  'Step 6: Make predictions',
+];
+
+let act2Placed = {}; // slotNum -> stepId
+
+function buildAct2() {
+  const pool = document.getElementById('pool2');
+  const slots = document.getElementById('seqSlots');
+
+  // Shuffle items in pool
+  const shuffled = [...act2Steps].sort(() => Math.random() - 0.5);
+  shuffled.forEach(item => {
+    const el = document.createElement('div');
+    el.className = `drag-item ${item.color}`;
+    el.id = `di2_${item.id}`;
+    el.textContent = item.label;
+    el.addEventListener('mousedown', e => { e.preventDefault(); startDrag(el, item.label, item.color, item.id, 2); });
+    pool.appendChild(el);
+  });
+
+  for (let i = 1; i <= 6; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'seq-slot';
+    slot.dataset.slot = i;
+    slot.innerHTML = `
+      <div class="slot-num">${i}</div>
+      <div class="slot-content slot-placeholder" id="sc_${i}">${act2SlotLabels[i-1]}</div>
+      <div class="slot-icon" id="si_${i}">⬜</div>`;
+    slots.appendChild(slot);
+  }
+}
+
+function dropAct2(zone, item, label, colorClass, id) {
+  const slotNum = parseInt(zone.dataset.slot);
+  if (!slotNum) return;
+
+  // Check if slot already filled
+  if (act2Placed[slotNum]) {
+    document.getElementById('fb2').textContent = '⚠️ That slot is already filled!';
+    document.getElementById('fb2').className = 'feedback-msg error';
+    item.classList.remove('dragging');
+    return;
+  }
+
+  const step = act2Steps.find(s => s.id === id);
+  const isCorrect = step.order === slotNum;
+
+  const slotContent = document.getElementById(`sc_${slotNum}`);
+  const slotIcon = document.getElementById(`si_${slotNum}`);
+
+  if (!isCorrect) {
+    slotContent.textContent = `❌ Wrong step here!`;
+    slotIcon.textContent = '🔴';
+    zone.classList.add('filled-wrong');
+    document.getElementById('fb2').textContent = `❌ "${label}" doesn't go in step ${slotNum}. Try another slot!`;
+    document.getElementById('fb2').className = 'feedback-msg error';
+    setTimeout(() => {
+      slotContent.innerHTML = `<span class="slot-placeholder">${act2SlotLabels[slotNum-1]}</span>`;
+      slotIcon.textContent = '⬜';
+      zone.classList.remove('filled-wrong');
+      item.classList.remove('dragging','placed');
+      document.getElementById('fb2').textContent = 'Fill all 6 slots in the right order to train the model.';
+      document.getElementById('fb2').className = 'feedback-msg';
+    }, 900);
+    return;
+  }
+
+  item.classList.add('placed');
+  act2Placed[slotNum] = id;
+  slotContent.textContent = label;
+  slotContent.classList.remove('slot-placeholder');
+  slotIcon.textContent = '✅';
+  zone.classList.add('filled-correct');
+
+  const filled = Object.keys(act2Placed).length;
+  document.getElementById('trainProgress').style.width = (filled / 6 * 100) + '%';
+  document.getElementById('fb2').textContent = `✅ Step ${slotNum} placed correctly! (${filled}/6)`;
+  document.getElementById('fb2').className = 'feedback-msg success';
+
+  if (filled === 6) {
+    setTimeout(() => {
+      document.getElementById('btn2').classList.add('show');
+      document.getElementById('fb2').textContent = '🌳 Decision Tree trained! Click Continue.';
+    }, 400);
+  }
+}
+
+// ===================== ACTIVITY 3 =====================
+const act3Items = [
+  { id:'r1', label:'96% accuracy', color:'item-green', target:'accuracy' },
+  { id:'r2', label:'✅ Setosa → Setosa', color:'item-green', target:'TP' },
+  { id:'r3', label:'✅ Versicolor → Versicolor', color:'item-green', target:'TP' },
+  { id:'r4', label:'✅ Virginica → Virginica', color:'item-green', target:'TN' },
+  { id:'r5', label:'❌ Versicolor → Virginica', color:'item-pink', target:'FP' },
+  { id:'r6', label:'❌ Virginica → Versicolor', color:'item-pink', target:'FP' },
+  { id:'r7', label:'✅ Not Setosa → Not Setosa', color:'item-blue', target:'TN' },
+  { id:'r8', label:'⚠️ Setosa missed once', color:'item-orange', target:'FN' },
+];
+
+let act3Placed = {};
+
+function buildAct3() {
+  const pool = document.getElementById('pool3');
+  const shuffled = [...act3Items].sort(() => Math.random() - 0.5);
+  shuffled.forEach(item => {
+    const el = document.createElement('div');
+    el.className = `drag-item ${item.color}`;
+    el.id = `di3_${item.id}`;
+    el.textContent = item.label;
+    el.addEventListener('mousedown', e => { e.preventDefault(); startDrag(el, item.label, item.color, item.id, 3); });
+    pool.appendChild(el);
+  });
+}
+
+function dropAct3(zone, item, label, colorClass, id) {
+  const accepts = zone.dataset.accepts;
+  if (!accepts) return;
+
+  const entry = act3Items.find(i => i.id === id);
+  const isCorrect = entry.target === accepts;
+
+  if (!isCorrect) {
+    zone.classList.add('cell-wrong');
+    document.getElementById('fb3').textContent = `❌ "${label}" doesn't belong here. Try again!`;
+    document.getElementById('fb3').className = 'feedback-msg error';
+    setTimeout(() => {
+      zone.classList.remove('cell-wrong');
+      item.classList.remove('dragging','placed');
+      document.getElementById('fb3').textContent = 'Place all 8 result cards to complete the evaluation.';
+      document.getElementById('fb3').className = 'feedback-msg';
+    }, 900);
+    return;
+  }
+
+  item.classList.add('placed');
+  act3Placed[id] = true;
+
+  if (accepts === 'accuracy') {
+    document.getElementById('accDisplay').textContent = label;
+    document.getElementById('accDisplay').style.color = 'var(--green)';
+    document.getElementById('accZone').classList.add('cell-correct');
+  } else {
+    const container = document.getElementById(`ci${accepts}`);
+    const placeholder = container.querySelector('.zone-placeholder');
+    if (placeholder) placeholder.remove();
+    const tag = document.createElement('div');
+    tag.className = 'zone-item correct-tag';
+    tag.style.fontSize = '0.65rem';
+    tag.textContent = label;
+    container.appendChild(tag);
+    document.getElementById(`cell${accepts}`).classList.add('cell-correct');
+  }
+
+  const placed = Object.keys(act3Placed).length;
+  document.getElementById('fb3').textContent = `✅ Correct! (${placed}/8 placed)`;
+  document.getElementById('fb3').className = 'feedback-msg success';
+
+  if (placed === act3Items.length) {
+    setTimeout(() => {
+      document.getElementById('btn3').classList.add('show');
+      document.getElementById('fb3').textContent = '🎉 Evaluation complete! Click Finish!';
+    }, 400);
+  }
+}
+
+// ===================== NAVIGATION =====================
+function startActivity(n) {
+  // hide all
+  ['act1','act2','act3'].forEach((id, i) => {
+    document.getElementById(id).classList.remove('visible');
+  });
+
+  // update progress dots
+  for (let i = 1; i <= 3; i++) {
+    const dot = document.getElementById(`pd${i}`);
+    const line = document.getElementById(`pl${i}`);
+    dot.classList.remove('active','done');
+    if (line) line.classList.remove('done');
+    if (i < n) { dot.classList.add('done'); if (line) line.classList.add('done'); }
+    else if (i === n) dot.classList.add('active');
+  }
+
+  document.getElementById(`act${n}`).classList.add('visible');
+  hideAllPopups();
+}
+
+function showPopup(id) {
+  document.getElementById(id).classList.add('show');
+  if (id === 'popupFinal') spawnConfetti();
+}
+
+function hideAllPopups() {
+  document.querySelectorAll('.popup-overlay').forEach(p => p.classList.remove('show'));
+}
+
+function spawnConfetti() {
+  const burst = document.getElementById('confettiBurst');
+  burst.innerHTML = '';
+  const colors = ['#2ECC71','#FF6B35','#FFD700','#FF4F9A','#3A9EE4','#9B59B6'];
+  for (let i = 0; i < 32; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    const angle = (i / 32) * 360;
+    const dist = 80 + Math.random() * 80;
+    const rad = angle * Math.PI / 180;
+    const dx = Math.cos(rad) * dist;
+    const dy = Math.sin(rad) * dist;
+    piece.style.cssText = `
+      background:${colors[i%colors.length]};
+      --dx:${dx}px; --dy:${dy}px; --dr:${Math.random()*720-360}deg;
+      left:50%; top:50%;
+      animation-delay:${Math.random()*0.3}s;
+      border-radius:${Math.random()>0.5?'50%':'2px'};
+    `;
+    burst.appendChild(piece);
+  }
+}
+
+function restartAll() {
+  location.reload();
+}
+
+// ===================== INIT =====================
+buildAct1();
+buildAct2();
+buildAct3();
+</script>
+</body>
+</html>

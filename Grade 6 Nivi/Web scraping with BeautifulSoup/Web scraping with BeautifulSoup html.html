@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WEB SCRAPING WITH BEAUTIFULSOUP</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Patrick+Hand&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100vw;height:100vh;overflow:hidden;font-family:'Baloo 2',cursive;}
+
+:root{
+  --cream:#fdf6e3;--warm:#fff8ee;--orange:#ff6b35;--tomato:#e63946;
+  --teal:#2a9d8f;--gold:#f4a261;--brown:#7b4f2e;--lime:#52b788;
+  --purple:#7209b7;--sky:#4cc9f0;--ink:#1d1e2c;
+  --glass:rgba(255,255,255,0.55);
+}
+
+body{
+  background:linear-gradient(160deg,#fff3dc 0%,#ffe8c4 40%,#ffddb3 70%,#ffcf96 100%);
+  display:flex;flex-direction:column;align-items:center;
+}
+
+/* ===== BG CANVAS ===== */
+#bg-canvas{position:fixed;inset:0;pointer-events:none;z-index:0;}
+
+/* ===== FLOATING DECO ===== */
+.bg-deco{position:fixed;pointer-events:none;z-index:1;font-size:clamp(16px,2.5vw,28px);opacity:0.13;animation:floatDeco var(--dur,8s) ease-in-out infinite;animation-delay:var(--del,0s);}
+@keyframes floatDeco{0%,100%{transform:translateY(0) rotate(var(--rot0,0deg));}50%{transform:translateY(-18px) rotate(var(--rot1,5deg));}}
+
+/* ===== LAYOUT ===== */
+#app{
+  position:relative;z-index:10;width:100vw;height:100vh;
+  display:flex;flex-direction:column;align-items:center;
+  padding:8px 14px 6px;
+}
+
+/* ===== HEADER ===== */
+header{text-align:center;margin-bottom:5px;flex-shrink:0;}
+.main-title{
+  font-family:'Baloo 2',cursive;font-weight:800;
+  font-size:clamp(15px,2.4vw,28px);letter-spacing:1px;
+  background:linear-gradient(135deg,#7b4f2e,#e63946,#7209b7,#2a9d8f);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,0.1));
+}
+.subtitle{
+  font-size:10px;color:var(--brown);letter-spacing:3px;
+  text-transform:uppercase;margin-top:1px;font-weight:600;opacity:0.7;
+}
+
+/* ===== PROGRESS ===== */
+.progress-bar{display:flex;gap:6px;align-items:center;margin:5px 0 6px;flex-shrink:0;}
+.prog-step{
+  display:flex;align-items:center;gap:5px;
+  padding:4px 12px;border-radius:20px;font-size:10px;font-weight:700;
+  border:2px solid transparent;transition:all 0.4s;
+}
+.prog-step.done{background:linear-gradient(135deg,rgba(42,157,143,0.15),rgba(82,183,136,0.15));color:var(--teal);border-color:var(--teal);box-shadow:0 2px 8px rgba(42,157,143,0.2);}
+.prog-step.active{background:linear-gradient(135deg,rgba(255,107,53,0.15),rgba(244,162,97,0.15));color:var(--orange);border-color:var(--orange);box-shadow:0 2px 10px rgba(255,107,53,0.25);animation:pulseProg 2s infinite;}
+.prog-step.pending{color:rgba(123,79,46,0.4);border-color:rgba(123,79,46,0.2);background:rgba(123,79,46,0.04);}
+@keyframes pulseProg{0%,100%{transform:scale(1);}50%{transform:scale(1.04);}}
+.prog-dot{width:7px;height:7px;border-radius:50%;background:currentColor;}
+.prog-sep{color:rgba(123,79,46,0.3);font-size:14px;}
+
+/* ===== ACTIVITY CARD ===== */
+.activity-card{
+  background:rgba(255,252,245,0.88);
+  backdrop-filter:blur(14px);
+  border-radius:20px;
+  border:2px solid rgba(255,255,255,0.7);
+  box-shadow:0 8px 32px rgba(123,79,46,0.12),0 2px 8px rgba(0,0,0,0.06),inset 0 1px 0 rgba(255,255,255,0.9);
+  width:100%;max-width:920px;flex:1;min-height:0;
+  display:flex;flex-direction:column;padding:12px 16px 10px;overflow:hidden;
+}
+.activity-header{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-shrink:0;}
+.act-badge{
+  background:linear-gradient(135deg,var(--orange),var(--gold));
+  color:white;font-weight:800;font-size:11px;
+  padding:4px 12px;border-radius:20px;white-space:nowrap;
+  box-shadow:0 2px 8px rgba(255,107,53,0.35);
+}
+.act-title{font-weight:800;font-size:clamp(13px,1.7vw,18px);color:var(--ink);flex:1;}
+.act-instruction{
+  font-size:11.5px;color:rgba(29,30,44,0.75);
+  background:rgba(244,162,97,0.12);
+  border-radius:10px;padding:6px 12px;margin-bottom:9px;
+  border-left:3px solid var(--gold);flex-shrink:0;line-height:1.5;
+}
+.activity-body{flex:1;min-height:0;display:flex;flex-direction:column;}
+
+/* ===== FEEDBACK ===== */
+.feedback-bar{
+  min-height:25px;border-radius:10px;padding:4px 14px;
+  font-size:11px;font-weight:700;text-align:center;
+  margin-top:7px;flex-shrink:0;transition:all 0.3s;
+}
+.feedback-bar.success{background:rgba(82,183,136,0.15);color:#1a6b4a;border:1.5px solid rgba(82,183,136,0.4);}
+.feedback-bar.error{background:rgba(230,57,70,0.1);color:var(--tomato);border:1.5px solid rgba(230,57,70,0.3);}
+.feedback-bar.neutral{background:rgba(244,162,97,0.1);color:rgba(123,79,46,0.7);border:1.5px dashed rgba(244,162,97,0.4);}
+
+/* ===== BUTTONS ===== */
+.next-btn{
+  display:block;margin:7px auto 0;
+  background:linear-gradient(135deg,var(--orange),var(--tomato));
+  color:white;border:none;border-radius:20px;
+  font-family:'Baloo 2',cursive;font-weight:800;font-size:12px;
+  padding:8px 26px;cursor:pointer;letter-spacing:0.5px;
+  box-shadow:0 4px 14px rgba(255,107,53,0.4);transition:all 0.3s;flex-shrink:0;
+}
+.next-btn:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(255,107,53,0.5);}
+.next-btn:disabled{opacity:0.35;cursor:not-allowed;transform:none;}
+.check-btn{
+  display:inline-block;margin:6px auto 0;
+  background:linear-gradient(135deg,rgba(42,157,143,0.15),rgba(82,183,136,0.12));
+  color:var(--teal);border:1.5px solid rgba(42,157,143,0.4);border-radius:14px;
+  font-family:'Baloo 2',cursive;font-weight:700;font-size:11px;
+  padding:5px 18px;cursor:pointer;transition:all 0.3s;flex-shrink:0;
+}
+.check-btn:hover{background:rgba(42,157,143,0.18);transform:translateY(-1px);}
+
+/* ===== PIECES ===== */
+.piece{
+  padding:4px 10px;border-radius:10px;cursor:grab;
+  font-size:10.5px;font-weight:700;user-select:none;
+  transition:all 0.2s;display:inline-flex;align-items:center;gap:4px;
+  white-space:nowrap;font-family:'Patrick Hand',cursive;
+}
+.piece:active{cursor:grabbing;transform:scale(1.07);}
+.piece.used{opacity:0.22;cursor:not-allowed;pointer-events:none;}
+.p-orange{background:rgba(255,107,53,0.13);color:#c44a1a;border:1.5px solid rgba(255,107,53,0.4);}
+.p-teal{background:rgba(42,157,143,0.12);color:#1a6b5e;border:1.5px solid rgba(42,157,143,0.4);}
+.p-purple{background:rgba(114,9,183,0.1);color:#5a07a0;border:1.5px solid rgba(114,9,183,0.35);}
+.p-lime{background:rgba(82,183,136,0.12);color:#2a6b4a;border:1.5px solid rgba(82,183,136,0.4);}
+.p-red{background:rgba(230,57,70,0.1);color:#a01a28;border:1.5px solid rgba(230,57,70,0.35);}
+.p-gold{background:rgba(244,162,97,0.15);color:#8a5500;border:1.5px solid rgba(244,162,97,0.5);}
+.p-sky{background:rgba(76,201,240,0.12);color:#0a6a8a;border:1.5px solid rgba(76,201,240,0.4);}
+.p-brown{background:rgba(123,79,46,0.1);color:#5a3010;border:1.5px solid rgba(123,79,46,0.3);}
+
+.drop-slot{
+  border-radius:9px;border:2px dashed rgba(244,162,97,0.45);
+  background:rgba(244,162,97,0.04);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:rgba(123,79,46,0.4);
+  transition:all 0.2s;font-family:'Patrick Hand',cursive;
+  min-height:32px;
+}
+.drop-slot.over{background:rgba(244,162,97,0.12);border-color:var(--orange);transform:scale(1.02);}
+.drop-slot.filled{border-style:solid;border-color:rgba(42,157,143,0.4);background:rgba(42,157,143,0.06);color:var(--ink);font-weight:700;}
+
+/* ===== ACTIVITY 1 — TAG SORTER ===== */
+.a1-body{display:flex;gap:10px;flex:1;min-height:0;}
+.tag-columns{flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.tag-col{
+  display:flex;flex-direction:column;gap:5px;
+  background:rgba(255,255,255,0.4);border-radius:12px;
+  border:1.5px solid rgba(255,255,255,0.7);padding:8px;overflow:hidden;
+}
+.tag-col-head{
+  border-radius:8px;padding:5px 6px;text-align:center;flex-shrink:0;
+  font-family:'Patrick Hand',cursive;font-weight:700;font-size:11px;
+}
+.tag-col-head.th-title{background:rgba(255,107,53,0.15);color:#c44a1a;border:1px solid rgba(255,107,53,0.3);}
+.tag-col-head.th-head{background:rgba(114,9,183,0.1);color:#5a07a0;border:1px solid rgba(114,9,183,0.25);}
+.tag-col-head.th-link{background:rgba(76,201,240,0.15);color:#0a6a8a;border:1px solid rgba(76,201,240,0.35);}
+.tag-col-head.th-data{background:rgba(82,183,136,0.14);color:#2a6b4a;border:1px solid rgba(82,183,136,0.35);}
+.tag-drop-zone{
+  flex:1;min-height:50px;border-radius:8px;
+  border:2px dashed rgba(200,180,150,0.4);background:rgba(255,255,255,0.3);
+  padding:4px;display:flex;flex-direction:column;gap:3px;overflow-y:auto;
+  transition:all 0.2s;
+}
+.tag-drop-zone.over{background:rgba(244,162,97,0.1);border-color:var(--orange);}
+.dropped-tag{
+  padding:3px 7px;border-radius:7px;font-size:10px;font-weight:700;
+  animation:popIn 0.3s ease;font-family:'Patrick Hand',cursive;
+  display:flex;align-items:center;gap:4px;
+}
+.dropped-tag.correct{background:rgba(82,183,136,0.18);color:#1a6b4a;border:1px solid rgba(82,183,136,0.4);}
+.dropped-tag.wrong{background:rgba(230,57,70,0.12);color:var(--tomato);border:1px solid rgba(230,57,70,0.3);text-decoration:line-through;}
+@keyframes popIn{0%{transform:scale(0);opacity:0;}60%{transform:scale(1.1);}100%{transform:scale(1);opacity:1;}}
+
+.a1-shelf{
+  width:155px;flex-shrink:0;
+  background:rgba(255,255,255,0.35);border-radius:12px;
+  border:2px dashed rgba(244,162,97,0.4);
+  padding:8px;display:flex;flex-direction:column;gap:5px;overflow-y:auto;
+}
+.shelf-lbl{font-size:9px;font-weight:800;color:rgba(123,79,46,0.55);text-align:center;letter-spacing:2px;text-transform:uppercase;margin-bottom:2px;}
+
+/* ===== ACTIVITY 2 — SAFE vs UNSAFE ===== */
+.a2-body{display:flex;gap:10px;flex:1;min-height:0;}
+.safe-col,.unsafe-col{
+  flex:1;display:flex;flex-direction:column;gap:5px;
+  border-radius:12px;padding:8px;overflow:hidden;
+}
+.safe-col{background:rgba(82,183,136,0.07);border:2px solid rgba(82,183,136,0.25);}
+.unsafe-col{background:rgba(230,57,70,0.05);border:2px solid rgba(230,57,70,0.2);}
+.safe-head{
+  border-radius:8px;padding:5px 10px;text-align:center;
+  font-weight:800;font-size:12px;flex-shrink:0;
+}
+.safe-head.s{background:rgba(82,183,136,0.2);color:#1a6b4a;}
+.safe-head.u{background:rgba(230,57,70,0.15);color:#a01a28;}
+.su-drop{
+  flex:1;border-radius:9px;border:2px dashed rgba(200,180,150,0.4);
+  background:rgba(255,255,255,0.3);padding:5px;
+  display:flex;flex-direction:column;gap:4px;overflow-y:auto;transition:all 0.2s;
+}
+.su-drop.over{border-color:var(--gold);background:rgba(244,162,97,0.08);}
+.su-chip{
+  padding:4px 9px;border-radius:8px;font-size:10px;font-weight:700;
+  animation:popIn 0.3s ease;font-family:'Patrick Hand',cursive;
+}
+.su-chip.correct.s{background:rgba(82,183,136,0.18);color:#1a6b4a;border:1px solid rgba(82,183,136,0.4);}
+.su-chip.correct.u{background:rgba(230,57,70,0.12);color:#a01a28;border:1px solid rgba(230,57,70,0.3);}
+.su-chip.wrong{background:rgba(244,162,97,0.2);color:#8a5500;border:1px solid rgba(244,162,97,0.5);}
+.a2-shelf{
+  width:180px;flex-shrink:0;background:rgba(255,255,255,0.35);border-radius:12px;
+  border:2px dashed rgba(244,162,97,0.4);padding:8px;
+  display:flex;flex-direction:column;gap:5px;overflow-y:auto;
+}
+
+/* ===== ACTIVITY 3 — CODE BUILDER ===== */
+.a3-tabs{display:flex;gap:6px;margin-bottom:7px;flex-shrink:0;}
+.a3-tab{
+  padding:4px 13px;border-radius:14px;border:1.5px solid rgba(123,79,46,0.2);
+  font-size:10.5px;font-weight:700;cursor:pointer;transition:all 0.3s;
+  background:rgba(123,79,46,0.06);color:rgba(123,79,46,0.6);font-family:'Baloo 2',cursive;
+}
+.a3-tab.active{background:linear-gradient(135deg,rgba(114,9,183,0.15),rgba(76,201,240,0.12));color:var(--purple);border-color:var(--purple);}
+.a3-body{display:flex;gap:10px;flex:1;min-height:0;}
+.code-shelf{
+  width:180px;flex-shrink:0;background:rgba(29,30,44,0.06);border-radius:12px;
+  border:2px dashed rgba(114,9,183,0.3);padding:8px;
+  display:flex;flex-direction:column;gap:5px;overflow-y:auto;
+}
+.code-shelf-lbl{font-size:9px;font-weight:800;color:rgba(114,9,183,0.5);text-align:center;letter-spacing:2px;text-transform:uppercase;margin-bottom:2px;}
+.code-area{
+  flex:1;min-height:0;display:flex;flex-direction:column;gap:4px;
+  background:rgba(29,30,44,0.05);border-radius:12px;
+  border:1.5px solid rgba(114,9,183,0.15);padding:8px;overflow-y:auto;
+}
+.code-slot{
+  min-height:34px;border-radius:8px;border:2px dashed rgba(114,9,183,0.25);
+  background:rgba(255,255,255,0.25);display:flex;align-items:center;
+  padding:4px 8px;gap:6px;transition:all 0.2s;flex-shrink:0;
+}
+.code-slot.over{background:rgba(114,9,183,0.08);border-color:var(--purple);}
+.code-slot.filled{border-style:solid;border-color:rgba(42,157,143,0.4);background:rgba(42,157,143,0.05);}
+.slot-num{font-size:9px;font-weight:800;color:var(--orange);width:18px;flex-shrink:0;font-family:'Baloo 2',cursive;}
+.slot-clear{font-size:11px;color:var(--tomato);cursor:pointer;font-weight:800;margin-left:auto;}
+.code-piece{
+  font-family:'Patrick Hand',cursive;font-size:10.5px;
+  background:rgba(29,30,44,0.07);color:#2a1a0a;border:1.5px solid rgba(114,9,183,0.25);
+}
+.csv-preview{
+  width:155px;flex-shrink:0;background:rgba(82,183,136,0.07);
+  border-radius:12px;border:1.5px solid rgba(82,183,136,0.25);padding:8px;
+  display:flex;flex-direction:column;gap:4px;overflow:hidden;
+}
+.csv-lbl{font-size:9px;font-weight:800;color:var(--teal);letter-spacing:2px;text-transform:uppercase;margin-bottom:2px;text-align:center;}
+.csv-table{width:100%;border-collapse:collapse;font-size:9px;font-family:'Patrick Hand',cursive;}
+.csv-table th{background:rgba(42,157,143,0.15);color:#1a6b4a;padding:3px 5px;font-weight:800;border:1px solid rgba(42,157,143,0.2);}
+.csv-table td{padding:3px 5px;border:1px solid rgba(42,157,143,0.15);color:var(--ink);}
+.csv-table tr:nth-child(even) td{background:rgba(255,255,255,0.4);}
+.csv-note{font-size:9px;color:rgba(123,79,46,0.55);text-align:center;margin-top:4px;line-height:1.4;}
+
+/* ===== POPUP ===== */
+.popup-overlay{
+  position:fixed;inset:0;background:rgba(29,30,44,0.45);backdrop-filter:blur(7px);
+  z-index:100;display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:all 0.4s;
+}
+.popup-overlay.visible{opacity:1;pointer-events:all;}
+.popup-box{
+  background:linear-gradient(145deg,#fff9f0,#fff3e0);
+  border-radius:22px;padding:26px 34px;text-align:center;max-width:400px;width:92%;
+  box-shadow:0 16px 50px rgba(123,79,46,0.2),0 0 0 3px rgba(255,255,255,0.8);
+  border:2px solid rgba(244,162,97,0.4);
+  transform:scale(0.82);transition:all 0.4s;position:relative;overflow:hidden;
+}
+.popup-overlay.visible .popup-box{transform:scale(1);}
+.popup-box::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:4px;
+  background:linear-gradient(90deg,var(--orange),var(--gold),var(--teal),var(--purple));
+}
+.popup-icon{font-size:46px;margin-bottom:8px;display:block;}
+.popup-title{font-family:'Baloo 2',cursive;font-size:21px;font-weight:800;color:var(--ink);margin-bottom:8px;}
+.popup-body{font-size:12px;color:rgba(29,30,44,0.7);margin-bottom:18px;line-height:1.6;}
+.popup-btn{
+  background:linear-gradient(135deg,var(--orange),var(--tomato));color:white;
+  border:none;border-radius:20px;font-family:'Baloo 2',cursive;font-size:13px;font-weight:800;
+  padding:10px 30px;cursor:pointer;box-shadow:0 4px 14px rgba(255,107,53,0.4);transition:all 0.3s;
+}
+.popup-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(255,107,53,0.5);}
+.confetti-bit{position:absolute;border-radius:2px;animation:confettiRain var(--dur,1.5s) ease-out var(--del,0s) forwards;}
+@keyframes confettiRain{0%{transform:translate(0,0) rotate(0deg);opacity:1;}100%{transform:translate(var(--tx,20px),200px) rotate(720deg);opacity:0;}}
+
+/* scrollbars */
+::-webkit-scrollbar{width:3px;height:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(123,79,46,0.25);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<!-- floating deco -->
+<div class="bg-deco" style="left:3%;top:12%;--dur:9s;--del:0s;--rot0:-5deg;--rot1:5deg;">🍲</div>
+<div class="bg-deco" style="right:4%;top:8%;--dur:11s;--del:1s;--rot0:3deg;--rot1:-6deg;">👨‍🍳</div>
+<div class="bg-deco" style="left:8%;bottom:20%;--dur:8s;--del:2s;--rot0:0deg;--rot1:8deg;">🥄</div>
+<div class="bg-deco" style="right:7%;bottom:18%;--dur:10s;--del:0.5s;--rot0:-3deg;--rot1:4deg;">🧪</div>
+<div class="bg-deco" style="left:50%;top:5%;--dur:12s;--del:1.5s;--rot0:2deg;--rot1:-4deg;">⭐</div>
+<div class="bg-deco" style="left:20%;top:6%;--dur:7s;--del:3s;--rot0:-2deg;--rot1:6deg;">🫙</div>
+<div class="bg-deco" style="right:18%;top:14%;--dur:9.5s;--del:2.5s;--rot0:4deg;--rot1:-5deg;">🌿</div>
+<div class="bg-deco" style="left:40%;bottom:10%;--dur:10s;--del:0.8s;--rot0:-4deg;--rot1:3deg;">🔬</div>
+
+<div id="app">
+  <header>
+    <div class="main-title">🍜 WEB SCRAPING WITH BEAUTIFULSOUP 🍜</div>
+    <div class="subtitle">The Magic Kitchen of the Web</div>
+  </header>
+
+  <div class="progress-bar">
+    <div class="prog-step active" id="prog1"><div class="prog-dot"></div>Recipe 1</div>
+    <div class="prog-sep">›</div>
+    <div class="prog-step pending" id="prog2"><div class="prog-dot"></div>Recipe 2</div>
+    <div class="prog-sep">›</div>
+    <div class="prog-step pending" id="prog3"><div class="prog-dot"></div>Recipe 3</div>
+  </div>
+
+  <!-- ======== ACTIVITY 1 ======== -->
+  <div class="activity-card" id="act1Panel">
+    <div class="activity-header">
+      <div class="act-badge">🏷️ Recipe 1</div>
+      <div class="act-title">Sort the Ingredients — HTML Tag Classifier</div>
+    </div>
+    <div class="act-instruction">
+      🍳 Every website is a recipe! Drag each web element from the shelf into its correct HTML tag pot. Match each ingredient to the right container: &lt;title&gt;, &lt;h1&gt;, &lt;a&gt;, or &lt;td&gt;.
+    </div>
+    <div class="activity-body">
+      <div class="a1-body">
+        <div class="tag-columns" id="tagColumns">
+          <div class="tag-col">
+            <div class="tag-col-head th-title">🪧 &lt;title&gt;<br><span style="font-size:9px;opacity:0.75">Page Title</span></div>
+            <div class="tag-drop-zone" id="drop-title" data-cat="title"></div>
+          </div>
+          <div class="tag-col">
+            <div class="tag-col-head th-head">📢 &lt;h1&gt;<br><span style="font-size:9px;opacity:0.75">Main Heading</span></div>
+            <div class="tag-drop-zone" id="drop-h1" data-cat="h1"></div>
+          </div>
+          <div class="tag-col">
+            <div class="tag-col-head th-link">🔗 &lt;a&gt;<br><span style="font-size:9px;opacity:0.75">Hyperlink</span></div>
+            <div class="tag-drop-zone" id="drop-a" data-cat="a"></div>
+          </div>
+          <div class="tag-col">
+            <div class="tag-col-head th-data">📊 &lt;td&gt;<br><span style="font-size:9px;opacity:0.75">Table Data</span></div>
+            <div class="tag-drop-zone" id="drop-td" data-cat="td"></div>
+          </div>
+        </div>
+        <div class="a1-shelf" id="a1Shelf">
+          <div class="shelf-lbl">🥣 Ingredients</div>
+        </div>
+      </div>
+    </div>
+    <div id="feedback1" class="feedback-bar neutral">🥄 Drag web elements into the right HTML tag pot!</div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-shrink:0;margin-top:5px;">
+      <button class="check-btn" onclick="checkA1()">🔍 Check My Sorting</button>
+      <button class="next-btn" id="nextBtn1" onclick="showPopup('popup2')" disabled>Next Recipe →</button>
+    </div>
+  </div>
+
+  <!-- ======== ACTIVITY 2 ======== -->
+  <div class="activity-card" id="act2Panel" style="display:none">
+    <div class="activity-header">
+      <div class="act-badge">⚖️ Recipe 2</div>
+      <div class="act-title">Safe or Unsafe? — Ethical Scraping Practices</div>
+    </div>
+    <div class="act-instruction">
+      🧑‍🍳 A good chef respects the kitchen! Drag each scraping action into the correct pot — Safe (polite scraping) or Unsafe (harmful scraping). Think about how you'd treat a real library or store.
+    </div>
+    <div class="activity-body">
+      <div class="a2-body">
+        <div class="a2-shelf" id="a2Shelf">
+          <div class="shelf-lbl">🥣 Actions</div>
+        </div>
+        <div class="safe-col">
+          <div class="safe-head s">✅ SAFE SCRAPING</div>
+          <div class="su-drop" id="drop-safe" data-target="safe"></div>
+        </div>
+        <div class="unsafe-col">
+          <div class="safe-head u">❌ UNSAFE SCRAPING</div>
+          <div class="su-drop" id="drop-unsafe" data-target="unsafe"></div>
+        </div>
+      </div>
+    </div>
+    <div id="feedback2" class="feedback-bar neutral">🧑‍🍳 Sort scraping actions into Safe or Unsafe!</div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-shrink:0;margin-top:5px;">
+      <button class="check-btn" onclick="checkA2()">🔍 Check My Choices</button>
+      <button class="next-btn" id="nextBtn2" onclick="showPopup('popup3')" disabled>Next Recipe →</button>
+    </div>
+  </div>
+
+  <!-- ======== ACTIVITY 3 ======== -->
+  <div class="activity-card" id="act3Panel" style="display:none">
+    <div class="activity-header">
+      <div class="act-badge">👩‍💻 Recipe 3</div>
+      <div class="act-title">Build the Scraper — Code the Workflow!</div>
+    </div>
+    <div class="act-instruction">
+      🍜 Time to cook! Drag the Python code blocks into the correct order to build a complete BeautifulSoup scraper. Switch between Cricket Scores and Book Titles to practice both!
+    </div>
+    <div class="activity-body">
+      <div class="a3-tabs">
+        <button class="a3-tab active" onclick="switchA3('cricket',this)">🏏 Cricket Scores</button>
+        <button class="a3-tab" onclick="switchA3('books',this)">📚 Book Titles</button>
+      </div>
+      <div class="a3-body">
+        <div class="code-shelf" id="a3Shelf">
+          <div class="code-shelf-lbl">🧪 Snippets</div>
+        </div>
+        <div class="code-area" id="a3CodeArea"></div>
+        <div class="csv-preview">
+          <div class="csv-lbl">📄 CSV Output</div>
+          <div id="csvPreview"></div>
+          <div class="csv-note" id="csvNote">Complete the workflow to see your scraped data!</div>
+        </div>
+      </div>
+    </div>
+    <div id="feedback3" class="feedback-bar neutral">👩‍💻 Drag code blocks into the correct order!</div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-shrink:0;margin-top:5px;">
+      <button class="check-btn" onclick="checkA3()">🔍 Run My Scraper</button>
+      <button class="next-btn" id="nextBtn3" onclick="showPopup('popupFinal')" disabled>🎉 Serve the Dish!</button>
+    </div>
+  </div>
+</div>
+
+<!-- POPUPS -->
+<div class="popup-overlay" id="popup2">
+  <div class="popup-box">
+    <span class="popup-icon">🎉</span>
+    <div class="popup-title">Recipe 1 Complete!</div>
+    <div class="popup-body">Excellent sorting! You know your HTML tags — &lt;title&gt; for page names, &lt;h1&gt; for headings, &lt;a&gt; for links, and &lt;td&gt; for table data. BeautifulSoup uses exactly these to fish out the right data! 🎣</div>
+    <button class="popup-btn" onclick="goTo2()">Cook Recipe 2! ⚖️</button>
+  </div>
+</div>
+<div class="popup-overlay" id="popup3">
+  <div class="popup-box">
+    <span class="popup-icon">🌟</span>
+    <div class="popup-title">Recipe 2 Complete!</div>
+    <div class="popup-body">You're an ethical scraper! Always check robots.txt, add delays between requests, and never scrape private data. A polite scraper is a welcomed scraper! 🤝</div>
+    <button class="popup-btn" onclick="goTo3()">Cook Recipe 3! 👩‍💻</button>
+  </div>
+</div>
+<div class="popup-overlay" id="popupFinal">
+  <div class="popup-box" id="finalBox">
+    <span class="popup-icon">🏆</span>
+    <div class="popup-title">Master Chef of Data!</div>
+    <div class="popup-body">🎊 Incredible! You've mastered web scraping with BeautifulSoup — classifying HTML tags, practising ethical scraping, and building a full scraper workflow that saves data to CSV. The web is your kitchen! 🍜✨</div>
+    <button class="popup-btn" onclick="location.reload()">🔄 Cook Again!</button>
+  </div>
+</div>
+
+<script>
+// ===== BG CANVAS =====
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = innerWidth; canvas.height = innerHeight;
+
+const bubbles = Array.from({length:25},()=>({
+  x:Math.random()*canvas.width, y:canvas.height+Math.random()*100,
+  r:3+Math.random()*6, speed:0.4+Math.random()*0.6,
+  alpha:0.06+Math.random()*0.1, hue:Math.random()>0.5?'rgba(255,107,53,':'rgba(42,157,143,'
+}));
+const steamPuffs = Array.from({length:10},()=>({
+  x:canvas.width*(0.1+Math.random()*0.8),
+  y:canvas.height*(0.3+Math.random()*0.5),
+  r:15+Math.random()*25, alpha:0.04+Math.random()*0.05,
+  dx:(Math.random()-0.5)*0.3, dy:-0.3-Math.random()*0.3,
+  life:Math.random()
+}));
+const sparks = Array.from({length:18},()=>({
+  x:Math.random()*canvas.width, y:Math.random()*canvas.height,
+  r:1+Math.random()*2, alpha:0.12+Math.random()*0.15,
+  pulse:Math.random()*Math.PI*2, speed:0.03+Math.random()*0.04
+}));
+
+function drawBg(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // bubbles
+  bubbles.forEach(b=>{
+    b.y-=b.speed; if(b.y<-20){b.y=canvas.height+20;b.x=Math.random()*canvas.width;}
+    ctx.save();ctx.globalAlpha=b.alpha;
+    ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+    ctx.strokeStyle=b.hue+'0.5)';ctx.lineWidth=1.5;ctx.stroke();ctx.restore();
+  });
+  // steam
+  steamPuffs.forEach(s=>{
+    s.life+=0.006;if(s.life>1){s.life=0;s.x=canvas.width*(0.1+Math.random()*0.8);s.y=canvas.height*(0.4+Math.random()*0.4);}
+    const a=s.alpha*(1-s.life*0.9);
+    ctx.save();ctx.globalAlpha=a;
+    const grd=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,s.r*(1+s.life));
+    grd.addColorStop(0,'rgba(255,255,255,0.7)');grd.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.beginPath();ctx.arc(s.x+s.dx*s.life*30,s.y+s.dy*s.life*40,s.r*(1+s.life),0,Math.PI*2);
+    ctx.fillStyle=grd;ctx.fill();ctx.restore();
+  });
+  // sparks
+  sparks.forEach(sp=>{
+    sp.pulse+=sp.speed; const a=sp.alpha*(0.5+0.5*Math.sin(sp.pulse));
+    ctx.save();ctx.globalAlpha=a;ctx.fillStyle='rgba(244,162,97,0.8)';
+    ctx.beginPath();ctx.arc(sp.x,sp.y,sp.r,0,Math.PI*2);ctx.fill();ctx.restore();
+  });
+  requestAnimationFrame(drawBg);
+}
+requestAnimationFrame(drawBg);
+
+// ===== DRAG CORE =====
+let dragging=null;
+document.addEventListener('dragstart',e=>{const p=e.target.closest('[draggable="true"]');if(p&&!p.classList.contains('used'))dragging=p;});
+document.addEventListener('dragend',()=>dragging=null);
+function makeDrop(el,cb){
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('over'));
+  el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('over');cb(el,e);});
+}
+function setFB(id,msg,type){const f=document.getElementById(id);f.textContent=msg;f.className='feedback-bar '+type;}
+
+// ===== ACTIVITY 1 =====
+const a1Items=[
+  {id:'e1',label:'🌐 MySite.com — Home',cat:'title',color:'p-orange'},
+  {id:'e2',label:'📰 Today\'s Cricket News',cat:'h1',color:'p-purple'},
+  {id:'e3',label:'🔗 Click here for scores',cat:'a',color:'p-sky'},
+  {id:'e4',label:'📊 Run Rate: 6.5',cat:'td',color:'p-lime'},
+  {id:'e5',label:'🌐 Amazon India — Shopping',cat:'title',color:'p-orange'},
+  {id:'e6',label:'📢 Best Books of 2024',cat:'h1',color:'p-purple'},
+  {id:'e7',label:'🔗 Visit our contact page',cat:'a',color:'p-sky'},
+  {id:'e8',label:'📊 Score: 245/8',cat:'td',color:'p-lime'},
+  {id:'e9',label:'🌐 Flipkart — Shop Online',cat:'title',color:'p-orange'},
+  {id:'e10',label:'🔗 Read full article →',cat:'a',color:'p-sky'},
+];
+const placed1={};
+
+function setupA1(){
+  const shelf=document.getElementById('a1Shelf');
+  [...document.querySelectorAll('.tag-drop-zone')].forEach(z=>z.innerHTML='');
+  shelf.innerHTML='<div class="shelf-lbl">🥣 Ingredients</div>';
+  const shuffled=[...a1Items].sort(()=>Math.random()-0.5);
+  shuffled.forEach(item=>{
+    const el=document.createElement('div');
+    el.className=`piece ${item.color}`;el.draggable=true;
+    el.dataset.id=item.id;el.dataset.cat=item.cat;el.dataset.label=item.label;
+    el.textContent=item.label;shelf.appendChild(el);
+  });
+  ['title','h1','a','td'].forEach(cat=>{
+    const zone=document.getElementById('drop-'+cat);
+    makeDrop(zone,()=>{
+      if(!dragging||!dragging.dataset.id)return;
+      const id=dragging.dataset.id;
+      if(placed1[id])return;
+      placed1[id]={cat,label:dragging.dataset.label,correct:dragging.dataset.cat};
+      dragging.classList.add('used');
+      const chip=document.createElement('div');
+      chip.className='dropped-tag';chip.dataset.id=id;chip.textContent=dragging.dataset.label;
+      zone.appendChild(chip);
+      setFB('feedback1','✨ Placed! Keep sorting the ingredients!','neutral');
+    });
+  });
+}
+
+function checkA1(){
+  let correct=0,total=Object.keys(placed1).length;
+  if(total<a1Items.length){setFB('feedback1',`⚠ ${a1Items.length-total} more items to place!`,'neutral');return;}
+  document.querySelectorAll('.dropped-tag').forEach(c=>{
+    const id=c.dataset.id;const info=placed1[id];
+    if(info&&info.cat===info.correct){c.classList.add('correct');correct++;}
+    else c.classList.add('wrong');
+  });
+  if(correct===a1Items.length){setFB('feedback1','🎉 Perfect! All ingredients in the right pots!','success');document.getElementById('nextBtn1').disabled=false;document.getElementById('prog1').className='prog-step done';}
+  else setFB('feedback1',`${correct}/${a1Items.length} correct — red items are in the wrong pot!`,'error');
+}
+
+// ===== ACTIVITY 2 =====
+const a2Items=[
+  {id:'s1',label:'✅ Read the robots.txt file first',target:'safe',color:'p-lime'},
+  {id:'s2',label:'✅ Add a 2-second delay between requests',target:'safe',color:'p-lime'},
+  {id:'s3',label:'✅ Scrape only publicly available data',target:'safe',color:'p-lime'},
+  {id:'s4',label:'✅ Identify your scraper in the User-Agent',target:'safe',color:'p-lime'},
+  {id:'s5',label:'✅ Cache responses to avoid repeated calls',target:'safe',color:'p-lime'},
+  {id:'u1',label:'❌ Send 500 requests per second',target:'unsafe',color:'p-red'},
+  {id:'u2',label:'❌ Scrape private account messages',target:'unsafe',color:'p-red'},
+  {id:'u3',label:'❌ Ignore robots.txt completely',target:'unsafe',color:'p-red'},
+  {id:'u4',label:'❌ Scrape behind a login without permission',target:'unsafe',color:'p-red'},
+  {id:'u5',label:'❌ Sell scraped personal user data',target:'unsafe',color:'p-red'},
+];
+const placed2={};
+
+function setupA2(){
+  const shelf=document.getElementById('a2Shelf');
+  ['drop-safe','drop-unsafe'].forEach(id=>document.getElementById(id).innerHTML='');
+  shelf.innerHTML='<div class="shelf-lbl">🥣 Actions</div>';
+  const shuffled=[...a2Items].sort(()=>Math.random()-0.5);
+  shuffled.forEach(item=>{
+    const el=document.createElement('div');
+    el.className=`piece ${item.color}`;el.draggable=true;
+    el.dataset.id=item.id;el.dataset.target=item.target;el.dataset.label=item.label;
+    el.textContent=item.label;shelf.appendChild(el);
+  });
+  ['safe','unsafe'].forEach(t=>{
+    const zone=document.getElementById('drop-'+t);
+    makeDrop(zone,()=>{
+      if(!dragging||!dragging.dataset.id)return;
+      const id=dragging.dataset.id;
+      if(placed2[id])return;
+      placed2[id]={placed:t,correct:dragging.dataset.target,label:dragging.dataset.label};
+      dragging.classList.add('used');
+      const chip=document.createElement('div');
+      chip.className=`su-chip`;chip.dataset.id=id;chip.textContent=dragging.dataset.label;
+      zone.appendChild(chip);
+      setFB('feedback2','✨ Sorted! Keep going!','neutral');
+    });
+  });
+}
+
+function checkA2(){
+  let correct=0,total=Object.keys(placed2).length;
+  if(total<a2Items.length){setFB('feedback2',`⚠ ${a2Items.length-total} more actions to sort!`,'neutral');return;}
+  document.querySelectorAll('.su-chip').forEach(c=>{
+    const id=c.dataset.id;const info=placed2[id];
+    if(info&&info.placed===info.correct){c.classList.add('correct',info.correct);correct++;}
+    else c.classList.add('wrong');
+  });
+  if(correct===a2Items.length){setFB('feedback2','🎉 Brilliant! You know exactly how to scrape ethically!','success');document.getElementById('nextBtn2').disabled=false;document.getElementById('prog2').className='prog-step done';}
+  else setFB('feedback2',`${correct}/${a2Items.length} correct — check the highlighted items!`,'error');
+}
+
+// ===== ACTIVITY 3 =====
+const a3Data={
+  cricket:{
+    pieces:[
+      {id:'cr1',label:'import requests, csv'},
+      {id:'cr2',label:"from bs4 import BeautifulSoup"},
+      {id:'cr3',label:"url = 'https://cricscores.example.com'"},
+      {id:'cr4',label:"response = requests.get(url)"},
+      {id:'cr5',label:"soup = BeautifulSoup(response.text, 'html.parser')"},
+      {id:'cr6',label:"scores = soup.find_all('td', class_='score')"},
+      {id:'cr7',label:"with open('scores.csv', 'w') as f:"},
+      {id:'cr8',label:"    writer.writerows([[s.text] for s in scores])"},
+    ],
+    correct:['cr1','cr2','cr3','cr4','cr5','cr6','cr7','cr8'],
+    csvData:{head:['Match','Score'],rows:[['IND vs AUS','245/8'],['ENG vs NZ','312/6'],['PAK vs SA','198/10']]},
+    csvNote:'3 match scores scraped → saved to scores.csv'
+  },
+  books:{
+    pieces:[
+      {id:'bk1',label:'import requests, csv'},
+      {id:'bk2',label:"from bs4 import BeautifulSoup"},
+      {id:'bk3',label:"url = 'https://books.example.com'"},
+      {id:'bk4',label:"response = requests.get(url)"},
+      {id:'bk5',label:"soup = BeautifulSoup(response.text, 'html.parser')"},
+      {id:'bk6',label:"titles = soup.find_all('h2', class_='title')"},
+      {id:'bk7',label:"with open('books.csv', 'w') as f:"},
+      {id:'bk8',label:"    writer.writerows([[t.text] for t in titles])"},
+    ],
+    correct:['bk1','bk2','bk3','bk4','bk5','bk6','bk7','bk8'],
+    csvData:{head:['#','Book Title'],rows:[['1','The Alchemist'],['2','Atomic Habits'],['3','Ikigai']]},
+    csvNote:'3 book titles scraped → saved to books.csv'
+  }
+};
+let currentA3='cricket';
+const a3State={cricket:new Array(8).fill(null),books:new Array(8).fill(null)};
+
+function switchA3(mode,btn){
+  currentA3=mode;
+  document.querySelectorAll('.a3-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderA3();
+  setFB('feedback3','👩‍💻 Drag code blocks into the correct order!','neutral');
+}
+
+function renderA3(){
+  const d=a3Data[currentA3];
+  const state=a3State[currentA3];
+  const shelf=document.getElementById('a3Shelf');
+  const area=document.getElementById('a3CodeArea');
+  shelf.innerHTML='<div class="code-shelf-lbl">🧪 Snippets</div>';
+  area.innerHTML='';
+
+  const usedIds=state.filter(Boolean);
+  const shuffled=[...d.pieces].sort(()=>Math.random()-0.5);
+  shuffled.forEach(p=>{
+    const el=document.createElement('div');
+    el.className=`piece code-piece${usedIds.includes(p.id)?' used':''}`;
+    el.draggable=true;el.dataset.pid=p.id;el.dataset.label=p.label;
+    el.textContent=p.label;shelf.appendChild(el);
+  });
+
+  d.pieces.forEach((_,i)=>{
+    const slot=document.createElement('div');
+    slot.className='code-slot';slot.dataset.idx=i;
+    if(state[i]){
+      const p=d.pieces.find(x=>x.id===state[i]);
+      slot.classList.add('filled');
+      slot.innerHTML=`<span class="slot-num">${i+1}</span><span style="flex:1;font-size:10.5px;font-family:'Patrick Hand',cursive;">${p?p.label:''}</span><span class="slot-clear" onclick="clearA3(${i})">✕</span>`;
+    } else {
+      slot.innerHTML=`<span class="slot-num">${i+1}</span><span style="flex:1;font-size:10px;color:rgba(123,79,46,0.4);">Drop line ${i+1} here…</span>`;
+    }
+    makeDrop(slot,el=>{
+      if(!dragging||!dragging.dataset.pid)return;
+      if(a3State[currentA3][i])return;
+      const pid=dragging.dataset.pid;
+      a3State[currentA3][i]=pid;
+      dragging.classList.add('used');
+      el.classList.add('filled');
+      el.innerHTML=`<span class="slot-num">${i+1}</span><span style="flex:1;font-size:10.5px;font-family:'Patrick Hand',cursive;">${dragging.dataset.label}</span><span class="slot-clear" onclick="clearA3(${i})">✕</span>`;
+      setFB('feedback3','✨ Code line placed! Keep building!','neutral');
+    });
+    area.appendChild(slot);
+  });
+  renderCsvPreview(false);
+}
+
+function clearA3(i){
+  const pid=a3State[currentA3][i];if(!pid)return;
+  a3State[currentA3][i]=null;
+  const piece=document.querySelector(`[data-pid="${pid}"]`);
+  if(piece)piece.classList.remove('used');
+  renderA3();
+}
+
+function renderCsvPreview(show){
+  const d=a3Data[currentA3];
+  const preview=document.getElementById('csvPreview');
+  const note=document.getElementById('csvNote');
+  if(!show){preview.innerHTML='';note.textContent='Complete the workflow to see your scraped data!';return;}
+  let html=`<table class="csv-table"><thead><tr>${d.csvData.head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>`;
+  d.csvData.rows.forEach(r=>{html+=`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`;});
+  html+='</tbody></table>';
+  preview.innerHTML=html;
+  note.textContent=d.csvNote;
+}
+
+function checkA3(){
+  const d=a3Data[currentA3];
+  const state=a3State[currentA3];
+  if(state.some(v=>!v)){setFB('feedback3',`⚠ Place all ${d.pieces.length} code lines first!`,'neutral');return;}
+  const correct=d.correct.every((id,i)=>state[i]===id);
+  if(correct){
+    setFB('feedback3','🎉 Your scraper works! Data saved to CSV!','success');
+    document.getElementById('nextBtn3').disabled=false;
+    document.getElementById('prog3').className='prog-step done';
+    renderCsvPreview(true);
+  } else {
+    setFB('feedback3','❌ Code order is wrong. Think: Import → URL → Fetch → Parse → Find → Save!','error');
+  }
+}
+
+// ===== POPUPS =====
+function showPopup(id){document.getElementById(id).classList.add('visible');}
+function hidePopup(id){document.getElementById(id).classList.remove('visible');}
+
+function goTo2(){
+  hidePopup('popup2');
+  document.getElementById('act1Panel').style.display='none';
+  document.getElementById('act2Panel').style.display='flex';
+  document.getElementById('prog2').className='prog-step active';
+  setupA2();
+}
+
+function goTo3(){
+  hidePopup('popup3');
+  document.getElementById('act2Panel').style.display='none';
+  document.getElementById('act3Panel').style.display='flex';
+  document.getElementById('prog3').className='prog-step active';
+  renderA3();
+}
+
+document.getElementById('popupFinal').addEventListener('click',function once(){
+  const box=document.getElementById('finalBox');
+  const cols=['#ff6b35','#e63946','#2a9d8f','#52b788','#7209b7','#f4a261','#4cc9f0'];
+  for(let i=0;i<35;i++){
+    const c=document.createElement('div');c.className='confetti-bit';
+    c.style.cssText=`width:${5+Math.random()*6}px;height:${5+Math.random()*6}px;background:${cols[Math.floor(Math.random()*cols.length)]};left:${Math.random()*100}%;top:10%;--tx:${(Math.random()-0.5)*140}px;--dur:${1+Math.random()*1}s;--del:${Math.random()*0.4}s;`;
+    box.appendChild(c);setTimeout(()=>c.remove(),2500);
+  }
+  this.removeEventListener('click',once);
+});
+
+// ===== INIT =====
+setupA1();
+</script>
+</body>
+</html>

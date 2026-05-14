@@ -1,0 +1,1714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Image Recognition — How Does a Computer Identify a Cat?</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Teko:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap');
+
+  :root {
+    --pitch-green: #2d7a3a;
+    --dark-green: #1a4f24;
+    --stadium-bg: #0a1628;
+    --orange: #ff6b1a;
+    --saffron: #ff9933;
+    --india-green: #138808;
+    --india-blue: #000080;
+    --gold: #ffd700;
+    --white: #ffffff;
+    --light-blue: #89cff0;
+    --sky: #1a3a6b;
+    --crowd-color: #c0392b;
+    --panel-bg: rgba(10,22,40,0.92);
+    --accent: #ff6b1a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    font-family: 'Nunito', sans-serif;
+    background: var(--stadium-bg);
+    user-select: none;
+  }
+
+  /* ===== STADIUM BACKGROUND ===== */
+  #stadium-bg {
+    position: fixed; inset: 0; z-index: 0;
+    overflow: hidden;
+  }
+
+  .sky-layer {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, #050d1f 0%, #0d2145 40%, #1a3a6b 70%, #2d6a2d 70.1%, #1a4f24 100%);
+  }
+
+  /* Stars */
+  .stars {
+    position: absolute; top: 0; left: 0; right: 0; height: 65%;
+    overflow: hidden;
+  }
+  .star {
+    position: absolute; border-radius: 50%;
+    background: white; animation: twinkle 2s ease-in-out infinite;
+  }
+
+  @keyframes twinkle {
+    0%,100% { opacity:0.3; transform:scale(1); }
+    50% { opacity:1; transform:scale(1.4); }
+  }
+
+  /* Floodlights */
+  .floodlight {
+    position: absolute; top: 5%;
+    width: 6px; height: 40%;
+    background: #888;
+    transform-origin: bottom center;
+  }
+  .floodlight::before {
+    content: '';
+    position: absolute; top: -18px; left: 50%;
+    transform: translateX(-50%);
+    width: 40px; height: 14px;
+    background: #999;
+    border-radius: 4px 4px 0 0;
+  }
+  .floodlight-beam {
+    position: absolute; top: 100%; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 80px solid transparent;
+    border-right: 80px solid transparent;
+    border-top: 200px solid rgba(255,255,200,0.04);
+    animation: flickerBeam 3s ease-in-out infinite;
+  }
+  .floodlight:nth-child(1) { left: 5%; }
+  .floodlight:nth-child(2) { right: 5%; }
+  .floodlight:nth-child(3) { left: 22%; }
+  .floodlight:nth-child(4) { right: 22%; }
+
+  @keyframes flickerBeam {
+    0%,100% { opacity:0.6; }
+    50% { opacity:1; }
+    75% { opacity:0.8; }
+  }
+
+  /* Pitch */
+  .pitch-oval {
+    position: absolute; bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 90vw; height: 38vh;
+    background: radial-gradient(ellipse at center, #3a9a4a 0%, #2d7a3a 40%, #1a5a28 80%);
+    border-radius: 50% 50% 0 0 / 80% 80% 0 0;
+    box-shadow: 0 -10px 40px rgba(0,150,0,0.3);
+  }
+
+  /* Pitch stripes */
+  .pitch-center {
+    position: absolute; bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 12vw; height: 30vh;
+    background: repeating-linear-gradient(0deg, #c8a86b 0px, #c8a86b 3px, #b8985b 3px, #b8985b 8px);
+    border-radius: 4px 4px 0 0;
+  }
+
+  /* Stumps */
+  .stumps-group {
+    position: absolute; bottom: 4vh; display: flex; gap: 8px;
+  }
+  .stumps-group.batting { left: calc(50% - 3vw); transform: translateX(-50%); }
+  .stumps-group.bowling { right: calc(50% - 3vw); transform: translateX(50%); }
+  .stump {
+    width: 5px; height: 50px;
+    background: linear-gradient(180deg, #f5deb3, #d4a96a);
+    border-radius: 2px 2px 0 0;
+    position: relative;
+    animation: stumpGlow 2s ease-in-out infinite;
+  }
+  .stump::after {
+    content: '';
+    position: absolute; top: -6px; left: 50%;
+    transform: translateX(-50%);
+    width: 9px; height: 6px;
+    background: #f5deb3;
+    border-radius: 50%;
+  }
+  @keyframes stumpGlow {
+    0%,100% { box-shadow: 0 0 6px rgba(255,220,150,0.5); }
+    50% { box-shadow: 0 0 14px rgba(255,220,150,0.9); }
+  }
+
+  /* Crowd */
+  .crowd-row {
+    position: absolute; left: 0; right: 0;
+    display: flex; justify-content: center;
+    overflow: hidden;
+  }
+  .crowd-figure {
+    width: 18px; height: 28px;
+    border-radius: 50% 50% 0 0;
+    margin: 0 2px;
+    position: relative;
+    animation: cheer var(--dur) ease-in-out infinite;
+    animation-delay: var(--delay);
+  }
+  .crowd-figure::before {
+    content: '';
+    position: absolute; top: -10px; left: 50%;
+    transform: translateX(-50%);
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: inherit;
+    filter: brightness(1.2);
+  }
+  @keyframes cheer {
+    0%,100% { transform: scaleY(1) translateY(0); }
+    50% { transform: scaleY(0.85) translateY(3px); }
+  }
+
+  /* Flags */
+  .flag-container {
+    position: absolute; top: 5%; z-index: 2;
+    animation: flagWave 1.5s ease-in-out infinite;
+  }
+  .flag-india {
+    width: 48px; height: 30px;
+    display: flex; flex-direction: column;
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+  .flag-india .saffron { background: #ff9933; flex: 1; }
+  .flag-india .white-band { background: white; flex: 1; position: relative; }
+  .flag-india .green-band { background: #138808; flex: 1; }
+  .ashoka-chakra {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 10px; height: 10px;
+    border: 1.5px solid #000080;
+    border-radius: 50%;
+    animation: spinChakra 3s linear infinite;
+  }
+  .flag-pole {
+    position: absolute; left: -3px; top: -4px;
+    width: 3px; height: 44px;
+    background: #888;
+  }
+  @keyframes flagWave {
+    0%,100% { transform: skewX(-2deg) scaleX(1); }
+    25% { transform: skewX(3deg) scaleX(0.97); }
+    50% { transform: skewX(-1deg) scaleX(1.02); }
+    75% { transform: skewX(2deg) scaleX(0.98); }
+  }
+  @keyframes spinChakra {
+    from { transform: translate(-50%,-50%) rotate(0deg); }
+    to { transform: translate(-50%,-50%) rotate(360deg); }
+  }
+
+  /* Trophy */
+  .trophy {
+    position: absolute; top: 3%; right: 3%;
+    z-index: 2;
+    animation: trophyFloat 3s ease-in-out infinite;
+    filter: drop-shadow(0 0 10px rgba(255,215,0,0.7));
+  }
+  @keyframes trophyFloat {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  /* Moving light sweeps */
+  .light-sweep {
+    position: absolute; top: 0;
+    width: 3px; height: 100%;
+    background: linear-gradient(180deg, rgba(255,255,200,0) 0%, rgba(255,255,200,0.15) 50%, rgba(255,255,200,0) 100%);
+    animation: sweepLight 8s linear infinite;
+    opacity: 0;
+  }
+  .light-sweep:nth-child(1) { animation-delay: 0s; }
+  .light-sweep:nth-child(2) { animation-delay: 4s; }
+  @keyframes sweepLight {
+    0% { left: -5%; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { left: 105%; opacity: 0; }
+  }
+
+  /* Confetti cannon */
+  .confetti-piece {
+    position: absolute; top: -10px;
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    animation: confettiFall linear infinite;
+    opacity: 0;
+  }
+  @keyframes confettiFall {
+    0% { opacity:0; transform: translateY(0) rotate(0deg); }
+    10% { opacity:1; }
+    90% { opacity:1; }
+    100% { opacity:0; transform: translateY(100vh) rotate(720deg); }
+  }
+
+  /* ===== MAIN LAYOUT ===== */
+  #app {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 8px;
+  }
+
+  /* Title bar */
+  #title-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+    background: linear-gradient(135deg, #0a1628 0%, #1a3a6b 50%, #0a1628 100%);
+    border-bottom: 3px solid var(--gold);
+    padding: 6px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .title-text h1 {
+    font-family: 'Teko', sans-serif;
+    font-size: clamp(16px,2.5vw,26px);
+    color: var(--gold);
+    letter-spacing: 1px;
+    line-height: 1;
+    text-shadow: 0 0 20px rgba(255,215,0,0.5);
+  }
+  .title-text p {
+    font-size: clamp(9px,1.1vw,12px);
+    color: var(--light-blue);
+    letter-spacing: 2px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .score-board {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--gold);
+    border-radius: 6px;
+    padding: 4px 10px;
+    text-align: center;
+  }
+  .score-board .score-label {
+    font-size: 9px; color: var(--gold); letter-spacing: 2px; font-weight: 700;
+  }
+  .score-board .score-val {
+    font-family: 'Teko', sans-serif;
+    font-size: clamp(18px,2vw,24px);
+    color: white; line-height: 1;
+  }
+  .steps-indicator {
+    display: flex; gap: 6px; align-items: center;
+  }
+  .step-dot {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800;
+    border: 2px solid rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.4);
+    transition: all 0.4s;
+  }
+  .step-dot.active {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: #000;
+    box-shadow: 0 0 12px rgba(255,215,0,0.8);
+  }
+  .step-dot.done {
+    background: var(--india-green);
+    border-color: var(--india-green);
+    color: white;
+  }
+
+  /* ===== ACTIVITY PANEL ===== */
+  #activity-panel {
+    margin-top: 56px;
+    width: 100%;
+    max-width: 1100px;
+    height: calc(100vh - 64px);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 8px;
+  }
+
+  .activity-card {
+    background: var(--panel-bg);
+    border: 2px solid rgba(255,215,0,0.3);
+    border-radius: 16px;
+    padding: 12px 16px;
+    width: 100%;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+    backdrop-filter: blur(10px);
+  }
+
+  .activity-title {
+    font-family: 'Teko', sans-serif;
+    font-size: clamp(20px,3vw,30px);
+    color: var(--gold);
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .activity-badge {
+    background: var(--orange);
+    color: white; font-size: 11px; font-weight: 800;
+    padding: 2px 8px; border-radius: 20px;
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+
+  .activity-desc {
+    font-size: clamp(11px,1.3vw,14px);
+    color: #aac4e8;
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+
+  /* ===== ACTIVITY 1 - PIXEL GRID ===== */
+  #act1-area {
+    display: flex; gap: 16px; align-items: flex-start; justify-content: center; flex-wrap: wrap;
+  }
+
+  .drag-bank {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,215,0,0.2);
+    border-radius: 10px;
+    padding: 10px;
+    min-width: 130px;
+  }
+  .drag-bank h3 {
+    font-size: 11px; color: var(--gold); letter-spacing: 2px; font-weight: 700;
+    text-transform: uppercase; margin-bottom: 8px;
+  }
+  .drag-values {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+
+  .drag-token {
+    width: 38px; height: 38px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Teko', sans-serif; font-size: 18px; font-weight: 600;
+    cursor: grab; transition: all 0.2s;
+    border: 2px solid transparent;
+    position: relative;
+    touch-action: none;
+  }
+  .drag-token:hover { transform: scale(1.15); z-index: 5; }
+  .drag-token.dragging { opacity: 0.4; transform: scale(0.9); }
+
+  .val-0 { background: #1a1a2e; color: #6b7280; border-color: #374151; }
+  .val-50 { background: #1e3a5f; color: #60a5fa; border-color: #3b82f6; }
+  .val-100 { background: #1a3f2a; color: #6ee7b7; border-color: #10b981; }
+  .val-200 { background: #3f2a08; color: #fcd34d; border-color: #f59e0b; }
+  .val-255 { background: #4a2020; color: #f87171; border-color: #ef4444; }
+
+  .pixel-grid-wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .pixel-grid-label {
+    font-size: 10px; color: var(--light-blue); letter-spacing: 2px; font-weight: 700;
+  }
+
+  .pixel-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    background: rgba(0,0,0,0.3);
+    padding: 8px; border-radius: 10px;
+    border: 1px solid rgba(255,215,0,0.2);
+  }
+
+  .grid-cell {
+    width: clamp(34px,4vw,44px);
+    height: clamp(34px,4vw,44px);
+    border-radius: 6px;
+    background: #111827;
+    border: 2px dashed #374151;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Teko', sans-serif; font-size: 14px;
+    color: #6b7280;
+    transition: all 0.3s;
+    cursor: pointer;
+    position: relative;
+  }
+  .grid-cell.drag-over {
+    border-color: var(--gold);
+    background: rgba(255,215,0,0.1);
+    transform: scale(1.1);
+    box-shadow: 0 0 12px rgba(255,215,0,0.4);
+  }
+  .grid-cell.filled {
+    border-style: solid;
+    animation: cellPop 0.3s ease-out;
+  }
+  @keyframes cellPop {
+    0% { transform: scale(0.5); }
+    70% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+
+  .pixel-preview {
+    display: grid;
+    grid-template-columns: repeat(5,1fr);
+    gap: 2px;
+    background: rgba(0,0,0,0.3);
+    padding: 6px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .preview-pixel {
+    width: clamp(12px,1.5vw,16px);
+    height: clamp(12px,1.5vw,16px);
+    border-radius: 2px;
+    transition: background 0.3s;
+  }
+
+  .act1-cat-target {
+    background: rgba(0,0,0,0.3);
+    border: 1px dashed rgba(255,150,50,0.4);
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+  }
+  .act1-cat-target p { font-size: 10px; color: #ff9966; margin-bottom: 4px; font-weight: 700; letter-spacing: 1px; }
+
+  /* progress bar */
+  .progress-wrap {
+    width: 100%; background: rgba(0,0,0,0.3); border-radius: 20px; height: 8px; overflow:hidden; margin-top: 4px;
+  }
+  .progress-bar {
+    height: 100%; background: linear-gradient(90deg, var(--india-green), var(--gold));
+    border-radius: 20px; transition: width 0.4s ease;
+    box-shadow: 0 0 8px rgba(255,215,0,0.5);
+  }
+  .progress-text {
+    font-size: 11px; color: var(--gold); text-align: right; margin-top: 2px; font-weight: 700;
+  }
+
+  .btn-next {
+    background: linear-gradient(135deg, var(--orange), #ff4500);
+    color: white; border: none;
+    padding: 10px 28px; border-radius: 30px;
+    font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 800;
+    cursor: pointer; letter-spacing: 1px;
+    transition: all 0.2s;
+    box-shadow: 0 4px 20px rgba(255,107,26,0.5);
+    margin-top: 8px;
+  }
+  .btn-next:hover { transform: scale(1.05); box-shadow: 0 6px 30px rgba(255,107,26,0.7); }
+  .btn-next:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* ===== ACTIVITY 2 - CONVOLUTION ===== */
+  #act2-area {
+    display: flex; gap: 12px; align-items: flex-start; justify-content: center; flex-wrap: wrap;
+  }
+
+  .filter-kernel {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,215,0,0.2);
+    border-radius: 10px; padding: 10px;
+    text-align: center;
+  }
+  .filter-kernel h3 {
+    font-size: 10px; color: var(--gold); letter-spacing: 2px; margin-bottom: 6px;
+    font-weight: 700; text-transform: uppercase;
+  }
+  .kernel-grid {
+    display: grid; grid-template-columns: repeat(3,1fr); gap: 4px;
+  }
+  .kernel-cell {
+    width: 38px; height: 38px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Teko', sans-serif; font-size: 16px; font-weight: 600;
+    cursor: grab;
+    transition: all 0.2s;
+    touch-action: none;
+  }
+  .kernel-cell:hover { transform: scale(1.15); }
+  .kernel-cell.dragging { opacity: 0.4; }
+
+  .kval-neg { background: #3f0f1f; color: #f87171; border: 2px solid #ef4444; }
+  .kval-zero { background: #1a1a2e; color: #6b7280; border: 2px solid #374151; }
+  .kval-pos { background: #0f2f1f; color: #6ee7b7; border: 2px solid #10b981; }
+
+  .conv-input-grid {
+    display: grid; grid-template-columns: repeat(5,1fr); gap: 3px;
+    background: rgba(0,0,0,0.3); padding: 8px; border-radius: 10px;
+    border: 1px solid rgba(255,215,0,0.2);
+  }
+  .conv-cell {
+    width: clamp(30px,3.5vw,38px);
+    height: clamp(30px,3.5vw,38px);
+    border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Teko', sans-serif; font-size: 13px; font-weight: 600;
+    border: 2px dashed #374151;
+    transition: all 0.3s;
+    cursor: pointer;
+    color: #6b7280;
+  }
+  .conv-cell.applied { border-style: solid; animation: cellPop 0.3s; }
+  .conv-cell.processing {
+    animation: pulseCell 0.5s ease-in-out;
+    box-shadow: 0 0 15px rgba(255,215,0,0.6);
+  }
+  @keyframes pulseCell { 0%,100%{transform:scale(1)} 50%{transform:scale(1.2)} }
+
+  .arrow-icon {
+    font-size: 28px; color: var(--gold); align-self: center;
+    animation: arrowPulse 1.5s ease-in-out infinite;
+    filter: drop-shadow(0 0 8px rgba(255,215,0,0.8));
+  }
+  @keyframes arrowPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.2)} }
+
+  .output-grid-wrap {
+    text-align: center;
+  }
+  .output-label { font-size: 10px; color: var(--light-blue); letter-spacing: 2px; font-weight: 700; margin-bottom: 6px; }
+  .output-grid {
+    display: grid; grid-template-columns: repeat(3,1fr); gap: 3px;
+    background: rgba(0,0,0,0.3); padding: 8px; border-radius: 10px;
+    border: 1px solid rgba(255,100,26,0.3);
+  }
+  .out-cell {
+    width: clamp(30px,3.5vw,38px);
+    height: clamp(30px,3.5vw,38px);
+    border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Teko', sans-serif; font-size: 13px;
+    background: #111827; border: 2px solid #374151;
+    transition: all 0.5s;
+    color: #6b7280;
+  }
+  .out-cell.bright {
+    background: #fff8dc; color: #000; border-color: var(--gold);
+    box-shadow: 0 0 10px rgba(255,215,0,0.5);
+  }
+  .out-cell.dark { background: #1a1a2e; color: #4b5563; border-color: #1f2937; }
+
+  /* ===== ACTIVITY 3 - PATTERN MATCHING ===== */
+  #act3-area {
+    display: flex; gap: 12px; align-items: flex-start; justify-content: center; flex-wrap: wrap;
+  }
+
+  .feature-bank {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,215,0,0.2);
+    border-radius: 10px; padding: 10px;
+    min-width: 150px;
+  }
+  .feature-bank h3 { font-size: 10px; color: var(--gold); letter-spacing: 2px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; }
+
+  .feature-card {
+    background: rgba(255,255,255,0.05);
+    border: 2px solid rgba(255,255,255,0.15);
+    border-radius: 8px; padding: 8px 10px;
+    margin-bottom: 6px;
+    cursor: grab;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 8px;
+    touch-action: none;
+  }
+  .feature-card:hover { transform: translateX(4px); border-color: var(--gold); }
+  .feature-card.dragging { opacity: 0.4; }
+  .feature-icon { font-size: 20px; }
+  .feature-label { font-size: 12px; color: white; font-weight: 700; }
+  .feature-desc { font-size: 10px; color: #9ca3af; }
+
+  .cat-silhouette {
+    background: rgba(0,0,0,0.4);
+    border: 2px solid rgba(255,150,50,0.3);
+    border-radius: 12px; padding: 12px;
+    min-width: 200px; text-align: center;
+  }
+  .cat-silhouette h3 { font-size: 10px; color: var(--orange); letter-spacing: 2px; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; }
+
+  .cat-svg-wrap {
+    position: relative; display: inline-block; margin-bottom: 8px;
+  }
+  .cat-svg-wrap svg { width: clamp(80px,8vw,100px); height: auto; }
+
+  .feature-drop-zones {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px;
+  }
+  .drop-zone {
+    border: 2px dashed rgba(255,255,255,0.2);
+    border-radius: 8px; padding: 6px;
+    min-height: 50px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; font-size: 10px; color: #6b7280;
+    transition: all 0.3s;
+    cursor: pointer;
+  }
+  .drop-zone.drag-over {
+    border-color: var(--gold);
+    background: rgba(255,215,0,0.1);
+    color: var(--gold);
+  }
+  .drop-zone.matched {
+    border-color: var(--india-green);
+    background: rgba(19,136,8,0.15);
+    color: #6ee7b7;
+    animation: matchPop 0.4s ease-out;
+  }
+  .drop-zone.wrong {
+    border-color: #ef4444;
+    background: rgba(239,68,68,0.1);
+    animation: shake 0.4s ease-out;
+  }
+  @keyframes matchPop { 0%{transform:scale(0.9)} 60%{transform:scale(1.08)} 100%{transform:scale(1)} }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+
+  .confidence-display {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,215,0,0.2);
+    border-radius: 10px; padding: 10px;
+    min-width: 140px;
+  }
+  .confidence-display h3 { font-size: 10px; color: var(--gold); letter-spacing: 2px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; }
+  .conf-bar-wrap { margin-bottom: 6px; }
+  .conf-label { font-size: 11px; color: #d1d5db; font-weight: 600; margin-bottom: 3px; }
+  .conf-bar {
+    height: 12px; background: rgba(0,0,0,0.4); border-radius: 10px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .conf-fill {
+    height: 100%; border-radius: 10px; transition: width 0.8s ease;
+    width: 0%;
+  }
+  .conf-fill.cat { background: linear-gradient(90deg, #10b981, #6ee7b7); }
+  .conf-fill.dog { background: linear-gradient(90deg, #f59e0b, #fcd34d); }
+  .conf-fill.rabbit { background: linear-gradient(90deg, #3b82f6, #93c5fd); }
+  .conf-pct { font-size: 11px; color: white; font-weight: 700; text-align: right; }
+
+  .verdict-box {
+    background: rgba(0,0,0,0.5);
+    border: 2px solid rgba(255,215,0,0.3);
+    border-radius: 8px; padding: 8px;
+    text-align: center; margin-top: 6px;
+    min-height: 40px; display: flex; align-items: center; justify-content: center;
+  }
+  .verdict-text { font-family: 'Teko', sans-serif; font-size: 18px; color: var(--gold); }
+
+  /* ===== POPUPS ===== */
+  .popup-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+  .popup-card {
+    background: linear-gradient(135deg, #0d2145, #1a3a6b);
+    border: 3px solid var(--gold);
+    border-radius: 20px;
+    padding: 24px 32px;
+    max-width: 420px; width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(255,215,0,0.2);
+    animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  @keyframes popIn { from{transform:scale(0.5) rotate(-5deg);opacity:0} to{transform:scale(1) rotate(0deg);opacity:1} }
+
+  .popup-emoji { font-size: 56px; margin-bottom: 8px; animation: bounce 0.6s ease-out; }
+  @keyframes bounce { 0%{transform:translateY(-30px);opacity:0} 60%{transform:translateY(8px)} 100%{transform:translateY(0)} }
+  .popup-title {
+    font-family: 'Teko', sans-serif; font-size: 34px; color: var(--gold);
+    margin-bottom: 6px; line-height: 1;
+    text-shadow: 0 0 20px rgba(255,215,0,0.5);
+  }
+  .popup-msg { font-size: 14px; color: #d1d5db; line-height: 1.5; margin-bottom: 16px; }
+  .popup-fact {
+    background: rgba(255,215,0,0.08);
+    border: 1px solid rgba(255,215,0,0.3);
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 13px; color: #fcd34d;
+    margin-bottom: 16px; line-height: 1.4;
+    font-weight: 600;
+  }
+
+  /* final popup */
+  .final-popup .popup-card {
+    max-width: 500px;
+    background: linear-gradient(135deg, #0a1628, #1a3a6b, #0f2f1f);
+    border-color: var(--gold);
+  }
+  .stars-burst {
+    display: flex; justify-content: center; gap: 8px; margin-bottom: 8px;
+    font-size: 28px;
+    animation: starBurst 0.5s ease-out;
+  }
+  @keyframes starBurst { from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1} }
+  .learning-pills {
+    display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 10px 0;
+  }
+  .pill {
+    background: rgba(255,215,0,0.1);
+    border: 1px solid rgba(255,215,0,0.3);
+    color: #fcd34d; font-size: 11px; font-weight: 700;
+    padding: 4px 12px; border-radius: 20px;
+  }
+
+  .hidden { display: none !important; }
+
+  /* ===== FLOATING FEEDBACK ===== */
+  .float-feedback {
+    position: fixed; z-index: 200;
+    font-family: 'Teko', sans-serif; font-size: 28px; font-weight: 700;
+    pointer-events: none;
+    animation: floatUp 1.2s ease-out forwards;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  }
+  @keyframes floatUp {
+    0% { opacity:1; transform:translateY(0) scale(1); }
+    100% { opacity:0; transform:translateY(-80px) scale(1.4); }
+  }
+
+  /* drag ghost */
+  #drag-ghost {
+    position: fixed; pointer-events: none; z-index: 1000;
+    opacity: 0.9; transform: scale(1.1) rotate(5deg);
+    transition: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- STADIUM BACKGROUND -->
+<div id="stadium-bg">
+  <div class="sky-layer"></div>
+  <div class="stars" id="stars-container"></div>
+
+  <!-- Floodlights -->
+  <div class="floodlight"><div class="floodlight-beam"></div></div>
+  <div class="floodlight"><div class="floodlight-beam"></div></div>
+  <div class="floodlight"><div class="floodlight-beam"></div></div>
+  <div class="floodlight"><div class="floodlight-beam"></div></div>
+
+  <!-- Light sweeps -->
+  <div class="light-sweep"></div>
+  <div class="light-sweep"></div>
+
+  <!-- Crowd rows -->
+  <div class="crowd-row" id="crowd1" style="bottom:38vh;"></div>
+  <div class="crowd-row" id="crowd2" style="bottom:40vh;"></div>
+  <div class="crowd-row" id="crowd3" style="bottom:42vh;"></div>
+
+  <!-- Pitch -->
+  <div class="pitch-oval"></div>
+  <div class="pitch-center"></div>
+
+  <!-- Stumps -->
+  <div class="stumps-group batting">
+    <div class="stump"></div><div class="stump"></div><div class="stump"></div>
+  </div>
+  <div class="stumps-group bowling">
+    <div class="stump"></div><div class="stump"></div><div class="stump"></div>
+  </div>
+
+  <!-- Flags -->
+  <div class="flag-container" style="left:2%">
+    <div class="flag-pole"></div>
+    <div class="flag-india">
+      <div class="saffron"></div>
+      <div class="white-band"><div class="ashoka-chakra"></div></div>
+      <div class="green-band"></div>
+    </div>
+  </div>
+  <div class="flag-container" style="left:8%">
+    <div class="flag-pole"></div>
+    <div class="flag-india">
+      <div class="saffron"></div>
+      <div class="white-band"><div class="ashoka-chakra"></div></div>
+      <div class="green-band"></div>
+    </div>
+  </div>
+  <div class="flag-container" style="right:2%">
+    <div class="flag-pole"></div>
+    <div class="flag-india">
+      <div class="saffron"></div>
+      <div class="white-band"><div class="ashoka-chakra"></div></div>
+      <div class="green-band"></div>
+    </div>
+  </div>
+  <div class="flag-container" style="right:8%">
+    <div class="flag-pole"></div>
+    <div class="flag-india">
+      <div class="saffron"></div>
+      <div class="white-band"><div class="ashoka-chakra"></div></div>
+      <div class="green-band"></div>
+    </div>
+  </div>
+
+  <!-- Trophy SVG -->
+  <div class="trophy">
+    <svg width="44" height="56" viewBox="0 0 44 56" fill="none">
+      <rect x="14" y="46" width="16" height="5" rx="2" fill="#c8a86b"/>
+      <rect x="10" y="50" width="24" height="4" rx="2" fill="#b8985b"/>
+      <rect x="17" y="36" width="10" height="12" rx="1" fill="#d4a96a"/>
+      <path d="M8 8 C8 32 36 32 36 8 Z" fill="#ffd700"/>
+      <path d="M8 8 C4 8 2 14 4 18 C6 22 10 22 12 18" fill="#ffd700"/>
+      <path d="M36 8 C40 8 42 14 40 18 C38 22 34 22 32 18" fill="#ffd700"/>
+      <ellipse cx="22" cy="8" rx="14" ry="4" fill="#ffe040"/>
+      <text x="22" y="24" font-size="12" text-anchor="middle" fill="#0d2145" font-weight="bold">🏆</text>
+    </svg>
+  </div>
+
+  <!-- Confetti container -->
+  <div id="confetti-container"></div>
+</div>
+
+<!-- DRAG GHOST -->
+<div id="drag-ghost"></div>
+
+<!-- TITLE BAR -->
+<div id="title-bar">
+  <div class="title-text">
+    <p>🏏 PLANRS ACADEMY — AI CHALLENGE</p>
+    <h1>IMAGE RECOGNITION — HOW DOES A COMPUTER IDENTIFY A CAT?</h1>
+  </div>
+  <div class="steps-indicator">
+    <div class="step-dot active" id="dot1">1</div>
+    <div class="step-dot" id="dot2">2</div>
+    <div class="step-dot" id="dot3">3</div>
+  </div>
+  <div class="score-board">
+    <div class="score-label">SCORE</div>
+    <div class="score-val" id="score-val">0</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div id="activity-panel">
+
+    <!-- ===== ACTIVITY 1 ===== -->
+    <div id="activity-1" class="activity-card">
+      <div class="activity-title">
+        <span class="activity-badge">Activity 1</span>
+        🎨 BUILD THE PIXEL GRID
+      </div>
+      <div class="activity-desc">
+        📱 Just like a rangoli pattern made of dots, computers see images as <strong style="color:#fcd34d">numbers in a grid!</strong>
+        Drag brightness values (0=dark, 255=bright) into the 5×5 pixel grid below to reveal the hidden cat shape!
+      </div>
+      <div id="act1-area">
+        <div class="drag-bank">
+          <h3>🎲 Value Tokens</h3>
+          <div class="drag-values" id="token-bank">
+            <div class="drag-token val-0" data-val="0" draggable="true">0</div>
+            <div class="drag-token val-0" data-val="0" draggable="true">0</div>
+            <div class="drag-token val-50" data-val="50" draggable="true">50</div>
+            <div class="drag-token val-100" data-val="100" draggable="true">100</div>
+            <div class="drag-token val-200" data-val="200" draggable="true">200</div>
+            <div class="drag-token val-200" data-val="200" draggable="true">200</div>
+            <div class="drag-token val-255" data-val="255" draggable="true">255</div>
+            <div class="drag-token val-255" data-val="255" draggable="true">255</div>
+          </div>
+          <div style="margin-top:8px;font-size:10px;color:#9ca3af;line-height:1.4">
+            <div>⬛ 0 = Black/Dark</div>
+            <div>🟦 50 = Very Dark</div>
+            <div>🟩 100 = Medium</div>
+            <div>🟨 200 = Bright</div>
+            <div>🟥 255 = Max Bright</div>
+          </div>
+        </div>
+
+        <div class="pixel-grid-wrap">
+          <div class="pixel-grid-label">📊 5×5 PIXEL MATRIX (drag values here)</div>
+          <div class="pixel-grid" id="pixel-grid"></div>
+          <div class="progress-wrap">
+            <div class="progress-bar" id="act1-progress" style="width:0%"></div>
+          </div>
+          <div class="progress-text" id="act1-progress-text">0 / 25 filled</div>
+          <button class="btn-next" id="act1-next" disabled onclick="completeAct1()">
+            🏏 NEXT ACTIVITY →
+          </button>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;align-items:center">
+          <div class="act1-cat-target">
+            <p>🐱 TARGET PATTERN</p>
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:2px;padding:4px">
+              <!-- Cat pixel art target shown as colored dots -->
+              <div id="target-preview"></div>
+            </div>
+          </div>
+          <div class="pixel-grid-wrap">
+            <div class="pixel-grid-label">👁 LIVE PREVIEW</div>
+            <div class="pixel-preview" id="pixel-preview"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ACTIVITY 2 ===== -->
+    <div id="activity-2" class="activity-card hidden">
+      <div class="activity-title">
+        <span class="activity-badge">Activity 2</span>
+        🔍 APPLY THE EDGE-DETECTION FILTER
+      </div>
+      <div class="activity-desc">
+        🏟️ Like a TV camera zooming in on the stumps, computers use <strong style="color:#fcd34d">filter kernels</strong> to find edges & shapes!
+        Drag the filter values onto the pixel grid to run the convolution and see what the computer detects!
+      </div>
+      <div id="act2-area">
+
+        <div class="filter-kernel">
+          <h3>🔧 Edge-Detect Kernel</h3>
+          <div class="kernel-grid" id="kernel-grid"></div>
+          <div style="margin-top:8px;font-size:10px;color:#9ca3af;line-height:1.5">
+            🟥 Negative = push dark<br>
+            ⬛ Zero = ignore<br>
+            🟩 Positive = pull bright
+          </div>
+          <div style="margin-top:8px;background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.2);border-radius:6px;padding:6px;font-size:10px;color:#fcd34d;line-height:1.4">
+            💡 Drag the highlighted kernel cell onto any pixel in the input grid!
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:center">
+          <div style="font-size:10px;color:var(--light-blue);letter-spacing:2px;font-weight:700">INPUT PIXELS</div>
+          <div class="conv-input-grid" id="conv-grid"></div>
+          <div style="font-size:10px;color:#9ca3af;margin-top:4px">← Drop kernel values here (3×3 region)</div>
+        </div>
+
+        <div class="arrow-icon">→</div>
+
+        <div class="output-grid-wrap">
+          <div class="output-label">OUTPUT (EDGES FOUND)</div>
+          <div class="output-grid" id="output-grid"></div>
+          <div id="act2-msg" style="margin-top:8px;font-size:11px;color:#6ee7b7;font-weight:700;text-align:center;min-height:16px"></div>
+          <div class="progress-wrap" style="margin-top:6px">
+            <div class="progress-bar" id="act2-progress" style="width:0%"></div>
+          </div>
+          <div class="progress-text" id="act2-progress-text">Apply kernel to 0 / 9 zones</div>
+          <button class="btn-next" id="act2-next" disabled onclick="completeAct2()">
+            🏏 NEXT ACTIVITY →
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ===== ACTIVITY 3 ===== -->
+    <div id="activity-3" class="activity-card hidden">
+      <div class="activity-title">
+        <span class="activity-badge">Activity 3</span>
+        🐱 IDENTIFY THE CAT FEATURES!
+      </div>
+      <div class="activity-desc">
+        🏆 Like how a doodhwala identifies each cow by its markings, AI finds <strong style="color:#fcd34d">features</strong> to recognise objects!
+        Drag the correct features to the matching cat body parts to boost the computer's confidence score!
+      </div>
+      <div id="act3-area">
+
+        <div class="feature-bank">
+          <h3>🎯 Feature Cards</h3>
+          <div id="feature-cards"></div>
+        </div>
+
+        <div class="cat-silhouette">
+          <h3>🐱 Cat — Drop Features Here!</h3>
+          <div class="cat-svg-wrap">
+            <svg viewBox="0 0 120 130" xmlns="http://www.w3.org/2000/svg">
+              <!-- Body -->
+              <ellipse cx="60" cy="95" rx="35" ry="28" fill="#f4a460" stroke="#d4845a" stroke-width="1.5"/>
+              <!-- Head -->
+              <ellipse cx="60" cy="55" rx="28" ry="24" fill="#f4a460" stroke="#d4845a" stroke-width="1.5"/>
+              <!-- Left ear -->
+              <polygon points="38,38 32,16 52,34" fill="#f4a460" stroke="#d4845a" stroke-width="1.5"/>
+              <polygon points="40,36 35,20 50,34" fill="#ff9999"/>
+              <!-- Right ear -->
+              <polygon points="82,38 88,16 68,34" fill="#f4a460" stroke="#d4845a" stroke-width="1.5"/>
+              <polygon points="80,36 85,20 70,34" fill="#ff9999"/>
+              <!-- Eyes -->
+              <ellipse cx="50" cy="52" rx="5" ry="5" fill="#2d8040"/>
+              <ellipse cx="70" cy="52" rx="5" ry="5" fill="#2d8040"/>
+              <circle cx="50" cy="52" r="3" fill="#1a1a2e"/>
+              <circle cx="70" cy="52" r="3" fill="#1a1a2e"/>
+              <circle cx="52" cy="50" r="1.2" fill="white"/>
+              <circle cx="72" cy="50" r="1.2" fill="white"/>
+              <!-- Nose -->
+              <polygon points="60,60 57,65 63,65" fill="#ff9999"/>
+              <!-- Mouth -->
+              <path d="M57,65 Q54,70 50,68" stroke="#d4845a" stroke-width="1.5" fill="none"/>
+              <path d="M63,65 Q66,70 70,68" stroke="#d4845a" stroke-width="1.5" fill="none"/>
+              <!-- Whiskers -->
+              <line x1="32" y1="62" x2="52" y2="63" stroke="#888" stroke-width="1"/>
+              <line x1="32" y1="66" x2="52" y2="65" stroke="#888" stroke-width="1"/>
+              <line x1="68" y1="63" x2="88" y2="62" stroke="#888" stroke-width="1"/>
+              <line x1="68" y1="65" x2="88" y2="66" stroke="#888" stroke-width="1"/>
+              <!-- Tail -->
+              <path d="M95,95 Q115,80 110,65 Q108,55 100,60" stroke="#f4a460" stroke-width="8" fill="none" stroke-linecap="round"/>
+              <!-- Paws -->
+              <ellipse cx="42" cy="120" rx="9" ry="6" fill="#f4a460" stroke="#d4845a" stroke-width="1"/>
+              <ellipse cx="78" cy="120" rx="9" ry="6" fill="#f4a460" stroke="#d4845a" stroke-width="1"/>
+              <!-- Fur stripes -->
+              <path d="M55,80 Q60,85 65,80" stroke="#d4845a" stroke-width="1" fill="none"/>
+              <path d="M52,87 Q60,93 68,87" stroke="#d4845a" stroke-width="1" fill="none"/>
+            </svg>
+          </div>
+          <div class="feature-drop-zones" id="drop-zones"></div>
+        </div>
+
+        <div class="confidence-display">
+          <h3>🤖 AI Confidence</h3>
+          <div class="conf-bar-wrap">
+            <div class="conf-label">🐱 Cat</div>
+            <div class="conf-bar"><div class="conf-fill cat" id="conf-cat"></div></div>
+            <div class="conf-pct" id="conf-cat-pct">0%</div>
+          </div>
+          <div class="conf-bar-wrap">
+            <div class="conf-label">🐶 Dog</div>
+            <div class="conf-bar"><div class="conf-fill dog" id="conf-dog"></div></div>
+            <div class="conf-pct" id="conf-dog-pct">45%</div>
+          </div>
+          <div class="conf-bar-wrap">
+            <div class="conf-label">🐰 Rabbit</div>
+            <div class="conf-bar"><div class="conf-fill rabbit" id="conf-rabbit"></div></div>
+            <div class="conf-pct" id="conf-rabbit-pct">30%</div>
+          </div>
+
+          <div class="verdict-box">
+            <div class="verdict-text" id="verdict-text">Analysing...</div>
+          </div>
+
+          <div class="progress-wrap" style="margin-top:8px">
+            <div class="progress-bar" id="act3-progress" style="width:0%"></div>
+          </div>
+          <div class="progress-text" id="act3-progress-text">Match 0 / 4 features</div>
+
+          <div style="margin-top:8px;background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.2);border-radius:6px;padding:6px;font-size:10px;color:#fcd34d;line-height:1.5">
+            💡 Google Lens & Aadhaar face recognition both use feature detection like this!
+          </div>
+
+          <button class="btn-next" id="act3-next" disabled onclick="completeFinal()">
+            🏆 FINISH! →
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- POPUP: Activity 1 Complete -->
+<div class="popup-overlay hidden" id="popup-1">
+  <div class="popup-card">
+    <div class="popup-emoji">🎉</div>
+    <div class="popup-title">PIXEL MASTER!</div>
+    <div class="popup-msg">Brilliant! You just built a pixel grid — exactly how a computer stores an image as numbers!</div>
+    <div class="popup-fact">📱 Did you know? A photo on your phone has <strong>12 MILLION pixels!</strong> That's like filling 48,000 of your grids with numbers!</div>
+    <button class="btn-next" onclick="startAct2()">⚡ NEXT: EDGE DETECTION →</button>
+  </div>
+</div>
+
+<!-- POPUP: Activity 2 Complete -->
+<div class="popup-overlay hidden" id="popup-2">
+  <div class="popup-card">
+    <div class="popup-emoji">🔍</div>
+    <div class="popup-title">EDGE DETECTIVE!</div>
+    <div class="popup-msg">Amazing! You ran a convolution filter — the same maths that helps cameras detect faces and shapes!</div>
+    <div class="popup-fact">🏏 Just like spotting the edge of a cricket bat in a photo, the computer found the bright/dark boundaries in your pixel grid!</div>
+    <button class="btn-next" onclick="startAct3()">🐱 FINAL: IDENTIFY THE CAT →</button>
+  </div>
+</div>
+
+<!-- POPUP: Final -->
+<div class="popup-overlay hidden final-popup" id="popup-final">
+  <div class="popup-card">
+    <div class="stars-burst">⭐🌟✨🌟⭐</div>
+    <div class="popup-emoji">🏆</div>
+    <div class="popup-title">CENTURY SCORER!</div>
+    <div class="popup-msg">Outstanding! You just did exactly what AI systems like Google Lens and Aadhaar face recognition do every day!</div>
+
+    <div class="learning-pills">
+      <span class="pill">✅ Pixels = Numbers</span>
+      <span class="pill">✅ Filters Find Edges</span>
+      <span class="pill">✅ Features = Identity</span>
+      <span class="pill">✅ AI Learns from Data</span>
+    </div>
+
+    <div class="popup-fact">
+      🇮🇳 <strong>Real India Connection:</strong> The same steps you just did — pixels → edges → features → decision — power Google Pay QR scanning, Aadhaar biometrics, and IRCTC document scanning across India!
+    </div>
+
+    <div style="font-size:13px;color:#9ca3af;margin-bottom:16px">
+      🐱 The computer now knows it's a cat with <span id="final-conf" style="color:#6ee7b7;font-weight:800">high confidence</span> — because YOU taught it the features!
+    </div>
+
+    <button class="btn-next" onclick="restartAll()" style="background:linear-gradient(135deg,#138808,#0d5c06)">
+      🔄 PLAY AGAIN!
+    </button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// STADIUM SETUP
+// ============================================================
+(function buildStadium() {
+  // Stars
+  const sc = document.getElementById('stars-container');
+  for (let i = 0; i < 80; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = Math.random() * 2.5 + 0.5;
+    s.style.cssText = `width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;animation-delay:${Math.random()*3}s;animation-duration:${1.5+Math.random()*2}s`;
+    sc.appendChild(s);
+  }
+
+  // Crowd
+  const crowdColors = ['#e74c3c','#3498db','#f39c12','#27ae60','#9b59b6','#e67e22','#1abc9c','#e91e63'];
+  ['crowd1','crowd2','crowd3'].forEach((id, rowIdx) => {
+    const row = document.getElementById(id);
+    const count = 60 - rowIdx * 5;
+    for (let i = 0; i < count; i++) {
+      const fig = document.createElement('div');
+      fig.className = 'crowd-figure';
+      const col = crowdColors[Math.floor(Math.random() * crowdColors.length)];
+      const dur = (0.8 + Math.random() * 0.8).toFixed(2) + 's';
+      const delay = (Math.random() * 1).toFixed(2) + 's';
+      fig.style.cssText = `background:${col};--dur:${dur};--delay:${delay};opacity:${0.6+Math.random()*0.4}`;
+      row.appendChild(fig);
+    }
+  });
+})();
+
+// ============================================================
+// SCORE & STATE
+// ============================================================
+let score = 0;
+let act1Filled = 0;
+let act2Applied = 0;
+let act3Matched = 0;
+const ACT1_REQUIRED = 10; // at least 10 cells filled
+const ACT2_REQUIRED = 6; // at least 6 kernel applications
+const ACT3_REQUIRED = 4;
+
+function addScore(pts) {
+  score += pts;
+  const el = document.getElementById('score-val');
+  el.textContent = score;
+  el.style.color = '#ffd700';
+  el.style.transform = 'scale(1.3)';
+  setTimeout(() => { el.style.transform = 'scale(1)'; el.style.color = 'white'; }, 300);
+}
+
+function showFeedback(text, color, x, y) {
+  const el = document.createElement('div');
+  el.className = 'float-feedback';
+  el.textContent = text;
+  el.style.cssText = `left:${x}px;top:${y}px;color:${color}`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1200);
+}
+
+// ============================================================
+// DRAG SYSTEM (unified touch + mouse)
+// ============================================================
+let dragData = null;
+let dragGhost = document.getElementById('drag-ghost');
+
+function startDrag(e, element, type, data) {
+  e.preventDefault();
+  dragData = { type, data, sourceEl: element };
+  dragGhost.innerHTML = element.outerHTML;
+  dragGhost.style.cssText = 'position:fixed;pointer-events:none;z-index:1000;opacity:0.85;';
+  const clone = dragGhost.firstChild;
+  if (clone) { clone.style.cursor = 'grabbing'; clone.style.transform = 'scale(1.15) rotate(5deg)'; }
+  document.body.appendChild(dragGhost);
+  moveDragGhost(e);
+}
+
+function moveDragGhost(e) {
+  const pt = e.touches ? e.touches[0] : e;
+  dragGhost.style.left = (pt.clientX - 20) + 'px';
+  dragGhost.style.top = (pt.clientY - 20) + 'px';
+}
+
+function endDrag(e) {
+  if (!dragData) return;
+  const pt = e.changedTouches ? e.changedTouches[0] : e;
+  const target = document.elementFromPoint(pt.clientX, pt.clientY);
+  dragGhost.innerHTML = '';
+  handleDrop(target, pt.clientX, pt.clientY);
+  dragData = null;
+}
+
+document.addEventListener('mousemove', moveDragGhost);
+document.addEventListener('touchmove', moveDragGhost, { passive: false });
+document.addEventListener('mouseup', endDrag);
+document.addEventListener('touchend', endDrag);
+
+function makeDraggable(el, type, data) {
+  el.addEventListener('mousedown', (e) => startDrag(e, el, type, data));
+  el.addEventListener('touchstart', (e) => startDrag(e, el, type, data), { passive: false });
+}
+
+function handleDrop(target, x, y) {
+  if (!dragData || !target) return;
+
+  if (dragData.type === 'token' && target.classList.contains('grid-cell')) {
+    dropTokenOnCell(target, x, y);
+  } else if (dragData.type === 'kernel' && target.classList.contains('conv-cell')) {
+    dropKernelOnConv(target, x, y);
+  } else if (dragData.type === 'feature' && target.classList.contains('drop-zone')) {
+    dropFeatureOnZone(target, x, y);
+  } else if (dragData.type === 'feature') {
+    // check parent
+    const zone = target.closest('.drop-zone');
+    if (zone) dropFeatureOnZone(zone, x, y);
+  }
+}
+
+// ============================================================
+// ACTIVITY 1 — PIXEL GRID
+// ============================================================
+// Cat-like 5x5 pattern values (0-255)
+const catPattern = [
+  255,0,255,0,255,
+  255,255,255,255,255,
+  0,255,255,255,0,
+  255,0,255,0,255,
+  0,255,255,255,0
+];
+
+const gridValues = new Array(25).fill(null);
+
+function initAct1() {
+  const grid = document.getElementById('pixel-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 25; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'grid-cell';
+    cell.dataset.index = i;
+    cell.textContent = '?';
+    grid.appendChild(cell);
+  }
+
+  // Preview
+  const preview = document.getElementById('pixel-preview');
+  preview.innerHTML = '';
+  for (let i = 0; i < 25; i++) {
+    const px = document.createElement('div');
+    px.className = 'preview-pixel';
+    px.style.background = '#111827';
+    preview.appendChild(px);
+  }
+
+  // Target preview
+  const tp = document.getElementById('target-preview');
+  tp.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:2px';
+  tp.innerHTML = '';
+  catPattern.forEach(v => {
+    const px = document.createElement('div');
+    const sz = 'clamp(8px,1vw,12px)';
+    px.style.cssText = `width:${sz};height:${sz};border-radius:1px;background:${valToColor(v)}`;
+    tp.appendChild(px);
+  });
+
+  // Make tokens draggable
+  document.querySelectorAll('.drag-token').forEach(tok => {
+    makeDraggable(tok, 'token', parseInt(tok.dataset.val));
+  });
+
+  // Make grid cells also clickable (cycle values)
+  grid.querySelectorAll('.grid-cell').forEach(cell => {
+    cell.addEventListener('click', () => {
+      if (dragData) return;
+      const vals = [0, 50, 100, 200, 255];
+      const idx = parseInt(cell.dataset.index);
+      const cur = gridValues[idx];
+      const curValIdx = cur === null ? -1 : vals.indexOf(cur);
+      const nextVal = vals[(curValIdx + 1) % vals.length];
+      setGridCell(cell, idx, nextVal);
+      addScore(1);
+    });
+  });
+}
+
+function dropTokenOnCell(cell, x, y) {
+  const idx = parseInt(cell.dataset.index);
+  const val = dragData.data;
+  setGridCell(cell, idx, val);
+  showFeedback('+' + val, '#ffd700', x - 20, y - 40);
+  addScore(3);
+}
+
+function setGridCell(cell, idx, val) {
+  gridValues[idx] = val;
+  cell.textContent = val;
+  cell.className = 'grid-cell filled';
+  cell.style.background = valToColor(val);
+  cell.style.borderColor = valToBorderColor(val);
+  cell.style.color = val > 120 ? '#000' : '#fff';
+
+  // Update preview
+  const px = document.getElementById('pixel-preview').children[idx];
+  if (px) px.style.background = valToColor(val);
+
+  // Update progress
+  act1Filled = gridValues.filter(v => v !== null).length;
+  const pct = Math.min(100, Math.round(act1Filled / 25 * 100));
+  document.getElementById('act1-progress').style.width = pct + '%';
+  document.getElementById('act1-progress-text').textContent = `${act1Filled} / 25 filled`;
+
+  if (act1Filled >= ACT1_REQUIRED) {
+    document.getElementById('act1-next').disabled = false;
+  }
+}
+
+function valToColor(v) {
+  if (v === null) return '#111827';
+  const g = Math.round(v);
+  return `rgb(${g},${g},${g})`;
+}
+function valToBorderColor(v) {
+  if (v >= 200) return '#f59e0b';
+  if (v >= 100) return '#10b981';
+  if (v >= 50) return '#3b82f6';
+  return '#374151';
+}
+
+function completeAct1() {
+  document.getElementById('popup-1').classList.remove('hidden');
+  addScore(50);
+}
+
+// ============================================================
+// ACTIVITY 2 — CONVOLUTION
+// ============================================================
+const edgeKernel = [
+  -1, -1, -1,
+  -1,  8, -1,
+  -1, -1, -1
+];
+
+const inputPixels = [
+  0, 0, 0, 200, 255,
+  0, 50, 100, 200, 255,
+  0, 50, 200, 255, 255,
+  0, 100, 200, 200, 100,
+  0, 0, 100, 100, 0
+];
+
+let outputValues = new Array(9).fill(null);
+let act2ZonesApplied = new Set();
+
+function initAct2() {
+  // Kernel UI
+  const kg = document.getElementById('kernel-grid');
+  kg.innerHTML = '';
+  edgeKernel.forEach((val, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'kernel-cell ' + (val < 0 ? 'kval-neg' : val === 0 ? 'kval-zero' : 'kval-pos');
+    cell.textContent = val;
+    cell.dataset.kval = val;
+    makeDraggable(cell, 'kernel', { kval: val, ki: i });
+    kg.appendChild(cell);
+  });
+
+  // Input conv grid (5x5)
+  const cg = document.getElementById('conv-grid');
+  cg.innerHTML = '';
+  inputPixels.forEach((val, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'conv-cell';
+    cell.textContent = val;
+    cell.dataset.idx = i;
+    cell.style.background = valToColor(val);
+    cell.style.color = val > 120 ? '#000' : '#aaa';
+    cell.style.borderColor = valToBorderColor(val);
+    cell.style.borderStyle = 'solid';
+    cg.appendChild(cell);
+  });
+
+  // Output grid (3x3)
+  const og = document.getElementById('output-grid');
+  og.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'out-cell';
+    cell.dataset.oi = i;
+    cell.textContent = '?';
+    og.appendChild(cell);
+  }
+}
+
+function dropKernelOnConv(target, x, y) {
+  const idx = parseInt(target.dataset.idx);
+  const row = Math.floor(idx / 5);
+  const col = idx % 5;
+
+  if (row < 1 || row > 3 || col < 1 || col > 3) {
+    showFeedback('Edge zone!', '#f87171', x, y - 40);
+    target.style.animation = 'none';
+    setTimeout(() => target.style.animation = '', 10);
+    return;
+  }
+
+  const outRow = row - 1;
+  const outCol = col - 1;
+  const outIdx = outRow * 3 + outCol;
+
+  if (act2ZonesApplied.has(outIdx)) {
+    showFeedback('Already done!', '#fcd34d', x, y - 40);
+    return;
+  }
+
+  // Compute convolution at this center
+  let sum = 0;
+  let ki = 0;
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      const nr = row + dr;
+      const nc = col + dc;
+      const pixVal = inputPixels[nr * 5 + nc];
+      sum += edgeKernel[ki] * pixVal;
+      ki++;
+    }
+  }
+  const clamped = Math.max(0, Math.min(255, sum));
+  outputValues[outIdx] = clamped;
+  act2ZonesApplied.add(outIdx);
+
+  // Visual on conv grid
+  target.classList.add('processing');
+  setTimeout(() => { target.classList.remove('processing'); target.classList.add('applied'); }, 500);
+
+  // Visual on output
+  const outCell = document.getElementById('output-grid').children[outIdx];
+  setTimeout(() => {
+    outCell.textContent = clamped;
+    outCell.className = 'out-cell ' + (clamped > 100 ? 'bright' : 'dark');
+  }, 600);
+
+  showFeedback(clamped > 100 ? '✨ EDGE!' : '⬛ flat', clamped > 100 ? '#ffd700' : '#6b7280', x, y - 40);
+  addScore(8);
+
+  act2Applied = act2ZonesApplied.size;
+  const pct = Math.round(act2Applied / 9 * 100);
+  document.getElementById('act2-progress').style.width = pct + '%';
+  document.getElementById('act2-progress-text').textContent = `Applied kernel to ${act2Applied} / 9 zones`;
+
+  const brightCount = outputValues.filter(v => v !== null && v > 100).length;
+  if (brightCount > 0) {
+    document.getElementById('act2-msg').textContent = `🔦 ${brightCount} edge(s) found!`;
+  }
+
+  if (act2Applied >= ACT2_REQUIRED) {
+    document.getElementById('act2-next').disabled = false;
+    document.getElementById('act2-msg').textContent = '🎉 Great job! You found the edges!';
+  }
+}
+
+function completeAct2() {
+  document.getElementById('popup-2').classList.remove('hidden');
+  addScore(50);
+}
+
+// ============================================================
+// ACTIVITY 3 — FEATURE MATCHING
+// ============================================================
+const features = [
+  { id: 'ears', icon: '👂', label: 'Pointy Ears', desc: 'Triangular tips on head', zone: 'zone-ears', correct: true },
+  { id: 'whiskers', icon: '〰️', label: 'Whiskers', desc: 'Long thin lines from face', zone: 'zone-whiskers', correct: true },
+  { id: 'tail', icon: '〜', label: 'Curved Tail', desc: 'Long curved tail shape', zone: 'zone-tail', correct: true },
+  { id: 'pupils', icon: '👁', label: 'Slit Pupils', desc: 'Vertical oval eye shape', zone: 'zone-eyes', correct: true },
+  { id: 'bark', icon: '🔊', label: 'Loud Bark', desc: 'Dog feature — wrong!', zone: null, correct: false },
+  { id: 'horn', icon: '🦄', label: 'Horn', desc: 'Unicorn feature — wrong!', zone: null, correct: false },
+];
+
+const dropZoneDefs = [
+  { id: 'zone-ears', label: '👂 Ears Region', expected: 'ears' },
+  { id: 'zone-whiskers', label: '〰️ Face Region', expected: 'whiskers' },
+  { id: 'zone-tail', label: '〜 Back Region', expected: 'tail' },
+  { id: 'zone-eyes', label: '👁 Eye Region', expected: 'pupils' },
+];
+
+let matchedZones = new Set();
+
+function initAct3() {
+  const fc = document.getElementById('feature-cards');
+  fc.innerHTML = '';
+  features.forEach(f => {
+    const card = document.createElement('div');
+    card.className = 'feature-card';
+    card.id = 'feat-' + f.id;
+    card.innerHTML = `<div class="feature-icon">${f.icon}</div><div><div class="feature-label">${f.label}</div><div class="feature-desc">${f.desc}</div></div>`;
+    makeDraggable(card, 'feature', f);
+    fc.appendChild(card);
+  });
+
+  const dz = document.getElementById('drop-zones');
+  dz.innerHTML = '';
+  dropZoneDefs.forEach(def => {
+    const zone = document.createElement('div');
+    zone.className = 'drop-zone';
+    zone.id = def.id;
+    zone.dataset.expected = def.expected;
+    zone.innerHTML = `<span style="font-size:16px">${def.label.split(' ')[0]}</span><span style="font-size:10px;color:#6b7280">${def.label.split(' ').slice(1).join(' ')}</span>`;
+    dz.appendChild(zone);
+  });
+
+  // confidence initial
+  document.getElementById('conf-dog').style.width = '45%';
+  document.getElementById('conf-dog-pct').textContent = '45%';
+  document.getElementById('conf-rabbit').style.width = '30%';
+  document.getElementById('conf-rabbit-pct').textContent = '30%';
+  document.getElementById('conf-cat').style.width = '5%';
+  document.getElementById('conf-cat-pct').textContent = '5%';
+  document.getElementById('verdict-text').textContent = '❓ Unknown...';
+}
+
+function dropFeatureOnZone(zone, x, y) {
+  if (!dragData || dragData.type !== 'feature') return;
+  const feat = dragData.data;
+
+  if (matchedZones.has(zone.id)) {
+    showFeedback('Already matched!', '#fcd34d', x, y - 40);
+    return;
+  }
+
+  if (feat.id === zone.dataset.expected) {
+    // Correct match
+    zone.classList.add('matched');
+    zone.innerHTML = `<span style="font-size:18px">${feat.icon}</span><span style="font-size:11px;color:#6ee7b7;font-weight:700">${feat.label} ✓</span>`;
+    matchedZones.add(zone.id);
+
+    const srcEl = document.getElementById('feat-' + feat.id);
+    if (srcEl) { srcEl.style.opacity = '0.3'; srcEl.style.cursor = 'not-allowed'; }
+
+    showFeedback('✅ Feature Found!', '#6ee7b7', x, y - 40);
+    addScore(15);
+    act3Matched = matchedZones.size;
+    updateConfidence();
+
+  } else if (!feat.correct) {
+    zone.classList.add('wrong');
+    setTimeout(() => zone.classList.remove('wrong'), 500);
+    showFeedback('❌ Wrong Feature!', '#f87171', x, y - 40);
+  } else {
+    zone.classList.add('wrong');
+    setTimeout(() => zone.classList.remove('wrong'), 500);
+    showFeedback('Wrong zone!', '#f59e0b', x, y - 40);
+  }
+
+  const pct = Math.round(act3Matched / ACT3_REQUIRED * 100);
+  document.getElementById('act3-progress').style.width = pct + '%';
+  document.getElementById('act3-progress-text').textContent = `Matched ${act3Matched} / ${ACT3_REQUIRED} features`;
+
+  if (act3Matched >= ACT3_REQUIRED) {
+    document.getElementById('act3-next').disabled = false;
+  }
+}
+
+function updateConfidence() {
+  const catPct = Math.min(95, 5 + act3Matched * 22);
+  const dogPct = Math.max(5, 45 - act3Matched * 10);
+  const rabbitPct = Math.max(3, 30 - act3Matched * 7);
+
+  document.getElementById('conf-cat').style.width = catPct + '%';
+  document.getElementById('conf-cat-pct').textContent = catPct + '%';
+  document.getElementById('conf-dog').style.width = dogPct + '%';
+  document.getElementById('conf-dog-pct').textContent = dogPct + '%';
+  document.getElementById('conf-rabbit').style.width = rabbitPct + '%';
+  document.getElementById('conf-rabbit-pct').textContent = rabbitPct + '%';
+
+  const vt = document.getElementById('verdict-text');
+  if (act3Matched === 0) vt.textContent = '❓ Unknown...';
+  else if (act3Matched === 1) vt.textContent = '🤔 Maybe Cat?';
+  else if (act3Matched === 2) vt.textContent = '🐾 Likely Cat!';
+  else if (act3Matched === 3) vt.textContent = '🐱 Probably Cat!';
+  else vt.textContent = '🐱 IT\'S A CAT! ✅';
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function startAct2() {
+  document.getElementById('popup-1').classList.add('hidden');
+  document.getElementById('activity-1').classList.add('hidden');
+  document.getElementById('activity-2').classList.remove('hidden');
+  document.getElementById('dot1').classList.remove('active');
+  document.getElementById('dot1').classList.add('done');
+  document.getElementById('dot2').classList.add('active');
+  initAct2();
+}
+
+function startAct3() {
+  document.getElementById('popup-2').classList.add('hidden');
+  document.getElementById('activity-2').classList.add('hidden');
+  document.getElementById('activity-3').classList.remove('hidden');
+  document.getElementById('dot2').classList.remove('active');
+  document.getElementById('dot2').classList.add('done');
+  document.getElementById('dot3').classList.add('active');
+  initAct3();
+}
+
+function completeFinal() {
+  document.getElementById('final-conf').textContent = document.getElementById('conf-cat-pct').textContent;
+  document.getElementById('popup-final').classList.remove('hidden');
+  launchConfetti();
+  addScore(100);
+}
+
+function restartAll() {
+  document.getElementById('popup-final').classList.add('hidden');
+  document.getElementById('activity-2').classList.add('hidden');
+  document.getElementById('activity-3').classList.add('hidden');
+  document.getElementById('activity-1').classList.remove('hidden');
+  document.getElementById('dot1').classList.add('active');
+  document.getElementById('dot1').classList.remove('done');
+  document.getElementById('dot2').classList.remove('active', 'done');
+  document.getElementById('dot3').classList.remove('active', 'done');
+  score = 0; act1Filled = 0; act2Applied = 0; act3Matched = 0;
+  document.getElementById('score-val').textContent = '0';
+  act2ZonesApplied.clear();
+  matchedZones.clear();
+  gridValues.fill(null);
+  outputValues.fill(null);
+  initAct1();
+  stopConfetti();
+}
+
+// ============================================================
+// CONFETTI
+// ============================================================
+let confettiInterval = null;
+const confettiColors = ['#ffd700','#ff6b1a','#138808','#ff9933','#60a5fa','#f87171','#a78bfa'];
+
+function launchConfetti() {
+  const container = document.getElementById('confetti-container');
+  confettiInterval = setInterval(() => {
+    for (let i = 0; i < 5; i++) {
+      const piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      piece.style.cssText = `
+        left: ${Math.random()*100}%;
+        background: ${confettiColors[Math.floor(Math.random()*confettiColors.length)]};
+        animation-duration: ${2+Math.random()*3}s;
+        animation-delay: ${Math.random()*0.5}s;
+        width: ${4+Math.random()*8}px;
+        height: ${4+Math.random()*8}px;
+        border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+      `;
+      container.appendChild(piece);
+      setTimeout(() => piece.remove(), 6000);
+    }
+  }, 200);
+}
+
+function stopConfetti() {
+  if (confettiInterval) clearInterval(confettiInterval);
+  document.getElementById('confetti-container').innerHTML = '';
+}
+
+// ============================================================
+// INIT
+// ============================================================
+initAct1();
+</script>
+</body>
+</html>

@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPTICS — Lenses & Magnification</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Georgia',serif}
+body{background:#0a0812;color:#e8d5a3;position:relative}
+
+#canvas-bg{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none}
+
+#app{position:relative;z-index:1;width:100vw;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+
+.portal-ring{position:fixed;border-radius:50%;border:1px solid rgba(180,140,60,0.15);animation:pulseRing 6s ease-in-out infinite;pointer-events:none;z-index:0}
+.portal-ring:nth-child(1){width:600px;height:600px;top:50%;left:50%;transform:translate(-50%,-50%);animation-delay:0s}
+.portal-ring:nth-child(2){width:800px;height:800px;top:50%;left:50%;transform:translate(-50%,-50%);animation-delay:1.5s;border-color:rgba(100,180,220,0.1)}
+.portal-ring:nth-child(3){width:1000px;height:1000px;top:50%;left:50%;transform:translate(-50%,-50%);animation-delay:3s;border-color:rgba(180,140,60,0.07)}
+@keyframes pulseRing{0%,100%{opacity:0.3;transform:translate(-50%,-50%) scale(1)}50%{opacity:0.7;transform:translate(-50%,-50%) scale(1.02)}}
+
+#main-card{background:linear-gradient(145deg,rgba(20,12,35,0.97),rgba(10,8,20,0.99));border:1px solid rgba(180,140,60,0.4);border-radius:16px;width:min(900px,96vw);height:min(580px,94vh);display:flex;flex-direction:column;box-shadow:0 0 60px rgba(100,70,20,0.3),inset 0 0 40px rgba(0,0,0,0.5);overflow:hidden;position:relative}
+
+.card-corner{position:absolute;width:40px;height:40px;border-color:rgba(180,140,60,0.6)}
+.cc-tl{top:8px;left:8px;border-top:2px solid;border-left:2px solid}
+.cc-tr{top:8px;right:8px;border-top:2px solid;border-right:2px solid}
+.cc-bl{bottom:8px;left:8px;border-bottom:2px solid;border-left:2px solid}
+.cc-br{bottom:8px;right:8px;border-bottom:2px solid;border-right:2px solid}
+
+#header{padding:14px 24px 10px;border-bottom:1px solid rgba(180,140,60,0.25);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.header-title{font-size:clamp(13px,2vw,17px);letter-spacing:3px;color:#c8a84b;text-transform:uppercase;font-weight:normal;text-shadow:0 0 20px rgba(200,168,75,0.4)}
+.header-sub{font-size:11px;letter-spacing:2px;color:rgba(200,168,75,0.5);font-family:'Georgia',serif;font-style:italic}
+.progress-dots{display:flex;gap:8px;align-items:center}
+.dot{width:10px;height:10px;border-radius:50%;background:rgba(180,140,60,0.2);border:1px solid rgba(180,140,60,0.4);transition:all 0.5s}
+.dot.active{background:#c8a84b;box-shadow:0 0 8px rgba(200,168,75,0.6)}
+.dot.done{background:rgba(100,200,120,0.6);border-color:rgba(100,200,120,0.8)}
+
+#content-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 20px;position:relative;overflow:hidden}
+
+.activity-panel{width:100%;height:100%;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+.activity-panel.active{display:flex}
+
+.act-title{font-size:clamp(11px,1.8vw,14px);letter-spacing:2px;color:rgba(200,168,75,0.7);text-transform:uppercase;text-align:center}
+.act-heading{font-size:clamp(16px,2.5vw,22px);color:#e8d5a3;text-align:center;line-height:1.3;font-weight:normal}
+.act-instruction{font-size:clamp(10px,1.5vw,13px);color:rgba(200,180,130,0.7);text-align:center;font-style:italic;max-width:600px}
+
+.stage{position:relative;background:rgba(5,3,15,0.8);border:1px solid rgba(180,140,60,0.25);border-radius:10px;overflow:hidden;flex-shrink:0}
+
+.next-btn{padding:10px 28px;background:rgba(180,140,60,0.15);border:1px solid rgba(180,140,60,0.5);border-radius:8px;color:#c8a84b;font-size:13px;letter-spacing:2px;cursor:pointer;font-family:'Georgia',serif;transition:all 0.3s;text-transform:uppercase;margin-top:4px}
+.next-btn:hover{background:rgba(180,140,60,0.3);box-shadow:0 0 20px rgba(200,168,75,0.3)}
+.next-btn:disabled{opacity:0.3;cursor:not-allowed}
+
+.feedback{font-size:12px;letter-spacing:1px;min-height:18px;text-align:center;transition:all 0.4s;font-style:italic}
+.feedback.success{color:#7dd87d;text-shadow:0 0 10px rgba(100,220,100,0.4)}
+.feedback.hint{color:rgba(200,168,75,0.7)}
+.feedback.error{color:#e07070}
+
+.drop-zone{border:1px dashed rgba(180,140,60,0.4);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(200,168,75,0.4);transition:all 0.3s;cursor:default;min-width:80px;padding:4px 8px;font-style:italic;letter-spacing:1px}
+.drop-zone.over{border-color:rgba(200,168,75,0.8);background:rgba(200,168,75,0.1);color:rgba(200,168,75,0.8)}
+.drop-zone.correct{border-color:rgba(100,220,100,0.6);background:rgba(100,220,100,0.08);color:#7dd87d;font-style:normal;letter-spacing:0.5px}
+.drop-zone.wrong{border-color:rgba(220,100,100,0.6);background:rgba(220,100,100,0.08);color:#e07070}
+
+.drag-chip{padding:6px 14px;background:rgba(40,25,60,0.9);border:1px solid rgba(180,140,60,0.5);border-radius:6px;cursor:grab;font-size:12px;color:#e8d5a3;letter-spacing:0.5px;transition:all 0.2s;user-select:none;white-space:nowrap}
+.drag-chip:hover{background:rgba(180,140,60,0.2);border-color:rgba(200,168,75,0.8);transform:scale(1.03)}
+.drag-chip:active{cursor:grabbing;transform:scale(0.97)}
+.drag-chip.used{opacity:0.25;pointer-events:none}
+
+.popup-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.4s}
+.popup-overlay.open{opacity:1;pointer-events:all}
+.popup{background:linear-gradient(145deg,#150e28,#0d0820);border:1px solid rgba(180,140,60,0.5);border-radius:14px;padding:32px 36px;max-width:420px;width:90%;text-align:center;transform:scale(0.85);transition:transform 0.4s;box-shadow:0 0 60px rgba(100,70,20,0.5)}
+.popup-overlay.open .popup{transform:scale(1)}
+.popup-icon{font-size:36px;margin-bottom:12px;display:block}
+.popup-title{font-size:20px;color:#c8a84b;margin-bottom:10px;letter-spacing:2px}
+.popup-body{font-size:13px;color:rgba(200,180,130,0.8);line-height:1.7;margin-bottom:20px;font-style:italic}
+.popup-btn{padding:11px 32px;background:rgba(180,140,60,0.2);border:1px solid rgba(180,140,60,0.6);border-radius:8px;color:#c8a84b;font-size:13px;letter-spacing:2px;cursor:pointer;font-family:'Georgia',serif;transition:all 0.3s;text-transform:uppercase}
+.popup-btn:hover{background:rgba(180,140,60,0.4);box-shadow:0 0 20px rgba(200,168,75,0.3)}
+
+@keyframes floatIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.activity-panel.active{animation:floatIn 0.5s ease forwards}
+
+.rune{position:absolute;font-size:10px;color:rgba(180,140,60,0.12);pointer-events:none;font-family:monospace;letter-spacing:1px}
+</style>
+</head>
+<body>
+
+<canvas id="canvas-bg"></canvas>
+
+<div class="portal-ring"></div>
+<div class="portal-ring"></div>
+<div class="portal-ring"></div>
+
+<div class="popup-overlay" id="popup-overlay">
+  <div class="popup" id="popup">
+    <span class="popup-icon" id="popup-icon">🔭</span>
+    <div class="popup-title" id="popup-title">Well Done!</div>
+    <div class="popup-body" id="popup-body">You have unlocked the next scroll.</div>
+    <button class="popup-btn" id="popup-btn" onclick="advanceFromPopup()">Continue</button>
+  </div>
+</div>
+
+<div id="app">
+<div id="main-card">
+  <div class="card-corner cc-tl"></div>
+  <div class="card-corner cc-tr"></div>
+  <div class="card-corner cc-bl"></div>
+  <div class="card-corner cc-br"></div>
+
+  <div id="header">
+    <div>
+      <div class="header-title">Optics — Lenses & Magnification</div>
+      <div class="header-sub">The Ancient Observatory • Interactive Scrolls</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+      <div class="progress-dots">
+        <div class="dot active" id="dot0"></div>
+        <div class="dot" id="dot1"></div>
+        <div class="dot" id="dot2"></div>
+      </div>
+      <div style="font-size:10px;color:rgba(200,168,75,0.4);letter-spacing:1px" id="act-label">Scroll I of III</div>
+    </div>
+  </div>
+
+  <div id="content-area">
+
+    <!-- ACTIVITY 1: Convex Lens / Light Rays -->
+    <div class="activity-panel active" id="act1">
+      <div class="act-title">⟡ First Scroll — The Converging Stone</div>
+      <div class="act-heading">Focus the Light Rays</div>
+      <div class="act-instruction">Drag each light ray to its correct position through the convex lens so all rays converge at the focal point</div>
+      <div class="stage" id="stage1" style="width:min(700px,96%);height:200px"></div>
+      <div class="feedback hint" id="fb1">Drag the glowing rays into the lens channels</div>
+      <button class="next-btn" id="btn1" disabled onclick="openPopup(1)">Seal the Scroll ⟶</button>
+    </div>
+
+    <!-- ACTIVITY 2: Label the Lens -->
+    <div class="activity-panel" id="act2">
+      <div class="act-title">⟡ Second Scroll — The Scholar's Diagram</div>
+      <div class="act-heading">Name the Sacred Parts</div>
+      <div class="act-instruction">Drag each label to its correct position on the lens diagram</div>
+      <div style="width:min(700px,96%);display:flex;flex-direction:column;gap:10px">
+        <div class="stage" id="stage2" style="width:100%;height:175px"></div>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap" id="chip-pool2">
+          <div class="drag-chip" draggable="true" data-label="Optical Axis" id="chip-axis">Optical Axis</div>
+          <div class="drag-chip" draggable="true" data-label="Focal Point" id="chip-focal">Focal Point</div>
+          <div class="drag-chip" draggable="true" data-label="Convex Lens" id="chip-lens">Convex Lens</div>
+          <div class="drag-chip" draggable="true" data-label="Light Ray" id="chip-ray">Light Ray</div>
+          <div class="drag-chip" draggable="true" data-label="Real Image" id="chip-image">Real Image</div>
+        </div>
+      </div>
+      <div class="feedback hint" id="fb2">Match each label to the correct part of the diagram</div>
+      <button class="next-btn" id="btn2" disabled onclick="openPopup(2)">Seal the Scroll ⟶</button>
+    </div>
+
+    <!-- ACTIVITY 3: Build a Telescope -->
+    <div class="activity-panel" id="act3">
+      <div class="act-title">⟡ Third Scroll — The Astrologer's Instrument</div>
+      <div class="act-heading">Assemble the Telescope</div>
+      <div class="act-instruction">Drag the lenses into the telescope tube in the correct order: Objective → Spacer → Eyepiece</div>
+      <div style="width:min(700px,96%);display:flex;flex-direction:column;gap:10px;align-items:center">
+        <div class="stage" id="stage3" style="width:100%;height:175px"></div>
+        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap" id="chip-pool3">
+          <div class="drag-chip" draggable="true" data-piece="eyepiece" id="p-eye" style="border-color:rgba(100,180,220,0.5);color:#a8d4f0">Eyepiece Lens</div>
+          <div class="drag-chip" draggable="true" data-piece="spacer" id="p-space" style="border-color:rgba(180,140,60,0.5)">Hollow Tube Spacer</div>
+          <div class="drag-chip" draggable="true" data-piece="objective" id="p-obj" style="border-color:rgba(100,220,150,0.5);color:#a0e8b8">Objective Lens</div>
+        </div>
+      </div>
+      <div class="feedback hint" id="fb3">Build the telescope — order matters!</div>
+      <button class="next-btn" id="btn3" disabled onclick="openPopup(3)">Complete the Quest ⟶</button>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas-bg');
+const ctx = canvas.getContext('2d');
+let W, H, particles = [], glowOrbs = [];
+
+function resize(){
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+for(let i=0;i<80;i++){
+  particles.push({
+    x:Math.random()*W, y:Math.random()*H,
+    vx:(Math.random()-0.5)*0.3, vy:(Math.random()-0.5)*0.3,
+    r:Math.random()*1.5+0.3,
+    a:Math.random(),
+    color:Math.random()>0.5?'rgba(200,168,75,':'rgba(120,160,220,'
+  });
+}
+for(let i=0;i<5;i++){
+  glowOrbs.push({
+    x:Math.random()*W, y:Math.random()*H,
+    vx:(Math.random()-0.5)*0.15, vy:(Math.random()-0.5)*0.15,
+    r:40+Math.random()*80,
+    phase:Math.random()*Math.PI*2,
+    color:Math.random()>0.5?'rgba(180,130,40,':'rgba(60,100,160,'
+  });
+}
+
+function drawBg(t){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#050310';
+  ctx.fillRect(0,0,W,H);
+
+  glowOrbs.forEach(o=>{
+    o.x+=o.vx; o.y+=o.vy;
+    if(o.x<-200||o.x>W+200)o.vx*=-1;
+    if(o.y<-200||o.y>H+200)o.vy*=-1;
+    const alpha=(Math.sin(t*0.001+o.phase)*0.5+0.5)*0.04+0.02;
+    const g=ctx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.r);
+    g.addColorStop(0,o.color+alpha+')');
+    g.addColorStop(1,o.color+'0)');
+    ctx.fillStyle=g; ctx.beginPath();
+    ctx.arc(o.x,o.y,o.r,0,Math.PI*2); ctx.fill();
+  });
+
+  particles.forEach(p=>{
+    p.x+=p.vx; p.y+=p.vy;
+    if(p.x<0)p.x=W; if(p.x>W)p.x=0;
+    if(p.y<0)p.y=H; if(p.y>H)p.y=0;
+    p.a=0.3+Math.sin(t*0.002+p.x)*0.3;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle=p.color+p.a+')';
+    ctx.fill();
+  });
+
+  const runeChars=['⊕','⊗','⊙','✦','◈','⟁','⟂','⌘','⍟','⌬'];
+  ctx.font='10px monospace';
+  ctx.fillStyle='rgba(180,140,60,0.04)';
+  for(let r=0;r<5;r++){
+    const rx=50+r*160+Math.sin(t*0.0005+r)*20;
+    const ry=30+Math.cos(t*0.0007+r)*15;
+    ctx.fillText(runeChars[r%runeChars.length]+' '+runeChars[(r+3)%runeChars.length],rx,ry);
+    ctx.fillText(runeChars[(r+1)%runeChars.length],rx,H-20);
+  }
+
+  for(let i=0;i<3;i++){
+    const lx=W*0.1+i*(W*0.4);
+    const a=0.02+Math.sin(t*0.001+i)*0.015;
+    ctx.strokeStyle=`rgba(180,140,60,${a})`;
+    ctx.lineWidth=0.5;
+    ctx.beginPath();
+    ctx.moveTo(lx,0); ctx.lineTo(lx,H);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0,H*0.25+i*(H*0.25));
+    ctx.lineTo(W,H*0.25+i*(H*0.25));
+    ctx.stroke();
+  }
+}
+
+let raf;
+function animate(t){
+  drawBg(t);
+  raf=requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+/* ── ACTIVITY 1: Drag Rays to Focal Point ── */
+(function buildAct1(){
+  const stage = document.getElementById('stage1');
+  const W1 = stage.clientWidth || 700;
+  const H1 = 200;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('width','100%'); svg.setAttribute('height','100%');
+  svg.setAttribute('viewBox',`0 0 700 200`);
+  stage.appendChild(svg);
+
+  const cx=350, cy=100, lensX=350, focalX=530, focalY=100;
+  const rayDefs=[
+    {y:50,color:'#f0c060'},{y:100,color:'#80ccff'},{y:150,color:'#a0f0a0'}
+  ];
+
+  function makeDefs(){
+    const d=document.createElementNS('http://www.w3.org/2000/svg','defs');
+    d.innerHTML=`<filter id="glow1"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
+    svg.appendChild(d);
+  }
+  makeDefs();
+
+  function drawScene(placements){
+    svg.innerHTML='';
+    makeDefs();
+
+    svg.innerHTML+=`<rect width="700" height="200" fill="rgba(5,3,15,0.0)"/>`;
+
+    for(let gx=50;gx<700;gx+=60){
+      svg.innerHTML+=`<line x1="${gx}" y1="0" x2="${gx}" y2="200" stroke="rgba(180,140,60,0.05)" stroke-width="0.5"/>`;
+    }
+    for(let gy=25;gy<200;gy+=25){
+      svg.innerHTML+=`<line x1="0" y1="${gy}" x2="700" y2="${gy}" stroke="rgba(180,140,60,0.05)" stroke-width="0.5"/>`;
+    }
+
+    svg.innerHTML+=`<line x1="30" y1="100" x2="670" y2="100" stroke="rgba(180,140,60,0.3)" stroke-width="1" stroke-dasharray="4,4"/>`;
+    svg.innerHTML+=`<text x="670" y="97" fill="rgba(200,168,75,0.5)" font-size="9" text-anchor="end" font-family="Georgia,serif">Optical Axis</text>`;
+
+    svg.innerHTML+=`
+      <ellipse cx="350" cy="100" rx="14" ry="65" fill="rgba(100,160,220,0.12)" stroke="rgba(100,160,220,0.6)" stroke-width="1.5"/>
+      <ellipse cx="350" cy="100" rx="14" ry="65" fill="rgba(100,180,240,0.06)" stroke="rgba(100,160,220,0.3)" stroke-width="0.5"/>
+      <text x="350" y="185" fill="rgba(100,160,220,0.6)" font-size="9" text-anchor="middle" font-family="Georgia,serif">Convex Lens</text>
+    `;
+
+    svg.innerHTML+=`
+      <circle cx="${focalX}" cy="${focalY}" r="8" fill="rgba(255,200,80,0.15)" stroke="rgba(255,200,80,0.5)" stroke-width="1"/>
+      <circle cx="${focalX}" cy="${focalY}" r="3" fill="rgba(255,200,80,0.6)"/>
+      <text x="${focalX}" y="${focalY-14}" fill="rgba(255,200,80,0.6)" font-size="9" text-anchor="middle" font-family="Georgia,serif">Focal Point</text>
+    `;
+
+    const slots=[
+      {id:0,x:120,y:50,label:'Ray A'},
+      {id:1,x:120,y:100,label:'Ray B'},
+      {id:2,x:120,y:150,label:'Ray C'}
+    ];
+
+    slots.forEach(sl=>{
+      const placed=placements[sl.id];
+      const rayColor=rayDefs[sl.id].color;
+      const origY=rayDefs[sl.id].y;
+
+      if(placed){
+        const convergeX=480;
+        const midY=origY+(100-origY)*0.3;
+        svg.innerHTML+=`
+          <line x1="${sl.x}" y1="${origY}" x2="336" y2="${origY}" stroke="${rayColor}" stroke-width="1.5" opacity="0.9" filter="url(#glow1)"/>
+          <line x1="364" y1="${origY}" x2="${convergeX}" y2="${origY+(100-origY)*0.6}" stroke="${rayColor}" stroke-width="1.5" opacity="0.8"/>
+          <line x1="${convergeX}" y1="${origY+(100-origY)*0.6}" x2="${focalX}" y2="${focalY}" stroke="${rayColor}" stroke-width="1.5" opacity="0.6"/>
+        `;
+      } else {
+        svg.innerHTML+=`
+          <g id="draggable-ray-${sl.id}" style="cursor:grab">
+            <rect x="${sl.x-30}" y="${origY-12}" width="80" height="24" rx="4" fill="rgba(30,20,50,0.8)" stroke="${rayColor}" stroke-width="1" stroke-dasharray="3,2"/>
+            <line x1="${sl.x-22}" y1="${origY}" x2="${sl.x+35}" y2="${origY}" stroke="${rayColor}" stroke-width="2" filter="url(#glow1)" marker-end="url(#arr${sl.id})"/>
+            <text x="${sl.x+42}" y="${origY+4}" fill="${rayColor}" font-size="9" font-family="Georgia,serif">${sl.label}</text>
+            <text x="${sl.x-18}" y="${origY+4}" fill="${rayColor}" font-size="8" font-family="Georgia,serif" opacity="0.7">drag →</text>
+          </g>
+        `;
+      }
+    });
+
+    const allPlaced=placements[0]&&placements[1]&&placements[2];
+    if(allPlaced){
+      svg.innerHTML+=`
+        <circle cx="${focalX}" cy="${focalY}" r="14" fill="rgba(255,200,80,0.08)">
+          <animate attributeName="r" values="8;18;8" dur="1.5s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0.8;0.2;0.8" dur="1.5s" repeatCount="indefinite"/>
+        </circle>
+        <text x="350" y="20" fill="rgba(100,220,120,0.8)" font-size="11" text-anchor="middle" font-family="Georgia,serif">Light converges at the focal point!</text>
+      `;
+    }
+  }
+
+  const placements={0:false,1:false,2:false};
+  drawScene(placements);
+
+  stage.querySelectorAll('[id^="draggable-ray-"]').forEach(el=>{
+    el.addEventListener('mousedown',onRayMouseDown);
+    el.addEventListener('touchstart',onRayTouch,{passive:false});
+  });
+
+  function onRayMouseDown(e){
+    const id=parseInt(e.currentTarget.id.replace('draggable-ray-',''));
+    document.addEventListener('mousemove',onMM);
+    document.addEventListener('mouseup',()=>{
+      dropRay(id);
+      document.removeEventListener('mousemove',onMM);
+    },{once:true});
+  }
+  function onMM(){}
+  function onRayTouch(e){
+    e.preventDefault();
+    const id=parseInt(e.currentTarget.id.replace('draggable-ray-',''));
+    document.addEventListener('touchend',()=>dropRay(id),{once:true});
+  }
+
+  stage.addEventListener('click',function(e){
+    const rect=stage.getBoundingClientRect();
+    const mx=((e.clientX-rect.left)/rect.width)*700;
+    const my=((e.clientY-rect.top)/rect.height)*200;
+    for(let i=0;i<3;i++){
+      if(!placements[i]){
+        const origY=rayDefs[i].y;
+        if(mx>80&&mx<200&&Math.abs(my-origY)<20){
+          dropRay(i);
+          return;
+        }
+      }
+    }
+    if(mx>250&&mx<620){
+      for(let i=0;i<3;i++){
+        if(!placements[i]){dropRay(i);return;}
+      }
+    }
+  });
+
+  function dropRay(id){
+    placements[id]=true;
+    drawScene(placements);
+    attachSvgListeners();
+    const count=Object.values(placements).filter(Boolean).length;
+    const fb=document.getElementById('fb1');
+    if(count===3){
+      fb.className='feedback success';
+      fb.textContent='All rays converge at the focal point — the lens works!';
+      document.getElementById('btn1').disabled=false;
+    } else {
+      fb.className='feedback hint';
+      fb.textContent=`${count} of 3 rays placed — keep going!`;
+    }
+  }
+
+  function attachSvgListeners(){
+    stage.querySelectorAll('[id^="draggable-ray-"]').forEach(el=>{
+      el.addEventListener('mousedown',onRayMouseDown);
+      el.addEventListener('touchstart',onRayTouch,{passive:false});
+    });
+  }
+})();
+
+/* ── ACTIVITY 2: Label the Lens Parts ── */
+(function buildAct2(){
+  const stage=document.getElementById('stage2');
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('width','100%');svg.setAttribute('height','100%');
+  svg.setAttribute('viewBox','0 0 700 175');
+  stage.appendChild(svg);
+
+  const zones=[
+    {id:'z-axis',x:340,y:155,w:100,h:22,label:'Optical Axis',answer:'Optical Axis'},
+    {id:'z-focal',x:530,y:70,w:90,h:22,label:'Focal Point',answer:'Focal Point'},
+    {id:'z-lens',x:285,y:10,w:88,h:22,label:'Convex Lens',answer:'Convex Lens'},
+    {id:'z-ray',x:60,y:40,w:76,h:22,label:'Light Ray',answer:'Light Ray'},
+    {id:'z-image',x:580,y:105,w:80,h:22,label:'Real Image',answer:'Real Image'},
+  ];
+
+  const fills={};
+  const correct={};
+
+  function draw(){
+    svg.innerHTML=`
+      <defs>
+        <filter id="glow2"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <marker id="arr2" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L6,3 Z" fill="rgba(240,192,96,0.8)"/>
+        </marker>
+      </defs>
+      <rect width="700" height="175" fill="rgba(0,0,0,0)"/>
+      <line x1="30" y1="88" x2="670" y2="88" stroke="rgba(180,140,60,0.25)" stroke-width="1" stroke-dasharray="5,4"/>
+      <ellipse cx="330" cy="88" rx="16" ry="62" fill="rgba(100,160,220,0.1)" stroke="rgba(100,160,220,0.55)" stroke-width="1.5"/>
+      <ellipse cx="330" cy="88" rx="10" ry="55" fill="rgba(100,180,240,0.05)" stroke="rgba(100,160,220,0.25)" stroke-width="0.5"/>
+      <line x1="35" y1="50" x2="314" y2="50" stroke="rgba(240,192,96,0.7)" stroke-width="1.5" filter="url(#glow2)"/>
+      <line x1="35" y1="88" x2="314" y2="88" stroke="rgba(128,204,255,0.7)" stroke-width="1.5" filter="url(#glow2)"/>
+      <line x1="35" y1="126" x2="314" y2="126" stroke="rgba(160,240,160,0.7)" stroke-width="1.5" filter="url(#glow2)"/>
+      <line x1="346" y1="50" x2="540" y2="88" stroke="rgba(240,192,96,0.55)" stroke-width="1.2"/>
+      <line x1="346" y1="88" x2="540" y2="88" stroke="rgba(128,204,255,0.55)" stroke-width="1.2"/>
+      <line x1="346" y1="126" x2="540" y2="88" stroke="rgba(160,240,160,0.55)" stroke-width="1.2"/>
+      <circle cx="540" cy="88" r="6" fill="rgba(255,200,80,0.2)" stroke="rgba(255,200,80,0.6)" stroke-width="1.2"/>
+      <circle cx="540" cy="88" r="2.5" fill="rgba(255,200,80,0.8)"/>
+      <line x1="540" y1="88" x2="610" y2="52" stroke="rgba(255,200,80,0.35)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="540" y1="88" x2="610" y2="124" stroke="rgba(255,200,80,0.35)" stroke-width="1" stroke-dasharray="3,3"/>
+      <ellipse cx="612" cy="88" rx="5" ry="37" fill="rgba(255,200,80,0.06)" stroke="rgba(255,200,80,0.3)" stroke-width="1"/>
+    `;
+
+    zones.forEach(z=>{
+      const isFilled=fills[z.id];
+      const isCorrect=correct[z.id];
+      let bg='rgba(20,12,40,0.7)';
+      let stroke='rgba(180,140,60,0.35)';
+      let tc='rgba(200,168,75,0.4)';
+      let txt='drop here';
+      let dash='4,3';
+      if(isFilled){
+        txt=fills[z.id];
+        if(isCorrect){bg='rgba(40,100,60,0.3)';stroke='rgba(100,220,120,0.6)';tc='#7dd87d';dash='0';}
+        else{bg='rgba(100,40,40,0.3)';stroke='rgba(220,100,100,0.6)';tc='#e07070';dash='0';}
+      }
+      svg.innerHTML+=`
+        <rect id="${z.id}" x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="4"
+          fill="${bg}" stroke="${stroke}" stroke-width="1" stroke-dasharray="${dash}"
+          class="dropzone-svg" data-answer="${z.answer}"/>
+        <text x="${z.x+z.w/2}" y="${z.y+z.h/2+4}" fill="${tc}" font-size="9.5" text-anchor="middle" font-family="Georgia,serif" pointer-events="none">${txt}</text>
+      `;
+    });
+  }
+  draw();
+
+  let dragging=null;
+
+  document.querySelectorAll('#chip-pool2 .drag-chip').forEach(chip=>{
+    chip.addEventListener('dragstart',e=>{
+      dragging=chip.dataset.label;
+      e.dataTransfer.setData('text/plain',dragging);
+    });
+    chip.addEventListener('touchstart',()=>{dragging=chip.dataset.label;},{passive:true});
+    chip.addEventListener('touchend',e=>{
+      if(!dragging)return;
+      const touch=e.changedTouches[0];
+      const el=document.elementFromPoint(touch.clientX,touch.clientY);
+      if(el&&el.classList.contains('dropzone-svg')){
+        handleDrop(el.id,dragging,chip);
+      }
+      dragging=null;
+    });
+  });
+
+  stage.addEventListener('dragover',e=>e.preventDefault());
+  stage.addEventListener('drop',e=>{
+    e.preventDefault();
+    const lbl=e.dataTransfer.getData('text/plain')||dragging;
+    if(!lbl)return;
+    const rect=stage.getBoundingClientRect();
+    const mx=((e.clientX-rect.left)/rect.width)*700;
+    const my=((e.clientY-rect.top)/rect.height)*175;
+    zones.forEach(z=>{
+      if(!fills[z.id]&&mx>=z.x&&mx<=z.x+z.w&&my>=z.y&&my<=z.y+z.h){
+        const chip=document.querySelector(`[data-label="${lbl}"]`);
+        handleDrop(z.id,lbl,chip);
+      }
+    });
+    dragging=null;
+  });
+
+  function handleDrop(zoneId,label,chip){
+    if(fills[zoneId])return;
+    const zone=zones.find(z=>z.id===zoneId);
+    if(!zone)return;
+    fills[zoneId]=label;
+    correct[zoneId]=(label===zone.answer);
+    if(chip)chip.classList.add('used');
+    draw();
+    const totalFilled=Object.keys(fills).length;
+    const totalCorrect=Object.values(correct).filter(Boolean).length;
+    const fb=document.getElementById('fb2');
+    if(totalFilled===zones.length){
+      if(totalCorrect===zones.length){
+        fb.className='feedback success';
+        fb.textContent='Perfect! All parts correctly identified — the scholar is pleased!';
+        document.getElementById('btn2').disabled=false;
+      } else {
+        fb.className='feedback error';
+        fb.textContent=`${totalCorrect} of ${zones.length} correct. Some are misplaced — review the diagram!`;
+      }
+    } else {
+      fb.className='feedback hint';
+      fb.textContent=`${totalCorrect} correct so far — ${zones.length-totalFilled} remaining`;
+    }
+  }
+})();
+
+/* ── ACTIVITY 3: Telescope Assembly ── */
+(function buildAct3(){
+  const stage=document.getElementById('stage3');
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('width','100%');svg.setAttribute('height','100%');
+  svg.setAttribute('viewBox','0 0 700 175');
+  stage.appendChild(svg);
+
+  const slots=[
+    {id:'slot-obj',x:80,cx:130,label:'Slot 1',answer:'objective',color:'rgba(100,220,150,0.4)',hint:'Objective'},
+    {id:'slot-spa',x:270,cx:335,label:'Slot 2',answer:'spacer',color:'rgba(200,168,75,0.3)',hint:'Spacer'},
+    {id:'slot-eye',x:470,cx:530,label:'Slot 3',answer:'eyepiece',color:'rgba(100,180,220,0.4)',hint:'Eyepiece'},
+  ];
+
+  const slotFills={};
+  const slotCorrect={};
+
+  function draw(){
+    svg.innerHTML=`
+      <defs>
+        <filter id="glow3"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <linearGradient id="tubeGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="rgba(180,140,60,0.3)"/>
+          <stop offset="50%" stop-color="rgba(100,80,30,0.15)"/>
+          <stop offset="100%" stop-color="rgba(180,140,60,0.3)"/>
+        </linearGradient>
+      </defs>
+      <rect width="700" height="175" fill="rgba(0,0,0,0)"/>
+      <rect x="60" y="55" width="140" height="70" rx="5" fill="rgba(30,20,50,0.5)" stroke="rgba(180,140,60,0.2)" stroke-width="1"/>
+      <rect x="245" y="60" width="190" height="60" rx="0" fill="rgba(30,20,50,0.5)" stroke="rgba(180,140,60,0.2)" stroke-width="1"/>
+      <rect x="480" y="55" width="140" height="70" rx="5" fill="rgba(30,20,50,0.5)" stroke="rgba(180,140,60,0.2)" stroke-width="1"/>
+      <rect x="55" y="58" width="590" height="64" rx="6" fill="url(#tubeGrad)" stroke="rgba(180,140,60,0.4)" stroke-width="1.2"/>
+      <text x="350" y="148" fill="rgba(200,168,75,0.4)" font-size="9" text-anchor="middle" font-family="Georgia,serif">← Light enters from the left — Objective captures, Eyepiece magnifies →</text>
+      <line x1="20" y1="90" x2="55" y2="90" stroke="rgba(200,168,75,0.4)" stroke-width="1.5" stroke-dasharray="3,2"/>
+      <text x="18" y="87" fill="rgba(200,168,75,0.4)" font-size="8" text-anchor="end" font-family="Georgia,serif">Light</text>
+      <text x="18" y="97" fill="rgba(200,168,75,0.4)" font-size="8" text-anchor="end" font-family="Georgia,serif">rays</text>
+    `;
+
+    slots.forEach(sl=>{
+      const filled=slotFills[sl.id];
+      const isCorrect=slotCorrect[sl.id];
+      let bg='rgba(10,5,25,0.6)';
+      let stroke='rgba(180,140,60,0.3)';
+      let dash='4,3';
+      let labelColor='rgba(200,168,75,0.4)';
+      let labelText='drop here';
+
+      if(filled){
+        labelText=filled==='objective'?'Objective Lens':filled==='eyepiece'?'Eyepiece Lens':'Hollow Spacer';
+        if(isCorrect){bg='rgba(40,100,60,0.3)';stroke='rgba(100,220,120,0.6)';labelColor='#7dd87d';dash='0';}
+        else{bg='rgba(100,40,40,0.3)';stroke='rgba(220,100,100,0.6)';labelColor='#e07070';dash='0';}
+      }
+
+      const lx=sl.cx-55, ly=75, lw=110, lh=40;
+      svg.innerHTML+=`
+        <rect id="${sl.id}" x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="4"
+          fill="${bg}" stroke="${stroke}" stroke-width="1.2" stroke-dasharray="${dash}"
+          class="tele-slot" data-answer="${sl.answer}"/>
+        <text x="${sl.cx}" y="${ly+lh/2+4}" fill="${labelColor}" font-size="9.5" text-anchor="middle" font-family="Georgia,serif" pointer-events="none">${labelText}</text>
+        <text x="${sl.cx}" y="68" fill="rgba(180,140,60,0.45)" font-size="8" text-anchor="middle" font-family="Georgia,serif">${sl.hint}</text>
+      `;
+
+      if(filled&&isCorrect){
+        if(filled==='objective'){
+          svg.innerHTML+=`<ellipse cx="${sl.cx}" cy="${ly+lh/2}" rx="10" ry="26" fill="rgba(100,220,150,0.12)" stroke="rgba(100,220,150,0.5)" stroke-width="1.2" pointer-events="none"/>`;
+        } else if(filled==='eyepiece'){
+          svg.innerHTML+=`<ellipse cx="${sl.cx}" cy="${ly+lh/2}" rx="8" ry="20" fill="rgba(100,180,220,0.12)" stroke="rgba(100,180,220,0.5)" stroke-width="1.2" pointer-events="none"/>`;
+        } else {
+          svg.innerHTML+=`<rect x="${sl.cx-45}" y="${ly+8}" width="90" height="24" rx="2" fill="rgba(180,140,60,0.05)" stroke="rgba(180,140,60,0.3)" stroke-width="0.5" pointer-events="none"/>`;
+        }
+      }
+    });
+
+    const allDone=Object.keys(slotFills).length===3;
+    const allRight=Object.values(slotCorrect).every(Boolean);
+    if(allDone&&allRight){
+      svg.innerHTML+=`
+        <line x1="645" y1="90" x2="680" y2="90" stroke="rgba(100,220,120,0.6)" stroke-width="1.5" stroke-dasharray="3,2"/>
+        <text x="682" y="87" fill="rgba(100,220,120,0.6)" font-size="7.5" font-family="Georgia,serif">Eye</text>
+        <circle cx="645" cy="90" r="5" fill="rgba(100,220,120,0.15)" stroke="rgba(100,220,120,0.5)" stroke-width="1"/>
+      `;
+    }
+  }
+  draw();
+
+  let dragging3=null;
+
+  document.querySelectorAll('#chip-pool3 .drag-chip').forEach(chip=>{
+    chip.addEventListener('dragstart',e=>{
+      dragging3=chip.dataset.piece;
+      e.dataTransfer.setData('text/plain',dragging3);
+    });
+    chip.addEventListener('touchstart',()=>{dragging3=chip.dataset.piece;},{passive:true});
+    chip.addEventListener('touchend',e=>{
+      if(!dragging3)return;
+      const touch=e.changedTouches[0];
+      const el=document.elementFromPoint(touch.clientX,touch.clientY);
+      if(el&&el.classList.contains('tele-slot')){
+        handleTeleDrop(el.id,dragging3,chip);
+      }
+      dragging3=null;
+    });
+  });
+
+  stage.addEventListener('dragover',e=>e.preventDefault());
+  stage.addEventListener('drop',e=>{
+    e.preventDefault();
+    const piece=e.dataTransfer.getData('text/plain')||dragging3;
+    if(!piece)return;
+    const rect=stage.getBoundingClientRect();
+    const mx=((e.clientX-rect.left)/rect.width)*700;
+    const my=((e.clientY-rect.top)/rect.height)*175;
+    slots.forEach(sl=>{
+      const lx=sl.cx-55, ly=75, lw=110, lh=40;
+      if(!slotFills[sl.id]&&mx>=lx&&mx<=lx+lw&&my>=ly&&my<=ly+lh){
+        const chip=document.querySelector(`[data-piece="${piece}"]`);
+        handleTeleDrop(sl.id,piece,chip);
+      }
+    });
+    dragging3=null;
+  });
+
+  function handleTeleDrop(slotId,piece,chip){
+    if(slotFills[slotId])return;
+    const slot=slots.find(s=>s.id===slotId);
+    if(!slot)return;
+    slotFills[slotId]=piece;
+    slotCorrect[slotId]=(piece===slot.answer);
+    if(chip)chip.classList.add('used');
+    draw();
+    const fb=document.getElementById('fb3');
+    const total=Object.keys(slotFills).length;
+    const right=Object.values(slotCorrect).filter(Boolean).length;
+    if(total===3){
+      if(right===3){
+        fb.className='feedback success';
+        fb.textContent='The telescope is assembled! The stars await your gaze!';
+        document.getElementById('btn3').disabled=false;
+      } else {
+        fb.className='feedback error';
+        fb.textContent=`${right} of 3 correct — some lenses are in the wrong position!`;
+      }
+    } else {
+      fb.className='feedback hint';
+      fb.textContent=`${right} placed correctly — ${3-total} slot${3-total!==1?'s':''} remaining`;
+    }
+  }
+})();
+
+/* ── Popup System ── */
+const popupData=[
+  {
+    icon:'🔬',
+    title:'First Scroll Sealed',
+    body:'You have revealed the secret of the convex lens. Light rays bend inward through the curved glass and meet at a single point — the focal point. This principle powers every magnifying glass, microscope, and camera in the world.',
+    btn:'Open Second Scroll',
+    nextAct:2
+  },
+  {
+    icon:'📜',
+    title:'Second Scroll Sealed',
+    body:'You have mastered the sacred diagram. Every lens system has an optical axis, a focal point where light converges, and a real image where the picture forms. Scholars have used these principles since ancient times.',
+    btn:'Open Third Scroll',
+    nextAct:3
+  },
+  {
+    icon:'✨',
+    title:'The Quest is Complete!',
+    body:'You have assembled the telescope of the ancient astrologers. Galileo used this same arrangement of lenses in 1609 to discover the moons of Jupiter. Now you hold the same knowledge — the universe awaits your exploration!',
+    btn:'Celebrate!',
+    nextAct:0,
+    final:true
+  }
+];
+
+let currentAct=1;
+
+function openPopup(actNum){
+  const data=popupData[actNum-1];
+  document.getElementById('popup-icon').textContent=data.icon;
+  document.getElementById('popup-title').textContent=data.title;
+  document.getElementById('popup-body').textContent=data.body;
+  document.getElementById('popup-btn').textContent=data.btn;
+  document.getElementById('popup-overlay').classList.add('open');
+  document.getElementById('popup-btn').dataset.next=actNum;
+}
+
+function advanceFromPopup(){
+  const actNum=parseInt(document.getElementById('popup-btn').dataset.next);
+  const data=popupData[actNum-1];
+  document.getElementById('popup-overlay').classList.remove('open');
+
+  const dot=document.getElementById(`dot${actNum-1}`);
+  if(dot){dot.classList.remove('active');dot.classList.add('done');}
+
+  if(data.final){
+    showFinalCelebration();
+    return;
+  }
+
+  const nextAct=data.nextAct;
+  document.getElementById(`act${actNum}`).classList.remove('active');
+  document.getElementById(`act${nextAct}`).classList.add('active');
+  const nextDot=document.getElementById(`dot${nextAct-1}`);
+  if(nextDot)nextDot.classList.add('active');
+  document.getElementById('act-label').textContent=`Scroll ${nextAct} of III`;
+  currentAct=nextAct;
+}
+
+function showFinalCelebration(){
+  const overlay=document.getElementById('popup-overlay');
+  const popup=document.getElementById('popup');
+  overlay.classList.add('open');
+  popup.innerHTML=`
+    <div style="font-size:40px;margin-bottom:14px;animation:spin 2s ease-in-out">✨</div>
+    <div style="font-size:22px;color:#c8a84b;margin-bottom:12px;letter-spacing:2px">Quest Complete!</div>
+    <div style="font-size:13px;color:rgba(200,180,130,0.85);line-height:1.8;margin-bottom:20px;font-style:italic">
+      You have mastered the three ancient scrolls of optics.<br/>
+      Convex lenses focus light. Labels reveal structure.<br/>
+      The telescope brings distant stars within reach.<br/><br/>
+      <span style="color:#c8a84b">The Observatory honours you as a true Scholar of Light.</span>
+    </div>
+    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+      <button class="popup-btn" onclick="restartAll()" style="font-size:11px;padding:9px 20px">Restart Journey</button>
+    </div>
+  `;
+  document.querySelectorAll('.dot').forEach(d=>{d.classList.add('done');d.classList.remove('active');});
+  launchConfetti();
+}
+
+function restartAll(){
+  location.reload();
+}
+
+function launchConfetti(){
+  const colors2=['#c8a84b','#7dd87d','#80ccff','#f0a0a0','#e8d5a3'];
+  for(let i=0;i<60;i++){
+    setTimeout(()=>{
+      const el=document.createElement('div');
+      el.style.cssText=`position:fixed;top:${Math.random()*60}%;left:${Math.random()*100}%;
+        width:6px;height:6px;border-radius:50%;
+        background:${colors2[Math.floor(Math.random()*colors2.length)]};
+        z-index:200;pointer-events:none;
+        animation:confettiFall ${1+Math.random()*2}s ease-out forwards`;
+      document.body.appendChild(el);
+      setTimeout(()=>el.remove(),3000);
+    },i*40);
+  }
+}
+
+const style2=document.createElement('style');
+style2.textContent=`
+@keyframes confettiFall{from{transform:translateY(0) rotate(0deg);opacity:1}to{transform:translateY(${window.innerHeight}px) rotate(720deg);opacity:0}}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+`;
+document.head.appendChild(style2);
+</script>
+</body>
+</html>

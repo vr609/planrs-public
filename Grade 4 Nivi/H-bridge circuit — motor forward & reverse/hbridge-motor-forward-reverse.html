@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>H-BRIDGE CIRCUIT — MOTOR FORWARD & REVERSE</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --neon-red:#ff2d55;--neon-blue:#00cfff;--neon-yellow:#ffe600;--neon-green:#39ff14;
+  --neon-orange:#ff6b00;--neon-purple:#bf5fff;
+  --bg:#05080f;--bg2:#080d18;--bg3:#0c1220;
+  --card:#0a1525;--card2:#0e1c30;
+  --text:#d4eeff;--muted:#4a6a8a;
+  --grid-line:rgba(0,207,255,0.07);
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);}
+body{font-family:'Exo 2',sans-serif;color:var(--text);}
+
+/* ══ BG CANVAS ══ */
+#bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;}
+
+/* ══ SCANLINE OVERLAY ══ */
+.scanlines{
+  position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.08) 3px,rgba(0,0,0,.08) 4px);
+}
+
+/* ══ HEADER ══ */
+#hdr{
+  position:fixed;top:0;left:0;right:0;z-index:20;
+  height:52px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;
+  background:linear-gradient(180deg,rgba(5,8,15,.98) 70%,transparent);
+  border-bottom:1px solid rgba(0,207,255,.2);
+}
+.hdr-logo{
+  font-family:'Orbitron',monospace;font-size:11px;letter-spacing:.2em;
+  color:var(--neon-blue);text-shadow:0 0 8px var(--neon-blue);
+}
+.hdr-title{
+  font-family:'Orbitron',monospace;font-size:14px;font-weight:900;
+  color:var(--text);letter-spacing:.12em;text-align:center;
+  text-shadow:0 0 20px rgba(0,207,255,.5);
+}
+.hdr-title span{color:var(--neon-yellow);text-shadow:0 0 12px var(--neon-yellow);}
+.hdr-steps{display:flex;align-items:center;gap:6px;}
+.step-node{
+  width:26px;height:26px;border-radius:50%;
+  border:1.5px solid var(--muted);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Orbitron',monospace;font-size:9px;color:var(--muted);
+  transition:all .4s;position:relative;
+}
+.step-node.active{
+  border-color:var(--neon-blue);color:var(--neon-blue);
+  box-shadow:0 0 12px rgba(0,207,255,.5),inset 0 0 8px rgba(0,207,255,.1);
+}
+.step-node.done{
+  border-color:var(--neon-green);color:var(--neon-green);background:rgba(57,255,20,.12);
+  box-shadow:0 0 10px rgba(57,255,20,.4);
+}
+.step-conn{width:18px;height:1px;background:var(--muted);transition:background .4s;}
+.step-conn.lit{background:var(--neon-blue);box-shadow:0 0 4px var(--neon-blue);}
+
+/* ══ STAGE ══ */
+#stage{
+  position:fixed;inset:0;z-index:10;
+  display:flex;align-items:center;justify-content:center;
+  padding:58px 20px 14px;
+}
+.panel{width:100%;max-width:920px;height:100%;display:none;flex-direction:column;align-items:center;gap:10px;}
+.panel.active{display:flex;}
+
+.act-title{
+  font-family:'Orbitron',monospace;font-size:19px;font-weight:900;
+  color:var(--neon-blue);text-align:center;letter-spacing:.1em;flex-shrink:0;
+  text-shadow:0 0 20px rgba(0,207,255,.6),0 0 40px rgba(0,207,255,.2);
+}
+.act-sub{font-size:13px;color:var(--muted);text-align:center;flex-shrink:0;max-width:640px;line-height:1.5;}
+
+/* ══ GENERIC ARENA ══ */
+.arena{
+  width:100%;flex:1;min-height:0;
+  background:rgba(8,13,24,.8);
+  border:1px solid rgba(0,207,255,.15);
+  border-radius:14px;
+  position:relative;overflow:hidden;
+  backdrop-filter:blur(4px);
+}
+.arena::before{
+  content:'';position:absolute;inset:0;border-radius:14px;
+  background:
+    linear-gradient(90deg,transparent 49.5%,rgba(0,207,255,.04) 50%,transparent 50.5%),
+    linear-gradient(0deg,transparent 49.5%,rgba(0,207,255,.04) 50%,transparent 50.5%);
+  background-size:40px 40px;
+  pointer-events:none;
+}
+
+/* ══ PARTS SHELF ══ */
+.shelf{
+  width:100%;padding:8px 16px;
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex-shrink:0;
+  background:rgba(8,13,24,.85);
+  border:1px solid rgba(0,207,255,.12);border-radius:10px;
+}
+.shelf-lbl{font-size:10px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;white-space:nowrap;}
+.part{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  cursor:grab;user-select:none;padding:7px 10px;
+  background:rgba(0,207,255,.06);border:1.5px solid rgba(0,207,255,.3);
+  border-radius:8px;transition:all .2s;font-size:10px;color:var(--neon-blue);
+  font-family:'Orbitron',monospace;letter-spacing:.05em;
+}
+.part:hover{background:rgba(0,207,255,.14);border-color:var(--neon-blue);transform:scale(1.05);box-shadow:0 0 12px rgba(0,207,255,.3);}
+.part.dragging{opacity:.35;transform:scale(.88);}
+.part svg{pointer-events:none;}
+
+/* ══ DROP ZONES ══ */
+.dz{
+  position:absolute;border:2px dashed rgba(0,207,255,.3);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .25s;
+  font-family:'Orbitron',monospace;font-size:9px;letter-spacing:.05em;
+  color:rgba(0,207,255,.35);text-align:center;padding:3px;
+}
+.dz.hover{border-color:var(--neon-blue);background:rgba(0,207,255,.1);box-shadow:0 0 18px rgba(0,207,255,.25);}
+.dz.filled{border-color:var(--neon-green);border-style:solid;background:rgba(57,255,20,.07);box-shadow:0 0 12px rgba(57,255,20,.2);}
+.dz.wrong{border-color:var(--neon-red);background:rgba(255,45,85,.1);animation:shake .3s;}
+
+/* ══ BTNS ══ */
+.btn{
+  padding:11px 32px;border:none;border-radius:24px;cursor:pointer;
+  font-family:'Orbitron',monospace;font-size:12px;letter-spacing:.12em;
+  font-weight:700;text-transform:uppercase;transition:all .3s;flex-shrink:0;
+  background:linear-gradient(135deg,var(--neon-blue),#0080ff);
+  color:#05080f;box-shadow:0 0 20px rgba(0,207,255,.45);
+}
+.btn:hover{transform:translateY(-2px);box-shadow:0 4px 28px rgba(0,207,255,.7);}
+.btn:disabled{opacity:.25;cursor:not-allowed;transform:none;box-shadow:none;}
+.btn.red{background:linear-gradient(135deg,var(--neon-red),#c0002a);box-shadow:0 0 20px rgba(255,45,85,.45);}
+.btn.green{background:linear-gradient(135deg,var(--neon-green),#1ab800);box-shadow:0 0 20px rgba(57,255,20,.45);color:#05080f;}
+
+/* ══ PROGRESS ══ */
+.prog-wrap{width:100%;max-width:420px;flex-shrink:0;}
+.prog-bg{width:100%;height:4px;background:rgba(255,255,255,.06);border-radius:2px;}
+.prog-fill{height:4px;border-radius:2px;transition:width .5s cubic-bezier(.4,0,.2,1);}
+.prog-lbl{font-size:10px;color:var(--muted);text-align:center;margin-top:4px;font-family:'Orbitron',monospace;letter-spacing:.06em;}
+
+/* ══ POPUP ══ */
+.pop-overlay{
+  position:fixed;inset:0;z-index:100;
+  background:rgba(5,8,15,.9);backdrop-filter:blur(10px);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .35s;
+}
+.pop-overlay.on{opacity:1;pointer-events:all;}
+.popup{
+  background:var(--card);
+  border:1px solid rgba(0,207,255,.35);
+  border-radius:18px;padding:32px 36px;max-width:460px;width:90%;
+  text-align:center;
+  box-shadow:0 0 60px rgba(0,207,255,.18),0 30px 70px rgba(0,0,0,.7);
+  transform:scale(.82) translateY(20px);transition:transform .4s cubic-bezier(.34,1.56,.64,1);
+}
+.pop-overlay.on .popup{transform:scale(1) translateY(0);}
+.pop-ico{font-size:46px;margin-bottom:10px;display:block;}
+.pop-title{
+  font-family:'Orbitron',monospace;font-size:18px;font-weight:900;
+  color:var(--neon-blue);margin-bottom:8px;letter-spacing:.08em;
+  text-shadow:0 0 16px rgba(0,207,255,.5);
+}
+.pop-body{font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px;}
+.pop-fact{
+  background:rgba(0,207,255,.07);border:1px solid rgba(0,207,255,.2);
+  border-radius:10px;padding:11px 14px;font-size:12px;color:var(--text);
+  margin-bottom:18px;line-height:1.6;text-align:left;
+}
+.pop-fact strong{color:var(--neon-yellow);}
+
+/* ══ ACT1 H-BRIDGE SVG ARENA ══ */
+#hb-svg{position:absolute;inset:0;width:100%;height:100%;}
+
+/* ══ ACT2 SWITCHES ══ */
+.sw-grid{
+  width:100%;flex:1;min-height:0;
+  display:grid;grid-template-columns:1fr 280px 1fr;gap:12px;
+}
+.sw-panel{
+  background:rgba(8,13,24,.7);border:1px solid rgba(0,207,255,.12);
+  border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;align-items:center;
+}
+.sw-panel h3{
+  font-family:'Orbitron',monospace;font-size:11px;letter-spacing:.12em;
+  color:var(--neon-blue);text-shadow:0 0 8px rgba(0,207,255,.4);
+}
+.sw-btn{
+  width:100%;padding:10px;border-radius:8px;border:none;cursor:pointer;
+  font-family:'Orbitron',monospace;font-size:10px;letter-spacing:.1em;
+  transition:all .25s;position:relative;overflow:hidden;
+}
+.sw-btn.off{background:rgba(255,255,255,.05);border:1.5px solid var(--muted);color:var(--muted);}
+.sw-btn.on{background:rgba(57,255,20,.12);border:1.5px solid var(--neon-green);color:var(--neon-green);box-shadow:0 0 12px rgba(57,255,20,.3);}
+.sw-btn.on::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent 0%,rgba(57,255,20,.15) 50%,transparent 100%);
+  animation:sweep 1.2s infinite;
+}
+@keyframes sweep{0%{transform:translateX(-100%);}100%{transform:translateX(100%);}}
+
+.motor-center{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+}
+.motor-body{
+  width:90px;height:90px;border-radius:50%;
+  border:3px solid var(--muted);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;transition:border-color .3s;
+  background:rgba(8,13,24,.9);
+}
+.motor-body.spinning-cw{
+  border-color:var(--neon-green);
+  box-shadow:0 0 24px rgba(57,255,20,.4);
+  animation:spin-cw .8s linear infinite;
+}
+.motor-body.spinning-ccw{
+  border-color:var(--neon-red);
+  box-shadow:0 0 24px rgba(255,45,85,.4);
+  animation:spin-ccw .8s linear infinite;
+}
+.motor-body.short-circuit{
+  border-color:var(--neon-yellow);
+  box-shadow:0 0 30px rgba(255,230,0,.6);
+  animation:flicker .1s infinite;
+}
+@keyframes spin-cw{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes spin-ccw{from{transform:rotate(0)}to{transform:rotate(-360deg)}}
+@keyframes flicker{0%,100%{opacity:1}50%{opacity:.5}}
+.motor-label{font-family:'Orbitron',monospace;font-size:9px;color:var(--muted);letter-spacing:.1em;}
+.motor-arrow{
+  font-size:28px;transition:all .3s;
+  text-shadow:0 0 12px currentColor;
+}
+
+.direction-display{
+  width:100%;padding:10px;border-radius:8px;text-align:center;
+  font-family:'Orbitron',monospace;font-size:11px;letter-spacing:.1em;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  transition:all .3s;
+}
+.direction-display.fwd{background:rgba(57,255,20,.1);border-color:var(--neon-green);color:var(--neon-green);}
+.direction-display.rev{background:rgba(255,45,85,.1);border-color:var(--neon-red);color:var(--neon-red);}
+.direction-display.stop{background:rgba(0,207,255,.07);border-color:var(--neon-blue);color:var(--neon-blue);}
+.direction-display.short{background:rgba(255,230,0,.1);border-color:var(--neon-yellow);color:var(--neon-yellow);}
+
+/* ══ ACT3 SCENARIO CARDS ══ */
+.scenario-layout{
+  width:100%;flex:1;min-height:0;
+  display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;
+}
+.scenario-card{
+  background:rgba(8,13,24,.7);border:1px solid rgba(0,207,255,.12);
+  border-radius:12px;padding:12px 16px;
+  display:flex;align-items:center;gap:12px;
+  transition:all .3s;position:relative;overflow:hidden;
+}
+.scenario-card.solved{
+  border-color:var(--neon-green);background:rgba(57,255,20,.06);
+  box-shadow:0 0 14px rgba(57,255,20,.2);
+}
+.scenario-card.wrong-drop{
+  border-color:var(--neon-red);background:rgba(255,45,85,.06);
+  animation:shake .3s;
+}
+.sc-question{flex:1;}
+.sc-question h4{font-family:'Orbitron',monospace;font-size:11px;color:var(--text);margin-bottom:4px;letter-spacing:.06em;}
+.sc-question p{font-size:11px;color:var(--muted);line-height:1.5;}
+.sc-dropzone{
+  width:80px;height:60px;border-radius:8px;
+  border:2px dashed rgba(0,207,255,.3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:rgba(0,207,255,.4);font-family:'Orbitron',monospace;
+  flex-shrink:0;transition:all .25s;text-align:center;line-height:1.4;
+}
+.sc-dropzone.hover{border-color:var(--neon-blue);background:rgba(0,207,255,.1);}
+.sc-dropzone.solved{border-color:var(--neon-green);border-style:solid;background:rgba(57,255,20,.1);}
+.sc-badge{
+  position:absolute;top:8px;right:10px;
+  font-family:'Orbitron',monospace;font-size:9px;letter-spacing:.08em;
+  padding:3px 8px;border-radius:10px;
+}
+.sc-badge.fwd{background:rgba(57,255,20,.15);color:var(--neon-green);border:1px solid rgba(57,255,20,.3);}
+.sc-badge.rev{background:rgba(255,45,85,.15);color:var(--neon-red);border:1px solid rgba(255,45,85,.3);}
+.sc-badge.stop{background:rgba(0,207,255,.12);color:var(--neon-blue);border:1px solid rgba(0,207,255,.25);}
+.sc-badge.safe{background:rgba(255,107,0,.15);color:var(--neon-orange);border:1px solid rgba(255,107,0,.3);}
+
+/* configs shelf */
+.config-part{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  cursor:grab;user-select:none;padding:6px 9px;
+  background:rgba(255,230,0,.07);border:1.5px solid rgba(255,230,0,.35);
+  border-radius:8px;transition:all .2s;font-size:9px;color:var(--neon-yellow);
+  font-family:'Orbitron',monospace;letter-spacing:.04em;text-align:center;
+}
+.config-part:hover{background:rgba(255,230,0,.15);border-color:var(--neon-yellow);transform:scale(1.05);}
+.config-part.dragging{opacity:.3;}
+
+/* ══ DRAG GHOST ══ */
+#ghost{
+  position:fixed;pointer-events:none;z-index:999;
+  transform:translate(-50%,-50%);
+  background:rgba(0,207,255,.12);border:1.5px solid var(--neon-blue);
+  border-radius:8px;padding:6px 10px;
+  font-family:'Orbitron',monospace;font-size:9px;color:var(--neon-blue);
+  letter-spacing:.06em;display:none;white-space:nowrap;
+  box-shadow:0 0 16px rgba(0,207,255,.3);
+}
+
+/* ══ CONFETTI ══ */
+#conf-canvas{position:fixed;inset:0;z-index:98;pointer-events:none;}
+
+/* ══ ANIMATIONS ══ */
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+@keyframes pulse-ring{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.2);opacity:0}}
+.pulse-ring{
+  position:absolute;inset:-4px;border-radius:50%;
+  border:2px solid currentColor;animation:pulse-ring 1.2s ease-out infinite;
+  pointer-events:none;
+}
+@keyframes trace-flow{
+  0%{stroke-dashoffset:200}100%{stroke-dashoffset:0}
+}
+.flow-trace{
+  stroke-dasharray:12 8;
+  animation:trace-flow 1s linear infinite;
+}
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="scanlines"></div>
+<canvas id="conf-canvas"></canvas>
+<div id="ghost"></div>
+
+<!-- HEADER -->
+<div id="hdr">
+  <div class="hdr-logo">PLANRS ACADEMY</div>
+  <div>
+    <div class="hdr-title">H-BRIDGE CIRCUIT — <span>MOTOR FORWARD & REVERSE</span></div>
+  </div>
+  <div class="hdr-steps">
+    <div class="step-node active" id="sn1">1</div>
+    <div class="step-conn" id="sc12"></div>
+    <div class="step-node" id="sn2">2</div>
+    <div class="step-conn" id="sc23"></div>
+    <div class="step-node" id="sn3">3</div>
+  </div>
+</div>
+
+<!-- STAGE -->
+<div id="stage">
+
+<!-- ████████ ACT 1 ████████ -->
+<div class="panel active" id="act1">
+  <div class="act-title">⚡ ASSEMBLE THE H-BRIDGE</div>
+  <div class="act-sub">Drag the four switches into their correct positions to complete the H-Bridge circuit. Match each switch to its labeled slot!</div>
+
+  <div class="shelf">
+    <div class="shelf-lbl">Components :</div>
+    <div class="part" id="p-sw1" draggable="true" data-type="sw-tl">
+      <svg width="38" height="30" viewBox="0 0 38 30"><rect x="2" y="4" width="34" height="22" rx="4" fill="none" stroke="#00cfff" stroke-width="1.5"/><circle cx="10" cy="15" r="4" fill="rgba(0,207,255,.2)" stroke="#00cfff" stroke-width="1.5"/><line x1="14" y1="15" x2="28" y2="9" stroke="#00cfff" stroke-width="2" stroke-linecap="round"/><circle cx="28" cy="9" r="3" fill="rgba(255,45,85,.2)" stroke="#ff2d55" stroke-width="1.5"/></svg>
+      SW — A1
+    </div>
+    <div class="part" id="p-sw2" draggable="true" data-type="sw-tr">
+      <svg width="38" height="30" viewBox="0 0 38 30"><rect x="2" y="4" width="34" height="22" rx="4" fill="none" stroke="#00cfff" stroke-width="1.5"/><circle cx="28" cy="15" r="4" fill="rgba(0,207,255,.2)" stroke="#00cfff" stroke-width="1.5"/><line x1="24" y1="15" x2="10" y2="9" stroke="#00cfff" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="9" r="3" fill="rgba(255,45,85,.2)" stroke="#ff2d55" stroke-width="1.5"/></svg>
+      SW — B1
+    </div>
+    <div class="part" id="p-sw3" draggable="true" data-type="sw-bl">
+      <svg width="38" height="30" viewBox="0 0 38 30"><rect x="2" y="4" width="34" height="22" rx="4" fill="none" stroke="#00cfff" stroke-width="1.5"/><circle cx="10" cy="15" r="4" fill="rgba(0,207,255,.2)" stroke="#00cfff" stroke-width="1.5"/><line x1="14" y1="15" x2="28" y2="21" stroke="#ffe600" stroke-width="2" stroke-linecap="round"/><circle cx="28" cy="21" r="3" fill="rgba(255,230,0,.2)" stroke="#ffe600" stroke-width="1.5"/></svg>
+      SW — A2
+    </div>
+    <div class="part" id="p-sw4" draggable="true" data-type="sw-br">
+      <svg width="38" height="30" viewBox="0 0 38 30"><rect x="2" y="4" width="34" height="22" rx="4" fill="none" stroke="#00cfff" stroke-width="1.5"/><circle cx="28" cy="15" r="4" fill="rgba(0,207,255,.2)" stroke="#00cfff" stroke-width="1.5"/><line x1="24" y1="15" x2="10" y2="21" stroke="#ffe600" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="21" r="3" fill="rgba(255,230,0,.2)" stroke="#ffe600" stroke-width="1.5"/></svg>
+      SW — B2
+    </div>
+    <div class="part" id="p-battery" draggable="true" data-type="battery">
+      <svg width="38" height="30" viewBox="0 0 38 30"><rect x="4" y="8" width="26" height="14" rx="3" fill="none" stroke="#ffe600" stroke-width="1.5"/><rect x="30" y="11" width="5" height="8" rx="1.5" fill="rgba(255,230,0,.3)" stroke="#ffe600" stroke-width="1"/><rect x="2" y="13" width="4" height="4" rx="1" fill="rgba(255,230,0,.3)"/><line x1="13" y1="15" x2="17" y2="15" stroke="#ff2d55" stroke-width="1.5"/><line x1="15" y1="13" x2="15" y2="17" stroke="#ff2d55" stroke-width="1.5"/><line x1="22" y1="15" x2="26" y2="15" stroke="#00cfff" stroke-width="1.5"/></svg>
+      9V BATTERY
+    </div>
+    <div class="part" id="p-motor" draggable="true" data-type="motor">
+      <svg width="38" height="30" viewBox="0 0 38 30"><circle cx="19" cy="15" r="11" fill="none" stroke="#39ff14" stroke-width="1.5"/><circle cx="19" cy="15" r="5" fill="rgba(57,255,20,.2)" stroke="#39ff14" stroke-width="1"/><line x1="6" y1="15" x2="1" y2="15" stroke="#39ff14" stroke-width="2"/><line x1="32" y1="15" x2="37" y2="15" stroke="#39ff14" stroke-width="2"/><text x="19" y="18" text-anchor="middle" font-size="7" fill="#39ff14" font-family="monospace">M</text></svg>
+      DC MOTOR
+    </div>
+  </div>
+
+  <div class="arena" id="arena1">
+    <svg id="hb-svg" viewBox="0 0 800 320" preserveAspectRatio="xMidYMid meet">
+      <!-- GRID -->
+      <defs>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M40 0 L0 0 0 40" fill="none" stroke="rgba(0,207,255,0.06)" stroke-width="1"/>
+        </pattern>
+        <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <rect width="800" height="320" fill="url(#grid)"/>
+
+      <!-- POWER RAILS -->
+      <line x1="80" y1="50" x2="720" y2="50" stroke="rgba(255,45,85,.25)" stroke-width="2" stroke-dasharray="6,4"/>
+      <line x1="80" y1="270" x2="720" y2="270" stroke="rgba(0,207,255,.25)" stroke-width="2" stroke-dasharray="6,4"/>
+      <text x="20" y="55" fill="rgba(255,45,85,.6)" font-family="monospace" font-size="10">+9V</text>
+      <text x="20" y="275" fill="rgba(0,207,255,.6)" font-family="monospace" font-size="10">GND</text>
+
+      <!-- VERTICAL WIRES LEFT SIDE -->
+      <line x1="160" y1="50" x2="160" y2="270" stroke="rgba(0,207,255,.15)" stroke-width="1.5" stroke-dasharray="4,4"/>
+      <!-- VERTICAL WIRES RIGHT SIDE -->
+      <line x1="640" y1="50" x2="640" y2="270" stroke="rgba(0,207,255,.15)" stroke-width="1.5" stroke-dasharray="4,4"/>
+      <!-- MOTOR CONNECTIONS -->
+      <line x1="280" y1="160" x2="340" y2="160" stroke="rgba(0,207,255,.15)" stroke-width="1.5" stroke-dasharray="4,4"/>
+      <line x1="460" y1="160" x2="520" y2="160" stroke="rgba(0,207,255,.15)" stroke-width="1.5" stroke-dasharray="4,4"/>
+
+      <!-- CORNER DOTS -->
+      <circle cx="160" cy="50" r="4" fill="rgba(255,45,85,.3)"/>
+      <circle cx="640" cy="50" r="4" fill="rgba(255,45,85,.3)"/>
+      <circle cx="160" cy="270" r="4" fill="rgba(0,207,255,.3)"/>
+      <circle cx="640" cy="270" r="4" fill="rgba(0,207,255,.3)"/>
+
+      <!-- LABELS -->
+      <text x="160" y="165" text-anchor="middle" fill="rgba(0,207,255,.25)" font-size="9" font-family="monospace">LEFT ARM</text>
+      <text x="640" y="165" text-anchor="middle" fill="rgba(0,207,255,.25)" font-size="9" font-family="monospace">RIGHT ARM</text>
+
+      <!-- FLOW TRACES (hidden until filled) -->
+      <g id="flow-traces" opacity="0" style="transition:opacity .5s;">
+        <line x1="160" y1="50" x2="160" y2="120" stroke="#39ff14" stroke-width="2.5" class="flow-trace" filter="url(#glow)"/>
+        <line x1="280" y1="160" x2="400" y2="160" stroke="#39ff14" stroke-width="2.5" class="flow-trace" filter="url(#glow)"/>
+        <line x1="520" y1="160" x2="640" y2="160" stroke="#ff2d55" stroke-width="2.5" class="flow-trace" filter="url(#glow)"/>
+        <line x1="640" y1="200" x2="640" y2="270" stroke="#ff2d55" stroke-width="2.5" class="flow-trace" filter="url(#glow)"/>
+      </g>
+    </svg>
+
+    <!-- DROP ZONES over SVG -->
+    <!-- TL switch: top-left arm -->
+    <div class="dz" id="dz-tl" data-accept="sw-tl" style="left:9%;top:12%;width:13%;height:32%">TOP LEFT<br>SW-A1</div>
+    <!-- TR switch: top-right arm -->
+    <div class="dz" id="dz-tr" data-accept="sw-tr" style="left:78%;top:12%;width:13%;height:32%">TOP RIGHT<br>SW-B1</div>
+    <!-- BL switch: bottom-left arm -->
+    <div class="dz" id="dz-bl" data-accept="sw-bl" style="left:9%;top:56%;width:13%;height:32%">BOT LEFT<br>SW-A2</div>
+    <!-- BR switch: bottom-right arm -->
+    <div class="dz" id="dz-br" data-accept="sw-br" style="left:78%;top:56%;width:13%;height:32%">BOT RIGHT<br>SW-B2</div>
+    <!-- Battery -->
+    <div class="dz" id="dz-bat" data-accept="battery" style="left:32%;top:10%;width:14%;height:26%">BATTERY<br>9V</div>
+    <!-- Motor -->
+    <div class="dz" id="dz-mot" data-accept="motor" style="left:44%;top:36%;width:12%;height:28%">MOTOR<br>DC</div>
+  </div>
+
+  <div class="prog-wrap">
+    <div class="prog-bg"><div class="prog-fill" id="pb1" style="width:0%;background:linear-gradient(90deg,var(--neon-blue),var(--neon-green));"></div></div>
+    <div class="prog-lbl" id="pl1">0 / 6 components placed</div>
+  </div>
+  <button class="btn" id="btn1" disabled onclick="openPop('pop1')">CIRCUIT COMPLETE →</button>
+</div>
+
+<!-- ████████ ACT 2 ████████ -->
+<div class="panel" id="act2">
+  <div class="act-title">🔄 FLIP THE CURRENT — CONTROL DIRECTION</div>
+  <div class="act-sub">Click the correct pair of switches to make the motor spin FORWARD (Seedha) or REVERSE (Ulta). Toggle the right combination!</div>
+
+  <div class="sw-grid">
+    <!-- Left switches panel -->
+    <div class="sw-panel">
+      <h3>LEFT ARM SWITCHES</h3>
+      <button class="sw-btn off" id="sw-A1" onclick="toggleSw('A1')">SW — A1<br><span style="font-size:8px;opacity:.6;">TOP LEFT</span></button>
+      <button class="sw-btn off" id="sw-A2" onclick="toggleSw('A2')">SW — A2<br><span style="font-size:8px;opacity:.6;">BOT LEFT</span></button>
+      <div style="margin-top:8px;font-size:10px;color:var(--muted);font-family:'Orbitron',monospace;text-align:center;line-height:1.6;">
+        Current flows<br>LEFT → MOTOR
+      </div>
+    </div>
+
+    <!-- Center motor display -->
+    <div class="motor-center">
+      <div style="position:relative;display:flex;align-items:center;justify-content:center;">
+        <div class="motor-body" id="motor-body">
+          <svg width="50" height="50" viewBox="0 0 50 50" id="motor-svg">
+            <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="2"/>
+            <line x1="25" y1="5" x2="25" y2="45" stroke="currentColor" stroke-width="1.5" opacity=".4"/>
+            <line x1="5" y1="25" x2="45" y2="25" stroke="currentColor" stroke-width="1.5" opacity=".4"/>
+            <circle cx="25" cy="25" r="4" fill="currentColor" opacity=".5"/>
+            <text x="25" y="29" text-anchor="middle" font-size="10" fill="currentColor" font-family="monospace">M</text>
+          </svg>
+        </div>
+      </div>
+      <div class="motor-label">DC MOTOR</div>
+      <div class="motor-arrow" id="motor-arrow" style="color:var(--muted);">—</div>
+      <div class="direction-display stop" id="dir-display">STANDBY</div>
+
+      <div style="width:100%;padding:8px;background:rgba(255,255,255,.03);border-radius:8px;font-size:10px;color:var(--muted);font-family:'Orbitron',monospace;letter-spacing:.06em;text-align:center;line-height:1.8;">
+        FORWARD: A1 + B2 ON<br>REVERSE: A2 + B1 ON<br>STOP: ALL OFF
+      </div>
+
+      <div id="act2-tasks" style="width:100%;display:flex;flex-direction:column;gap:6px;">
+        <div class="direction-display" id="task-fwd" style="font-size:10px;opacity:.5;">⬜ Spin FORWARD (Seedha)</div>
+        <div class="direction-display" id="task-rev" style="font-size:10px;opacity:.5;">⬜ Spin REVERSE (Ulta)</div>
+        <div class="direction-display" id="task-stop" style="font-size:10px;opacity:.5;">⬜ STOP the motor</div>
+      </div>
+    </div>
+
+    <!-- Right switches panel -->
+    <div class="sw-panel">
+      <h3>RIGHT ARM SWITCHES</h3>
+      <button class="sw-btn off" id="sw-B1" onclick="toggleSw('B1')">SW — B1<br><span style="font-size:8px;opacity:.6;">TOP RIGHT</span></button>
+      <button class="sw-btn off" id="sw-B2" onclick="toggleSw('B2')">SW — B2<br><span style="font-size:8px;opacity:.6;">BOT RIGHT</span></button>
+      <div style="margin-top:8px;font-size:10px;color:var(--muted);font-family:'Orbitron',monospace;text-align:center;line-height:1.6;">
+        Current flows<br>MOTOR → RIGHT
+      </div>
+    </div>
+  </div>
+
+  <div class="prog-wrap">
+    <div class="prog-bg"><div class="prog-fill" id="pb2" style="width:0%;background:linear-gradient(90deg,var(--neon-red),var(--neon-green));"></div></div>
+    <div class="prog-lbl" id="pl2">Complete all 3 direction tasks</div>
+  </div>
+  <button class="btn" id="btn2" disabled onclick="openPop('pop2')">DIRECTION MASTERED →</button>
+</div>
+
+<!-- ████████ ACT 3 ████████ -->
+<div class="panel" id="act3">
+  <div class="act-title">🧪 TEST SCENARIOS — REAL-WORLD ENGINEER</div>
+  <div class="act-sub">Four real-world machines need motor control. Drag the correct switch configuration card to each machine to solve the challenge!</div>
+
+  <div class="shelf">
+    <div class="shelf-lbl">Configurations :</div>
+    <div class="config-part" id="cfg-fwd" draggable="true" data-cfg="forward">
+      <svg width="36" height="24" viewBox="0 0 36 24"><rect x="2" y="4" width="32" height="16" rx="3" fill="rgba(57,255,20,.1)" stroke="#39ff14" stroke-width="1.5"/><text x="18" y="16" text-anchor="middle" font-size="9" fill="#39ff14" font-family="monospace">FWD</text></svg>
+      A1 + B2<br>FORWARD
+    </div>
+    <div class="config-part" id="cfg-rev" draggable="true" data-cfg="reverse">
+      <svg width="36" height="24" viewBox="0 0 36 24"><rect x="2" y="4" width="32" height="16" rx="3" fill="rgba(255,45,85,.1)" stroke="#ff2d55" stroke-width="1.5"/><text x="18" y="16" text-anchor="middle" font-size="9" fill="#ff2d55" font-family="monospace">REV</text></svg>
+      A2 + B1<br>REVERSE
+    </div>
+    <div class="config-part" id="cfg-stop" draggable="true" data-cfg="stop">
+      <svg width="36" height="24" viewBox="0 0 36 24"><rect x="2" y="4" width="32" height="16" rx="3" fill="rgba(0,207,255,.08)" stroke="#00cfff" stroke-width="1.5"/><text x="18" y="16" text-anchor="middle" font-size="9" fill="#00cfff" font-family="monospace">STOP</text></svg>
+      ALL OFF<br>STOP
+    </div>
+    <div class="config-part" id="cfg-safe" draggable="true" data-cfg="safe">
+      <svg width="36" height="24" viewBox="0 0 36 24"><rect x="2" y="4" width="32" height="16" rx="3" fill="rgba(255,107,0,.1)" stroke="#ff6b00" stroke-width="1.5"/><text x="18" y="16" text-anchor="middle" font-size="9" fill="#ff6b00" font-family="monospace">BRAKE</text></svg>
+      SAME SIDE<br>BRAKE
+    </div>
+  </div>
+
+  <div class="scenario-layout">
+    <!-- Card 1 -->
+    <div class="scenario-card" id="sc1">
+      <div class="sc-question">
+        <h4>🚗 TOY CAR — MOVING FORWARD</h4>
+        <p>The remote-control car at the Mela is rolling forward toward you. Which config drives it forward?</p>
+      </div>
+      <div class="sc-dropzone" id="scdz1" data-answer="forward">DROP<br>CONFIG</div>
+      <div class="sc-badge fwd">FORWARD</div>
+    </div>
+    <!-- Card 2 -->
+    <div class="scenario-card" id="sc2">
+      <div class="sc-question">
+        <h4>🪟 CAR WINDOW — ROLLING DOWN</h4>
+        <p>Maruti's power window button is pressed to roll the window DOWN. Which config runs the motor in reverse?</p>
+      </div>
+      <div class="sc-dropzone" id="scdz2" data-answer="reverse">DROP<br>CONFIG</div>
+      <div class="sc-badge rev">REVERSE</div>
+    </div>
+    <!-- Card 3 -->
+    <div class="scenario-card" id="sc3">
+      <div class="sc-question">
+        <h4>🧺 WASHING MACHINE — PAUSE</h4>
+        <p>The chakra (agitator) is spinning but you need to pause the cycle. Which config safely stops the motor?</p>
+      </div>
+      <div class="sc-dropzone" id="scdz3" data-answer="stop">DROP<br>CONFIG</div>
+      <div class="sc-badge stop">STOP</div>
+    </div>
+    <!-- Card 4 -->
+    <div class="scenario-card" id="sc4">
+      <div class="sc-question">
+        <h4>🛺 AUTO-RICKSHAW — REVERSE GEAR</h4>
+        <p>The auto needs to back out of a parking spot — same motor, but backwards. Which config enables safe reverse?</p>
+      </div>
+      <div class="sc-dropzone" id="scdz4" data-answer="reverse">DROP<br>CONFIG</div>
+      <div class="sc-badge rev">REVERSE</div>
+    </div>
+  </div>
+
+  <div class="prog-wrap">
+    <div class="prog-bg"><div class="prog-fill" id="pb3" style="width:0%;background:linear-gradient(90deg,var(--neon-yellow),var(--neon-orange));"></div></div>
+    <div class="prog-lbl" id="pl3">0 / 4 scenarios solved</div>
+  </div>
+  <button class="btn green" id="btn3" disabled onclick="openPop('pop3')">ENGINEER CERTIFIED →</button>
+</div>
+
+</div><!-- /stage -->
+
+<!-- ══ POPUPS ══ -->
+
+<div class="pop-overlay on" id="pop0">
+  <div class="popup">
+    <span class="pop-ico">⚡</span>
+    <div class="pop-title">WELCOME TO THE CIRCUIT LAB</div>
+    <div class="pop-body">A motor is just electricity flowing in one direction. Want it to spin backwards? Simply <strong style="color:var(--neon-yellow)">flip the flow</strong>. That's the magic of the H-Bridge!</div>
+    <div class="pop-fact">💡 <strong>Think of it like this:</strong> A 4-way junction on an Indian road — open the right gates and your car (electricity) moves exactly where you want it.</div>
+    <button class="btn" onclick="closePop('pop0')">BUILD THE CIRCUIT →</button>
+  </div>
+</div>
+
+<div class="pop-overlay" id="pop1">
+  <div class="popup">
+    <span class="pop-ico">✅</span>
+    <div class="pop-title">CIRCUIT ASSEMBLED!</div>
+    <div class="pop-body">All components are connected. The H-Bridge is built — 4 switches form the "H" shape, with the motor in the middle crossbar.</div>
+    <div class="pop-fact">🔌 <strong>Why the letter H?</strong> Draw the circuit — two vertical lines (the arms), one horizontal line (the motor). It literally looks like the letter H!</div>
+    <button class="btn" onclick="goAct2()">CONTROL DIRECTION →</button>
+  </div>
+</div>
+
+<div class="pop-overlay" id="pop2">
+  <div class="popup">
+    <span class="pop-ico">🔄</span>
+    <div class="pop-title">DIRECTION MASTER!</div>
+    <div class="pop-body">You've discovered the secret: <strong style="color:var(--neon-green)">A1+B2 = Forward (Seedha)</strong> and <strong style="color:var(--neon-red)">A2+B1 = Reverse (Ulta)</strong>. The electricity literally flows the other way!</div>
+    <div class="pop-fact">🚗 <strong>Power Windows:</strong> In your Maruti or Tata car, pressing UP vs DOWN simply changes which switch pair is active — exactly what you just did!</div>
+    <button class="btn" onclick="goAct3()">REAL-WORLD CHALLENGES →</button>
+  </div>
+</div>
+
+<div class="pop-overlay" id="pop3">
+  <div class="popup">
+    <span class="pop-ico">🏆</span>
+    <div class="pop-title">CIRCUIT CAPTAIN — CERTIFIED!</div>
+    <div class="pop-body">You can build, control, and apply H-Bridge circuits to real machines. Remote cars, washing machines, power windows — you now understand how they all work!</div>
+    <div class="pop-fact">⚡ <strong>Big Picture:</strong> Engineers use the same H-Bridge principle in robots, electric vehicles, and even the motors inside your computer's cooling fans — just at a much smaller scale!</div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+      <button class="btn" onclick="restartAll()">🔄 RESTART</button>
+      <button class="btn green" onclick="closePop('pop3')">🌟 EXPLORE</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+//  BG CANVAS — Neon City Circuit World
+// ══════════════════════════════════════
+const bgC=document.getElementById('bg-canvas');
+const bx=bgC.getContext('2d');
+let BW,BH;
+let traces=[],pulses=[],nodes=[];
+
+function resizeBg(){
+  BW=bgC.width=window.innerWidth;
+  BH=bgC.height=window.innerHeight;
+  buildCity();
+}
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+
+function buildCity(){
+  traces=[];pulses=[];nodes=[];
+  // Circuit traces — horizontal and vertical lines
+  for(let i=0;i<18;i++){
+    const horiz=Math.random()<.5;
+    traces.push({
+      x1:rnd(0,BW),y1:rnd(0,BH),
+      x2:0,y2:0,
+      horiz,
+      alpha:rnd(.04,.14),
+      color:Math.random()<.5?'0,207,255':'57,255,20',
+      width:rnd(.5,1.5)
+    });
+    const t=traces[traces.length-1];
+    if(horiz){t.x2=t.x1+rnd(80,300);t.y2=t.y1;}
+    else{t.y2=t.y1+rnd(80,300);t.x2=t.x1;}
+  }
+  // Moving pulses along traces
+  for(let i=0;i<10;i++){
+    pulses.push({
+      traceIdx:Math.floor(Math.random()*traces.length),
+      t:rnd(0,1),speed:rnd(.002,.008),
+      r:rnd(2,5),alpha:rnd(.5,.9),
+      color:Math.random()<.5?'0,207,255':'255,45,85'
+    });
+  }
+  // Neon node dots at intersections
+  for(let i=0;i<30;i++){
+    nodes.push({
+      x:rnd(0,BW),y:rnd(0,BH),
+      r:rnd(1.5,4),
+      alpha:rnd(.1,.3),
+      pulse:rnd(0,Math.PI*2),
+      pulseSpeed:rnd(.01,.04),
+      color:['0,207,255','57,255,20','255,45,85','255,230,0'][Math.floor(Math.random()*4)]
+    });
+  }
+}
+
+function drawBg(t){
+  bx.clearRect(0,0,BW,BH);
+
+  // Grid
+  bx.strokeStyle='rgba(0,207,255,0.05)';
+  bx.lineWidth=1;
+  const step=60;
+  for(let x=0;x<BW;x+=step){bx.beginPath();bx.moveTo(x,0);bx.lineTo(x,BH);bx.stroke();}
+  for(let y=0;y<BH;y+=step){bx.beginPath();bx.moveTo(0,y);bx.lineTo(BW,y);bx.stroke();}
+
+  // Perspective diagonal lines
+  bx.strokeStyle='rgba(0,207,255,0.04)';
+  for(let i=-BH;i<BW+BH;i+=80){
+    bx.beginPath();bx.moveTo(i,0);bx.lineTo(i+BH,BH);bx.stroke();
+  }
+
+  // Circuit traces
+  traces.forEach(tr=>{
+    bx.strokeStyle=`rgba(${tr.color},${tr.alpha})`;
+    bx.lineWidth=tr.width;
+    bx.beginPath();bx.moveTo(tr.x1,tr.y1);bx.lineTo(tr.x2,tr.y2);bx.stroke();
+    // Corner node
+    bx.fillStyle=`rgba(${tr.color},${tr.alpha*2})`;
+    bx.beginPath();bx.arc(tr.x1,tr.y1,2,0,Math.PI*2);bx.fill();
+    bx.beginPath();bx.arc(tr.x2,tr.y2,2,0,Math.PI*2);bx.fill();
+  });
+
+  // Pulses
+  pulses.forEach(p=>{
+    p.t+=p.speed;if(p.t>1)p.t=0;
+    const tr=traces[p.traceIdx];
+    if(!tr)return;
+    const px=tr.x1+(tr.x2-tr.x1)*p.t;
+    const py=tr.y1+(tr.y2-tr.y1)*p.t;
+    const g=bx.createRadialGradient(px,py,0,px,py,p.r*3);
+    g.addColorStop(0,`rgba(${p.color},${p.alpha})`);
+    g.addColorStop(1,`rgba(${p.color},0)`);
+    bx.fillStyle=g;
+    bx.beginPath();bx.arc(px,py,p.r*3,0,Math.PI*2);bx.fill();
+    bx.fillStyle=`rgba(${p.color},${p.alpha})`;
+    bx.beginPath();bx.arc(px,py,p.r,0,Math.PI*2);bx.fill();
+  });
+
+  // Nodes
+  nodes.forEach(n=>{
+    n.pulse+=n.pulseSpeed;
+    const a=n.alpha*(0.5+0.5*Math.sin(n.pulse));
+    bx.fillStyle=`rgba(${n.color},${a})`;
+    bx.beginPath();bx.arc(n.x,n.y,n.r,0,Math.PI*2);bx.fill();
+  });
+
+  // Neon "city" horizon glow
+  const hg=bx.createLinearGradient(0,BH*.55,0,BH);
+  hg.addColorStop(0,'transparent');
+  hg.addColorStop(1,'rgba(0,207,255,0.04)');
+  bx.fillStyle=hg;
+  bx.fillRect(0,BH*.55,BW,BH*.45);
+}
+
+// ══════════════════════════════════════
+//  CONFETTI
+// ══════════════════════════════════════
+const confC=document.getElementById('conf-canvas');
+const cx2=confC.getContext('2d');
+let confPieces=[];
+function boom(){
+  confC.width=window.innerWidth;confC.height=window.innerHeight;
+  confPieces=[];
+  const colors=['#ff2d55','#00cfff','#39ff14','#ffe600','#ff6b00','#bf5fff'];
+  for(let i=0;i<140;i++){
+    confPieces.push({
+      x:rnd(0,confC.width),y:rnd(-80,0),
+      w:rnd(6,14),h:rnd(8,18),
+      rot:rnd(0,360),vrot:rnd(-5,5),
+      vx:rnd(-3,3),vy:rnd(3,8),
+      color:colors[Math.floor(Math.random()*colors.length)],
+      alpha:1
+    });
+  }
+  animConf();
+}
+function animConf(){
+  cx2.clearRect(0,0,confC.width,confC.height);
+  let alive=false;
+  confPieces.forEach(c=>{
+    c.y+=c.vy;c.x+=c.vx;c.rot+=c.vrot;c.alpha-=.007;
+    if(c.alpha<=0)return;alive=true;
+    cx2.save();cx2.globalAlpha=c.alpha;
+    cx2.translate(c.x,c.y);cx2.rotate(c.rot*Math.PI/180);
+    cx2.fillStyle=c.color;cx2.fillRect(-c.w/2,-c.h/2,c.w,c.h);
+    cx2.restore();
+  });
+  if(alive)requestAnimationFrame(animConf);
+  else cx2.clearRect(0,0,confC.width,confC.height);
+}
+
+// MAIN LOOP
+function loop(t){drawBg(t);requestAnimationFrame(loop);}
+window.addEventListener('resize',resizeBg);
+resizeBg();requestAnimationFrame(loop);
+
+// ══════════════════════════════════════
+//  DRAG SYSTEM
+// ══════════════════════════════════════
+let dragState={type:null,srcId:null,label:''};
+const ghost=document.getElementById('ghost');
+
+function setupDrag(el){
+  el.addEventListener('dragstart',e=>{
+    dragState.type=el.dataset.type||el.dataset.cfg;
+    dragState.srcId=el.id;
+    dragState.label=el.textContent.trim().split('\n')[0];
+    el.classList.add('dragging');
+    ghost.textContent=dragState.label;
+    ghost.style.display='block';
+    e.dataTransfer.setData('text/plain',dragState.type);
+    e.dataTransfer.effectAllowed='copy';
+  });
+  el.addEventListener('dragend',()=>{
+    el.classList.remove('dragging');
+    ghost.style.display='none';
+  });
+}
+
+document.addEventListener('dragover',e=>{
+  e.preventDefault();
+  if(ghost.style.display!=='none'){
+    ghost.style.left=e.clientX+'px';
+    ghost.style.top=e.clientY+'px';
+  }
+});
+
+document.querySelectorAll('.part[draggable],.config-part[draggable]').forEach(setupDrag);
+
+// ══════════════════════════════════════
+//  ACT 1
+// ══════════════════════════════════════
+const act1state={};
+const act1map={
+  'dz-tl':'sw-tl','dz-tr':'sw-tr','dz-bl':'sw-bl','dz-br':'sw-br',
+  'dz-bat':'battery','dz-mot':'motor'
+};
+const act1icons={
+  'sw-tl':'<svg width="28" height="22"><rect x="2" y="2" width="24" height="18" rx="3" fill="none" stroke="#39ff14" stroke-width="1.5"/><line x1="8" y1="11" x2="20" y2="7" stroke="#39ff14" stroke-width="2"/><circle cx="8" cy="11" r="2.5" fill="rgba(57,255,20,.4)" stroke="#39ff14"/></svg>',
+  'sw-tr':'<svg width="28" height="22"><rect x="2" y="2" width="24" height="18" rx="3" fill="none" stroke="#39ff14" stroke-width="1.5"/><line x1="20" y1="11" x2="8" y2="7" stroke="#39ff14" stroke-width="2"/><circle cx="20" cy="11" r="2.5" fill="rgba(57,255,20,.4)" stroke="#39ff14"/></svg>',
+  'sw-bl':'<svg width="28" height="22"><rect x="2" y="2" width="24" height="18" rx="3" fill="none" stroke="#39ff14" stroke-width="1.5"/><line x1="8" y1="11" x2="20" y2="15" stroke="#39ff14" stroke-width="2"/><circle cx="8" cy="11" r="2.5" fill="rgba(57,255,20,.4)" stroke="#39ff14"/></svg>',
+  'sw-br':'<svg width="28" height="22"><rect x="2" y="2" width="24" height="18" rx="3" fill="none" stroke="#39ff14" stroke-width="1.5"/><line x1="20" y1="11" x2="8" y2="15" stroke="#39ff14" stroke-width="2"/><circle cx="20" cy="11" r="2.5" fill="rgba(57,255,20,.4)" stroke="#39ff14"/></svg>',
+  'battery':'<svg width="28" height="22"><rect x="2" y="6" width="20" height="10" rx="2" fill="none" stroke="#39ff14" stroke-width="1.5"/><rect x="22" y="8" width="4" height="6" rx="1" fill="rgba(57,255,20,.3)"/></svg>',
+  'motor':'<svg width="28" height="22"><circle cx="14" cy="11" r="8" fill="none" stroke="#39ff14" stroke-width="1.5"/><text x="14" y="15" text-anchor="middle" font-size="8" fill="#39ff14" font-family="monospace">M</text></svg>'
+};
+
+document.querySelectorAll('#arena1 .dz').forEach(dz=>{
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('hover');});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('hover'));
+  dz.addEventListener('drop',e=>{
+    e.preventDefault();dz.classList.remove('hover');
+    const expected=act1map[dz.id];
+    const got=dragState.type;
+    if(got!==expected){
+      dz.classList.add('wrong');setTimeout(()=>dz.classList.remove('wrong'),500);
+      spawnSparks(e.clientX,e.clientY,'255,45,85');return;
+    }
+    if(dz.classList.contains('filled'))return;
+    dz.classList.add('filled');
+    dz.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;color:#39ff14;font-family:'Orbitron',monospace;">${act1icons[got]||'✓'}✓ SET</div>`;
+    act1state[dz.id]=true;
+    const src=document.getElementById(dragState.srcId);
+    if(src)src.style.visibility='hidden';
+    spawnSparks(e.clientX,e.clientY,'57,255,20');
+    updateAct1();
+  });
+});
+
+function updateAct1(){
+  const n=Object.keys(act1state).length;
+  document.getElementById('pb1').style.width=(n/6*100)+'%';
+  document.getElementById('pl1').textContent=`${n} / 6 components placed`;
+  if(n===6){
+    document.getElementById('btn1').disabled=false;
+    document.getElementById('flow-traces').style.opacity='1';
+  }
+}
+
+// ══════════════════════════════════════
+//  ACT 2
+// ══════════════════════════════════════
+const swState={A1:false,A2:false,B1:false,B2:false};
+const act2done={fwd:false,rev:false,stop:false};
+
+function toggleSw(id){
+  swState[id]=!swState[id];
+  const btn=document.getElementById('sw-'+id);
+  btn.classList.toggle('on',swState[id]);
+  btn.classList.toggle('off',!swState[id]);
+  evalMotor();
+}
+
+function evalMotor(){
+  const {A1,A2,B1,B2}=swState;
+  const mb=document.getElementById('motor-body');
+  const arrow=document.getElementById('motor-arrow');
+  const disp=document.getElementById('dir-display');
+  mb.className='motor-body';
+  // SHORT CIRCUIT: both on same arm
+  if((A1&&A2)||(B1&&B2)){
+    mb.classList.add('short-circuit');
+    arrow.textContent='⚠';arrow.style.color=vars('--neon-yellow');
+    disp.className='direction-display short';disp.textContent='⚠ SHORT CIRCUIT!';
+    return;
+  }
+  if(A1&&B2){
+    mb.classList.add('spinning-cw');
+    arrow.textContent='→';arrow.style.color=vars('--neon-green');
+    disp.className='direction-display fwd';disp.textContent='▶ FORWARD (Seedha)';
+    if(!act2done.fwd){act2done.fwd=true;markTask('fwd');updateAct2();}
+  } else if(A2&&B1){
+    mb.classList.add('spinning-ccw');
+    arrow.textContent='←';arrow.style.color=vars('--neon-red');
+    disp.className='direction-display rev';disp.textContent='◀ REVERSE (Ulta)';
+    if(!act2done.rev){act2done.rev=true;markTask('rev');updateAct2();}
+  } else if(!A1&&!A2&&!B1&&!B2){
+    arrow.textContent='—';arrow.style.color=vars('--muted');
+    disp.className='direction-display stop';disp.textContent='■ STANDBY';
+    if(act2done.fwd||act2done.rev){
+      if(!act2done.stop){act2done.stop=true;markTask('stop');updateAct2();}
+    }
+  } else {
+    arrow.textContent='?';arrow.style.color=vars('--muted');
+    disp.className='direction-display stop';disp.textContent='— INCOMPLETE';
+  }
+}
+
+function vars(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}
+
+function markTask(t){
+  const el=document.getElementById('task-'+t);
+  const labels={fwd:'✅ FORWARD Done! (A1+B2)',rev:'✅ REVERSE Done! (A2+B1)',stop:'✅ STOP Done!'};
+  el.style.opacity='1';
+  if(t==='fwd'){el.className='direction-display fwd';el.textContent=labels.fwd;}
+  else if(t==='rev'){el.className='direction-display rev';el.textContent=labels.rev;}
+  else{el.className='direction-display stop';el.textContent=labels.stop;}
+}
+
+function updateAct2(){
+  const n=(act2done.fwd?1:0)+(act2done.rev?1:0)+(act2done.stop?1:0);
+  document.getElementById('pb2').style.width=(n/3*100)+'%';
+  document.getElementById('pl2').textContent=`${n} / 3 tasks complete`;
+  if(n===3)document.getElementById('btn2').disabled=false;
+}
+
+// ══════════════════════════════════════
+//  ACT 3
+// ══════════════════════════════════════
+const act3state={};
+const scenarioAnswers={scdz1:'forward',scdz2:'reverse',scdz3:'stop',scdz4:'reverse'};
+
+document.querySelectorAll('.config-part[draggable]').forEach(setupDrag);
+
+document.querySelectorAll('.sc-dropzone').forEach(dz=>{
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('hover');});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('hover'));
+  dz.addEventListener('drop',e=>{
+    e.preventDefault();dz.classList.remove('hover');
+    if(dz.classList.contains('solved'))return;
+    const ans=scenarioAnswers[dz.id];
+    const got=dragState.type;
+    if(got===ans){
+      dz.classList.add('solved');
+      const cfgLabels={forward:'A1+B2 FWD',reverse:'A2+B1 REV',stop:'ALL OFF',safe:'BRAKE'};
+      dz.innerHTML=`<span style="font-size:9px;color:#39ff14;font-family:'Orbitron',monospace;letter-spacing:.05em;">✓ ${cfgLabels[got]}</span>`;
+      const card=dz.closest('.scenario-card');
+      if(card)card.classList.add('solved');
+      act3state[dz.id]=true;
+      spawnSparks(e.clientX,e.clientY,'57,255,20');
+      updateAct3();
+    } else {
+      dz.classList.add('wrong');
+      const card=dz.closest('.scenario-card');
+      if(card){card.classList.add('wrong-drop');setTimeout(()=>card.classList.remove('wrong-drop'),500);}
+      setTimeout(()=>dz.classList.remove('wrong'),500);
+      spawnSparks(e.clientX,e.clientY,'255,45,85');
+    }
+  });
+});
+
+function updateAct3(){
+  const n=Object.keys(act3state).length;
+  document.getElementById('pb3').style.width=(n/4*100)+'%';
+  document.getElementById('pl3').textContent=`${n} / 4 scenarios solved`;
+  if(n===4)document.getElementById('btn3').disabled=false;
+}
+
+// ══════════════════════════════════════
+//  POPUP + NAV
+// ══════════════════════════════════════
+function openPop(id){document.getElementById(id).classList.add('on');}
+function closePop(id){document.getElementById(id).classList.remove('on');}
+
+function goAct2(){
+  closePop('pop1');
+  document.getElementById('act1').classList.remove('active');
+  document.getElementById('act2').classList.add('active');
+  document.getElementById('sn1').classList.remove('active');document.getElementById('sn1').classList.add('done');
+  document.getElementById('sc12').classList.add('lit');
+  document.getElementById('sn2').classList.add('active');
+}
+function goAct3(){
+  closePop('pop2');
+  document.getElementById('act2').classList.remove('active');
+  document.getElementById('act3').classList.add('active');
+  document.getElementById('sn2').classList.remove('active');document.getElementById('sn2').classList.add('done');
+  document.getElementById('sc23').classList.add('lit');
+  document.getElementById('sn3').classList.add('active');
+  boom();
+}
+function restartAll(){closePop('pop3');location.reload();}
+
+// Final popup with confetti
+const origBtn3=document.getElementById('btn3');
+origBtn3.addEventListener('click',()=>{setTimeout(boom,200);},true);
+
+// ══════════════════════════════════════
+//  SPARK FX
+// ══════════════════════════════════════
+function spawnSparks(x,y,col){
+  for(let i=0;i<8;i++){
+    const s=document.createElement('div');
+    const ang=rnd(0,Math.PI*2);const dist=rnd(20,50);
+    const tx=Math.cos(ang)*dist;const ty=Math.sin(ang)*dist;
+    s.style.cssText=`
+      position:fixed;left:${x}px;top:${y}px;width:${rnd(3,7)}px;height:${rnd(3,7)}px;
+      border-radius:50%;background:rgba(${col},.9);pointer-events:none;z-index:200;
+      box-shadow:0 0 6px rgba(${col},.8);
+      transition:transform ${rnd(.3,.6)}s ease-out,opacity ${rnd(.3,.6)}s ease-out;
+    `;
+    document.body.appendChild(s);
+    requestAnimationFrame(()=>{
+      s.style.transform=`translate(${tx}px,${ty}px)`;
+      s.style.opacity='0';
+    });
+    setTimeout(()=>s.remove(),700);
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JavaScript — DOM Manipulation Deep Dive</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Righteous&family=Nunito:wght@400;600;700;800&family=Fira+Code:wght@400;500;600&display=swap');
+
+  :root {
+    --rain-blue: #1a3a5c;
+    --storm-dark: #0d1f35;
+    --puddle: #2a6496;
+    --splash: #5ba3d9;
+    --sky-mid: #1e4d78;
+    --cloud-gray: #c8d8e8;
+    --accent-teal: #00d4aa;
+    --accent-yellow: #ffd166;
+    --accent-pink: #ff6b9d;
+    --accent-lime: #a8e063;
+    --frog-green: #4caf50;
+    --rainbow-1: #ff6b6b;
+    --rainbow-2: #ffa94d;
+    --rainbow-3: #ffd166;
+    --rainbow-4: #a8e063;
+    --rainbow-5: #4fc3f7;
+    --rainbow-6: #9c88ff;
+    --text-light: #e8f4fd;
+    --text-dim: #8ab4d4;
+    --card-bg: rgba(13,31,53,0.82);
+    --card-border: rgba(91,163,217,0.3);
+    --drop-zone: rgba(0, 212, 170, 0.12);
+    --drop-zone-hover: rgba(0, 212, 170, 0.28);
+    --drop-zone-border: rgba(0, 212, 170, 0.55);
+    --success: #00d4aa;
+    --error: #ff6b6b;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: 'Nunito', sans-serif;
+    background: var(--storm-dark);
+    color: var(--text-light);
+    user-select: none;
+  }
+
+  /* ===== SCENE BACKGROUND ===== */
+  #scene {
+    position: fixed; inset: 0;
+    background: linear-gradient(180deg, #0a1628 0%, #0f2744 35%, #1a3a5c 65%, #1e4a6a 85%, #153548 100%);
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  /* CLOUDS */
+  .cloud {
+    position: absolute;
+    border-radius: 50px;
+    background: rgba(180, 210, 240, 0.12);
+    filter: blur(6px);
+    animation: cloudDrift linear infinite;
+  }
+  .cloud::before, .cloud::after {
+    content: '';
+    position: absolute;
+    background: inherit;
+    border-radius: 50%;
+  }
+  @keyframes cloudDrift {
+    from { transform: translateX(-120%); }
+    to { transform: translateX(110vw); }
+  }
+
+  /* RAIN CANVAS */
+  #rainCanvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* PUDDLE AREA */
+  .puddle-strip {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 60px;
+    background: linear-gradient(180deg, transparent 0%, rgba(30,77,120,0.6) 60%, rgba(10,30,60,0.9) 100%);
+    z-index: 2;
+  }
+
+  /* RIPPLES */
+  .ripple {
+    position: absolute;
+    border-radius: 50%;
+    border: 1.5px solid rgba(91,163,217,0.5);
+    animation: rippleAnim 1.8s ease-out forwards;
+    pointer-events: none;
+    z-index: 3;
+  }
+  @keyframes rippleAnim {
+    0% { transform: scale(0); opacity: 0.8; }
+    100% { transform: scale(4); opacity: 0; }
+  }
+
+  /* RAINBOW */
+  .rainbow {
+    position: absolute;
+    bottom: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 420px;
+    height: 210px;
+    border-radius: 210px 210px 0 0;
+    opacity: 0;
+    z-index: 2;
+    transition: opacity 3s ease;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .rainbow.visible { opacity: 0.35; }
+  .rainbow-arc {
+    position: absolute;
+    border-radius: 50%;
+    border-top-style: solid;
+    border-left-style: solid;
+    border-right-style: solid;
+    border-bottom: none;
+  }
+
+  /* FROGS */
+  .frog {
+    position: absolute;
+    font-size: 28px;
+    animation: frogBounce ease-in-out infinite alternate;
+    z-index: 4;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+  }
+  @keyframes frogBounce {
+    from { transform: translateY(0) scaleY(1); }
+    to { transform: translateY(-8px) scaleY(1.05); }
+  }
+
+  /* UMBRELLAS */
+  .umbrella {
+    position: absolute;
+    font-size: 32px;
+    opacity: 0.5;
+    animation: umbrellaFloat ease-in-out infinite alternate;
+    z-index: 4;
+    filter: drop-shadow(0 4px 10px rgba(0,0,0,0.4));
+  }
+  @keyframes umbrellaFloat {
+    from { transform: rotate(-5deg) translateY(0); }
+    to { transform: rotate(5deg) translateY(-10px); }
+  }
+
+  /* ===== MAIN UI ===== */
+  #ui {
+    position: fixed; inset: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+  }
+
+  /* HEADER */
+  #header {
+    text-align: center;
+    margin-bottom: 12px;
+  }
+  #header h1 {
+    font-family: 'Righteous', cursive;
+    font-size: clamp(1.2rem, 2.8vw, 2rem);
+    letter-spacing: 0.06em;
+    background: linear-gradient(135deg, #5ba3d9 0%, #00d4aa 50%, #ffd166 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    line-height: 1.2;
+  }
+  #header .subtitle {
+    font-size: clamp(0.65rem, 1.2vw, 0.85rem);
+    color: var(--text-dim);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+
+  /* PROGRESS DOTS */
+  #progress {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+    align-items: center;
+  }
+  .prog-dot {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: 2px solid rgba(91,163,217,0.4);
+    background: rgba(13,31,53,0.6);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    transition: all 0.4s ease;
+    position: relative;
+  }
+  .prog-dot.active {
+    border-color: var(--accent-teal);
+    background: rgba(0,212,170,0.15);
+    color: var(--accent-teal);
+    box-shadow: 0 0 14px rgba(0,212,170,0.4);
+  }
+  .prog-dot.done {
+    border-color: var(--accent-teal);
+    background: var(--accent-teal);
+    color: #0d1f35;
+  }
+  .prog-line {
+    width: 28px; height: 2px;
+    background: rgba(91,163,217,0.2);
+    border-radius: 2px;
+    transition: background 0.4s;
+  }
+  .prog-line.done { background: var(--accent-teal); }
+
+  /* ACTIVITY CARD */
+  #activityCard {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    padding: clamp(14px, 2vw, 22px) clamp(16px, 2.5vw, 28px);
+    width: min(820px, 96vw);
+    max-height: calc(100vh - 180px);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(91,163,217,0.1) inset;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  #activityCard::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent-teal), var(--accent-yellow), var(--accent-pink));
+    border-radius: 20px 20px 0 0;
+  }
+
+  /* ACTIVITY TITLE */
+  .act-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .act-badge {
+    background: linear-gradient(135deg, var(--puddle), var(--splash));
+    border-radius: 10px;
+    padding: 4px 12px;
+    font-family: 'Righteous', cursive;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    color: #fff;
+  }
+  .act-title {
+    font-family: 'Righteous', cursive;
+    font-size: clamp(0.95rem, 1.8vw, 1.25rem);
+    color: var(--text-light);
+  }
+  .act-emoji { font-size: 1.5rem; }
+
+  /* INSTRUCTION */
+  .act-instruction {
+    font-size: clamp(0.72rem, 1.2vw, 0.85rem);
+    color: var(--text-dim);
+    line-height: 1.5;
+    flex-shrink: 0;
+    background: rgba(91,163,217,0.07);
+    border-left: 3px solid var(--accent-teal);
+    padding: 8px 12px;
+    border-radius: 0 8px 8px 0;
+  }
+
+  /* TARGET CODE DISPLAY */
+  .code-target {
+    font-family: 'Fira Code', monospace;
+    font-size: clamp(0.75rem, 1.3vw, 0.92rem);
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(91,163,217,0.2);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--accent-lime);
+    line-height: 1.8;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  /* DRAG ZONE LAYOUT */
+  .drag-layout {
+    display: flex;
+    gap: 14px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* DRAG BANK */
+  .drag-bank {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+  }
+  .drag-bank-title {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 2px;
+  }
+  .drag-bank-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    align-content: flex-start;
+    flex: 1;
+    overflow-y: auto;
+    padding: 2px;
+  }
+
+  /* DRAG ITEMS */
+  .drag-item {
+    font-family: 'Fira Code', monospace;
+    font-size: clamp(0.65rem, 1.1vw, 0.82rem);
+    background: linear-gradient(135deg, rgba(42,100,150,0.8), rgba(30,77,120,0.8));
+    border: 1.5px solid rgba(91,163,217,0.4);
+    border-radius: 8px;
+    padding: 5px 10px;
+    cursor: grab;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    color: var(--text-light);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    position: relative;
+  }
+  .drag-item:hover {
+    border-color: var(--accent-teal);
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 4px 16px rgba(0,212,170,0.3);
+    color: #fff;
+  }
+  .drag-item.dragging {
+    opacity: 0.4;
+    cursor: grabbing;
+  }
+  .drag-item.used {
+    opacity: 0.3;
+    pointer-events: none;
+    filter: grayscale(0.6);
+  }
+
+  /* DROP ZONES */
+  .drop-panel {
+    flex: 1.4;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+  }
+  .drop-panel-title {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 2px;
+  }
+  .drop-zones {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .drop-slot {
+    min-height: 38px;
+    border: 2px dashed var(--drop-zone-border);
+    background: var(--drop-zone);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    transition: all 0.2s ease;
+    flex-wrap: wrap;
+    position: relative;
+  }
+  .drop-slot.hovered {
+    background: var(--drop-zone-hover);
+    border-color: var(--accent-teal);
+    box-shadow: 0 0 16px rgba(0,212,170,0.25);
+    transform: scale(1.01);
+  }
+  .drop-slot.correct {
+    border-color: var(--success);
+    background: rgba(0,212,170,0.18);
+    animation: slotPop 0.4s ease;
+  }
+  .drop-slot.wrong {
+    border-color: var(--error);
+    background: rgba(255,107,107,0.15);
+    animation: slotShake 0.4s ease;
+  }
+  .slot-label {
+    font-family: 'Fira Code', monospace;
+    font-size: clamp(0.62rem, 1vw, 0.78rem);
+    color: rgba(91,163,217,0.7);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .slot-placeholder {
+    font-size: 0.68rem;
+    color: rgba(138,180,212,0.4);
+    font-style: italic;
+    pointer-events: none;
+  }
+
+  /* SLOT FILLED ITEM */
+  .slot-filled {
+    font-family: 'Fira Code', monospace;
+    font-size: clamp(0.65rem, 1vw, 0.8rem);
+    background: rgba(0,212,170,0.2);
+    border: 1px solid var(--accent-teal);
+    border-radius: 6px;
+    padding: 3px 8px;
+    color: var(--accent-teal);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .slot-filled:hover { background: rgba(255,107,107,0.2); border-color: var(--error); color: var(--error); }
+  .slot-filled .remove-btn { font-size: 0.65rem; opacity: 0.7; }
+
+  /* ANIMATIONS */
+  @keyframes slotPop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+    100% { transform: scale(1); }
+  }
+  @keyframes slotShake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+  }
+
+  /* CHECK BUTTON */
+  .check-btn {
+    align-self: flex-end;
+    background: linear-gradient(135deg, var(--accent-teal), #00a885);
+    color: #0d1f35;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 22px;
+    font-family: 'Righteous', cursive;
+    font-size: 0.9rem;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 16px rgba(0,212,170,0.35);
+    flex-shrink: 0;
+  }
+  .check-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(0,212,170,0.5); }
+  .check-btn:active { transform: translateY(0); }
+  .check-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* FEEDBACK */
+  .feedback {
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .feedback.show { opacity: 1; }
+  .feedback.ok { background: rgba(0,212,170,0.15); color: var(--accent-teal); border: 1px solid rgba(0,212,170,0.3); }
+  .feedback.bad { background: rgba(255,107,107,0.15); color: var(--error); border: 1px solid rgba(255,107,107,0.3); }
+
+  /* ===== POPUP OVERLAY ===== */
+  .popup-overlay {
+    position: fixed; inset: 0;
+    background: rgba(5,12,25,0.75);
+    backdrop-filter: blur(8px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+  }
+  .popup-overlay.active { opacity: 1; pointer-events: all; }
+
+  .popup-box {
+    background: linear-gradient(145deg, #0f2744, #1a3a5c);
+    border: 1px solid rgba(91,163,217,0.4);
+    border-radius: 22px;
+    padding: 36px 40px;
+    max-width: 440px;
+    width: 90vw;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(91,163,217,0.15) inset;
+    transform: scale(0.85) translateY(20px);
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    position: relative;
+    overflow: hidden;
+  }
+  .popup-overlay.active .popup-box { transform: scale(1) translateY(0); }
+  .popup-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent-teal), var(--accent-yellow), var(--accent-pink));
+  }
+
+  .popup-emoji { font-size: 3.5rem; margin-bottom: 10px; display: block; animation: popEmoji 0.5s ease 0.3s both; }
+  @keyframes popEmoji {
+    from { transform: scale(0) rotate(-20deg); }
+    to { transform: scale(1) rotate(0deg); }
+  }
+  .popup-title {
+    font-family: 'Righteous', cursive;
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, var(--accent-teal), var(--accent-yellow));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .popup-body {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin-bottom: 22px;
+  }
+  .popup-code {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.82rem;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(91,163,217,0.25);
+    border-radius: 10px;
+    padding: 10px 14px;
+    text-align: left;
+    color: var(--accent-lime);
+    margin-bottom: 18px;
+    line-height: 1.7;
+    white-space: pre;
+  }
+  .popup-btn {
+    background: linear-gradient(135deg, var(--accent-teal), #00a885);
+    color: #0d1f35;
+    border: none;
+    border-radius: 12px;
+    padding: 11px 32px;
+    font-family: 'Righteous', cursive;
+    font-size: 1rem;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: all 0.25s;
+    box-shadow: 0 4px 18px rgba(0,212,170,0.4);
+  }
+  .popup-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,212,170,0.55); }
+  .popup-btn.final {
+    background: linear-gradient(135deg, var(--accent-yellow), #e6a800);
+    box-shadow: 0 4px 18px rgba(255,209,102,0.4);
+  }
+  .popup-btn.final:hover { box-shadow: 0 6px 24px rgba(255,209,102,0.55); }
+
+  /* SPARKLES in final popup */
+  .sparkle-burst {
+    position: absolute;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    animation: sparkleAnim 1.2s ease-out forwards;
+  }
+  @keyframes sparkleAnim {
+    0% { transform: scale(0) translate(0,0); opacity: 1; }
+    100% { transform: scale(1) translate(var(--tx), var(--ty)); opacity: 0; }
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(91,163,217,0.3); border-radius: 2px; }
+
+  /* ACTIVITY TRANSITIONS */
+  #activityCard { transition: opacity 0.3s ease; }
+  #activityCard.fade-out { opacity: 0; }
+  #activityCard.fade-in { animation: cardIn 0.4s ease; }
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* GHOST ELEMENT */
+  .drag-ghost {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.82rem;
+    background: linear-gradient(135deg, rgba(0,212,170,0.9), rgba(0,168,133,0.9));
+    border: 1.5px solid var(--accent-teal);
+    border-radius: 8px;
+    padding: 5px 10px;
+    color: #0d1f35;
+    box-shadow: 0 8px 24px rgba(0,212,170,0.4);
+    transform: rotate(2deg) scale(1.05);
+    transition: none;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<!-- SCENE -->
+<div id="scene">
+  <canvas id="rainCanvas"></canvas>
+  <div class="puddle-strip"></div>
+</div>
+
+<!-- GHOST DRAG ELEMENT -->
+<div class="drag-ghost" id="dragGhost" style="display:none;"></div>
+
+<!-- POPUP OVERLAY -->
+<div class="popup-overlay" id="popupOverlay">
+  <div class="popup-box" id="popupBox">
+    <span class="popup-emoji" id="popupEmoji">🎉</span>
+    <div class="popup-title" id="popupTitle">Well done!</div>
+    <div class="popup-body" id="popupBody"></div>
+    <div class="popup-code" id="popupCode" style="display:none;"></div>
+    <button class="popup-btn" id="popupBtn">Next Activity →</button>
+  </div>
+</div>
+
+<!-- MAIN UI -->
+<div id="ui">
+  <div id="header">
+    <h1>☔ JAVASCRIPT — DOM MANIPULATION DEEP DIVE ☔</h1>
+    <div class="subtitle">Drag · Drop · Discover · Build</div>
+  </div>
+
+  <div id="progress">
+    <div class="prog-dot active" id="dot1">1</div>
+    <div class="prog-line" id="line1"></div>
+    <div class="prog-dot" id="dot2">2</div>
+    <div class="prog-line" id="line2"></div>
+    <div class="prog-dot" id="dot3">3</div>
+  </div>
+
+  <div id="activityCard" class="fade-in">
+    <!-- Injected by JS -->
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  SCENE: RAIN + RIPPLES + FROGS + UMBRELLAS + CLOUDS
+// ============================================================
+(function setupScene() {
+  const scene = document.getElementById('scene');
+
+  // Clouds
+  const cloudData = [
+    { w:180, h:50, top:'5%', dur:38, delay:0 },
+    { w:140, h:40, top:'12%', dur:50, delay:10 },
+    { w:220, h:60, top:'3%', dur:44, delay:22 },
+    { w:100, h:35, top:'18%', dur:35, delay:5 },
+    { w:200, h:55, top:'8%', dur:55, delay:30 },
+  ];
+  cloudData.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'cloud';
+    el.style.cssText = `width:${c.w}px;height:${c.h}px;top:${c.top};animation-duration:${c.dur}s;animation-delay:-${c.delay}s;`;
+    const before = { w: c.w*0.6, h: c.h*1.3, top: -c.h*0.5, left: c.w*0.15 };
+    const after  = { w: c.w*0.45, h: c.h*1.1, top: -c.h*0.35, left: c.w*0.55 };
+    const styleEl = document.createElement('style');
+    scene.appendChild(el);
+  });
+
+  // Frogs
+  const frogs = ['🐸','🐸','🐸'];
+  frogs.forEach((emoji, i) => {
+    const el = document.createElement('div');
+    el.className = 'frog';
+    el.textContent = emoji;
+    el.style.cssText = `bottom:${8+i*2}px;left:${10+i*30}%;animation-duration:${1.2+i*0.3}s;animation-delay:${i*0.4}s;`;
+    scene.appendChild(el);
+  });
+
+  // Umbrellas
+  const umbrellas = ['☂️','☂️','🌂'];
+  umbrellas.forEach((emoji, i) => {
+    const el = document.createElement('div');
+    el.className = 'umbrella';
+    el.textContent = emoji;
+    el.style.cssText = `bottom:${18+i*5}px;right:${8+i*18}%;animation-duration:${2+i*0.5}s;animation-delay:${i*0.7}s;font-size:${24+i*4}px;`;
+    scene.appendChild(el);
+  });
+
+  // Rainbow (show on final success)
+  const rainbow = document.createElement('div');
+  rainbow.className = 'rainbow';
+  rainbow.id = 'sceneRainbow';
+  const colors = ['#ff6b6b','#ffa94d','#ffd166','#a8e063','#4fc3f7','#9c88ff'];
+  colors.forEach((c, i) => {
+    const arc = document.createElement('div');
+    arc.className = 'rainbow-arc';
+    const s = 400 - i * 30;
+    arc.style.cssText = `width:${s}px;height:${s/2}px;border-color:${c};border-width:14px;bottom:0;left:50%;transform:translateX(-50%);`;
+    rainbow.appendChild(arc);
+  });
+  scene.appendChild(rainbow);
+
+  // Rain canvas
+  const canvas = document.getElementById('rainCanvas');
+  const ctx = canvas.getContext('2d');
+  let drops = [];
+  const NUM_DROPS = 120;
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  for (let i = 0; i < NUM_DROPS; i++) {
+    drops.push({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      len: 10 + Math.random() * 18,
+      speed: 6 + Math.random() * 8,
+      opacity: 0.12 + Math.random() * 0.28,
+      width: 0.8 + Math.random() * 0.8
+    });
+  }
+
+  function animateRain() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drops.forEach(d => {
+      ctx.beginPath();
+      ctx.strokeStyle = `rgba(91,163,217,${d.opacity})`;
+      ctx.lineWidth = d.width;
+      ctx.moveTo(d.x, d.y);
+      ctx.lineTo(d.x - d.len * 0.15, d.y + d.len);
+      ctx.stroke();
+      d.y += d.speed;
+      d.x -= d.speed * 0.1;
+      if (d.y > canvas.height) {
+        d.y = -d.len;
+        d.x = Math.random() * canvas.width;
+        // spawn ripple
+        spawnRipple(d.x, canvas.height - 30 - Math.random() * 20);
+      }
+    });
+    requestAnimationFrame(animateRain);
+  }
+  animateRain();
+
+  function spawnRipple(x, y) {
+    if (Math.random() > 0.08) return;
+    const size = 6 + Math.random() * 10;
+    const el = document.createElement('div');
+    el.className = 'ripple';
+    el.style.cssText = `left:${x-size/2}px;top:${y-size/2}px;width:${size}px;height:${size}px;`;
+    scene.appendChild(el);
+    setTimeout(() => el.remove(), 1800);
+  }
+
+  window.showRainbow = () => {
+    rainbow.classList.add('visible');
+  };
+})();
+
+// ============================================================
+//  DRAG & DROP ENGINE
+// ============================================================
+let dragData = null;
+const ghost = document.getElementById('dragGhost');
+
+function initDrag(el, data) {
+  el.addEventListener('mousedown', e => startDrag(e, el, data));
+  el.addEventListener('touchstart', e => startDrag(e, el, data), { passive: false });
+}
+
+function startDrag(e, el, data) {
+  if (el.classList.contains('used') || el.classList.contains('disabled')) return;
+  e.preventDefault();
+  dragData = { el, data };
+  ghost.textContent = data.label;
+  ghost.style.display = 'block';
+  moveDragGhost(e);
+  el.classList.add('dragging');
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragEnd);
+  document.addEventListener('touchmove', onDragMove, { passive: false });
+  document.addEventListener('touchend', onDragEnd);
+}
+
+function moveDragGhost(e) {
+  const pos = getPos(e);
+  ghost.style.left = (pos.x + 12) + 'px';
+  ghost.style.top = (pos.y - 20) + 'px';
+}
+
+function getPos(e) {
+  if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  return { x: e.clientX, y: e.clientY };
+}
+
+function onDragMove(e) {
+  e.preventDefault();
+  moveDragGhost(e);
+  const pos = getPos(e);
+  document.querySelectorAll('.drop-slot').forEach(slot => {
+    const r = slot.getBoundingClientRect();
+    if (pos.x >= r.left && pos.x <= r.right && pos.y >= r.top && pos.y <= r.bottom) {
+      slot.classList.add('hovered');
+    } else {
+      slot.classList.remove('hovered');
+    }
+  });
+}
+
+function onDragEnd(e) {
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup', onDragEnd);
+  document.removeEventListener('touchmove', onDragMove);
+  document.removeEventListener('touchend', onDragEnd);
+  ghost.style.display = 'none';
+  if (!dragData) return;
+  dragData.el.classList.remove('dragging');
+
+  const pos = getPos(e.changedTouches ? { changedTouches: e.changedTouches } : e);
+  let dropped = false;
+  document.querySelectorAll('.drop-slot').forEach(slot => {
+    slot.classList.remove('hovered');
+    const r = slot.getBoundingClientRect();
+    if (!dropped && pos.x >= r.left && pos.x <= r.right && pos.y >= r.top && pos.y <= r.bottom) {
+      dropped = true;
+      handleDrop(slot, dragData);
+    }
+  });
+  dragData = null;
+}
+
+function handleDrop(slot, drag) {
+  if (window.currentActivity) {
+    window.currentActivity.onDrop(slot, drag);
+  }
+}
+
+// ============================================================
+//  ACTIVITY SYSTEM
+// ============================================================
+let currentActivityIndex = 0;
+
+const activities = [
+  buildActivity1,
+  buildActivity2,
+  buildActivity3
+];
+
+function renderActivity(index) {
+  const card = document.getElementById('activityCard');
+  card.innerHTML = '';
+  card.classList.remove('fade-in');
+  void card.offsetWidth;
+  card.classList.add('fade-in');
+  window.currentActivity = activities[index]();
+}
+
+// Progress update
+function updateProgress(index) {
+  for (let i = 1; i <= 3; i++) {
+    const dot = document.getElementById('dot'+i);
+    dot.classList.remove('active','done');
+    if (i < index+1) dot.classList.add('done'), dot.textContent = '✓';
+    else if (i === index+1) { dot.classList.add('active'); dot.textContent = i; }
+    else dot.textContent = i;
+  }
+  for (let i = 1; i <= 2; i++) {
+    const line = document.getElementById('line'+i);
+    line.classList.toggle('done', i <= index);
+  }
+}
+
+// Show popup
+function showPopup({ emoji, title, body, code, btnText, onNext, isFinal }) {
+  document.getElementById('popupEmoji').textContent = emoji;
+  document.getElementById('popupTitle').textContent = title;
+  document.getElementById('popupBody').textContent = body;
+  const codeEl = document.getElementById('popupCode');
+  if (code) { codeEl.style.display = 'block'; codeEl.textContent = code; }
+  else codeEl.style.display = 'none';
+  const btn = document.getElementById('popupBtn');
+  btn.textContent = btnText || 'Next Activity →';
+  btn.className = 'popup-btn' + (isFinal ? ' final' : '');
+  btn.onclick = () => {
+    closePopup();
+    if (onNext) onNext();
+  };
+  if (isFinal) spawnSparkles();
+  document.getElementById('popupOverlay').classList.add('active');
+}
+
+function closePopup() {
+  document.getElementById('popupOverlay').classList.remove('active');
+}
+
+function spawnSparkles() {
+  const box = document.getElementById('popupBox');
+  const colors = ['#ff6b6b','#ffd166','#00d4aa','#a8e063','#9c88ff','#ffa94d'];
+  for (let i = 0; i < 18; i++) {
+    const s = document.createElement('div');
+    s.className = 'sparkle-burst';
+    const angle = (i / 18) * Math.PI * 2;
+    const dist = 60 + Math.random() * 80;
+    s.style.cssText = `
+      background:${colors[i%colors.length]};
+      left:50%;top:40%;
+      --tx:${Math.cos(angle)*dist}px;
+      --ty:${Math.sin(angle)*dist}px;
+      animation-delay:${Math.random()*0.3}s;
+    `;
+    box.appendChild(s);
+    setTimeout(() => s.remove(), 1600);
+  }
+}
+
+// ============================================================
+//  ACTIVITY 1: querySelectorAll() + forEach
+// ============================================================
+function buildActivity1() {
+  const card = document.getElementById('activityCard');
+
+  // Slots structure: methodName, selector, options, loopMethod, callback
+  const slots = [
+    { id:'s1', label:'Method:', accepts:['document.querySelectorAll'], filled:null, prefix:'', suffix:'(' },
+    { id:'s2', label:'Selector:', accepts:['"li.task"'], filled:null, prefix:'', suffix:')' },
+    { id:'s3', label:'Loop:', accepts:['.forEach'], filled:null, prefix:'result', suffix:'(item => {' },
+    { id:'s4', label:'Action:', accepts:['item.classList.add'], filled:null, prefix:'  ', suffix:'("highlight")' },
+    { id:'s5', label:'Close:', accepts:['})'], filled:null, prefix:'', suffix:'' },
+  ];
+
+  const bankItems = [
+    { id:'b1', label:'document.querySelectorAll' },
+    { id:'b2', label:'.forEach' },
+    { id:'b3', label:'"li.task"' },
+    { id:'b4', label:'item.classList.add' },
+    { id:'b5', label:'})' },
+    { id:'b6', label:'.querySelector' },    // distractor
+    { id:'b7', label:'"div.task"' },        // distractor
+    { id:'b8', label:'item.style.color' },  // distractor
+  ];
+
+  card.innerHTML = `
+    <div class="act-header">
+      <span class="act-emoji">🔍</span>
+      <span class="act-badge">Activity 1 of 3</span>
+      <span class="act-title">Select & Loop Through Elements</span>
+    </div>
+    <div class="act-instruction">
+      Build the code that selects <strong>all &lt;li&gt; elements with class "task"</strong> and loops through them to add a "highlight" class. Drag the correct pieces into the slots in order!
+    </div>
+    <div class="drag-layout">
+      <div class="drag-bank">
+        <div class="drag-bank-title">🧩 Code Pieces</div>
+        <div class="drag-bank-items" id="bankA1"></div>
+      </div>
+      <div class="drop-panel">
+        <div class="drop-panel-title">🎯 Build Your Code</div>
+        <div class="drop-zones" id="slotsA1"></div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+      <div class="feedback" id="feedA1"></div>
+      <button class="check-btn" id="checkA1" style="margin-left:auto;">Check Answer ✓</button>
+    </div>
+  `;
+
+  // Render bank
+  const bank = document.getElementById('bankA1');
+  bankItems.forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'drag-item';
+    el.id = 'bi-'+item.id;
+    el.textContent = item.label;
+    bank.appendChild(el);
+    initDrag(el, { label: item.label, sourceId: item.id, from:'bank' });
+  });
+
+  // Render slots
+  const slotsEl = document.getElementById('slotsA1');
+  slots.forEach(slot => {
+    const el = document.createElement('div');
+    el.className = 'drop-slot';
+    el.id = slot.id;
+    el.dataset.slotId = slot.id;
+    el.innerHTML = `
+      <span class="slot-label">${slot.label}</span>
+      ${slot.prefix ? `<span style="font-family:'Fira Code',monospace;font-size:0.78rem;color:#5ba3d9;">${slot.prefix}</span>` : ''}
+      <span class="slot-placeholder" id="ph-${slot.id}">drop here</span>
+      ${slot.suffix ? `<span style="font-family:'Fira Code',monospace;font-size:0.78rem;color:#5ba3d9;">${slot.suffix}</span>` : ''}
+    `;
+    slotsEl.appendChild(el);
+  });
+
+  // Check button
+  document.getElementById('checkA1').onclick = checkA1;
+
+  function onDrop(slot, drag) {
+    const slotId = slot.dataset.slotId;
+    const slotDef = slots.find(s => s.id === slotId);
+    if (!slotDef) return;
+    const val = drag.data.label;
+    const ph = document.getElementById('ph-'+slotId);
+
+    // Remove previous filled item if any
+    const prev = slot.querySelector('.slot-filled');
+    if (prev) {
+      // Return to bank
+      const prevVal = prev.dataset.val;
+      const bankEl = bank.querySelector(`[data-val="${prevVal}"]`);
+      if (!bankEl) {
+        const origItem = bankItems.find(b => b.label === prevVal);
+        if (origItem) {
+          const bEl = document.getElementById('bi-'+origItem.id);
+          if (bEl) bEl.classList.remove('used');
+        }
+      }
+      prev.remove();
+    }
+
+    // Show filled
+    ph.style.display = 'none';
+    const filled = document.createElement('div');
+    filled.className = 'slot-filled';
+    filled.dataset.val = val;
+    filled.innerHTML = `<span>${val}</span><span class="remove-btn">✕</span>`;
+    filled.onclick = () => {
+      filled.remove();
+      ph.style.display = '';
+      // return to bank
+      const origItem = bankItems.find(b => b.label === val);
+      if (origItem) {
+        const bEl = document.getElementById('bi-'+origItem.id);
+        if (bEl) bEl.classList.remove('used');
+      }
+      slotDef.filled = null;
+      slot.classList.remove('correct','wrong');
+    };
+    slot.appendChild(filled);
+    slotDef.filled = val;
+
+    // Mark bank item used
+    const origItem = bankItems.find(b => b.label === val);
+    if (origItem) {
+      const bEl = document.getElementById('bi-'+origItem.id);
+      if (bEl) bEl.classList.add('used');
+    }
+
+    slot.classList.remove('correct','wrong');
+  }
+
+  function checkA1() {
+    let allFilled = slots.every(s => s.filled !== null);
+    if (!allFilled) {
+      showFeedback('feedA1', '⚠️ Fill all the slots first!', false);
+      return;
+    }
+    let allCorrect = true;
+    slots.forEach(s => {
+      const correct = s.accepts.includes(s.filled);
+      const slotEl = document.getElementById(s.id);
+      slotEl.classList.toggle('correct', correct);
+      slotEl.classList.toggle('wrong', !correct);
+      if (!correct) allCorrect = false;
+    });
+    if (allCorrect) {
+      showFeedback('feedA1', '✅ Perfect! All pieces in the right place!', true);
+      setTimeout(() => {
+        showPopup({
+          emoji: '🌦️',
+          title: 'Activity 1 Complete!',
+          body: 'You\'ve mastered selecting multiple DOM elements! querySelectorAll returns a NodeList — and forEach lets you do something to each one.',
+          code: `const result = document.querySelectorAll("li.task");\nresult.forEach(item => {\n  item.classList.add("highlight");\n});`,
+          btnText: 'Activity 2 →',
+          onNext: () => {
+            currentActivityIndex = 1;
+            updateProgress(1);
+            renderActivity(1);
+          }
+        });
+      }, 700);
+    } else {
+      showFeedback('feedA1', '❌ Some pieces are wrong — check the red slots!', false);
+      setTimeout(() => {
+        slots.forEach(s => {
+          const slotEl = document.getElementById(s.id);
+          slotEl.classList.remove('correct','wrong');
+        });
+      }, 1800);
+    }
+  }
+
+  return { onDrop };
+}
+
+// ============================================================
+//  ACTIVITY 2: Dynamic List — Add Items to a To-Do List
+// ============================================================
+function buildActivity2() {
+  const card = document.getElementById('activityCard');
+
+  const steps = [
+    { id:'r1', label:'Step 1: Get input value', accepts:['inputEl.value'], filled:null },
+    { id:'r2', label:'Step 2: Create new element', accepts:['document.createElement("li")'], filled:null },
+    { id:'r3', label:'Step 3: Set text content', accepts:['newItem.textContent = text'], filled:null },
+    { id:'r4', label:'Step 4: Append to list', accepts:['listEl.appendChild(newItem)'], filled:null },
+    { id:'r5', label:'Step 5: Clear the input', accepts:['inputEl.value = ""'], filled:null },
+  ];
+
+  const bankItems = [
+    { id:'c1', label:'inputEl.value' },
+    { id:'c2', label:'document.createElement("li")' },
+    { id:'c3', label:'newItem.textContent = text' },
+    { id:'c4', label:'listEl.appendChild(newItem)' },
+    { id:'c5', label:'inputEl.value = ""' },
+    { id:'c6', label:'document.getElementById("list")' }, // distractor
+    { id:'c7', label:'newItem.innerHTML = text' },         // close distractor
+    { id:'c8', label:'listEl.removeChild(newItem)' },      // distractor
+  ];
+
+  card.innerHTML = `
+    <div class="act-header">
+      <span class="act-emoji">📝</span>
+      <span class="act-badge">Activity 2 of 3</span>
+      <span class="act-title">Create a Dynamic To-Do List</span>
+    </div>
+    <div class="act-instruction">
+      Arrange the 5 steps in the correct slots to write a function that <strong>adds a new item to a to-do list</strong> when a user types and submits. Drag each step to its matching slot!
+    </div>
+    <div class="drag-layout">
+      <div class="drag-bank">
+        <div class="drag-bank-title">🧩 Code Steps</div>
+        <div class="drag-bank-items" id="bankA2"></div>
+      </div>
+      <div class="drop-panel">
+        <div class="drop-panel-title">🎯 Function Steps (in order)</div>
+        <div class="drop-zones" id="slotsA2"></div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+      <div class="feedback" id="feedA2"></div>
+      <button class="check-btn" id="checkA2" style="margin-left:auto;">Check Answer ✓</button>
+    </div>
+  `;
+
+  const bank = document.getElementById('bankA2');
+  bankItems.forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'drag-item';
+    el.id = 'b2-'+item.id;
+    el.textContent = item.label;
+    bank.appendChild(el);
+    initDrag(el, { label: item.label, sourceId: item.id, from:'bank' });
+  });
+
+  const slotsEl = document.getElementById('slotsA2');
+  steps.forEach(step => {
+    const el = document.createElement('div');
+    el.className = 'drop-slot';
+    el.id = step.id;
+    el.dataset.slotId = step.id;
+    el.innerHTML = `
+      <span class="slot-label">${step.label}</span>
+      <span class="slot-placeholder" id="ph2-${step.id}">drop here</span>
+    `;
+    slotsEl.appendChild(el);
+  });
+
+  document.getElementById('checkA2').onclick = checkA2;
+
+  function onDrop(slot, drag) {
+    const slotId = slot.dataset.slotId;
+    const slotDef = steps.find(s => s.id === slotId);
+    if (!slotDef) return;
+    const val = drag.data.label;
+    const ph = document.getElementById('ph2-'+slotId);
+
+    const prev = slot.querySelector('.slot-filled');
+    if (prev) {
+      const prevVal = prev.dataset.val;
+      const origItem = bankItems.find(b => b.label === prevVal);
+      if (origItem) { const bEl = document.getElementById('b2-'+origItem.id); if(bEl) bEl.classList.remove('used'); }
+      prev.remove();
+    }
+
+    ph.style.display = 'none';
+    const filled = document.createElement('div');
+    filled.className = 'slot-filled';
+    filled.dataset.val = val;
+    filled.innerHTML = `<span>${val}</span><span class="remove-btn">✕</span>`;
+    filled.onclick = () => {
+      filled.remove(); ph.style.display = '';
+      const origItem = bankItems.find(b => b.label === val);
+      if (origItem) { const bEl = document.getElementById('b2-'+origItem.id); if(bEl) bEl.classList.remove('used'); }
+      slotDef.filled = null;
+      slot.classList.remove('correct','wrong');
+    };
+    slot.appendChild(filled);
+    slotDef.filled = val;
+    const origItem = bankItems.find(b => b.label === val);
+    if (origItem) { const bEl = document.getElementById('b2-'+origItem.id); if(bEl) bEl.classList.add('used'); }
+    slot.classList.remove('correct','wrong');
+  }
+
+  function checkA2() {
+    if (!steps.every(s => s.filled !== null)) {
+      showFeedback('feedA2','⚠️ Fill all 5 steps first!', false); return;
+    }
+    let allCorrect = true;
+    steps.forEach(s => {
+      const correct = s.accepts.includes(s.filled);
+      document.getElementById(s.id).classList.toggle('correct', correct);
+      document.getElementById(s.id).classList.toggle('wrong', !correct);
+      if (!correct) allCorrect = false;
+    });
+    if (allCorrect) {
+      showFeedback('feedA2','✅ Excellent! You built the full add-item function!', true);
+      setTimeout(() => {
+        showPopup({
+          emoji: '🌈',
+          title: 'Activity 2 Complete!',
+          body: 'Outstanding! You know how to create elements dynamically and append them to the DOM. This is the foundation of interactive web apps!',
+          code: `function addItem() {\n  const text = inputEl.value;\n  const newItem = document.createElement("li");\n  newItem.textContent = text;\n  listEl.appendChild(newItem);\n  inputEl.value = "";\n}`,
+          btnText: 'Activity 3 →',
+          onNext: () => {
+            currentActivityIndex = 2;
+            updateProgress(2);
+            renderActivity(2);
+          }
+        });
+      }, 700);
+    } else {
+      showFeedback('feedA2','❌ Some steps are in the wrong slots — try again!', false);
+      setTimeout(() => steps.forEach(s => document.getElementById(s.id).classList.remove('correct','wrong')), 1800);
+    }
+  }
+
+  return { onDrop };
+}
+
+// ============================================================
+//  ACTIVITY 3: Delete Buttons + Update Content
+// ============================================================
+function buildActivity3() {
+  const card = document.getElementById('activityCard');
+
+  // Two sub-challenges: delete & update, each with their own slots
+  const deleteSlots = [
+    { id:'d1', label:'Create btn:', accepts:['document.createElement("button")'], filled:null, prefix:'', suffix:'' },
+    { id:'d2', label:'Label it:', accepts:['deleteBtn.textContent = "Delete"'], filled:null, prefix:'', suffix:'' },
+    { id:'d3', label:'On click:', accepts:['item.remove()'], filled:null, prefix:'deleteBtn.onclick = () =>', suffix:'' },
+    { id:'d4', label:'Add to item:', accepts:['item.appendChild(deleteBtn)'], filled:null, prefix:'', suffix:'' },
+  ];
+  const updateSlots = [
+    { id:'u1', label:'New text:', accepts:['newText = prompt("Edit:")'], filled:null, prefix:'const ', suffix:'' },
+    { id:'u2', label:'Check:', accepts:['if (newText)'], filled:null, prefix:'', suffix:'{' },
+    { id:'u3', label:'Update:', accepts:['item.textContent = newText'], filled:null, prefix:'  ', suffix:'' },
+    { id:'u4', label:'End:', accepts:['}'], filled:null, prefix:'', suffix:'' },
+  ];
+
+  const bankItems = [
+    { id:'e1', label:'document.createElement("button")' },
+    { id:'e2', label:'deleteBtn.textContent = "Delete"' },
+    { id:'e3', label:'item.remove()' },
+    { id:'e4', label:'item.appendChild(deleteBtn)' },
+    { id:'e5', label:'newText = prompt("Edit:")' },
+    { id:'e6', label:'if (newText)' },
+    { id:'e7', label:'item.textContent = newText' },
+    { id:'e8', label:'}' },
+    { id:'e9', label:'deleteBtn.remove()' },            // distractor
+    { id:'e10', label:'item.innerHTML = newText' },     // close distractor
+    { id:'e11', label:'document.createElement("div")' }, // distractor
+  ];
+
+  card.innerHTML = `
+    <div class="act-header">
+      <span class="act-emoji">⚡</span>
+      <span class="act-badge">Activity 3 of 3</span>
+      <span class="act-title">Delete Buttons & Content Updates</span>
+    </div>
+    <div class="act-instruction">
+      Two challenges in one! Fill the <strong>Delete</strong> slots to attach a delete button to each list item, then fill the <strong>Update</strong> slots to allow editing content. Drag the right pieces!
+    </div>
+    <div class="drag-layout">
+      <div class="drag-bank" style="flex:0.9;">
+        <div class="drag-bank-title">🧩 Code Pieces</div>
+        <div class="drag-bank-items" id="bankA3"></div>
+      </div>
+      <div class="drop-panel" style="flex:2;">
+        <div class="drop-panel-title">🎯 Complete Both Sections</div>
+        <div class="drop-zones" id="slotsA3">
+          <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#ff6b9d;padding:2px 0 4px 0;">🗑️ Delete Section</div>
+          <div id="deleteSlotsContainer"></div>
+          <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#ffd166;padding:6px 0 4px 0;margin-top:4px;">✏️ Update Section</div>
+          <div id="updateSlotsContainer"></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+      <div class="feedback" id="feedA3"></div>
+      <button class="check-btn" id="checkA3" style="margin-left:auto;">Check Answer ✓</button>
+    </div>
+  `;
+
+  const bank = document.getElementById('bankA3');
+  bankItems.forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'drag-item';
+    el.id = 'b3-'+item.id;
+    el.textContent = item.label;
+    bank.appendChild(el);
+    initDrag(el, { label: item.label, sourceId: item.id, from:'bank' });
+  });
+
+  function renderSlotGroup(container, slotArr) {
+    slotArr.forEach(slot => {
+      const el = document.createElement('div');
+      el.className = 'drop-slot';
+      el.id = slot.id;
+      el.dataset.slotId = slot.id;
+      el.innerHTML = `
+        <span class="slot-label">${slot.label}</span>
+        ${slot.prefix ? `<span style="font-family:'Fira Code',monospace;font-size:0.76rem;color:#5ba3d9;">${slot.prefix}</span>` : ''}
+        <span class="slot-placeholder" id="ph3-${slot.id}">drop here</span>
+        ${slot.suffix ? `<span style="font-family:'Fira Code',monospace;font-size:0.76rem;color:#5ba3d9;">${slot.suffix}</span>` : ''}
+      `;
+      container.appendChild(el);
+    });
+  }
+
+  renderSlotGroup(document.getElementById('deleteSlotsContainer'), deleteSlots);
+  renderSlotGroup(document.getElementById('updateSlotsContainer'), updateSlots);
+
+  const allSlots = [...deleteSlots, ...updateSlots];
+
+  document.getElementById('checkA3').onclick = checkA3;
+
+  function onDrop(slot, drag) {
+    const slotId = slot.dataset.slotId;
+    const slotDef = allSlots.find(s => s.id === slotId);
+    if (!slotDef) return;
+    const val = drag.data.label;
+    const ph = document.getElementById('ph3-'+slotId);
+
+    const prev = slot.querySelector('.slot-filled');
+    if (prev) {
+      const prevVal = prev.dataset.val;
+      const origItem = bankItems.find(b => b.label === prevVal);
+      if (origItem) { const bEl = document.getElementById('b3-'+origItem.id); if(bEl) bEl.classList.remove('used'); }
+      prev.remove();
+    }
+
+    ph.style.display = 'none';
+    const filled = document.createElement('div');
+    filled.className = 'slot-filled';
+    filled.dataset.val = val;
+    filled.innerHTML = `<span>${val}</span><span class="remove-btn">✕</span>`;
+    filled.onclick = () => {
+      filled.remove(); ph.style.display = '';
+      const origItem = bankItems.find(b => b.label === val);
+      if (origItem) { const bEl = document.getElementById('b3-'+origItem.id); if(bEl) bEl.classList.remove('used'); }
+      slotDef.filled = null;
+      slot.classList.remove('correct','wrong');
+    };
+    slot.appendChild(filled);
+    slotDef.filled = val;
+    const origItem = bankItems.find(b => b.label === val);
+    if (origItem) { const bEl = document.getElementById('b3-'+origItem.id); if(bEl) bEl.classList.add('used'); }
+    slot.classList.remove('correct','wrong');
+  }
+
+  function checkA3() {
+    if (!allSlots.every(s => s.filled !== null)) {
+      showFeedback('feedA3','⚠️ Complete all slots in both sections!', false); return;
+    }
+    let allCorrect = true;
+    allSlots.forEach(s => {
+      const correct = s.accepts.includes(s.filled);
+      document.getElementById(s.id).classList.toggle('correct', correct);
+      document.getElementById(s.id).classList.toggle('wrong', !correct);
+      if (!correct) allCorrect = false;
+    });
+    if (allCorrect) {
+      showFeedback('feedA3','🎉 Incredible! You completed all three challenges!', true);
+      setTimeout(() => {
+        updateProgress(3);
+        document.getElementById('dot3').classList.add('done');
+        document.getElementById('dot3').textContent = '✓';
+        window.showRainbow();
+        showPopup({
+          emoji: '🌈',
+          title: 'You Did It!',
+          body: 'All three DOM Manipulation challenges complete! You can now select elements, create dynamic content, and manage user interactions — you\'re building real web apps!',
+          code: `// Delete:\nconst deleteBtn = document.createElement("button");\ndeleteBtn.textContent = "Delete";\ndeleteBtn.onclick = () => item.remove();\nitem.appendChild(deleteBtn);\n\n// Update:\nconst newText = prompt("Edit:");\nif (newText) {\n  item.textContent = newText;\n}`,
+          btnText: '🎊 Celebrate!',
+          isFinal: true,
+          onNext: () => {
+            // Restart?
+            currentActivityIndex = 0;
+            updateProgress(0);
+            renderActivity(0);
+          }
+        });
+      }, 700);
+    } else {
+      showFeedback('feedA3','❌ Some answers are off — check the red slots!', false);
+      setTimeout(() => allSlots.forEach(s => document.getElementById(s.id).classList.remove('correct','wrong')), 1800);
+    }
+  }
+
+  return { onDrop };
+}
+
+// ============================================================
+//  UTILITIES
+// ============================================================
+function showFeedback(id, msg, ok) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'feedback show ' + (ok ? 'ok' : 'bad');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+updateProgress(0);
+renderActivity(0);
+</script>
+</body>
+</html>

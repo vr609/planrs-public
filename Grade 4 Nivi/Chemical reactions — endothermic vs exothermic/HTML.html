@@ -1,0 +1,1556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chemical Reactions — Endothermic vs Exothermic</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --hot: #FF6B35;
+    --hot-light: #FFE0D0;
+    --cold: #3B82F6;
+    --cold-light: #DBEAFE;
+    --bg: #FFF8F0;
+    --tile: #FFFBF5;
+    --border: #E8D5B7;
+    --text: #2D1B00;
+    --text2: #7C5C3A;
+    --green: #22C55E;
+    --purple: #8B5CF6;
+    --yellow: #F59E0B;
+    --tile-size: 60px;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    user-select: none;
+  }
+
+  /* ── ANIMATED BACKGROUND ── */
+  #bg-canvas {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Kitchen tile pattern */
+  .kitchen-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background-image:
+      linear-gradient(rgba(232,213,183,0.25) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(232,213,183,0.25) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  /* ── STEAM PARTICLES ── */
+  .steam-wrap {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    overflow: hidden;
+  }
+
+  .steam {
+    position: absolute;
+    bottom: -20px;
+    width: 8px;
+    border-radius: 50% 50% 40% 40%;
+    opacity: 0;
+    animation: riseUp linear infinite;
+  }
+
+  @keyframes riseUp {
+    0%   { transform: translateY(0) scaleX(1);   opacity: 0; }
+    10%  { opacity: 0.55; }
+    50%  { transform: translateY(-40vh) scaleX(1.4) rotate(8deg); opacity: 0.3; }
+    100% { transform: translateY(-95vh) scaleX(0.6) rotate(-6deg); opacity: 0; }
+  }
+
+  /* ── BUBBLES ── */
+  .bubble {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0;
+    animation: bubbleRise ease-in infinite;
+  }
+
+  @keyframes bubbleRise {
+    0%   { transform: translateY(0) scale(1);   opacity: 0.6; }
+    80%  { opacity: 0.3; }
+    100% { transform: translateY(-120px) scale(1.3); opacity: 0; }
+  }
+
+  /* ── FLOATING INGREDIENTS ── */
+  .float-item {
+    position: fixed;
+    font-size: 28px;
+    opacity: 0.13;
+    animation: floatDrift ease-in-out infinite;
+    pointer-events: none;
+    z-index: 1;
+    filter: saturate(0.6);
+  }
+
+  @keyframes floatDrift {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    33%       { transform: translateY(-18px) rotate(5deg); }
+    66%       { transform: translateY(10px) rotate(-4deg); }
+  }
+
+  /* ── MAIN LAYOUT ── */
+  #app {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  /* ── HEADER ── */
+  #header {
+    pointer-events: all;
+    padding: 10px 24px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(180deg, rgba(255,248,240,0.97) 80%, transparent);
+    flex-shrink: 0;
+  }
+
+  .header-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(16px, 2.2vw, 24px);
+    color: var(--text);
+    letter-spacing: 0.5px;
+  }
+
+  .header-title span.hot { color: var(--hot); }
+  .header-title span.cold { color: var(--cold); }
+
+  .step-pills {
+    display: flex;
+    gap: 8px;
+  }
+
+  .step-pill {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800;
+    font-size: 14px;
+    border: 2px solid var(--border);
+    background: white;
+    color: var(--text2);
+    transition: all 0.35s ease;
+  }
+
+  .step-pill.active {
+    background: var(--hot);
+    border-color: var(--hot);
+    color: white;
+    transform: scale(1.15);
+  }
+
+  .step-pill.done {
+    background: var(--green);
+    border-color: var(--green);
+    color: white;
+  }
+
+  /* ── ACTIVITY PANEL ── */
+  #activity-panel {
+    pointer-events: all;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 20px 12px;
+    min-height: 0;
+  }
+
+  .activity-card {
+    background: rgba(255,251,245,0.97);
+    border: 2px solid var(--border);
+    border-radius: 24px;
+    padding: 18px 22px 16px;
+    width: 100%;
+    max-width: 860px;
+    max-height: calc(100vh - 80px);
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 32px rgba(255,107,53,0.08);
+  }
+
+  .activity-card.visible {
+    display: flex;
+  }
+
+  .activity-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .activity-icon {
+    width: 44px; height: 44px;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .icon-cold { background: var(--cold-light); }
+  .icon-hot  { background: var(--hot-light); }
+  .icon-both { background: linear-gradient(135deg, var(--cold-light), var(--hot-light)); }
+
+  .activity-title-group { flex: 1; }
+  .activity-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text2);
+    margin-bottom: 1px;
+  }
+
+  .activity-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(15px, 2vw, 20px);
+    color: var(--text);
+    line-height: 1.15;
+  }
+
+  .activity-desc {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.5;
+    flex-shrink: 0;
+    background: rgba(232,213,183,0.25);
+    border-radius: 10px;
+    padding: 8px 12px;
+  }
+
+  /* ── DRAG ZONE ── */
+  .workspace {
+    display: flex;
+    gap: 14px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .ingredients-tray {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    justify-content: center;
+    flex-shrink: 0;
+    min-width: 130px;
+  }
+
+  .tray-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text2);
+    text-align: center;
+    margin-bottom: 2px;
+  }
+
+  .ingredient {
+    padding: 8px 14px;
+    border-radius: 14px;
+    background: white;
+    border: 2px dashed var(--border);
+    cursor: grab;
+    text-align: center;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s, opacity 0.3s;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .ingredient:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    border-color: var(--hot);
+  }
+
+  .ingredient:active { cursor: grabbing; }
+
+  .ingredient.used {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
+  .ingredient-emoji { font-size: 24px; line-height: 1; }
+  .ingredient-name { font-size: 11px; font-weight: 700; color: var(--text2); }
+
+  /* ── REACTION VESSEL ── */
+  .vessel-zone {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .vessel-container {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    flex-shrink: 0;
+  }
+
+  .vessel-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .drop-target {
+    position: absolute;
+    inset: 20px 15px 10px;
+    border-radius: 8px 8px 30px 30px;
+    border: 3px dashed rgba(59,130,246,0.35);
+    transition: border-color 0.3s, background 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: rgba(59,130,246,0.5);
+    font-weight: 700;
+    text-align: center;
+    cursor: default;
+  }
+
+  .drop-target.over {
+    border-color: var(--hot);
+    background: rgba(255,107,53,0.05);
+  }
+
+  .drop-target.accepted {
+    border-style: solid;
+    border-color: var(--green);
+    color: transparent;
+  }
+
+  /* Temperature display */
+  .temp-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .temp-bar-wrap {
+    width: 140px;
+    height: 14px;
+    background: linear-gradient(90deg, var(--cold-light), var(--hot-light));
+    border-radius: 99px;
+    overflow: hidden;
+    border: 2px solid var(--border);
+    position: relative;
+  }
+
+  .temp-bar-fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    border-radius: 99px;
+    transition: width 1.2s cubic-bezier(0.34,1.56,0.64,1), background 1.2s;
+    width: 50%;
+    background: #F59E0B;
+  }
+
+  .temp-label {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .temp-value {
+    font-family: 'Fredoka One', cursive;
+    font-size: 20px;
+    transition: color 0.8s;
+  }
+
+  /* ── RESULT BOX ── */
+  .result-box {
+    border-radius: 14px;
+    padding: 10px 16px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 13px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.5s, transform 0.5s;
+    min-height: 42px;
+  }
+
+  .result-box.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .result-box.cold-result {
+    background: var(--cold-light);
+    color: #1E40AF;
+    border: 2px solid #93C5FD;
+  }
+
+  .result-box.hot-result {
+    background: var(--hot-light);
+    color: #9A3412;
+    border: 2px solid #FDBA74;
+  }
+
+  .next-btn {
+    margin-top: 4px;
+    padding: 10px 24px;
+    border-radius: 99px;
+    border: none;
+    background: var(--hot);
+    color: white;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 14px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    opacity: 0;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .next-btn.show {
+    opacity: 1;
+    pointer-events: all;
+    animation: btnPop 0.4s cubic-bezier(0.34,1.56,0.64,1) 0.3s both;
+  }
+
+  @keyframes btnPop {
+    from { transform: scale(0.7); }
+    to   { transform: scale(1); }
+  }
+
+  .next-btn:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(255,107,53,0.35); }
+  .next-btn:active { transform: scale(0.97); }
+
+  /* ── ACTIVITY 3 CLASSIFY ── */
+  .classify-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .classify-cards-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    justify-content: center;
+    align-content: flex-start;
+    flex-shrink: 0;
+  }
+
+  .classify-item {
+    padding: 7px 12px;
+    border-radius: 12px;
+    background: white;
+    border: 2px dashed var(--border);
+    cursor: grab;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+
+  .classify-item:hover { transform: scale(1.05); box-shadow: 0 3px 12px rgba(0,0,0,0.1); }
+  .classify-item.used { opacity: 0.3; pointer-events: none; }
+
+  .classify-bins {
+    display: flex;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .classify-bin {
+    flex: 1;
+    border-radius: 16px;
+    padding: 10px;
+    border: 3px dashed;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+    overflow: hidden;
+    transition: border-color 0.3s, background 0.3s;
+  }
+
+  .classify-bin.endo {
+    border-color: #93C5FD;
+    background: rgba(219,234,254,0.35);
+  }
+
+  .classify-bin.exo {
+    border-color: #FDBA74;
+    background: rgba(255,237,213,0.35);
+  }
+
+  .classify-bin.over {
+    border-style: solid;
+    transform: scale(1.01);
+  }
+
+  .classify-bin.endo.over { border-color: var(--cold); background: rgba(219,234,254,0.6); }
+  .classify-bin.exo.over  { border-color: var(--hot);  background: rgba(255,237,213,0.6); }
+
+  .bin-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 15px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+
+  .bin-title.cold { color: var(--cold); }
+  .bin-title.hot  { color: var(--hot); }
+
+  .bin-hint {
+    font-size: 10px;
+    text-align: center;
+    color: var(--text2);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .bin-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    justify-content: center;
+    align-content: flex-start;
+    overflow: hidden;
+  }
+
+  .bin-placed {
+    padding: 5px 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    animation: placeIn 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  @keyframes placeIn {
+    from { transform: scale(0.4) rotate(-10deg); opacity: 0; }
+    to   { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+
+  .bin-placed.endo { background: var(--cold-light); color: #1E40AF; }
+  .bin-placed.exo  { background: var(--hot-light);  color: #9A3412; }
+  .bin-placed.wrong {
+    background: #FEE2E2;
+    color: #991B1B;
+    animation: shake 0.4s ease;
+  }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25%      { transform: translateX(-6px) rotate(-3deg); }
+    75%      { transform: translateX(6px) rotate(3deg); }
+  }
+
+  /* ── POPUP OVERLAY ── */
+  .popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(45,27,0,0.55);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s;
+    backdrop-filter: blur(4px);
+  }
+
+  .popup-overlay.show {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .popup-card {
+    background: var(--tile);
+    border: 2px solid var(--border);
+    border-radius: 28px;
+    padding: 36px 40px 32px;
+    max-width: 440px;
+    width: 90%;
+    text-align: center;
+    transform: scale(0.8) translateY(30px);
+    transition: transform 0.45s cubic-bezier(0.34,1.56,0.64,1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .popup-overlay.show .popup-card {
+    transform: scale(1) translateY(0);
+  }
+
+  .popup-confetti {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .confetti-piece {
+    position: absolute;
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    opacity: 0;
+  }
+
+  .popup-icon {
+    font-size: 56px;
+    line-height: 1;
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .popup-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 26px;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .popup-body {
+    font-size: 14px;
+    color: var(--text2);
+    line-height: 1.65;
+    margin-bottom: 24px;
+  }
+
+  .popup-body strong { color: var(--text); }
+
+  .popup-btn {
+    padding: 13px 36px;
+    border-radius: 99px;
+    border: none;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .popup-btn:hover { transform: scale(1.04); }
+  .popup-btn:active { transform: scale(0.97); }
+  .popup-btn.hot-btn { background: var(--hot); color: white; box-shadow: 0 4px 20px rgba(255,107,53,0.3); }
+  .popup-btn.cold-btn { background: var(--cold); color: white; box-shadow: 0 4px 20px rgba(59,130,246,0.3); }
+  .popup-btn.success-btn { background: var(--green); color: white; box-shadow: 0 4px 20px rgba(34,197,94,0.3); }
+
+  /* Score bar in final popup */
+  .score-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+
+  .score-ring {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    border: 5px solid var(--green);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Fredoka One', cursive;
+    font-size: 24px;
+    color: var(--green);
+    margin-bottom: 4px;
+  }
+
+  /* Bubbling liquid in vessel */
+  .liquid {
+    transition: fill 1.5s, d 1.5s;
+  }
+
+  /* Progress indicator */
+  .progress-dots {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+
+  .progress-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.3s, transform 0.3s;
+  }
+
+  .progress-dot.on {
+    background: var(--hot);
+    transform: scale(1.3);
+  }
+
+  /* Dragging ghost */
+  .drag-ghost {
+    position: fixed;
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.85;
+    transform: scale(1.15) rotate(6deg);
+    transition: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- Background layers -->
+<div class="kitchen-bg"></div>
+<canvas id="bg-canvas"></canvas>
+<div class="steam-wrap" id="steam-wrap"></div>
+
+<!-- Floating ingredient decorations -->
+<div id="float-items"></div>
+
+<!-- Main app -->
+<div id="app">
+
+  <!-- Header -->
+  <div id="header">
+    <div class="header-title">
+      <span class="hot">Chemical</span> <span class="cold">Reactions</span> — Kitchen Lab
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div class="step-pills">
+        <div class="step-pill active" id="pill-1">1</div>
+        <div class="step-pill" id="pill-2">2</div>
+        <div class="step-pill" id="pill-3">3</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Activity Panel -->
+  <div id="activity-panel">
+
+    <!-- ACTIVITY 1: Endothermic — Cold Pack -->
+    <div class="activity-card visible" id="act1">
+      <div class="activity-header">
+        <div class="activity-icon icon-cold">🧪</div>
+        <div class="activity-title-group">
+          <div class="activity-label">Activity 1 · Endothermic Reaction</div>
+          <div class="activity-title">The Kitchen Cold Pack</div>
+        </div>
+      </div>
+      <div class="activity-desc">
+        Drag <strong>Citric Acid</strong>, <strong>Baking Soda</strong>, and <strong>Water</strong> into the bowl — in that order! Watch what happens to the temperature.
+      </div>
+
+      <div class="workspace">
+        <!-- Ingredients -->
+        <div class="ingredients-tray">
+          <div class="tray-label">Ingredients</div>
+          <div class="ingredient" id="a1-ing1" draggable="true" data-id="citric">
+            <span class="ingredient-emoji">🍋</span>
+            <span class="ingredient-name">Citric Acid</span>
+          </div>
+          <div class="ingredient" id="a1-ing2" draggable="true" data-id="baking" data-needs="citric">
+            <span class="ingredient-emoji">🧂</span>
+            <span class="ingredient-name">Baking Soda</span>
+          </div>
+          <div class="ingredient" id="a1-ing3" draggable="true" data-id="water" data-needs="baking">
+            <span class="ingredient-emoji">💧</span>
+            <span class="ingredient-name">Water</span>
+          </div>
+        </div>
+
+        <!-- Vessel -->
+        <div class="vessel-zone">
+          <div class="vessel-container" id="a1-vessel-wrap">
+            <svg class="vessel-svg" viewBox="0 0 160 160" id="a1-svg">
+              <!-- Bowl -->
+              <ellipse cx="80" cy="55" rx="62" ry="18" fill="#E8E0D5" stroke="#C8B89A" stroke-width="2"/>
+              <path d="M18 55 Q22 130 80 138 Q138 130 142 55 Z" fill="#F5F0EA" stroke="#C8B89A" stroke-width="2"/>
+              <!-- Liquid fill -->
+              <clipPath id="bowl-clip">
+                <path d="M22 60 Q24 128 80 136 Q136 128 138 60 Z"/>
+              </clipPath>
+              <rect id="a1-liquid" x="0" y="95" width="160" height="50" clip-path="url(#bowl-clip)"
+                fill="rgba(200,220,240,0)" style="transition: fill 1.5s, y 1.5s;"/>
+              <!-- Bubbles in bowl -->
+              <g id="a1-bubbles" clip-path="url(#bowl-clip)" opacity="0" style="transition:opacity 0.8s">
+                <circle cx="55" cy="120" r="4" fill="none" stroke="rgba(100,150,255,0.5)" stroke-width="1.5">
+                  <animate attributeName="cy" values="125;95;125" dur="1.8s" repeatCount="indefinite"/>
+                  <animate attributeName="r" values="3;6;3" dur="1.8s" repeatCount="indefinite"/>
+                  <animate attributeName="opacity" values="0;1;0" dur="1.8s" repeatCount="indefinite"/>
+                </circle>
+                <circle cx="80" cy="118" r="3" fill="none" stroke="rgba(100,150,255,0.4)" stroke-width="1.5">
+                  <animate attributeName="cy" values="128;98;128" dur="2.2s" repeatCount="indefinite"/>
+                  <animate attributeName="opacity" values="0;1;0" dur="2.2s" repeatCount="indefinite"/>
+                </circle>
+                <circle cx="105" cy="122" r="4" fill="none" stroke="rgba(100,150,255,0.5)" stroke-width="1.5">
+                  <animate attributeName="cy" values="122;100;122" dur="1.5s" repeatCount="indefinite"/>
+                  <animate attributeName="opacity" values="0;1;0" dur="1.5s" repeatCount="indefinite"/>
+                </circle>
+              </g>
+              <!-- Bowl rim highlight -->
+              <ellipse cx="80" cy="55" rx="62" ry="18" fill="none" stroke="#EAE0D0" stroke-width="3" opacity="0.7"/>
+              <!-- Chef hat decoration -->
+              <text x="76" y="46" font-size="14" text-anchor="middle" opacity="0.3">👨‍🍳</text>
+            </svg>
+            <div class="drop-target" id="a1-drop">
+              Drop here
+            </div>
+          </div>
+
+          <div class="temp-display">
+            <div class="temp-label">
+              Temperature: <span class="temp-value" id="a1-temp" style="color:var(--yellow)">25°C</span>
+            </div>
+            <div class="temp-bar-wrap">
+              <div class="temp-bar-fill" id="a1-bar" style="width:50%;background:var(--yellow);"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: result + next -->
+        <div style="display:flex;flex-direction:column;justify-content:center;gap:10px;min-width:150px;max-width:180px;">
+          <div class="result-box cold-result" id="a1-result">
+            🧊 The mixture gets COLD! Heat is absorbed from surroundings.<br><strong>ENDOTHERMIC!</strong>
+          </div>
+          <button class="next-btn" id="a1-next" onclick="goToActivity(2)">
+            Next Activity ›
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIVITY 2: Exothermic — Hand Warmer -->
+    <div class="activity-card" id="act2">
+      <div class="activity-header">
+        <div class="activity-icon icon-hot">🔥</div>
+        <div class="activity-title-group">
+          <div class="activity-label">Activity 2 · Exothermic Reaction</div>
+          <div class="activity-title">The Hand Warmer</div>
+        </div>
+      </div>
+      <div class="activity-desc">
+        Drag <strong>Iron Powder</strong>, <strong>Salt Water</strong>, and <strong>Oxygen</strong> into the pouch to simulate a hand warmer! Iron oxidation releases heat.
+      </div>
+
+      <div class="workspace">
+        <div class="ingredients-tray">
+          <div class="tray-label">Ingredients</div>
+          <div class="ingredient" id="a2-ing1" draggable="true" data-id="iron">
+            <span class="ingredient-emoji">⚙️</span>
+            <span class="ingredient-name">Iron Powder</span>
+          </div>
+          <div class="ingredient" id="a2-ing2" draggable="true" data-id="saltwater" data-needs="iron">
+            <span class="ingredient-emoji">🌊</span>
+            <span class="ingredient-name">Salt Water</span>
+          </div>
+          <div class="ingredient" id="a2-ing3" draggable="true" data-id="oxygen" data-needs="saltwater">
+            <span class="ingredient-emoji">💨</span>
+            <span class="ingredient-name">Oxygen</span>
+          </div>
+        </div>
+
+        <div class="vessel-zone">
+          <div class="vessel-container" id="a2-vessel-wrap">
+            <svg class="vessel-svg" viewBox="0 0 160 160" id="a2-svg">
+              <!-- Hand warmer pouch -->
+              <rect x="25" y="25" width="110" height="110" rx="20" fill="#F5F0EA" stroke="#C8B89A" stroke-width="2"/>
+              <rect x="35" y="35" width="90" height="90" rx="14" fill="#EDE8E0" stroke="#D4C9B5" stroke-width="1"/>
+              <!-- Iron texture dots -->
+              <g id="a2-iron-dots" opacity="0" style="transition:opacity 1s">
+                <circle cx="55" cy="65" r="2" fill="#8B7355"/>
+                <circle cx="70" cy="75" r="2.5" fill="#7A6545"/>
+                <circle cx="88" cy="60" r="2" fill="#8B7355"/>
+                <circle cx="100" cy="72" r="2" fill="#7A6545"/>
+                <circle cx="62" cy="88" r="2.5" fill="#8B7355"/>
+                <circle cx="80" cy="95" r="2" fill="#7A6545"/>
+                <circle cx="105" cy="85" r="2" fill="#8B7355"/>
+                <circle cx="48" cy="100" r="2.5" fill="#7A6545"/>
+              </g>
+              <!-- Heat glow -->
+              <rect id="a2-glow" x="30" y="30" width="100" height="100" rx="16"
+                fill="rgba(255,107,53,0)" style="transition: fill 1.5s;"/>
+              <!-- Heat waves above pouch -->
+              <g id="a2-waves" opacity="0" style="transition:opacity 0.8s">
+                <path d="M55 22 Q62 14 70 22 Q78 30 85 22 Q93 14 100 22" fill="none" stroke="rgba(255,107,53,0.5)" stroke-width="2" stroke-linecap="round">
+                  <animate attributeName="opacity" values="0.2;0.8;0.2" dur="1.5s" repeatCount="indefinite"/>
+                  <animate attributeName="d" values="M55 22 Q62 14 70 22 Q78 30 85 22 Q93 14 100 22;M55 18 Q62 10 70 18 Q78 26 85 18 Q93 10 100 18;M55 22 Q62 14 70 22 Q78 30 85 22 Q93 14 100 22" dur="1.5s" repeatCount="indefinite"/>
+                </path>
+                <path d="M60 15 Q67 7 75 15 Q83 23 90 15" fill="none" stroke="rgba(255,107,53,0.35)" stroke-width="2" stroke-linecap="round">
+                  <animate attributeName="opacity" values="0.1;0.6;0.1" dur="1.8s" repeatCount="indefinite"/>
+                </path>
+              </g>
+              <!-- Rust colour overlay -->
+              <rect id="a2-rust" x="35" y="35" width="90" height="90" rx="14"
+                fill="rgba(180,100,30,0)" style="transition: fill 2s;"/>
+              <!-- Label -->
+              <text x="80" y="142" font-size="9" text-anchor="middle" fill="#A89070" font-weight="700">HAND WARMER</text>
+            </svg>
+            <div class="drop-target" id="a2-drop" style="border-radius:12px;inset:30px;">
+              Drop here
+            </div>
+          </div>
+
+          <div class="temp-display">
+            <div class="temp-label">
+              Temperature: <span class="temp-value" id="a2-temp" style="color:var(--yellow)">25°C</span>
+            </div>
+            <div class="temp-bar-wrap">
+              <div class="temp-bar-fill" id="a2-bar" style="width:50%;background:var(--yellow);"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;justify-content:center;gap:10px;min-width:150px;max-width:180px;">
+          <div class="result-box hot-result" id="a2-result">
+            🔥 The pouch gets HOT! Heat is released as iron oxidises.<br><strong>EXOTHERMIC!</strong>
+          </div>
+          <button class="next-btn" id="a2-next" onclick="goToActivity(3)">
+            Final Activity ›
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIVITY 3: Classify -->
+    <div class="activity-card" id="act3">
+      <div class="activity-header">
+        <div class="activity-icon icon-both">🧠</div>
+        <div class="activity-title-group">
+          <div class="activity-label">Activity 3 · Sort &amp; Classify</div>
+          <div class="activity-title">Hot or Cold? You Decide!</div>
+        </div>
+      </div>
+      <div class="activity-desc">
+        Drag each reaction card into the correct bucket — <span style="color:var(--cold);font-weight:800;">Endothermic</span> (absorbs heat → gets cold) or <span style="color:var(--hot);font-weight:800;">Exothermic</span> (releases heat → gets hot).
+      </div>
+
+      <div class="classify-workspace">
+        <div class="classify-cards-row" id="classify-tray">
+          <div class="classify-item" draggable="true" data-type="exo" data-label="Burning a diya">🪔 Burning a diya</div>
+          <div class="classify-item" draggable="true" data-type="endo" data-label="Cold pack on injury">🧊 Cold pack on injury</div>
+          <div class="classify-item" draggable="true" data-type="exo" data-label="Cooking on gas stove">🍳 Cooking on gas stove</div>
+          <div class="classify-item" draggable="true" data-type="endo" data-label="Photosynthesis in plants">🌿 Photosynthesis</div>
+          <div class="classify-item" draggable="true" data-type="exo" data-label="Lohri bonfire">🔥 Lohri bonfire</div>
+          <div class="classify-item" draggable="true" data-type="endo" data-label="Baking soda + vinegar">🫧 Baking soda + vinegar</div>
+          <div class="classify-item" draggable="true" data-type="exo" data-label="Rusting iron gate">⚙️ Rusting iron gate</div>
+          <div class="classify-item" draggable="true" data-type="endo" data-label="Dissolving ammonium chloride">🧪 Dissolving naushadar</div>
+        </div>
+
+        <div class="classify-bins">
+          <div class="classify-bin endo" id="bin-endo">
+            <div class="bin-title cold">🧊 Endothermic</div>
+            <div class="bin-hint">Heat is absorbed · Gets cold</div>
+            <div class="bin-items" id="bin-endo-items"></div>
+          </div>
+          <div class="classify-bin exo" id="bin-exo">
+            <div class="bin-title hot">🔥 Exothermic</div>
+            <div class="bin-hint">Heat is released · Gets hot</div>
+            <div class="bin-items" id="bin-exo-items"></div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:center;gap:10px;align-items:center;flex-shrink:0;">
+          <div id="a3-score" style="font-size:13px;font-weight:700;color:var(--text2);"></div>
+          <button class="next-btn" id="a3-next" onclick="showFinalPopup()">
+            See Results! 🎉
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── POPUPS ── -->
+
+<!-- Between-activity popup -->
+<div class="popup-overlay" id="popup-transition">
+  <div class="popup-card">
+    <span class="popup-icon" id="pt-icon">🎉</span>
+    <div class="popup-title" id="pt-title">Great job!</div>
+    <div class="popup-body" id="pt-body">You completed Activity 1!</div>
+    <button class="popup-btn hot-btn" id="pt-btn">Continue ›</button>
+  </div>
+</div>
+
+<!-- Final success popup -->
+<div class="popup-overlay" id="popup-final">
+  <div class="popup-card">
+    <div class="popup-confetti" id="final-confetti"></div>
+    <span class="popup-icon">🏆</span>
+    <div class="popup-title">You're a Reaction Scientist!</div>
+    <div class="score-area">
+      <div class="score-ring" id="final-score-ring">8/8</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text2);" id="final-score-label">Perfect score!</div>
+    </div>
+    <div class="popup-body">
+      You've mastered <strong>endothermic</strong> and <strong>exothermic</strong> reactions! Remember:<br><br>
+      🧊 <strong>ENDO</strong> = heat ENTERS → gets cold<br>
+      🔥 <strong>EXO</strong> = heat EXITS → gets hot
+    </div>
+    <button class="popup-btn success-btn" onclick="restartAll()">Try Again! 🔄</button>
+  </div>
+</div>
+
+<!-- Drag ghost element -->
+<div id="drag-ghost" class="drag-ghost" style="display:none;"></div>
+
+<script>
+// ─────────────────────────────────────────────
+//  BACKGROUND ANIMATIONS
+// ─────────────────────────────────────────────
+
+// Steam particles
+(function() {
+  const wrap = document.getElementById('steam-wrap');
+  const colors = ['rgba(180,210,255,0.6)','rgba(255,180,140,0.5)','rgba(200,240,200,0.5)','rgba(255,220,180,0.4)'];
+  const positions = [8,18,30,45,55,68,80,92];
+  positions.forEach((left, i) => {
+    const s = document.createElement('div');
+    s.className = 'steam';
+    s.style.cssText = `left:${left}%;height:${45+Math.random()*30}px;background:${colors[i%colors.length]};animation-duration:${4+Math.random()*4}s;animation-delay:${Math.random()*4}s;`;
+    wrap.appendChild(s);
+  });
+})();
+
+// Floating ingredient emojis
+(function() {
+  const items = ['🍋','🧂','💧','⚙️','🫧','🌿','🔥','🧊','🍳','🪔','🌊','💨'];
+  const wrap = document.getElementById('float-items');
+  items.forEach((emoji, i) => {
+    const el = document.createElement('div');
+    el.className = 'float-item';
+    el.textContent = emoji;
+    const left = 3 + (i * 8.5) % 95;
+    const top = 5 + (i * 13.7) % 88;
+    el.style.cssText = `left:${left}%;top:${top}%;animation-duration:${5+Math.random()*4}s;animation-delay:${Math.random()*3}s;`;
+    wrap.appendChild(el);
+  });
+})();
+
+// Canvas: animated bubbles in background
+(function() {
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  let bubbles = [];
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  for (let i = 0; i < 18; i++) {
+    bubbles.push({
+      x: Math.random() * window.innerWidth,
+      y: window.innerHeight + Math.random() * 200,
+      r: 3 + Math.random() * 8,
+      speed: 0.3 + Math.random() * 0.6,
+      opacity: 0.04 + Math.random() * 0.06,
+      hue: Math.random() > 0.5 ? '200,220,255' : '255,180,140'
+    });
+  }
+
+  function drawBubbles() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    bubbles.forEach(b => {
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(${b.hue},${b.opacity * 3})`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      b.y -= b.speed;
+      b.x += Math.sin(b.y * 0.02) * 0.5;
+      if (b.y < -20) {
+        b.y = canvas.height + 20;
+        b.x = Math.random() * canvas.width;
+      }
+    });
+    requestAnimationFrame(drawBubbles);
+  }
+  drawBubbles();
+})();
+
+// ─────────────────────────────────────────────
+//  DRAG STATE
+// ─────────────────────────────────────────────
+let dragging = null;
+let ghostEl = document.getElementById('drag-ghost');
+let mouseX = 0, mouseY = 0;
+
+document.addEventListener('mousemove', e => {
+  mouseX = e.clientX; mouseY = e.clientY;
+  if (dragging) {
+    ghostEl.style.left = (e.clientX - 30) + 'px';
+    ghostEl.style.top  = (e.clientY - 30) + 'px';
+  }
+});
+
+document.addEventListener('mouseup', e => {
+  if (!dragging) return;
+  ghostEl.style.display = 'none';
+  // Find what's under cursor
+  const els = document.elementsFromPoint(e.clientX, e.clientY);
+  let handled = false;
+  for (const el of els) {
+    if (el.id === 'a1-drop' && dragging.activity === 1) { handled = handleA1Drop(dragging); break; }
+    if (el.id === 'a2-drop' && dragging.activity === 2) { handled = handleA2Drop(dragging); break; }
+    if (el.closest('.classify-bin') && dragging.activity === 3) {
+      handled = handleA3Drop(dragging, el.closest('.classify-bin'));
+      break;
+    }
+  }
+  if (!handled) snapBack(dragging.el);
+  dragging = null;
+  document.querySelectorAll('.drop-target,.classify-bin').forEach(t => t.classList.remove('over'));
+});
+
+document.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const els = document.elementsFromPoint(e.clientX, e.clientY);
+  document.querySelectorAll('.drop-target,.classify-bin').forEach(t => t.classList.remove('over'));
+  for (const el of els) {
+    if ((el.id === 'a1-drop' && dragging.activity === 1) ||
+        (el.id === 'a2-drop' && dragging.activity === 2)) {
+      el.classList.add('over');
+    }
+    if (el.closest('.classify-bin') && dragging.activity === 3) {
+      el.closest('.classify-bin').classList.add('over');
+    }
+  }
+});
+
+function startDrag(el, activity) {
+  dragging = { el, activity, id: el.dataset.id, type: el.dataset.type, needs: el.dataset.needs };
+  ghostEl.innerHTML = el.innerHTML;
+  ghostEl.style.cssText = `display:block;left:${mouseX-30}px;top:${mouseY-30}px;padding:8px 14px;background:white;border:2px solid var(--border);border-radius:14px;font-family:Nunito,sans-serif;pointer-events:none;z-index:999;transform:scale(1.15) rotate(6deg);`;
+}
+
+function snapBack(el) {
+  el.style.transition = 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)';
+  el.style.transform = 'scale(1)';
+}
+
+// Setup drag on ingredients
+document.querySelectorAll('.ingredient').forEach(ing => {
+  ing.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const act = ing.closest('.activity-card');
+    const actNum = act.id === 'act1' ? 1 : act.id === 'act2' ? 2 : 3;
+    startDrag(ing, actNum);
+  });
+});
+
+document.querySelectorAll('.classify-item').forEach(item => {
+  item.addEventListener('mousedown', e => {
+    e.preventDefault();
+    startDrag(item, 3);
+  });
+});
+
+// ─────────────────────────────────────────────
+//  ACTIVITY 1: ENDOTHERMIC
+// ─────────────────────────────────────────────
+let a1Steps = [];
+const a1Order = ['citric','baking','water'];
+const a1TempSteps = [18, 10, 4];
+
+function handleA1Drop(drag) {
+  const expected = a1Order[a1Steps.length];
+  if (!expected) return false;
+
+  if (drag.id !== expected) {
+    showWrongOrder(drag.el);
+    return true;
+  }
+
+  a1Steps.push(drag.id);
+  drag.el.classList.add('used');
+  updateA1Vessel();
+  return true;
+}
+
+function updateA1Vessel() {
+  const step = a1Steps.length;
+  const tempEl = document.getElementById('a1-temp');
+  const barEl  = document.getElementById('a1-bar');
+  const drop   = document.getElementById('a1-drop');
+  const liquid = document.getElementById('a1-liquid');
+  const bubbles = document.getElementById('a1-bubbles');
+
+  // Animate liquid
+  liquid.setAttribute('y', 95 - step * 20);
+  const alpha = step * 0.28;
+  const blueIntensity = Math.min(step * 50, 150);
+  liquid.setAttribute('fill', `rgba(${100 - step*20},${160 - step*20},${200 + blueIntensity*0.2},${alpha})`);
+
+  if (step === 1) {
+    tempEl.textContent = a1TempSteps[0] + '°C';
+    barEl.style.width = '36%';
+    barEl.style.background = 'var(--cold)';
+    tempEl.style.color = 'var(--cold)';
+    liquid.setAttribute('fill', 'rgba(200,230,255,0.35)');
+  }
+  if (step === 2) {
+    tempEl.textContent = a1TempSteps[1] + '°C';
+    barEl.style.width = '20%';
+    bubbles.style.opacity = '0.7';
+  }
+  if (step === 3) {
+    drop.classList.add('accepted');
+    drop.textContent = '';
+    tempEl.textContent = a1TempSteps[2] + '°C';
+    barEl.style.width = '8%';
+    liquid.setAttribute('fill', 'rgba(150,200,255,0.7)');
+    bubbles.style.opacity = '1';
+    liquid.setAttribute('y', '55');
+
+    // Show result
+    setTimeout(() => {
+      document.getElementById('a1-result').classList.add('show');
+      document.getElementById('a1-next').classList.add('show');
+    }, 800);
+  }
+}
+
+// ─────────────────────────────────────────────
+//  ACTIVITY 2: EXOTHERMIC
+// ─────────────────────────────────────────────
+let a2Steps = [];
+const a2Order = ['iron','saltwater','oxygen'];
+const a2TempSteps = [38, 52, 68];
+
+function handleA2Drop(drag) {
+  const expected = a2Order[a2Steps.length];
+  if (!expected) return false;
+  if (drag.id !== expected) { showWrongOrder(drag.el); return true; }
+
+  a2Steps.push(drag.id);
+  drag.el.classList.add('used');
+  updateA2Vessel();
+  return true;
+}
+
+function updateA2Vessel() {
+  const step  = a2Steps.length;
+  const tempEl = document.getElementById('a2-temp');
+  const barEl  = document.getElementById('a2-bar');
+  const drop   = document.getElementById('a2-drop');
+  const glow   = document.getElementById('a2-glow');
+  const rust   = document.getElementById('a2-rust');
+  const waves  = document.getElementById('a2-waves');
+  const dots   = document.getElementById('a2-iron-dots');
+
+  if (step === 1) {
+    dots.style.opacity = '1';
+    tempEl.textContent = a2TempSteps[0] + '°C';
+    barEl.style.width = '65%';
+    barEl.style.background = 'var(--yellow)';
+    tempEl.style.color = 'var(--yellow)';
+  }
+  if (step === 2) {
+    tempEl.textContent = a2TempSteps[1] + '°C';
+    barEl.style.width = '80%';
+    barEl.style.background = 'var(--hot)';
+    tempEl.style.color = 'var(--hot)';
+    glow.setAttribute('fill', 'rgba(255,107,53,0.15)');
+    rust.setAttribute('fill', 'rgba(180,100,30,0.2)');
+  }
+  if (step === 3) {
+    drop.classList.add('accepted');
+    drop.textContent = '';
+    tempEl.textContent = a2TempSteps[2] + '°C';
+    barEl.style.width = '95%';
+    glow.setAttribute('fill', 'rgba(255,107,53,0.35)');
+    rust.setAttribute('fill', 'rgba(180,80,10,0.45)');
+    waves.style.opacity = '1';
+
+    setTimeout(() => {
+      document.getElementById('a2-result').classList.add('show');
+      document.getElementById('a2-next').classList.add('show');
+    }, 800);
+  }
+}
+
+// ─────────────────────────────────────────────
+//  ACTIVITY 3: CLASSIFY
+// ─────────────────────────────────────────────
+let a3Correct = 0;
+let a3Total = 0;
+const a3TotalItems = 8;
+
+function handleA3Drop(drag, binEl) {
+  const isEndo = binEl.classList.contains('endo');
+  const correctType = drag.type;
+  const droppedRight = (isEndo && correctType === 'endo') || (!isEndo && correctType === 'exo');
+
+  drag.el.classList.add('used');
+  a3Total++;
+
+  const placed = document.createElement('div');
+  placed.className = 'bin-placed ' + (isEndo ? 'endo' : 'exo') + (droppedRight ? '' : ' wrong');
+  placed.innerHTML = drag.el.innerHTML;
+
+  if (droppedRight) {
+    a3Correct++;
+    placed.title = '✓ Correct!';
+  } else {
+    placed.title = '✗ Wrong bin!';
+    setTimeout(() => {
+      placed.style.opacity = '0.5';
+      placed.style.textDecoration = 'line-through';
+    }, 600);
+  }
+
+  (isEndo ? document.getElementById('bin-endo-items') :
+             document.getElementById('bin-exo-items')).appendChild(placed);
+
+  const scoreEl = document.getElementById('a3-score');
+  scoreEl.textContent = `${a3Correct} / ${a3Total} correct`;
+  scoreEl.style.color = a3Correct === a3Total ? 'var(--green)' : 'var(--text2)';
+
+  if (a3Total === a3TotalItems) {
+    setTimeout(() => {
+      document.getElementById('a3-next').classList.add('show');
+    }, 400);
+  }
+  return true;
+}
+
+// ─────────────────────────────────────────────
+//  WRONG ORDER FEEDBACK
+// ─────────────────────────────────────────────
+function showWrongOrder(el) {
+  el.style.animation = 'shake 0.4s ease';
+  el.style.border = '2px solid #EF4444';
+  setTimeout(() => {
+    el.style.animation = '';
+    el.style.border = '2px dashed var(--border)';
+  }, 600);
+}
+
+// ─────────────────────────────────────────────
+//  ACTIVITY TRANSITIONS
+// ─────────────────────────────────────────────
+const activityConfig = {
+  1: {
+    icon: '🧊',
+    title: 'Excellent! Endothermic Reaction!',
+    body: 'The citric acid + baking soda + water reaction <strong>absorbed heat</strong> from its surroundings, making the mixture feel cold. This is an <strong>endothermic</strong> reaction! ENDO = heat ENTERS the reaction.',
+    btnClass: 'cold-btn',
+    nextAct: 2
+  },
+  2: {
+    icon: '🔥',
+    title: 'Awesome! Exothermic Reaction!',
+    body: 'Iron oxidation <strong>releases heat</strong> into the surroundings — that\'s why hand warmers feel hot! This is an <strong>exothermic</strong> reaction! EXO = heat EXITS the reaction.',
+    btnClass: 'hot-btn',
+    nextAct: 3
+  }
+};
+
+function goToActivity(num) {
+  const prev = num - 1;
+  if (activityConfig[prev]) {
+    const cfg = activityConfig[prev];
+    document.getElementById('pt-icon').textContent = cfg.icon;
+    document.getElementById('pt-title').textContent = cfg.title;
+    document.getElementById('pt-body').innerHTML = cfg.body;
+    const btn = document.getElementById('pt-btn');
+    btn.className = 'popup-btn ' + cfg.btnClass;
+    btn.onclick = () => {
+      hidePopup('popup-transition');
+      switchToActivity(num);
+    };
+    showPopup('popup-transition');
+  } else {
+    switchToActivity(num);
+  }
+}
+
+function switchToActivity(num) {
+  document.querySelectorAll('.activity-card').forEach(c => c.classList.remove('visible'));
+  document.getElementById('act' + num).classList.add('visible');
+  updatePills(num);
+}
+
+function updatePills(active) {
+  [1,2,3].forEach(i => {
+    const p = document.getElementById('pill-' + i);
+    p.className = 'step-pill';
+    if (i < active) p.classList.add('done');
+    else if (i === active) p.classList.add('active');
+  });
+}
+
+// ─────────────────────────────────────────────
+//  FINAL POPUP
+// ─────────────────────────────────────────────
+function showFinalPopup() {
+  const score = a3Correct;
+  const total = a3TotalItems;
+  document.getElementById('final-score-ring').textContent = score + '/' + total;
+  const pct = Math.round((score / total) * 100);
+  document.getElementById('final-score-label').textContent =
+    pct === 100 ? 'Perfect score! Outstanding!' :
+    pct >= 75   ? 'Great work! Keep it up!' :
+                  'Good effort! Try again!';
+
+  launchConfetti();
+  showPopup('popup-final');
+  updatePills(4);
+}
+
+function launchConfetti() {
+  const wrap = document.getElementById('final-confetti');
+  wrap.innerHTML = '';
+  const colors = ['#FF6B35','#3B82F6','#22C55E','#F59E0B','#8B5CF6','#EC4899'];
+  for (let i = 0; i < 28; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    const x = Math.random() * 100;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    p.style.cssText = `left:${x}%;background:${color};animation:confettiFall ${1.5+Math.random()}s ${Math.random()*0.5}s ease-in forwards;border-radius:${Math.random()>0.5?'50%':'2px'};`;
+    wrap.appendChild(p);
+  }
+}
+
+// Inject confetti keyframes
+const confettiStyle = document.createElement('style');
+confettiStyle.textContent = `
+@keyframes confettiFall {
+  0%   { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(320px) rotate(${Math.random()*720}deg); opacity: 0; }
+}
+`;
+document.head.appendChild(confettiStyle);
+
+function showPopup(id) {
+  document.getElementById(id).classList.add('show');
+}
+
+function hidePopup(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+// ─────────────────────────────────────────────
+//  RESTART
+// ─────────────────────────────────────────────
+function restartAll() {
+  location.reload();
+}
+
+// ─────────────────────────────────────────────
+//  TOUCH SUPPORT (basic)
+// ─────────────────────────────────────────────
+document.querySelectorAll('.ingredient, .classify-item').forEach(el => {
+  el.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    mouseX = touch.clientX;
+    mouseY = touch.clientY;
+    const act = el.closest('.activity-card');
+    const actNum = act.id === 'act1' ? 1 : act.id === 'act2' ? 2 : 3;
+    startDrag(el, actNum);
+  }, { passive: false });
+
+  el.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    mouseX = touch.clientX;
+    mouseY = touch.clientY;
+    ghostEl.style.left = (touch.clientX - 30) + 'px';
+    ghostEl.style.top  = (touch.clientY - 30) + 'px';
+    document.querySelectorAll('.drop-target,.classify-bin').forEach(t => t.classList.remove('over'));
+    const els = document.elementsFromPoint(touch.clientX, touch.clientY);
+    for (const e2 of els) {
+      if ((e2.id === 'a1-drop' && dragging.activity === 1) ||
+          (e2.id === 'a2-drop' && dragging.activity === 2)) e2.classList.add('over');
+      if (e2.closest('.classify-bin') && dragging.activity === 3)
+        e2.closest('.classify-bin').classList.add('over');
+    }
+  }, { passive: false });
+
+  el.addEventListener('touchend', e => {
+    if (!dragging) return;
+    const touch = e.changedTouches[0];
+    ghostEl.style.display = 'none';
+    const els = document.elementsFromPoint(touch.clientX, touch.clientY);
+    let handled = false;
+    for (const el2 of els) {
+      if (el2.id === 'a1-drop' && dragging.activity === 1) { handled = handleA1Drop(dragging); break; }
+      if (el2.id === 'a2-drop' && dragging.activity === 2) { handled = handleA2Drop(dragging); break; }
+      if (el2.closest('.classify-bin') && dragging.activity === 3) {
+        handled = handleA3Drop(dragging, el2.closest('.classify-bin'));
+        break;
+      }
+    }
+    if (!handled) snapBack(dragging.el);
+    dragging = null;
+    document.querySelectorAll('.drop-target,.classify-bin').forEach(t => t.classList.remove('over'));
+  });
+});
+
+// Prevent context menu on long press
+document.querySelectorAll('.ingredient,.classify-item').forEach(el => {
+  el.addEventListener('contextmenu', e => e.preventDefault());
+});
+
+// Initial pill state
+updatePills(1);
+</script>
+</body>
+</html>

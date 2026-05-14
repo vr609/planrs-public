@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>REACT — INTRO TO COMPONENTS</title>
+<style>
+  /* ─── FONTS ─── */
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap');
+
+  /* ─── ROOT TOKENS ─── */
+  :root {
+    --neon-cyan:    #00ffe7;
+    --neon-pink:    #ff2d78;
+    --neon-yellow:  #ffe600;
+    --neon-purple:  #bf5fff;
+    --neon-green:   #39ff14;
+    --bg-dark:      #040810;
+    --bg-panel:     rgba(6,18,38,0.88);
+    --bg-card:      rgba(0,255,231,0.05);
+    --border-glow:  rgba(0,255,231,0.35);
+    --text-main:    #cff6ff;
+    --text-dim:     #5a8fa8;
+    --font-display: 'Orbitron', monospace;
+    --font-mono:    'Share Tech Mono', monospace;
+    --font-body:    'Rajdhani', sans-serif;
+  }
+
+  /* ─── RESET ─── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: var(--bg-dark);
+    font-family: var(--font-body);
+    color: var(--text-main);
+    user-select: none;
+  }
+
+  /* ═══════════════════════════════════════════════
+     ANIMATED BACKGROUND LAYERS
+  ═══════════════════════════════════════════════ */
+  #bg-canvas {
+    position: fixed; inset: 0; z-index: 0;
+    pointer-events: none;
+  }
+
+  /* Grid overlay */
+  .bg-grid {
+    position: fixed; inset: 0; z-index: 1;
+    background-image:
+      linear-gradient(rgba(0,255,231,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,231,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridPulse 6s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes gridPulse {
+    0%,100% { opacity: 0.6; }
+    50%      { opacity: 1; }
+  }
+
+  /* Scanlines */
+  .bg-scanlines {
+    position: fixed; inset: 0; z-index: 2;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(0,0,0,0.18) 3px,
+      rgba(0,0,0,0.18) 4px
+    );
+    pointer-events: none;
+  }
+
+  /* Moving horizontal pulse lines */
+  .pulse-line {
+    position: fixed; left: 0; right: 0; height: 2px;
+    z-index: 3; pointer-events: none;
+    background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+    opacity: 0;
+    animation: sweepLine 8s linear infinite;
+  }
+  .pulse-line:nth-child(2) { animation-delay: -2.5s; background: linear-gradient(90deg,transparent,var(--neon-pink),transparent); }
+  .pulse-line:nth-child(3) { animation-delay: -5.5s; background: linear-gradient(90deg,transparent,var(--neon-purple),transparent); }
+  @keyframes sweepLine {
+    0%   { top: -2px; opacity: 0; }
+    5%   { opacity: 0.7; }
+    95%  { opacity: 0.7; }
+    100% { top: 100%; opacity: 0; }
+  }
+
+  /* Corner circuit decorations */
+  .circuit-corner {
+    position: fixed; width: 120px; height: 120px; z-index: 3; pointer-events: none;
+    opacity: 0.45;
+  }
+  .circuit-corner.tl { top: 0; left: 0; }
+  .circuit-corner.tr { top: 0; right: 0; transform: scaleX(-1); }
+  .circuit-corner.bl { bottom: 0; left: 0; transform: scaleY(-1); }
+  .circuit-corner.br { bottom: 0; right: 0; transform: scale(-1); }
+
+  /* Floating neon orbs */
+  .neon-orb {
+    position: fixed; border-radius: 50%; z-index: 2; pointer-events: none;
+    filter: blur(60px); mix-blend-mode: screen;
+    animation: orbFloat linear infinite;
+  }
+  .neon-orb.o1 { width:280px;height:280px;background:rgba(0,255,231,0.12); top:10%;left:5%;  animation-duration:18s; animation-delay:0s; }
+  .neon-orb.o2 { width:200px;height:200px;background:rgba(255,45,120,0.12); top:60%;right:8%; animation-duration:22s; animation-delay:-7s; }
+  .neon-orb.o3 { width:160px;height:160px;background:rgba(191,95,255,0.14); bottom:15%;left:40%;animation-duration:15s; animation-delay:-3s; }
+  @keyframes orbFloat {
+    0%,100% { transform: translate(0,0); }
+    25%     { transform: translate(20px,-30px); }
+    50%     { transform: translate(-15px,20px); }
+    75%     { transform: translate(25px,10px); }
+  }
+
+  /* ═══════════════════════════════════════════════
+     MAIN LAYOUT
+  ═══════════════════════════════════════════════ */
+  #app {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ─── HEADER ─── */
+  #header {
+    flex-shrink: 0;
+    padding: 10px 24px 8px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border-glow);
+    background: linear-gradient(180deg, rgba(0,255,231,0.06) 0%, transparent 100%);
+    position: relative;
+  }
+  #header::after {
+    content: '';
+    position: absolute; bottom: -2px; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+    animation: headerGlow 3s ease-in-out infinite;
+  }
+  @keyframes headerGlow {
+    0%,100% { opacity: 0.5; }
+    50%      { opacity: 1; }
+  }
+
+  .logo-area { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 36px; height: 36px;
+    border: 2px solid var(--neon-cyan);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-size: 14px; font-weight: 900;
+    color: var(--neon-cyan);
+    box-shadow: 0 0 12px var(--neon-cyan), inset 0 0 8px rgba(0,255,231,0.15);
+    animation: iconPulse 2.5s ease-in-out infinite;
+  }
+  @keyframes iconPulse {
+    0%,100% { box-shadow: 0 0 12px var(--neon-cyan), inset 0 0 8px rgba(0,255,231,0.15); }
+    50%     { box-shadow: 0 0 22px var(--neon-cyan), inset 0 0 16px rgba(0,255,231,0.3); }
+  }
+
+  .title-group { display: flex; flex-direction: column; }
+  .title-main {
+    font-family: var(--font-display); font-size: clamp(13px, 2vw, 18px);
+    font-weight: 900; letter-spacing: 0.12em;
+    color: var(--neon-cyan);
+    text-shadow: 0 0 10px var(--neon-cyan), 0 0 30px rgba(0,255,231,0.4);
+  }
+  .title-sub {
+    font-family: var(--font-mono); font-size: clamp(9px, 1.2vw, 11px);
+    color: var(--text-dim); letter-spacing: 0.2em;
+  }
+
+  .progress-area { display: flex; align-items: center; gap: 10px; }
+  .progress-dots { display: flex; gap: 8px; }
+  .pdot {
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 1px solid var(--text-dim);
+    background: transparent;
+    transition: all 0.4s;
+  }
+  .pdot.active { background: var(--neon-cyan); border-color: var(--neon-cyan); box-shadow: 0 0 8px var(--neon-cyan); }
+  .pdot.done   { background: var(--neon-green); border-color: var(--neon-green); box-shadow: 0 0 8px var(--neon-green); }
+
+  .score-badge {
+    font-family: var(--font-mono); font-size: 12px;
+    color: var(--neon-yellow);
+    padding: 3px 10px;
+    border: 1px solid rgba(255,230,0,0.4);
+    border-radius: 20px;
+    text-shadow: 0 0 8px var(--neon-yellow);
+  }
+
+  /* ─── CONTENT AREA ─── */
+  #content {
+    flex: 1; overflow: hidden;
+    position: relative;
+    display: flex; flex-direction: column;
+  }
+
+  /* ─── ACTIVITY SCREENS ─── */
+  .activity-screen {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    padding: 14px 20px 12px;
+    gap: 10px;
+    opacity: 0; pointer-events: none;
+    transform: translateX(60px);
+    transition: all 0.5s cubic-bezier(0.22,1,0.36,1);
+  }
+  .activity-screen.active {
+    opacity: 1; pointer-events: all; transform: translateX(0);
+  }
+  .activity-screen.exit {
+    opacity: 0; transform: translateX(-60px);
+  }
+
+  /* Activity header */
+  .act-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .act-badge {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.15em;
+    color: var(--neon-pink); padding: 2px 8px;
+    border: 1px solid var(--neon-pink);
+    border-radius: 3px; text-transform: uppercase;
+    text-shadow: 0 0 8px var(--neon-pink);
+    box-shadow: 0 0 8px rgba(255,45,120,0.2);
+  }
+  .act-title {
+    font-family: var(--font-display); font-size: clamp(14px,2.2vw,20px);
+    font-weight: 700; letter-spacing: 0.06em;
+    color: #fff;
+    text-shadow: 0 0 12px rgba(255,255,255,0.4);
+    margin: 4px 0 2px;
+  }
+  .act-instruction {
+    font-family: var(--font-body); font-size: clamp(11px,1.5vw,14px);
+    color: var(--text-dim); font-weight: 600;
+  }
+
+  .check-btn {
+    font-family: var(--font-display); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.12em;
+    padding: 9px 20px;
+    background: linear-gradient(135deg, rgba(0,255,231,0.15), rgba(0,255,231,0.05));
+    border: 1.5px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    border-radius: 6px;
+    cursor: pointer;
+    text-shadow: 0 0 8px var(--neon-cyan);
+    box-shadow: 0 0 12px rgba(0,255,231,0.2);
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .check-btn:hover {
+    background: rgba(0,255,231,0.2);
+    box-shadow: 0 0 22px rgba(0,255,231,0.5);
+    transform: translateY(-1px);
+  }
+
+  /* ─── ZONE STYLES (shared) ─── */
+  .drop-zone {
+    border: 2px dashed rgba(0,255,231,0.3);
+    border-radius: 8px;
+    background: rgba(0,255,231,0.03);
+    min-height: 38px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.25s;
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+  }
+  .drop-zone.drag-over {
+    border-color: var(--neon-cyan);
+    background: rgba(0,255,231,0.1);
+    box-shadow: 0 0 16px rgba(0,255,231,0.3), inset 0 0 12px rgba(0,255,231,0.1);
+  }
+  .drop-zone.filled {
+    border-style: solid;
+    border-color: rgba(0,255,231,0.5);
+    background: rgba(0,255,231,0.07);
+  }
+  .drop-zone.correct  { border-color: var(--neon-green) !important; background: rgba(57,255,20,0.08) !important; box-shadow: 0 0 12px rgba(57,255,20,0.25) !important; }
+  .drop-zone.wrong    { border-color: var(--neon-pink)  !important; background: rgba(255,45,120,0.08) !important; box-shadow: 0 0 12px rgba(255,45,120,0.25) !important; animation: shake 0.4s ease; }
+  .zone-placeholder {
+    font-family: var(--font-mono); font-size: 11px;
+    color: rgba(0,255,231,0.25); letter-spacing: 0.1em;
+    pointer-events: none;
+  }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25%     { transform: translateX(-4px); }
+    75%     { transform: translateX(4px); }
+  }
+
+  /* ─── DRAGGABLE CHIP ─── */
+  .chip {
+    font-family: var(--font-mono); font-size: clamp(10px,1.3vw,13px);
+    padding: 6px 12px;
+    background: rgba(191,95,255,0.12);
+    border: 1px solid rgba(191,95,255,0.5);
+    border-radius: 6px;
+    color: var(--neon-purple);
+    cursor: grab;
+    white-space: nowrap;
+    transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 5px;
+    text-shadow: 0 0 6px rgba(191,95,255,0.6);
+    box-shadow: 0 0 8px rgba(191,95,255,0.15);
+    touch-action: none;
+  }
+  .chip:hover { background: rgba(191,95,255,0.22); transform: translateY(-2px); box-shadow: 0 0 16px rgba(191,95,255,0.4); }
+  .chip.dragging { opacity: 0.4; cursor: grabbing; }
+  .chip.placed { opacity: 0.35; pointer-events: none; }
+  .chip.in-zone {
+    background: rgba(0,255,231,0.12); border-color: var(--neon-cyan);
+    color: var(--neon-cyan); text-shadow: 0 0 8px var(--neon-cyan);
+    box-shadow: 0 0 10px rgba(0,255,231,0.25);
+    cursor: grab;
+  }
+
+  /* Ghost chip that follows cursor */
+  #drag-ghost {
+    position: fixed; pointer-events: none; z-index: 9999;
+    opacity: 0.9; transform: rotate(2deg) scale(1.05);
+    display: none;
+  }
+
+  /* Chips tray */
+  .chips-tray {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 10px 14px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(191,95,255,0.2);
+    border-radius: 10px;
+    flex-shrink: 0;
+    min-height: 52px;
+    align-items: center;
+  }
+  .tray-label {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--text-dim); letter-spacing: 0.15em;
+    width: 100%; margin-bottom: 4px;
+  }
+
+  /* ═══════════════════════════════════════════════
+     ACTIVITY 1 — SETUP STEPS
+  ═══════════════════════════════════════════════ */
+  #act1 .build-area {
+    display: flex; flex-direction: column; gap: 8px;
+    flex: 1; overflow: hidden;
+  }
+  .step-row {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .step-num {
+    font-family: var(--font-display); font-size: 11px; font-weight: 700;
+    color: var(--neon-pink); width: 22px; flex-shrink: 0;
+    text-shadow: 0 0 8px var(--neon-pink);
+  }
+  .step-label {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--text-dim); flex-shrink: 0; min-width: 80px;
+  }
+  .step-zones {
+    display: flex; gap: 6px; flex: 1;
+  }
+
+  /* ═══════════════════════════════════════════════
+     ACTIVITY 2 — JSX BUILDER
+  ═══════════════════════════════════════════════ */
+  #act2 .code-canvas {
+    flex: 1;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(0,255,231,0.15);
+    border-radius: 10px;
+    padding: 12px 16px;
+    display: flex; flex-direction: column; gap: 6px;
+    font-family: var(--font-mono); font-size: clamp(11px,1.4vw,14px);
+    overflow: hidden;
+  }
+  .code-line {
+    display: flex; align-items: center; gap: 6px; min-height: 34px;
+  }
+  .code-indent { width: 24px; flex-shrink: 0; }
+  .code-indent2 { width: 48px; flex-shrink: 0; }
+  .code-kw  { color: var(--neon-pink); }
+  .code-fn  { color: var(--neon-yellow); }
+  .code-op  { color: #aaa; }
+  .code-str { color: var(--neon-green); }
+  .code-tag { color: var(--neon-cyan); }
+  .code-line-num {
+    font-size: 10px; color: rgba(90,143,168,0.5); width: 20px; text-align: right; flex-shrink: 0;
+  }
+
+  /* ═══════════════════════════════════════════════
+     ACTIVITY 3 — PROPS CARDS
+  ═══════════════════════════════════════════════ */
+  #act3 .cards-canvas {
+    flex: 1; display: flex; gap: 10px; overflow: hidden;
+  }
+  .prop-card {
+    flex: 1; background: var(--bg-panel);
+    border: 1px solid var(--border-glow);
+    border-radius: 12px; padding: 10px;
+    display: flex; flex-direction: column; gap: 8px;
+    position: relative; overflow: hidden;
+  }
+  .prop-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+    animation: cardTopLine 3s ease-in-out infinite;
+  }
+  .prop-card:nth-child(2)::before { background: linear-gradient(90deg,transparent,var(--neon-pink),transparent); animation-delay: -1s; }
+  .prop-card:nth-child(3)::before { background: linear-gradient(90deg,transparent,var(--neon-purple),transparent); animation-delay: -2s; }
+  @keyframes cardTopLine { 0%,100%{opacity:0.4}50%{opacity:1} }
+
+  .card-title-bar {
+    font-family: var(--font-display); font-size: 10px; font-weight: 700;
+    letter-spacing: 0.15em; color: var(--neon-cyan);
+    text-shadow: 0 0 8px var(--neon-cyan);
+  }
+  .prop-card:nth-child(2) .card-title-bar { color: var(--neon-pink); text-shadow: 0 0 8px var(--neon-pink); }
+  .prop-card:nth-child(3) .card-title-bar { color: var(--neon-purple); text-shadow: 0 0 8px var(--neon-purple); }
+
+  .prop-row {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(0,0,0,0.3); border-radius: 6px; padding: 4px 8px;
+  }
+  .prop-key {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--neon-yellow); min-width: 52px;
+  }
+  .prop-eq { color: #666; font-family: var(--font-mono); font-size: 11px; }
+
+  /* Card preview panel */
+  .card-preview {
+    flex: 1; background: rgba(0,255,231,0.03);
+    border: 1px dashed rgba(0,255,231,0.2);
+    border-radius: 8px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 4px;
+    padding: 8px; min-height: 60px;
+    transition: all 0.4s;
+  }
+  .preview-name  { font-family: var(--font-display); font-size: clamp(11px,1.5vw,15px); font-weight: 700; color: #fff; text-align: center; }
+  .preview-role  { font-family: var(--font-body); font-size: 12px; color: var(--text-dim); font-weight: 600; text-align: center; }
+  .preview-city  { font-family: var(--font-mono); font-size: 10px; color: var(--neon-purple); text-align: center; }
+  .preview-placeholder { font-family: var(--font-mono); font-size: 10px; color: rgba(90,143,168,0.3); text-align: center; }
+
+  /* ═══════════════════════════════════════════════
+     POPUP / MODAL
+  ═══════════════════════════════════════════════ */
+  .popup-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+    backdrop-filter: blur(4px);
+  }
+  .popup-overlay.visible { opacity: 1; pointer-events: all; }
+
+  .popup-box {
+    background: var(--bg-panel);
+    border: 1.5px solid var(--neon-cyan);
+    border-radius: 16px;
+    padding: 28px 32px;
+    max-width: 440px; width: 90%;
+    text-align: center;
+    box-shadow: 0 0 40px rgba(0,255,231,0.3), 0 0 80px rgba(0,255,231,0.1);
+    transform: scale(0.85);
+    transition: transform 0.35s cubic-bezier(0.22,1,0.36,1);
+    position: relative; overflow: hidden;
+  }
+  .popup-overlay.visible .popup-box { transform: scale(1); }
+
+  .popup-box::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--neon-cyan), var(--neon-pink), var(--neon-purple), var(--neon-cyan));
+    background-size: 200%;
+    animation: gradientShift 2s linear infinite;
+  }
+  @keyframes gradientShift { 0%{background-position:0%} 100%{background-position:200%} }
+
+  .popup-icon {
+    font-size: 48px; margin-bottom: 10px;
+    animation: popIcon 0.5s cubic-bezier(0.22,1,0.36,1) 0.2s both;
+  }
+  @keyframes popIcon { from{transform:scale(0) rotate(-20deg)}to{transform:scale(1) rotate(0)} }
+
+  .popup-title {
+    font-family: var(--font-display); font-size: 20px; font-weight: 900;
+    letter-spacing: 0.08em; color: var(--neon-cyan);
+    text-shadow: 0 0 16px var(--neon-cyan);
+    margin-bottom: 8px;
+  }
+  .popup-msg {
+    font-family: var(--font-body); font-size: 14px; font-weight: 600;
+    color: var(--text-main); line-height: 1.6; margin-bottom: 18px;
+  }
+  .popup-fact {
+    font-family: var(--font-mono); font-size: 12px;
+    color: var(--neon-yellow); background: rgba(255,230,0,0.06);
+    border: 1px solid rgba(255,230,0,0.25);
+    border-radius: 6px; padding: 8px 12px;
+    margin-bottom: 18px; text-align: left; line-height: 1.5;
+    text-shadow: 0 0 8px rgba(255,230,0,0.4);
+  }
+  .popup-btn {
+    font-family: var(--font-display); font-size: 13px; font-weight: 700;
+    letter-spacing: 0.12em;
+    padding: 12px 30px;
+    background: linear-gradient(135deg, rgba(0,255,231,0.2), rgba(0,255,231,0.08));
+    border: 1.5px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    border-radius: 8px; cursor: pointer;
+    text-shadow: 0 0 10px var(--neon-cyan);
+    box-shadow: 0 0 16px rgba(0,255,231,0.3);
+    transition: all 0.2s;
+  }
+  .popup-btn:hover { background: rgba(0,255,231,0.25); box-shadow: 0 0 28px rgba(0,255,231,0.5); transform: translateY(-2px); }
+
+  /* Final success popup extras */
+  .popup-box.final { border-color: var(--neon-yellow); box-shadow: 0 0 40px rgba(255,230,0,0.3), 0 0 80px rgba(255,230,0,0.1); }
+  .popup-box.final .popup-title { color: var(--neon-yellow); text-shadow: 0 0 16px var(--neon-yellow); }
+  .popup-box.final .popup-btn { border-color: var(--neon-yellow); color: var(--neon-yellow); background: rgba(255,230,0,0.08); text-shadow: 0 0 10px var(--neon-yellow); box-shadow: 0 0 16px rgba(255,230,0,0.3); }
+  .popup-box.final .popup-btn:hover { background: rgba(255,230,0,0.2); box-shadow: 0 0 28px rgba(255,230,0,0.5); }
+
+  .magic-words {
+    display: flex; gap: 10px; justify-content: center; margin-bottom: 16px;
+  }
+  .magic-word {
+    font-family: var(--font-display); font-size: 11px; font-weight: 700;
+    padding: 5px 12px; border-radius: 20px; letter-spacing: 0.1em;
+  }
+  .magic-word:nth-child(1) { background: rgba(0,255,231,0.12); border: 1px solid var(--neon-cyan); color: var(--neon-cyan); text-shadow: 0 0 8px var(--neon-cyan); }
+  .magic-word:nth-child(2) { background: rgba(255,45,120,0.12); border: 1px solid var(--neon-pink); color: var(--neon-pink); text-shadow: 0 0 8px var(--neon-pink); }
+  .magic-word:nth-child(3) { background: rgba(191,95,255,0.12); border: 1px solid var(--neon-purple); color: var(--neon-purple); text-shadow: 0 0 8px var(--neon-purple); }
+
+  /* ─── RESET BUTTON ─── */
+  .reset-btn {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
+    padding: 4px 12px; border: 1px solid rgba(90,143,168,0.4);
+    background: transparent; color: var(--text-dim);
+    border-radius: 4px; cursor: pointer; transition: all 0.2s;
+  }
+  .reset-btn:hover { border-color: var(--neon-pink); color: var(--neon-pink); }
+
+  /* feedback text */
+  .feedback-row {
+    font-family: var(--font-mono); font-size: 11px; min-height: 18px;
+    flex-shrink: 0; text-align: center;
+  }
+  .feedback-row.ok  { color: var(--neon-green); text-shadow: 0 0 8px var(--neon-green); }
+  .feedback-row.err { color: var(--neon-pink); text-shadow: 0 0 8px var(--neon-pink); }
+
+  /* ─── CONFETTI PARTICLE ─── */
+  .confetti-piece {
+    position: fixed; pointer-events: none; z-index: 200;
+    width: 8px; height: 8px; border-radius: 2px;
+    animation: confettiFall 1.2s ease-in forwards;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+    100% { transform: translateY(300px) rotate(720deg) scale(0.3); opacity: 0; }
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 600px) {
+    #header { padding: 8px 12px; }
+    .act-title { font-size: 13px; }
+    .chip { font-size: 10px; padding: 4px 8px; }
+    .popup-box { padding: 20px 18px; }
+    .popup-title { font-size: 16px; }
+    #act3 .cards-canvas { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ BACKGROUND ═══ -->
+<canvas id="bg-canvas"></canvas>
+<div class="bg-grid"></div>
+<div class="bg-scanlines"></div>
+<div class="pulse-line"></div>
+<div class="pulse-line"></div>
+<div class="pulse-line"></div>
+<div class="neon-orb o1"></div>
+<div class="neon-orb o2"></div>
+<div class="neon-orb o3"></div>
+
+<!-- Circuit corners (inline SVG) -->
+<svg class="circuit-corner tl" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M0 0 L40 0 L40 10 L10 10 L10 40 L0 40 Z" fill="rgba(0,255,231,0.15)"/>
+  <path d="M40 0 L120 0" stroke="rgba(0,255,231,0.4)" stroke-width="1"/>
+  <path d="M0 40 L0 120" stroke="rgba(0,255,231,0.4)" stroke-width="1"/>
+  <circle cx="40" cy="10" r="3" fill="rgba(0,255,231,0.6)"/>
+  <circle cx="10" cy="40" r="3" fill="rgba(0,255,231,0.6)"/>
+  <path d="M55 0 L55 20 L80 20" stroke="rgba(0,255,231,0.3)" stroke-width="1"/>
+  <path d="M0 60 L30 60 L30 80" stroke="rgba(0,255,231,0.3)" stroke-width="1"/>
+  <circle cx="55" cy="20" r="2" fill="rgba(0,255,231,0.4)"/>
+  <circle cx="30" cy="60" r="2" fill="rgba(0,255,231,0.4)"/>
+</svg>
+<svg class="circuit-corner tr" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M0 0 L40 0 L40 10 L10 10 L10 40 L0 40 Z" fill="rgba(255,45,120,0.12)"/>
+  <path d="M40 0 L120 0" stroke="rgba(255,45,120,0.35)" stroke-width="1"/>
+  <path d="M0 40 L0 120" stroke="rgba(255,45,120,0.35)" stroke-width="1"/>
+  <circle cx="40" cy="10" r="3" fill="rgba(255,45,120,0.5)"/>
+  <circle cx="10" cy="40" r="3" fill="rgba(255,45,120,0.5)"/>
+  <path d="M55 0 L55 20 L80 20" stroke="rgba(255,45,120,0.25)" stroke-width="1"/>
+  <path d="M0 60 L30 60 L30 80" stroke="rgba(255,45,120,0.25)" stroke-width="1"/>
+</svg>
+<svg class="circuit-corner bl" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M0 0 L40 0 L40 10 L10 10 L10 40 L0 40 Z" fill="rgba(191,95,255,0.12)"/>
+  <path d="M40 0 L120 0" stroke="rgba(191,95,255,0.35)" stroke-width="1"/>
+  <path d="M0 40 L0 120" stroke="rgba(191,95,255,0.35)" stroke-width="1"/>
+  <circle cx="40" cy="10" r="3" fill="rgba(191,95,255,0.5)"/>
+</svg>
+<svg class="circuit-corner br" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M0 0 L40 0 L40 10 L10 10 L10 40 L0 40 Z" fill="rgba(57,255,20,0.08)"/>
+  <path d="M40 0 L120 0" stroke="rgba(57,255,20,0.25)" stroke-width="1"/>
+  <path d="M0 40 L0 120" stroke="rgba(57,255,20,0.25)" stroke-width="1"/>
+  <circle cx="40" cy="10" r="3" fill="rgba(57,255,20,0.4)"/>
+</svg>
+
+<!-- Ghost chip -->
+<div id="drag-ghost"></div>
+
+<!-- ═══ APP ═══ -->
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div class="logo-area">
+      <div class="logo-icon">⚛</div>
+      <div class="title-group">
+        <div class="title-main">REACT — INTRO TO COMPONENTS</div>
+        <div class="title-sub">PLANRS ACADEMY · INTERACTIVE LAB</div>
+      </div>
+    </div>
+    <div class="progress-area">
+      <div class="progress-dots">
+        <div class="pdot active" id="dot0"></div>
+        <div class="pdot" id="dot1"></div>
+        <div class="pdot" id="dot2"></div>
+      </div>
+      <div class="score-badge" id="score-badge">⚡ 0 pts</div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div id="content">
+
+    <!-- ══════════ ACTIVITY 1 ══════════ -->
+    <div class="activity-screen active" id="act1">
+      <div class="act-header">
+        <div>
+          <div class="act-badge">ACTIVITY 01 · SETUP</div>
+          <div class="act-title">Build the Setup Command</div>
+          <div class="act-instruction">Drag the chips into the correct zones to form each setup step ↓</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+          <button class="check-btn" id="check1">CHECK ▶</button>
+          <button class="reset-btn" id="reset1">↺ RESET</button>
+        </div>
+      </div>
+
+      <div class="build-area" id="act1-build">
+
+        <!-- Step 1 -->
+        <div class="step-row">
+          <div class="step-num">①</div>
+          <div class="step-label">Run in terminal:</div>
+          <div class="step-zones">
+            <div class="drop-zone" data-zone="1a" data-answer="npx"><div class="zone-placeholder">[ cmd ]</div></div>
+            <div class="drop-zone" data-zone="1b" data-answer="create-react-app"><div class="zone-placeholder">[ tool ]</div></div>
+            <div class="drop-zone" data-zone="1c" data-answer="my-app"><div class="zone-placeholder">[ name ]</div></div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="step-row">
+          <div class="step-num">②</div>
+          <div class="step-label">Navigate into:</div>
+          <div class="step-zones">
+            <div class="drop-zone" data-zone="2a" data-answer="cd"><div class="zone-placeholder">[ cmd ]</div></div>
+            <div class="drop-zone" data-zone="2b" data-answer="my-app"><div class="zone-placeholder">[ folder ]</div></div>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="step-row">
+          <div class="step-num">③</div>
+          <div class="step-label">Start the app:</div>
+          <div class="step-zones">
+            <div class="drop-zone" data-zone="3a" data-answer="npm"><div class="zone-placeholder">[ cmd ]</div></div>
+            <div class="drop-zone" data-zone="3b" data-answer="start"><div class="zone-placeholder">[ action ]</div></div>
+          </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="step-row">
+          <div class="step-num">④</div>
+          <div class="step-label">Main file to edit:</div>
+          <div class="step-zones">
+            <div class="drop-zone" data-zone="4a" data-answer="src/"><div class="zone-placeholder">[ folder ]</div></div>
+            <div class="drop-zone" data-zone="4b" data-answer="App.js"><div class="zone-placeholder">[ file ]</div></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Chips tray -->
+      <div class="chips-tray" id="tray1">
+        <div class="tray-label">▸ AVAILABLE COMMANDS — drag to the correct zone above</div>
+      </div>
+
+      <div class="feedback-row" id="fb1"></div>
+    </div>
+
+    <!-- ══════════ ACTIVITY 2 ══════════ -->
+    <div class="activity-screen" id="act2">
+      <div class="act-header">
+        <div>
+          <div class="act-badge">ACTIVITY 02 · JSX BUILDER</div>
+          <div class="act-title">Construct the Component</div>
+          <div class="act-instruction">Drag the code pieces into the blanks to build a working React component ↓</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+          <button class="check-btn" id="check2">CHECK ▶</button>
+          <button class="reset-btn" id="reset2">↺ RESET</button>
+        </div>
+      </div>
+
+      <div class="code-canvas" id="act2-code">
+        <div class="code-line">
+          <div class="code-line-num">1</div>
+          <div class="drop-zone" style="max-width:90px;flex:0 0 auto;" data-zone="k1" data-answer="function"><div class="zone-placeholder">???</div></div>
+          <span>&nbsp;</span>
+          <div class="drop-zone" style="max-width:110px;flex:0 0 auto;" data-zone="k2" data-answer="Greeting"><div class="zone-placeholder">???</div></div>
+          <span class="code-op">() {</span>
+        </div>
+        <div class="code-line">
+          <div class="code-line-num">2</div>
+          <div class="code-indent"></div>
+          <div class="drop-zone" style="max-width:90px;flex:0 0 auto;" data-zone="k3" data-answer="return"><div class="zone-placeholder">???</div></div>
+          <span class="code-op">&nbsp;(</span>
+        </div>
+        <div class="code-line">
+          <div class="code-line-num">3</div>
+          <div class="code-indent2"></div>
+          <div class="drop-zone" style="max-width:110px;flex:0 0 auto;" data-zone="k4" data-answer="&lt;div&gt;"><div class="zone-placeholder">???</div></div>
+        </div>
+        <div class="code-line">
+          <div class="code-line-num">4</div>
+          <div class="code-indent2"></div>
+          <span>&nbsp;&nbsp;</span>
+          <div class="drop-zone" style="max-width:130px;flex:0 0 auto;" data-zone="k5" data-answer="&lt;h1&gt;"><div class="zone-placeholder">???</div></div>
+          <div class="drop-zone" style="max-width:200px;" data-zone="k6" data-answer="Namaste, World!"><div class="zone-placeholder">??? text ???</div></div>
+          <div class="drop-zone" style="max-width:130px;flex:0 0 auto;" data-zone="k7" data-answer="&lt;/h1&gt;"><div class="zone-placeholder">???</div></div>
+        </div>
+        <div class="code-line">
+          <div class="code-line-num">5</div>
+          <div class="code-indent2"></div>
+          <div class="drop-zone" style="max-width:110px;flex:0 0 auto;" data-zone="k8" data-answer="&lt;/div&gt;"><div class="zone-placeholder">???</div></div>
+        </div>
+        <div class="code-line">
+          <div class="code-line-num">6</div>
+          <div class="code-indent"></div>
+          <span class="code-op">);</span>
+        </div>
+        <div class="code-line">
+          <div class="code-line-num">7</div>
+          <span class="code-op">}</span>
+        </div>
+      </div>
+
+      <div class="chips-tray" id="tray2">
+        <div class="tray-label">▸ CODE PIECES — drag them into the blanks above</div>
+      </div>
+      <div class="feedback-row" id="fb2"></div>
+    </div>
+
+    <!-- ══════════ ACTIVITY 3 ══════════ -->
+    <div class="activity-screen" id="act3">
+      <div class="act-header">
+        <div>
+          <div class="act-badge">ACTIVITY 03 · PROPS</div>
+          <div class="act-title">Power the Card Components</div>
+          <div class="act-instruction">Drag each prop value into the correct slot in each Card component ↓</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+          <button class="check-btn" id="check3">CHECK ▶</button>
+          <button class="reset-btn" id="reset3">↺ RESET</button>
+        </div>
+      </div>
+
+      <div class="cards-canvas">
+        <!-- Card 1 -->
+        <div class="prop-card">
+          <div class="card-title-bar">◈ &lt;Card /&gt; #1</div>
+          <div class="prop-row">
+            <span class="prop-key">name=</span><span class="prop-eq">"</span>
+            <div class="drop-zone" data-zone="c1name" data-answer="Arjun"><div class="zone-placeholder">???</div></div>
+            <span class="prop-eq">"</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-key">role=</span><span class="prop-eq">"</span>
+            <div class="drop-zone" data-zone="c1role" data-answer="Developer"><div class="zone-placeholder">???</div></div>
+            <span class="prop-eq">"</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-key">city=</span><span class="prop-eq">"</span>
+            <div class="drop-zone" data-zone="c1city" data-answer="Mumbai"><div class="zone-placeholder">???</div></div>
+            <span class="prop-eq">"</span>
+          </div>
+          <div class="card-preview" id="preview1">
+            <div class="preview-placeholder">Fill the props to see the card!</div>
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="prop-card">
+          <div class="card-title-bar">◈ &lt;Card /&gt; #2</div>
+          <div class="prop-row">
+            <span class="prop-key">name=</span><span class="prop-eq">"</span>
+            <div class="drop-zone" data-zone="c2name" data-answer="Priya"><div class="zone-placeholder">???</div></div>
+            <span class="prop-eq">"</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-key">role=</span><span class="prop-eq">"</span>
+            <div class="drop-zone" data-zone="c2role" data-answer="Designer"><div class="zone-placeholder">???</div></div>
+            <span class="prop-eq">"</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-key">city=</span><span class="prop-eq">"</span>
+            <div class="drop-zone" data-zone="c2city" data-answer="Chennai"><div class="zone-placeholder">???</div></div>
+            <span class="prop-eq">"</span>
+          </div>
+          <div class="card-preview" id="preview2">
+            <div class="preview-placeholder">Fill the props to see the card!</div>
+          </div>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="prop-card">
+          <div class="card-title-bar">◈ &lt;Card /&gt; #3</div>
+          <div class="prop-row">
+            <span class="prop-key">name=</span><span class="prop-eq">"</span>
+            <div class="drop-zone" data-zone="c3name" data-answer="Rahul"><div class="zone-placeholder">???</div></div>
+            <span class="prop-eq">"</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-key">role=</span><span class="prop-eq">"</span>
+            <div class="drop-zone" data-zone="c3role" data-answer="Tester"><div class="zone-placeholder">???</div></div>
+            <span class="prop-eq">"</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-key">city=</span><span class="prop-eq">"</span>
+            <div class="drop-zone" data-zone="c3city" data-answer="Delhi"><div class="zone-placeholder">???</div></div>
+            <span class="prop-eq">"</span>
+          </div>
+          <div class="card-preview" id="preview3">
+            <div class="preview-placeholder">Fill the props to see the card!</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chips-tray" id="tray3" style="margin-top:8px;">
+        <div class="tray-label">▸ PROP VALUES — drag each to the right slot</div>
+      </div>
+      <div class="feedback-row" id="fb3"></div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+
+<!-- ═══ POPUPS ═══ -->
+<div class="popup-overlay" id="popup1">
+  <div class="popup-box">
+    <div class="popup-icon">🚀</div>
+    <div class="popup-title">SETUP COMPLETE!</div>
+    <div class="popup-msg">You've mapped out the full create-react-app setup. A React project is ready to launch!</div>
+    <div class="popup-fact">💡 Pro tip: npx create-react-app makes a full project folder with src/, public/ and package.json — all set up for you instantly!</div>
+    <button class="popup-btn" id="next1-btn">NEXT ACTIVITY ▶</button>
+  </div>
+</div>
+
+<div class="popup-overlay" id="popup2">
+  <div class="popup-box">
+    <div class="popup-icon">⚛️</div>
+    <div class="popup-title">COMPONENT BUILT!</div>
+    <div class="popup-msg">You just assembled a real React component — with a function, a return, and JSX inside. That's the whole recipe!</div>
+    <div class="popup-fact">💡 Remember the 3 parts: function name (Capital letter!) · return · JSX. Like the mithai-wala — he must RETURN the sweet to you!</div>
+    <button class="popup-btn" id="next2-btn">NEXT ACTIVITY ▶</button>
+  </div>
+</div>
+
+<div class="popup-overlay" id="popup-final">
+  <div class="popup-box final">
+    <div class="popup-icon">🏆</div>
+    <div class="popup-title">MISSION ACCOMPLISHED!</div>
+    <div class="popup-msg">You used the same Card component 3 times with different props — that's the power of reusability! Like a rubber stamp, write once, use forever!</div>
+    <div class="magic-words">
+      <span class="magic-word">COMPONENT</span>
+      <span class="magic-word">RETURN</span>
+      <span class="magic-word">JSX</span>
+    </div>
+    <div class="popup-fact">🌟 These are your 3 magic words of React. You're officially a React Explorer!</div>
+    <button class="popup-btn" id="restart-btn">▶ PLAY AGAIN</button>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   BACKGROUND CANVAS — particles + circuit lines
+═══════════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [], lines = [];
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Particles
+  for (let i = 0; i < 55; i++) {
+    particles.push({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      r: Math.random() * 1.5 + 0.5,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      color: ['rgba(0,255,231,', 'rgba(255,45,120,', 'rgba(191,95,255,'][Math.floor(Math.random()*3)],
+      alpha: Math.random() * 0.6 + 0.2,
+      pulse: Math.random() * Math.PI * 2
+    });
+  }
+
+  // Moving circuit lines
+  for (let i = 0; i < 8; i++) {
+    lines.push({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      len: Math.random() * 120 + 60,
+      angle: Math.floor(Math.random() * 4) * 90,
+      speed: Math.random() * 0.6 + 0.2,
+      color: ['rgba(0,255,231,0.15)', 'rgba(191,95,255,0.12)', 'rgba(255,45,120,0.1)'][i % 3],
+      alpha: 0, life: 0, maxLife: 180 + Math.random() * 120
+    });
+  }
+
+  let t = 0;
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    t++;
+
+    // Draw circuit lines
+    lines.forEach(l => {
+      l.life++;
+      if (l.life < 30) l.alpha = l.life / 30;
+      else if (l.life > l.maxLife - 30) l.alpha = (l.maxLife - l.life) / 30;
+      else l.alpha = 1;
+
+      if (l.life >= l.maxLife) {
+        l.x = Math.random() * W; l.y = Math.random() * H;
+        l.len = Math.random() * 120 + 60;
+        l.angle = Math.floor(Math.random() * 4) * 90;
+        l.life = 0; l.maxLife = 180 + Math.random() * 120;
+      }
+
+      const rad = l.angle * Math.PI / 180;
+      ctx.beginPath();
+      ctx.moveTo(l.x, l.y);
+      ctx.lineTo(l.x + Math.cos(rad) * l.len, l.y + Math.sin(rad) * l.len);
+      ctx.strokeStyle = l.color.replace(')', `,${l.alpha * 0.6})`).replace('rgba(', 'rgba(');
+      ctx.strokeStyle = l.color;
+      ctx.globalAlpha = l.alpha * 0.7;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      // Dot at end
+      ctx.beginPath();
+      ctx.arc(l.x + Math.cos(rad) * l.len, l.y + Math.sin(rad) * l.len, 2, 0, Math.PI*2);
+      ctx.fillStyle = l.color;
+      ctx.globalAlpha = l.alpha;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    });
+
+    // Draw particles
+    particles.forEach(p => {
+      p.pulse += 0.03;
+      const a = p.alpha * (0.5 + 0.5 * Math.sin(p.pulse));
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = p.color + a + ')';
+      ctx.fill();
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+    });
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ═══════════════════════════════════════════════
+   DRAG AND DROP ENGINE
+═══════════════════════════════════════════════ */
+let dragging = null;  // { chipEl, originTrayId, originZoneId, text, answer }
+let score = 0;
+const ghost = document.getElementById('drag-ghost');
+
+function makeChip(text, originTray) {
+  const chip = document.createElement('div');
+  chip.className = 'chip';
+  chip.textContent = text;
+  chip.dataset.value = text;
+  chip.dataset.tray = originTray;
+  attachChipEvents(chip);
+  return chip;
+}
+
+function attachChipEvents(chip) {
+  // Mouse
+  chip.addEventListener('mousedown', onChipStart);
+  // Touch
+  chip.addEventListener('touchstart', onChipTouchStart, { passive: false });
+}
+
+function onChipStart(e) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  startDrag(e.currentTarget, e.clientX, e.clientY, 'mouse');
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+}
+
+function onChipTouchStart(e) {
+  e.preventDefault();
+  const touch = e.changedTouches[0];
+  startDrag(e.currentTarget, touch.clientX, touch.clientY, 'touch');
+  document.addEventListener('touchmove', onTouchMove, { passive: false });
+  document.addEventListener('touchend', onTouchEnd);
+}
+
+function startDrag(chip, cx, cy, mode) {
+  dragging = {
+    chip, mode,
+    value: chip.dataset.value,
+    originTray: chip.dataset.tray,
+    originZone: chip.dataset.zone || null
+  };
+  chip.classList.add('dragging');
+
+  // Build ghost
+  ghost.innerHTML = '';
+  const clone = chip.cloneNode(true);
+  clone.style.opacity = '1';
+  ghost.appendChild(clone);
+  ghost.style.display = 'block';
+  moveGhost(cx, cy);
+}
+
+function moveGhost(cx, cy) {
+  ghost.style.left = (cx - ghost.offsetWidth / 2) + 'px';
+  ghost.style.top  = (cy - ghost.offsetHeight / 2) + 'px';
+}
+
+function onMouseMove(e) { if (dragging) { moveGhost(e.clientX, e.clientY); highlightZone(e.clientX, e.clientY); } }
+function onTouchMove(e) { e.preventDefault(); if (dragging) { const t = e.changedTouches[0]; moveGhost(t.clientX, t.clientY); highlightZone(t.clientX, t.clientY); } }
+
+function highlightZone(cx, cy) {
+  document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('drag-over'));
+  const el = document.elementFromPoint(cx, cy);
+  const zone = el && el.closest('.drop-zone');
+  if (zone && !zone.dataset.placedValue) zone.classList.add('drag-over');
+}
+
+function onMouseUp(e) {
+  if (!dragging) return;
+  const zone = document.elementFromPoint(e.clientX, e.clientY)?.closest('.drop-zone');
+  finishDrop(zone);
+  document.removeEventListener('mousemove', onMouseMove);
+  document.removeEventListener('mouseup', onMouseUp);
+}
+
+function onTouchEnd(e) {
+  if (!dragging) return;
+  const touch = e.changedTouches[0];
+  const zone = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.drop-zone');
+  finishDrop(zone);
+  document.removeEventListener('touchmove', onTouchMove);
+  document.removeEventListener('touchend', onTouchEnd);
+}
+
+function finishDrop(zone) {
+  document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('drag-over'));
+  ghost.style.display = 'none';
+
+  if (!dragging) return;
+  const { chip, originTray, originZone, value } = dragging;
+
+  if (zone && !zone.dataset.placedValue) {
+    // Place chip into zone
+    // If chip was in a zone before, clear that zone
+    if (originZone) {
+      const oldZone = document.querySelector(`[data-zone="${originZone}"]`);
+      if (oldZone) {
+        clearZone(oldZone);
+      }
+    } else {
+      // Coming from tray — mark as placed
+      chip.classList.add('placed');
+    }
+
+    placeInZone(zone, value, originTray);
+  } else {
+    // Drop failed — return chip to tray
+    if (originZone) {
+      // Was from zone — leave it there (no-op; chip stays)
+    }
+    chip.classList.remove('dragging');
+  }
+
+  dragging = null;
+}
+
+function clearZone(zone) {
+  delete zone.dataset.placedValue;
+  zone.classList.remove('filled','correct','wrong');
+  zone.innerHTML = `<div class="zone-placeholder">${zone.querySelector('.zone-placeholder')?.textContent || '???'}</div>`;
+  // Re-add placeholder
+  if (!zone.querySelector('.zone-placeholder')) {
+    const ph = document.createElement('div');
+    ph.className = 'zone-placeholder';
+    ph.textContent = zone.dataset.placeholder || '???';
+    zone.appendChild(ph);
+  }
+}
+
+function placeInZone(zone, value, fromTray) {
+  // Save placeholder text
+  const phEl = zone.querySelector('.zone-placeholder');
+  if (phEl && !zone.dataset.placeholder) zone.dataset.placeholder = phEl.textContent;
+
+  zone.dataset.placedValue = value;
+  zone.classList.add('filled');
+  zone.innerHTML = '';
+
+  const newChip = document.createElement('div');
+  newChip.className = 'chip in-zone';
+  newChip.textContent = value;
+  newChip.dataset.value = value;
+  newChip.dataset.zone = zone.dataset.zone;
+  newChip.dataset.tray = fromTray;
+
+  // Click to remove from zone
+  newChip.addEventListener('click', () => returnChipFromZone(zone, value, fromTray));
+  attachChipEvents(newChip);
+  zone.appendChild(newChip);
+
+  // Live preview for act3
+  updateAct3Preview();
+}
+
+function returnChipFromZone(zone, value, trayId) {
+  delete zone.dataset.placedValue;
+  zone.classList.remove('filled','correct','wrong');
+  zone.innerHTML = `<div class="zone-placeholder">${zone.dataset.placeholder || '???'}</div>`;
+
+  // Re-enable original chip in tray
+  const tray = document.getElementById(trayId);
+  if (tray) {
+    tray.querySelectorAll('.chip').forEach(c => {
+      if (c.dataset.value === value && c.classList.contains('placed')) {
+        c.classList.remove('placed');
+      }
+    });
+  }
+  updateAct3Preview();
+}
+
+/* ═══════════════════════════════════════════════
+   ACTIVITY 1 DATA + INIT
+═══════════════════════════════════════════════ */
+const act1Chips = ['npx','create-react-app','my-app','my-app','cd','npm','start','src/','App.js'];
+
+function initAct1() {
+  const tray = document.getElementById('tray1');
+  // Keep label
+  const label = tray.querySelector('.tray-label');
+  tray.innerHTML = '';
+  tray.appendChild(label);
+
+  act1Chips.forEach(v => {
+    const chip = makeChip(v, 'tray1');
+    tray.appendChild(chip);
+  });
+
+  // Store placeholders
+  document.querySelectorAll('#act1 .drop-zone').forEach(z => {
+    z.dataset.placeholder = z.querySelector('.zone-placeholder')?.textContent || '???';
+    z.dataset.placedValue = '';
+    delete z.dataset.placedValue;
+    z.classList.remove('filled','correct','wrong');
+    z.innerHTML = `<div class="zone-placeholder">${z.dataset.placeholder}</div>`;
+  });
+  document.getElementById('fb1').textContent = '';
+  document.getElementById('fb1').className = 'feedback-row';
+}
+
+document.getElementById('check1').addEventListener('click', checkAct1);
+document.getElementById('reset1').addEventListener('click', initAct1);
+
+function checkAct1() {
+  const zones = document.querySelectorAll('#act1 .drop-zone');
+  let correct = 0, total = zones.length;
+  zones.forEach(z => {
+    const placed = z.dataset.placedValue;
+    const answer = z.dataset.answer;
+    if (placed) {
+      if (placed === answer) { z.classList.add('correct'); z.classList.remove('wrong'); correct++; }
+      else { z.classList.add('wrong'); z.classList.remove('correct'); }
+    } else {
+      z.classList.remove('correct','wrong');
+    }
+  });
+  const fb = document.getElementById('fb1');
+  if (correct === total) {
+    fb.textContent = '✓ All correct! Opening next level…';
+    fb.className = 'feedback-row ok';
+    score += 30;
+    updateScore();
+    spawnConfetti();
+    setTimeout(() => showPopup('popup1'), 800);
+  } else {
+    fb.textContent = `✗ ${total - correct} zone(s) need fixing. Keep going!`;
+    fb.className = 'feedback-row err';
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   ACTIVITY 2 DATA + INIT
+═══════════════════════════════════════════════ */
+const act2Chips = ['function','Greeting','return','<div>','<h1>','Namaste, World!','</h1>','</div>','App','<p>','render'];
+
+function initAct2() {
+  const tray = document.getElementById('tray2');
+  const label = tray.querySelector('.tray-label');
+  tray.innerHTML = '';
+  tray.appendChild(label);
+
+  act2Chips.forEach(v => {
+    const chip = makeChip(v, 'tray2');
+    tray.appendChild(chip);
+  });
+
+  document.querySelectorAll('#act2 .drop-zone').forEach(z => {
+    z.dataset.placeholder = z.querySelector('.zone-placeholder')?.textContent || '???';
+    delete z.dataset.placedValue;
+    z.classList.remove('filled','correct','wrong');
+    z.innerHTML = `<div class="zone-placeholder">${z.dataset.placeholder}</div>`;
+  });
+  document.getElementById('fb2').textContent = '';
+  document.getElementById('fb2').className = 'feedback-row';
+}
+
+document.getElementById('check2').addEventListener('click', checkAct2);
+document.getElementById('reset2').addEventListener('click', initAct2);
+
+function checkAct2() {
+  const zones = document.querySelectorAll('#act2 .drop-zone');
+  let correct = 0, total = zones.length;
+  zones.forEach(z => {
+    const placed = z.dataset.placedValue;
+    const answer = z.dataset.answer;
+    if (placed) {
+      if (placed === answer) { z.classList.add('correct'); z.classList.remove('wrong'); correct++; }
+      else { z.classList.add('wrong'); z.classList.remove('correct'); }
+    } else {
+      z.classList.remove('correct','wrong');
+    }
+  });
+  const fb = document.getElementById('fb2');
+  if (correct === total) {
+    fb.textContent = '✓ Perfect component! The code is ready to render!';
+    fb.className = 'feedback-row ok';
+    score += 35;
+    updateScore();
+    spawnConfetti();
+    setTimeout(() => showPopup('popup2'), 800);
+  } else {
+    fb.textContent = `✗ ${total - correct} blank(s) are wrong. Check your JSX!`;
+    fb.className = 'feedback-row err';
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   ACTIVITY 3 DATA + INIT
+═══════════════════════════════════════════════ */
+const act3Chips = [
+  'Arjun','Priya','Rahul',
+  'Developer','Designer','Tester',
+  'Mumbai','Chennai','Delhi'
+];
+
+function initAct3() {
+  const tray = document.getElementById('tray3');
+  const label = tray.querySelector('.tray-label');
+  tray.innerHTML = '';
+  tray.appendChild(label);
+
+  act3Chips.forEach(v => {
+    const chip = makeChip(v, 'tray3');
+    tray.appendChild(chip);
+  });
+
+  document.querySelectorAll('#act3 .drop-zone').forEach(z => {
+    z.dataset.placeholder = z.querySelector('.zone-placeholder')?.textContent || '???';
+    delete z.dataset.placedValue;
+    z.classList.remove('filled','correct','wrong');
+    z.innerHTML = `<div class="zone-placeholder">${z.dataset.placeholder}</div>`;
+  });
+  document.getElementById('fb3').textContent = '';
+  document.getElementById('fb3').className = 'feedback-row';
+
+  updateAct3Preview();
+}
+
+document.getElementById('check3').addEventListener('click', checkAct3);
+document.getElementById('reset3').addEventListener('click', initAct3);
+
+function checkAct3() {
+  const zones = document.querySelectorAll('#act3 .drop-zone');
+  let correct = 0, total = zones.length;
+  zones.forEach(z => {
+    const placed = z.dataset.placedValue;
+    const answer = z.dataset.answer;
+    if (placed) {
+      if (placed === answer) { z.classList.add('correct'); z.classList.remove('wrong'); correct++; }
+      else { z.classList.add('wrong'); z.classList.remove('correct'); }
+    } else {
+      z.classList.remove('correct','wrong');
+    }
+  });
+  const fb = document.getElementById('fb3');
+  if (correct === total) {
+    fb.textContent = '✓ All 3 cards powered up! One component, three unique instances!';
+    fb.className = 'feedback-row ok';
+    score += 35;
+    updateScore();
+    spawnConfetti();
+    setTimeout(() => showPopup('popup-final'), 800);
+  } else {
+    fb.textContent = `✗ ${total - correct} prop(s) are mismatched. Check each card!`;
+    fb.className = 'feedback-row err';
+  }
+}
+
+function updateAct3Preview() {
+  [1, 2, 3].forEach(i => {
+    const name = document.querySelector(`[data-zone="c${i}name"]`)?.dataset.placedValue || '';
+    const role = document.querySelector(`[data-zone="c${i}role"]`)?.dataset.placedValue || '';
+    const city = document.querySelector(`[data-zone="c${i}city"]`)?.dataset.placedValue || '';
+    const preview = document.getElementById(`preview${i}`);
+    if (!preview) return;
+    if (name || role || city) {
+      preview.innerHTML = `
+        ${name ? `<div class="preview-name">${name}</div>` : ''}
+        ${role ? `<div class="preview-role">${role}</div>` : ''}
+        ${city ? `<div class="preview-city">📍 ${city}</div>` : ''}
+      `;
+    } else {
+      preview.innerHTML = `<div class="preview-placeholder">Fill the props to see the card!</div>`;
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   POPUP + NAVIGATION
+═══════════════════════════════════════════════ */
+let currentActivity = 1;
+
+function showPopup(id) {
+  document.getElementById(id).classList.add('visible');
+}
+function hidePopup(id) {
+  document.getElementById(id).classList.remove('visible');
+}
+
+document.getElementById('next1-btn').addEventListener('click', () => {
+  hidePopup('popup1');
+  goToActivity(2);
+});
+document.getElementById('next2-btn').addEventListener('click', () => {
+  hidePopup('popup2');
+  goToActivity(3);
+});
+document.getElementById('restart-btn').addEventListener('click', () => {
+  hidePopup('popup-final');
+  score = 0;
+  updateScore();
+  initAct1(); initAct2(); initAct3();
+  goToActivity(1);
+});
+
+function goToActivity(n) {
+  const prev = document.querySelector('.activity-screen.active');
+  if (prev) {
+    prev.classList.add('exit');
+    setTimeout(() => prev.classList.remove('active','exit'), 500);
+  }
+  setTimeout(() => {
+    document.getElementById(`act${n}`).classList.add('active');
+  }, 100);
+  currentActivity = n;
+
+  // Update dots
+  [0,1,2].forEach(i => {
+    const dot = document.getElementById(`dot${i}`);
+    dot.classList.remove('active','done');
+    if (i < n - 1) dot.classList.add('done');
+    else if (i === n - 1) dot.classList.add('active');
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   SCORE + CONFETTI
+═══════════════════════════════════════════════ */
+function updateScore() {
+  document.getElementById('score-badge').textContent = `⚡ ${score} pts`;
+}
+
+function spawnConfetti() {
+  const colors = ['#00ffe7','#ff2d78','#ffe600','#bf5fff','#39ff14'];
+  for (let i = 0; i < 32; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left   = (20 + Math.random() * 60) + 'vw';
+    piece.style.top    = (Math.random() * 30 + 20) + 'vh';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.animationDelay = (Math.random() * 0.5) + 's';
+    piece.style.animationDuration = (0.9 + Math.random() * 0.6) + 's';
+    piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    document.body.appendChild(piece);
+    setTimeout(() => piece.remove(), 1800);
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════════ */
+initAct1();
+initAct2();
+initAct3();
+</script>
+</body>
+</html>

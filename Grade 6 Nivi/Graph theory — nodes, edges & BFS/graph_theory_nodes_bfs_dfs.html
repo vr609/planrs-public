@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Graph Theory — Nodes, Edges & BFS/DFS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Barlow:wght@300;400;500;600;700&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --parchment:#F5E6C8;
+  --ink:#1A0F00;
+  --gold:#C8941A;
+  --gold-lt:#F0B84A;
+  --teal:#0E7C7B;
+  --teal-lt:#14BCBB;
+  --crimson:#9B1C1C;
+  --crimson-lt:#E53E3E;
+  --ocean:#1A3A5C;
+  --ocean-lt:#2B6CB0;
+  --forest:#1A4731;
+  --forest-lt:#276749;
+  --sand:#E8D5A3;
+  --bg:#0D1B2A;
+  --bg2:#111F2E;
+  --bg3:#162535;
+  --card:rgba(13,27,42,0.93);
+  --text:#F0E6D3;
+  --text2:#8BA8C4;
+  --border:rgba(200,148,26,0.25);
+  --r:10px;
+}
+html,body{width:100vw;height:100vh;overflow:hidden;font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);user-select:none}
+
+#bgc{position:fixed;inset:0;z-index:0}
+
+#app{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;pointer-events:none}
+
+/* HEADER */
+#hdr{
+  pointer-events:auto;height:54px;flex-shrink:0;
+  background:linear-gradient(90deg,rgba(13,27,42,0.98),rgba(200,148,26,0.07),rgba(13,27,42,0.98));
+  border-bottom:1.5px solid var(--gold);
+  display:flex;align-items:center;justify-content:space-between;padding:0 20px;
+  box-shadow:0 2px 30px rgba(200,148,26,0.15);
+}
+.hl{display:flex;align-items:center;gap:12px}
+.hicon{width:36px;height:36px;border-radius:50%;background:radial-gradient(circle,var(--gold-lt),var(--gold));display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 20px rgba(200,148,26,0.5);flex-shrink:0;animation:compassSpin 12s linear infinite}
+@keyframes compassSpin{0%{box-shadow:0 0 20px rgba(200,148,26,0.5)}50%{box-shadow:0 0 35px rgba(240,184,74,0.8),0 0 55px rgba(200,148,26,0.3)}100%{box-shadow:0 0 20px rgba(200,148,26,0.5)}}
+.htitle{font-family:'Cinzel',serif;font-size:14px;font-weight:700;letter-spacing:2px;color:var(--text);text-transform:uppercase}
+.htitle span{color:var(--gold-lt)}
+.hbadge{background:rgba(200,148,26,0.1);border:1px solid var(--gold);color:var(--gold-lt);font-family:'Cinzel',serif;font-size:9px;padding:3px 10px;border-radius:4px;letter-spacing:2px}
+.pwrap{display:flex;align-items:center;gap:7px}
+.ps{width:26px;height:26px;border-radius:50%;border:2px solid rgba(139,168,196,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text2);transition:all 0.4s;font-family:'Cinzel',serif}
+.ps.active{border-color:var(--gold);background:var(--gold);color:#000;box-shadow:0 0 14px rgba(200,148,26,0.6)}
+.ps.done{border-color:var(--teal-lt);background:var(--teal-lt);color:#000}
+.pl{width:22px;height:2px;background:rgba(139,168,196,0.15);border-radius:2px;transition:background 0.4s}
+.pl.done{background:var(--teal-lt)}
+
+/* SCREENS */
+.scr{position:fixed;inset:54px 0 0 0;display:none;flex-direction:column;padding:11px 18px 8px;pointer-events:auto;overflow:hidden}
+.scr.on{display:flex}
+.atitle{font-family:'Cinzel',serif;font-size:14px;font-weight:700;color:var(--gold-lt);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:3px;display:flex;align-items:center;gap:8px}
+.asub{font-size:12px;color:var(--text2);margin-bottom:9px;font-weight:400}
+
+/* POOLS & CHIPS */
+.pool{display:flex;flex-wrap:wrap;gap:6px;padding:7px 10px;background:rgba(13,27,42,0.85);border:1.5px dashed rgba(200,148,26,0.22);border-radius:var(--r);margin-bottom:9px;min-height:40px}
+.chip{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:grab;transition:transform 0.15s,opacity 0.2s,box-shadow 0.15s;white-space:nowrap;display:flex;align-items:center;gap:5px;font-family:'Barlow',sans-serif;border:1.5px solid transparent;letter-spacing:0.2px}
+.chip:active{cursor:grabbing}
+.chip.drag{opacity:0.3;transform:scale(0.9)}
+.chip.gold{background:rgba(200,148,26,0.12);border-color:rgba(200,148,26,0.4);color:#F0C060}
+.chip.teal{background:rgba(14,124,123,0.12);border-color:rgba(14,124,123,0.4);color:#5DD0CF}
+.chip.crimson{background:rgba(155,28,28,0.12);border-color:rgba(155,28,28,0.4);color:#FC8181}
+.chip.ocean{background:rgba(26,58,92,0.3);border-color:rgba(43,108,176,0.5);color:#90CDF4}
+.chip.forest{background:rgba(26,71,49,0.2);border-color:rgba(39,103,73,0.4);color:#9AE6B4}
+
+/* DROP ZONES */
+.dz{border:1.5px dashed rgba(200,148,26,0.2);border-radius:var(--r);min-height:38px;padding:6px 8px;transition:border-color 0.2s,background 0.2s;display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start;position:relative}
+.dz.over{border-color:var(--gold-lt);background:rgba(200,148,26,0.06)}
+.dzl{position:absolute;top:-9px;left:10px;font-size:8px;color:var(--text2);background:var(--bg2);padding:0 5px;border-radius:3px;letter-spacing:0.5px;text-transform:uppercase;white-space:nowrap;font-family:'Cinzel',serif}
+
+/* CARDS */
+.card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:7px;overflow:hidden}
+.ctitle{font-family:'Cinzel',serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:7px;padding-bottom:6px;border-bottom:1px solid rgba(200,148,26,0.15);flex-shrink:0}
+
+/* ===== ACTIVITY 1: BUILD GRAPH ===== */
+.buildgrid{display:grid;grid-template-columns:1fr 1.1fr;gap:10px;flex:1;min-height:0}
+.graphcanvas{position:relative;background:rgba(13,27,42,0.8);border:1.5px solid rgba(200,148,26,0.2);border-radius:var(--r);overflow:hidden}
+.graphsvg{position:absolute;inset:0;width:100%;height:100%}
+.citynode{
+  position:absolute;transform:translate(-50%,-50%);
+  width:52px;height:52px;border-radius:50%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-family:'Cinzel',serif;font-size:8px;font-weight:700;
+  cursor:pointer;transition:all 0.3s;z-index:5;
+  border:2px solid transparent;
+}
+.citynode.placed{border-color:var(--gold);background:radial-gradient(circle,rgba(200,148,26,0.3),rgba(13,27,42,0.9));box-shadow:0 0 18px rgba(200,148,26,0.4)}
+.citynode .cicon{font-size:20px;margin-bottom:1px}
+.citynode .cname{font-size:7px;color:var(--gold-lt);text-align:center;line-height:1.2}
+.edge-btn{
+  position:absolute;width:32px;height:32px;border-radius:50%;
+  background:rgba(14,124,123,0.2);border:1.5px solid rgba(20,188,187,0.5);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:14px;color:var(--teal-lt);
+  transition:all 0.2s;z-index:6;transform:translate(-50%,-50%);
+}
+.edge-btn:hover{background:rgba(14,124,123,0.4);box-shadow:0 0 12px rgba(20,188,187,0.4)}
+.edge-btn.active{background:rgba(14,124,123,0.5);box-shadow:0 0 15px rgba(20,188,187,0.6)}
+
+.nodedrop-zone{
+  display:flex;flex-wrap:wrap;gap:8px;padding:6px;align-content:flex-start;flex:1;min-height:0;overflow-y:auto;
+}
+.node-item{
+  padding:7px 12px;border-radius:8px;
+  background:rgba(200,148,26,0.1);border:1.5px solid rgba(200,148,26,0.3);
+  display:flex;align-items:center;gap:8px;cursor:grab;font-family:'Barlow',sans-serif;font-size:11px;font-weight:600;
+  transition:all 0.2s;color:var(--text);
+}
+.node-item:active{cursor:grabbing}
+.node-item .ni-icon{font-size:16px}
+.node-item.used{opacity:0.35;cursor:default}
+
+.statbar{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;flex-shrink:0}
+.stat{background:rgba(13,27,42,0.7);border:1px solid var(--border);border-radius:7px;padding:6px 10px;text-align:center}
+.stat .sv{font-family:'Cinzel',serif;font-size:18px;font-weight:700;color:var(--gold-lt)}
+.stat .sl{font-size:9px;color:var(--text2)}
+
+/* ===== ACTIVITY 2: BFS ===== */
+.bfsgrid{display:grid;grid-template-columns:1.2fr 1fr;gap:10px;flex:1;min-height:0}
+.bfsmap{position:relative;overflow:hidden;border-radius:var(--r);border:1.5px solid rgba(200,148,26,0.2);background:rgba(13,27,42,0.8)}
+.bfssvg{position:absolute;inset:0;width:100%;height:100%}
+.metro-node{
+  position:absolute;transform:translate(-50%,-50%);
+  width:46px;height:46px;border-radius:50%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-family:'Cinzel',serif;font-size:7px;font-weight:700;z-index:5;
+  border:2px solid rgba(200,148,26,0.4);background:rgba(13,27,42,0.9);
+  transition:all 0.4s;cursor:default;
+}
+.metro-node .mn-icon{font-size:16px;margin-bottom:1px}
+.metro-node .mn-name{font-size:7px;color:var(--text2);text-align:center;line-height:1.1}
+.metro-node.layer0{border-color:var(--gold-lt);background:rgba(200,148,26,0.25);box-shadow:0 0 18px rgba(200,148,26,0.5)}
+.metro-node.layer0 .mn-name{color:var(--gold-lt)}
+.metro-node.layer1{border-color:var(--teal-lt);background:rgba(14,124,123,0.2);box-shadow:0 0 14px rgba(20,188,187,0.4)}
+.metro-node.layer1 .mn-name{color:var(--teal-lt)}
+.metro-node.layer2{border-color:var(--ocean-lt);background:rgba(43,108,176,0.2);box-shadow:0 0 12px rgba(43,108,176,0.4)}
+.metro-node.layer2 .mn-name{color:#90CDF4}
+.metro-node.layer3{border-color:var(--forest-lt);background:rgba(39,103,73,0.2);box-shadow:0 0 12px rgba(39,103,73,0.4)}
+.metro-node.layer3 .mn-name{color:#9AE6B4}
+.metro-node.target{border-color:var(--crimson-lt);background:rgba(155,28,28,0.25);box-shadow:0 0 18px rgba(229,62,62,0.5)}
+.metro-node.target .mn-name{color:#FC8181}
+.metro-node.visiting{animation:visitPulse 0.6s ease-in-out}
+@keyframes visitPulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.25)}}
+
+.bfs-slots{display:flex;flex-direction:column;gap:5px;flex:1;overflow-y:auto}
+.bslot{border:1.5px dashed rgba(200,148,26,0.2);border-radius:7px;height:36px;display:flex;align-items:center;padding:0 10px;gap:8px;transition:all 0.2s;flex-shrink:0}
+.bslot.over{border-color:var(--gold-lt);background:rgba(200,148,26,0.06)}
+.bslot.filled{border-style:solid;border-color:rgba(200,148,26,0.4);background:rgba(200,148,26,0.04)}
+.bslot.ok{border-color:var(--teal-lt);background:rgba(14,124,123,0.06)}
+.bslot.ng{border-color:var(--crimson-lt);background:rgba(155,28,28,0.06)}
+.bnum{width:18px;height:18px;border-radius:50%;background:rgba(200,148,26,0.15);border:1px solid rgba(200,148,26,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--gold-lt);font-family:'Cinzel',serif;flex-shrink:0}
+
+/* ===== ACTIVITY 3: DFS MAZE ===== */
+.dfsgrid{display:grid;grid-template-columns:1.2fr 1fr;gap:10px;flex:1;min-height:0}
+.dfsmap{position:relative;overflow:hidden;border-radius:var(--r);border:1.5px solid rgba(14,124,123,0.3);background:rgba(13,27,42,0.8)}
+.dfssvg{position:absolute;inset:0;width:100%;height:100%}
+.maze-node{
+  position:absolute;transform:translate(-50%,-50%);
+  width:44px;height:44px;border-radius:8px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-family:'Cinzel',serif;font-size:7px;z-index:5;
+  border:1.5px solid rgba(200,148,26,0.25);background:rgba(13,27,42,0.9);
+  transition:all 0.4s;cursor:default;
+}
+.maze-node .mn-icon{font-size:15px;margin-bottom:1px}
+.maze-node .mn-nm{font-size:7px;color:var(--text2);text-align:center}
+.maze-node.start{border-color:var(--gold-lt);background:rgba(200,148,26,0.2);box-shadow:0 0 16px rgba(200,148,26,0.5)}
+.maze-node.start .mn-nm{color:var(--gold-lt)}
+.maze-node.end{border-color:var(--crimson-lt);background:rgba(155,28,28,0.2);box-shadow:0 0 16px rgba(229,62,62,0.5)}
+.maze-node.end .mn-nm{color:#FC8181}
+.maze-node.onpath{border-color:var(--teal-lt);background:rgba(14,124,123,0.25);box-shadow:0 0 14px rgba(20,188,187,0.5)}
+.maze-node.onpath .mn-nm{color:var(--teal-lt)}
+.maze-node.dead{border-color:rgba(155,28,28,0.3);background:rgba(155,28,28,0.06);opacity:0.45}
+.maze-node.found{border-color:var(--gold-lt);background:rgba(200,148,26,0.3);box-shadow:0 0 22px rgba(200,148,26,0.7);animation:foundAnim 0.6s ease infinite alternate}
+@keyframes foundAnim{from{box-shadow:0 0 22px rgba(200,148,26,0.7)}to{box-shadow:0 0 40px rgba(240,184,74,1)}}
+
+.path-slots{display:flex;flex-direction:column;gap:5px;flex:1;overflow-y:auto}
+.pslot{border:1.5px dashed rgba(14,124,123,0.25);border-radius:7px;min-height:34px;display:flex;align-items:center;padding:0 10px;gap:8px;transition:all 0.2s;flex-shrink:0}
+.pslot.over{border-color:var(--teal-lt);background:rgba(14,124,123,0.07)}
+.pslot.filled{border-style:solid;border-color:rgba(14,124,123,0.45);background:rgba(14,124,123,0.05)}
+.pslot.ok{border-color:var(--gold-lt);background:rgba(200,148,26,0.05)}
+.pslot.ng{border-color:var(--crimson-lt);background:rgba(155,28,28,0.05)}
+.pnum{width:18px;height:18px;border-radius:4px;background:rgba(14,124,123,0.2);border:1px solid rgba(14,124,123,0.5);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--teal-lt);font-family:'Cinzel',serif;flex-shrink:0}
+
+/* BUTTONS */
+.btn{padding:8px 18px;border-radius:7px;font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;border:none;transition:all 0.2s;text-transform:uppercase}
+.btn-p{background:linear-gradient(135deg,var(--gold),var(--gold-lt));color:#000;box-shadow:0 0 20px rgba(200,148,26,0.35)}
+.btn-p:hover{box-shadow:0 0 32px rgba(200,148,26,0.6);transform:translateY(-1px)}
+.btn-p:disabled{background:rgba(139,168,196,0.2);color:var(--text2);box-shadow:none;cursor:not-allowed;transform:none}
+.btn-c{background:rgba(14,124,123,0.15);border:1.5px solid rgba(20,188,187,0.4);color:var(--teal-lt)}
+.btn-c:hover{background:rgba(14,124,123,0.25)}
+.btnrow{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:5px;flex-shrink:0}
+.bhint{flex:1;font-size:10px;color:var(--text2);font-weight:400}
+.infopill{background:rgba(13,27,42,0.7);border:1px solid var(--border);border-radius:7px;padding:7px 11px;font-size:10px;color:var(--text2);line-height:1.6;flex-shrink:0}
+.infopill strong{color:var(--text)}
+
+/* POPUPS */
+.popo{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.82);display:none;align-items:center;justify-content:center;backdrop-filter:blur(7px)}
+.popo.on{display:flex}
+.popb{
+  background:linear-gradient(145deg,rgba(13,27,42,0.99),rgba(17,31,46,0.99));
+  border:2px solid var(--gold);border-radius:16px;padding:26px 30px;max-width:440px;width:90%;
+  text-align:center;box-shadow:0 0 60px rgba(200,148,26,0.3),0 0 100px rgba(200,148,26,0.08);
+  animation:popi 0.35s cubic-bezier(0.34,1.56,0.64,1);
+}
+.popb.fin{border-color:var(--teal-lt);box-shadow:0 0 60px rgba(20,188,187,0.3)}
+@keyframes popi{from{transform:scale(0.65);opacity:0}to{transform:scale(1);opacity:1}}
+.picon{font-size:44px;margin-bottom:9px;display:block}
+.ptitle{font-family:'Cinzel',serif;font-size:20px;font-weight:900;color:var(--gold-lt);margin-bottom:7px;text-transform:uppercase;letter-spacing:1.5px}
+.popb.fin .ptitle{color:var(--teal-lt)}
+.pbody{font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:12px}
+.pbody strong{color:var(--text)}
+.pins{background:rgba(200,148,26,0.06);border:1px solid rgba(200,148,26,0.2);border-radius:8px;padding:10px 13px;font-size:11px;color:var(--text2);text-align:left;margin-bottom:16px;line-height:1.6}
+.pins .pil{font-family:'Cinzel',serif;font-size:8px;color:var(--gold-lt);letter-spacing:1px;margin-bottom:4px;text-transform:uppercase;display:block}
+.scgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:13px}
+.sc2{background:rgba(13,27,42,0.8);border-radius:8px;padding:9px 6px;text-align:center;border:1px solid rgba(200,148,26,0.12)}
+.sc2 .sn2{font-family:'Cinzel',serif;font-size:18px;color:var(--gold-lt);font-weight:900}
+.sc2 .sl2{font-size:9px;color:var(--text2);margin-top:2px}
+.blt{font-size:10.5px;color:var(--text2);text-align:left;display:flex;gap:5px;align-items:flex-start;line-height:1.5;margin-bottom:4px}
+.blt::before{content:'▸';color:var(--gold-lt);flex-shrink:0}
+
+/* TOAST */
+.toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%) translateY(18px);background:rgba(13,27,42,0.97);border:1.5px solid var(--gold);color:var(--text);padding:7px 18px;border-radius:20px;font-size:11px;font-weight:700;opacity:0;transition:all 0.3s;z-index:200;pointer-events:none;font-family:'Cinzel',serif;letter-spacing:0.8px;white-space:nowrap;text-transform:uppercase}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.e{border-color:var(--crimson-lt);color:#FC8181}
+.toast.g{border-color:var(--teal-lt);color:var(--teal-lt)}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:rgba(200,148,26,0.2);border-radius:2px}
+</style>
+</head>
+<body>
+<canvas id="bgc"></canvas>
+<div id="app">
+  <!-- HEADER -->
+  <div id="hdr">
+    <div class="hl">
+      <div class="hicon">🧭</div>
+      <div>
+        <div class="htitle">Graph Theory — <span>Nodes, Edges &amp; BFS/DFS</span></div>
+      </div>
+      <div class="hbadge">PLANRS ACADEMY</div>
+    </div>
+    <div class="pwrap">
+      <div class="ps active" id="ps1">I</div>
+      <div class="pl" id="pl1"></div>
+      <div class="ps" id="ps2">II</div>
+      <div class="pl" id="pl2"></div>
+      <div class="ps" id="ps3">III</div>
+    </div>
+  </div>
+
+  <!-- ====== ACTIVITY 1: BUILD A GRAPH ====== -->
+  <div class="scr on" id="a1">
+    <div class="atitle">🗺️ Activity 1 — Build the City Network</div>
+    <div class="asub">Drag city nodes onto the map canvas, then click the ✚ buttons to connect them with edges. A graph = cities (nodes) + routes (edges)!</div>
+    <div class="buildgrid">
+      <!-- Left: canvas -->
+      <div class="card graphcanvas" id="graphcanvas">
+        <svg class="graphsvg" id="gsvg1"></svg>
+        <!-- nodes placed here dynamically -->
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:rgba(200,148,26,0.2);font-family:'Cinzel',serif;font-size:12px;pointer-events:none" id="canv-hint">Drag cities here →</div>
+      </div>
+      <!-- Right: controls -->
+      <div style="display:flex;flex-direction:column;gap:8px;min-height:0">
+        <div class="card" style="flex-shrink:0">
+          <div class="ctitle" style="color:var(--gold-lt)">🏙️ Cities (Nodes)</div>
+          <div class="nodedrop-zone" id="city-pool">
+            <div class="node-item" draggable="true" data-city="Delhi" data-icon="🏛️"><span class="ni-icon">🏛️</span>Delhi</div>
+            <div class="node-item" draggable="true" data-city="Mumbai" data-icon="🌊"><span class="ni-icon">🌊</span>Mumbai</div>
+            <div class="node-item" draggable="true" data-city="Kolkata" data-icon="🌉"><span class="ni-icon">🌉</span>Kolkata</div>
+            <div class="node-item" draggable="true" data-city="Chennai" data-icon="⛵"><span class="ni-icon">⛵</span>Chennai</div>
+            <div class="node-item" draggable="true" data-city="Bengaluru" data-icon="🌿"><span class="ni-icon">🌿</span>Bengaluru</div>
+          </div>
+        </div>
+        <div class="card" style="flex:1;min-height:0">
+          <div class="ctitle" style="color:var(--teal-lt)">📖 Graph Vocabulary</div>
+          <div style="font-size:10.5px;color:var(--text2);line-height:1.8">
+            <div><strong style="color:var(--gold-lt)">Node (Vertex):</strong> A city — a point in the network</div>
+            <div><strong style="color:var(--teal-lt)">Edge:</strong> A route connecting two cities</div>
+            <div><strong style="color:var(--text)">Graph:</strong> The entire network of nodes + edges</div>
+            <div><strong style="color:#FC8181)">Neighbour:</strong> A city directly connected by an edge</div>
+          </div>
+          <div class="infopill" style="margin-top:4px">💡 Click <strong style="color:var(--teal-lt)">✚</strong> between cities to draw an edge (route)!</div>
+        </div>
+        <div class="statbar">
+          <div class="stat"><div class="sv" id="nc">0</div><div class="sl">Nodes</div></div>
+          <div class="stat"><div class="sv" id="ec">0</div><div class="sl">Edges</div></div>
+          <div class="stat"><div class="sv" id="gc">—</div><div class="sl">Connected?</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="btnrow">
+      <div class="bhint" id="a1hint">Place at least 4 cities and draw at least 3 edges to explore the network!</div>
+      <button class="btn btn-p" id="n1" onclick="sp('pp1')" disabled>BFS Expedition →</button>
+    </div>
+  </div>
+
+  <!-- ====== ACTIVITY 2: BFS ====== -->
+  <div class="scr" id="a2">
+    <div class="atitle">🌊 Activity 2 — BFS: Nearest Neighbour First</div>
+    <div class="asub">Your bag is lost at Rajiv Chowk! BFS checks all stations 1 stop away first, then 2 stops, then 3. Drag the visit order cards into the correct BFS sequence!</div>
+    <div class="bfsgrid">
+      <div class="card bfsmap" id="bfsmap">
+        <svg class="bfssvg" id="gsvg2"></svg>
+        <!-- metro nodes placed by JS -->
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;min-height:0">
+        <div class="card" style="flex-shrink:0">
+          <div class="ctitle" style="color:var(--gold-lt)">🎒 BFS Cards — Drag in Order</div>
+          <div class="pool" id="bfspool">
+            <div class="chip gold" draggable="true" data-id="bfs3" data-order="2">🟡 Kashmere Gate</div>
+            <div class="chip teal" draggable="true" data-id="bfs5" data-order="4">🔵 Hauz Khas</div>
+            <div class="chip gold" draggable="true" data-id="bfs2" data-order="1">🟡 Patel Chowk</div>
+            <div class="chip forest" draggable="true" data-id="bfs6" data-order="5">🟢 Saket</div>
+            <div class="chip ocean" draggable="true" data-id="bfs4" data-order="3">🔷 Central Secretariat</div>
+            <div class="chip crimson" draggable="true" data-id="bfs1" data-order="0">🔴 Rajiv Chowk (Start)</div>
+          </div>
+        </div>
+        <div class="card" style="flex:1;min-height:0">
+          <div class="ctitle" style="color:var(--teal-lt)">📋 BFS Exploration Order</div>
+          <div class="bfs-slots" id="bfs-slots">
+            <div class="bslot" data-slot="0" id="bslot0"><div class="bnum">1</div><div style="font-size:9.5px;color:rgba(255,255,255,0.18);font-style:italic">Visit first (start)…</div></div>
+            <div class="bslot" data-slot="1" id="bslot1"><div class="bnum">2</div><div style="font-size:9.5px;color:rgba(255,255,255,0.18);font-style:italic">1 stop away…</div></div>
+            <div class="bslot" data-slot="2" id="bslot2"><div class="bnum">3</div><div style="font-size:9.5px;color:rgba(255,255,255,0.18);font-style:italic">1 stop away…</div></div>
+            <div class="bslot" data-slot="3" id="bslot3"><div class="bnum">4</div><div style="font-size:9.5px;color:rgba(255,255,255,0.18);font-style:italic">2 stops away…</div></div>
+            <div class="bslot" data-slot="4" id="bslot4"><div class="bnum">5</div><div style="font-size:9.5px;color:rgba(255,255,255,0.18);font-style:italic">2 stops away…</div></div>
+            <div class="bslot" data-slot="5" id="bslot5"><div class="bnum">6</div><div style="font-size:9.5px;color:rgba(255,255,255,0.18);font-style:italic">3 stops away…</div></div>
+          </div>
+        </div>
+        <div class="infopill"><strong style="color:var(--gold-lt)">BFS Rule:</strong> Always check ALL stations at distance 1 before checking distance 2. Like ripples spreading from a stone in water!</div>
+      </div>
+    </div>
+    <div class="btnrow">
+      <div class="bhint">Arrange all 6 stations in correct BFS order (nearest first)</div>
+      <button class="btn btn-c" onclick="chk2()">Check Route</button>
+      <button class="btn btn-p" id="n2" onclick="sp('pp2')" disabled>DFS Maze →</button>
+    </div>
+  </div>
+
+  <!-- ====== ACTIVITY 3: DFS MAZE ====== -->
+  <div class="scr" id="a3">
+    <div class="atitle">🧩 Activity 3 — DFS: Deep Path Explorer</div>
+    <div class="asub">Navigate the network maze using DFS — pick one path and follow it to the end! If stuck, backtrack. Drag the DFS path choices in order.</div>
+    <div class="dfsgrid">
+      <div class="card dfsmap" id="dfsmap">
+        <svg class="dfssvg" id="gsvg3"></svg>
+        <!-- maze nodes placed by JS -->
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;min-height:0">
+        <div class="card" style="flex-shrink:0">
+          <div class="ctitle" style="color:var(--teal-lt)">🧭 DFS Path Cards — Drag in Order</div>
+          <div class="pool" id="dfspool">
+            <div class="chip teal" draggable="true" data-id="d4" data-order="3">4. Central Hub</div>
+            <div class="chip gold" draggable="true" data-id="d1" data-order="0">1. Start: Airport</div>
+            <div class="chip crimson" draggable="true" data-id="d6" data-order="5">6. ✗ Dead End</div>
+            <div class="chip teal" draggable="true" data-id="d2" data-order="1">2. North Gate</div>
+            <div class="chip ocean" draggable="true" data-id="d7" data-order="6">7. ↩ Backtrack</div>
+            <div class="chip forest" draggable="true" data-id="d3" data-order="2">3. East Bridge</div>
+            <div class="chip gold" draggable="true" data-id="d5" data-order="4">5. South Port</div>
+            <div class="chip teal" draggable="true" data-id="d8" data-order="7">8. 🎯 Destination!</div>
+          </div>
+        </div>
+        <div class="card" style="flex:1;min-height:0;overflow:hidden">
+          <div class="ctitle" style="color:var(--gold-lt)">📋 DFS Path Sequence</div>
+          <div class="path-slots" id="path-slots">
+            <div class="pslot" data-slot="0" id="pslot0"><div class="pnum">1</div><div style="font-size:9.5px;color:rgba(255,255,255,0.15);font-style:italic">Starting point…</div></div>
+            <div class="pslot" data-slot="1" id="pslot1"><div class="pnum">2</div><div style="font-size:9.5px;color:rgba(255,255,255,0.15);font-style:italic">Go deep…</div></div>
+            <div class="pslot" data-slot="2" id="pslot2"><div class="pnum">3</div><div style="font-size:9.5px;color:rgba(255,255,255,0.15);font-style:italic">Keep going…</div></div>
+            <div class="pslot" data-slot="3" id="pslot3"><div class="pnum">4</div><div style="font-size:9.5px;color:rgba(255,255,255,0.15);font-style:italic">Continue path…</div></div>
+            <div class="pslot" data-slot="4" id="pslot4"><div class="pnum">5</div><div style="font-size:9.5px;color:rgba(255,255,255,0.15);font-style:italic">Deeper still…</div></div>
+            <div class="pslot" data-slot="5" id="pslot5"><div class="pnum">6</div><div style="font-size:9.5px;color:rgba(255,255,255,0.15);font-style:italic">Dead end?</div></div>
+            <div class="pslot" data-slot="6" id="pslot6"><div class="pnum">7</div><div style="font-size:9.5px;color:rgba(255,255,255,0.15);font-style:italic">Backtrack…</div></div>
+            <div class="pslot" data-slot="7" id="pslot7"><div class="pnum">8</div><div style="font-size:9.5px;color:rgba(255,255,255,0.15);font-style:italic">Goal found!</div></div>
+          </div>
+        </div>
+        <div class="infopill"><strong style="color:var(--teal-lt)">DFS Rule:</strong> Go as deep as possible on one path. Hit a dead end? <strong>Backtrack</strong> and try another route — like exploring a maze!</div>
+      </div>
+    </div>
+    <div class="btnrow">
+      <div class="bhint">Arrange all 8 DFS steps in the correct traversal order</div>
+      <button class="btn btn-c" onclick="chk3()">Check Path</button>
+      <button class="btn btn-p" id="n3" onclick="sp('pp3')" disabled>See Results 🗺️</button>
+    </div>
+  </div>
+</div>
+
+<!-- POPUPS -->
+<div class="popo" id="pp1">
+  <div class="popb">
+    <span class="picon">🗺️</span>
+    <div class="ptitle">Network Built!</div>
+    <div class="pbody">You've created a real <strong>graph</strong>! Cities are <strong>nodes</strong> and the flight routes between them are <strong>edges</strong>. Every map, social network, and internet connection is secretly just a graph!</div>
+    <div class="pins"><span class="pil">🔍 Key Insight</span>The Delhi Metro has over 250 stations (nodes) and hundreds of routes (edges). Graph theory helps engineers plan the fastest path between any two stations!</div>
+    <button class="btn btn-p" onclick="go2()">Explore BFS →</button>
+  </div>
+</div>
+<div class="popo" id="pp2">
+  <div class="popb">
+    <span class="picon">🌊</span>
+    <div class="ptitle">BFS Mastered!</div>
+    <div class="pbody">Like ripples in a pond, BFS explores all <strong>nearby nodes first</strong> before moving further. This guarantees finding the <strong>shortest path</strong> in terms of hops!</div>
+    <div class="pins"><span class="pil">🔍 Key Insight</span>BFS is perfect for finding your lost bag! If it's at a station 1 stop away, you find it fast. If you used DFS, you might travel to the end of the line before checking nearby stations!</div>
+    <button class="btn btn-p" onclick="go3()">Try DFS Maze →</button>
+  </div>
+</div>
+<div class="popo" id="pp3">
+  <div class="popb fin">
+    <span class="picon">🏆</span>
+    <div class="ptitle">Explorer Champion!</div>
+    <div class="pbody">You've navigated all three graph challenges like a seasoned explorer!</div>
+    <div class="scgrid">
+      <div class="sc2"><div class="sn2">3/3</div><div class="sl2">Challenges</div></div>
+      <div class="sc2"><div class="sn2" id="finaledges">5+</div><div class="sl2">Edges Built</div></div>
+      <div class="sc2"><div class="sn2">2</div><div class="sl2">Algorithms</div></div>
+    </div>
+    <div style="text-align:left;margin-bottom:14px">
+      <div class="blt">Graphs model real networks — metro maps, social circles, flight routes, the internet.</div>
+      <div class="blt">BFS explores level by level — best for finding the nearest target (shortest path).</div>
+      <div class="blt">DFS dives as deep as possible first — great for exploring every corner of a network.</div>
+      <div class="blt">Every app you use daily — Google Maps, Instagram, WhatsApp — runs on graph algorithms!</div>
+    </div>
+    <button class="btn btn-p" style="background:linear-gradient(135deg,var(--teal),var(--gold-lt));color:#000;box-shadow:0 0 22px rgba(20,188,187,0.5)" onclick="location.reload()">🔄 Explore Again</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ========== CANVAS BACKGROUND ==========
+const bgc=document.getElementById('bgc');const bx=bgc.getContext('2d');
+let W,H;function rsz(){W=bgc.width=window.innerWidth;H=bgc.height=window.innerHeight}
+rsz();window.addEventListener('resize',rsz);
+
+// Map-like particles (latitude/longitude dots)
+const mappts=[];
+for(let i=0;i<80;i++)mappts.push({x:Math.random()*2000,y:Math.random()*800,alpha:Math.random(),spd:Math.random()*0.015+0.003,r:Math.random()*1.2+0.3,col:Math.random()>0.6?'#C8941A':'#0E7C7B'});
+
+// Floating route lines
+const routes=[];
+for(let i=0;i<8;i++){
+  const x1=Math.random()*2000,y1=Math.random()*800;
+  routes.push({x1,y1,x2:x1+Math.random()*200-100,y2:y1+Math.random()*120-60,alpha:Math.random()*0.12+0.03,spd:Math.random()*0.008+0.002,phase:Math.random()*Math.PI*2});
+}
+
+// Compass roses (simplified)
+const compasses=[];for(let i=0;i<4;i++)compasses.push({x:Math.random()*2000,y:Math.random()*800,r:Math.random()*25+15,angle:Math.random()*Math.PI*2,rotSpd:(Math.random()-0.5)*0.003,alpha:0.04+Math.random()*0.04});
+
+// Grid lines (latitude/longitude feel)
+let goff=0;
+let tick=0;
+
+function drawMapGrid(){
+  bx.strokeStyle='rgba(200,148,26,0.04)';bx.lineWidth=0.5;
+  goff=(goff+0.1)%60;
+  for(let x=goff;x<W;x+=60){bx.beginPath();bx.moveTo(x,0);bx.lineTo(x,H);bx.stroke()}
+  for(let y=0;y<H;y+=60){bx.beginPath();bx.moveTo(0,y);bx.lineTo(W,y);bx.stroke()}
+  // diagonals
+  bx.strokeStyle='rgba(14,124,123,0.025)';
+  for(let x=-H;x<W;x+=120){bx.beginPath();bx.moveTo(x,0);bx.lineTo(x+H,H);bx.stroke()}
+}
+
+function drawCompass(c){
+  bx.save();bx.translate(c.x%W,c.y%H);bx.rotate(c.angle+tick*c.rotSpd);
+  bx.globalAlpha=c.alpha;bx.strokeStyle='#C8941A';bx.lineWidth=0.8;
+  // N
+  bx.beginPath();bx.moveTo(0,-c.r);bx.lineTo(0,c.r);bx.stroke();
+  bx.beginPath();bx.moveTo(-c.r,0);bx.lineTo(c.r,0);bx.stroke();
+  // arrow tip
+  bx.fillStyle='#F0B84A';bx.beginPath();bx.moveTo(0,-c.r);bx.lineTo(-4,-c.r*0.4);bx.lineTo(4,-c.r*0.4);bx.closePath();bx.fill();
+  bx.beginPath();bx.arc(0,0,3,0,Math.PI*2);bx.fillStyle='#C8941A';bx.fill();
+  bx.globalAlpha=1;bx.restore();
+}
+
+function frame(){
+  tick++;bx.clearRect(0,0,W,H);
+  const grd=bx.createLinearGradient(0,0,W,H);
+  grd.addColorStop(0,'#080E17');grd.addColorStop(0.4,'#0D1B2A');grd.addColorStop(1,'#091220');
+  bx.fillStyle=grd;bx.fillRect(0,0,W,H);
+  drawMapGrid();
+  // routes glow
+  routes.forEach(r=>{
+    r.phase+=r.spd;
+    const a=r.alpha*(0.5+Math.sin(r.phase)*0.5);
+    bx.strokeStyle='#0E7C7B';bx.lineWidth=1.2;bx.globalAlpha=a;
+    bx.beginPath();bx.moveTo(r.x1%W,r.y1%H);bx.lineTo(r.x2%W,r.y2%H);bx.stroke();
+    bx.globalAlpha=1;
+  });
+  // particles
+  mappts.forEach(p=>{
+    p.alpha+=p.spd;if(p.alpha>1||p.alpha<0)p.spd*=-1;
+    bx.beginPath();bx.arc(p.x%W,p.y%H,p.r,0,Math.PI*2);
+    bx.fillStyle=p.col;bx.globalAlpha=Math.abs(Math.sin(p.alpha*Math.PI));bx.fill();bx.globalAlpha=1;
+  });
+  compasses.forEach(c=>drawCompass(c));
+  // scan line
+  const sl=H*((tick%500)/500);
+  bx.fillStyle='rgba(200,148,26,0.02)';bx.fillRect(0,sl,W,2);
+  requestAnimationFrame(frame);
+}
+frame();
+
+// ========== ACTIVITY 1: BUILD GRAPH ==========
+const cities={};const edges=[];let edgeCount=0,nodeCount=0;
+let selectedNode=null;
+const CITY_POSITIONS=[
+  {x:'30%',y:'20%'},{x:'70%',y:'15%'},{x:'20%',y:'60%'},
+  {x:'60%',y:'55%'},{x:'80%',y:'70%'}
+];
+const DROP_POSITIONS=[
+  {x:30,y:20},{x:70,y:15},{x:20,y:60},{x:60,y:55},{x:80,y:70}
+];
+let cityPlacedCount=0;
+
+function initAct1(){
+  const canvas=document.getElementById('graphcanvas');
+  canvas.addEventListener('dragover',e=>{e.preventDefault()});
+  canvas.addEventListener('drop',e=>{
+    e.preventDefault();
+    const cityName=e.dataTransfer.getData('city');
+    const icon=e.dataTransfer.getData('icon');
+    if(!cityName||cities[cityName])return;
+    const rect=canvas.getBoundingClientRect();
+    const px=Math.min(Math.max(((e.clientX-rect.left)/rect.width)*100,10),90);
+    const py=Math.min(Math.max(((e.clientY-rect.top)/rect.height)*100,10),90);
+    placeCity(cityName,icon,px,py);
+    document.getElementById('canv-hint').style.display='none';
+  });
+  // Make city items draggable
+  document.querySelectorAll('.node-item').forEach(item=>{
+    item.addEventListener('dragstart',e=>{
+      e.dataTransfer.setData('city',item.dataset.city);
+      e.dataTransfer.setData('icon',item.dataset.icon);
+      if(item.classList.contains('used'))e.preventDefault();
+    });
+  });
+}
+
+function placeCity(name,icon,px,py){
+  cities[name]={x:px,y:py,icon};nodeCount++;
+  const canvas=document.getElementById('graphcanvas');
+  const el=document.createElement('div');
+  el.className='citynode placed';el.id='cn-'+name;
+  el.style.left=px+'%';el.style.top=py+'%';
+  el.innerHTML=`<div class="cicon">${icon}</div><div class="cname">${name}</div>`;
+  el.addEventListener('click',()=>handleNodeClick(name,el));
+  canvas.appendChild(el);
+  // Mark as used in pool
+  document.querySelectorAll('.node-item').forEach(ni=>{if(ni.dataset.city===name)ni.classList.add('used')});
+  updateStats();
+  drawEdgeButtons();
+  checkA1Done();
+}
+
+function drawEdgeButtons(){
+  // Remove old edge buttons
+  document.querySelectorAll('.edge-btn').forEach(b=>b.remove());
+  const canvas=document.getElementById('graphcanvas');
+  const names=Object.keys(cities);
+  // Show + buttons between adjacent unconnected city pairs
+  for(let i=0;i<names.length;i++){
+    for(let j=i+1;j<names.length;j++){
+      const a=cities[names[i]],b=cities[names[j]];
+      const edgeKey=names[i]+'_'+names[j];
+      if(edges.find(e=>(e.a===names[i]&&e.b===names[j])||(e.a===names[j]&&e.b===names[i])))continue;
+      // Only show if not too far
+      const dist=Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2);
+      if(dist>45)continue;
+      const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+      const btn=document.createElement('div');
+      btn.className='edge-btn';btn.style.left=mx+'%';btn.style.top=my+'%';btn.textContent='✚';
+      btn.title=`Connect ${names[i]} ↔ ${names[j]}`;
+      btn.addEventListener('click',()=>{addEdge(names[i],names[j]);drawEdgeButtons()});
+      canvas.appendChild(btn);
+    }
+  }
+}
+
+function addEdge(a,b){
+  if(edges.find(e=>(e.a===a&&e.b===b)||(e.a===b&&e.b===a)))return;
+  edges.push({a,b});edgeCount++;
+  drawAllEdges();updateStats();checkA1Done();
+}
+
+function drawAllEdges(){
+  const svg=document.getElementById('gsvg1');svg.innerHTML='';
+  const canvas=document.getElementById('graphcanvas');
+  const cw=canvas.offsetWidth,ch=canvas.offsetHeight;
+  edges.forEach(e=>{
+    const a=cities[e.a],b=cities[e.b];
+    if(!a||!b)return;
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',a.x*cw/100);line.setAttribute('y1',a.y*ch/100);
+    line.setAttribute('x2',b.x*cw/100);line.setAttribute('y2',b.y*ch/100);
+    line.setAttribute('stroke','rgba(200,148,26,0.55)');line.setAttribute('stroke-width','2');
+    line.setAttribute('stroke-dasharray','6,3');
+    const anim=document.createElementNS('http://www.w3.org/2000/svg','animate');
+    anim.setAttribute('attributeName','stroke-dashoffset');anim.setAttribute('from','0');anim.setAttribute('to','18');anim.setAttribute('dur','1.5s');anim.setAttribute('repeatCount','indefinite');
+    line.appendChild(anim);svg.appendChild(line);
+  });
+}
+
+function handleNodeClick(name,el){
+  if(!selectedNode){selectedNode=name;el.style.boxShadow='0 0 25px rgba(240,184,74,0.8)'}
+  else if(selectedNode!==name){addEdge(selectedNode,name);const prev=document.getElementById('cn-'+selectedNode);if(prev)prev.style.boxShadow='';selectedNode=null;el.style.boxShadow=''}
+  else{const prev=document.getElementById('cn-'+selectedNode);if(prev)prev.style.boxShadow='';selectedNode=null}
+}
+
+function updateStats(){
+  document.getElementById('nc').textContent=nodeCount;
+  document.getElementById('ec').textContent=edgeCount;
+  document.getElementById('gc').textContent=nodeCount>1&&edgeCount>=nodeCount-1?'Yes!':'No';
+}
+
+function checkA1Done(){
+  if(nodeCount>=4&&edgeCount>=3){
+    document.getElementById('n1').disabled=false;
+    document.getElementById('a1hint').textContent=`Graph built! ${nodeCount} cities, ${edgeCount} routes. Unlock the BFS expedition!`;
+    document.getElementById('finaledges').textContent=edgeCount;
+  }
+}
+
+// ========== ACTIVITY 2: BFS ==========
+const BFS_NODES=[
+  {id:'rajiv',name:'Rajiv Chowk',icon:'🚉',x:50,y:50,layer:0},
+  {id:'patel',name:'Patel Chowk',icon:'🏛️',x:28,y:35,layer:1},
+  {id:'kashmere',name:'Kashmere Gate',icon:'🌉',x:72,y:30,layer:1},
+  {id:'csec',name:'Central Sec.',icon:'🏛️',x:35,y:70,layer:2},
+  {id:'hauz',name:'Hauz Khas',icon:'🏫',x:65,y:72,layer:2},
+  {id:'saket',name:'Saket',icon:'🏪',x:50,y:88,layer:3},
+];
+const BFS_EDGES=[['rajiv','patel'],['rajiv','kashmere'],['patel','csec'],['kashmere','hauz'],['csec','saket'],['hauz','saket']];
+const BFS_ORDER=['bfs1','bfs2','bfs3','bfs4','bfs5','bfs6'];
+
+function buildBFSMap(){
+  const map=document.getElementById('bfsmap');
+  const svg=document.getElementById('gsvg2');svg.innerHTML='';
+  const mw=map.offsetWidth,mh=map.offsetHeight;
+  // Draw edges
+  BFS_EDGES.forEach(([a,b])=>{
+    const na=BFS_NODES.find(n=>n.id===a),nb=BFS_NODES.find(n=>n.id===b);
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',na.x*mw/100);line.setAttribute('y1',na.y*mh/100);
+    line.setAttribute('x2',nb.x*mw/100);line.setAttribute('y2',nb.y*mh/100);
+    line.setAttribute('stroke','rgba(200,148,26,0.35)');line.setAttribute('stroke-width','2');
+    svg.appendChild(line);
+  });
+  // Place nodes
+  BFS_NODES.forEach(n=>{
+    const el=document.createElement('div');
+    el.className=`metro-node layer${n.layer}`;el.id='mn-'+n.id;
+    el.style.left=n.x+'%';el.style.top=n.y+'%';
+    el.innerHTML=`<div class="mn-icon">${n.icon}</div><div class="mn-name">${n.name}</div>`;
+    map.appendChild(el);
+  });
+}
+
+const bfsSlotContent={};
+function initBFSDrag(){
+  document.querySelectorAll('#bfspool .chip').forEach(el=>{
+    el.addEventListener('dragstart',()=>{window._dragging=el;setTimeout(()=>el.classList.add('drag'),0)});
+    el.addEventListener('dragend',()=>el.classList.remove('drag'));
+  });
+  document.querySelectorAll('.bslot').forEach(sl=>{
+    sl.addEventListener('dragover',e=>{e.preventDefault();sl.classList.add('over')});
+    sl.addEventListener('dragleave',()=>sl.classList.remove('over'));
+    sl.addEventListener('drop',e=>{
+      e.preventDefault();sl.classList.remove('over');
+      const chip=window._dragging;if(!chip)return;
+      const si=parseInt(sl.dataset.slot);
+      if(bfsSlotContent[si]){document.getElementById('bfspool').appendChild(bfsSlotContent[si])}
+      const prev=Object.entries(bfsSlotContent).find(([k,v])=>v===chip);
+      if(prev){const os=document.getElementById('bslot'+prev[0]);os.innerHTML=`<div class="bnum">${parseInt(prev[0])+1}</div><div style="font-size:9.5px;color:rgba(255,255,255,0.18);font-style:italic">Drop here…</div>`;os.classList.remove('filled','ok','ng');delete bfsSlotContent[prev[0]]}
+      bfsSlotContent[si]=chip;sl.innerHTML='';sl.appendChild(chip);sl.classList.add('filled');
+      // light up metro node
+      const order=parseInt(chip.dataset.order);
+      const node=BFS_NODES[order];if(node){const mn=document.getElementById('mn-'+node.id);if(mn){mn.classList.add('visiting');setTimeout(()=>mn.classList.remove('visiting'),700)}}
+    });
+  });
+  document.querySelectorAll('#bfspool').forEach(z=>{
+    z.addEventListener('dragover',e=>e.preventDefault());
+    z.addEventListener('drop',e=>{e.preventDefault();const chip=window._dragging;if(chip&&!chip.parentElement.classList.contains('bslot'))return;z.appendChild(chip)});
+  });
+}
+
+function chk2(){
+  const placed=Object.keys(bfsSlotContent).length;
+  if(placed<6){showToast('Place all 6 stations!','e');return}
+  let ok=true;
+  for(let i=0;i<6;i++){
+    const sl=document.getElementById('bslot'+i);
+    const chip=bfsSlotContent[i];
+    const correct=chip&&chip.dataset.id===BFS_ORDER[i];
+    sl.classList.toggle('ok',!!correct);sl.classList.toggle('ng',!correct);
+    if(!correct)ok=false;
+  }
+  if(ok){showToast('Correct BFS order!','g');document.getElementById('n2').disabled=false}
+  else showToast('Check the order — nearest first!','e');
+}
+
+// ========== ACTIVITY 3: DFS ==========
+const DFS_NODES=[
+  {id:'airport',name:'Airport',icon:'✈️',x:20,y:20},
+  {id:'northgate',name:'North Gate',icon:'🚪',x:50,y:15},
+  {id:'eastbridge',name:'East Bridge',icon:'🌉',x:78,y:30},
+  {id:'central',name:'Central Hub',icon:'⭕',x:50,y:50},
+  {id:'southport',name:'South Port',icon:'⚓',x:50,y:78},
+  {id:'deadend',name:'Dead End',icon:'🚧',x:80,y:70},
+  {id:'dest',name:'Destination!',icon:'🎯',x:22,y:75},
+];
+const DFS_EDGES=[['airport','northgate'],['northgate','eastbridge'],['northgate','central'],['eastbridge','central'],['central','deadend'],['central','southport'],['southport','dest']];
+const DFS_CORRECT=['d1','d2','d3','d4','d5','d6','d7','d8'];
+
+function buildDFSMap(){
+  const map=document.getElementById('dfsmap');
+  const svg=document.getElementById('gsvg3');svg.innerHTML='';
+  const mw=map.offsetWidth,mh=map.offsetHeight;
+  DFS_EDGES.forEach(([a,b])=>{
+    const na=DFS_NODES.find(n=>n.id===a),nb=DFS_NODES.find(n=>n.id===b);
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',na.x*mw/100);line.setAttribute('y1',na.y*mh/100);
+    line.setAttribute('x2',nb.x*mw/100);line.setAttribute('y2',nb.y*mh/100);
+    line.setAttribute('stroke','rgba(14,124,123,0.4)');line.setAttribute('stroke-width','2');
+    const anim=document.createElementNS('http://www.w3.org/2000/svg','animate');
+    anim.setAttribute('attributeName','stroke-opacity');anim.setAttribute('values','0.4;0.8;0.4');anim.setAttribute('dur','2.5s');anim.setAttribute('repeatCount','indefinite');
+    line.appendChild(anim);svg.appendChild(line);
+  });
+  DFS_NODES.forEach(n=>{
+    const el=document.createElement('div');
+    el.className='maze-node'+(n.id==='airport'?' start':n.id==='dest'?' end':'');
+    el.id='dn-'+n.id;el.style.left=n.x+'%';el.style.top=n.y+'%';
+    el.innerHTML=`<div class="mn-icon">${n.icon}</div><div class="mn-nm">${n.name}</div>`;
+    map.appendChild(el);
+  });
+}
+
+const dfsSlotContent={};
+const DFS_NODE_MAP=['airport','northgate','eastbridge','central','southport','deadend',null,'dest'];
+function initDFSDrag(){
+  document.querySelectorAll('#dfspool .chip').forEach(el=>{
+    el.addEventListener('dragstart',()=>{window._dragging=el;setTimeout(()=>el.classList.add('drag'),0)});
+    el.addEventListener('dragend',()=>el.classList.remove('drag'));
+  });
+  document.querySelectorAll('.pslot').forEach(sl=>{
+    sl.addEventListener('dragover',e=>{e.preventDefault();sl.classList.add('over')});
+    sl.addEventListener('dragleave',()=>sl.classList.remove('over'));
+    sl.addEventListener('drop',e=>{
+      e.preventDefault();sl.classList.remove('over');
+      const chip=window._dragging;if(!chip)return;
+      const si=parseInt(sl.dataset.slot);
+      if(dfsSlotContent[si]){document.getElementById('dfspool').appendChild(dfsSlotContent[si])}
+      const prev=Object.entries(dfsSlotContent).find(([k,v])=>v===chip);
+      if(prev){const os=document.getElementById('pslot'+prev[0]);os.innerHTML=`<div class="pnum">${parseInt(prev[0])+1}</div><div style="font-size:9.5px;color:rgba(255,255,255,0.15);font-style:italic">Drop here…</div>`;os.classList.remove('filled','ok','ng');delete dfsSlotContent[prev[0]]}
+      dfsSlotContent[si]=chip;sl.innerHTML='';sl.appendChild(chip);sl.classList.add('filled');
+      // visualize on map
+      const nid=DFS_NODE_MAP[si];
+      if(nid){const mn=document.getElementById('dn-'+nid);if(mn){if(chip.dataset.id==='d7')mn.classList.add('dead');else if(nid==='dest')mn.classList.add('found');else mn.classList.add('onpath')}}
+    });
+  });
+  document.querySelectorAll('#dfspool').forEach(z=>{
+    z.addEventListener('dragover',e=>e.preventDefault());
+    z.addEventListener('drop',e=>{e.preventDefault()});
+  });
+}
+
+function chk3(){
+  const placed=Object.keys(dfsSlotContent).length;
+  if(placed<8){showToast('Place all 8 path steps!','e');return}
+  let ok=true;
+  for(let i=0;i<8;i++){
+    const sl=document.getElementById('pslot'+i);
+    const chip=dfsSlotContent[i];
+    const correct=chip&&chip.dataset.id===DFS_CORRECT[i];
+    sl.classList.toggle('ok',!!correct);sl.classList.toggle('ng',!correct);
+    if(!correct)ok=false;
+  }
+  if(ok){showToast('Perfect DFS path!','g');document.getElementById('n3').disabled=false}
+  else showToast('Check the path — go deep first, backtrack when stuck!','e');
+}
+
+// ========== NAVIGATION ==========
+function go2(){hp('pp1');document.getElementById('a1').classList.remove('on');document.getElementById('a2').classList.add('on');prog(2);setTimeout(()=>{buildBFSMap();initBFSDrag()},100)}
+function go3(){hp('pp2');document.getElementById('a2').classList.remove('on');document.getElementById('a3').classList.add('on');prog(3);setTimeout(()=>{buildDFSMap();initDFSDrag()},100)}
+function prog(s){
+  for(let i=1;i<=3;i++){const p=document.getElementById('ps'+i);p.classList.remove('active','done');if(i<s)p.classList.add('done');else if(i===s)p.classList.add('active')}
+  for(let i=1;i<=2;i++)document.getElementById('pl'+i).classList.toggle('done',i<s);
+}
+function sp(id){document.getElementById(id).classList.add('on')}
+function hp(id){document.getElementById(id).classList.remove('on')}
+
+// ========== TOAST ==========
+function showToast(msg,t=''){
+  const el=document.getElementById('toast');el.textContent=msg;
+  el.className='toast on '+(t==='e'?'e':t==='g'?'g':'');
+  setTimeout(()=>el.className='toast',2600);
+}
+
+// ========== INIT ==========
+window.addEventListener('load',()=>{initAct1()});
+</script>
+</body>
+</html>

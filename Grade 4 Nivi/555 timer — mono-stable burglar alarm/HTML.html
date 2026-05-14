@@ -1,0 +1,1509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>555 TIMER — MONOSTABLE BURGLAR ALARM</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --amber:   #FFB700;
+    --orange:  #FF6B00;
+    --coral:   #FF4444;
+    --gold:    #FFD700;
+    --dark:    #0A0A14;
+    --darker:  #050508;
+    --panel:   #111122;
+    --border:  #2A2A4A;
+    --teal:    #00D4AA;
+    --blue:    #4488FF;
+    --spark:   #FFEE44;
+    --text:    #E8E8FF;
+    --dim:     #888899;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: var(--darker);
+    font-family: 'Rajdhani', sans-serif;
+    color: var(--text);
+    user-select: none;
+  }
+
+  /* ── CANVAS BACKGROUND ── */
+  #bg-canvas {
+    position: fixed; inset: 0; z-index: 0;
+    pointer-events: none;
+  }
+
+  /* ── SVG GEARS ── */
+  .gear-layer {
+    position: fixed; inset: 0; z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .gear { transform-box: fill-box; transform-origin: center; }
+  .gear-1 { animation: spin-cw  18s linear infinite; }
+  .gear-2 { animation: spin-ccw 12s linear infinite; }
+  .gear-3 { animation: spin-cw  22s linear infinite; }
+  .gear-4 { animation: spin-ccw  9s linear infinite; }
+  .gear-5 { animation: spin-cw  15s linear infinite; }
+
+  @keyframes spin-cw  { to { transform: rotate(360deg); } }
+  @keyframes spin-ccw { to { transform: rotate(-360deg); } }
+
+  /* ── SPARK PARTICLES ── */
+  .sparks-layer {
+    position: fixed; inset: 0; z-index: 2;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .spark {
+    position: absolute;
+    width: 3px; height: 3px;
+    background: var(--spark);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--spark), 0 0 12px var(--amber);
+    animation: spark-float linear infinite;
+    opacity: 0;
+  }
+  @keyframes spark-float {
+    0%   { opacity: 0; transform: translateY(0) scale(0); }
+    10%  { opacity: 1; transform: translateY(-20px) scale(1); }
+    90%  { opacity: 0.8; }
+    100% { opacity: 0; transform: translateY(-120px) translateX(var(--sx,0px)) scale(0.3); }
+  }
+
+  /* ── LIGHTNING BOLTS ── */
+  .lightning-layer {
+    position: fixed; inset: 0; z-index: 2;
+    pointer-events: none;
+  }
+  .bolt {
+    position: absolute;
+    opacity: 0;
+    animation: bolt-flash linear infinite;
+  }
+  @keyframes bolt-flash {
+    0%, 92%, 100% { opacity: 0; }
+    93%, 95% { opacity: 0.7; }
+    94% { opacity: 0.2; }
+  }
+
+  /* ── SILHOUETTES ── */
+  .silhouette-layer {
+    position: fixed; inset: 0; z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  /* ── CLOCK FACES ── */
+  .clock-layer {
+    position: fixed; inset: 0; z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .clock-face { opacity: 0.06; }
+  .clock-hand-h { transform-origin: 50% 100%; animation: spin-cw 43200s linear infinite; }
+  .clock-hand-m { transform-origin: 50% 100%; animation: spin-cw  3600s linear infinite; }
+  .clock-hand-s { transform-origin: 50% 100%; animation: spin-cw    60s linear infinite; }
+
+  /* ── MAIN LAYOUT ── */
+  #app {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── HEADER ── */
+  #header {
+    flex: 0 0 auto;
+    padding: 8px 20px 6px;
+    background: linear-gradient(180deg, rgba(255,183,0,0.15) 0%, transparent 100%);
+    border-bottom: 1px solid var(--amber);
+    display: flex; align-items: center; justify-content: space-between;
+    position: relative;
+  }
+  #header::before {
+    content: ''; position: absolute; inset: 0;
+    background: repeating-linear-gradient(90deg,
+      transparent 0px, transparent 38px,
+      rgba(255,183,0,0.04) 38px, rgba(255,183,0,0.04) 40px);
+    pointer-events: none;
+  }
+  .header-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(11px, 2vw, 17px);
+    font-weight: 900;
+    color: var(--amber);
+    letter-spacing: 0.12em;
+    text-shadow: 0 0 20px var(--amber), 0 0 40px rgba(255,183,0,0.4);
+  }
+  .header-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(9px, 1.3vw, 12px);
+    color: var(--dim);
+    letter-spacing: 0.08em;
+  }
+  .header-badge {
+    background: var(--orange);
+    color: #fff;
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 3px;
+    letter-spacing: 0.1em;
+    box-shadow: 0 0 12px rgba(255,107,0,0.5);
+  }
+  .memory-hook {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(9px, 1.2vw, 11px);
+    color: var(--teal);
+    text-align: center;
+    letter-spacing: 0.06em;
+    animation: pulse-glow 3s ease-in-out infinite;
+  }
+  @keyframes pulse-glow {
+    0%,100% { text-shadow: 0 0 8px var(--teal); }
+    50%      { text-shadow: 0 0 18px var(--teal), 0 0 35px rgba(0,212,170,0.4); }
+  }
+
+  /* ── PROGRESS STRIP ── */
+  #progress-strip {
+    flex: 0 0 auto;
+    display: flex;
+    padding: 5px 20px;
+    gap: 8px;
+    background: rgba(0,0,0,0.3);
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+  }
+  .step-dot {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Orbitron', monospace;
+    font-size: 11px; font-weight: 700;
+    color: var(--dim);
+    transition: all 0.4s ease;
+    position: relative;
+  }
+  .step-dot.active {
+    border-color: var(--amber);
+    color: var(--amber);
+    box-shadow: 0 0 12px var(--amber), 0 0 24px rgba(255,183,0,0.3);
+    animation: dot-pulse 2s ease-in-out infinite;
+  }
+  .step-dot.done {
+    border-color: var(--teal);
+    background: var(--teal);
+    color: var(--dark);
+  }
+  @keyframes dot-pulse {
+    0%,100% { box-shadow: 0 0 12px var(--amber); }
+    50%      { box-shadow: 0 0 20px var(--amber), 0 0 40px rgba(255,183,0,0.5); }
+  }
+  .step-line {
+    flex: 1; height: 2px;
+    background: var(--border);
+    border-radius: 1px;
+    position: relative; overflow: hidden;
+  }
+  .step-line.done::after {
+    content: ''; position: absolute; inset: 0;
+    background: var(--teal);
+  }
+  .step-label {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 10px; font-weight: 600;
+    color: var(--dim);
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .step-dot.active + .step-label { color: var(--amber); }
+  .step-dot.done + .step-label   { color: var(--teal); }
+  .progress-steps { display: flex; align-items: center; gap: 6px; flex: 1; }
+
+  /* ── ACTIVITY WRAPPER ── */
+  #activity-area {
+    flex: 1 1 auto;
+    position: relative;
+    overflow: hidden;
+  }
+  .activity-screen {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column;
+    padding: 12px 16px;
+    gap: 10px;
+  }
+  .activity-screen.visible { display: flex; }
+
+  /* ── ACTIVITY HEADER ── */
+  .act-header {
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .act-number {
+    font-family: 'Orbitron', monospace;
+    font-size: 28px; font-weight: 900;
+    color: var(--amber);
+    line-height: 1;
+    text-shadow: 0 0 20px var(--amber);
+    flex-shrink: 0;
+  }
+  .act-info { flex: 1; }
+  .act-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(11px, 2vw, 15px);
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.08em;
+  }
+  .act-desc {
+    font-size: clamp(11px, 1.5vw, 13px);
+    color: var(--dim);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+  .act-desc strong { color: var(--amber); }
+  .act-desc .teal  { color: var(--teal); }
+
+  /* ── DROP ZONES + DRAG ITEMS ── */
+  .drag-zone {
+    display: flex; flex-wrap: wrap;
+    gap: 8px; padding: 10px 12px;
+    background: rgba(255,183,0,0.04);
+    border: 1px dashed rgba(255,183,0,0.3);
+    border-radius: 8px;
+    min-height: 60px;
+    align-items: center;
+  }
+  .drag-zone label {
+    width: 100%;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 0.08em;
+    margin-bottom: 2px;
+  }
+
+  .drag-item {
+    cursor: grab;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: clamp(12px, 1.6vw, 14px);
+    font-weight: 700;
+    display: flex; align-items: center; gap: 7px;
+    border: 2px solid;
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+    position: relative;
+    touch-action: none;
+    letter-spacing: 0.04em;
+  }
+  .drag-item:active { cursor: grabbing; }
+  .drag-item.dragging {
+    opacity: 0.5; transform: scale(0.95);
+    box-shadow: none !important;
+  }
+  .drag-item.placed {
+    opacity: 0.35; cursor: not-allowed;
+    pointer-events: none;
+  }
+  .drag-item .item-icon { font-size: 18px; }
+
+  /* Item colour themes */
+  .item-timer   { background: rgba(255,107,0,0.15); border-color: var(--orange); color: var(--orange); box-shadow: 0 0 10px rgba(255,107,0,0.2); }
+  .item-buzzer  { background: rgba(255,68,68,0.15);  border-color: var(--coral);  color: var(--coral);  box-shadow: 0 0 10px rgba(255,68,68,0.2); }
+  .item-battery { background: rgba(255,215,0,0.15);  border-color: var(--gold);   color: var(--gold);   box-shadow: 0 0 10px rgba(255,215,0,0.2); }
+  .item-trigger { background: rgba(0,212,170,0.12);  border-color: var(--teal);   color: var(--teal);   box-shadow: 0 0 10px rgba(0,212,170,0.2); }
+  .item-step    { background: rgba(68,136,255,0.12); border-color: var(--blue);   color: var(--blue);   box-shadow: 0 0 10px rgba(68,136,255,0.2); }
+  .item-r       { background: rgba(255,183,0,0.12);  border-color: var(--amber);  color: var(--amber);  box-shadow: 0 0 10px rgba(255,183,0,0.2); }
+  .item-c       { background: rgba(0,212,170,0.12);  border-color: var(--teal);   color: var(--teal);   box-shadow: 0 0 10px rgba(0,212,170,0.2); }
+
+  .drag-item:hover:not(.placed):not(.dragging) {
+    transform: translateY(-2px) scale(1.04);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4) !important;
+  }
+
+  /* ── DROP TARGET ── */
+  .drop-target {
+    border-radius: 8px;
+    border: 2px dashed;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    text-align: center;
+    transition: all 0.25s ease;
+    position: relative;
+    min-height: 60px;
+    padding: 8px;
+  }
+  .drop-target .slot-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .drop-target .slot-hint {
+    font-size: 11px;
+    color: var(--dim);
+    font-style: italic;
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .drop-target.slot-timer   { border-color: rgba(255,107,0,0.4);  background: rgba(255,107,0,0.05); }
+  .drop-target.slot-buzzer  { border-color: rgba(255,68,68,0.4);   background: rgba(255,68,68,0.05); }
+  .drop-target.slot-battery { border-color: rgba(255,215,0,0.4);   background: rgba(255,215,0,0.05); }
+  .drop-target.slot-trigger { border-color: rgba(0,212,170,0.4);   background: rgba(0,212,170,0.05); }
+  .drop-target.slot-step    { border-color: rgba(68,136,255,0.4);  background: rgba(68,136,255,0.05); }
+  .drop-target.slot-r       { border-color: rgba(255,183,0,0.4);   background: rgba(255,183,0,0.05); }
+  .drop-target.slot-c       { border-color: rgba(0,212,170,0.4);   background: rgba(0,212,170,0.05); }
+
+  .drop-target.over {
+    transform: scale(1.04);
+    box-shadow: 0 0 20px rgba(255,183,0,0.4);
+    border-style: solid; border-color: var(--amber) !important;
+  }
+  .drop-target.correct {
+    border-style: solid !important;
+    border-color: var(--teal) !important;
+    background: rgba(0,212,170,0.12) !important;
+    animation: correct-flash 0.5s ease;
+  }
+  .drop-target.wrong {
+    animation: wrong-shake 0.4s ease;
+  }
+  @keyframes correct-flash {
+    0%   { box-shadow: 0 0 0 rgba(0,212,170,0); }
+    50%  { box-shadow: 0 0 30px rgba(0,212,170,0.8); }
+    100% { box-shadow: 0 0 12px rgba(0,212,170,0.2); }
+  }
+  @keyframes wrong-shake {
+    0%,100% { transform: translateX(0); }
+    20%     { transform: translateX(-8px); }
+    40%     { transform: translateX(8px); }
+    60%     { transform: translateX(-5px); }
+    80%     { transform: translateX(5px); }
+  }
+  .drop-target.correct .slot-hint { display: none; }
+  .drop-target.correct .placed-item-display {
+    display: flex !important;
+  }
+  .placed-item-display {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  /* ── FEEDBACK BAR ── */
+  .feedback-bar {
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: clamp(12px, 1.6vw, 14px);
+    font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid;
+    min-height: 36px;
+    transition: all 0.3s ease;
+  }
+  .feedback-bar.neutral { border-color: var(--border); background: rgba(0,0,0,0.2); color: var(--dim); }
+  .feedback-bar.good    { border-color: var(--teal);   background: rgba(0,212,170,0.1); color: var(--teal); }
+  .feedback-bar.hint    { border-color: var(--amber);  background: rgba(255,183,0,0.08); color: var(--amber); }
+
+  /* ── NEXT BUTTON ── */
+  .next-btn {
+    display: none;
+    align-self: flex-end;
+    padding: 10px 28px;
+    background: linear-gradient(135deg, var(--orange), var(--amber));
+    color: var(--dark);
+    border: none; border-radius: 8px;
+    font-family: 'Orbitron', monospace;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(255,183,0,0.4);
+    transition: transform 0.15s, box-shadow 0.15s;
+    animation: btn-appear 0.4s ease both;
+  }
+  .next-btn.show { display: flex; align-items: center; gap: 8px; }
+  .next-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 30px rgba(255,183,0,0.6); }
+  @keyframes btn-appear {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── ACTIVITY 1 CIRCUIT DIAGRAM ── */
+  .circuit-diagram {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+    gap: 4px;
+    align-items: center;
+    min-height: 0;
+    padding: 4px 0;
+  }
+  .circuit-wire {
+    height: 3px;
+    background: linear-gradient(90deg, var(--amber), rgba(255,183,0,0.3));
+    border-radius: 2px;
+    position: relative;
+    overflow: visible;
+  }
+  .circuit-wire::after {
+    content: '▶';
+    position: absolute; right: -6px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--amber); font-size: 10px;
+  }
+  .circuit-arrow {
+    color: var(--amber); font-size: 14px;
+    text-align: center; padding: 0 4px;
+  }
+
+  /* ── ACTIVITY 2 SEQUENCE ── */
+  .sequence-container {
+    display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto;
+  }
+  .sequence-slots {
+    display: flex; gap: 8px; flex-wrap: nowrap; overflow-x: auto;
+  }
+  .sequence-slot {
+    flex: 1; min-width: 90px;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 4px;
+  }
+  .sequence-slot .slot-num {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px; color: var(--dim);
+    letter-spacing: 0.1em;
+  }
+  .seq-drop {
+    width: 100%; min-height: 70px;
+    border-radius: 10px; border: 2px dashed rgba(68,136,255,0.4);
+    background: rgba(68,136,255,0.05);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; padding: 6px;
+    transition: all 0.25s;
+  }
+  .seq-drop .seq-hint { font-size: 10px; color: var(--dim); font-style: italic; }
+  .seq-drop.over      { border-color: var(--amber); border-style: solid; transform: scale(1.05); box-shadow: 0 0 16px rgba(255,183,0,0.4); }
+  .seq-drop.correct   { border-color: var(--teal) !important; border-style: solid !important; background: rgba(0,212,170,0.1) !important; animation: correct-flash 0.5s; }
+  .seq-drop.wrong     { animation: wrong-shake 0.4s; }
+
+  /* ── ACTIVITY 3 TIMING CIRCUIT ── */
+  .timing-board {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 8px; flex: 1 1 auto;
+  }
+  .timing-slot {
+    border-radius: 10px; border: 2px dashed;
+    padding: 10px 12px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; gap: 6px;
+    transition: all 0.25s;
+    min-height: 80px;
+  }
+  .timing-slot .ts-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px; letter-spacing: 0.1em; color: var(--dim);
+  }
+  .timing-slot .ts-question {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px; color: var(--amber); font-weight: 600;
+  }
+  .timing-slot .ts-hint { font-size: 11px; color: var(--dim); font-style: italic; }
+  .timing-slot.slot-r   { border-color: rgba(255,183,0,0.4);  background: rgba(255,183,0,0.04); }
+  .timing-slot.slot-c   { border-color: rgba(0,212,170,0.4);  background: rgba(0,212,170,0.04); }
+  .timing-slot.slot-pin2 { border-color: rgba(68,136,255,0.4); background: rgba(68,136,255,0.04); grid-column: 1; }
+  .timing-slot.slot-pin3 { border-color: rgba(255,68,68,0.4);  background: rgba(255,68,68,0.04);  grid-column: 2; }
+  .timing-slot.over  { border-style: solid !important; border-color: var(--amber) !important; transform: scale(1.03); box-shadow: 0 0 20px rgba(255,183,0,0.4); }
+  .timing-slot.correct { border-style: solid !important; border-color: var(--teal) !important; background: rgba(0,212,170,0.1) !important; animation: correct-flash 0.5s; }
+  .timing-slot.wrong   { animation: wrong-shake 0.4s; }
+
+  /* ── BUZZER ANIMATION ── */
+  .buzzer-anim {
+    display: none;
+    align-items: center; justify-content: center;
+    gap: 10px; padding: 10px;
+    background: rgba(255,68,68,0.1); border: 1px solid rgba(255,68,68,0.3);
+    border-radius: 8px; font-family: 'Share Tech Mono', monospace; font-size: 12px;
+    color: var(--coral);
+  }
+  .buzzer-anim.active { display: flex; animation: alarm-blink 0.5s ease infinite; }
+  @keyframes alarm-blink {
+    0%,100% { background: rgba(255,68,68,0.1); }
+    50%     { background: rgba(255,68,68,0.25); box-shadow: 0 0 20px rgba(255,68,68,0.4); }
+  }
+  .buzzer-rings {
+    display: flex; gap: 3px;
+    animation: ring-wave 0.3s ease infinite alternate;
+  }
+  .ring { width: 4px; background: var(--coral); border-radius: 2px; }
+  .ring:nth-child(1) { height: 12px; animation-delay: 0s; }
+  .ring:nth-child(2) { height: 20px; animation-delay: 0.05s; }
+  .ring:nth-child(3) { height: 28px; animation-delay: 0.1s; }
+  .ring:nth-child(4) { height: 20px; animation-delay: 0.15s; }
+  .ring:nth-child(5) { height: 12px; animation-delay: 0.2s; }
+  @keyframes ring-wave {
+    from { transform: scaleY(0.6); }
+    to   { transform: scaleY(1); }
+  }
+
+  /* ── POPUP OVERLAY ── */
+  #popup-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(5,5,8,0.85);
+    display: none; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #popup-overlay.show { display: flex; }
+
+  .popup {
+    background: var(--panel);
+    border: 2px solid var(--amber);
+    border-radius: 16px;
+    padding: 28px 32px;
+    max-width: 440px; width: 90%;
+    text-align: center;
+    box-shadow: 0 0 60px rgba(255,183,0,0.3), 0 20px 60px rgba(0,0,0,0.8);
+    animation: popup-in 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+    position: relative;
+    overflow: hidden;
+  }
+  .popup::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(255,183,0,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  @keyframes popup-in {
+    from { opacity: 0; transform: scale(0.7) translateY(30px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .popup-icon { font-size: 48px; margin-bottom: 12px; animation: icon-bounce 1s ease infinite; }
+  @keyframes icon-bounce {
+    0%,100% { transform: translateY(0); }
+    50%     { transform: translateY(-8px); }
+  }
+  .popup-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px; font-weight: 900;
+    color: var(--amber); letter-spacing: 0.1em;
+    text-shadow: 0 0 20px var(--amber);
+    margin-bottom: 8px;
+  }
+  .popup-body {
+    font-size: 14px; line-height: 1.6;
+    color: var(--text); margin-bottom: 16px;
+  }
+  .popup-body .highlight { color: var(--teal); font-weight: 700; }
+  .popup-body .orange    { color: var(--orange); font-weight: 700; }
+  .popup-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 30px;
+    background: linear-gradient(135deg, var(--orange), var(--amber));
+    color: var(--dark); border: none; border-radius: 8px;
+    font-family: 'Orbitron', monospace; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.1em; cursor: pointer;
+    box-shadow: 0 0 20px rgba(255,183,0,0.4);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .popup-btn:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(255,183,0,0.6); }
+  .confetti-burst { position: absolute; top: 0; left: 50%; transform: translateX(-50%); pointer-events: none; }
+
+  /* ── FINAL SUCCESS ── */
+  .popup.final { border-color: var(--teal); box-shadow: 0 0 60px rgba(0,212,170,0.4), 0 20px 60px rgba(0,0,0,0.8); }
+  .popup.final .popup-title { color: var(--teal); text-shadow: 0 0 20px var(--teal); }
+  .popup.final .popup-btn { background: linear-gradient(135deg, var(--teal), #00A8FF); }
+
+  /* ── GOLDEN RULE BOX ── */
+  .golden-rule {
+    background: rgba(255,183,0,0.06);
+    border: 1px solid rgba(255,183,0,0.3);
+    border-radius: 8px; padding: 8px 12px;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--amber);
+    font-family: 'Rajdhani', sans-serif; font-weight: 600;
+  }
+  .golden-rule .gr-icon { font-size: 16px; }
+
+  /* ── ANALOGY CHIP ── */
+  .analogy-chip {
+    background: rgba(0,212,170,0.06);
+    border: 1px solid rgba(0,212,170,0.25);
+    border-radius: 6px; padding: 6px 10px;
+    font-size: 11px; color: var(--teal);
+    font-family: 'Rajdhani', sans-serif;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── ACTIVITY 1 SPECIFIC ── */
+  .act1-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    flex: 1 1 auto;
+  }
+  .act1-slot-wrap {
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .act1-slot-wrap .slot-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px; color: var(--dim); letter-spacing: 0.1em;
+    text-align: center;
+  }
+  .act1-drop {
+    flex: 1; min-height: 80px;
+    border-radius: 10px; border: 2px dashed;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 5px; padding: 8px; text-align: center;
+    transition: all 0.25s;
+  }
+  .act1-drop .drop-icon { font-size: 22px; opacity: 0.4; }
+  .act1-drop .drop-hint { font-size: 10px; color: var(--dim); font-style: italic; }
+  .act1-drop.slot-timer   { border-color: rgba(255,107,0,0.4);  background: rgba(255,107,0,0.05); }
+  .act1-drop.slot-buzzer  { border-color: rgba(255,68,68,0.4);   background: rgba(255,68,68,0.05); }
+  .act1-drop.slot-battery { border-color: rgba(255,215,0,0.4);   background: rgba(255,215,0,0.05); }
+  .act1-drop.slot-trigger { border-color: rgba(0,212,170,0.4);   background: rgba(0,212,170,0.05); }
+  .act1-drop.over         { border-style: solid; border-color: var(--amber) !important; transform: scale(1.05); box-shadow: 0 0 20px rgba(255,183,0,0.4); }
+  .act1-drop.correct      { border-style: solid !important; border-color: var(--teal) !important; background: rgba(0,212,170,0.1) !important; animation: correct-flash 0.5s; }
+  .act1-drop.wrong        { animation: wrong-shake 0.4s; }
+
+  /* ── WIRE CONNECTIONS ── */
+  .wire-display {
+    display: flex; align-items: center; justify-content: center;
+    padding: 4px 0; overflow: hidden;
+  }
+  .wire-svg { width: 100%; max-height: 40px; }
+
+  /* ── ITEMS SOURCE ZONE ── */
+  .items-source {
+    display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border); border-radius: 8px;
+  }
+  .items-source-label {
+    width: 100%;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px; color: var(--dim); letter-spacing: 0.1em;
+    margin-bottom: 2px;
+  }
+
+  /* ── GLOWING CIRCUIT LINES ── */
+  @keyframes wire-flow {
+    0%   { stroke-dashoffset: 200; }
+    100% { stroke-dashoffset: 0; }
+  }
+  .live-wire {
+    stroke-dasharray: 8 4;
+    animation: wire-flow 2s linear infinite;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ BACKGROUND LAYERS ═══════════════════ -->
+
+<!-- GEARS SVG -->
+<div class="gear-layer">
+<svg width="100%" height="100%" viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="glow"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <!-- Gear 1 — top left large -->
+  <g class="gear gear-1" transform="translate(80,80)">
+    <polygon points="0,-70 13,-62 24,-67 30,-55 42,-52 42,-38 55,-30 50,-17 58,-6 48,4 52,17 40,22 38,36 25,35 18,47 5,42 -5,48 -18,43 -25,35 -38,36 -40,22 -52,17 -48,4 -58,-6 -50,-17 -55,-30 -42,-38 -42,-52 -30,-55 -24,-67 -13,-62" fill="none" stroke="rgba(255,183,0,0.12)" stroke-width="2" filter="url(#glow)"/>
+    <circle r="28" fill="none" stroke="rgba(255,183,0,0.08)" stroke-width="3"/>
+    <circle r="8" fill="rgba(255,183,0,0.1)"/>
+  </g>
+  <!-- Gear 2 — top right medium -->
+  <g class="gear gear-2" transform="translate(1320,60)">
+    <polygon points="0,-50 9,-44 17,-48 21,-39 30,-37 30,-27 39,-21 36,-12 41,-4 34,3 37,12 28,16 27,26 18,25 13,34 4,30 -4,34 -13,30 -18,25 -27,26 -28,16 -37,12 -34,3 -41,-4 -36,-12 -39,-21 -30,-27 -30,-37 -21,-39 -17,-48 -9,-44" fill="none" stroke="rgba(255,107,0,0.1)" stroke-width="2"/>
+    <circle r="20" fill="none" stroke="rgba(255,107,0,0.06)" stroke-width="2"/>
+  </g>
+  <!-- Gear 3 — bottom left small -->
+  <g class="gear gear-3" transform="translate(60,820)">
+    <polygon points="0,-40 7,-35 14,-38 17,-31 24,-29 24,-21 31,-17 28,-10 33,-3 27,2 29,10 22,13 21,21 14,20 10,27 3,24 -3,24 -10,27 -14,20 -21,21 -22,13 -29,10 -27,2 -33,-3 -28,-10 -31,-17 -24,-21 -24,-29 -17,-31 -14,-38 -7,-35" fill="none" stroke="rgba(0,212,170,0.1)" stroke-width="2"/>
+  </g>
+  <!-- Gear 4 — bottom right large -->
+  <g class="gear gear-4" transform="translate(1350,840)">
+    <polygon points="0,-65 12,-57 22,-62 28,-50 39,-47 39,-35 51,-27 46,-15 53,-6 44,4 48,16 37,20 35,33 23,32 17,43 5,38 -5,43 -17,38 -23,32 -35,33 -37,20 -48,16 -44,4 -53,-6 -46,-15 -51,-27 -39,-35 -39,-47 -28,-50 -22,-62 -12,-57" fill="none" stroke="rgba(255,68,68,0.08)" stroke-width="2"/>
+    <circle r="26" fill="none" stroke="rgba(255,68,68,0.05)" stroke-width="2"/>
+  </g>
+  <!-- Gear 5 — centre faint -->
+  <g class="gear gear-5" transform="translate(700,450)">
+    <polygon points="0,-90 17,-80 31,-86 39,-72 54,-67 54,-51 70,-41 64,-25 74,-11 62,2 67,18 52,25 50,42 35,41 27,56 11,50 -11,56 -27,50 -35,41 -50,42 -52,25 -67,18 -62,2 -74,-11 -64,-25 -70,-41 -54,-51 -54,-67 -39,-72 -31,-86 -17,-80" fill="none" stroke="rgba(255,183,0,0.04)" stroke-width="2"/>
+    <circle r="36" fill="none" stroke="rgba(255,183,0,0.03)" stroke-width="2"/>
+  </g>
+</svg>
+</div>
+
+<!-- CLOCK FACES -->
+<div class="clock-layer">
+<svg width="100%" height="100%" viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+  <!-- Clock 1 -->
+  <g class="clock-face" transform="translate(200,450)">
+    <circle r="100" fill="none" stroke="rgba(255,183,0,0.3)" stroke-width="2"/>
+    <line class="clock-hand-h" x1="0" y1="0" x2="0" y2="-55" stroke="rgba(255,183,0,0.5)" stroke-width="3" stroke-linecap="round"/>
+    <line class="clock-hand-m" x1="0" y1="0" x2="0" y2="-75" stroke="rgba(255,183,0,0.4)" stroke-width="2" stroke-linecap="round"/>
+    <line class="clock-hand-s" x1="0" y1="0" x2="0" y2="-85" stroke="rgba(255,107,0,0.6)" stroke-width="1" stroke-linecap="round"/>
+    <circle r="5" fill="rgba(255,183,0,0.5)"/>
+    <!-- tick marks -->
+    <g stroke="rgba(255,183,0,0.25)" stroke-width="1">
+      <line x1="0" y1="-95" x2="0" y2="-88" transform="rotate(0)"/>
+      <line x1="0" y1="-95" x2="0" y2="-88" transform="rotate(30)"/>
+      <line x1="0" y1="-95" x2="0" y2="-88" transform="rotate(60)"/>
+      <line x1="0" y1="-95" x2="0" y2="-88" transform="rotate(90)"/>
+      <line x1="0" y1="-95" x2="0" y2="-88" transform="rotate(120)"/>
+      <line x1="0" y1="-95" x2="0" y2="-88" transform="rotate(150)"/>
+      <line x1="0" y1="-95" x2="0" y2="-88" transform="rotate(180)"/>
+      <line x1="0" y1="-95" x2="0" y2="-88" transform="rotate(210)"/>
+      <line x1="0" y1="-95" x2="0" y2="-88" transform="rotate(240)"/>
+      <line x1="0" y1="-95" x2="0" y2="-88" transform="rotate(270)"/>
+      <line x1="0" y1="-95" x2="0" y2="-88" transform="rotate(300)"/>
+      <line x1="0" y1="-95" x2="0" y2="-88" transform="rotate(330)"/>
+    </g>
+  </g>
+  <!-- Clock 2 -->
+  <g class="clock-face" transform="translate(1150,200)" style="opacity:0.04">
+    <circle r="70" fill="none" stroke="rgba(0,212,170,0.5)" stroke-width="2"/>
+    <line class="clock-hand-m" x1="0" y1="0" x2="0" y2="-52" stroke="rgba(0,212,170,0.7)" stroke-width="2" stroke-linecap="round"/>
+    <line class="clock-hand-s" x1="0" y1="0" x2="0" y2="-60" stroke="rgba(0,212,170,0.6)" stroke-width="1" stroke-linecap="round"/>
+    <circle r="4" fill="rgba(0,212,170,0.5)"/>
+  </g>
+</svg>
+</div>
+
+<!-- SPARKS -->
+<div class="sparks-layer" id="sparks-layer"></div>
+
+<!-- LIGHTNING -->
+<div class="lightning-layer" id="lightning-layer"></div>
+
+<!-- SILHOUETTES -->
+<div class="silhouette-layer">
+<svg width="100%" height="100%" viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+  <!-- City skyline silhouette -->
+  <path d="M0,900 L0,700 L50,700 L50,680 L80,680 L80,660 L100,660 L100,640 L120,640 L120,660 L140,660 L140,700 L160,700 L160,670 L200,670 L200,700 L220,700 L220,650 L230,640 L240,630 L250,640 L260,650 L260,700 L300,700 L300,680 L340,680 L340,700 L380,700 L380,720 L1400,720 L1400,900 Z" fill="rgba(10,10,20,0.6)"/>
+  <!-- Building windows faint -->
+  <rect x="55" y="685" width="8" height="6" fill="rgba(255,183,0,0.06)" rx="1"/>
+  <rect x="68" y="685" width="8" height="6" fill="rgba(255,183,0,0.04)" rx="1"/>
+  <rect x="105" y="645" width="8" height="6" fill="rgba(255,183,0,0.05)" rx="1"/>
+  <rect x="118" y="645" width="8" height="6" fill="rgba(255,183,0,0.03)" rx="1"/>
+</svg>
+</div>
+
+<!-- ═══════════════════ MAIN APP ═══════════════════ -->
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div>
+      <div class="header-title">⚡ 555 TIMER — MONOSTABLE BURGLAR ALARM</div>
+      <div class="header-sub">ELECTRONICS FUNDAMENTALS · 555 TIMER IC APPLICATIONS</div>
+    </div>
+    <div class="memory-hook">📻 Pin 2 HEARS the burglar · Pin 3 SHOUTS the alarm 🔔</div>
+    <div class="header-badge">INTERACTIVE LAB</div>
+  </div>
+
+  <!-- PROGRESS STRIP -->
+  <div id="progress-strip">
+    <div class="progress-steps">
+      <div class="step-dot active" id="dot-1">1</div>
+      <div class="step-label">ASSEMBLE</div>
+      <div class="step-line" id="line-1"></div>
+      <div class="step-dot" id="dot-2">2</div>
+      <div class="step-label">SIMULATE</div>
+      <div class="step-line" id="line-2"></div>
+      <div class="step-dot" id="dot-3">3</div>
+      <div class="step-label">TIMING LOGIC</div>
+    </div>
+  </div>
+
+  <!-- ═══ ACTIVITY AREA ═══ -->
+  <div id="activity-area">
+
+    <!-- ──────────────── ACTIVITY 1 ──────────────── -->
+    <div class="activity-screen visible" id="screen-1">
+      <div class="act-header">
+        <div class="act-number">01</div>
+        <div class="act-info">
+          <div class="act-title">ASSEMBLE THE CIRCUIT</div>
+          <div class="act-desc">
+            Drag each component into its <strong>correct slot</strong> to build the Monostable Burglar Alarm.
+            <span class="teal">Just like placing parts on a breadboard!</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Items to drag -->
+      <div class="items-source" id="act1-source">
+        <div class="items-source-label">▸ DRAG THESE COMPONENTS</div>
+        <div class="drag-item item-timer"   data-id="timer"   draggable="true" id="d1-timer">
+          <span class="item-icon">🔲</span> 555 TIMER IC
+        </div>
+        <div class="drag-item item-buzzer"  data-id="buzzer"  draggable="true" id="d1-buzzer">
+          <span class="item-icon">🔔</span> PIEZO BUZZER
+        </div>
+        <div class="drag-item item-battery" data-id="battery" draggable="true" id="d1-battery">
+          <span class="item-icon">🔋</span> 9V BATTERY
+        </div>
+        <div class="drag-item item-trigger" data-id="trigger" draggable="true" id="d1-trigger">
+          <span class="item-icon">🔌</span> TRIGGER WIRE
+        </div>
+      </div>
+
+      <!-- Drop grid -->
+      <div class="act1-grid">
+        <div class="act1-slot-wrap">
+          <div class="slot-label">POWER SOURCE</div>
+          <div class="act1-drop slot-battery" data-accepts="battery" id="s1-battery">
+            <div class="drop-icon">🔋</div>
+            <div class="drop-hint">Drop battery here</div>
+            <div class="placed-item-display" style="display:none">🔋 9V BATTERY</div>
+          </div>
+        </div>
+        <div class="act1-slot-wrap">
+          <div class="slot-label">BRAIN (PIN 2 &amp; 3)</div>
+          <div class="act1-drop slot-timer" data-accepts="timer" id="s1-timer">
+            <div class="drop-icon">🔲</div>
+            <div class="drop-hint">Drop 555 Timer IC here</div>
+            <div class="placed-item-display" style="display:none">🔲 555 TIMER IC</div>
+          </div>
+        </div>
+        <div class="act1-slot-wrap">
+          <div class="slot-label">INPUT (PIN 2)</div>
+          <div class="act1-drop slot-trigger" data-accepts="trigger" id="s1-trigger">
+            <div class="drop-icon">🔌</div>
+            <div class="drop-hint">Drop trigger wire here</div>
+            <div class="placed-item-display" style="display:none">🔌 TRIGGER WIRE</div>
+          </div>
+        </div>
+        <div class="act1-slot-wrap">
+          <div class="slot-label">OUTPUT (PIN 3)</div>
+          <div class="act1-drop slot-buzzer" data-accepts="buzzer" id="s1-buzzer">
+            <div class="drop-icon">🔔</div>
+            <div class="drop-hint">Drop buzzer here</div>
+            <div class="placed-item-display" style="display:none">🔔 PIEZO BUZZER</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Analogy + golden rule -->
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <div class="analogy-chip">🔔 Like a school bell — ONE press, ONE ring, then silence!</div>
+        <div class="golden-rule"><span class="gr-icon">📏</span> Bigger R or Bigger C = Longer alarm duration</div>
+      </div>
+
+      <div class="feedback-bar neutral" id="fb1">
+        ⚡ Drag all 4 components to their correct slots to complete the circuit!
+      </div>
+      <button class="next-btn" id="next-1">NEXT: SIMULATE ALARM →</button>
+    </div>
+
+    <!-- ──────────────── ACTIVITY 2 ──────────────── -->
+    <div class="activity-screen" id="screen-2">
+      <div class="act-header">
+        <div class="act-number">02</div>
+        <div class="act-info">
+          <div class="act-title">SIMULATE THE ALARM SEQUENCE</div>
+          <div class="act-desc">
+            Drag the <strong>alarm steps</strong> into the correct order. What happens when the burglar is detected?
+            <span class="teal">Pin 2 HEARS — then Pin 3 SHOUTS!</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sequence steps to drag -->
+      <div class="items-source" id="act2-source">
+        <div class="items-source-label">▸ DRAG THESE STEPS INTO ORDER</div>
+        <div class="drag-item item-step" data-id="step-a" draggable="true" id="d2-a">
+          <span class="item-icon">📍</span> Pin 2 goes LOW
+        </div>
+        <div class="drag-item item-step" data-id="step-b" draggable="true" id="d2-b">
+          <span class="item-icon">🔊</span> Buzzer ACTIVATES
+        </div>
+        <div class="drag-item item-step" data-id="step-c" draggable="true" id="d2-c">
+          <span class="item-icon">⚡</span> Output (Pin 3) goes HIGH
+        </div>
+        <div class="drag-item item-step" data-id="step-d" draggable="true" id="d2-d">
+          <span class="item-icon">🚶</span> Burglar detected!
+        </div>
+        <div class="drag-item item-step" data-id="step-e" draggable="true" id="d2-e">
+          <span class="item-icon">😴</span> Alarm stops automatically
+        </div>
+      </div>
+
+      <!-- Sequence drop slots -->
+      <div class="sequence-container">
+        <div class="sequence-slots">
+          <div class="sequence-slot">
+            <div class="slot-num">STEP 1</div>
+            <div class="seq-drop" data-accepts="step-d" id="sq1">
+              <div class="seq-hint">First thing that happens…</div>
+              <div class="placed-item-display" style="display:none; font-size:12px; flex-direction:column; gap:3px">
+                <span style="font-size:20px">🚶</span>Burglar detected!
+              </div>
+            </div>
+          </div>
+          <div style="align-self:center; color:var(--amber); font-size:18px;">▶</div>
+          <div class="sequence-slot">
+            <div class="slot-num">STEP 2</div>
+            <div class="seq-drop" data-accepts="step-a" id="sq2">
+              <div class="seq-hint">Pin 2 reacts…</div>
+              <div class="placed-item-display" style="display:none; font-size:12px; flex-direction:column; gap:3px">
+                <span style="font-size:20px">📍</span>Pin 2 goes LOW
+              </div>
+            </div>
+          </div>
+          <div style="align-self:center; color:var(--amber); font-size:18px;">▶</div>
+          <div class="sequence-slot">
+            <div class="slot-num">STEP 3</div>
+            <div class="seq-drop" data-accepts="step-c" id="sq3">
+              <div class="seq-hint">555 Timer responds…</div>
+              <div class="placed-item-display" style="display:none; font-size:12px; flex-direction:column; gap:3px">
+                <span style="font-size:20px">⚡</span>Output (Pin 3) goes HIGH
+              </div>
+            </div>
+          </div>
+          <div style="align-self:center; color:var(--amber); font-size:18px;">▶</div>
+          <div class="sequence-slot">
+            <div class="slot-num">STEP 4</div>
+            <div class="seq-drop" data-accepts="step-b" id="sq4">
+              <div class="seq-hint">Then…</div>
+              <div class="placed-item-display" style="display:none; font-size:12px; flex-direction:column; gap:3px">
+                <span style="font-size:20px">🔊</span>Buzzer ACTIVATES
+              </div>
+            </div>
+          </div>
+          <div style="align-self:center; color:var(--amber); font-size:18px;">▶</div>
+          <div class="sequence-slot">
+            <div class="slot-num">STEP 5</div>
+            <div class="seq-drop" data-accepts="step-e" id="sq5">
+              <div class="seq-hint">Finally…</div>
+              <div class="placed-item-display" style="display:none; font-size:12px; flex-direction:column; gap:3px">
+                <span style="font-size:20px">😴</span>Alarm stops automatically
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Buzzer animation -->
+        <div class="buzzer-anim" id="buzzer-anim">
+          <div class="buzzer-rings">
+            <div class="ring"></div><div class="ring"></div><div class="ring"></div>
+            <div class="ring"></div><div class="ring"></div>
+          </div>
+          🚨 ALARM ACTIVE! Capacitor is charging... buzzer will stop when it is full! 🚨
+          <div class="buzzer-rings">
+            <div class="ring"></div><div class="ring"></div><div class="ring"></div>
+            <div class="ring"></div><div class="ring"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="analogy-chip">🫙 Like a matka (clay pot) filling up — when full, the alarm goes quiet by itself!</div>
+
+      <div class="feedback-bar neutral" id="fb2">
+        ⚡ Drag each step into the correct order to see the alarm in action!
+      </div>
+      <button class="next-btn" id="next-2">NEXT: TIMING LOGIC →</button>
+    </div>
+
+    <!-- ──────────────── ACTIVITY 3 ──────────────── -->
+    <div class="activity-screen" id="screen-3">
+      <div class="act-header">
+        <div class="act-number">03</div>
+        <div class="act-info">
+          <div class="act-title">COMPLETE THE TIMING LOGIC</div>
+          <div class="act-desc">
+            Drag the <strong>right components</strong> into each slot to build the monostable delay circuit.
+            <span class="teal">R controls flow speed. C controls how long it lasts.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Items to drag -->
+      <div class="items-source" id="act3-source">
+        <div class="items-source-label">▸ DRAG THESE INTO THE CORRECT SLOTS</div>
+        <div class="drag-item item-r" data-id="resistor" draggable="true" id="d3-r">
+          <span class="item-icon">🟫</span> RESISTOR (R) — 1MΩ
+        </div>
+        <div class="drag-item item-c" data-id="capacitor" draggable="true" id="d3-c">
+          <span class="item-icon">🟦</span> CAPACITOR (C) — 10µF
+        </div>
+        <div class="drag-item item-trigger" data-id="pin2" draggable="true" id="d3-pin2">
+          <span class="item-icon">👂</span> PIN 2 — TRIGGER INPUT
+        </div>
+        <div class="drag-item item-buzzer" data-id="pin3" draggable="true" id="d3-pin3">
+          <span class="item-icon">📢</span> PIN 3 — ALARM OUTPUT
+        </div>
+      </div>
+
+      <!-- Timing board -->
+      <div class="timing-board">
+        <div class="timing-slot slot-r" data-accepts="resistor" id="ts-r">
+          <div class="ts-label">TIMING COMPONENT 1</div>
+          <div class="ts-question">Like a water tap — controls how FAST electricity flows</div>
+          <div class="ts-hint">Drop component here</div>
+          <div class="placed-item-display" style="display:none">🟫 RESISTOR (R) — 1MΩ</div>
+        </div>
+        <div class="timing-slot slot-c" data-accepts="capacitor" id="ts-c">
+          <div class="ts-label">TIMING COMPONENT 2</div>
+          <div class="ts-question">Like a matka — stores charge. When FULL, alarm stops!</div>
+          <div class="ts-hint">Drop component here</div>
+          <div class="placed-item-display" style="display:none">🟦 CAPACITOR (C) — 10µF</div>
+        </div>
+        <div class="timing-slot slot-pin2" data-accepts="pin2" id="ts-pin2">
+          <div class="ts-label">THE EARS OF THE CIRCUIT</div>
+          <div class="ts-question">Goes LOW when burglar is detected. Starts the alarm!</div>
+          <div class="ts-hint">Drop pin here</div>
+          <div class="placed-item-display" style="display:none">👂 PIN 2 — TRIGGER INPUT</div>
+        </div>
+        <div class="timing-slot slot-pin3" data-accepts="pin3" id="ts-pin3">
+          <div class="ts-label">THE VOICE OF THE CIRCUIT</div>
+          <div class="ts-question">Goes HIGH to power the buzzer. Shouts the alarm!</div>
+          <div class="ts-hint">Drop pin here</div>
+          <div class="placed-item-display" style="display:none">📢 PIN 3 — ALARM OUTPUT</div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <div class="analogy-chip">🚰 Bigger R (thicker pipe) = flows slower = alarm lasts LONGER!</div>
+        <div class="analogy-chip">🫙 Bigger C (larger pot) = holds more = alarm lasts LONGER!</div>
+      </div>
+
+      <div class="feedback-bar neutral" id="fb3">
+        ⚡ Complete the timing circuit — remember the Golden Rule: Bigger R or C = Longer alarm!
+      </div>
+      <button class="next-btn" id="next-3">🎉 FINISH!</button>
+    </div>
+
+  </div><!-- /activity-area -->
+</div><!-- /app -->
+
+<!-- ═══════════════════ POPUPS ═══════════════════ -->
+<div id="popup-overlay">
+  <div class="popup" id="popup-box">
+    <div class="popup-icon" id="popup-icon">🎉</div>
+    <div class="popup-title" id="popup-title">CIRCUIT ASSEMBLED!</div>
+    <div class="popup-body" id="popup-body">Great work!</div>
+    <button class="popup-btn" id="popup-btn">CONTINUE →</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  BACKGROUND — SPARKS
+// ═══════════════════════════════════════════════════════
+(function initSparks() {
+  const layer = document.getElementById('sparks-layer');
+  for (let i = 0; i < 30; i++) {
+    const s = document.createElement('div');
+    s.className = 'spark';
+    s.style.left  = Math.random() * 100 + 'vw';
+    s.style.bottom = Math.random() * 30 + 'vh';
+    s.style.setProperty('--sx', (Math.random() - 0.5) * 60 + 'px');
+    const dur = 3 + Math.random() * 5;
+    s.style.animationDuration    = dur + 's';
+    s.style.animationDelay       = Math.random() * 8 + 's';
+    s.style.width  = (2 + Math.random() * 3) + 'px';
+    s.style.height = s.style.width;
+    layer.appendChild(s);
+  }
+})();
+
+// ═══════════════════════════════════════════════════════
+//  BACKGROUND — LIGHTNING
+// ═══════════════════════════════════════════════════════
+(function initLightning() {
+  const layer = document.getElementById('lightning-layer');
+  const bolts = [
+    { left:'12%', top:'5%',  w:60, h:180, delay:'0s',   dur:'8s'  },
+    { left:'85%', top:'10%', w:50, h:150, delay:'3s',   dur:'11s' },
+    { left:'55%', top:'2%',  w:40, h:130, delay:'6s',   dur:'14s' },
+    { left:'30%', top:'8%',  w:35, h:100, delay:'1.5s', dur:'9s'  },
+  ];
+  bolts.forEach(b => {
+    const el = document.createElement('div');
+    el.className = 'bolt';
+    el.style.left = b.left; el.style.top = b.top;
+    el.style.animationDelay    = b.delay;
+    el.style.animationDuration = b.dur;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('width', b.w); svg.setAttribute('height', b.h);
+    svg.setAttribute('viewBox', `0 0 ${b.w} ${b.h}`);
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    // Random zigzag lightning path
+    let d = `M${b.w/2},0`;
+    let x = b.w/2, y = 0;
+    while(y < b.h) {
+      x += (Math.random()-0.5)*b.w*0.8;
+      x = Math.max(5, Math.min(b.w-5, x));
+      y += 15 + Math.random()*20;
+      d += ` L${x.toFixed(0)},${Math.min(y,b.h).toFixed(0)}`;
+    }
+    path.setAttribute('d', d);
+    path.setAttribute('stroke', '#FFEE44');
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('filter', 'drop-shadow(0 0 6px #FFEE44)');
+    svg.appendChild(path);
+    el.appendChild(svg);
+    layer.appendChild(el);
+  });
+})();
+
+// ═══════════════════════════════════════════════════════
+//  DRAG & DROP ENGINE
+// ═══════════════════════════════════════════════════════
+let dragging = null;
+let dragItemId = null;
+
+function setupDragItem(el) {
+  // Desktop drag events
+  el.addEventListener('dragstart', e => {
+    dragging    = el;
+    dragItemId  = el.dataset.id;
+    setTimeout(() => el.classList.add('dragging'), 10);
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  el.addEventListener('dragend', () => {
+    el.classList.remove('dragging');
+    dragging = null;
+  });
+
+  // Touch events
+  let touchClone = null;
+  let touchOffX = 0, touchOffY = 0;
+
+  el.addEventListener('touchstart', e => {
+    if (el.classList.contains('placed')) return;
+    dragging   = el;
+    dragItemId = el.dataset.id;
+    const t = e.touches[0];
+    const r = el.getBoundingClientRect();
+    touchOffX = t.clientX - r.left;
+    touchOffY = t.clientY - r.top;
+    // Clone for visual drag
+    touchClone = el.cloneNode(true);
+    touchClone.style.cssText = `position:fixed;z-index:9999;pointer-events:none;opacity:0.85;transform:scale(1.05);transition:none;`;
+    touchClone.style.left = (t.clientX - touchOffX) + 'px';
+    touchClone.style.top  = (t.clientY - touchOffY) + 'px';
+    document.body.appendChild(touchClone);
+    el.classList.add('dragging');
+    e.preventDefault();
+  }, { passive: false });
+
+  el.addEventListener('touchmove', e => {
+    if (!touchClone) return;
+    const t = e.touches[0];
+    touchClone.style.left = (t.clientX - touchOffX) + 'px';
+    touchClone.style.top  = (t.clientY - touchOffY) + 'px';
+    e.preventDefault();
+  }, { passive: false });
+
+  el.addEventListener('touchend', e => {
+    if (!touchClone) return;
+    const t = e.changedTouches[0];
+    touchClone.remove(); touchClone = null;
+    el.classList.remove('dragging');
+    // Find drop target under finger
+    const target = document.elementFromPoint(t.clientX, t.clientY);
+    const dropEl = target ? target.closest('[data-accepts]') : null;
+    if (dropEl) attemptDrop(dropEl, el);
+    dragging = null;
+  });
+}
+
+function setupDropTarget(el) {
+  el.addEventListener('dragover', e => {
+    e.preventDefault();
+    if (!el.classList.contains('correct')) el.classList.add('over');
+  });
+  el.addEventListener('dragleave', () => el.classList.remove('over'));
+  el.addEventListener('drop', e => {
+    e.preventDefault();
+    el.classList.remove('over');
+    if (dragging) attemptDrop(el, dragging);
+  });
+}
+
+function attemptDrop(slot, item) {
+  if (slot.classList.contains('correct')) return; // already filled
+  if (item.classList.contains('placed'))  return;
+  const accepts = slot.dataset.accepts;
+  const itemId  = item.dataset.id;
+  if (accepts === itemId) {
+    // CORRECT
+    slot.classList.add('correct');
+    item.classList.add('placed');
+    const disp = slot.querySelector('.placed-item-display');
+    if (disp) disp.style.display = 'flex';
+    const hint = slot.querySelector('.drop-hint, .seq-hint, .ts-hint');
+    if (hint) hint.style.display = 'none';
+    const icon = slot.querySelector('.drop-icon');
+    if (icon) icon.style.display = 'none';
+    const qbox = slot.querySelector('.ts-question');
+    if (qbox) qbox.style.display = 'none';
+    triggerSparkBurst(slot);
+    checkActivity(slot);
+  } else {
+    // WRONG
+    slot.classList.add('wrong');
+    setTimeout(() => slot.classList.remove('wrong'), 500);
+    shakeAndHint(slot);
+  }
+}
+
+function triggerSparkBurst(el) {
+  const r = el.getBoundingClientRect();
+  for (let i = 0; i < 6; i++) {
+    const s = document.createElement('div');
+    s.style.cssText = `
+      position:fixed; z-index:999; pointer-events:none;
+      width:6px; height:6px; border-radius:50%;
+      background:${['#FFB700','#FF6B00','#FFD700','#00D4AA'][i%4]};
+      box-shadow: 0 0 8px currentColor;
+      left:${r.left + r.width/2}px; top:${r.top + r.height/2}px;
+      animation: burst-${i} 0.6s ease-out forwards;
+    `;
+    document.body.appendChild(s);
+    const angle = (i / 6) * Math.PI * 2;
+    const dist  = 40 + Math.random() * 30;
+    const tx = Math.cos(angle) * dist;
+    const ty = Math.sin(angle) * dist;
+    s.animate([
+      { transform: 'translate(-50%,-50%) scale(1)', opacity: 1 },
+      { transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) scale(0)`, opacity: 0 }
+    ], { duration: 600, easing: 'ease-out', fill: 'forwards' }).onfinish = () => s.remove();
+  }
+}
+
+function shakeAndHint(slot) {
+  const act = currentActivity;
+  const hints = {
+    1: 'Hint: Match component to the matching slot colour!',
+    2: 'Hint: Think about what happens first when the burglar is detected!',
+    3: 'Hint: R controls speed, C controls duration. Check the slot description!'
+  };
+  setFeedback(act, hints[act] || 'Try a different slot!', 'hint');
+}
+
+// ═══════════════════════════════════════════════════════
+//  ACTIVITY STATE
+// ═══════════════════════════════════════════════════════
+let currentActivity = 1;
+const activityTargets = {
+  1: ['s1-battery','s1-timer','s1-trigger','s1-buzzer'],
+  2: ['sq1','sq2','sq3','sq4','sq5'],
+  3: ['ts-r','ts-c','ts-pin2','ts-pin3']
+};
+
+function checkActivity(slotEl) {
+  const act = currentActivity;
+  const targets = activityTargets[act];
+  const allDone = targets.every(id => document.getElementById(id)?.classList.contains('correct'));
+
+  if (act === 2) {
+    // Show buzzer animation when step 4 (buzzer) is placed
+    const sq4 = document.getElementById('sq4');
+    if (sq4?.classList.contains('correct')) {
+      document.getElementById('buzzer-anim').classList.add('active');
+    }
+  }
+
+  if (allDone) {
+    const msgs = {
+      1: {
+        icon: '⚡',
+        title: 'CIRCUIT ASSEMBLED!',
+        body: `Brilliant! You placed all four parts correctly on the breadboard.<br><br>
+               <span class="highlight">🔋 Battery → 555 Timer IC → Trigger Wire → Piezo Buzzer</span><br><br>
+               Remember: <span class="orange">Pin 2 HEARS the burglar.</span> <span class="highlight">Pin 3 SHOUTS the alarm!</span><br>
+               The full kit costs under <span class="orange">₹50</span> from any electronics shop in India!`
+      },
+      2: {
+        icon: '🚨',
+        title: 'ALARM SEQUENCE CORRECT!',
+        body: `You got the sequence right! Here is what happens:<br><br>
+               <span class="highlight">Burglar detected → Pin 2 LOW → Pin 3 HIGH → Buzzer ON → Stops automatically!</span><br><br>
+               The capacitor fills up like a <span class="orange">matka (clay pot)</span> and then tells the 555 Timer to go quiet.<br>
+               ONE trigger → ONE pulse → then SILENCE. That is monostable!`
+      },
+      3: {
+        icon: '🏆',
+        title: 'TIMING CIRCUIT COMPLETE!',
+        body: `Outstanding! You built the full monostable timing circuit!<br><br>
+               <span class="highlight">R (Resistor)</span> = water tap = controls speed.<br>
+               <span class="highlight">C (Capacitor)</span> = matka = stores charge, decides duration.<br><br>
+               <span class="orange">Golden Rule: Bigger R or Bigger C = Longer alarm!</span>`,
+        final: true
+      }
+    };
+
+    setTimeout(() => showPopup(msgs[act], act), 500);
+    setFeedback(act, '✅ All correct! Amazing work! See the popup!', 'good');
+    const btn = document.getElementById(`next-${act}`);
+    if (btn) btn.classList.add('show');
+  } else {
+    const remaining = targets.filter(id => !document.getElementById(id)?.classList.contains('correct')).length;
+    setFeedback(act, `⚡ ${targets.length - remaining} of ${targets.length} placed correctly. Keep going!`, 'good');
+  }
+}
+
+function setFeedback(act, msg, type) {
+  const el = document.getElementById(`fb${act}`);
+  if (!el) return;
+  el.className = `feedback-bar ${type}`;
+  el.innerHTML = msg;
+}
+
+// ═══════════════════════════════════════════════════════
+//  POPUP SYSTEM
+// ═══════════════════════════════════════════════════════
+let pendingNext = null;
+
+function showPopup(data, act) {
+  const overlay = document.getElementById('popup-overlay');
+  const box     = document.getElementById('popup-box');
+  document.getElementById('popup-icon').textContent   = data.icon;
+  document.getElementById('popup-title').textContent  = data.title;
+  document.getElementById('popup-body').innerHTML     = data.body;
+  const btn = document.getElementById('popup-btn');
+
+  if (data.final) {
+    box.className   = 'popup final';
+    btn.textContent = '🎉 WELL DONE!';
+    pendingNext = null;
+  } else {
+    box.className   = 'popup';
+    btn.textContent = `CONTINUE TO ACTIVITY ${act + 1} →`;
+    pendingNext = act;
+  }
+
+  overlay.classList.add('show');
+  if (!data.final) launchConfetti();
+}
+
+function closePopup() {
+  document.getElementById('popup-overlay').classList.remove('show');
+  if (pendingNext !== null) {
+    advanceActivity(pendingNext + 1);
+    pendingNext = null;
+  }
+}
+document.getElementById('popup-btn').addEventListener('click', closePopup);
+document.getElementById('popup-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('popup-overlay')) closePopup();
+});
+
+function advanceActivity(next) {
+  // Hide all screens
+  document.querySelectorAll('.activity-screen').forEach(s => s.classList.remove('visible'));
+  // Show next
+  const nextScreen = document.getElementById(`screen-${next}`);
+  if (nextScreen) nextScreen.classList.add('visible');
+  currentActivity = next;
+  // Update progress dots
+  for (let i = 1; i <= 3; i++) {
+    const dot  = document.getElementById(`dot-${i}`);
+    const line = document.getElementById(`line-${i}`);
+    if (i < next)  { dot?.classList.remove('active'); dot?.classList.add('done'); line?.classList.add('done'); }
+    if (i === next){ dot?.classList.add('active'); dot?.classList.remove('done'); }
+    if (i > next)  { dot?.classList.remove('active','done'); }
+  }
+}
+
+// Next buttons (alternate route without popup close)
+document.getElementById('next-1').addEventListener('click', () => advanceActivity(2));
+document.getElementById('next-2').addEventListener('click', () => advanceActivity(3));
+document.getElementById('next-3').addEventListener('click', () => {
+  // Trigger final popup
+  document.getElementById('popup-overlay').classList.add('show');
+  const box = document.getElementById('popup-box');
+  box.className = 'popup final';
+  document.getElementById('popup-icon').textContent = '🏆';
+  document.getElementById('popup-title').textContent = 'ALL ACTIVITIES COMPLETE!';
+  document.getElementById('popup-body').innerHTML = `
+    You have mastered the <span class="highlight">555 Timer Monostable Burglar Alarm</span>!<br><br>
+    <span class="orange">You know:</span><br>
+    ✅ What MONOSTABLE means (ONE trigger → ONE pulse → SILENCE)<br>
+    ✅ Pin 2 HEARS. Pin 3 SHOUTS!<br>
+    ✅ R and C control how long the alarm lasts<br>
+    ✅ Bigger R or C = Longer alarm duration<br><br>
+    <span class="highlight">Full kit cost: Under ₹50! Try it at home on a breadboard!</span>
+  `;
+  document.getElementById('popup-btn').textContent = '🎊 FANTASTIC WORK!';
+  pendingNext = null;
+  launchConfetti();
+});
+
+// ═══════════════════════════════════════════════════════
+//  CONFETTI
+// ═══════════════════════════════════════════════════════
+function launchConfetti() {
+  const colors = ['#FFB700','#FF6B00','#FF4444','#FFD700','#00D4AA','#4488FF'];
+  for (let i = 0; i < 50; i++) {
+    const c = document.createElement('div');
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    c.style.cssText = `
+      position:fixed; z-index:9999; pointer-events:none;
+      width:${4+Math.random()*6}px; height:${8+Math.random()*12}px;
+      background:${color}; border-radius:2px;
+      left:${20+Math.random()*60}%;
+      top:-20px;
+      transform:rotate(${Math.random()*360}deg);
+    `;
+    document.body.appendChild(c);
+    const endX = (Math.random()-0.5)*400;
+    const endY = window.innerHeight + 50;
+    const dur  = 1200 + Math.random()*1000;
+    c.animate([
+      { transform: `translateY(0) translateX(0) rotate(0deg)`, opacity:1 },
+      { transform: `translateY(${endY}px) translateX(${endX}px) rotate(${720+Math.random()*360}deg)`, opacity:0.3 }
+    ], { duration: dur, delay: Math.random()*600, easing:'cubic-bezier(0.25,0.46,0.45,0.94)', fill:'forwards' })
+    .onfinish = () => c.remove();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT DRAG & DROP
+// ═══════════════════════════════════════════════════════
+function initAll() {
+  document.querySelectorAll('.drag-item').forEach(setupDragItem);
+  document.querySelectorAll('[data-accepts]').forEach(setupDropTarget);
+}
+initAll();
+
+// ═══════════════════════════════════════════════════════
+//  PREVENT DEFAULT TOUCH SCROLL ON DRAG
+// ═══════════════════════════════════════════════════════
+document.addEventListener('touchmove', e => {
+  if (dragging) e.preventDefault();
+}, { passive: false });
+
+</script>
+</body>
+</html>

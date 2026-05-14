@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROMPT ENGINEERING — GETTING BETTER AI OUTPUTS</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --sun:#F4A42A;--sky1:#FF6B35;--sky2:#F7931E;--sky3:#FFD166;--sky4:#4ECDC4;--sky5:#1A1A2E;
+  --earth:#8B4513;--earth2:#A0522D;--grass:#5D8A3C;--grass2:#4A7A2B;--baobab:#6B3A2A;
+  --elephant:#9B8EA8;--giraffe:#DBA44A;--accent:#FF6B35;--gold:#F4A42A;
+  --text-dark:#2C1810;--text-light:#FFF8F0;--card-bg:rgba(255,248,240,0.95);
+  --drop-zone:rgba(255,209,102,0.3);--drop-active:rgba(255,107,53,0.4);
+}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif}
+#canvas{width:100vw;height:100vh;position:relative;overflow:hidden;background:linear-gradient(180deg,#FF6B35 0%,#F7931E 25%,#FFD166 50%,#87CEEB 75%,#4ECDC4 100%)}
+
+/* SKY ANIMATIONS */
+.sky-gradient{position:absolute;inset:0;background:linear-gradient(180deg,#c0392b 0%,#e74c3c 8%,#f39c12 18%,#f1c40f 30%,#87CEEB 55%,#2980b9 100%);animation:skyShift 20s ease-in-out infinite alternate;z-index:0}
+@keyframes skyShift{0%{filter:hue-rotate(0deg) brightness(1)}50%{filter:hue-rotate(15deg) brightness(1.1)}100%{filter:hue-rotate(-10deg) brightness(0.95)}}
+
+/* SUN */
+.sun{position:absolute;width:90px;height:90px;background:radial-gradient(circle,#FFF176 0%,#FFD54F 40%,#FF8F00 70%,rgba(255,143,0,0) 100%);border-radius:50%;top:6vh;right:12vw;z-index:2;animation:sunPulse 4s ease-in-out infinite}
+@keyframes sunPulse{0%,100%{transform:scale(1);box-shadow:0 0 40px #FFD54F,0 0 80px rgba(255,213,79,0.5)}50%{transform:scale(1.08);box-shadow:0 0 60px #FFD54F,0 0 120px rgba(255,213,79,0.7)}}
+
+/* CLOUDS */
+.cloud{position:absolute;z-index:3;opacity:0.85;animation:driftCloud linear infinite}
+.cloud svg{filter:drop-shadow(0 4px 8px rgba(0,0,0,0.1))}
+@keyframes driftCloud{0%{transform:translateX(-200px)}100%{transform:translateX(calc(100vw + 200px))}}
+
+/* MOUNTAINS / HILLS */
+.hills-far{position:absolute;bottom:32vh;left:0;width:100%;z-index:4}
+.hills-mid{position:absolute;bottom:22vh;left:0;width:100%;z-index:5}
+
+/* GROUND */
+.ground{position:absolute;bottom:0;left:0;width:100%;height:25vh;background:linear-gradient(180deg,#8B6914 0%,#6B4F0A 100%);z-index:6}
+.ground-top{position:absolute;bottom:24.5vh;left:0;width:100%;height:3vh;background:linear-gradient(180deg,#7A8C3A,#5D6B2A);z-index:6}
+
+/* GRASS */
+.grass-layer{position:absolute;bottom:24vh;left:0;width:200%;height:6vh;z-index:7;animation:swayGrass 3s ease-in-out infinite}
+@keyframes swayGrass{0%,100%{transform:translateX(0)}50%{transform:translateX(-1%)}}
+
+/* TREES */
+.baobab{position:absolute;z-index:8}
+.acacia{position:absolute;z-index:8}
+
+/* ANIMALS */
+.giraffe-wrap{position:absolute;bottom:22vh;z-index:9;animation:giraffeWalk 40s linear infinite}
+.elephant-wrap{position:absolute;bottom:22vh;z-index:9;animation:elephantWalk 55s linear infinite}
+@keyframes giraffeWalk{0%{left:-150px}100%{left:110vw}}
+@keyframes elephantWalk{0%{left:110vw;transform:scaleX(-1)}100%{left:-200px;transform:scaleX(-1)}}
+
+/* FIREFLIES */
+.firefly{position:absolute;width:5px;height:5px;border-radius:50%;background:#FFEB3B;z-index:15;animation:fireflyAnim ease-in-out infinite}
+@keyframes fireflyAnim{0%,100%{opacity:0;transform:translate(0,0)}25%{opacity:1;transform:translate(var(--fx),var(--fy))}50%{opacity:0.3;transform:translate(calc(var(--fx)*1.5),calc(var(--fy)*0.5))}75%{opacity:0.8;transform:translate(calc(var(--fx)*0.5),var(--fy))}}
+
+/* MAIN LAYOUT */
+#main-ui{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;pointer-events:none}
+#header{pointer-events:auto;text-align:center;padding:1.2vh 2vw 0.8vh;background:linear-gradient(180deg,rgba(139,69,20,0.92) 0%,rgba(101,50,14,0.88) 100%);border-bottom:3px solid #F4A42A;backdrop-filter:blur(4px)}
+#header h1{font-family:'Baloo 2',cursive;font-size:clamp(1rem,2.2vw,1.8rem);font-weight:800;color:#FFD166;letter-spacing:2px;text-shadow:0 2px 8px rgba(0,0,0,0.5);line-height:1.1}
+#header p{font-size:clamp(0.6rem,1.1vw,0.85rem);color:#FFE0B2;margin-top:2px;font-weight:600;letter-spacing:1px}
+
+#progress-bar{pointer-events:auto;display:flex;align-items:center;justify-content:center;gap:8px;padding:6px;background:rgba(44,24,16,0.8);border-bottom:2px solid rgba(244,164,42,0.4)}
+.step-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Baloo 2',cursive;font-weight:700;font-size:0.75rem;transition:all 0.4s;border:2px solid rgba(244,164,42,0.5);color:#FFD166;background:rgba(0,0,0,0.3);cursor:default}
+.step-dot.active{background:var(--gold);color:#2C1810;border-color:#FFD166;transform:scale(1.15);box-shadow:0 0 12px var(--gold)}
+.step-dot.done{background:#5D8A3C;color:#fff;border-color:#7CB342}
+.step-line{width:40px;height:2px;background:rgba(244,164,42,0.3);transition:background 0.4s}
+.step-line.done{background:#5D8A3C}
+
+#activity-area{flex:1;display:flex;align-items:center;justify-content:center;padding:0.8vh 1.5vw;pointer-events:auto;overflow:hidden}
+
+/* ACTIVITY CARDS */
+.activity-card{background:var(--card-bg);border-radius:16px;border:3px solid #F4A42A;padding:1.2vh 1.5vw;width:100%;max-width:900px;max-height:calc(100vh - 200px);overflow:hidden;display:flex;flex-direction:column;gap:0.8vh;box-shadow:0 8px 32px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.6)}
+.activity-title{font-family:'Baloo 2',cursive;font-size:clamp(0.85rem,1.6vw,1.25rem);font-weight:800;color:#8B4513;text-align:center;line-height:1.2}
+.activity-subtitle{font-size:clamp(0.6rem,1vw,0.78rem);color:#6B3A2A;text-align:center;font-weight:600}
+.activity-body{display:flex;gap:1vw;flex:1;min-height:0}
+
+/* DRAG ITEMS */
+.drag-item{padding:6px 10px;background:linear-gradient(135deg,#FFF9C4,#FFE082);border:2px solid #F9A825;border-radius:10px;cursor:grab;font-size:clamp(0.55rem,0.9vw,0.72rem);font-weight:700;color:#4A3000;user-select:none;transition:all 0.2s;text-align:center;line-height:1.3;box-shadow:0 2px 6px rgba(0,0,0,0.2)}
+.drag-item:hover{transform:scale(1.04) rotate(-1deg);box-shadow:0 4px 12px rgba(0,0,0,0.3);background:linear-gradient(135deg,#FFE082,#FFB300)}
+.drag-item.dragging{opacity:0.4;transform:scale(0.95)}
+.drag-item.placed{cursor:default;background:linear-gradient(135deg,#C8E6C9,#81C784);border-color:#388E3C;color:#1B5E20}
+
+/* DROP ZONES */
+.drop-zone{min-height:80px;border:2px dashed #F4A42A;border-radius:12px;background:rgba(255,209,102,0.15);padding:6px;display:flex;flex-direction:column;gap:4px;transition:all 0.2s}
+.drop-zone.over{background:rgba(255,107,53,0.2);border-color:#FF6B35;border-style:solid}
+.drop-zone.correct-flash{animation:correctFlash 0.5s ease;border-color:#388E3C}
+.drop-zone.wrong-flash{animation:wrongFlash 0.5s ease}
+@keyframes correctFlash{0%,100%{background:rgba(255,209,102,0.15)}50%{background:rgba(76,175,80,0.3)}}
+@keyframes wrongFlash{0%,100%{background:rgba(255,209,102,0.15)}50%{background:rgba(244,67,54,0.25)}}
+
+.zone-label{font-family:'Baloo 2',cursive;font-size:clamp(0.6rem,1vw,0.78rem);font-weight:700;color:#8B4513;margin-bottom:2px;text-align:center}
+.zone-icon{font-size:1.2rem;text-align:center}
+
+/* SOURCE AREA */
+.source-pool{display:flex;flex-wrap:wrap;gap:5px;padding:6px;background:rgba(139,69,20,0.08);border-radius:10px;border:1.5px solid rgba(244,164,42,0.4);min-height:60px;align-content:flex-start}
+
+/* ACTIVITY 2 PROMPT BUILDER */
+.prompt-slot{min-height:38px;border:2px dashed #D4A017;border-radius:8px;background:rgba(255,255,255,0.5);padding:4px 8px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:clamp(0.55rem,0.85vw,0.7rem);color:#8B4513;transition:all 0.2s}
+.prompt-slot.filled{background:rgba(200,230,201,0.6);border-color:#388E3C;border-style:solid}
+.prompt-slot.over{background:rgba(255,107,53,0.15);border-color:#FF6B35;border-style:solid}
+.slot-label{font-weight:700;color:#6B3A2A;white-space:nowrap;font-size:clamp(0.5rem,0.8vw,0.65rem)}
+
+/* ACTIVITY 3 */
+.scenario-card{background:linear-gradient(135deg,rgba(255,245,220,0.9),rgba(255,224,178,0.9));border:2px solid #F9A825;border-radius:12px;padding:8px 10px;flex:1;display:flex;flex-direction:column;gap:5px}
+.scenario-title{font-family:'Baloo 2',cursive;font-size:clamp(0.6rem,1vw,0.78rem);font-weight:700;color:#6B3A2A}
+.output-box{min-height:50px;border-radius:8px;padding:5px 8px;font-size:clamp(0.5rem,0.78vw,0.65rem);line-height:1.4;transition:all 0.5s;color:#3E2723}
+.output-weak{background:rgba(255,205,210,0.7);border:1.5px solid #EF9A9A}
+.output-strong{background:rgba(200,230,201,0.7);border:1.5px solid #A5D6A7}
+
+/* FEEDBACK */
+#feedback{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:8px 20px;border-radius:20px;font-family:'Baloo 2',cursive;font-weight:700;font-size:0.85rem;z-index:100;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap}
+#feedback.show{opacity:1}
+#feedback.success{background:linear-gradient(135deg,#4CAF50,#8BC34A);color:#fff;box-shadow:0 4px 16px rgba(76,175,80,0.5)}
+#feedback.error{background:linear-gradient(135deg,#f44336,#FF5722);color:#fff;box-shadow:0 4px 16px rgba(244,67,54,0.5)}
+
+/* POPUP */
+#popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:200;display:none;align-items:center;justify-content:center}
+#popup-overlay.active{display:flex}
+.popup-box{background:linear-gradient(135deg,#FFF8F0,#FFF3E0);border:4px solid #F4A42A;border-radius:20px;padding:2rem;max-width:420px;width:90%;text-align:center;animation:popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)}
+@keyframes popIn{0%{transform:scale(0.5) rotate(-5deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
+.popup-emoji{font-size:3rem;display:block;margin-bottom:0.5rem}
+.popup-title{font-family:'Baloo 2',cursive;font-size:1.4rem;font-weight:800;color:#8B4513;margin-bottom:0.5rem}
+.popup-text{font-size:0.85rem;color:#6B3A2A;margin-bottom:1rem;line-height:1.5}
+.popup-btn{display:inline-block;padding:10px 28px;background:linear-gradient(135deg,#F4A42A,#FF6B35);color:#fff;border:none;border-radius:25px;font-family:'Baloo 2',cursive;font-size:1rem;font-weight:700;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 12px rgba(244,164,42,0.5)}
+.popup-btn:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(244,164,42,0.7)}
+
+/* SCORE */
+.score-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(244,164,42,0.2);border:1.5px solid #F4A42A;border-radius:20px;padding:2px 10px;font-family:'Baloo 2',cursive;font-weight:700;font-size:0.7rem;color:#8B4513}
+
+.hidden{display:none!important}
+.flex-col{display:flex;flex-direction:column;gap:5px}
+.flex-row{display:flex;gap:6px}
+.label-sm{font-size:clamp(0.5rem,0.78vw,0.65rem);font-weight:700;color:#8B4513;margin-bottom:2px}
+.hint-text{font-size:clamp(0.48rem,0.72vw,0.6rem);color:#A0522D;font-style:italic;text-align:center;margin-top:2px}
+
+/* RESPONSIVE */
+@media(max-width:600px){
+  .activity-body{flex-direction:column}
+  #header h1{font-size:0.9rem}
+}
+</style>
+</head>
+<body>
+<div id="canvas">
+  <!-- Sky gradient -->
+  <div class="sky-gradient"></div>
+  <!-- Sun -->
+  <div class="sun"></div>
+  <!-- Clouds -->
+  <div class="cloud" style="top:8vh;animation-duration:35s;animation-delay:-5s">
+    <svg width="140" height="50" viewBox="0 0 140 50"><ellipse cx="70" cy="35" rx="65" ry="20" fill="rgba(255,255,255,0.85)"/><ellipse cx="45" cy="30" rx="35" ry="22" fill="rgba(255,255,255,0.9)"/><ellipse cx="90" cy="28" rx="30" ry="20" fill="rgba(255,255,255,0.85)"/></svg>
+  </div>
+  <div class="cloud" style="top:14vh;animation-duration:50s;animation-delay:-20s">
+    <svg width="100" height="38" viewBox="0 0 100 38"><ellipse cx="50" cy="27" rx="46" ry="14" fill="rgba(255,245,220,0.8)"/><ellipse cx="32" cy="22" rx="24" ry="16" fill="rgba(255,245,220,0.85)"/><ellipse cx="65" cy="20" rx="22" ry="15" fill="rgba(255,245,220,0.8)"/></svg>
+  </div>
+  <div class="cloud" style="top:5vh;animation-duration:60s;animation-delay:-35s">
+    <svg width="180" height="55" viewBox="0 0 180 55"><ellipse cx="90" cy="40" rx="80" ry="18" fill="rgba(255,255,255,0.75)"/><ellipse cx="55" cy="32" rx="40" ry="25" fill="rgba(255,255,255,0.8)"/><ellipse cx="120" cy="30" rx="38" ry="22" fill="rgba(255,255,255,0.75)"/></svg>
+  </div>
+
+  <!-- Far hills -->
+  <svg class="hills-far" viewBox="0 0 1440 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0,80 Q120,20 240,60 Q360,100 480,40 Q600,0 720,50 Q840,90 960,35 Q1080,0 1200,55 Q1320,95 1440,45 L1440,120 L0,120Z" fill="#C8A05A" opacity="0.7"/>
+    <path d="M0,100 Q180,50 360,80 Q540,110 720,65 Q900,30 1080,75 Q1260,110 1440,70 L1440,120 L0,120Z" fill="#B8903A" opacity="0.8"/>
+  </svg>
+
+  <!-- Mid hills -->
+  <svg class="hills-mid" viewBox="0 0 1440 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0,60 Q100,20 200,50 Q300,80 400,30 Q500,0 600,40 Q700,70 800,25 Q900,0 1000,45 Q1100,80 1200,35 Q1300,0 1440,50 L1440,100 L0,100Z" fill="#8B7355" opacity="0.9"/>
+  </svg>
+
+  <!-- Ground -->
+  <div class="ground"></div>
+  <div class="ground-top"></div>
+
+  <!-- Grass SVG -->
+  <svg class="grass-layer" viewBox="0 0 2880 80" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="2880" height="80" fill="#6B8C3A"/>
+    <g fill="#4A7A2B" opacity="0.8">
+      <path d="M10,80 Q12,50 8,30 Q14,50 18,80Z"/><path d="M25,80 Q27,45 22,20 Q28,45 32,80Z"/>
+      <path d="M45,80 Q48,55 42,35 Q50,55 54,80Z"/><path d="M65,80 Q67,48 62,25 Q70,48 73,80Z"/>
+      <path d="M85,80 Q88,52 82,32 Q90,52 94,80Z"/><path d="M105,80 Q107,46 102,22 Q110,46 113,80Z"/>
+      <path d="M130,80 Q132,54 127,30 Q135,54 139,80Z"/><path d="M150,80 Q153,50 147,28 Q155,50 158,80Z"/>
+      <path d="M175,80 Q177,52 172,30 Q180,52 183,80Z"/><path d="M195,80 Q198,48 193,26 Q200,48 204,80Z"/>
+      <path d="M220,80 Q222,50 217,28 Q225,50 228,80Z"/><path d="M245,80 Q247,54 242,32 Q250,54 253,80Z"/>
+      <path d="M270,80 Q272,48 267,26 Q275,48 278,80Z"/><path d="M295,80 Q297,52 292,30 Q300,52 303,80Z"/>
+      <path d="M320,80 Q322,50 317,28 Q325,50 328,80Z"/><path d="M345,80 Q348,54 342,32 Q350,54 353,80Z"/>
+      <path d="M370,80 Q372,48 367,26 Q375,48 378,80Z"/><path d="M395,80 Q397,52 392,30 Q400,52 403,80Z"/>
+      <path d="M420,80 Q422,50 417,28 Q425,50 428,80Z"/><path d="M445,80 Q447,54 442,32 Q450,54 453,80Z"/>
+      <path d="M470,80 Q472,48 467,26 Q475,48 478,80Z"/><path d="M495,80 Q497,52 492,30 Q500,52 503,80Z"/>
+      <path d="M520,80 Q522,50 517,28 Q525,50 528,80Z"/><path d="M545,80 Q548,54 542,32 Q550,54 553,80Z"/>
+      <path d="M570,80 Q572,48 567,26 Q575,48 578,80Z"/><path d="M595,80 Q597,52 592,30 Q600,52 603,80Z"/>
+      <path d="M620,80 Q622,50 617,28 Q625,50 628,80Z"/><path d="M645,80 Q647,54 642,32 Q650,54 653,80Z"/>
+      <path d="M670,80 Q672,48 667,26 Q675,48 678,80Z"/><path d="M695,80 Q697,52 692,30 Q700,52 703,80Z"/>
+      <path d="M720,80 Q722,50 717,28 Q725,50 728,80Z"/><path d="M745,80 Q748,54 742,32 Q750,54 753,80Z"/>
+      <path d="M770,80 Q772,48 767,26 Q775,48 778,80Z"/><path d="M795,80 Q797,52 792,30 Q800,52 803,80Z"/>
+      <path d="M820,80 Q822,50 817,28 Q825,50 828,80Z"/><path d="M845,80 Q847,54 842,32 Q850,54 853,80Z"/>
+      <path d="M870,80 Q872,48 867,26 Q875,48 878,80Z"/><path d="M895,80 Q897,52 892,30 Q900,52 903,80Z"/>
+    </g>
+  </svg>
+
+  <!-- Baobab Trees -->
+  <svg class="baobab" style="left:5vw;bottom:22vh;width:70px;height:130px" viewBox="0 0 70 130" xmlns="http://www.w3.org/2000/svg">
+    <rect x="25" y="60" width="20" height="70" fill="#6B3A2A" rx="4"/>
+    <ellipse cx="35" cy="55" rx="32" ry="28" fill="#5D8A3C"/>
+    <ellipse cx="18" cy="48" rx="18" ry="14" fill="#4A7A2B"/>
+    <ellipse cx="52" cy="50" rx="16" ry="12" fill="#4A7A2B"/>
+    <ellipse cx="35" cy="35" rx="22" ry="18" fill="#6B9E45"/>
+  </svg>
+  <svg class="baobab" style="right:6vw;bottom:22vh;width:55px;height:110px" viewBox="0 0 55 110" xmlns="http://www.w3.org/2000/svg">
+    <rect x="19" y="50" width="17" height="60" fill="#7A4030" rx="3"/>
+    <ellipse cx="27" cy="45" rx="26" ry="22" fill="#5D8A3C"/>
+    <ellipse cx="13" cy="40" rx="14" ry="12" fill="#4A7A2B"/>
+    <ellipse cx="42" cy="42" rx="13" ry="11" fill="#4A7A2B"/>
+    <ellipse cx="27" cy="28" rx="18" ry="16" fill="#6B9E45"/>
+  </svg>
+
+  <!-- Acacia Trees (flat-top) -->
+  <svg class="acacia" style="left:25vw;bottom:22vh;width:55px;height:100px" viewBox="0 0 55 100" xmlns="http://www.w3.org/2000/svg">
+    <rect x="24" y="40" width="7" height="60" fill="#8B6914"/>
+    <line x1="27" y1="60" x2="12" y2="55" stroke="#8B6914" stroke-width="4"/>
+    <line x1="27" y1="55" x2="43" y2="52" stroke="#8B6914" stroke-width="4"/>
+    <ellipse cx="27" cy="38" rx="25" ry="10" fill="#5D8A3C"/>
+    <ellipse cx="12" cy="50" rx="12" ry="6" fill="#4A7A2B"/>
+    <ellipse cx="42" cy="48" rx="12" ry="6" fill="#4A7A2B"/>
+  </svg>
+  <svg class="acacia" style="right:22vw;bottom:22vh;width:50px;height:90px" viewBox="0 0 50 90" xmlns="http://www.w3.org/2000/svg">
+    <rect x="22" y="36" width="6" height="54" fill="#8B6914"/>
+    <line x1="25" y1="54" x2="10" y2="50" stroke="#8B6914" stroke-width="3"/>
+    <line x1="25" y1="50" x2="40" y2="47" stroke="#8B6914" stroke-width="3"/>
+    <ellipse cx="25" cy="34" rx="22" ry="9" fill="#5D8A3C"/>
+    <ellipse cx="10" cy="46" rx="11" ry="6" fill="#4A7A2B"/>
+    <ellipse cx="40" cy="43" rx="10" ry="5" fill="#4A7A2B"/>
+  </svg>
+
+  <!-- Giraffe -->
+  <div class="giraffe-wrap">
+    <svg width="60" height="100" viewBox="0 0 60 100" xmlns="http://www.w3.org/2000/svg">
+      <!-- Body -->
+      <ellipse cx="30" cy="72" rx="18" ry="14" fill="#DBA44A"/>
+      <!-- Neck -->
+      <rect x="26" y="30" width="12" height="45" fill="#DBA44A" rx="5"/>
+      <!-- Head -->
+      <ellipse cx="32" cy="22" rx="11" ry="8" fill="#DBA44A"/>
+      <!-- Snout -->
+      <ellipse cx="42" cy="25" rx="6" ry="4" fill="#C8943A"/>
+      <!-- Eye -->
+      <circle cx="36" cy="19" r="2.5" fill="#3E2723"/>
+      <circle cx="36.8" cy="18.5" r="0.8" fill="#FFF"/>
+      <!-- Horns -->
+      <rect x="29" y="12" width="3" height="8" fill="#8B6914" rx="1.5"/>
+      <rect x="35" y="13" width="3" height="7" fill="#8B6914" rx="1.5"/>
+      <!-- Legs -->
+      <rect x="16" y="82" width="7" height="18" fill="#C8943A" rx="3"/>
+      <rect x="27" y="82" width="7" height="18" fill="#C8943A" rx="3"/>
+      <rect x="36" y="82" width="7" height="16" fill="#DBA44A" rx="3"/>
+      <!-- Spots -->
+      <ellipse cx="28" cy="65" rx="5" ry="4" fill="#A0722A" opacity="0.6"/>
+      <ellipse cx="36" cy="58" rx="4" ry="3" fill="#A0722A" opacity="0.5"/>
+      <ellipse cx="32" cy="75" rx="4" ry="3" fill="#A0722A" opacity="0.4"/>
+      <!-- Tail -->
+      <path d="M42,80 Q52,76 50,88" stroke="#C8943A" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- Elephant -->
+  <div class="elephant-wrap" style="animation-delay:-10s">
+    <svg width="90" height="80" viewBox="0 0 90 80" xmlns="http://www.w3.org/2000/svg">
+      <!-- Body -->
+      <ellipse cx="50" cy="50" rx="32" ry="24" fill="#9B8EA8"/>
+      <!-- Head -->
+      <ellipse cx="18" cy="35" rx="18" ry="16" fill="#9B8EA8"/>
+      <!-- Trunk -->
+      <path d="M8,42 Q-2,55 5,68 Q8,75 14,70 Q10,60 15,52" stroke="#8B7E98" stroke-width="8" fill="none" stroke-linecap="round"/>
+      <!-- Eye -->
+      <circle cx="12" cy="30" r="2.5" fill="#3E2723"/>
+      <circle cx="12.8" cy="29.5" r="0.8" fill="#FFF"/>
+      <!-- Ear -->
+      <ellipse cx="28" cy="28" rx="10" ry="13" fill="#B8AAC0"/>
+      <!-- Tusks -->
+      <path d="M9,44 Q0,50 3,58" stroke="#FFF9C4" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <!-- Legs -->
+      <rect x="24" y="68" width="12" height="12" fill="#8B7E98" rx="4"/>
+      <rect x="40" y="68" width="12" height="12" fill="#9B8EA8" rx="4"/>
+      <rect x="56" y="68" width="12" height="12" fill="#8B7E98" rx="4"/>
+      <rect x="68" y="66" width="12" height="14" fill="#9B8EA8" rx="4"/>
+      <!-- Tail -->
+      <path d="M80,48 Q90,42 86,55" stroke="#8B7E98" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- Fireflies -->
+  <div class="firefly" style="left:15%;top:40%;--fx:30px;--fy:-20px;animation-duration:3.2s;animation-delay:0s;box-shadow:0 0 6px 2px #FFEB3B"></div>
+  <div class="firefly" style="left:30%;top:55%;--fx:-25px;--fy:15px;animation-duration:4.1s;animation-delay:-1s;box-shadow:0 0 6px 2px #FFEB3B"></div>
+  <div class="firefly" style="left:60%;top:45%;--fx:20px;--fy:-30px;animation-duration:3.7s;animation-delay:-2s;box-shadow:0 0 6px 2px #FFD54F"></div>
+  <div class="firefly" style="left:75%;top:60%;--fx:-30px;--fy:-15px;animation-duration:5s;animation-delay:-0.5s;box-shadow:0 0 6px 2px #FFEB3B"></div>
+  <div class="firefly" style="left:45%;top:35%;--fx:15px;--fy:25px;animation-duration:3.5s;animation-delay:-1.8s;box-shadow:0 0 6px 2px #FFD54F"></div>
+  <div class="firefly" style="left:85%;top:42%;--fx:-20px;--fy:-20px;animation-duration:4.5s;animation-delay:-3s;box-shadow:0 0 6px 2px #FFEB3B"></div>
+  <div class="firefly" style="left:8%;top:52%;--fx:25px;--fy:10px;animation-duration:3.9s;animation-delay:-1.5s;box-shadow:0 0 6px 2px #FFD54F"></div>
+
+  <!-- MAIN UI -->
+  <div id="main-ui">
+    <div id="header">
+      <h1>🦁 PROMPT ENGINEERING — GETTING BETTER AI OUTPUTS 🌍</h1>
+      <p>MASTER THE ART OF GIVING PERFECT INSTRUCTIONS</p>
+    </div>
+    <div id="progress-bar">
+      <div class="step-dot active" id="dot1">1</div>
+      <div class="step-line" id="line1"></div>
+      <div class="step-dot" id="dot2">2</div>
+      <div class="step-line" id="line2"></div>
+      <div class="step-dot" id="dot3">3</div>
+      <div class="step-line" id="line3"></div>
+      <div class="step-dot" id="dot4">🏆</div>
+    </div>
+    <div id="activity-area">
+      <!-- Activities injected here -->
+    </div>
+  </div>
+
+  <!-- Feedback toast -->
+  <div id="feedback"></div>
+
+  <!-- Popup -->
+  <div id="popup-overlay">
+    <div class="popup-box">
+      <span class="popup-emoji" id="popup-emoji">🎉</span>
+      <div class="popup-title" id="popup-title">Activity Complete!</div>
+      <div class="popup-text" id="popup-text">Great work!</div>
+      <button class="popup-btn" id="popup-btn">Next Activity 🦁</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const area = document.getElementById('activity-area');
+let currentActivity = 1;
+let scores = [0,0,0];
+
+function showFeedback(msg, type){
+  const el = document.getElementById('feedback');
+  el.textContent = msg; el.className = 'show '+type;
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>el.className='',2200);
+}
+
+function updateProgress(step){
+  for(let i=1;i<=4;i++){
+    const d=document.getElementById('dot'+i);
+    if(d){d.className='step-dot'+(i<step?' done':i===step?' active':'');}
+    if(i<4){const l=document.getElementById('line'+i);if(l)l.className='step-line'+(i<step?' done':'');}
+  }
+}
+
+function showPopup(emoji,title,text,btnText,cb){
+  document.getElementById('popup-emoji').textContent=emoji;
+  document.getElementById('popup-title').textContent=title;
+  document.getElementById('popup-text').textContent=text;
+  const btn=document.getElementById('popup-btn');
+  btn.textContent=btnText;
+  btn.onclick=()=>{document.getElementById('popup-overlay').classList.remove('active');cb();};
+  document.getElementById('popup-overlay').classList.add('active');
+}
+
+/* ============ ACTIVITY 1: Zero-Shot vs Few-Shot ============ */
+const act1Data = {
+  items:[
+    {id:'a1',text:'Write a poem about rain',category:'zero'},
+    {id:'a2',text:'Here\'s a haiku: "Petals fall gently..." — Now write one about elephants',category:'few'},
+    {id:'a3',text:'Translate: "Hello" → "Bonjour", "Thank you" → "Merci" — Now translate: "Good morning"',category:'few'},
+    {id:'a4',text:'Explain gravity to me',category:'zero'},
+    {id:'a5',text:'"A dog is a pet animal." — "A cat is a pet animal." — What is a rabbit?',category:'few'},
+    {id:'a6',text:'List 5 vegetables',category:'zero'},
+    {id:'a7',text:'Tell me a joke',category:'zero'},
+    {id:'a8',text:'"Mango = Sweet fruit" — "Lemon = Sour fruit" — What is "Tamarind = ?"',category:'few'},
+  ],
+  placed:{zero:[],few:[]},
+  done:false
+};
+
+function buildActivity1(){
+  const shuffled = [...act1Data.items].sort(()=>Math.random()-0.5);
+  area.innerHTML=`
+  <div class="activity-card">
+    <div class="activity-title">🎯 Activity 1: Sorting Prompt Styles</div>
+    <div class="activity-subtitle">Drag each prompt into the correct category — Zero-Shot or Few-Shot</div>
+    <div class="activity-body">
+      <div class="flex-col" style="width:42%;min-width:0">
+        <div class="label-sm">🃏 PROMPT CARDS — drag these:</div>
+        <div class="source-pool" id="source-pool">
+          ${shuffled.map(i=>`<div class="drag-item" id="${i.id}" draggable="true">${i.text}</div>`).join('')}
+        </div>
+        <div class="hint-text">Zero-Shot = no examples given &nbsp;|&nbsp; Few-Shot = examples included first</div>
+      </div>
+      <div class="flex-col" style="flex:1;min-width:0;gap:8px">
+        <div>
+          <div class="zone-label">⚡ ZERO-SHOT PROMPTS <span id="z-score" class="score-badge">0/4</span></div>
+          <div class="drop-zone" id="zone-zero" data-cat="zero">
+            <div style="color:#A0522D;font-size:0.6rem;text-align:center;padding:4px">No examples — just a direct instruction</div>
+          </div>
+        </div>
+        <div>
+          <div class="zone-label">🔄 FEW-SHOT PROMPTS <span id="f-score" class="score-badge">0/4</span></div>
+          <div class="drop-zone" id="zone-few" data-cat="few">
+            <div style="color:#A0522D;font-size:0.6rem;text-align:center;padding:4px">Pattern shown first, then the task</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  setupDrag1();
+}
+
+function setupDrag1(){
+  document.querySelectorAll('.drag-item').forEach(el=>{
+    el.addEventListener('dragstart',e=>{e.dataTransfer.setData('text',el.id);el.classList.add('dragging');});
+    el.addEventListener('dragend',e=>el.classList.remove('dragging'));
+  });
+  document.querySelectorAll('.drop-zone').forEach(zone=>{
+    zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('over');});
+    zone.addEventListener('dragleave',()=>zone.classList.remove('over'));
+    zone.addEventListener('drop',e=>{
+      e.preventDefault();zone.classList.remove('over');
+      const id=e.dataTransfer.getData('text');
+      const item=act1Data.items.find(i=>i.id===id);
+      if(!item)return;
+      const cat=zone.dataset.cat;
+      const correct=item.category===cat;
+      const el=document.getElementById(id);
+      if(!el||el.classList.contains('placed'))return;
+      if(correct){
+        el.classList.add('placed');
+        zone.appendChild(el);
+        zone.classList.add('correct-flash');
+        setTimeout(()=>zone.classList.remove('correct-flash'),600);
+        showFeedback('✅ Correct! Well spotted!','success');
+        act1Data.placed[cat].push(id);
+        updateAct1Scores();
+        checkAct1Complete();
+      } else {
+        zone.classList.add('wrong-flash');
+        setTimeout(()=>zone.classList.remove('wrong-flash'),600);
+        showFeedback('❌ Not quite — look for example patterns!','error');
+      }
+    });
+  });
+}
+
+function updateAct1Scores(){
+  document.getElementById('z-score').textContent=act1Data.placed.zero.length+'/4';
+  document.getElementById('f-score').textContent=act1Data.placed.few.length+'/4';
+}
+
+function checkAct1Complete(){
+  if(act1Data.placed.zero.length===4&&act1Data.placed.few.length===4&&!act1Data.done){
+    act1Data.done=true;scores[0]=8;
+    setTimeout(()=>{
+      showPopup('🦒','Activity 1 Complete!','Excellent! You can tell Zero-Shot from Few-Shot prompts like a giraffe spots a watering hole! 🌿 Zero-Shot = direct ask. Few-Shot = show examples first.',
+      'Onto Activity 2 🐘',()=>{currentActivity=2;updateProgress(2);buildActivity2();});
+    },500);
+  }
+}
+
+/* ============ ACTIVITY 2: Prompt Builder ============ */
+const act2Data = {
+  slots:{
+    role:{label:'👤 ROLE / PERSONA',placeholder:'Who should the AI act as?',filled:null,correct:['role-a','role-b','role-c']},
+    context:{label:'🌍 CONTEXT',placeholder:'What background info helps?',filled:null,correct:['ctx-a','ctx-b','ctx-c']},
+    task:{label:'🎯 TASK',placeholder:'What exactly should it do?',filled:null,correct:['task-a','task-b','task-c']},
+    cot:{label:'🧠 CHAIN-OF-THOUGHT',placeholder:'Ask it to think step-by-step?',filled:null,correct:['cot-a','cot-b']},
+  },
+  items:[
+    {id:'role-a',text:'Act as an expert wildlife conservationist',slot:'role'},
+    {id:'role-b',text:'You are a friendly science teacher',slot:'role'},
+    {id:'role-c',text:'Pretend you are a master chef',slot:'role'},
+    {id:'ctx-a',text:'I am preparing a school project on savanna animals',slot:'context'},
+    {id:'ctx-b',text:'My audience is 12-year-old students in Kenya',slot:'context'},
+    {id:'ctx-c',text:'The topic is African elephant conservation',slot:'context'},
+    {id:'task-a',text:'Explain 3 ways to protect elephants from poaching',slot:'task'},
+    {id:'task-b',text:'Write a 5-sentence paragraph about elephant habitat',slot:'task'},
+    {id:'task-c',text:'List the top threats to the African savanna ecosystem',slot:'task'},
+    {id:'cot-a',text:'Think step by step before answering',slot:'cot'},
+    {id:'cot-b',text:'Explain your reasoning before giving the final answer',slot:'cot'},
+  ],
+  placed:{},
+  done:false
+};
+
+function buildActivity2(){
+  const shuffled=[...act2Data.items].sort(()=>Math.random()-0.5);
+  area.innerHTML=`
+  <div class="activity-card">
+    <div class="activity-title">🏗️ Activity 2: Build a Pro Prompt</div>
+    <div class="activity-subtitle">Drag instruction pieces into the correct slots to build a powerful Role + Chain-of-Thought prompt</div>
+    <div class="activity-body">
+      <div class="flex-col" style="width:40%;min-width:0">
+        <div class="label-sm">📦 INSTRUCTION PIECES:</div>
+        <div class="source-pool" id="a2-pool">
+          ${shuffled.map(i=>`<div class="drag-item" id="${i.id}" draggable="true">${i.text}</div>`).join('')}
+        </div>
+        <div class="hint-text">Each slot accepts any fitting card from its category</div>
+      </div>
+      <div class="flex-col" style="flex:1;min-width:0;gap:6px">
+        <div class="label-sm" style="text-align:center">🦁 YOUR PROMPT STRUCTURE:</div>
+        ${Object.entries(act2Data.slots).map(([k,v])=>`
+        <div>
+          <div class="label-sm">${v.label}</div>
+          <div class="prompt-slot drop-zone" id="slot-${k}" data-slot="${k}">
+            <span class="slot-label" id="slot-${k}-ph" style="opacity:0.5">${v.placeholder}</span>
+          </div>
+        </div>`).join('')}
+        <div id="a2-result" style="padding:6px 8px;background:rgba(93,138,60,0.12);border-radius:8px;font-size:0.6rem;color:#3E6B20;font-style:italic;display:none;line-height:1.5;border:1.5px dashed #5D8A3C">
+          <strong>Your assembled prompt:</strong><br><span id="a2-result-text"></span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  setupDrag2();
+}
+
+function setupDrag2(){
+  document.querySelectorAll('.drag-item').forEach(el=>{
+    el.addEventListener('dragstart',e=>{e.dataTransfer.setData('text',el.id);el.classList.add('dragging');});
+    el.addEventListener('dragend',()=>el.querySelectorAll('[class*=dragging]').length||el.classList.remove('dragging'));
+  });
+  document.querySelectorAll('.prompt-slot').forEach(slot=>{
+    slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('over');});
+    slot.addEventListener('dragleave',()=>slot.classList.remove('over'));
+    slot.addEventListener('drop',e=>{
+      e.preventDefault();slot.classList.remove('over');
+      const id=e.dataTransfer.getData('text');
+      const item=act2Data.items.find(i=>i.id===id);
+      if(!item)return;
+      const slotKey=slot.dataset.slot;
+      const slotDef=act2Data.slots[slotKey];
+      const correct=item.slot===slotKey;
+      const el=document.getElementById(id);
+      if(!el||act2Data.placed[id])return;
+      if(correct){
+        if(slotDef.filled){
+          showFeedback('⚠️ This slot is full — try another slot!','error');return;
+        }
+        el.classList.add('placed');
+        act2Data.placed[id]=true;
+        slotDef.filled=id;
+        slot.classList.add('filled');
+        const ph=document.getElementById('slot-'+slotKey+'-ph');
+        if(ph)ph.remove();
+        slot.appendChild(el);
+        slot.classList.add('correct-flash');
+        setTimeout(()=>slot.classList.remove('correct-flash'),600);
+        showFeedback('✅ Perfect fit!','success');
+        checkAct2Complete();
+      } else {
+        slot.classList.add('wrong-flash');
+        setTimeout(()=>slot.classList.remove('wrong-flash'),600);
+        showFeedback('❌ Wrong slot — check the category label!','error');
+      }
+    });
+  });
+}
+
+function checkAct2Complete(){
+  const filled=Object.values(act2Data.slots).filter(s=>s.filled).length;
+  if(filled===4&&!act2Data.done){
+    act2Data.done=true;scores[1]=8;
+    const parts=Object.values(act2Data.slots).map(s=>{
+      const item=act2Data.items.find(i=>i.id===s.filled);
+      return item?item.text:'';
+    }).filter(Boolean);
+    const resultEl=document.getElementById('a2-result');
+    const resultText=document.getElementById('a2-result-text');
+    if(resultEl&&resultText){
+      resultText.textContent=parts.join(' → ');
+      resultEl.style.display='block';
+    }
+    setTimeout(()=>{
+      showPopup('🐘','Activity 2 Complete!','Outstanding! You\'ve built a full Role + Chain-of-Thought prompt — just like how an elephant never forgets the path to water! Context → Task → Reasoning = powerful prompts.',
+      'Final Challenge 🌅',()=>{currentActivity=3;updateProgress(3);buildActivity3();});
+    },700);
+  }
+}
+
+/* ============ ACTIVITY 3: Real-World Scenarios ============ */
+const act3Data = {
+  scenarios:[
+    {
+      id:'sc1',
+      title:'📚 School Project Helper',
+      weakOutput:'Here is information about volcanoes.',
+      strongOutput:'As a geology teacher, I\'ll explain 5 key facts about volcanoes for a 12-year-old. Step 1: Volcanoes form at tectonic plate boundaries where magma escapes... Step 2: There are 3 types: shield, composite, cinder cone... (structured, age-appropriate, educational)',
+      slots:['persona','context','task','format'],
+      items:[
+        {id:'sc1-persona',text:'Act as a geology teacher',slot:'persona'},
+        {id:'sc1-context',text:'I am a student writing a science report',slot:'context'},
+        {id:'sc1-task',text:'Explain 5 key facts about volcanoes',slot:'task'},
+        {id:'sc1-format',text:'Use bullet points, keep it simple for age 12',slot:'format'},
+      ],
+      filled:{}
+    },
+    {
+      id:'sc2',
+      title:'🎪 Culture Day Stall Planner',
+      weakOutput:'Here are some ideas for a cultural stall.',
+      strongOutput:'As a cultural events expert for West Bengal: 🎨 Decor: Durga Puja motifs with bamboo frames. 🍛 Food: Rasgolla, Mishti Doi, Macher Jhol. 🎭 Activities: Baul music demo, Kantha embroidery display. Step-by-step setup guide included...',
+      slots:['persona','context','task','format'],
+      items:[
+        {id:'sc2-persona',text:'Act as a cultural events expert',slot:'persona'},
+        {id:'sc2-context',text:'Planning a West Bengal stall for school Culture Day',slot:'context'},
+        {id:'sc2-task',text:'Suggest food, decor, and activities for the stall',slot:'task'},
+        {id:'sc2-format',text:'Give a step-by-step plan with emojis',slot:'format'},
+      ],
+      filled:{}
+    },
+    {
+      id:'sc3',
+      title:'🦁 Wildlife Guide Script',
+      weakOutput:'Lions are big cats that live in Africa.',
+      strongOutput:'[Safari Guide voice] Welcome, young explorers! The African lion — Panthera leo — is the savanna\'s most iconic predator. Did you know a lion\'s roar can be heard 8 km away? Here\'s what makes them extraordinary: 1. Social structure — prides of 10-40 lions... 2. Hunting strategy...',
+      slots:['persona','context','task','format'],
+      items:[
+        {id:'sc3-persona',text:'Act as an enthusiastic safari guide',slot:'persona'},
+        {id:'sc3-context',text:'Audience is a group of young tourists visiting Kenya',slot:'context'},
+        {id:'sc3-task',text:'Describe African lions in an exciting way',slot:'task'},
+        {id:'sc3-format',text:'Use numbered facts and an engaging storytelling tone',slot:'format'},
+      ],
+      filled:{}
+    }
+  ],
+  allDone:false
+};
+
+function buildActivity3(){
+  const allItems=[].concat(...act3Data.scenarios.map(s=>s.items)).sort(()=>Math.random()-0.5);
+  area.innerHTML=`
+  <div class="activity-card" style="max-width:960px">
+    <div class="activity-title">🌍 Activity 3: Real-World Prompt Challenges</div>
+    <div class="activity-subtitle">Drag components to complete each prompt — watch weak outputs transform into strong ones!</div>
+    <div class="activity-body" style="flex-direction:column;gap:5px">
+      <div class="label-sm">📦 SHARED COMPONENTS — drag from here:</div>
+      <div class="source-pool" id="a3-pool" style="min-height:48px">
+        ${allItems.map(i=>`<div class="drag-item" id="${i.id}" draggable="true">${i.text}</div>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;flex:1;min-height:0;overflow:hidden">
+        ${act3Data.scenarios.map(sc=>`
+        <div class="scenario-card">
+          <div class="scenario-title">${sc.title}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:4px">
+            ${sc.slots.map(slotKey=>`
+            <div>
+              <div style="font-size:0.5rem;font-weight:700;color:#8B4513;margin-bottom:1px">${slotKey.toUpperCase()}</div>
+              <div class="prompt-slot drop-zone" id="${sc.id}-${slotKey}" data-scid="${sc.id}" data-slot="${slotKey}" style="min-height:30px;font-size:0.5rem">
+                <span style="opacity:0.5;font-size:0.5rem">${slotKey}...</span>
+              </div>
+            </div>`).join('')}
+          </div>
+          <div style="font-size:0.5rem;font-weight:700;color:#6B3A2A;margin-bottom:2px">OUTPUT QUALITY:</div>
+          <div class="output-box output-weak" id="${sc.id}-output">
+            <span id="${sc.id}-output-text" style="font-size:0.52rem">${sc.weakOutput}</span>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+  setupDrag3();
+}
+
+function setupDrag3(){
+  document.querySelectorAll('.drag-item').forEach(el=>{
+    el.addEventListener('dragstart',e=>{e.dataTransfer.setData('text',el.id);el.classList.add('dragging');});
+    el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+  });
+  document.querySelectorAll('.prompt-slot').forEach(slot=>{
+    if(!slot.dataset.scid)return;
+    slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('over');});
+    slot.addEventListener('dragleave',()=>slot.classList.remove('over'));
+    slot.addEventListener('drop',e=>{
+      e.preventDefault();slot.classList.remove('over');
+      const id=e.dataTransfer.getData('text');
+      const scid=slot.dataset.scid;
+      const slotKey=slot.dataset.slot;
+      const sc=act3Data.scenarios.find(s=>s.id===scid);
+      if(!sc)return;
+      const item=sc.items.find(i=>i.id===id);
+      if(!item){showFeedback('❌ This piece belongs to a different scenario!','error');return;}
+      if(item.slot!==slotKey){
+        slot.classList.add('wrong-flash');
+        setTimeout(()=>slot.classList.remove('wrong-flash'),600);
+        showFeedback('❌ Wrong slot type — check the label!','error');return;
+      }
+      if(sc.filled[slotKey]){showFeedback('⚠️ Slot already filled!','error');return;}
+      const el=document.getElementById(id);
+      if(!el||el.classList.contains('placed'))return;
+      el.classList.add('placed');
+      sc.filled[slotKey]=id;
+      slot.classList.add('filled');
+      const ph=slot.querySelector('span');
+      if(ph)ph.remove();
+      slot.appendChild(el);
+      slot.classList.add('correct-flash');
+      setTimeout(()=>slot.classList.remove('correct-flash'),600);
+      showFeedback('✅ Great placement!','success');
+      const filledCount=Object.keys(sc.filled).length;
+      if(filledCount===4){
+        const out=document.getElementById(sc.id+'-output');
+        const outText=document.getElementById(sc.id+'-output-text');
+        if(out&&outText){
+          out.className='output-box output-strong';
+          outText.textContent=sc.strongOutput;
+          outText.style.transition='all 0.5s';
+        }
+        showFeedback('🌟 Scenario complete — see the stronger output!','success');
+      }
+      checkAct3Complete();
+    });
+  });
+}
+
+function checkAct3Complete(){
+  const done=act3Data.scenarios.filter(s=>Object.keys(s.filled).length===4).length;
+  if(done===3&&!act3Data.allDone){
+    act3Data.allDone=true;scores[2]=8;
+    setTimeout(()=>{
+      updateProgress(4);
+      showPopup('🏆','You Are a Prompt Engineering Pro!',
+        'All 3 challenges complete! You now know Zero-Shot vs Few-Shot, Role Prompting, Chain-of-Thought, and how to build structured prompts with Context + Task + Format. The savanna celebrates you! 🦁🐘🦒',
+        '🌅 See My Score!',()=>showFinalScore());
+    },700);
+  }
+}
+
+function showFinalScore(){
+  const total=scores.reduce((a,b)=>a+b,0);
+  area.innerHTML=`
+  <div class="activity-card" style="align-items:center;justify-content:center;text-align:center;gap:1rem">
+    <div style="font-size:3rem">🌅</div>
+    <div class="activity-title">MISSION ACCOMPLISHED, PROMPT ENGINEER!</div>
+    <div style="display:flex;gap:16px;justify-content:center;margin:8px 0">
+      <div style="background:rgba(93,138,60,0.15);border:2px solid #5D8A3C;border-radius:12px;padding:10px 18px">
+        <div style="font-family:'Baloo 2',cursive;font-size:2rem;font-weight:800;color:#3E6B20">${total}/24</div>
+        <div style="font-size:0.7rem;color:#5D8A3C;font-weight:600">TOTAL SCORE</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <div style="background:rgba(244,164,42,0.15);border:1.5px solid #F4A42A;border-radius:10px;padding:8px 14px;font-size:0.7rem">
+        <div style="font-weight:700;color:#8B4513">Activity 1</div>
+        <div style="color:#A0522D">Zero-Shot vs Few-Shot</div>
+        <div style="font-weight:800;color:#F4A42A;font-size:1rem">${scores[0]}/8</div>
+      </div>
+      <div style="background:rgba(244,164,42,0.15);border:1.5px solid #F4A42A;border-radius:10px;padding:8px 14px;font-size:0.7rem">
+        <div style="font-weight:700;color:#8B4513">Activity 2</div>
+        <div style="color:#A0522D">Role + Chain-of-Thought</div>
+        <div style="font-weight:800;color:#F4A42A;font-size:1rem">${scores[1]}/8</div>
+      </div>
+      <div style="background:rgba(244,164,42,0.15);border:1.5px solid #F4A42A;border-radius:10px;padding:8px 14px;font-size:0.7rem">
+        <div style="font-weight:700;color:#8B4513">Activity 3</div>
+        <div style="color:#A0522D">Real-World Scenarios</div>
+        <div style="font-weight:800;color:#F4A42A;font-size:1rem">${scores[2]}/8</div>
+      </div>
+    </div>
+    <div style="background:linear-gradient(135deg,rgba(93,138,60,0.15),rgba(244,164,42,0.1));border-radius:12px;padding:10px 16px;max-width:480px">
+      <div style="font-family:'Baloo 2',cursive;font-size:0.85rem;font-weight:700;color:#8B4513;margin-bottom:4px">🦁 THE GOLDEN RULE OF PROMPTING:</div>
+      <div style="font-size:0.72rem;color:#6B3A2A;line-height:1.5">
+        <strong>Be specific. Be clear. Provide context.</strong><br>
+        Role + Context + Task + Format = Outputs that ROAR! 🌟
+      </div>
+    </div>
+    <button class="popup-btn" style="margin-top:4px" onclick="restartAll()">🔄 Play Again</button>
+  </div>`;
+}
+
+function restartAll(){
+  currentActivity=1;scores=[0,0,0];
+  act1Data.placed={zero:[],few:[]};act1Data.done=false;
+  Object.values(act2Data.slots).forEach(s=>s.filled=null);act2Data.done=false;
+  act2Data.placed={};
+  act3Data.scenarios.forEach(s=>s.filled={});act3Data.allDone=false;
+  updateProgress(1);buildActivity1();
+}
+
+updateProgress(1);buildActivity1();
+</script>
+</body>
+</html>

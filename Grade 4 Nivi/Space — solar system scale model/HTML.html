@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPACE — SOLAR SYSTEM SCALE MODEL</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Exo+2:ital,wght@0,300;0,400;0,600;1,300&display=swap');
+
+:root {
+  --void: #00040f;
+  --deep: #020818;
+  --hull: #0a1628;
+  --panel: #0d1f3c;
+  --glass: rgba(10,30,70,0.6);
+  --cyan: #00e5ff;
+  --cyan2: #00b4d8;
+  --gold: #ffd60a;
+  --amber: #ff9500;
+  --coral: #ff6b6b;
+  --green: #39ff14;
+  --purple: #b44aff;
+  --white: #e8f4ff;
+  --dim: #4a7fa5;
+  --glow-c: 0 0 20px #00e5ff88, 0 0 40px #00e5ff44;
+  --glow-g: 0 0 20px #ffd60a88, 0 0 40px #ffd60a44;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+  font-family: 'Exo 2', sans-serif;
+  background: var(--void);
+  color: var(--white);
+  user-select: none;
+}
+
+/* ═══════════════════════ STARFIELD CANVAS ═══════════════════════ */
+#starCanvas {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none;
+}
+
+/* ═══════════════════════ NEBULA LAYERS ═══════════════════════ */
+.nebula {
+  position: fixed; border-radius: 50%;
+  filter: blur(80px); pointer-events: none; z-index: 0;
+  animation: nebulaPulse 12s ease-in-out infinite alternate;
+}
+.nebula-1 { width: 600px; height: 400px; top: -100px; left: -200px; background: radial-gradient(ellipse, #0a2a6e44, transparent 70%); animation-delay: 0s; }
+.nebula-2 { width: 500px; height: 500px; bottom: -150px; right: -100px; background: radial-gradient(ellipse, #4a006e44, transparent 70%); animation-delay: 4s; }
+.nebula-3 { width: 400px; height: 300px; top: 40%; left: 40%; background: radial-gradient(ellipse, #00456e33, transparent 70%); animation-delay: 8s; }
+
+@keyframes nebulaPulse {
+  from { opacity: 0.4; transform: scale(1); }
+  to   { opacity: 0.8; transform: scale(1.15); }
+}
+
+/* ═══════════════════════ FLOATING PARTICLES ═══════════════════════ */
+.particle {
+  position: fixed; border-radius: 50%;
+  pointer-events: none; z-index: 1;
+  animation: floatParticle linear infinite;
+}
+@keyframes floatParticle {
+  0%   { transform: translate(0,0) rotate(0deg); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 0.6; }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(360deg); opacity: 0; }
+}
+
+/* ═══════════════════════ EARTH GLOBE ═══════════════════════ */
+#earth-bg {
+  position: fixed; right: -80px; bottom: -80px;
+  width: 320px; height: 320px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #1a6b8a, #0d4a6b 40%, #06233a 70%, #020d18);
+  box-shadow: inset -25px -15px 40px rgba(0,0,0,0.8), 0 0 60px #00b4d844, 0 0 120px #00b4d822;
+  z-index: 0; pointer-events: none;
+  animation: earthSpin 60s linear infinite, earthBob 8s ease-in-out infinite alternate;
+  overflow: hidden;
+}
+#earth-bg::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: 50%;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cellipse cx='120' cy='160' rx='80' ry='50' fill='%2327a96344' /%3E%3Cellipse cx='260' cy='200' rx='60' ry='35' fill='%2327a96333' /%3E%3Cellipse cx='200' cy='120' rx='50' ry='30' fill='%2327a96322' /%3E%3C/svg%3E") center/cover;
+  animation: cloudDrift 30s linear infinite;
+}
+@keyframes earthSpin { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(15deg); } }
+@keyframes earthBob  { from { transform: translateY(0); } to { transform: translateY(-15px); } }
+@keyframes cloudDrift { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* ═══════════════════════ ASTRONAUT ═══════════════════════ */
+#astronaut {
+  position: fixed; left: 30px; bottom: 80px;
+  width: 70px; height: 90px; z-index: 2; pointer-events: none;
+  animation: astFloat 7s ease-in-out infinite alternate, astSway 11s ease-in-out infinite;
+}
+#astronaut svg { width: 100%; height: 100%; }
+@keyframes astFloat { from { transform: translateY(0) rotate(-3deg); } to { transform: translateY(-25px) rotate(3deg); } }
+@keyframes astSway  { 0%,100% { left: 30px; } 50% { left: 55px; } }
+
+/* ═══════════════════════ SPACE STATION HUD ═══════════════════════ */
+#hud-top {
+  position: fixed; top: 0; left: 0; right: 0; height: 56px; z-index: 10;
+  background: linear-gradient(180deg, rgba(2,8,24,0.95) 0%, rgba(2,8,24,0.7) 100%);
+  border-bottom: 1px solid rgba(0,229,255,0.2);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px;
+  backdrop-filter: blur(10px);
+}
+.hud-title {
+  font-family: 'Orbitron', sans-serif; font-weight: 900;
+  font-size: clamp(11px, 1.4vw, 16px); letter-spacing: 0.15em;
+  color: var(--cyan); text-shadow: var(--glow-c);
+}
+.hud-subtitle { font-size: 10px; color: var(--dim); letter-spacing: 0.2em; margin-top: 2px; }
+.hud-badges { display: flex; gap: 12px; }
+.hud-badge {
+  font-family: 'Orbitron', sans-serif; font-size: 9px;
+  padding: 4px 10px; border-radius: 2px;
+  border: 1px solid rgba(0,229,255,0.3);
+  color: var(--dim); letter-spacing: 0.1em;
+  animation: badgeBlink 3s step-end infinite;
+}
+.hud-badge.live { color: var(--green); border-color: var(--green); animation: badgeBlink 1.2s step-end infinite; }
+@keyframes badgeBlink { 0%,49%{ opacity:1; } 50%,100%{ opacity:0.4; } }
+
+.hud-progress {
+  display: flex; gap: 8px; align-items: center;
+}
+.prog-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  border: 1px solid var(--dim); transition: all 0.4s;
+}
+.prog-dot.done { background: var(--green); border-color: var(--green); box-shadow: 0 0 8px var(--green); }
+.prog-dot.active { background: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 8px var(--cyan); animation: progPulse 1s ease-in-out infinite alternate; }
+@keyframes progPulse { from { box-shadow: 0 0 6px var(--cyan); } to { box-shadow: 0 0 18px var(--cyan); } }
+.prog-line { width: 30px; height: 1px; background: var(--dim); }
+.prog-line.done { background: var(--green); }
+
+#hud-bottom {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 36px; z-index: 10;
+  background: rgba(2,8,24,0.8);
+  border-top: 1px solid rgba(0,229,255,0.15);
+  display: flex; align-items: center; padding: 0 20px; gap: 30px;
+  font-family: 'Orbitron', sans-serif; font-size: 9px; color: var(--dim);
+  letter-spacing: 0.12em; overflow: hidden; backdrop-filter: blur(6px);
+}
+.ticker { animation: tickerScroll 40s linear infinite; white-space: nowrap; }
+@keyframes tickerScroll { from { transform: translateX(100vw); } to { transform: translateX(-200%); } }
+.scan-line {
+  position: fixed; left: 0; right: 0; height: 2px; z-index: 9;
+  background: linear-gradient(90deg, transparent, rgba(0,229,255,0.15), transparent);
+  animation: scanDown 8s linear infinite; pointer-events: none;
+}
+@keyframes scanDown { from { top: 56px; } to { top: calc(100vh - 36px); } }
+
+/* ═══════════════════════ CONTROL PANEL FRAME ═══════════════════════ */
+#main-panel {
+  position: fixed; top: 56px; left: 0; right: 0; bottom: 36px;
+  display: flex; align-items: center; justify-content: center; z-index: 5;
+}
+
+.activity-viewport {
+  width: min(900px, 96vw);
+  height: min(calc(100vh - 120px), 640px);
+  background: linear-gradient(135deg, rgba(10,22,48,0.92), rgba(5,12,28,0.97));
+  border: 1px solid rgba(0,229,255,0.25);
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px rgba(0,229,255,0.08), 0 30px 80px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05);
+  display: flex; flex-direction: column;
+  overflow: hidden; position: relative;
+  backdrop-filter: blur(20px);
+}
+.activity-viewport::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: 12px;
+  background: radial-gradient(ellipse at 30% 20%, rgba(0,100,200,0.06), transparent 60%);
+  pointer-events: none;
+}
+
+/* Corner decorations */
+.corner { position: absolute; width: 20px; height: 20px; z-index: 1; pointer-events: none; }
+.corner::before, .corner::after { content: ''; position: absolute; background: var(--cyan); }
+.corner::before { width: 100%; height: 1px; }
+.corner::after  { width: 1px; height: 100%; }
+.corner.tl { top: 8px; left: 8px; }
+.corner.tr { top: 8px; right: 8px; transform: scaleX(-1); }
+.corner.bl { bottom: 8px; left: 8px; transform: scaleY(-1); }
+.corner.br { bottom: 8px; right: 8px; transform: scale(-1); }
+
+/* ═══════════════════════ ACTIVITY HEADER ═══════════════════════ */
+.act-header {
+  padding: 14px 28px 10px;
+  border-bottom: 1px solid rgba(0,229,255,0.12);
+  display: flex; align-items: flex-start; justify-content: space-between; flex-shrink: 0;
+}
+.act-num {
+  font-family: 'Orbitron', sans-serif; font-size: 9px; font-weight: 600;
+  color: var(--cyan); letter-spacing: 0.25em; margin-bottom: 4px;
+}
+.act-title {
+  font-family: 'Orbitron', sans-serif; font-weight: 700;
+  font-size: clamp(12px, 1.8vw, 18px); color: var(--white); line-height: 1.2;
+}
+.act-instruction {
+  font-size: clamp(10px, 1.2vw, 12px); color: var(--dim); margin-top: 4px;
+  font-style: italic; max-width: 520px; line-height: 1.4;
+}
+.act-score {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; color: var(--gold);
+  text-align: right; text-shadow: var(--glow-g);
+  white-space: nowrap;
+}
+.score-val { font-size: 22px; font-weight: 900; }
+
+/* ═══════════════════════ ACTIVITY BODY ═══════════════════════ */
+.act-body {
+  flex: 1; overflow: hidden;
+  display: flex; flex-direction: column; position: relative;
+}
+
+/* ═══════════════════════ ACTIVITY 1 — DISTANCE RATIOS ═══════════════════════ */
+#act1 { display: flex; flex-direction: column; height: 100%; }
+
+.ratio-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 12px; padding: 16px 24px; flex: 1;
+}
+
+.ratio-card {
+  background: rgba(0,30,70,0.5);
+  border: 1px solid rgba(0,229,255,0.15);
+  border-radius: 8px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+  transition: border-color 0.3s;
+}
+.ratio-card:hover { border-color: rgba(0,229,255,0.35); }
+.ratio-card.correct { border-color: var(--green) !important; background: rgba(57,255,20,0.06) !important; }
+.ratio-card.wrong   { border-color: var(--coral) !important; background: rgba(255,107,107,0.06) !important;
+                      animation: shake 0.4s ease; }
+
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20%     { transform: translateX(-6px); }
+  60%     { transform: translateX(6px); }
+}
+
+.ratio-planet-row { display: flex; align-items: center; gap: 10px; }
+.ratio-planet-icon { font-size: 22px; }
+.ratio-planet-name { font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 600; color: var(--white); }
+.ratio-planet-real  { font-size: 10px; color: var(--dim); margin-top: 2px; }
+
+.ratio-drop-row { display: flex; align-items: center; gap: 10px; }
+.ratio-label { font-size: 10px; color: var(--dim); white-space: nowrap; }
+.ratio-dropzone {
+  flex: 1; height: 34px; border-radius: 4px;
+  border: 1px dashed rgba(0,229,255,0.4);
+  background: rgba(0,229,255,0.04);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Orbitron', sans-serif; font-size: 12px; color: var(--dim);
+  transition: all 0.2s; position: relative;
+  cursor: default;
+}
+.ratio-dropzone.drag-over { border-color: var(--cyan); background: rgba(0,229,255,0.12); transform: scale(1.02); }
+.ratio-dropzone.filled    { color: var(--gold); border-style: solid; border-color: var(--gold); background: rgba(255,214,10,0.08); }
+.ratio-dropzone.correct-fill { border-color: var(--green); color: var(--green); background: rgba(57,255,20,0.08); }
+.ratio-dropzone.wrong-fill   { border-color: var(--coral); color: var(--coral); }
+
+.value-bank {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 12px 24px; border-top: 1px solid rgba(0,229,255,0.1);
+  justify-content: center; flex-shrink: 0;
+}
+.drag-chip {
+  padding: 6px 14px; border-radius: 4px;
+  background: rgba(0,50,120,0.7);
+  border: 1px solid rgba(0,229,255,0.4);
+  font-family: 'Orbitron', sans-serif; font-size: 12px; font-weight: 600;
+  color: var(--cyan); cursor: grab; transition: all 0.2s;
+  user-select: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.drag-chip:hover { background: rgba(0,80,180,0.7); box-shadow: var(--glow-c); transform: translateY(-2px); }
+.drag-chip:active { cursor: grabbing; transform: scale(0.95); }
+.drag-chip.dragging { opacity: 0.3; }
+.drag-chip.used { opacity: 0.2; pointer-events: none; }
+
+/* ═══════════════════════ ACTIVITY 2 — PLANET ORDER ═══════════════════════ */
+#act2 { display: flex; flex-direction: column; height: 100%; }
+
+.order-arena {
+  flex: 1; padding: 12px 20px;
+  display: flex; flex-direction: column; gap: 12px; overflow: hidden;
+}
+
+.sun-line {
+  display: flex; align-items: center; gap: 12px;
+  padding: 6px 10px;
+  background: rgba(255,149,0,0.06);
+  border: 1px solid rgba(255,149,0,0.2);
+  border-radius: 6px;
+}
+.sun-icon { font-size: 28px; filter: drop-shadow(0 0 10px #ffd60a); }
+.sun-label { font-family: 'Orbitron', sans-serif; font-size: 11px; color: var(--gold); }
+.sun-desc  { font-size: 10px; color: var(--dim); margin-top: 2px; }
+
+.orbit-track {
+  flex: 1; position: relative;
+  background: rgba(0,20,50,0.4);
+  border: 1px solid rgba(0,229,255,0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.orbit-track-label {
+  position: absolute; top: 8px; left: 12px;
+  font-family: 'Orbitron', sans-serif; font-size: 9px; color: var(--dim); letter-spacing: 0.2em;
+}
+.orbit-slots {
+  display: flex; align-items: center; justify-content: space-evenly;
+  height: 100%; padding: 20px 16px;
+  gap: 6px;
+}
+.orbit-slot {
+  width: 72px; min-width: 60px; height: 80px;
+  border: 1px dashed rgba(0,229,255,0.25);
+  border-radius: 8px;
+  background: rgba(0,229,255,0.03);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; position: relative; transition: all 0.2s;
+}
+.orbit-slot .slot-num {
+  position: absolute; top: 4px; left: 0; right: 0; text-align: center;
+  font-family: 'Orbitron', sans-serif; font-size: 8px; color: rgba(0,229,255,0.35);
+}
+.orbit-slot.drag-over { border-color: var(--cyan); background: rgba(0,229,255,0.1); transform: scale(1.05); }
+.orbit-slot.has-planet { border-style: solid; }
+.orbit-slot.correct-slot { border-color: var(--green); background: rgba(57,255,20,0.06); }
+.orbit-slot.wrong-slot   { border-color: var(--coral); animation: shake 0.4s ease; }
+
+.planet-draggable {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  cursor: grab; transition: transform 0.2s;
+}
+.planet-draggable:active { cursor: grabbing; }
+.planet-emoji { font-size: 26px; display: block; }
+.planet-tag {
+  font-family: 'Orbitron', sans-serif; font-size: 8px; color: var(--white);
+  text-align: center; line-height: 1.2;
+}
+
+.planet-bank {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 10px 20px; border-top: 1px solid rgba(0,229,255,0.1);
+  justify-content: center; flex-shrink: 0;
+}
+.planet-chip {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 8px 10px; border-radius: 6px;
+  background: rgba(0,30,70,0.6);
+  border: 1px solid rgba(0,229,255,0.3);
+  cursor: grab; transition: all 0.2s; min-width: 58px;
+}
+.planet-chip:hover { border-color: var(--cyan); transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.5); }
+.planet-chip:active { cursor: grabbing; }
+.planet-chip.dragging { opacity: 0.3; }
+.planet-chip.used { opacity: 0.15; pointer-events: none; }
+.p-emoji { font-size: 24px; }
+.p-name  { font-family: 'Orbitron', sans-serif; font-size: 8px; color: var(--dim); }
+
+/* ═══════════════════════ ACTIVITY 3 — SCALE LAYOUT ═══════════════════════ */
+#act3 { display: flex; flex-direction: column; height: 100%; }
+
+.scale-arena {
+  flex: 1; position: relative;
+  padding: 10px 16px 6px;
+  display: flex; flex-direction: column; gap: 6px;
+  overflow: hidden;
+}
+
+/* Two ruler rows: inner planets (top), outer planets (bottom) */
+.ruler-row {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.ruler-row-label {
+  position: absolute; top: 4px; left: 0;
+  font-family: 'Orbitron', sans-serif; font-size: 8px;
+  color: var(--dim); letter-spacing: 0.15em;
+}
+
+/* The horizontal bar */
+.ruler-bar {
+  position: absolute;
+  bottom: 18px; left: 32px; right: 8px;
+  height: 3px; background: rgba(0,229,255,0.35); border-radius: 2px;
+}
+.ruler-bar.inner-bar::before {
+  content: '☀'; position: absolute; left: -18px; top: -8px;
+  font-size: 14px; filter: drop-shadow(0 0 6px #ffd60a);
+}
+.ruler-bar.outer-bar::before {
+  content: '☀'; position: absolute; left: -18px; top: -8px;
+  font-size: 14px; filter: drop-shadow(0 0 6px #ffd60a); opacity: 0.4;
+}
+
+/* AU tick marks on the bar */
+.ruler-tick {
+  position: absolute; bottom: 0; width: 1px;
+  background: rgba(0,229,255,0.5); transform: translateX(-50%);
+}
+.ruler-tick-label {
+  position: absolute; top: 5px;
+  font-family: 'Orbitron', sans-serif; font-size: 7px; color: var(--dim);
+  transform: translateX(-50%); white-space: nowrap;
+}
+
+/* Drop zones sit above the ruler bar */
+.drop-zone-ruler {
+  position: absolute;
+  bottom: 24px;
+  width: 46px; height: 54px;
+  transform: translateX(-50%);
+  border: 1px dashed rgba(0,229,255,0.35);
+  border-radius: 6px; background: rgba(0,229,255,0.03);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; transition: all 0.2s; cursor: default;
+  z-index: 2;
+}
+.drop-zone-ruler .dz-label {
+  font-family: 'Orbitron', sans-serif; font-size: 7px; color: rgba(0,229,255,0.45);
+  text-align: center; line-height: 1.2;
+}
+.drop-zone-ruler.drag-over { border-color: var(--cyan); background: rgba(0,229,255,0.12); transform: translateX(-50%) scale(1.06); }
+.drop-zone-ruler.placed    { border-style: solid; border-color: var(--gold); background: rgba(255,214,10,0.08); }
+.drop-zone-ruler.correct-place { border-color: var(--green); background: rgba(57,255,20,0.06); }
+.drop-zone-ruler.wrong-place   { border-color: var(--coral); animation: shake 0.4s ease; }
+
+.scale-label-row {
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 0 20px; gap: 4px; flex-shrink: 0;
+}
+.scale-key { font-size: 10px; color: var(--dim); font-style: italic; text-align: center; }
+.scale-key span { color: var(--cyan); font-style: normal; }
+
+.scale-planet-bank {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 10px 20px; border-top: 1px solid rgba(0,229,255,0.1);
+  justify-content: center; flex-shrink: 0;
+}
+.scale-chip {
+  padding: 6px 10px; border-radius: 6px;
+  background: rgba(0,30,70,0.6);
+  border: 1px solid rgba(0,229,255,0.3);
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  cursor: grab; transition: all 0.2s; min-width: 52px;
+}
+.scale-chip:hover { border-color: var(--cyan); transform: translateY(-2px); }
+.scale-chip:active { cursor: grabbing; }
+.scale-chip.dragging { opacity: 0.3; }
+.scale-chip.used { opacity: 0.15; pointer-events: none; }
+.sc-emoji { font-size: 20px; }
+.sc-name  { font-family: 'Orbitron', sans-serif; font-size: 8px; color: var(--dim); }
+
+/* ═══════════════════════ FOOTER BUTTONS ═══════════════════════ */
+.act-footer {
+  padding: 10px 24px 12px;
+  border-top: 1px solid rgba(0,229,255,0.1);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.btn-check, .btn-next {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 700;
+  padding: 10px 24px; border-radius: 4px; border: none;
+  cursor: pointer; letter-spacing: 0.15em; transition: all 0.25s;
+  text-transform: uppercase;
+}
+.btn-check {
+  background: linear-gradient(135deg, #0066cc, #0044aa);
+  color: var(--white); border: 1px solid var(--cyan);
+}
+.btn-check:hover { box-shadow: var(--glow-c); transform: translateY(-1px); }
+.btn-check:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.btn-next {
+  background: linear-gradient(135deg, #007700, #005500);
+  color: var(--green); border: 1px solid var(--green);
+  display: none;
+}
+.btn-next:hover { box-shadow: 0 0 20px #39ff1488; transform: translateY(-1px); }
+.btn-next.visible { display: block; }
+
+.feedback-msg {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 600;
+  color: var(--dim); transition: all 0.3s; min-height: 18px;
+}
+.feedback-msg.success { color: var(--green); text-shadow: 0 0 12px var(--green); }
+.feedback-msg.error   { color: var(--coral); }
+.feedback-msg.partial { color: var(--amber); }
+
+/* ═══════════════════════ POPUP OVERLAYS ═══════════════════════ */
+.popup-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,4,15,0.85);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.4s;
+  backdrop-filter: blur(6px);
+}
+.popup-overlay.visible { opacity: 1; pointer-events: all; }
+
+.popup-box {
+  width: min(520px, 90vw);
+  background: linear-gradient(135deg, #050e24, #0a1a3a);
+  border: 1px solid rgba(0,229,255,0.4);
+  border-radius: 12px;
+  padding: 32px 36px;
+  box-shadow: 0 0 0 1px rgba(0,229,255,0.1), 0 40px 100px rgba(0,0,0,0.9), var(--glow-c);
+  text-align: center;
+  transform: scale(0.8); transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  position: relative; overflow: hidden;
+}
+.popup-overlay.visible .popup-box { transform: scale(1); }
+.popup-box::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(0,100,255,0.1), transparent 60%);
+  pointer-events: none;
+}
+
+.popup-icon   { font-size: 52px; margin-bottom: 12px; display: block; animation: popIcon 0.6s ease 0.3s both; }
+@keyframes popIcon { from { transform: scale(0) rotate(-20deg); } to { transform: scale(1) rotate(0); } }
+.popup-tag    { font-family: 'Orbitron', sans-serif; font-size: 10px; color: var(--cyan); letter-spacing: 0.3em; margin-bottom: 8px; }
+.popup-title  { font-family: 'Orbitron', sans-serif; font-size: clamp(16px,2.5vw,24px); font-weight: 900; color: var(--white); margin-bottom: 10px; }
+.popup-body   { font-size: clamp(11px, 1.3vw, 13px); color: var(--dim); line-height: 1.6; margin-bottom: 20px; }
+.popup-body strong { color: var(--gold); }
+.popup-fact   { padding: 12px 16px; background: rgba(0,229,255,0.05); border: 1px solid rgba(0,229,255,0.2); border-radius: 6px; font-size: 11px; color: var(--cyan); margin-bottom: 20px; line-height: 1.5; }
+.popup-btn {
+  font-family: 'Orbitron', sans-serif; font-size: 12px; font-weight: 700;
+  padding: 12px 32px; border-radius: 4px; border: none;
+  background: linear-gradient(135deg, var(--cyan), var(--cyan2));
+  color: var(--void); cursor: pointer; letter-spacing: 0.15em;
+  transition: all 0.25s; text-transform: uppercase;
+}
+.popup-btn:hover { box-shadow: var(--glow-c); transform: translateY(-2px); }
+.popup-btn.gold { background: linear-gradient(135deg, var(--gold), var(--amber)); color: var(--void); }
+
+/* Success confetti particles */
+.confetti-piece {
+  position: absolute; width: 8px; height: 8px; border-radius: 2px;
+  pointer-events: none;
+  animation: confettiFall linear both;
+}
+@keyframes confettiFall {
+  0%   { transform: translate(0,0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(var(--cx), var(--cy)) rotate(720deg); opacity: 0; }
+}
+
+/* ═══════════════════════ MISC ═══════════════════════ */
+.ghost-drag {
+  position: fixed; pointer-events: none; z-index: 999;
+  opacity: 0.8; transform: scale(1.1);
+}
+
+.glow-border { animation: glowPulse 2s ease-in-out infinite alternate; }
+@keyframes glowPulse {
+  from { box-shadow: 0 0 8px rgba(0,229,255,0.3); }
+  to   { box-shadow: 0 0 24px rgba(0,229,255,0.7); }
+}
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ── BACKGROUND LAYERS ───────────────────────────────────── -->
+<canvas id="starCanvas"></canvas>
+<div class="nebula nebula-1"></div>
+<div class="nebula nebula-2"></div>
+<div class="nebula nebula-3"></div>
+<div id="earth-bg"></div>
+<div class="scan-line"></div>
+
+<!-- Floating astronaut SVG -->
+<div id="astronaut">
+  <svg viewBox="0 0 70 90" xmlns="http://www.w3.org/2000/svg">
+    <!-- suit body -->
+    <ellipse cx="35" cy="58" rx="20" ry="24" fill="#c8d8e8"/>
+    <!-- helmet -->
+    <circle cx="35" cy="28" r="18" fill="#90aac0"/>
+    <circle cx="35" cy="28" r="13" fill="#0a2040" opacity="0.9"/>
+    <!-- visor shine -->
+    <ellipse cx="30" cy="23" rx="5" ry="3" fill="white" opacity="0.3"/>
+    <!-- arms -->
+    <rect x="6" y="44" width="12" height="8" rx="4" fill="#b0c4d4"/>
+    <rect x="52" y="44" width="12" height="8" rx="4" fill="#b0c4d4"/>
+    <!-- gloves -->
+    <circle cx="8" cy="50" r="5" fill="#7090a8"/>
+    <circle cx="62" cy="50" r="5" fill="#7090a8"/>
+    <!-- boots -->
+    <rect x="22" y="76" width="10" height="8" rx="3" fill="#7090a8"/>
+    <rect x="38" y="76" width="10" height="8" rx="3" fill="#7090a8"/>
+    <!-- backpack -->
+    <rect x="25" y="40" width="20" height="16" rx="3" fill="#a0b8c8"/>
+    <!-- flag patch -->
+    <rect x="42" y="48" width="10" height="7" rx="1" fill="#ff9500" opacity="0.8"/>
+    <!-- jetpack nozzle glow -->
+    <circle cx="35" cy="84" r="3" fill="#00e5ff" opacity="0.6">
+      <animate attributeName="opacity" values="0.6;0.1;0.6" dur="1.5s" repeatCount="indefinite"/>
+    </circle>
+  </svg>
+</div>
+
+<!-- ── HUD TOP ─────────────────────────────────────────────── -->
+<header id="hud-top">
+  <div>
+    <div class="hud-title">⬡ PLANRS ACADEMY — SPACE EXPLORATION MODULE</div>
+    <div class="hud-subtitle">SOLAR SYSTEM SCALE MODEL · MISSION CONTROL</div>
+  </div>
+  <div class="hud-progress" id="progressBar">
+    <div class="prog-dot active" id="pd1"></div>
+    <div class="prog-line" id="pl1"></div>
+    <div class="prog-dot" id="pd2"></div>
+    <div class="prog-line" id="pl2"></div>
+    <div class="prog-dot" id="pd3"></div>
+  </div>
+  <div class="hud-badges">
+    <div class="hud-badge live">● LIVE</div>
+    <div class="hud-badge">DIST: 1AU</div>
+    <div class="hud-badge" id="scoreBadge">SCORE: 0</div>
+  </div>
+</header>
+
+<!-- ── HUD BOTTOM ─────────────────────────────────────────── -->
+<footer id="hud-bottom">
+  <span>◈ MISSION STATUS: ACTIVE</span>
+  <span class="ticker">
+    SOLAR SYSTEM DATA — SUN DIAMETER: 1,392,700 KM · EARTH DISTANCE FROM SUN: 149.6M KM (1 AU) ·
+    JUPITER DIAMETER: 142,984 KM · LIGHT TAKES 8.3 MIN FROM SUN TO EARTH ·
+    NEPTUNE IS 30× FARTHER FROM SUN THAN EARTH · ISRO MANGALYAAN: 670M KM JOURNEY ·
+    CHANDRAYAAN-3 LANDED NEAR MOON'S SOUTH POLE AUG 2023 ·
+    MERCURY DIAMETER: 4,879 KM · SATURN RINGS WIDTH: 282,000 KM ·
+  </span>
+</footer>
+
+<!-- ── MAIN PANEL ──────────────────────────────────────────── -->
+<div id="main-panel">
+  <div class="activity-viewport glow-border">
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+
+    <!-- ═══ ACTIVITY 1 ═══ -->
+    <div class="act-header" id="header1">
+      <div>
+        <div class="act-num">MISSION 01 / 03 · DISTANCE RATIOS</div>
+        <div class="act-title">MATCH THE SCALE DISTANCES</div>
+        <div class="act-instruction">Drag the correct distance value from the bank below and drop it onto each planet's drop zone. Scale: Sun = 1 metre.</div>
+      </div>
+      <div class="act-score">SCORE<br><span class="score-val" id="scoreVal1">0</span></div>
+    </div>
+    <div class="act-body">
+      <div id="act1">
+        <div class="ratio-grid" id="ratioGrid"></div>
+        <div class="value-bank" id="valueBankA1"></div>
+      </div>
+    </div>
+    <div class="act-footer" id="footer1">
+      <div class="feedback-msg" id="feedback1">→ Drag values to their matching planets</div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn-check" id="checkBtn1" onclick="checkAct1()">VERIFY</button>
+        <button class="btn-next" id="nextBtn1" onclick="showPopup('p1')">PROCEED →</button>
+      </div>
+    </div>
+
+    <!-- ═══ ACTIVITY 2 ═══ -->
+    <div class="act-header hidden" id="header2">
+      <div>
+        <div class="act-num">MISSION 02 / 03 · ORBITAL SEQUENCE</div>
+        <div class="act-title">ARRANGE THE PLANETS IN ORDER</div>
+        <div class="act-instruction">Drag each planet from the bank and drop it into the correct orbital slot (1 = closest to Sun). Consider size AND distance.</div>
+      </div>
+      <div class="act-score">SCORE<br><span class="score-val" id="scoreVal2">0</span></div>
+    </div>
+    <div class="act-body hidden" id="body2">
+      <div id="act2">
+        <div class="order-arena">
+          <div class="sun-line">
+            <span class="sun-icon">☀️</span>
+            <div>
+              <div class="sun-label">THE SUN — CENTRE OF OUR SOLAR SYSTEM</div>
+              <div class="sun-desc">All 8 planets orbit the Sun. Arrange them from closest (left) to farthest (right).</div>
+            </div>
+          </div>
+          <div class="orbit-track">
+            <div class="orbit-track-label">ORBITAL SLOTS — DRAG PLANETS HERE</div>
+            <div class="orbit-slots" id="orbitSlots"></div>
+          </div>
+        </div>
+        <div class="planet-bank" id="planetBank"></div>
+      </div>
+    </div>
+    <div class="act-footer hidden" id="footer2">
+      <div class="feedback-msg" id="feedback2">→ Fill all 8 orbital slots to verify</div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn-check" id="checkBtn2" onclick="checkAct2()">VERIFY</button>
+        <button class="btn-next" id="nextBtn2" onclick="showPopup('p2')">PROCEED →</button>
+      </div>
+    </div>
+
+    <!-- ═══ ACTIVITY 3 ═══ -->
+    <div class="act-header hidden" id="header3">
+      <div>
+        <div class="act-num">MISSION 03 / 03 · SCALE LAYOUT</div>
+        <div class="act-title">BUILD THE SCALE MODEL</div>
+        <div class="act-instruction">Place each planet marker at its correct scaled position on the ruler. Each AU = 1 metre in our model.</div>
+      </div>
+      <div class="act-score">SCORE<br><span class="score-val" id="scoreVal3">0</span></div>
+    </div>
+    <div class="act-body hidden" id="body3">
+      <div id="act3">
+        <div class="scale-arena" id="scaleArena"></div>
+        <div class="scale-label-row">
+          <div class="scale-key">Each ruler is scaled independently · <span>Top row: Mercury–Mars</span> · <span>Bottom row: Jupiter–Neptune</span></div>
+        </div>
+        <div class="scale-planet-bank" id="scalePlanetBank"></div>
+      </div>
+    </div>
+    <div class="act-footer hidden" id="footer3">
+      <div class="feedback-msg" id="feedback3">→ Place all planets on the ruler</div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn-check" id="checkBtn3" onclick="checkAct3()">VERIFY</button>
+        <button class="btn-next" id="nextBtn3" onclick="showPopup('final')">COMPLETE MISSION →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ POPUPS ═══════════════════════ -->
+<!-- Popup after Act1 -->
+<div class="popup-overlay" id="popup-p1">
+  <div class="popup-box">
+    <span class="popup-icon">🚀</span>
+    <div class="popup-tag">MISSION 01 COMPLETE</div>
+    <div class="popup-title">DISTANCE RATIOS LOCKED IN!</div>
+    <div class="popup-body">Excellent work, Explorer! You've matched the scale distances correctly.<br><strong>Remember:</strong> on our 1-metre scale, all four inner planets sit within just 1.5 metres of the Sun!</div>
+    <div class="popup-fact">🌍 FUN FACT: If the Sun were 1 metre across, you'd need to walk 109 metres to fit Earth's actual orbit — but in our scale model, Earth sits just 1 metre away from a Sun the size of a large watermelon!</div>
+    <button class="popup-btn" onclick="startAct2()">LAUNCH MISSION 02 →</button>
+  </div>
+</div>
+
+<!-- Popup after Act2 -->
+<div class="popup-overlay" id="popup-p2">
+  <div class="popup-box">
+    <span class="popup-icon">🪐</span>
+    <div class="popup-tag">MISSION 02 COMPLETE</div>
+    <div class="popup-title">ORBITAL SEQUENCE CONFIRMED!</div>
+    <div class="popup-body">Outstanding navigation! You've placed all 8 planets in perfect orbital order.<br><strong>Key insight:</strong> The gap between Mars and Jupiter is enormous — that's where the Asteroid Belt lives!</div>
+    <div class="popup-fact">🛰️ ISRO FACT: India's Mangalyaan mission (2013) travelled from Earth (slot 3) to Mars (slot 4) — a journey of 670 million km, completed in just 298 days. India became the first nation to succeed on its very first attempt!</div>
+    <button class="popup-btn" onclick="startAct3()">LAUNCH MISSION 03 →</button>
+  </div>
+</div>
+
+<!-- Final success popup -->
+<div class="popup-overlay" id="popup-final">
+  <div class="popup-box" id="finalBox">
+    <span class="popup-icon">🏆</span>
+    <div class="popup-tag">ALL MISSIONS COMPLETE</div>
+    <div class="popup-title">YOU ARE A SOLAR SYSTEM EXPLORER!</div>
+    <div class="popup-body">
+      You've mastered the Solar System Scale Model!<br>
+      <strong>Final Score: <span id="finalScore">0</span> points</strong><br><br>
+      You now know what ISRO scientists understand — the Solar System is mostly <strong>empty space</strong>, with tiny worlds separated by vast, awe-inspiring distances.
+    </div>
+    <div class="popup-fact">
+      ☀️ The nearest star to our Sun, Proxima Centauri, is so far away that on our 1-metre scale model, it would sit <strong>270 kilometres away</strong> — like Delhi to Jaipur!<br><br>
+      🌏 Keep looking up. The universe is yours to explore — just like India's brave ISRO scientists do every day!
+    </div>
+    <button class="popup-btn gold" onclick="restartAll()">⟳ RESTART MISSION</button>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   STARFIELD CANVAS
+══════════════════════════════════════════════════════════════════ */
+const canvas = document.getElementById('starCanvas');
+const ctx = canvas.getContext('2d');
+let stars = [];
+
+function resizeCanvas() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+function initStars() {
+  stars = [];
+  for (let i = 0; i < 280; i++) {
+    stars.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 1.4 + 0.2,
+      baseAlpha: Math.random() * 0.7 + 0.2,
+      phase: Math.random() * Math.PI * 2,
+      speed: Math.random() * 0.015 + 0.005,
+      color: ['#ffffff','#aad4ff','#ffd6aa','#d0aaff'][Math.floor(Math.random()*4)]
+    });
+  }
+}
+
+function drawStars(t) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  stars.forEach(s => {
+    const alpha = s.baseAlpha * (0.6 + 0.4 * Math.sin(t * s.speed + s.phase));
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.fillStyle = s.color;
+    ctx.globalAlpha = alpha;
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+/* Floating particles */
+function createParticles() {
+  const colors = ['#00e5ff','#ffd60a','#ff9500','#b44aff','#39ff14'];
+  for (let i = 0; i < 20; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = Math.random() * 3 + 1;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const dur = Math.random() * 20 + 15;
+    const delay = Math.random() * 20;
+    const dx = (Math.random() - 0.5) * 300;
+    const dy = -(Math.random() * 400 + 100);
+    p.style.cssText = `
+      width:${size}px; height:${size}px; background:${color};
+      left:${Math.random()*100}vw; top:${Math.random()*100}vh;
+      --dx:${dx}px; --dy:${dy}px;
+      animation-duration:${dur}s; animation-delay:${delay}s;
+      opacity:0;
+    `;
+    document.body.appendChild(p);
+  }
+}
+
+let animT = 0;
+function loop(ts) {
+  animT = ts * 0.001;
+  drawStars(animT);
+  requestAnimationFrame(loop);
+}
+
+resizeCanvas(); initStars(); createParticles();
+requestAnimationFrame(loop);
+window.addEventListener('resize', () => { resizeCanvas(); initStars(); });
+
+/* ══════════════════════════════════════════════════════════════════
+   DATA
+══════════════════════════════════════════════════════════════════ */
+const PLANETS = [
+  { name: 'Mercury', emoji: '⚫', au: 0.39, auStr: '0.39m',  dist: '57.9M km',  color: '#9c8c80' },
+  { name: 'Venus',   emoji: '🟡', au: 0.72, auStr: '0.72m',  dist: '108.2M km', color: '#e8c560' },
+  { name: 'Earth',   emoji: '🌍', au: 1.00, auStr: '1.00m',  dist: '149.6M km', color: '#2a7fcd' },
+  { name: 'Mars',    emoji: '🔴', au: 1.52, auStr: '1.52m',  dist: '227.9M km', color: '#c1440e' },
+  { name: 'Jupiter', emoji: '🟠', au: 5.20, auStr: '5.20m',  dist: '778.6M km', color: '#c88b3a' },
+  { name: 'Saturn',  emoji: '🪐', au: 9.58, auStr: '9.58m',  dist: '1.43B km',  color: '#e4d191' },
+  { name: 'Uranus',  emoji: '🔵', au:19.22, auStr:'19.22m',  dist: '2.87B km',  color: '#7de8e8' },
+  { name: 'Neptune', emoji: '💙', au:30.05, auStr:'30.05m',  dist: '4.50B km',  color: '#3f54ba' },
+];
+
+let totalScore = 0;
+let act1Score = 0, act2Score = 0, act3Score = 0;
+
+/* ══════════════════════════════════════════════════════════════════
+   DRAG GHOST HELPER
+══════════════════════════════════════════════════════════════════ */
+let ghost = null;
+let dragData = {};
+
+function startGhost(e, html, type) {
+  if (ghost) ghost.remove();
+  ghost = document.createElement('div');
+  ghost.className = 'ghost-drag';
+  ghost.innerHTML = html;
+  ghost.style.cssText = 'position:fixed;pointer-events:none;z-index:999;';
+  document.body.appendChild(ghost);
+  moveGhost(e);
+}
+
+function moveGhost(e) {
+  if (!ghost) return;
+  const x = (e.touches ? e.touches[0].clientX : e.clientX) - 30;
+  const y = (e.touches ? e.touches[0].clientY : e.clientY) - 20;
+  ghost.style.left = x + 'px';
+  ghost.style.top  = y + 'px';
+}
+
+function endGhost() {
+  if (ghost) { ghost.remove(); ghost = null; }
+}
+
+document.addEventListener('mousemove', moveGhost);
+document.addEventListener('touchmove', e => { moveGhost(e); e.preventDefault(); }, { passive: false });
+
+/* ══════════════════════════════════════════════════════════════════
+   ACTIVITY 1 — DISTANCE RATIOS
+══════════════════════════════════════════════════════════════════ */
+// Show 6 planets to keep grid 3×2 (avoid overflow)
+const ACT1_PLANETS = [0,1,2,3,4,5]; // Mercury,Venus,Earth,Mars,Jupiter,Saturn
+
+function buildAct1() {
+  const grid = document.getElementById('ratioGrid');
+  const bank = document.getElementById('valueBankA1');
+  grid.innerHTML = ''; bank.innerHTML = '';
+
+  // Build shuffled values
+  const values = ACT1_PLANETS.map(i => PLANETS[i].auStr);
+  const shuffled = [...values].sort(() => Math.random() - 0.5);
+
+  ACT1_PLANETS.forEach(pi => {
+    const p = PLANETS[pi];
+    const card = document.createElement('div');
+    card.className = 'ratio-card';
+    card.dataset.planet = pi;
+    card.innerHTML = `
+      <div class="ratio-planet-row">
+        <span class="ratio-planet-icon">${p.emoji}</span>
+        <div>
+          <div class="ratio-planet-name">${p.name.toUpperCase()}</div>
+          <div class="ratio-planet-real">Actual dist: ${p.dist}</div>
+        </div>
+      </div>
+      <div class="ratio-drop-row">
+        <span class="ratio-label">Scale dist:</span>
+        <div class="ratio-dropzone" id="dz_${pi}" data-target="${p.auStr}">
+          DROP HERE
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+
+    const dz = card.querySelector('.ratio-dropzone');
+    setupDropzone(dz, 'a1');
+  });
+
+  shuffled.forEach(val => {
+    const chip = document.createElement('div');
+    chip.className = 'drag-chip';
+    chip.textContent = val;
+    chip.dataset.value = val;
+    chip.dataset.act = 'a1';
+    setupDraggable(chip);
+    bank.appendChild(chip);
+  });
+}
+
+function setupDraggable(el) {
+  el.addEventListener('mousedown',  e => onDragStart(e, el));
+  el.addEventListener('touchstart', e => onDragStart(e, el), { passive: false });
+}
+
+function onDragStart(e, el) {
+  if (el.classList.contains('used')) return;
+  e.preventDefault();
+  dragData.el    = el;
+  dragData.value = el.dataset.value || el.dataset.name;
+  dragData.act   = el.dataset.act;
+  el.classList.add('dragging');
+  startGhost(e, el.innerHTML || el.textContent, dragData.act);
+
+  const up = (ev) => { onDragEnd(ev); document.removeEventListener('mouseup', up); document.removeEventListener('touchend', up); };
+  document.addEventListener('mouseup', up);
+  document.addEventListener('touchend', up);
+}
+
+function onDragEnd(e) {
+  endGhost();
+  if (dragData.el) dragData.el.classList.remove('dragging');
+
+  const pt = e.touches ? e.changedTouches[0] : e;
+  const dropEl = getDropAt(pt.clientX, pt.clientY);
+
+  if (dropEl) {
+    handleDrop(dropEl, dragData);
+  }
+  dragData = {};
+}
+
+function getDropAt(x, y) {
+  const zones = document.querySelectorAll('.ratio-dropzone, .orbit-slot, .drop-zone-ruler');
+  for (const z of zones) {
+    const r = z.getBoundingClientRect();
+    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return z;
+  }
+  return null;
+}
+
+function setupDropzone(dz, act) {
+  ['dragover','touchmove'].forEach(ev => {
+    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag-over'); }, { passive: false });
+  });
+  ['dragleave','touchend'].forEach(ev => {
+    dz.addEventListener(ev, () => dz.classList.remove('drag-over'));
+  });
+}
+
+function handleDrop(dz, data) {
+  dz.classList.remove('drag-over');
+
+  if (dz.classList.contains('ratio-dropzone')) {
+    // If already filled, return old chip
+    const prev = dz.dataset.filled;
+    if (prev) {
+      const old = document.querySelector(`.drag-chip[data-value="${prev}"]`);
+      if (old) old.classList.remove('used');
+    }
+    dz.textContent = data.value;
+    dz.dataset.filled = data.value;
+    dz.classList.remove('wrong-fill','correct-fill');
+    dz.classList.add('filled');
+    // Mark chip as used
+    data.el.classList.add('used');
+    updateCheckBtn1();
+  }
+  else if (dz.classList.contains('orbit-slot')) {
+    if (dz.dataset.filledName && dz.dataset.filledName === data.value) return;
+    // Return old planet
+    if (dz.dataset.filledName) {
+      const old = document.querySelector(`.planet-chip[data-name="${dz.dataset.filledName}"]`);
+      if (old) old.classList.remove('used');
+      dz.innerHTML = '<span class="slot-num">' + dz.dataset.pos + '</span>';
+    }
+    const p = PLANETS.find(x => x.name === data.value);
+    if (!p) return;
+    dz.innerHTML = `
+      <span class="slot-num">${dz.dataset.pos}</span>
+      <span class="planet-emoji" style="font-size:22px">${p.emoji}</span>
+      <span class="planet-tag" style="font-size:8px;font-family:Orbitron,sans-serif">${p.name.substring(0,4).toUpperCase()}</span>
+    `;
+    dz.dataset.filledName = data.value;
+    dz.classList.add('has-planet');
+    dz.classList.remove('wrong-slot','correct-slot');
+    data.el.classList.add('used');
+    updateCheckBtn2();
+  }
+  else if (dz.classList.contains('drop-zone-ruler')) {
+    if (dz.dataset.filledName) {
+      const old = document.querySelector(`.scale-chip[data-name="${dz.dataset.filledName}"]`);
+      if (old) old.classList.remove('used');
+    }
+    const p = PLANETS.find(x => x.name === data.value);
+    if (!p) return;
+    dz.innerHTML = `<span style="font-size:18px">${p.emoji}</span><span class="dz-label">${p.name.substring(0,3).toUpperCase()}</span>`;
+    dz.dataset.filledName = data.value;
+    dz.classList.add('placed');
+    dz.classList.remove('wrong-place','correct-place');
+    data.el.classList.add('used');
+    updateCheckBtn3();
+  }
+}
+
+function updateCheckBtn1() {
+  const dzs = document.querySelectorAll('.ratio-dropzone');
+  const allFilled = [...dzs].every(d => d.dataset.filled);
+  document.getElementById('checkBtn1').disabled = !allFilled;
+}
+
+function checkAct1() {
+  const dzs = document.querySelectorAll('.ratio-dropzone');
+  let correct = 0;
+  dzs.forEach(dz => {
+    const target = dz.dataset.target;
+    const filled = dz.dataset.filled;
+    const card   = dz.closest('.ratio-card');
+    if (filled === target) {
+      dz.classList.add('correct-fill'); dz.classList.remove('wrong-fill');
+      card.classList.add('correct'); card.classList.remove('wrong');
+      correct++;
+    } else {
+      dz.classList.add('wrong-fill'); dz.classList.remove('correct-fill');
+      card.classList.add('wrong'); card.classList.remove('correct');
+    }
+  });
+
+  const total = ACT1_PLANETS.length;
+  act1Score = Math.round((correct / total) * 100);
+  document.getElementById('scoreVal1').textContent = act1Score;
+  totalScore = act1Score;
+  document.getElementById('scoreBadge').textContent = 'SCORE: ' + totalScore;
+
+  const fb = document.getElementById('feedback1');
+  if (correct === total) {
+    fb.textContent = `✓ PERFECT — All ${total} distances correctly matched!`;
+    fb.className = 'feedback-msg success';
+    document.getElementById('nextBtn1').classList.add('visible');
+    document.getElementById('checkBtn1').disabled = true;
+    markProgress(1, 'done');
+  } else if (correct > 0) {
+    fb.textContent = `${correct}/${total} correct — Fix the highlighted ones and retry`;
+    fb.className = 'feedback-msg partial';
+  } else {
+    fb.textContent = `× None correct yet — Review the scale distances`;
+    fb.className = 'feedback-msg error';
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ACTIVITY 2 — PLANET ORDER
+══════════════════════════════════════════════════════════════════ */
+function buildAct2() {
+  const slots = document.getElementById('orbitSlots');
+  const bank  = document.getElementById('planetBank');
+  slots.innerHTML = ''; bank.innerHTML = '';
+
+  for (let i = 0; i < 8; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'orbit-slot';
+    slot.dataset.pos = i + 1;
+    slot.dataset.correct = PLANETS[i].name;
+    slot.innerHTML = `<span class="slot-num">${i+1}</span>`;
+    slots.appendChild(slot);
+    // drag-over events
+    slot.addEventListener('mouseover', e => { if(dragData.el) slot.classList.add('drag-over'); });
+    slot.addEventListener('mouseout',  () => slot.classList.remove('drag-over'));
+  }
+
+  const shuffled = [...PLANETS].sort(() => Math.random() - 0.5);
+  shuffled.forEach(p => {
+    const chip = document.createElement('div');
+    chip.className = 'planet-chip';
+    chip.dataset.name = p.name;
+    chip.dataset.act  = 'a2';
+    chip.dataset.value = p.name;
+    chip.innerHTML = `<span class="p-emoji">${p.emoji}</span><span class="p-name">${p.name.substring(0,5).toUpperCase()}</span>`;
+    setupDraggable(chip);
+    bank.appendChild(chip);
+  });
+}
+
+function updateCheckBtn2() {
+  const slots = document.querySelectorAll('.orbit-slot');
+  const allFilled = [...slots].every(s => s.dataset.filledName);
+  document.getElementById('checkBtn2').disabled = !allFilled;
+}
+
+function checkAct2() {
+  const slots = document.querySelectorAll('.orbit-slot');
+  let correct = 0;
+  slots.forEach(slot => {
+    const filled  = slot.dataset.filledName;
+    const correct_name = slot.dataset.correct;
+    if (filled === correct_name) {
+      slot.classList.add('correct-slot'); slot.classList.remove('wrong-slot');
+      correct++;
+    } else {
+      slot.classList.add('wrong-slot'); slot.classList.remove('correct-slot');
+    }
+  });
+
+  act2Score = Math.round((correct / 8) * 100);
+  document.getElementById('scoreVal2').textContent = act2Score;
+  totalScore = act1Score + act2Score;
+  document.getElementById('scoreBadge').textContent = 'SCORE: ' + totalScore;
+
+  const fb = document.getElementById('feedback2');
+  if (correct === 8) {
+    fb.textContent = `✓ PERFECT — All 8 planets in correct orbital order!`;
+    fb.className = 'feedback-msg success';
+    document.getElementById('nextBtn2').classList.add('visible');
+    document.getElementById('checkBtn2').disabled = true;
+    markProgress(2, 'done');
+  } else if (correct > 0) {
+    fb.textContent = `${correct}/8 correct — Some planets need repositioning`;
+    fb.className = 'feedback-msg partial';
+  } else {
+    fb.textContent = `× None correct yet — Recall the mnemonic: My Very Educated Mother...`;
+    fb.className = 'feedback-msg error';
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ACTIVITY 3 — SCALE LAYOUT
+══════════════════════════════════════════════════════════════════ */
+// Use inner 5 planets + Jupiter for a visible layout (Neptune at 30 AU is off-screen otherwise)
+// We'll show all 8 but compress: scale to % of ruler width
+function buildAct3() {
+  const arena = document.getElementById('scaleArena');
+  const bankEl= document.getElementById('scalePlanetBank');
+  arena.innerHTML = ''; bankEl.innerHTML = '';
+
+  // Split into two rows so inner planets (which cluster 0-1.52 AU)
+  // and outer planets (5.2-30 AU) each get their own scaled ruler.
+  const innerPlanets = PLANETS.slice(0, 4); // Mercury, Venus, Earth, Mars
+  const outerPlanets = PLANETS.slice(4);    // Jupiter, Saturn, Uranus, Neptune
+
+  function makeRulerRow(planets, labelText, isInner) {
+    const row = document.createElement('div');
+    row.className = 'ruler-row';
+
+    const rowLabel = document.createElement('div');
+    rowLabel.className = 'ruler-row-label';
+    rowLabel.textContent = labelText;
+    row.appendChild(rowLabel);
+
+    const bar = document.createElement('div');
+    bar.className = 'ruler-bar ' + (isInner ? 'inner-bar' : 'outer-bar');
+    row.appendChild(bar);
+
+    // Scale each row to its own AU range with 12% breathing room at right
+    const minAU = 0;
+    const maxAU = planets[planets.length - 1].au * 1.12;
+    const toBarPct = au => ((au - minAU) / (maxAU - minAU)) * 100;
+
+    planets.forEach(p => {
+      const pct = toBarPct(p.au);
+
+      // Tick on bar
+      const tick = document.createElement('div');
+      tick.className = 'ruler-tick';
+      tick.style.cssText = `left:${pct}%; height:10px; bottom:0;`;
+      bar.appendChild(tick);
+
+      const tickLbl = document.createElement('div');
+      tickLbl.className = 'ruler-tick-label';
+      tickLbl.style.left = pct + '%';
+      tickLbl.textContent = p.auStr;
+      bar.appendChild(tickLbl);
+
+      // Drop zone positioned relative to the row.
+      // bar spans left:32px to right:8px -> effective width = 100% - 40px
+      const dz = document.createElement('div');
+      dz.className = 'drop-zone-ruler';
+      dz.dataset.correct = p.name;
+      dz.style.left = `calc(32px + (100% - 40px) * ${pct / 100})`;
+      dz.innerHTML = `<span class="dz-label">${p.name.substring(0,3).toUpperCase()}</span>`;
+
+      dz.addEventListener('mouseover', () => { if (dragData.el) dz.classList.add('drag-over'); });
+      dz.addEventListener('mouseout',  () => dz.classList.remove('drag-over'));
+
+      row.appendChild(dz);
+    });
+
+    return row;
+  }
+
+  arena.appendChild(makeRulerRow(innerPlanets, 'INNER PLANETS  (0 - 1.52 AU)', true));
+  arena.appendChild(makeRulerRow(outerPlanets, 'OUTER PLANETS  (5.2 - 30 AU)', false));
+
+  // Planet chips (shuffled)
+  const shuffled = [...PLANETS].sort(() => Math.random() - 0.5);
+  shuffled.forEach(p => {
+    const chip = document.createElement('div');
+    chip.className = 'scale-chip';
+    chip.dataset.name  = p.name;
+    chip.dataset.act   = 'a3';
+    chip.dataset.value = p.name;
+    chip.innerHTML = `<span class="sc-emoji">${p.emoji}</span><span class="sc-name">${p.name.substring(0,5).toUpperCase()}</span>`;
+    setupDraggable(chip);
+    bankEl.appendChild(chip);
+  });
+}
+
+function updateCheckBtn3() {
+  const dzs = document.querySelectorAll('.drop-zone-ruler');
+  const allFilled = [...dzs].every(d => d.dataset.filledName);
+  document.getElementById('checkBtn3').disabled = !allFilled;
+}
+
+function checkAct3() {
+  const dzs = document.querySelectorAll('.drop-zone-ruler');
+  let correct = 0;
+  dzs.forEach(dz => {
+    const filled  = dz.dataset.filledName;
+    const target  = dz.dataset.correct;
+    if (filled === target) {
+      dz.classList.add('correct-place'); dz.classList.remove('wrong-place','placed');
+      correct++;
+    } else {
+      dz.classList.add('wrong-place'); dz.classList.remove('correct-place','placed');
+    }
+  });
+
+  act3Score = Math.round((correct / 8) * 100);
+  document.getElementById('scoreVal3').textContent = act3Score;
+  totalScore = act1Score + act2Score + act3Score;
+  document.getElementById('scoreBadge').textContent = 'SCORE: ' + totalScore;
+
+  const fb = document.getElementById('feedback3');
+  if (correct === 8) {
+    fb.textContent = `✓ PERFECT — Scale model complete! All planets correctly placed!`;
+    fb.className = 'feedback-msg success';
+    document.getElementById('nextBtn3').classList.add('visible');
+    document.getElementById('checkBtn3').disabled = true;
+    markProgress(3, 'done');
+  } else if (correct > 0) {
+    fb.textContent = `${correct}/8 placed correctly — Check the wrong ones!`;
+    fb.className = 'feedback-msg partial';
+  } else {
+    fb.textContent = `× None correct — Look at each planet's AU distance value`;
+    fb.className = 'feedback-msg error';
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   NAVIGATION & POPUPS
+══════════════════════════════════════════════════════════════════ */
+function showPopup(id) {
+  if (id === 'final') {
+    document.getElementById('finalScore').textContent = totalScore + ' / 300';
+    spawnConfetti();
+  }
+  document.getElementById('popup-' + id).classList.add('visible');
+}
+
+function hidePopup(id) {
+  document.getElementById('popup-' + id).classList.remove('visible');
+}
+
+function startAct2() {
+  hidePopup('p1');
+  // Switch headers/bodies
+  document.getElementById('header1').classList.add('hidden');
+  document.getElementById('footer1').classList.add('hidden');
+  document.getElementById('header2').classList.remove('hidden');
+  document.getElementById('body2').classList.remove('hidden');
+  document.getElementById('footer2').classList.remove('hidden');
+  markProgress(2, 'active');
+  buildAct2();
+  document.getElementById('checkBtn2').disabled = true;
+}
+
+function startAct3() {
+  hidePopup('p2');
+  document.getElementById('header2').classList.add('hidden');
+  document.getElementById('body2').classList.add('hidden');
+  document.getElementById('footer2').classList.add('hidden');
+  document.getElementById('header3').classList.remove('hidden');
+  document.getElementById('body3').classList.remove('hidden');
+  document.getElementById('footer3').classList.remove('hidden');
+  markProgress(3, 'active');
+  buildAct3();
+  document.getElementById('checkBtn3').disabled = true;
+}
+
+function markProgress(num, state) {
+  const dot  = document.getElementById('pd' + num);
+  const line = num < 3 ? document.getElementById('pl' + num) : null;
+  if (state === 'done') {
+    dot.classList.remove('active'); dot.classList.add('done');
+    if (line) { line.classList.add('done'); }
+    if (num < 3) document.getElementById('pd' + (num+1)).classList.add('active');
+  } else if (state === 'active') {
+    dot.classList.add('active');
+  }
+}
+
+function restartAll() {
+  hidePopup('final');
+  totalScore = 0; act1Score = 0; act2Score = 0; act3Score = 0;
+  document.getElementById('scoreBadge').textContent = 'SCORE: 0';
+  document.getElementById('scoreVal1').textContent = '0';
+
+  // Reset progress dots
+  ['pd1','pd2','pd3'].forEach(id => {
+    document.getElementById(id).className = 'prog-dot';
+  });
+  ['pl1','pl2'].forEach(id => {
+    document.getElementById(id).className = 'prog-line';
+  });
+  document.getElementById('pd1').classList.add('active');
+
+  // Reset feedbacks
+  document.getElementById('feedback1').textContent = '→ Drag values to their matching planets';
+  document.getElementById('feedback1').className = 'feedback-msg';
+  document.getElementById('nextBtn1').classList.remove('visible');
+  document.getElementById('checkBtn1').disabled = true;
+
+  // Show act1
+  document.getElementById('header1').classList.remove('hidden');
+  document.getElementById('footer1').classList.remove('hidden');
+  document.getElementById('header2').classList.add('hidden');
+  document.getElementById('body2').classList.add('hidden');
+  document.getElementById('footer2').classList.add('hidden');
+  document.getElementById('header3').classList.add('hidden');
+  document.getElementById('body3').classList.add('hidden');
+  document.getElementById('footer3').classList.add('hidden');
+
+  buildAct1();
+}
+
+/* Confetti */
+function spawnConfetti() {
+  const box = document.getElementById('finalBox');
+  const colors = ['#00e5ff','#ffd60a','#ff9500','#39ff14','#b44aff','#ff6b6b'];
+  for (let i = 0; i < 30; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti-piece';
+    c.style.background = colors[Math.floor(Math.random()*colors.length)];
+    c.style.left = Math.random()*100 + '%';
+    c.style.top  = Math.random()*30 + '%';
+    const cx = (Math.random()-0.5)*300 + 'px';
+    const cy = (Math.random()*200+100) + 'px';
+    c.style.setProperty('--cx', cx);
+    c.style.setProperty('--cy', cy);
+    c.style.animationDuration  = (Math.random()*1.5+0.8) + 's';
+    c.style.animationDelay     = (Math.random()*0.5) + 's';
+    box.appendChild(c);
+    setTimeout(() => c.remove(), 3000);
+  }
+}
+
+/* Mouse-over drop detection for all dropzones */
+document.addEventListener('mouseover', e => {
+  const dz = e.target.closest('.ratio-dropzone, .orbit-slot, .drop-zone-ruler');
+  if (dz && dragData.el) dz.classList.add('drag-over');
+});
+document.addEventListener('mouseout', e => {
+  const dz = e.target.closest('.ratio-dropzone, .orbit-slot, .drop-zone-ruler');
+  if (dz) dz.classList.remove('drag-over');
+});
+
+/* Touch-based drop detection */
+document.addEventListener('touchend', e => {
+  if (!dragData.el) return;
+  const t = e.changedTouches[0];
+  onDragEnd(e);
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   INITIALISE
+══════════════════════════════════════════════════════════════════ */
+buildAct1();
+document.getElementById('checkBtn1').disabled = true;
+
+/* Close popups on outside click */
+document.querySelectorAll('.popup-overlay').forEach(po => {
+  po.addEventListener('click', e => {
+    // only close if clicking the overlay itself, not the box
+    if (e.target === po) {
+      // don't allow dismissing final popup this way, require button
+    }
+  });
+});
+</script>
+</body>
+</html>

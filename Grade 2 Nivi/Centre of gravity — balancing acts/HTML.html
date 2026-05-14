@@ -1,0 +1,1615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Centre of Gravity — Balancing Acts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --parch: #f5e6c8;
+    --parch2: #ede0b3;
+    --ink: #2c1a0e;
+    --ink2: #4a2e1a;
+    --gold: #c9922a;
+    --gold2: #e8b84b;
+    --amber: #d4740a;
+    --moss: #5a6e3a;
+    --rust: #8b3a2a;
+    --sand: #b8965a;
+    --glow: #fff4d6;
+    --shadow: rgba(44,26,14,0.7);
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #1a0e06;
+    font-family: 'Crimson Text', Georgia, serif;
+    color: var(--ink);
+  }
+
+  /* ===== WORLD LAYER ===== */
+  #world {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at 30% 20%, #3d2510 0%, #1a0e06 60%, #0d0804 100%);
+    overflow: hidden;
+  }
+
+  /* Stone wall texture */
+  #world::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 48px, rgba(255,255,255,0.015) 48px, rgba(255,255,255,0.015) 50px),
+      repeating-linear-gradient(90deg, transparent, transparent 78px, rgba(255,255,255,0.01) 78px, rgba(255,255,255,0.01) 80px);
+    pointer-events: none;
+  }
+
+  /* Vignette */
+  #world::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.7) 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* ===== SAND PARTICLES ===== */
+  .sand-canvas {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* ===== TORCHES ===== */
+  .torch {
+    position: absolute;
+    bottom: 0;
+    width: 12px;
+    z-index: 3;
+  }
+  .torch-left { left: 60px; }
+  .torch-right { right: 60px; }
+  .torch-shaft {
+    width: 10px; height: 60px;
+    background: linear-gradient(to bottom, #8B4513, #5c2d0a);
+    margin: 0 auto;
+    border-radius: 2px;
+  }
+  .torch-flame {
+    width: 28px; height: 40px;
+    margin: 0 auto -20px;
+    position: relative;
+    animation: flicker 0.8s ease-in-out infinite alternate;
+  }
+  .torch-flame::before {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 28px; height: 40px;
+    background: radial-gradient(ellipse at 50% 90%, #fff4a0 0%, #f4a020 40%, #e05010 70%, transparent 100%);
+    border-radius: 50% 50% 40% 40%;
+    animation: flameWobble 0.4s ease-in-out infinite alternate;
+  }
+  .torch-glow {
+    position: absolute;
+    bottom: 20px; left: 50%; transform: translateX(-50%);
+    width: 160px; height: 160px;
+    background: radial-gradient(circle, rgba(240,140,20,0.18) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: glowPulse 1.2s ease-in-out infinite alternate;
+  }
+  @keyframes flicker { 0%{opacity:1} 100%{opacity:0.8} }
+  @keyframes flameWobble { 0%{transform:translateX(-50%) scaleX(1)} 100%{transform:translateX(-50%) scaleX(0.85) scaleY(1.08)} }
+  @keyframes glowPulse { 0%{opacity:0.6;transform:translateX(-50%) scale(1)} 100%{opacity:1;transform:translateX(-50%) scale(1.15)} }
+
+  /* ===== FLOATING PARTICLES ===== */
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: drift linear infinite;
+  }
+  @keyframes drift {
+    0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 0.6; }
+    100% { transform: translateY(-100vh) translateX(40px) rotate(360deg); opacity: 0; }
+  }
+
+  /* ===== HOURGLASSES (decorative) ===== */
+  .hourglass-deco {
+    position: absolute;
+    z-index: 3;
+    opacity: 0.4;
+    animation: sway 4s ease-in-out infinite;
+  }
+  @keyframes sway { 0%,100%{transform:rotate(-3deg)} 50%{transform:rotate(3deg)} }
+
+  /* ===== SCROLL MAP BG ===== */
+  .map-bg {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 92vw; height: 88vh;
+    max-width: 1100px;
+    background:
+      radial-gradient(ellipse at 20% 30%, rgba(181,140,76,0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 70%, rgba(181,140,76,0.08) 0%, transparent 50%),
+      linear-gradient(160deg, #3b240f 0%, #2a1908 40%, #1e1206 100%);
+    border: 3px solid rgba(201,146,42,0.3);
+    border-radius: 8px;
+    box-shadow:
+      0 0 80px rgba(201,146,42,0.08),
+      inset 0 0 60px rgba(0,0,0,0.5);
+    z-index: 4;
+    overflow: hidden;
+  }
+  .map-bg::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      radial-gradient(circle at 15% 15%, rgba(201,146,42,0.06) 0%, transparent 30%),
+      radial-gradient(circle at 85% 85%, rgba(201,146,42,0.06) 0%, transparent 30%);
+    pointer-events: none;
+  }
+
+  /* ===== CORNER ORNAMENTS ===== */
+  .corner-ornament {
+    position: absolute;
+    width: 60px; height: 60px;
+    z-index: 5;
+    opacity: 0.5;
+  }
+  .corner-ornament svg { width: 100%; height: 100%; }
+  .corner-tl { top: 8px; left: 8px; }
+  .corner-tr { top: 8px; right: 8px; transform: scaleX(-1); }
+  .corner-bl { bottom: 8px; left: 8px; transform: scaleY(-1); }
+  .corner-br { bottom: 8px; right: 8px; transform: scale(-1); }
+
+  /* ===== HEADER ===== */
+  .header-band {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 72px;
+    background: linear-gradient(180deg, rgba(20,10,4,0.95) 0%, rgba(20,10,4,0.7) 100%);
+    border-bottom: 1px solid rgba(201,146,42,0.4);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10;
+    gap: 16px;
+  }
+  .header-title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(13px, 2.2vw, 24px);
+    color: var(--gold2);
+    letter-spacing: 0.18em;
+    text-shadow: 0 0 20px rgba(232,184,75,0.5), 0 0 40px rgba(232,184,75,0.2);
+    white-space: nowrap;
+  }
+  .header-icon { font-size: 22px; opacity: 0.8; }
+
+  /* ===== PROGRESS DOTS ===== */
+  .progress-strip {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 44px;
+    background: linear-gradient(0deg, rgba(20,10,4,0.95) 0%, rgba(20,10,4,0.7) 100%);
+    border-top: 1px solid rgba(201,146,42,0.3);
+    display: flex; align-items: center; justify-content: center;
+    gap: 32px;
+    z-index: 10;
+  }
+  .prog-dot {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    color: rgba(201,146,42,0.4);
+    letter-spacing: 0.12em;
+    transition: color 0.5s;
+  }
+  .prog-dot.active { color: var(--gold2); }
+  .prog-dot.done { color: var(--moss); }
+  .prog-dot-circle {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    transition: all 0.5s;
+  }
+  .prog-dot.active .prog-dot-circle {
+    background: rgba(232,184,75,0.15);
+    box-shadow: 0 0 10px rgba(232,184,75,0.4);
+  }
+  .prog-dot.done .prog-dot-circle {
+    background: rgba(90,110,58,0.3);
+  }
+  .prog-sep { color: rgba(201,146,42,0.25); font-size: 14px; }
+
+  /* ===== MAIN STAGE ===== */
+  #stage {
+    position: absolute;
+    top: 72px; left: 0; right: 0; bottom: 44px;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ===== ACTIVITY PANEL ===== */
+  .activity-panel {
+    width: 100%; height: 100%;
+    display: none;
+    flex-direction: row;
+    align-items: stretch;
+    animation: panelReveal 0.7s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  .activity-panel.active { display: flex; }
+  @keyframes panelReveal {
+    from { opacity: 0; transform: scale(0.97) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 260px;
+    min-width: 200px;
+    padding: 28px 24px;
+    background: linear-gradient(180deg, rgba(20,10,4,0.5) 0%, rgba(10,5,2,0.3) 100%);
+    border-right: 1px solid rgba(201,146,42,0.2);
+    display: flex; flex-direction: column; gap: 16px;
+    position: relative;
+  }
+  .sidebar-scroll-deco {
+    position: absolute; top: 20px; right: -1px;
+    width: 8px; height: 80px;
+    background: linear-gradient(180deg, transparent, rgba(201,146,42,0.3), transparent);
+  }
+  .act-number {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    color: var(--gold);
+    opacity: 0.7;
+    text-transform: uppercase;
+  }
+  .act-title {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(14px, 1.6vw, 20px);
+    color: var(--parch);
+    line-height: 1.3;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
+  .act-divider {
+    width: 40px; height: 1px;
+    background: linear-gradient(90deg, var(--gold), transparent);
+    margin: 2px 0;
+  }
+  .act-desc {
+    font-size: clamp(12px, 1.1vw, 15px);
+    color: rgba(245,230,200,0.75);
+    line-height: 1.65;
+    font-style: italic;
+  }
+  .fact-box {
+    margin-top: auto;
+    padding: 14px;
+    background: rgba(201,146,42,0.07);
+    border: 1px solid rgba(201,146,42,0.2);
+    border-radius: 4px;
+    font-size: 12px;
+    color: rgba(245,230,200,0.65);
+    line-height: 1.5;
+  }
+  .fact-box strong { color: var(--gold2); display: block; margin-bottom: 4px; font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 0.1em; }
+
+  /* Canvas area */
+  .canvas-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    position: relative;
+    gap: 12px;
+  }
+
+  .instruction-chip {
+    font-family: 'Cinzel', serif;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--gold2);
+    background: rgba(201,146,42,0.1);
+    border: 1px solid rgba(201,146,42,0.25);
+    padding: 6px 16px;
+    border-radius: 20px;
+    text-align: center;
+  }
+
+  .feedback-msg {
+    font-family: 'Crimson Text', serif;
+    font-size: 14px;
+    color: var(--parch);
+    min-height: 20px;
+    text-align: center;
+    transition: all 0.4s;
+    font-style: italic;
+  }
+  .feedback-msg.success { color: #8fdf70; }
+  .feedback-msg.hint { color: var(--gold2); }
+  .feedback-msg.error { color: #e07060; }
+
+  /* ===== BTN ===== */
+  .btn-ancient {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    color: var(--ink);
+    background: linear-gradient(135deg, var(--gold2) 0%, var(--gold) 60%, var(--amber) 100%);
+    border: none; cursor: pointer;
+    padding: 10px 28px;
+    border-radius: 3px;
+    box-shadow: 0 4px 16px rgba(201,146,42,0.35), inset 0 1px 0 rgba(255,255,255,0.3);
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-ancient:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(201,146,42,0.5), inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+  .btn-ancient:active { transform: translateY(0); }
+  .btn-ancient:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* ===== SVG CANVAS ===== */
+  .act-svg {
+    border: 1px solid rgba(201,146,42,0.2);
+    background: rgba(10,5,2,0.4);
+    border-radius: 6px;
+    cursor: crosshair;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.4);
+    touch-action: none;
+  }
+
+  /* ===== PLUMB LINE (Act 1) ===== */
+  #plumbGroup { cursor: grab; }
+  #plumbGroup:active { cursor: grabbing; }
+  .plumb-string { stroke: rgba(232,184,75,0.9); stroke-width: 1.5; stroke-dasharray: 4,3; }
+  .plumb-bob {
+    fill: url(#bobGrad);
+    stroke: var(--gold2); stroke-width: 1;
+    filter: drop-shadow(0 3px 6px rgba(0,0,0,0.6));
+  }
+  .plumb-handle {
+    fill: var(--sand); rx: 4;
+    stroke: var(--gold); stroke-width: 1;
+  }
+  .cog-marker {
+    opacity: 0;
+    transition: opacity 0.6s;
+  }
+  .cog-marker.revealed { opacity: 1; }
+  .line-trace {
+    stroke: rgba(232,184,75,0.35);
+    stroke-width: 1;
+    stroke-dasharray: 3,4;
+    pointer-events: none;
+  }
+
+  /* ===== ACT 2: BALANCE MARKER ===== */
+  .balance-marker {
+    cursor: ew-resize;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+  }
+  .tilt-shape { transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+  .fulcrum-glow { animation: fulcrumPulse 2s ease-in-out infinite; }
+  @keyframes fulcrumPulse {
+    0%,100% { opacity: 0.3; r: 6; }
+    50% { opacity: 0.8; r: 9; }
+  }
+
+  /* ===== ACT 3: FORK BALANCE ===== */
+  .part-draggable { cursor: grab; user-select: none; }
+  .part-draggable:active { cursor: grabbing; }
+  .balance-beam { transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+
+  /* ===== POPUP OVERLAY ===== */
+  #popup-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+  }
+  #popup-overlay.open { display: flex; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+  .popup-scroll {
+    background:
+      linear-gradient(160deg, #2e1c0a 0%, #1e1008 60%, #140c06 100%);
+    border: 2px solid rgba(201,146,42,0.5);
+    border-radius: 8px;
+    padding: 40px 48px;
+    max-width: 480px;
+    width: 90%;
+    text-align: center;
+    position: relative;
+    box-shadow:
+      0 0 60px rgba(201,146,42,0.15),
+      0 30px 80px rgba(0,0,0,0.7);
+    animation: popupIn 0.5s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  @keyframes popupIn {
+    from { transform: scale(0.85) translateY(20px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+  }
+  .popup-scroll::before {
+    content: '';
+    position: absolute; inset: 8px;
+    border: 1px solid rgba(201,146,42,0.15);
+    border-radius: 4px;
+    pointer-events: none;
+  }
+
+  .popup-icon { font-size: 48px; margin-bottom: 12px; animation: iconBounce 0.6s 0.2s cubic-bezier(0.34,1.56,0.64,1) both; }
+  @keyframes iconBounce { from{transform:scale(0) rotate(-20deg)} to{transform:scale(1) rotate(0)} }
+
+  .popup-title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(16px, 2.5vw, 22px);
+    color: var(--gold2);
+    margin-bottom: 10px;
+    text-shadow: 0 0 20px rgba(232,184,75,0.4);
+  }
+  .popup-body {
+    font-family: 'Crimson Text', serif;
+    font-size: 15px;
+    color: rgba(245,230,200,0.8);
+    line-height: 1.7;
+    margin-bottom: 24px;
+  }
+  .popup-body em { color: var(--gold2); font-style: normal; }
+  .popup-stars {
+    font-size: 22px;
+    letter-spacing: 6px;
+    margin-bottom: 18px;
+    animation: starGlow 1.5s ease-in-out infinite alternate;
+  }
+  @keyframes starGlow { from{opacity:0.6} to{opacity:1;text-shadow:0 0 20px gold} }
+
+  .popup-close-deco {
+    position: absolute; top: 14px; right: 16px;
+    font-size: 18px; color: rgba(201,146,42,0.4); cursor: pointer;
+    font-family: 'Cinzel', serif;
+    transition: color 0.2s;
+  }
+  .popup-close-deco:hover { color: var(--gold2); }
+
+  /* ===== FINAL CONFETTI ===== */
+  .confetti-piece {
+    position: fixed;
+    width: 8px; height: 8px;
+    pointer-events: none;
+    animation: confettiFall linear both;
+    z-index: 200;
+    border-radius: 2px;
+  }
+  @keyframes confettiFall {
+    0% { transform: translateY(-20px) rotate(0deg) scale(1); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg) scale(0.5); opacity: 0; }
+  }
+
+  /* ===== DECORATIVE SCROLL LINES ===== */
+  .scroll-line {
+    position: absolute;
+    background: linear-gradient(90deg, transparent, rgba(201,146,42,0.2), transparent);
+    height: 1px;
+    pointer-events: none;
+  }
+
+  /* Lattu (spinning top) deco */
+  .lattu-deco {
+    position: absolute;
+    z-index: 3;
+    animation: lattuSpin 3s linear infinite, lattuDrift 6s ease-in-out infinite;
+    opacity: 0.25;
+  }
+  @keyframes lattuSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  @keytml lattuDrift { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+  @keyframes lattuDrift { 0%,100%{margin-top:0} 50%{margin-top:-8px} }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 700px) {
+    .sidebar { width: 160px; min-width: 140px; padding: 16px 12px; }
+    .popup-scroll { padding: 28px 24px; }
+    .act-title { font-size: 13px; }
+    .act-desc { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== WORLD ===== -->
+<div id="world">
+  <canvas class="sand-canvas" id="sandCanvas"></canvas>
+
+  <!-- Torches -->
+  <div class="torch torch-left">
+    <div class="torch-glow"></div>
+    <div class="torch-flame"></div>
+    <div class="torch-shaft"></div>
+  </div>
+  <div class="torch torch-right">
+    <div class="torch-glow"></div>
+    <div class="torch-flame"></div>
+    <div class="torch-shaft"></div>
+  </div>
+
+  <!-- Floating motes -->
+  <div id="motes"></div>
+</div>
+
+<!-- ===== MAP BG ===== -->
+<div class="map-bg" id="mapBg">
+  <!-- Corner ornaments -->
+  <div class="corner-ornament corner-tl"><svg viewBox="0 0 60 60" fill="none"><path d="M4 4 L4 56 M4 4 L56 4" stroke="rgba(201,146,42,0.6)" stroke-width="2"/><path d="M4 4 L18 18" stroke="rgba(201,146,42,0.4)" stroke-width="1.5"/><circle cx="4" cy="4" r="3" fill="rgba(201,146,42,0.5)"/><circle cx="26" cy="4" r="2" fill="rgba(201,146,42,0.3)"/><circle cx="4" cy="26" r="2" fill="rgba(201,146,42,0.3)"/></svg></div>
+  <div class="corner-ornament corner-tr"><svg viewBox="0 0 60 60" fill="none"><path d="M4 4 L4 56 M4 4 L56 4" stroke="rgba(201,146,42,0.6)" stroke-width="2"/><path d="M4 4 L18 18" stroke="rgba(201,146,42,0.4)" stroke-width="1.5"/><circle cx="4" cy="4" r="3" fill="rgba(201,146,42,0.5)"/><circle cx="26" cy="4" r="2" fill="rgba(201,146,42,0.3)"/><circle cx="4" cy="26" r="2" fill="rgba(201,146,42,0.3)"/></svg></div>
+  <div class="corner-ornament corner-bl"><svg viewBox="0 0 60 60" fill="none"><path d="M4 4 L4 56 M4 4 L56 4" stroke="rgba(201,146,42,0.6)" stroke-width="2"/><path d="M4 4 L18 18" stroke="rgba(201,146,42,0.4)" stroke-width="1.5"/><circle cx="4" cy="4" r="3" fill="rgba(201,146,42,0.5)"/><circle cx="26" cy="4" r="2" fill="rgba(201,146,42,0.3)"/><circle cx="4" cy="26" r="2" fill="rgba(201,146,42,0.3)"/></svg></div>
+  <div class="corner-ornament corner-br"><svg viewBox="0 0 60 60" fill="none"><path d="M4 4 L4 56 M4 4 L56 4" stroke="rgba(201,146,42,0.6)" stroke-width="2"/><path d="M4 4 L18 18" stroke="rgba(201,146,42,0.4)" stroke-width="1.5"/><circle cx="4" cy="4" r="3" fill="rgba(201,146,42,0.5)"/><circle cx="26" cy="4" r="2" fill="rgba(201,146,42,0.3)"/><circle cx="4" cy="26" r="2" fill="rgba(201,146,42,0.3)"/></svg></div>
+
+  <!-- Header -->
+  <div class="header-band">
+    <span class="header-icon">⚖️</span>
+    <span class="header-title">CENTRE OF GRAVITY — BALANCING ACTS</span>
+    <span class="header-icon">⏳</span>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-strip" id="progressStrip">
+    <div class="prog-dot active" id="pdot1">
+      <div class="prog-dot-circle">I</div>
+      <span>PLUMB LINE</span>
+    </div>
+    <div class="prog-sep">✦</div>
+    <div class="prog-dot" id="pdot2">
+      <div class="prog-dot-circle">II</div>
+      <span>BALANCE POINT</span>
+    </div>
+    <div class="prog-sep">✦</div>
+    <div class="prog-dot" id="pdot3">
+      <div class="prog-dot-circle">III</div>
+      <span>BALANCING ACT</span>
+    </div>
+  </div>
+
+  <!-- Stage -->
+  <div id="stage">
+
+    <!-- ============================
+         ACTIVITY 1: PLUMB LINE
+         ============================ -->
+    <div class="activity-panel active" id="act1">
+      <div class="sidebar">
+        <div class="act-number">Activity I · The Ancient Method</div>
+        <div class="act-title">Find the Centre of Gravity</div>
+        <div class="act-divider"></div>
+        <div class="act-desc">
+          Ancient scholars used a hanging plumb line to find the magic balancing point of any shape.<br><br>
+          Drag the <strong style="color:var(--gold2)">plumb line</strong> across the shape. Watch where the line passes — that crossing point is the Centre of Gravity!
+        </div>
+        <div class="fact-box">
+          <strong>📜 SCROLL OF KNOWLEDGE</strong>
+          A plumb line always hangs straight down due to gravity. The Centre of Gravity lies directly below any hanging point!
+        </div>
+      </div>
+      <div class="canvas-area">
+        <div class="instruction-chip" id="act1-chip">🖱 Drag the plumb line — try at least 2 different positions</div>
+        <svg id="svg1" class="act-svg" width="520" height="320" viewBox="0 0 520 320"></svg>
+        <div class="feedback-msg" id="fb1">Hang the plumb line over the shape to find the hidden point...</div>
+        <button class="btn-ancient" id="btn1" disabled>Reveal the Balancing Point ✦</button>
+      </div>
+    </div>
+
+    <!-- ============================
+         ACTIVITY 2: BALANCE MARKER
+         ============================ -->
+    <div class="activity-panel" id="act2">
+      <div class="sidebar">
+        <div class="act-number">Activity II · The Scholar's Test</div>
+        <div class="act-title">Locate the Balance Point</div>
+        <div class="act-divider"></div>
+        <div class="act-desc">
+          Like the chapati belan balanced on one finger, each shape has a special spot where it stays perfectly level.<br><br>
+          Slide the <strong style="color:var(--gold2)">golden marker</strong> left or right to find the exact point where each shape balances!
+        </div>
+        <div class="fact-box">
+          <strong>🪔 WISDOM OF THE LATTU</strong>
+          The lattu (spinning top) balances on its very tip — its Centre of Gravity is right above that point, keeping it upright!
+        </div>
+      </div>
+      <div class="canvas-area">
+        <div class="instruction-chip" id="act2-chip">🖱 Slide the golden marker to balance each shape</div>
+        <svg id="svg2" class="act-svg" width="520" height="320" viewBox="0 0 520 320"></svg>
+        <div class="feedback-msg" id="fb2">Find the spot where the shape doesn't tip...</div>
+        <button class="btn-ancient" id="btn2" disabled>Proceed to Next Challenge ✦</button>
+      </div>
+    </div>
+
+    <!-- ============================
+         ACTIVITY 3: FORK BALANCE
+         ============================ -->
+    <div class="activity-panel" id="act3">
+      <div class="sidebar">
+        <div class="act-number">Activity III · The Mela Trick</div>
+        <div class="act-title">The Great Balancing Act</div>
+        <div class="act-divider"></div>
+        <div class="act-desc">
+          At a village mela, the tightrope walker uses a long pole to keep balanced. Adding weight low down makes things very stable!<br><br>
+          Drag the <strong style="color:var(--gold2)">weights</strong> onto the correct sides of the pole to achieve perfect balance.
+        </div>
+        <div class="fact-box">
+          <strong>🏺 THE MATKA SECRET</strong>
+          A woman carrying a matka on her head automatically adjusts her Centre of Gravity — her body knows the magic point!
+        </div>
+      </div>
+      <div class="canvas-area">
+        <div class="instruction-chip" id="act3-chip">🖱 Drag weights to balance the tightrope pole</div>
+        <svg id="svg3" class="act-svg" width="520" height="320" viewBox="0 0 520 320"></svg>
+        <div class="feedback-msg" id="fb3">Place weights to achieve perfect balance...</div>
+        <button class="btn-ancient" id="btn3" disabled>Complete the Journey ✦</button>
+      </div>
+    </div>
+
+  </div><!-- /stage -->
+</div><!-- /map-bg -->
+
+<!-- ===== POPUPS ===== -->
+<div id="popup-overlay">
+  <div class="popup-scroll" id="popup-box">
+    <span class="popup-close-deco" id="popup-close">✕</span>
+    <div class="popup-icon" id="popup-icon">🎉</div>
+    <div class="popup-title" id="popup-title">Well Done!</div>
+    <div class="popup-stars" id="popup-stars">★ ★ ★</div>
+    <div class="popup-body" id="popup-body">Great job!</div>
+    <button class="btn-ancient" id="popup-btn">Continue ✦</button>
+  </div>
+</div>
+
+<script>
+// ====================================================
+// AMBIENT BACKGROUND — SAND & MOTES
+// ====================================================
+(function() {
+  const canvas = document.getElementById('sandCanvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [];
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  for (let i = 0; i < 80; i++) {
+    particles.push({
+      x: Math.random() * 2000,
+      y: Math.random() * 2000,
+      r: Math.random() * 1.5 + 0.3,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: -Math.random() * 0.5 - 0.1,
+      a: Math.random(),
+      color: `hsl(${30 + Math.random()*20},${50+Math.random()*20}%,${60+Math.random()*20}%)`
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0,0,W,H);
+    particles.forEach(p => {
+      ctx.save();
+      ctx.globalAlpha = p.a * 0.4;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x % W, p.y % H, p.r, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+      p.x += p.vx; p.y += p.vy;
+      if (p.y < 0) p.y = H;
+      if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+      p.a = 0.3 + 0.4 * Math.sin(Date.now()*0.001 + p.r*10);
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ====================================================
+// ACTIVITY 1 — PLUMB LINE
+// ====================================================
+(function() {
+  const svg = document.getElementById('svg1');
+  const W = 520, H = 320;
+  const NS = 'http://www.w3.org/2000/svg';
+
+  // Defs
+  const defs = document.createElementNS(NS,'defs');
+  defs.innerHTML = `
+    <radialGradient id="bobGrad" cx="40%" cy="30%">
+      <stop offset="0%" stop-color="#f0d080"/>
+      <stop offset="100%" stop-color="#8b5a10"/>
+    </radialGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="glowSoft"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  `;
+  svg.appendChild(defs);
+
+  // Irregular L-shape (the object)
+  const shapePoints = '80,60 280,60 280,150 180,150 180,240 80,240';
+  const shapeCOG = { x: 143, y: 142 }; // computed centroid
+
+  const shapePath = document.createElementNS(NS,'polygon');
+  shapePath.setAttribute('points', shapePoints);
+  shapePath.setAttribute('fill','rgba(90,70,40,0.55)');
+  shapePath.setAttribute('stroke','rgba(201,146,42,0.5)');
+  shapePath.setAttribute('stroke-width','2');
+  svg.appendChild(shapePath);
+
+  // Shape label
+  const lbl = document.createElementNS(NS,'text');
+  lbl.setAttribute('x','160'); lbl.setAttribute('y','54');
+  lbl.setAttribute('fill','rgba(245,220,170,0.5)');
+  lbl.setAttribute('font-size','11');
+  lbl.setAttribute('font-family','Cinzel, serif');
+  lbl.setAttribute('text-anchor','middle');
+  lbl.textContent = 'IRREGULAR SHAPE';
+  svg.appendChild(lbl);
+
+  // Right-side workspace
+  const shapeRight = document.createElementNS(NS,'polygon');
+  shapeRight.setAttribute('points','340,80 450,80 410,240 380,240');
+  shapeRight.setAttribute('fill','rgba(70,90,50,0.5)');
+  shapeRight.setAttribute('stroke','rgba(150,180,80,0.4)');
+  shapeRight.setAttribute('stroke-width','2');
+  svg.appendChild(shapeRight);
+  const lbl2 = document.createElementNS(NS,'text');
+  lbl2.setAttribute('x','397'); lbl2.setAttribute('y','74');
+  lbl2.setAttribute('fill','rgba(200,220,150,0.4)');
+  lbl2.setAttribute('font-size','10');
+  lbl2.setAttribute('font-family','Cinzel, serif');
+  lbl2.setAttribute('text-anchor','middle');
+  lbl2.textContent = 'TRIANGLE';
+  svg.appendChild(lbl2);
+
+  const shapes = [
+    { id:'l', el:shapePath, cog:{x:143,y:142}, traceLines:[], hitCount:0 },
+    { id:'t', el:shapeRight, cog:{x:395,y:173}, traceLines:[], hitCount:0 }
+  ];
+
+  // COG markers
+  shapes.forEach(s => {
+    const g = document.createElementNS(NS,'g');
+    g.classList.add('cog-marker');
+    g.setAttribute('filter','url(#glowSoft)');
+    const circle = document.createElementNS(NS,'circle');
+    circle.setAttribute('cx', s.cog.x); circle.setAttribute('cy', s.cog.y);
+    circle.setAttribute('r','14'); circle.setAttribute('fill','rgba(232,184,75,0.15)');
+    circle.setAttribute('stroke','rgba(232,184,75,0.6)'); circle.setAttribute('stroke-width','1.5');
+    const inner = document.createElementNS(NS,'circle');
+    inner.setAttribute('cx', s.cog.x); inner.setAttribute('cy', s.cog.y);
+    inner.setAttribute('r','4'); inner.setAttribute('fill','rgba(232,184,75,0.9)');
+    const hLine = document.createElementNS(NS,'line');
+    hLine.setAttribute('x1',s.cog.x-18); hLine.setAttribute('y1',s.cog.y);
+    hLine.setAttribute('x2',s.cog.x+18); hLine.setAttribute('y2',s.cog.y);
+    hLine.setAttribute('stroke','rgba(232,184,75,0.5)'); hLine.setAttribute('stroke-width','1');
+    const vLine = document.createElementNS(NS,'line');
+    vLine.setAttribute('x1',s.cog.x); vLine.setAttribute('y1',s.cog.y-18);
+    vLine.setAttribute('x2',s.cog.x); vLine.setAttribute('y2',s.cog.y+18);
+    vLine.setAttribute('stroke','rgba(232,184,75,0.5)'); vLine.setAttribute('stroke-width','1');
+    const starTxt = document.createElementNS(NS,'text');
+    starTxt.setAttribute('x',s.cog.x); starTxt.setAttribute('y',s.cog.y-20);
+    starTxt.setAttribute('text-anchor','middle'); starTxt.setAttribute('fill','rgba(232,184,75,0.8)');
+    starTxt.setAttribute('font-size','10'); starTxt.setAttribute('font-family','Cinzel, serif');
+    starTxt.textContent = '✦ C.O.G';
+    g.appendChild(circle); g.appendChild(inner); g.appendChild(hLine); g.appendChild(vLine); g.appendChild(starTxt);
+    svg.appendChild(g);
+    s.cogEl = g;
+  });
+
+  // Plumb line group — one for left shape, one for right
+  let dragging = false, dragShape = null;
+  let plumbX = 180;
+  let plumb2X = 395;
+
+  function createPlumb(svg, initX, side) {
+    const g = document.createElementNS(NS,'g');
+    g.setAttribute('id', 'plumb_'+side);
+
+    const handle = document.createElementNS(NS,'rect');
+    handle.setAttribute('x', initX-20); handle.setAttribute('y','2');
+    handle.setAttribute('width','40'); handle.setAttribute('height','16');
+    handle.setAttribute('rx','4'); handle.setAttribute('fill','rgba(180,140,70,0.8)');
+    handle.setAttribute('stroke','rgba(201,146,42,0.8)'); handle.setAttribute('stroke-width','1');
+
+    const line = document.createElementNS(NS,'line');
+    line.setAttribute('x1', initX); line.setAttribute('y1','18');
+    line.setAttribute('x2', initX); line.setAttribute('y2','295');
+    line.setAttribute('stroke','rgba(232,184,75,0.9)'); line.setAttribute('stroke-width','1.5');
+    line.setAttribute('stroke-dasharray','4,3');
+
+    const bob = document.createElementNS(NS,'circle');
+    bob.setAttribute('cx', initX); bob.setAttribute('cy','305');
+    bob.setAttribute('r','9'); bob.setAttribute('fill','url(#bobGrad)');
+    bob.setAttribute('stroke','rgba(232,184,75,0.6)'); bob.setAttribute('stroke-width','1');
+    bob.setAttribute('filter','url(#glow)');
+
+    const hlabel = document.createElementNS(NS,'text');
+    hlabel.setAttribute('x', initX); hlabel.setAttribute('y','12');
+    hlabel.setAttribute('text-anchor','middle'); hlabel.setAttribute('fill','rgba(245,220,170,0.8)');
+    hlabel.setAttribute('font-size','8'); hlabel.setAttribute('font-family','Cinzel, serif');
+    hlabel.textContent = 'PLUMB';
+
+    g.appendChild(line); g.appendChild(bob); g.appendChild(handle); g.appendChild(hlabel);
+    svg.appendChild(g);
+
+    return { g, handle, line, bob, hlabel };
+  }
+
+  const plumbs = [
+    createPlumb(svg, plumbX, 'L'),
+    createPlumb(svg, plumb2X, 'R')
+  ];
+
+  // Trace lines per shape
+  const traceLayers = [
+    document.createElementNS(NS,'g'),
+    document.createElementNS(NS,'g')
+  ];
+  traceLayers.forEach(l => svg.insertBefore(l, plumbs[0].g));
+
+  function updatePlumb(idx, x) {
+    const p = plumbs[idx];
+    p.handle.setAttribute('x', x-20);
+    p.line.setAttribute('x1', x); p.line.setAttribute('x2', x);
+    p.bob.setAttribute('cx', x);
+    p.hlabel.setAttribute('x', x);
+  }
+
+  let activeIdx = -1;
+
+  function getSVGX(e, svgEl) {
+    const rect = svgEl.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    return (clientX - rect.left) * (520 / rect.width);
+  }
+
+  function onDown(e, idx) {
+    e.preventDefault();
+    activeIdx = idx;
+  }
+
+  function onMove(e) {
+    if (activeIdx < 0) return;
+    e.preventDefault();
+    const x = Math.max(10, Math.min(510, getSVGX(e, svg)));
+    updatePlumb(activeIdx, x);
+
+    // Record trace
+    const shape = shapes[activeIdx];
+    const traceLine = document.createElementNS(NS,'line');
+    traceLine.setAttribute('x1', x); traceLine.setAttribute('y1','0');
+    traceLine.setAttribute('x2', x); traceLine.setAttribute('y2','320');
+    traceLine.setAttribute('stroke','rgba(232,184,75,0.2)');
+    traceLine.setAttribute('stroke-width','1');
+    traceLine.setAttribute('stroke-dasharray','3,4');
+    traceLayers[activeIdx].appendChild(traceLine);
+    shape.traceLines.push(traceLine);
+    if (shape.traceLines.length > 12) {
+      traceLayers[activeIdx].removeChild(shape.traceLines.shift());
+    }
+    shape.hitCount++;
+    if (shape.hitCount >= 15) {
+      checkAct1Ready();
+    }
+  }
+
+  function onUp() {
+    activeIdx = -1;
+    checkAct1Ready();
+  }
+
+  plumbs.forEach((p, idx) => {
+    p.g.addEventListener('mousedown', e => onDown(e, idx));
+    p.g.addEventListener('touchstart', e => onDown(e, idx), {passive:false});
+  });
+  svg.addEventListener('mousemove', onMove);
+  svg.addEventListener('touchmove', onMove, {passive:false});
+  svg.addEventListener('mouseup', onUp);
+  svg.addEventListener('touchend', onUp);
+
+  let act1Done = false;
+  const totalMoves = () => shapes.reduce((a,s) => a + s.hitCount, 0);
+
+  function checkAct1Ready() {
+    if (totalMoves() >= 15 && !act1Done) {
+      document.getElementById('btn1').disabled = false;
+      document.getElementById('fb1').textContent = '✦ Brilliant! You can now reveal the Centre of Gravity!';
+      document.getElementById('fb1').className = 'feedback-msg hint';
+    }
+  }
+
+  document.getElementById('btn1').addEventListener('click', () => {
+    if (act1Done) return;
+    act1Done = true;
+    shapes.forEach(s => s.cogEl.classList.add('revealed'));
+    document.getElementById('fb1').textContent = '✦ You found the balancing point using the ancient plumb method!';
+    document.getElementById('fb1').className = 'feedback-msg success';
+    document.getElementById('btn1').disabled = true;
+    setTimeout(() => showPopup(1), 700);
+  });
+})();
+
+
+// ====================================================
+// ACTIVITY 2 — BALANCE MARKER
+// ====================================================
+(function() {
+  const svg = document.getElementById('svg2');
+  const NS = 'http://www.w3.org/2000/svg';
+
+  const defs = document.createElementNS(NS,'defs');
+  defs.innerHTML = `
+    <filter id="glow2"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="rulerGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#6b4a1a"/>
+      <stop offset="50%" stop-color="#9b7030"/>
+      <stop offset="100%" stop-color="#6b4a1a"/>
+    </linearGradient>
+    <linearGradient id="batGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3a2a10"/>
+      <stop offset="40%" stop-color="#8b6030"/>
+      <stop offset="60%" stop-color="#c8a060"/>
+      <stop offset="100%" stop-color="#3a2a10"/>
+    </linearGradient>
+  `;
+  svg.appendChild(defs);
+
+  // Two shapes: Ruler (balance at center x=260) and Cricket Bat (balance at x=380 approx heavier end)
+  const challenges = [
+    {
+      label: 'BELAN (Rolling Pin)',
+      shapeX: 100, shapeY: 100, shapeW: 280, shapeH: 28,
+      cogX: 240, // center of shape is 240
+      fill: 'url(#rulerGrad)',
+      stroke: 'rgba(201,146,42,0.5)',
+      solved: false,
+      markerX: 150
+    },
+    {
+      label: 'CRICKET BAT',
+      // trapezoid for cricket bat: wide blade at left
+      points: '300,70 470,80 470,130 300,160',
+      cogX: 385,
+      fill: 'url(#batGrad)',
+      stroke: 'rgba(140,90,40,0.6)',
+      solved: false,
+      markerX: 340
+    }
+  ];
+
+  // Ground lines + fulcrum triangles
+  const groundY = 240;
+
+  // ---- Challenge 1: Belan ----
+  const ch1 = challenges[0];
+  const beam1 = document.createElementNS(NS,'g');
+  beam1.classList.add('tilt-shape');
+  beam1.setAttribute('id','beam1');
+  beam1.style.transformOrigin = `${ch1.shapeX + ch1.shapeW/2}px ${ch1.shapeY + ch1.shapeH/2}px`;
+
+  const rect1 = document.createElementNS(NS,'rect');
+  rect1.setAttribute('x', ch1.shapeX); rect1.setAttribute('y', ch1.shapeY);
+  rect1.setAttribute('width', ch1.shapeW); rect1.setAttribute('height', ch1.shapeH);
+  rect1.setAttribute('rx','6'); rect1.setAttribute('fill', ch1.fill);
+  rect1.setAttribute('stroke', ch1.stroke); rect1.setAttribute('stroke-width','1.5');
+
+  // Tick marks on ruler
+  for (let i=0; i<=10; i++) {
+    const tick = document.createElementNS(NS,'line');
+    const tx = ch1.shapeX + (ch1.shapeW / 10) * i;
+    tick.setAttribute('x1', tx); tick.setAttribute('y1', ch1.shapeY+4);
+    tick.setAttribute('x2', tx); tick.setAttribute('y2', ch1.shapeY+12);
+    tick.setAttribute('stroke','rgba(245,220,170,0.4)'); tick.setAttribute('stroke-width','1');
+    beam1.appendChild(tick);
+  }
+  beam1.appendChild(rect1);
+
+  const lbl1 = document.createElementNS(NS,'text');
+  lbl1.setAttribute('x','240'); lbl1.setAttribute('y','96');
+  lbl1.setAttribute('text-anchor','middle'); lbl1.setAttribute('fill','rgba(245,220,170,0.4)');
+  lbl1.setAttribute('font-size','9'); lbl1.setAttribute('font-family','Cinzel, serif');
+  lbl1.textContent = ch1.label;
+  beam1.appendChild(lbl1);
+  svg.appendChild(beam1);
+
+  // ---- Challenge 2: Cricket Bat ----
+  const ch2 = challenges[1];
+  const beam2 = document.createElementNS(NS,'g');
+  beam2.classList.add('tilt-shape');
+  beam2.setAttribute('id','beam2');
+
+  const bat = document.createElementNS(NS,'polygon');
+  bat.setAttribute('points', ch2.points);
+  bat.setAttribute('fill', ch2.fill);
+  bat.setAttribute('stroke', ch2.stroke); bat.setAttribute('stroke-width','1.5');
+  // Handle
+  const batHandle = document.createElementNS(NS,'rect');
+  batHandle.setAttribute('x','466'); batHandle.setAttribute('y','90');
+  batHandle.setAttribute('width','40'); batHandle.setAttribute('height','18');
+  batHandle.setAttribute('rx','4'); batHandle.setAttribute('fill','#4a2a10');
+  batHandle.setAttribute('stroke','rgba(140,90,40,0.5)'); batHandle.setAttribute('stroke-width','1');
+  const lbl2 = document.createElementNS(NS,'text');
+  lbl2.setAttribute('x','395'); lbl2.setAttribute('y','65');
+  lbl2.setAttribute('text-anchor','middle'); lbl2.setAttribute('fill','rgba(245,220,170,0.35)');
+  lbl2.setAttribute('font-size','9'); lbl2.setAttribute('font-family','Cinzel, serif');
+  lbl2.textContent = ch2.label;
+  beam2.appendChild(bat); beam2.appendChild(batHandle); beam2.appendChild(lbl2);
+  beam2.style.transformOrigin = `385px 115px`;
+  svg.appendChild(beam2);
+
+  // Fulcrums
+  function makeFulcrum(x, y) {
+    const g = document.createElementNS(NS,'g');
+    const tri = document.createElementNS(NS,'polygon');
+    tri.setAttribute('points',`${x},${y} ${x-14},${y+28} ${x+14},${y+28}`);
+    tri.setAttribute('fill','rgba(180,130,50,0.7)'); tri.setAttribute('stroke','rgba(201,146,42,0.6)'); tri.setAttribute('stroke-width','1.5');
+    const base = document.createElementNS(NS,'rect');
+    base.setAttribute('x', x-20); base.setAttribute('y', y+28);
+    base.setAttribute('width','40'); base.setAttribute('height','6');
+    base.setAttribute('rx','2'); base.setAttribute('fill','rgba(140,100,40,0.8)');
+    const glow = document.createElementNS(NS,'circle');
+    glow.setAttribute('cx',x); glow.setAttribute('cy',y);
+    glow.setAttribute('r','6'); glow.setAttribute('fill','rgba(232,184,75,0.2)');
+    glow.classList.add('fulcrum-glow');
+    g.appendChild(base); g.appendChild(tri); g.appendChild(glow);
+    svg.appendChild(g);
+    return g;
+  }
+
+  const f1 = makeFulcrum(ch1.shapeX + ch1.shapeW/2, ch1.shapeY + ch1.shapeH);
+  const f2 = makeFulcrum(395, 162);
+
+  // ---- Draggable Markers ----
+  function makeMarker(initX, yPos, color) {
+    const g = document.createElementNS(NS,'g');
+    g.classList.add('balance-marker');
+
+    const diamond = document.createElementNS(NS,'polygon');
+    diamond.setAttribute('points','0,-12 10,0 0,12 -10,0');
+    diamond.setAttribute('fill', color || 'rgba(232,184,75,0.9)');
+    diamond.setAttribute('stroke','rgba(255,230,100,0.8)'); diamond.setAttribute('stroke-width','1.5');
+    diamond.setAttribute('filter','url(#glow2)');
+
+    const label = document.createElementNS(NS,'text');
+    label.setAttribute('text-anchor','middle'); label.setAttribute('y','-18');
+    label.setAttribute('fill','rgba(232,184,75,0.9)'); label.setAttribute('font-size','9');
+    label.setAttribute('font-family','Cinzel, serif');
+    label.textContent = '▲ BALANCE';
+
+    const line = document.createElementNS(NS,'line');
+    line.setAttribute('x1','0'); line.setAttribute('y1','12');
+    line.setAttribute('x2','0'); line.setAttribute('y2','30');
+    line.setAttribute('stroke','rgba(232,184,75,0.5)'); line.setAttribute('stroke-width','1');
+    line.setAttribute('stroke-dasharray','2,2');
+
+    g.appendChild(line); g.appendChild(diamond); g.appendChild(label);
+    g.setAttribute('transform',`translate(${initX},${yPos})`);
+    svg.appendChild(g);
+    return g;
+  }
+
+  const marker1 = makeMarker(ch1.markerX, ch1.shapeY, 'rgba(232,184,75,0.9)');
+  const marker2 = makeMarker(ch2.markerX, 80, 'rgba(180,220,100,0.9)');
+
+  let activeMarker = null, activeChallenge = null;
+
+  function getSVGX(e) {
+    const rect = svg.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    return (clientX - rect.left) * (520 / rect.width);
+  }
+
+  function markerDown(e, m, ch) {
+    e.preventDefault();
+    activeMarker = m; activeChallenge = ch;
+  }
+
+  function svgMove(e) {
+    if (!activeMarker) return;
+    e.preventDefault();
+    const x = getSVGX(e);
+    const ch = activeChallenge;
+    let clampedX;
+    if (ch === challenges[0]) {
+      clampedX = Math.max(ch.shapeX + 5, Math.min(ch.shapeX + ch.shapeW - 5, x));
+    } else {
+      clampedX = Math.max(310, Math.min(500, x));
+    }
+    const curTransform = activeMarker.getAttribute('transform').match(/translate\([\d.]+,([\d.]+)\)/);
+    const y = curTransform ? curTransform[1] : 80;
+    activeMarker.setAttribute('transform', `translate(${clampedX},${y})`);
+    ch.markerX = clampedX;
+    updateTilt(ch);
+  }
+
+  function svgUp() {
+    if (!activeMarker) return;
+    activeMarker = null;
+    activeChallenge = null;
+    checkAct2();
+  }
+
+  marker1.addEventListener('mousedown', e => markerDown(e, marker1, challenges[0]));
+  marker1.addEventListener('touchstart', e => markerDown(e, marker1, challenges[0]), {passive:false});
+  marker2.addEventListener('mousedown', e => markerDown(e, marker2, challenges[1]));
+  marker2.addEventListener('touchstart', e => markerDown(e, marker2, challenges[1]), {passive:false});
+  svg.addEventListener('mousemove', svgMove);
+  svg.addEventListener('touchmove', svgMove, {passive:false});
+  svg.addEventListener('mouseup', svgUp);
+  svg.addEventListener('touchend', svgUp);
+
+  function updateTilt(ch) {
+    const tol = 18;
+    let diff, beam, baseX;
+    if (ch === challenges[0]) {
+      diff = ch.markerX - ch.cogX;
+      beam = beam1;
+    } else {
+      diff = ch.markerX - ch.cogX;
+      beam = beam2;
+    }
+    const angle = Math.max(-22, Math.min(22, diff * 0.3));
+    beam.style.transform = `rotate(${angle}deg)`;
+  }
+
+  let ch1Solved = false, ch2Solved = false;
+
+  function checkAct2() {
+    const tol = 22;
+    ch1Solved = Math.abs(challenges[0].markerX - challenges[0].cogX) < tol;
+    ch2Solved = Math.abs(challenges[1].markerX - challenges[1].cogX) < tol;
+
+    if (ch1Solved && ch2Solved) {
+      document.getElementById('fb2').textContent = '✦ Perfect! Both shapes are balanced exactly at their Centre of Gravity!';
+      document.getElementById('fb2').className = 'feedback-msg success';
+      document.getElementById('btn2').disabled = false;
+      beam1.style.transform = 'rotate(0deg)';
+      beam2.style.transform = 'rotate(0deg)';
+    } else if (ch1Solved) {
+      document.getElementById('fb2').textContent = '✦ Belan balanced! Now find the balance point for the cricket bat...';
+      document.getElementById('fb2').className = 'feedback-msg hint';
+    } else if (ch2Solved) {
+      document.getElementById('fb2').textContent = '✦ Cricket bat balanced! Now try the belan...';
+      document.getElementById('fb2').className = 'feedback-msg hint';
+    } else {
+      document.getElementById('fb2').textContent = 'Keep sliding — find where the shape stays perfectly level!';
+      document.getElementById('fb2').className = 'feedback-msg';
+    }
+  }
+
+  document.getElementById('btn2').addEventListener('click', () => {
+    showPopup(2);
+  });
+})();
+
+
+// ====================================================
+// ACTIVITY 3 — TIGHTROPE BALANCING ACT
+// ====================================================
+(function() {
+  const svg = document.getElementById('svg3');
+  const NS = 'http://www.w3.org/2000/svg';
+
+  const defs = document.createElementNS(NS,'defs');
+  defs.innerHTML = `
+    <filter id="glow3"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="ropeGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="rgba(100,70,30,0.6)"/>
+      <stop offset="50%" stop-color="rgba(160,120,50,0.9)"/>
+      <stop offset="100%" stop-color="rgba(100,70,30,0.6)"/>
+    </linearGradient>
+    <radialGradient id="walkerGrad" cx="50%" cy="30%">
+      <stop offset="0%" stop-color="#f4d080"/>
+      <stop offset="60%" stop-color="#d4882a"/>
+      <stop offset="100%" stop-color="#8b4a10"/>
+    </radialGradient>
+    <radialGradient id="weightGrad" cx="30%" cy="30%">
+      <stop offset="0%" stop-color="#e0e0e0"/>
+      <stop offset="100%" stop-color="#606060"/>
+    </radialGradient>
+  `;
+  svg.appendChild(defs);
+
+  // Scene: tightrope
+  const ropeY = 180;
+  const rope = document.createElementNS(NS,'line');
+  rope.setAttribute('x1','10'); rope.setAttribute('y1', ropeY);
+  rope.setAttribute('x2','510'); rope.setAttribute('y2', ropeY);
+  rope.setAttribute('stroke','url(#ropeGrad)'); rope.setAttribute('stroke-width','3');
+  svg.appendChild(rope);
+
+  // Rope supports
+  [[10,ropeY],[510,ropeY]].forEach(([x,y]) => {
+    const post = document.createElementNS(NS,'rect');
+    post.setAttribute('x',x-6); post.setAttribute('y','60');
+    post.setAttribute('width','12'); post.setAttribute('height', y-60);
+    post.setAttribute('fill','rgba(80,50,20,0.6)');
+    post.setAttribute('stroke','rgba(140,90,40,0.4)'); post.setAttribute('stroke-width','1');
+    svg.appendChild(post);
+    const cap = document.createElementNS(NS,'rect');
+    cap.setAttribute('x',x-10); cap.setAttribute('y','55');
+    cap.setAttribute('width','20'); cap.setAttribute('height','10');
+    cap.setAttribute('rx','2'); cap.setAttribute('fill','rgba(140,90,40,0.7)');
+    svg.appendChild(cap);
+  });
+
+  // Tightrope walker (figure)
+  const walkerGroup = document.createElementNS(NS,'g');
+  walkerGroup.setAttribute('id','walkerGroup');
+  walkerGroup.style.transformOrigin = `260px ${ropeY}px`;
+
+  // Body
+  const walkerBody = document.createElementNS(NS,'g');
+  // Head
+  const head = document.createElementNS(NS,'circle');
+  head.setAttribute('cx','260'); head.setAttribute('cy', ropeY-60);
+  head.setAttribute('r','14'); head.setAttribute('fill','url(#walkerGrad)');
+  head.setAttribute('stroke','rgba(201,146,42,0.5)'); head.setAttribute('stroke-width','1');
+  // Torso
+  const torso = document.createElementNS(NS,'rect');
+  torso.setAttribute('x','254'); torso.setAttribute('y', ropeY-46);
+  torso.setAttribute('width','12'); torso.setAttribute('height','38');
+  torso.setAttribute('rx','4'); torso.setAttribute('fill','rgba(80,50,180,0.7)');
+  torso.setAttribute('stroke','rgba(140,100,220,0.4)'); torso.setAttribute('stroke-width','1');
+  // Legs
+  const leg1 = document.createElementNS(NS,'line');
+  leg1.setAttribute('x1','260'); leg1.setAttribute('y1',ropeY-8);
+  leg1.setAttribute('x2','250'); leg1.setAttribute('y2',ropeY);
+  leg1.setAttribute('stroke','rgba(80,50,180,0.7)'); leg1.setAttribute('stroke-width','5'); leg1.setAttribute('stroke-linecap','round');
+  const leg2 = document.createElementNS(NS,'line');
+  leg2.setAttribute('x1','260'); leg2.setAttribute('y1',ropeY-8);
+  leg2.setAttribute('x2','270'); leg2.setAttribute('y2',ropeY);
+  leg2.setAttribute('stroke','rgba(80,50,180,0.7)'); leg2.setAttribute('stroke-width','5'); leg2.setAttribute('stroke-linecap','round');
+
+  walkerBody.appendChild(head); walkerBody.appendChild(torso);
+  walkerBody.appendChild(leg1); walkerBody.appendChild(leg2);
+  walkerGroup.appendChild(walkerBody);
+  svg.appendChild(walkerGroup);
+
+  // Balance pole (horizontal)
+  const poleGroup = document.createElementNS(NS,'g');
+  poleGroup.setAttribute('id','poleGroup');
+  poleGroup.style.transformOrigin = `260px ${ropeY-30}px`;
+
+  const pole = document.createElementNS(NS,'rect');
+  pole.setAttribute('x','100'); pole.setAttribute('y', ropeY-34);
+  pole.setAttribute('width','320'); pole.setAttribute('height','8');
+  pole.setAttribute('rx','4'); pole.setAttribute('fill','rgba(120,80,30,0.8)');
+  pole.setAttribute('stroke','rgba(180,130,50,0.6)'); pole.setAttribute('stroke-width','1');
+  poleGroup.appendChild(pole);
+
+  // Pole center mark
+  const cMark = document.createElementNS(NS,'circle');
+  cMark.setAttribute('cx','260'); cMark.setAttribute('cy', ropeY-30);
+  cMark.setAttribute('r','4'); cMark.setAttribute('fill','rgba(232,184,75,0.7)');
+  poleGroup.appendChild(cMark);
+
+  svg.appendChild(poleGroup);
+
+  // Weights — 4 weights to drag, must match: 2 on each side
+  const weightData = [
+    { id:'w1', x:50, y:40, mass:2, placed:false, side:null, label:'2kg' },
+    { id:'w2', x:110, y:40, mass:1, placed:false, side:null, label:'1kg' },
+    { id:'w3', x:390, y:40, mass:2, placed:false, side:null, label:'2kg' },
+    { id:'w4', x:450, y:40, mass:1, placed:false, side:null, label:'1kg' }
+  ];
+
+  // Drop zones
+  const dropZones = [
+    { id:'dz_left', x:100, y:ropeY-30, side:'left', label:'Left Side', accepts: true },
+    { id:'dz_right', x:380, y:ropeY-30, side:'right', label:'Right Side', accepts: true }
+  ];
+
+  dropZones.forEach(dz => {
+    const g = document.createElementNS(NS,'g');
+    const rect = document.createElementNS(NS,'rect');
+    rect.setAttribute('x', dz.x-40); rect.setAttribute('y', dz.y-16);
+    rect.setAttribute('width','80'); rect.setAttribute('height','32');
+    rect.setAttribute('rx','4'); rect.setAttribute('fill','rgba(201,146,42,0.08)');
+    rect.setAttribute('stroke','rgba(201,146,42,0.25)'); rect.setAttribute('stroke-width','1');
+    rect.setAttribute('stroke-dasharray','4,3');
+    const lbl = document.createElementNS(NS,'text');
+    lbl.setAttribute('x', dz.x); lbl.setAttribute('y', dz.y-22);
+    lbl.setAttribute('text-anchor','middle'); lbl.setAttribute('fill','rgba(201,146,42,0.35)');
+    lbl.setAttribute('font-size','9'); lbl.setAttribute('font-family','Cinzel, serif');
+    lbl.textContent = dz.label;
+    g.appendChild(rect); g.appendChild(lbl);
+    svg.insertBefore(g, walkerGroup);
+    dz.el = g;
+  });
+
+  // Weight elements
+  const weightEls = [];
+  weightData.forEach(w => {
+    const g = document.createElementNS(NS,'g');
+    g.classList.add('part-draggable');
+    g.setAttribute('id', w.id);
+
+    const rect = document.createElementNS(NS,'rect');
+    rect.setAttribute('x', w.x-20); rect.setAttribute('y', w.y-15);
+    rect.setAttribute('width','40'); rect.setAttribute('height','30');
+    rect.setAttribute('rx','4'); rect.setAttribute('fill','url(#weightGrad)');
+    rect.setAttribute('stroke','rgba(200,200,200,0.6)'); rect.setAttribute('stroke-width','1.5');
+    rect.setAttribute('filter','url(#glow3)');
+
+    const lbl = document.createElementNS(NS,'text');
+    lbl.setAttribute('x', w.x); lbl.setAttribute('y', w.y+5);
+    lbl.setAttribute('text-anchor','middle'); lbl.setAttribute('fill','rgba(30,20,10,0.9)');
+    lbl.setAttribute('font-size','11'); lbl.setAttribute('font-family','Cinzel, serif');
+    lbl.setAttribute('font-weight','600');
+    lbl.textContent = w.label;
+
+    const chain = document.createElementNS(NS,'line');
+    chain.setAttribute('x1', w.x); chain.setAttribute('y1', w.y-15);
+    chain.setAttribute('x2', w.x); chain.setAttribute('y2', w.y-30);
+    chain.setAttribute('stroke','rgba(200,200,200,0.4)'); chain.setAttribute('stroke-width','1.5');
+    chain.setAttribute('stroke-dasharray','2,2');
+
+    g.appendChild(chain); g.appendChild(rect); g.appendChild(lbl);
+    svg.appendChild(g);
+    weightEls.push({ data: w, el: g, rect, lbl, chain });
+  });
+
+  let draggingWeight = null, dragOX = 0, dragOY = 0;
+
+  function getSVGPos(e) {
+    const rect = svg.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: (cx - rect.left) * (520 / rect.width),
+      y: (cy - rect.top) * (320 / rect.height)
+    };
+  }
+
+  weightEls.forEach(we => {
+    we.el.addEventListener('mousedown', e => { e.preventDefault(); draggingWeight = we; const p = getSVGPos(e); dragOX = p.x - we.data.x; dragOY = p.y - we.data.y; });
+    we.el.addEventListener('touchstart', e => { e.preventDefault(); draggingWeight = we; const p = getSVGPos(e); dragOX = p.x - we.data.x; dragOY = p.y - we.data.y; }, {passive:false});
+  });
+
+  svg.addEventListener('mousemove', e => {
+    if (!draggingWeight) return;
+    const p = getSVGPos(e);
+    const nx = p.x - dragOX, ny = p.y - dragOY;
+    draggingWeight.data.x = nx; draggingWeight.data.y = ny;
+    draggingWeight.data.placed = false;
+    draggingWeight.data.side = null;
+    updateWeightEl(draggingWeight);
+  });
+  svg.addEventListener('touchmove', e => {
+    if (!draggingWeight) return;
+    e.preventDefault();
+    const p = getSVGPos(e);
+    const nx = p.x - dragOX, ny = p.y - dragOY;
+    draggingWeight.data.x = nx; draggingWeight.data.y = ny;
+    draggingWeight.data.placed = false;
+    draggingWeight.data.side = null;
+    updateWeightEl(draggingWeight);
+  }, {passive:false});
+
+  svg.addEventListener('mouseup', () => { if (draggingWeight) { snapWeight(draggingWeight); draggingWeight = null; checkBalance(); } });
+  svg.addEventListener('touchend', () => { if (draggingWeight) { snapWeight(draggingWeight); draggingWeight = null; checkBalance(); } });
+
+  function snapWeight(we) {
+    const wx = we.data.x, wy = we.data.y;
+    const poleY = ropeY - 30;
+    // Check if near pole
+    if (wy > poleY - 40 && wy < poleY + 40) {
+      if (wx < 260) {
+        // snap to left
+        const placed = weightEls.filter(w => w !== we && w.data.side === 'left').length;
+        const snapX = 110 + placed * 50;
+        we.data.x = Math.min(snapX, 220);
+        we.data.y = poleY - 28;
+        we.data.placed = true;
+        we.data.side = 'left';
+      } else {
+        const placed = weightEls.filter(w => w !== we && w.data.side === 'right').length;
+        const snapX = 310 + placed * 50;
+        we.data.x = Math.min(snapX, 420);
+        we.data.y = poleY - 28;
+        we.data.placed = true;
+        we.data.side = 'right';
+      }
+    }
+    updateWeightEl(we);
+  }
+
+  function updateWeightEl(we) {
+    const g = we.el;
+    const {x,y} = we.data;
+    we.rect.setAttribute('x', x-20); we.rect.setAttribute('y', y-15);
+    we.lbl.setAttribute('x', x); we.lbl.setAttribute('y', y+5);
+    we.chain.setAttribute('x1', x); we.chain.setAttribute('y1', y-15);
+    we.chain.setAttribute('x2', x); we.chain.setAttribute('y2', y-30);
+  }
+
+  function checkBalance() {
+    // Solution: need equal total mass on each side
+    const leftMass = weightEls.filter(we => we.data.side === 'left').reduce((a,we) => a + we.data.mass, 0);
+    const rightMass = weightEls.filter(we => we.data.side === 'right').reduce((a,we) => a + we.data.mass, 0);
+    const totalPlaced = weightEls.filter(we => we.data.placed).length;
+
+    const tilt = (leftMass - rightMass) * 4;
+    poleGroup.style.transform = `rotate(${tilt}deg)`;
+    walkerGroup.style.transform = `rotate(${tilt * 0.3}deg)`;
+
+    const fb = document.getElementById('fb3');
+
+    if (totalPlaced === 0) {
+      fb.textContent = 'Place weights on the pole to balance the tightrope walker...';
+      fb.className = 'feedback-msg';
+      return;
+    }
+
+    if (leftMass === rightMass && totalPlaced >= 2) {
+      fb.textContent = `✦ Perfect balance! ${leftMass}kg on each side — Centre of Gravity is directly above the rope!`;
+      fb.className = 'feedback-msg success';
+      document.getElementById('btn3').disabled = false;
+      poleGroup.style.transform = 'rotate(0deg)';
+      walkerGroup.style.transform = 'rotate(0deg)';
+    } else if (leftMass > rightMass) {
+      fb.textContent = `Left is heavier (${leftMass}kg vs ${rightMass}kg) — add more to the right side!`;
+      fb.className = 'feedback-msg error';
+      document.getElementById('btn3').disabled = true;
+    } else {
+      fb.textContent = `Right is heavier (${rightMass}kg vs ${leftMass}kg) — add more to the left side!`;
+      fb.className = 'feedback-msg error';
+      document.getElementById('btn3').disabled = true;
+    }
+  }
+
+  document.getElementById('btn3').addEventListener('click', () => {
+    showPopup(3);
+  });
+})();
+
+
+// ====================================================
+// POPUP & PROGRESSION
+// ====================================================
+let currentActivity = 1;
+
+const popupData = {
+  1: {
+    icon: '🔮',
+    title: 'The Plumb Secret Revealed!',
+    stars: '★ ★ ★',
+    body: `Magnificent! You used the ancient plumb line method to find the <em>Centre of Gravity</em>. The crossing point of two plumb lines always reveals the magic balancing point — just as scholars discovered thousands of years ago!`
+  },
+  2: {
+    icon: '⚖️',
+    title: 'The Balance Master!',
+    stars: '★ ★ ★',
+    body: `Outstanding! You found the balance point of both shapes. The belan balances at its centre, but the cricket bat balances closer to its heavy blade — every shape has its own unique <em>Centre of Gravity</em>!`
+  },
+  3: {
+    icon: '🏆',
+    title: 'Balance Champion!',
+    stars: '★ ★ ★ ★ ★',
+    body: `EXTRAORDINARY! You balanced the tightrope walker perfectly! By placing equal weights on each side, the <em>Centre of Gravity</em> stays right above the rope. You are now a true Balance Master!`
+  }
+};
+
+function showPopup(actNum) {
+  const overlay = document.getElementById('popup-overlay');
+  const data = popupData[actNum];
+  document.getElementById('popup-icon').textContent = data.icon;
+  document.getElementById('popup-title').textContent = data.title;
+  document.getElementById('popup-stars').textContent = data.stars;
+  document.getElementById('popup-body').innerHTML = data.body;
+
+  const btn = document.getElementById('popup-btn');
+  if (actNum === 3) {
+    btn.textContent = '🏆 Complete the Journey!';
+    btn.onclick = () => {
+      overlay.classList.remove('open');
+      showFinalSuccess();
+    };
+  } else {
+    btn.textContent = 'Continue to Next Activity ✦';
+    btn.onclick = () => {
+      overlay.classList.remove('open');
+      goToActivity(actNum + 1);
+    };
+  }
+
+  overlay.classList.add('open');
+
+  if (actNum === 3) spawnConfetti();
+}
+
+document.getElementById('popup-close').addEventListener('click', () => {
+  document.getElementById('popup-overlay').classList.remove('open');
+});
+
+function goToActivity(num) {
+  document.querySelectorAll('.activity-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('act' + num).classList.add('active');
+  currentActivity = num;
+
+  // Update progress dots
+  for (let i = 1; i <= 3; i++) {
+    const dot = document.getElementById('pdot' + i);
+    dot.className = 'prog-dot';
+    if (i < num) dot.classList.add('done');
+    else if (i === num) dot.classList.add('active');
+    if (i < num) {
+      dot.querySelector('.prog-dot-circle').textContent = '✓';
+    } else {
+      dot.querySelector('.prog-dot-circle').textContent = ['I','II','III'][i-1];
+    }
+  }
+}
+
+function showFinalSuccess() {
+  // Show final popup with confetti
+  const overlay = document.getElementById('popup-overlay');
+  document.getElementById('popup-icon').textContent = '🌟';
+  document.getElementById('popup-title').textContent = 'Journey Complete!';
+  document.getElementById('popup-stars').textContent = '★ ★ ★ ★ ★';
+  document.getElementById('popup-body').innerHTML = `
+    You have mastered the secrets of <em>Centre of Gravity</em>!<br><br>
+    🔮 Used the ancient plumb line method<br>
+    ⚖️ Found balance points of different shapes<br>
+    🎪 Balanced a tightrope walker at the mela<br><br>
+    Remember: every object has its own magic balancing point — and now <em>you know how to find it!</em>
+  `;
+  const btn = document.getElementById('popup-btn');
+  btn.textContent = '🎉 Celebrate!';
+  btn.onclick = () => {
+    overlay.classList.remove('open');
+    spawnConfetti();
+  };
+  overlay.classList.add('open');
+  spawnConfetti();
+}
+
+function spawnConfetti() {
+  const colors = ['#f4d030','#e08020','#80df60','#60c8f0','#e060c0','#f09040'];
+  for (let i = 0; i < 60; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.style.left = Math.random()*100 + 'vw';
+      el.style.top = '-10px';
+      el.style.background = colors[Math.floor(Math.random()*colors.length)];
+      el.style.animationDuration = (2 + Math.random()*2) + 's';
+      el.style.animationDelay = '0s';
+      el.style.transform = `rotate(${Math.random()*360}deg)`;
+      el.style.width = el.style.height = (6 + Math.random()*8) + 'px';
+      el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 4000);
+    }, i * 60);
+  }
+}
+</script>
+</body>
+</html>

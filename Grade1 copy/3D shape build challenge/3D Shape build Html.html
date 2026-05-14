@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>3D Shape Build Challenge</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+
+  :root {
+    --yellow:  #FFD93D;
+    --orange:  #FF6B35;
+    --pink:    #FF6FA8;
+    --sky:     #4ECDC4;
+    --purple:  #9B59B6;
+    --green:   #6BCB77;
+    --bg:      #FFF8EC;
+    --card:    #FFFFFF;
+    --shadow:  rgba(0,0,0,0.12);
+    --marshmallow: #FFEAEA;
+    --stick:   #D4956A;
+    --stick-border: #B07340;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── ANIMATED BACKGROUND ── */
+  .bg-layer {
+    position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+  }
+  .bg-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,107,53,.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,107,53,.08) 1px, transparent 1px);
+    background-size: 48px 48px;
+    animation: gridDrift 30s linear infinite;
+  }
+  @keyframes gridDrift { from{background-position:0 0} to{background-position:48px 48px} }
+
+  .float-shape {
+    position: absolute;
+    opacity: .15;
+    animation: floatUp linear infinite;
+  }
+  .float-shape.circle { border-radius: 50%; }
+  .float-shape.triangle { background: transparent !important; border-left: 28px solid transparent; border-right: 28px solid transparent; border-bottom: 48px solid; width: 0; height: 0; }
+  .float-shape.star { clip-path: polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%); }
+
+  @keyframes floatUp {
+    0%   { transform: translateY(110vh) rotate(0deg);   opacity: 0; }
+    10%  { opacity: .15; }
+    90%  { opacity: .15; }
+    100% { transform: translateY(-20vh) rotate(360deg); opacity: 0; }
+  }
+
+  .spin-cube {
+    position: absolute;
+    width: 50px; height: 50px;
+    border: 4px solid;
+    opacity: .12;
+    animation: spinCube linear infinite;
+    border-radius: 6px;
+  }
+  @keyframes spinCube {
+    from { transform: rotate(0deg) skewX(-10deg); }
+    to   { transform: rotate(360deg) skewX(-10deg); }
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: relative; z-index: 10;
+    width: 100%; text-align: center;
+    padding: 14px 20px 8px;
+    background: linear-gradient(135deg, var(--orange) 0%, var(--pink) 100%);
+    box-shadow: 0 4px 20px rgba(255,107,53,.35);
+  }
+  header h1 {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    color: #fff;
+    letter-spacing: 1px;
+    text-shadow: 3px 3px 0 rgba(0,0,0,.15);
+  }
+  header p {
+    color: rgba(255,255,255,.9);
+    font-size: .9rem;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .main-wrap {
+    position: relative; z-index: 10;
+    width: 100%; max-width: 1100px;
+    padding: 10px 14px 10px;
+    display: grid;
+    grid-template-columns: 230px 1fr 220px;
+    gap: 12px;
+    flex: 1;
+  }
+
+  /* ── PANEL CARD ── */
+  .panel {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 14px 12px;
+    box-shadow: 0 6px 24px var(--shadow);
+  }
+  .panel-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.05rem;
+    color: var(--orange);
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .panel-title span.icon { font-size: 1.2rem; }
+
+  /* ── TOOLBOX ── */
+  #toolbox { display: flex; flex-direction: column; gap: 8px; }
+
+  .tool-section-label {
+    font-size: .75rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .08em; color: #aaa; margin-top: 4px;
+  }
+
+  .tool-item {
+    display: flex; align-items: center; gap: 8px;
+    background: #FFF5F0;
+    border: 2.5px dashed #FFD093;
+    border-radius: 14px;
+    padding: 8px 10px;
+    cursor: grab;
+    user-select: none;
+    transition: transform .15s, box-shadow .15s;
+    font-weight: 700; font-size: .82rem; color: #555;
+  }
+  .tool-item:active { cursor: grabbing; }
+  .tool-item:hover { transform: scale(1.04); box-shadow: 0 4px 14px rgba(255,107,53,.2); }
+  .tool-item.disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+
+  .tool-marshmallow {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #fff 0%, var(--marshmallow) 50%, #FFBBBB 100%);
+    border: 2.5px solid #FF8FAA;
+    box-shadow: inset 0 -2px 5px rgba(255,100,100,.15), 0 3px 8px rgba(255,100,100,.2);
+    flex-shrink: 0;
+  }
+  .tool-stick {
+    width: 50px; height: 10px;
+    background: linear-gradient(90deg, var(--stick-border), var(--stick), var(--stick-border));
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(180,100,40,.25);
+    flex-shrink: 0;
+  }
+
+  /* ── COUNTER BADGES ── */
+  .counter-row {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;
+  }
+  .badge {
+    border-radius: 30px;
+    padding: 4px 10px;
+    font-weight: 800; font-size: .8rem;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .badge-pink  { background: #FFEEF5; color: var(--pink);   border: 2px solid var(--pink); }
+  .badge-sky   { background: #E8FAFA; color: var(--sky);    border: 2px solid var(--sky); }
+  .badge-green { background: #EDFAE0; color: var(--green);  border: 2px solid var(--green); }
+
+  /* ── CANVAS AREA ── */
+  #canvas-wrap {
+    position: relative;
+    background: linear-gradient(145deg, #fff9f0 0%, #fff3e6 100%);
+    border-radius: 20px;
+    border: 3px dashed #FFD093;
+    overflow: hidden;
+    min-height: 440px;
+  }
+  #canvas-wrap .canvas-hint {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    text-align: center; color: #ccc;
+    font-size: .85rem; font-weight: 700;
+    pointer-events: none;
+    transition: opacity .3s;
+  }
+  #canvas-wrap .canvas-hint .big { font-size: 3rem; display: block; }
+  svg#stage {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+  }
+
+  /* ── MARSHMALLOW ON CANVAS ── */
+  .cm { cursor: grab; }
+  .cm:active { cursor: grabbing; }
+  .cm-circle {
+    fill: radial-gradient(circle at 35% 35%, #fff, #FFEAEA, #FFBBBB);
+    stroke: #FF8FAA; stroke-width: 2.5;
+    filter: drop-shadow(0 3px 6px rgba(255,80,100,.25));
+  }
+  .cm-label { font-family: 'Nunito',sans-serif; font-size: 9px; font-weight: 800; fill: #c95; }
+
+  /* edges */
+  .edge-line {
+    stroke: var(--stick); stroke-width: 7;
+    stroke-linecap: round;
+    filter: drop-shadow(0 2px 4px rgba(180,100,40,.3));
+  }
+  .edge-line.preview { stroke: #FFD093; stroke-dasharray: 8 5; stroke-width: 5; opacity: .8; }
+
+  /* ── INSTRUCTIONS PANEL ── */
+  #instructions .steps { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+  #instructions .steps li {
+    display: flex; align-items: flex-start; gap: 8px;
+    font-size: .78rem; color: #555; font-weight: 600; line-height: 1.4;
+  }
+  .step-num {
+    min-width: 22px; height: 22px;
+    background: var(--orange); color: #fff;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-family: 'Fredoka One', cursive; font-size: .8rem; flex-shrink: 0;
+  }
+  .step-num.done { background: var(--green); }
+
+  .fact-box {
+    background: linear-gradient(135deg, #FFF9E6, #FFEFD0);
+    border-left: 4px solid var(--yellow);
+    border-radius: 12px;
+    padding: 8px 10px;
+    margin-top: 10px;
+    font-size: .75rem; color: #666; font-weight: 600; line-height: 1.5;
+  }
+  .fact-box strong { color: var(--orange); }
+
+  .hint-box {
+    background: linear-gradient(135deg, #E8FAFA, #D0F5F5);
+    border-left: 4px solid var(--sky);
+    border-radius: 12px;
+    padding: 8px 10px;
+    margin-top: 8px;
+    font-size: .75rem; color: #2a8a88; font-weight: 600;
+    display: none;
+  }
+  .hint-box.visible { display: block; }
+
+  /* progress bar */
+  .prog-wrap { margin-top: 10px; }
+  .prog-label { font-size: .72rem; font-weight: 800; color: #aaa; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .07em; }
+  .prog-track { background: #F0F0F0; border-radius: 10px; height: 10px; overflow: hidden; }
+  .prog-fill   { height: 100%; border-radius: 10px; background: linear-gradient(90deg, var(--sky), var(--green)); transition: width .5s ease; }
+
+  /* feedback */
+  #feedback {
+    margin-top: 10px;
+    padding: 8px 12px;
+    border-radius: 14px;
+    font-weight: 800; font-size: .82rem;
+    text-align: center;
+    display: none;
+    animation: popIn .3s ease;
+  }
+  @keyframes popIn { from{transform:scale(.8);opacity:0} to{transform:scale(1);opacity:1} }
+  #feedback.correct { background: #E8FAE8; color: #3aaa3a; border: 2px solid #6BCB77; display: block; }
+  #feedback.wrong   { background: #FAEAEA; color: #d03030; border: 2px solid #FF6B6B; display: block; }
+
+  /* action buttons */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: none; border-radius: 50px; cursor: pointer;
+    font-family: 'Nunito', sans-serif; font-weight: 800;
+    transition: transform .15s, box-shadow .15s;
+    padding: 9px 18px; font-size: .85rem;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.15); }
+  .btn:active { transform: translateY(0); }
+  .btn-orange { background: linear-gradient(135deg, var(--orange), #FF8C5A); color: #fff; box-shadow: 0 4px 14px rgba(255,107,53,.35); }
+  .btn-sky    { background: linear-gradient(135deg, var(--sky), #6EE7E0);    color: #fff; box-shadow: 0 4px 14px rgba(78,205,196,.35); }
+  .btn-reset  { background: #F5F5F5; color: #888; box-shadow: none; font-size: .78rem; padding: 7px 14px; }
+  .btn-group  { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+  /* ── CUBE REFERENCE ── */
+  .cube-ref {
+    display: flex; justify-content: center; align-items: center;
+    margin: 8px 0;
+  }
+  .cube-ref svg { filter: drop-shadow(0 4px 12px rgba(255,107,53,.2)); }
+
+  /* ── SUCCESS POPUP ── */
+  #popup-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 999;
+    background: rgba(0,0,0,.45);
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #popup-overlay.show { display: flex; }
+  #popup-box {
+    background: linear-gradient(145deg, #fff9f0, #fff);
+    border-radius: 30px;
+    padding: 40px 36px 32px;
+    text-align: center;
+    max-width: 380px; width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    animation: popIn .4s cubic-bezier(.34,1.56,.64,1);
+    position: relative;
+  }
+  #popup-box .confetti-strip {
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 8px; border-radius: 30px 30px 0 0;
+    background: linear-gradient(90deg, var(--yellow),var(--orange),var(--pink),var(--sky),var(--green),var(--purple));
+  }
+  #popup-box .star-burst { font-size: 4rem; display: block; animation: starSpin 1s ease infinite alternate; }
+  @keyframes starSpin { from{transform:rotate(-15deg) scale(1)} to{transform:rotate(15deg) scale(1.15)} }
+  #popup-box h2 {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.9rem; color: var(--orange);
+    margin: 10px 0 6px;
+    text-shadow: 2px 2px 0 rgba(255,107,53,.15);
+  }
+  #popup-box p { font-size: .9rem; color: #666; font-weight: 600; line-height: 1.5; }
+  #popup-box .stats {
+    display: flex; justify-content: center; gap: 16px; margin: 16px 0;
+  }
+  #popup-box .stat-chip {
+    background: #FFF5F0; border: 2px solid #FFD093;
+    border-radius: 14px; padding: 8px 14px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.2rem; color: var(--orange);
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  #popup-box .stat-chip small { font-family: 'Nunito',sans-serif; font-size: .68rem; font-weight: 700; color: #aaa; }
+  .confetti-piece {
+    position: absolute; width: 10px; height: 10px; border-radius: 2px;
+    animation: confettiFall 1.2s ease-in forwards;
+    pointer-events: none;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translateY(-10px) rotate(0deg);   opacity:1; }
+    100% { transform: translateY(300px) rotate(720deg); opacity:0; }
+  }
+
+  /* ── MODE SELECTOR ── */
+  .mode-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+  .mode-tab {
+    flex: 1; padding: 6px; border-radius: 10px; border: 2px solid #eee;
+    background: #fafafa; cursor: pointer; font-weight: 700; font-size: .72rem;
+    color: #aaa; text-align: center; transition: all .2s;
+  }
+  .mode-tab.active { background: var(--orange); border-color: var(--orange); color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- ANIMATED BACKGROUND -->
+<div class="bg-layer" id="bgLayer">
+  <div class="bg-grid"></div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <h1>🧊 3D Shape Build Challenge</h1>
+  <p>Build a CUBE with marshmallows & sticks! · Planrs Academy</p>
+</header>
+
+<!-- MAIN -->
+<div class="main-wrap">
+
+  <!-- LEFT: TOOLBOX -->
+  <div class="panel" id="toolbox-panel">
+    <div class="panel-title"><span class="icon">🧰</span> Your Toolbox</div>
+
+    <div class="mode-tabs">
+      <div class="mode-tab active" id="tab-place" onclick="setMode('place')">📍 Place</div>
+      <div class="mode-tab" id="tab-connect" onclick="setMode('connect')">🔗 Connect</div>
+    </div>
+
+    <p style="font-size:.72rem;color:#aaa;font-weight:700;margin-bottom:6px;">DRAG ONTO THE BUILD AREA →</p>
+
+    <div id="toolbox">
+      <span class="tool-section-label">Corners (Marshmallows)</span>
+      <div class="tool-item" id="drag-marsh" draggable="true"
+           ondragstart="dragStart(event,'marshmallow')">
+        <div class="tool-marshmallow"></div>
+        <span>Marshmallow<br><small style="color:#aaa;font-weight:600">= 1 Corner</small></span>
+      </div>
+      <span class="tool-section-label">Edges (Craft Sticks)</span>
+      <div class="tool-item disabled" id="drag-stick" draggable="true"
+           ondragstart="dragStart(event,'stick')">
+        <div class="tool-stick"></div>
+        <span>Craft Stick<br><small style="color:#aaa;font-weight:600">= 1 Edge</small></span>
+      </div>
+    </div>
+
+    <div class="counter-row">
+      <div class="badge badge-pink">🍡 <span id="cnt-marsh">0</span>/8</div>
+      <div class="badge badge-sky">📏 <span id="cnt-edge">0</span>/12</div>
+    </div>
+
+    <div class="fact-box">
+      <strong>💡 Did you know?</strong><br>
+      A CUBE has:<br>
+      🍡 <strong>8 corners</strong> (vertices)<br>
+      📏 <strong>12 edges</strong><br>
+      🟦 <strong>6 flat faces</strong>
+    </div>
+
+    <div style="margin-top:10px">
+      <div class="panel-title" style="font-size:.85rem;"><span class="icon">🎲</span> Real-life cubes</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;font-size:.8rem;font-weight:700;color:#888;">
+        <span>🎲 Dice</span><span>🧊 Ice cube</span><span>🍬 Sugar cube</span><span>🔲 Rubik's cube</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER: BUILD CANVAS -->
+  <div class="panel" style="padding:10px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div class="panel-title" style="margin:0;"><span class="icon">🏗️</span> Build Area</div>
+      <div style="font-size:.72rem;color:#aaa;font-weight:700;">Drag marshmallows here, then connect!</div>
+    </div>
+    <div id="canvas-wrap"
+         ondragover="event.preventDefault()"
+         ondrop="dropOnCanvas(event)">
+      <div class="canvas-hint" id="canvas-hint">
+        <span class="big">🍡</span>
+        Drag a Marshmallow here<br>to start building!
+      </div>
+      <svg id="stage"></svg>
+    </div>
+
+    <div id="feedback"></div>
+    <div class="btn-group">
+      <button class="btn btn-orange" onclick="checkCube()">✅ Check My Cube!</button>
+      <button class="btn btn-sky" onclick="showHint()">💡 Hint</button>
+      <button class="btn btn-reset" onclick="resetAll()">🔄 Start Over</button>
+    </div>
+  </div>
+
+  <!-- RIGHT: INSTRUCTIONS -->
+  <div class="panel" id="instructions">
+    <div class="panel-title"><span class="icon">📋</span> How to Build</div>
+    <ul class="steps" id="step-list">
+      <li><div class="step-num" id="sn1">1</div><span>Drag <strong>8 marshmallows</strong> onto the build area — these are the <strong>corners</strong>!</span></li>
+      <li><div class="step-num" id="sn2">2</div><span>Switch to <strong>Connect mode</strong> (tab above).</span></li>
+      <li><div class="step-num" id="sn3">3</div><span>Click one marshmallow, then click another to draw a <strong>stick</strong> between them.</span></li>
+      <li><div class="step-num" id="sn4">4</div><span>Add <strong>12 sticks total</strong> to form all the edges of your cube.</span></li>
+      <li><div class="step-num" id="sn5">5</div><span>Press <strong>"Check My Cube!"</strong> when you think you're done!</span></li>
+    </ul>
+
+    <div class="fact-box" id="cube-ref-box">
+      <div class="cube-ref">
+        <!-- Simple isometric cube SVG reference -->
+        <svg width="100" height="90" viewBox="0 0 100 90">
+          <defs>
+            <linearGradient id="topFace" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#FFE08A"/>
+              <stop offset="100%" stop-color="#FFD93D"/>
+            </linearGradient>
+            <linearGradient id="leftFace" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#FF8C5A"/>
+              <stop offset="100%" stop-color="#FF6B35"/>
+            </linearGradient>
+            <linearGradient id="rightFace" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#FF6B35"/>
+              <stop offset="100%" stop-color="#CC4A1A"/>
+            </linearGradient>
+          </defs>
+          <!-- top -->
+          <polygon points="50,5 90,26 50,47 10,26" fill="url(#topFace)" stroke="#e6a820" stroke-width="1.5"/>
+          <!-- left -->
+          <polygon points="10,26 50,47 50,85 10,64" fill="url(#leftFace)" stroke="#d94a10" stroke-width="1.5"/>
+          <!-- right -->
+          <polygon points="90,26 50,47 50,85 90,64" fill="url(#rightFace)" stroke="#aa3800" stroke-width="1.5"/>
+          <!-- vertices as small dots -->
+          <circle cx="50" cy="5"  r="4" fill="#FFD93D" stroke="#e6a820" stroke-width="1.5"/>
+          <circle cx="90" cy="26" r="4" fill="#FFD93D" stroke="#e6a820" stroke-width="1.5"/>
+          <circle cx="10" cy="26" r="4" fill="#FFD93D" stroke="#e6a820" stroke-width="1.5"/>
+          <circle cx="50" cy="47" r="4" fill="#FFD93D" stroke="#e6a820" stroke-width="1.5"/>
+          <circle cx="10" cy="64" r="4" fill="#FFD93D" stroke="#e6a820" stroke-width="1.5"/>
+          <circle cx="90" cy="64" r="4" fill="#FFD93D" stroke="#e6a820" stroke-width="1.5"/>
+          <circle cx="50" cy="85" r="4" fill="#FFD93D" stroke="#e6a820" stroke-width="1.5"/>
+          <!-- hidden 8th vertex hint -->
+          <circle cx="50" cy="47" r="4" fill="none" stroke="#e6a820" stroke-width="1" stroke-dasharray="3 2"/>
+          <text x="50" y="92" text-anchor="middle" font-family="Nunito" font-size="7" font-weight="700" fill="#aaa">← Reference Cube →</text>
+        </svg>
+      </div>
+      <strong>Use this as a guide!</strong> Your cube doesn't have to look exactly like this — just make sure you have 8 corners and 12 edges connected!
+    </div>
+
+    <div class="hint-box" id="hint-box"></div>
+
+    <div class="prog-wrap">
+      <div class="prog-label">Progress</div>
+      <div class="prog-track"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+      <div style="font-size:.7rem;color:#aaa;font-weight:700;margin-top:3px;" id="prog-text">0 / 20 pieces placed</div>
+    </div>
+  </div>
+
+</div><!-- end main-wrap -->
+
+<!-- SUCCESS POPUP -->
+<div id="popup-overlay">
+  <div id="popup-box">
+    <div class="confetti-strip"></div>
+    <span class="star-burst">🌟</span>
+    <h2>Awesome! You built a cube!</h2>
+    <p>Amazing work, Shape Builder! 🎉<br>
+    You placed <strong>8 marshmallow corners</strong> and<br>
+    connected them with <strong>12 craft stick edges</strong>!</p>
+    <div class="stats">
+      <div class="stat-chip">8<small>Corners</small></div>
+      <div class="stat-chip">12<small>Edges</small></div>
+      <div class="stat-chip">6<small>Faces</small></div>
+    </div>
+    <p style="font-size:.78rem;color:#888;">🎲 A cube is just like a dice or an ice cube!<br>You're a real 3D Shape Expert!</p>
+    <div style="margin-top:16px;display:flex;gap:10px;justify-content:center;">
+      <button class="btn btn-orange" onclick="resetAll();closePopup()">🔄 Build Again!</button>
+      <button class="btn btn-sky" onclick="closePopup()">🏠 Stay Here</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   BACKGROUND GENERATION
+   ============================================================ */
+(function(){
+  const layer = document.getElementById('bgLayer');
+  const colors = ['#FF6B35','#FFD93D','#FF6FA8','#4ECDC4','#9B59B6','#6BCB77'];
+  // floating shapes
+  for(let i=0;i<18;i++){
+    const el = document.createElement('div');
+    const type = ['circle','square','star'][i%3];
+    el.className = 'float-shape ' + (type==='circle'?'circle':type==='square'?'':type==='star'?'star':'');
+    const sz = 20 + Math.random()*35;
+    el.style.cssText = `
+      width:${sz}px; height:${sz}px;
+      left:${Math.random()*100}%;
+      background:${colors[i%colors.length]};
+      animation-duration:${12+Math.random()*20}s;
+      animation-delay:${-Math.random()*20}s;
+    `;
+    if(type==='triangle'){
+      el.style.background='transparent';
+      el.style.borderBottomColor=colors[i%colors.length];
+    }
+    layer.appendChild(el);
+  }
+  // spinning cubes
+  for(let i=0;i<8;i++){
+    const el = document.createElement('div');
+    el.className = 'spin-cube';
+    el.style.cssText = `
+      left:${Math.random()*95}%; top:${Math.random()*95}%;
+      border-color:${colors[i%colors.length]};
+      animation-duration:${8+Math.random()*14}s;
+      animation-delay:${-Math.random()*10}s;
+      width:${40+Math.random()*40}px; height:${40+Math.random()*40}px;
+    `;
+    layer.appendChild(el);
+  }
+})();
+
+/* ============================================================
+   STATE
+   ============================================================ */
+const MARSH_R   = 16;
+const MAX_MARSH = 8;
+const MAX_EDGES = 12;
+
+let mode        = 'place';   // 'place' | 'connect'
+let marshmallows= [];        // {id, x, y, el}
+let edges       = [];        // {from, to, el}
+let dragType    = null;
+let selectFirst = null;      // id of first selected node in connect mode
+let nextId      = 0;
+let hintShown   = 0;
+
+const svg       = document.getElementById('stage');
+const canvasWrap= document.getElementById('canvas-wrap');
+const hint      = document.querySelector('.canvas-hint');
+
+/* ============================================================
+   DRAG FROM TOOLBOX
+   ============================================================ */
+function dragStart(e, type){
+  if(type==='stick' && marshmallows.length < MAX_MARSH){ e.preventDefault(); return; }
+  dragType = type;
+}
+function dropOnCanvas(e){
+  e.preventDefault();
+  if(!dragType) return;
+  const rect = canvasWrap.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  if(dragType==='marshmallow') addMarshmallow(x,y);
+  dragType = null;
+}
+
+/* ============================================================
+   ADD MARSHMALLOW
+   ============================================================ */
+function addMarshmallow(x, y){
+  if(marshmallows.length >= MAX_MARSH) return;
+
+  const id = nextId++;
+  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.setAttribute('class','cm');
+  g.setAttribute('data-id', id);
+  g.style.cursor = 'grab';
+
+  // shadow
+  const shadow = document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+  shadow.setAttribute('cx', x); shadow.setAttribute('cy', y+MARSH_R+2);
+  shadow.setAttribute('rx', MARSH_R*.7); shadow.setAttribute('ry', 5);
+  shadow.setAttribute('fill','rgba(255,100,100,.15)');
+
+  // circle
+  const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+  circle.setAttribute('cx', x); circle.setAttribute('cy', y);
+  circle.setAttribute('r', MARSH_R);
+  circle.setAttribute('fill','#FFE4E4');
+  circle.setAttribute('stroke','#FF8FAA');
+  circle.setAttribute('stroke-width','2.5');
+  circle.style.filter = 'drop-shadow(0 3px 6px rgba(255,80,100,.25))';
+
+  // sheen
+  const sheen = document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+  sheen.setAttribute('cx', x-4); sheen.setAttribute('cy', y-5);
+  sheen.setAttribute('rx', 5); sheen.setAttribute('ry', 3.5);
+  sheen.setAttribute('fill','rgba(255,255,255,.7)'); sheen.setAttribute('transform',`rotate(-30,${x-4},${y-5})`);
+
+  // label
+  const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+  txt.setAttribute('x', x); txt.setAttribute('y', y+4);
+  txt.setAttribute('text-anchor','middle');
+  txt.setAttribute('font-family','Nunito,sans-serif');
+  txt.setAttribute('font-size','10');
+  txt.setAttribute('font-weight','900');
+  txt.setAttribute('fill','#d44');
+  txt.textContent = marshmallows.length+1;
+
+  g.appendChild(shadow); g.appendChild(circle); g.appendChild(sheen); g.appendChild(txt);
+  svg.appendChild(g);
+
+  const obj = {id, x, y, el: g, cx: x, cy: y};
+  marshmallows.push(obj);
+
+  // drag within canvas
+  makeDraggable(g, obj);
+
+  // click for connect
+  g.addEventListener('click', ()=>{ if(mode==='connect') handleNodeClick(id); });
+
+  updateUI();
+}
+
+/* ============================================================
+   DRAG WITHIN CANVAS
+   ============================================================ */
+function makeDraggable(g, obj){
+  let dragging = false, ox=0, oy=0;
+  g.addEventListener('mousedown', e=>{
+    if(mode!=='place') return;
+    dragging=true; e.preventDefault();
+    const rect = canvasWrap.getBoundingClientRect();
+    ox = e.clientX - rect.left - obj.cx;
+    oy = e.clientY - rect.top  - obj.cy;
+    g.style.cursor='grabbing';
+  });
+  window.addEventListener('mousemove', e=>{
+    if(!dragging) return;
+    const rect = canvasWrap.getBoundingClientRect();
+    let nx = e.clientX - rect.left - ox;
+    let ny = e.clientY - rect.top  - oy;
+    nx = Math.max(MARSH_R, Math.min(rect.width-MARSH_R, nx));
+    ny = Math.max(MARSH_R, Math.min(rect.height-MARSH_R, ny));
+    obj.cx = nx; obj.cy = ny;
+    moveNode(g, obj);
+  });
+  window.addEventListener('mouseup', ()=>{ if(dragging){ dragging=false; g.style.cursor='grab'; } });
+}
+function moveNode(g, obj){
+  const children = g.children;
+  // shadow
+  children[0].setAttribute('cx', obj.cx); children[0].setAttribute('cy', obj.cy+MARSH_R+2);
+  // circle
+  children[1].setAttribute('cx', obj.cx); children[1].setAttribute('cy', obj.cy);
+  // sheen
+  children[2].setAttribute('cx', obj.cx-4); children[2].setAttribute('cy', obj.cy-5);
+  children[2].setAttribute('transform',`rotate(-30,${obj.cx-4},${obj.cy-5})`);
+  // label
+  children[3].setAttribute('x', obj.cx); children[3].setAttribute('y', obj.cy+4);
+  // update edges
+  edges.forEach(ed=>{
+    if(ed.from===obj.id || ed.to===obj.id) redrawEdge(ed);
+  });
+}
+
+/* ============================================================
+   CONNECT MODE
+   ============================================================ */
+function handleNodeClick(id){
+  if(selectFirst===null){
+    selectFirst = id;
+    highlightNode(id, true);
+  } else {
+    if(selectFirst===id){ highlightNode(id, false); selectFirst=null; return; }
+    const already = edges.find(e=>(e.from===selectFirst&&e.to===id)||(e.from===id&&e.to===selectFirst));
+    if(!already && edges.length < MAX_EDGES){
+      addEdge(selectFirst, id);
+      showFeedbackBrief('Edge added! 📏', 'correct');
+    } else if(already){
+      showFeedbackBrief('Already connected! Try two different corners.','wrong');
+    } else {
+      showFeedbackBrief('Max 12 edges reached! Press Check My Cube ✅','wrong');
+    }
+    highlightNode(selectFirst, false);
+    selectFirst = null;
+    updateUI();
+  }
+}
+function highlightNode(id, on){
+  const obj = marshmallows.find(m=>m.id===id);
+  if(!obj) return;
+  obj.el.children[1].setAttribute('stroke', on ? '#FF3366' : '#FF8FAA');
+  obj.el.children[1].setAttribute('stroke-width', on ? '4' : '2.5');
+  obj.el.children[1].setAttribute('fill', on ? '#FFD0D0' : '#FFE4E4');
+}
+function addEdge(fromId, toId){
+  const from = marshmallows.find(m=>m.id===fromId);
+  const to   = marshmallows.find(m=>m.id===toId);
+  const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+  line.setAttribute('class','edge-line');
+  line.setAttribute('x1', from.cx); line.setAttribute('y1', from.cy);
+  line.setAttribute('x2', to.cx);   line.setAttribute('y2', to.cy);
+  svg.insertBefore(line, svg.firstChild); // behind nodes
+  const ed = {from: fromId, to: toId, el: line};
+  edges.push(ed);
+}
+function redrawEdge(ed){
+  const from = marshmallows.find(m=>m.id===ed.from);
+  const to   = marshmallows.find(m=>m.id===ed.to);
+  if(from&&to){
+    ed.el.setAttribute('x1',from.cx); ed.el.setAttribute('y1',from.cy);
+    ed.el.setAttribute('x2',to.cx);   ed.el.setAttribute('y2',to.cy);
+  }
+}
+
+/* ============================================================
+   MODE SWITCHING
+   ============================================================ */
+function setMode(m){
+  mode = m;
+  selectFirst = null;
+  marshmallows.forEach(n=>highlightNode(n.id,false));
+  document.getElementById('tab-place').classList.toggle('active', m==='place');
+  document.getElementById('tab-connect').classList.toggle('active', m==='connect');
+  svg.style.cursor = m==='connect' ? 'crosshair' : 'default';
+  // unlock stick tool when 8 marsh placed
+  const stickTool = document.getElementById('drag-stick');
+  stickTool.classList.toggle('disabled', marshmallows.length < MAX_MARSH || m!=='place');
+}
+
+/* ============================================================
+   CHECK CUBE
+   ============================================================ */
+function checkCube(){
+  const fb = document.getElementById('feedback');
+  if(marshmallows.length < MAX_MARSH){
+    showFeedback(`You have ${marshmallows.length} corners. A cube needs exactly 8! 🍡`, 'wrong');
+    return;
+  }
+  if(edges.length < MAX_EDGES){
+    showFeedback(`You have ${edges.length} edges. A cube needs exactly 12! 📏`, 'wrong');
+    return;
+  }
+  if(edges.length > MAX_EDGES){
+    showFeedback(`Too many edges! Remove some — a cube only has 12. 📏`, 'wrong');
+    return;
+  }
+
+  // Build adjacency map
+  const adj = {};
+  marshmallows.forEach(m=>{ adj[m.id]=[]; });
+  edges.forEach(e=>{ adj[e.from].push(e.to); adj[e.to].push(e.from); });
+
+  // Every vertex must have degree 3 (cube property)
+  const degrees = Object.values(adj).map(v=>v.length);
+  const allDegree3 = degrees.every(d=>d===3);
+
+  if(!allDegree3){
+    showFeedback(`Almost! In a cube, each corner touches exactly 3 edges. Check your connections! 🔍`, 'wrong');
+    return;
+  }
+
+  // Graph must be connected
+  const visited = new Set();
+  const queue = [marshmallows[0].id];
+  while(queue.length){
+    const cur = queue.shift();
+    if(visited.has(cur)) continue;
+    visited.add(cur);
+    adj[cur].forEach(n=>{ if(!visited.has(n)) queue.push(n); });
+  }
+  if(visited.size !== marshmallows.length){
+    showFeedback(`Some corners are not connected! Make sure all marshmallows are joined. 🔗`, 'wrong');
+    return;
+  }
+
+  // SUCCESS!
+  showFeedback('🎉 Perfect! You built a cube!', 'correct');
+  celebrateNodes();
+  setTimeout(()=>openPopup(), 900);
+}
+
+/* ============================================================
+   FEEDBACK
+   ============================================================ */
+function showFeedback(msg, type){
+  const fb = document.getElementById('feedback');
+  fb.textContent = msg;
+  fb.className = type;
+  fb.style.display = 'block';
+}
+function showFeedbackBrief(msg, type){
+  showFeedback(msg, type);
+  setTimeout(()=>{ document.getElementById('feedback').style.display='none'; }, 2000);
+}
+
+/* ============================================================
+   HINT
+   ============================================================ */
+const hints = [
+  "A cube has 8 corners — try placing marshmallows in two groups of 4, like the top and bottom of a box!",
+  "Think of 4 marshmallows as the top square and 4 as the bottom square. Connect them!",
+  "Each marshmallow (corner) should have exactly 3 sticks coming out of it!",
+  "Connect all 4 corners of the top square, all 4 of the bottom, then link each top corner to the corner below it. That's 4+4+4 = 12 edges! 🎉"
+];
+function showHint(){
+  const box = document.getElementById('hint-box');
+  box.textContent = '💡 ' + hints[Math.min(hintShown, hints.length-1)];
+  box.classList.add('visible');
+  if(hintShown < hints.length-1) hintShown++;
+}
+
+/* ============================================================
+   CELEBRATE
+   ============================================================ */
+function celebrateNodes(){
+  marshmallows.forEach((m,i)=>{
+    setTimeout(()=>{
+      m.el.children[1].setAttribute('fill','#FFD93D');
+      m.el.children[1].setAttribute('stroke','#FF6B35');
+      m.el.children[1].setAttribute('stroke-width','3');
+    }, i*80);
+  });
+  edges.forEach((ed,i)=>{
+    setTimeout(()=>{
+      ed.el.style.stroke = '#FF6B35';
+    }, i*60);
+  });
+}
+
+/* ============================================================
+   POPUP
+   ============================================================ */
+function openPopup(){
+  const overlay = document.getElementById('popup-overlay');
+  overlay.classList.add('show');
+  launchConfetti();
+}
+function closePopup(){
+  document.getElementById('popup-overlay').classList.remove('show');
+}
+function launchConfetti(){
+  const box = document.getElementById('popup-box');
+  const colors = ['#FF6B35','#FFD93D','#FF6FA8','#4ECDC4','#9B59B6','#6BCB77'];
+  for(let i=0; i<28; i++){
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.cssText = `
+      left:${Math.random()*100}%;
+      top:0;
+      background:${colors[i%colors.length]};
+      animation-delay:${Math.random()*.5}s;
+      animation-duration:${0.9+Math.random()*.6}s;
+      transform:rotate(${Math.random()*180}deg);
+    `;
+    box.appendChild(p);
+    setTimeout(()=>p.remove(), 1800);
+  }
+}
+
+/* ============================================================
+   UPDATE UI
+   ============================================================ */
+function updateUI(){
+  document.getElementById('cnt-marsh').textContent = marshmallows.length;
+  document.getElementById('cnt-edge').textContent  = edges.length;
+
+  if(marshmallows.length > 0){
+    document.getElementById('canvas-hint').style.opacity = '0';
+    document.getElementById('canvas-hint').style.pointerEvents = 'none';
+  } else {
+    document.getElementById('canvas-hint').style.opacity = '1';
+  }
+
+  // unlock stick / connect
+  if(marshmallows.length >= MAX_MARSH){
+    document.getElementById('drag-stick').classList.remove('disabled');
+    if(mode==='place') setMode('connect');
+  }
+
+  // step highlights
+  const sn1 = document.getElementById('sn1');
+  const sn2 = document.getElementById('sn2');
+  const sn3 = document.getElementById('sn3');
+  const sn4 = document.getElementById('sn4');
+  if(marshmallows.length>=MAX_MARSH) sn1.classList.add('done'), sn2.classList.add('done');
+  if(edges.length>0) sn3.classList.add('done');
+  if(edges.length>=MAX_EDGES) sn4.classList.add('done');
+
+  // progress
+  const total = MAX_MARSH + MAX_EDGES;
+  const done  = marshmallows.length + edges.length;
+  const pct   = Math.round(done/total*100);
+  document.getElementById('prog-fill').style.width = pct+'%';
+  document.getElementById('prog-text').textContent = `${done} / ${total} pieces placed`;
+}
+
+/* ============================================================
+   RESET
+   ============================================================ */
+function resetAll(){
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  marshmallows=[];  edges=[];  nextId=0; hintShown=0; selectFirst=null;
+  mode='place';
+  document.getElementById('tab-place').classList.add('active');
+  document.getElementById('tab-connect').classList.remove('active');
+  svg.style.cursor='default';
+  document.getElementById('drag-stick').classList.add('disabled');
+  document.getElementById('feedback').style.display='none';
+  document.getElementById('hint-box').classList.remove('visible');
+  ['sn1','sn2','sn3','sn4','sn5'].forEach(id=>document.getElementById(id).classList.remove('done'));
+  updateUI();
+}
+
+/* ============================================================
+   TOUCH SUPPORT for drag
+   ============================================================ */
+// Touch drag from toolbox
+const marshItem = document.getElementById('drag-marsh');
+marshItem.addEventListener('touchstart', e=>{
+  dragType='marshmallow'; e.preventDefault();
+},{passive:false});
+marshItem.addEventListener('touchend', e=>{
+  const t = e.changedTouches[0];
+  const rect = canvasWrap.getBoundingClientRect();
+  const x = t.clientX - rect.left;
+  const y = t.clientY - rect.top;
+  if(x>0&&y>0&&x<rect.width&&y<rect.height) addMarshmallow(x,y);
+  dragType=null;
+},{passive:false});
+
+updateUI();
+</script>
+</body>
+</html>

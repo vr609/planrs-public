@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Convection Currents — Colour in Water</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --hot: #ff4d2e;
+    --hot2: #ff8c00;
+    --cold: #1e90ff;
+    --cold2: #00cfcf;
+    --sky1: #87ceeb;
+    --sky2: #c9e8ff;
+    --gold: #ffd700;
+    --white: #fff;
+    --text-dark: #1a1a2e;
+    --green: #43e97b;
+    --popup-bg: rgba(20,30,60,0.55);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: 'Nunito', sans-serif;
+    background: linear-gradient(180deg, #5bc8f5 0%, #87ceeb 45%, #c9e8ff 75%, #e0f7fa 100%);
+    user-select: none;
+  }
+
+  /* ── SKY & SCENE ── */
+  #sky-scene {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    overflow: hidden;
+  }
+
+  /* Sun */
+  .sun {
+    position: absolute; top: 8%; left: 7%;
+    width: 70px; height: 70px;
+    background: radial-gradient(circle, #ffe066 60%, #ffb700 100%);
+    border-radius: 50%;
+    box-shadow: 0 0 40px 15px rgba(255,220,50,0.45);
+    animation: sunPulse 3s ease-in-out infinite;
+  }
+  .sun-ray {
+    position: absolute; top: 50%; left: 50%;
+    width: 8px; height: 38px;
+    background: linear-gradient(#ffe066, transparent);
+    border-radius: 4px;
+    transform-origin: 50% 100%;
+    animation: sunPulse 3s ease-in-out infinite;
+  }
+  @keyframes sunPulse { 0%,100%{opacity:.7} 50%{opacity:1} }
+
+  /* Clouds */
+  .cloud {
+    position: absolute;
+    background: rgba(255,255,255,0.92);
+    border-radius: 50px;
+    animation: cloudDrift linear infinite;
+  }
+  .cloud::before, .cloud::after {
+    content: '';
+    position: absolute;
+    background: rgba(255,255,255,0.92);
+    border-radius: 50%;
+  }
+
+  /* Birds */
+  .bird {
+    position: absolute;
+    width: 24px; height: 7px;
+    border-top: 3px solid #555;
+    border-radius: 50% 50% 0 0;
+    animation: birdFly linear infinite;
+  }
+  .bird::after {
+    content:'';
+    position: absolute;
+    right: 0; top: 0;
+    width: 12px; height: 7px;
+    border-top: 3px solid #555;
+    border-radius: 50% 50% 0 0;
+  }
+
+  /* Balloon */
+  .balloon {
+    position: absolute;
+    width: 34px; height: 42px;
+    border-radius: 50% 50% 45% 45%;
+    animation: balloonFloat ease-in-out infinite alternate;
+  }
+  .balloon-string {
+    position: absolute;
+    width: 1.5px;
+    background: #aaa;
+    bottom: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  @keyframes cloudDrift { from{transform:translateX(-200px)} to{transform:translateX(110vw)} }
+  @keyframes birdFly { from{transform:translate(-80px,0)} to{transform:translate(110vw, -30px)} }
+  @keyframes balloonFloat { from{transform:translateY(0) rotate(-3deg)} to{transform:translateY(-14px) rotate(3deg)} }
+
+  /* Green ground strip */
+  .ground-strip {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 38px;
+    background: linear-gradient(#5ecc6c, #3aa64d);
+    border-radius: 60% 60% 0 0 / 20px 20px 0 0;
+    z-index: 0;
+  }
+
+  /* ── MAIN WRAPPER ── */
+  #app {
+    position: relative; z-index: 2;
+    width: 100%; height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-start;
+    padding: 10px 10px 0;
+    overflow: hidden;
+  }
+
+  /* Title bar */
+  #title-bar {
+    background: linear-gradient(90deg, #ff4d2e 0%, #ff8c00 50%, #1e90ff 100%);
+    border-radius: 18px;
+    padding: 7px 22px;
+    color: #fff;
+    font-family: 'Baloo 2', cursive;
+    font-size: clamp(14px, 2.4vw, 20px);
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-align: center;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+    text-shadow: 0 2px 6px rgba(0,0,0,0.22);
+    margin-bottom: 8px;
+    width: 100%;
+    max-width: 700px;
+  }
+
+  /* Step indicator */
+  #step-bar {
+    display: flex; gap: 10px; align-items: center;
+    margin-bottom: 7px;
+  }
+  .step-dot {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 13px;
+    background: rgba(255,255,255,0.4);
+    color: #555;
+    border: 2.5px solid #fff;
+    transition: all .4s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .step-dot.active {
+    background: linear-gradient(135deg, #ff8c00, #ff4d2e);
+    color: #fff;
+    border-color: #fff;
+    box-shadow: 0 0 0 4px rgba(255,140,0,0.28);
+    transform: scale(1.15);
+  }
+  .step-dot.done {
+    background: #43e97b;
+    color: #fff;
+    border-color: #fff;
+  }
+  .step-line {
+    width: 32px; height: 3px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 2px;
+  }
+
+  /* Activity card */
+  #activity-card {
+    background: rgba(255,255,255,0.88);
+    border-radius: 24px;
+    box-shadow: 0 8px 36px rgba(30,60,120,0.16);
+    padding: 14px 18px 12px;
+    width: 100%;
+    max-width: 700px;
+    flex: 1;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    backdrop-filter: blur(6px);
+    border: 2px solid rgba(255,255,255,0.7);
+    position: relative;
+  }
+
+  .act-title {
+    font-family: 'Baloo 2', cursive;
+    font-size: clamp(15px, 2.6vw, 22px);
+    font-weight: 800;
+    color: var(--text-dark);
+    text-align: center;
+    margin-bottom: 5px;
+    line-height: 1.2;
+  }
+  .act-instruction {
+    font-size: clamp(12px, 1.8vw, 15px);
+    color: #444;
+    text-align: center;
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+
+  /* ────────────────────────── ACTIVITY 1 ─────────────────────────── */
+  #act1-arena {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 14px;
+    position: relative;
+  }
+
+  .water-jar {
+    position: relative;
+    width: 130px; height: 170px;
+    border: 4px solid rgba(100,150,200,0.5);
+    border-top: none;
+    border-radius: 0 0 24px 24px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.3);
+    box-shadow: inset 0 0 20px rgba(100,150,200,0.15), 0 4px 14px rgba(0,0,0,0.1);
+    transition: box-shadow .3s;
+  }
+  .water-jar.glow-hot { box-shadow: 0 0 22px 6px rgba(255,100,0,0.45), inset 0 0 20px rgba(255,100,0,0.1); }
+  .water-jar.glow-cold { box-shadow: 0 0 22px 6px rgba(30,144,255,0.45), inset 0 0 20px rgba(30,144,255,0.1); }
+
+  .jar-water {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 75%; border-radius: 0 0 20px 20px;
+    transition: background .6s;
+  }
+  .jar-label {
+    position: absolute; top: -32px; left: 50%; transform: translateX(-50%);
+    background: #fff; border-radius: 10px; padding: 3px 12px;
+    font-weight: 800; font-size: 13px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.13);
+    white-space: nowrap;
+  }
+  .jar-label.hot { color: var(--hot); border: 2px solid var(--hot); }
+  .jar-label.cold { color: var(--cold); border: 2px solid var(--cold); }
+
+  .flame-anim {
+    position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%);
+    font-size: 26px;
+    animation: flicker .7s ease-in-out infinite alternate;
+  }
+  @keyframes flicker { from{transform:translateX(-50%) scale(1) rotate(-3deg)} to{transform:translateX(-50%) scale(1.15) rotate(3deg)} }
+
+  .ice-anim {
+    position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%);
+    font-size: 22px;
+    animation: iceWobble 1.5s ease-in-out infinite alternate;
+  }
+  @keyframes iceWobble { from{transform:translateX(-50%) rotate(-5deg)} to{transform:translateX(-50%) rotate(5deg)} }
+
+  /* Draggable colour drops (act 1) */
+  .drop-tray {
+    display: flex; flex-direction: column; gap: 10px; align-items: center;
+    justify-content: center;
+  }
+  .colour-drop {
+    width: 46px; height: 46px;
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    cursor: grab;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+    transition: transform .15s, box-shadow .15s;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px;
+    position: relative;
+    z-index: 10;
+    touch-action: none;
+  }
+  .colour-drop:active { transform: scale(1.15); cursor: grabbing; box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+  .colour-drop.red { background: radial-gradient(circle at 40% 35%, #ff8050, #ff2020); }
+  .colour-drop.blue { background: radial-gradient(circle at 40% 35%, #70b8ff, #1060e0); }
+
+  .drop-label { font-size: 11px; font-weight: 700; color: #555; text-align: center; }
+
+  /* Colour stream animation inside jar */
+  .colour-stream {
+    position: absolute;
+    width: 18px;
+    border-radius: 9px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .stream-rise {
+    background: linear-gradient(to top, rgba(255,30,0,0.8), rgba(255,100,0,0.2));
+    bottom: 0;
+    left: 50%; transform: translateX(-50%);
+    animation: streamRise 1.8s ease-out forwards;
+  }
+  .stream-sink {
+    background: linear-gradient(to bottom, rgba(30,100,255,0.8), rgba(30,200,255,0.2));
+    top: 0;
+    left: 50%; transform: translateX(-50%);
+    animation: streamSink 1.8s ease-out forwards;
+  }
+  @keyframes streamRise {
+    0%{opacity:0;height:0;bottom:0} 20%{opacity:1} 80%{opacity:.9;height:70%;bottom:0} 100%{opacity:.7;height:70%;bottom:0}
+  }
+  @keyframes streamSink {
+    0%{opacity:0;height:0;top:0} 20%{opacity:1} 80%{opacity:.9;height:65%;top:0} 100%{opacity:.7;height:65%;top:0}
+  }
+
+  .spread-top {
+    position: absolute; top: 10px; left: 5%; right: 5%; height: 14px;
+    background: rgba(255,60,0,0.35); border-radius: 7px;
+    opacity: 0; animation: fadeIn .5s .9s forwards;
+  }
+  .spread-bot {
+    position: absolute; bottom: 6px; left: 5%; right: 5%; height: 14px;
+    background: rgba(30,100,255,0.35); border-radius: 7px;
+    opacity: 0; animation: fadeIn .5s .9s forwards;
+  }
+
+  /* Convection loop arrow (after both drops placed) */
+  #conv-loop {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .5s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #conv-loop.show { opacity: 1; }
+  #conv-loop svg { width: 80px; height: 100px; }
+
+  /* act1 result text */
+  .result-badge {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(90deg, #ff8c00, #ff4d2e);
+    color: #fff; font-weight: 800; font-size: 13px;
+    border-radius: 20px; padding: 5px 18px;
+    box-shadow: 0 3px 10px rgba(255,100,0,0.35);
+    opacity: 0; animation: fadeIn .4s .3s forwards;
+    white-space: nowrap;
+  }
+
+  /* ────────────────────────── ACTIVITY 2 ─────────────────────────── */
+  #act2-arena {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative; gap: 8px;
+  }
+
+  #act2-jar {
+    width: 200px; height: 200px;
+    border: 4px solid rgba(100,150,200,0.5);
+    border-top: none;
+    border-radius: 0 0 36px 36px;
+    background: linear-gradient(180deg, rgba(255,80,0,0.18) 30%, rgba(30,144,255,0.22) 100%);
+    position: relative;
+    overflow: visible;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.1);
+  }
+
+  .drop-zone-2 {
+    width: 140px; height: 46px; border-radius: 23px;
+    border: 3px dashed rgba(150,150,200,0.7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: #999; font-weight: 700;
+    position: absolute;
+    transition: border-color .3s, background .3s;
+    background: rgba(255,255,255,0.35);
+    z-index: 5;
+    pointer-events: all;
+  }
+  .drop-zone-2.hover-ok { border-color: #43e97b; background: rgba(67,233,123,0.18); }
+  .drop-zone-2.placed { border-style: solid; }
+
+  /* Act2 arrow labels */
+  .arrow-label {
+    background: #fff;
+    border-radius: 14px;
+    padding: 6px 14px;
+    font-weight: 800;
+    font-size: 14px;
+    cursor: grab;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+    display: flex; align-items: center; gap: 6px;
+    touch-action: none;
+    position: relative; z-index: 10;
+    border: 2.5px solid transparent;
+    transition: transform .15s, box-shadow .15s;
+    white-space: nowrap;
+  }
+  .arrow-label:active { transform: scale(1.08); cursor: grabbing; }
+  .arrow-label.hot-label { color: var(--hot); border-color: var(--hot); }
+  .arrow-label.cold-label { color: var(--cold); border-color: var(--cold); }
+
+  #act2-labels-tray {
+    display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 6px;
+  }
+
+  /* Wave animations in act2 jar */
+  .hot-wave {
+    position: absolute; top: 12%; left: 10%; right: 10%;
+    height: 30px; border-radius: 50%;
+    background: rgba(255,80,0,0.18);
+    animation: waveRise 2s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .cold-wave {
+    position: absolute; bottom: 10%; left: 10%; right: 10%;
+    height: 30px; border-radius: 50%;
+    background: rgba(30,144,255,0.2);
+    animation: waveSink 2s ease-in-out infinite .5s;
+    pointer-events: none;
+  }
+  @keyframes waveRise { 0%,100%{transform:scaleX(1) translateY(0)} 50%{transform:scaleX(1.08) translateY(-6px)} }
+  @keyframes waveSink { 0%,100%{transform:scaleX(1) translateY(0)} 50%{transform:scaleX(1.08) translateY(6px)} }
+
+  /* circular arrow in act2 jar */
+  .circ-arrow {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 80px; height: 80px;
+    opacity: 0;
+    transition: opacity .5s;
+    pointer-events: none;
+  }
+  .circ-arrow.show { opacity: 1; animation: spinArrow 3s linear infinite; }
+  @keyframes spinArrow { from{transform:translate(-50%,-50%) rotate(0)} to{transform:translate(-50%,-50%) rotate(360deg)} }
+
+  /* ────────────────────────── ACTIVITY 3 ─────────────────────────── */
+  .step-cards-grid {
+    display: flex; flex-direction: column; gap: 5px; width: 100%;
+  }
+  .step-card {
+    background: linear-gradient(90deg, rgba(255,255,255,0.95), rgba(230,240,255,0.95));
+    border-radius: 13px;
+    border: 2px solid #e0e8f8;
+    padding: 7px 10px;
+    display: flex; align-items: center; gap: 8px;
+    cursor: grab;
+    touch-action: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    transition: box-shadow .2s, transform .15s, border-color .2s;
+    font-size: clamp(10px, 1.5vw, 13px);
+    font-weight: 700;
+    color: var(--text-dark);
+    position: relative;
+    z-index: 10;
+    min-height: 50px;
+  }
+  .step-card:active { transform: scale(1.02); cursor: grabbing; }
+  .step-card.dragging { box-shadow: 0 10px 28px rgba(0,0,0,0.2); transform: scale(1.05); z-index: 50; opacity: .85; }
+  .step-card.correct { border-color: #43e97b; background: linear-gradient(90deg, rgba(200,255,220,0.95), rgba(230,255,240,0.95)); }
+  .step-card.wrong { border-color: var(--hot); animation: shake .4s; }
+  .step-num {
+    min-width: 24px; height: 24px; border-radius: 50%;
+    background: linear-gradient(135deg, #5bc8f5, #1e90ff);
+    color: #fff; font-weight: 900; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px rgba(30,144,255,0.3);
+    flex-shrink: 0;
+  }
+  .step-icon { font-size: 17px; flex-shrink: 0; }
+
+  @keyframes shake {
+    0%,100%{transform:translateX(0)}
+    25%{transform:translateX(-6px)}
+    75%{transform:translateX(6px)}
+  }
+
+  /* Act 3 two-column layout */
+  #act3-arena {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    overflow: hidden;
+  }
+  .act3-col {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+  }
+  .act3-col-title {
+    font-size: 11px;
+    font-weight: 800;
+    color: #888;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 2px;
+  }
+  .step-cards-grid {
+    display: flex; flex-direction: column; gap: 5px; width: 100%;
+  }
+  #act3-drop-area {
+    display: flex; flex-direction: column; gap: 5px; width: 100%;
+  }
+  .drop-slot {
+    height: 50px;
+    border: 2.5px dashed rgba(100,150,220,0.45);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: #aaa; font-weight: 700;
+    background: rgba(255,255,255,0.4);
+    transition: border-color .3s, background .3s;
+    gap: 6px;
+  }
+  .drop-slot .slot-num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: linear-gradient(135deg,#c0d8ff,#a0b8ee);
+    color: #3355aa; font-weight: 900; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .drop-slot.hover-ok { border-color: #43e97b; background: rgba(67,233,123,0.12); }
+  .drop-slot.filled { background: transparent; border: none; padding: 0; height: auto; }
+
+  /* ─── POPUPS ─── */
+  .popup-overlay {
+    position: fixed; inset: 0;
+    background: var(--popup-bg);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn .3s;
+  }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+  .popup-box {
+    background: linear-gradient(145deg, #ffffff, #f0f6ff);
+    border-radius: 28px;
+    padding: 28px 30px 24px;
+    max-width: 380px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 16px 50px rgba(30,60,120,0.3);
+    border: 3px solid rgba(255,255,255,0.9);
+    animation: popIn .4s cubic-bezier(.34,1.56,.64,1);
+    position: relative;
+  }
+  @keyframes popIn { from{transform:scale(.6);opacity:0} to{transform:scale(1);opacity:1} }
+
+  .popup-emoji { font-size: 54px; line-height: 1; margin-bottom: 10px; }
+  .popup-title {
+    font-family: 'Baloo 2', cursive;
+    font-size: clamp(18px, 3vw, 24px);
+    font-weight: 800; color: var(--text-dark);
+    margin-bottom: 8px;
+  }
+  .popup-text {
+    font-size: 14px; color: #555; line-height: 1.6;
+    margin-bottom: 16px; font-weight: 600;
+  }
+  .popup-btn {
+    background: linear-gradient(135deg, #ff8c00, #ff4d2e);
+    color: #fff; border: none;
+    padding: 12px 30px; border-radius: 50px;
+    font-family: 'Baloo 2', cursive;
+    font-size: 17px; font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(255,100,0,0.4);
+    transition: transform .15s, box-shadow .15s;
+    touch-action: manipulation;
+  }
+  .popup-btn:active { transform: scale(.96); }
+  .popup-btn.blue { background: linear-gradient(135deg, #1e90ff, #00cfcf); box-shadow: 0 6px 18px rgba(30,144,255,0.4); }
+  .popup-btn.green { background: linear-gradient(135deg, #43e97b, #38f9d7); box-shadow: 0 6px 18px rgba(67,233,123,0.4); color: #222; }
+
+  /* confetti */
+  .confetti-piece {
+    position: fixed;
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 200;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0%{transform:translateY(-30px) rotate(0); opacity:1}
+    100%{transform:translateY(100vh) rotate(720deg); opacity:0}
+  }
+
+  /* Next btn floating */
+  #next-btn {
+    position: absolute;
+    bottom: 12px; right: 14px;
+    background: linear-gradient(135deg, #43e97b, #38f9d7);
+    color: #222; border: none;
+    padding: 10px 22px; border-radius: 50px;
+    font-family: 'Baloo 2', cursive;
+    font-size: 15px; font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 5px 16px rgba(67,233,123,0.4);
+    display: none;
+    transition: transform .15s;
+    touch-action: manipulation;
+    z-index: 20;
+    animation: nextBounce .8s ease-in-out infinite alternate;
+  }
+  #next-btn:active { transform: scale(.96); }
+  @keyframes nextBounce { from{transform:translateY(0)} to{transform:translateY(-4px)} }
+
+  /* Safety note */
+  .safety-note {
+    background: linear-gradient(90deg, #fff8e1, #fff3e0);
+    border-left: 4px solid #ff9800;
+    border-radius: 10px;
+    padding: 7px 14px;
+    font-size: 12px; color: #7a5000; font-weight: 700;
+    margin-top: 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* Fun fact tag */
+  .fun-fact {
+    background: linear-gradient(90deg, #e8f4ff, #dff5ff);
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 12px; color: #1a5480; font-weight: 700;
+    margin-top: 6px;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  /* Responsive tweaks */
+  @media (max-width: 480px) {
+    .water-jar { width: 110px; height: 145px; }
+    #act2-jar { width: 165px; height: 165px; }
+    .popup-box { padding: 20px 16px 18px; }
+    .step-card { padding: 8px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SKY SCENE -->
+<div id="sky-scene">
+  <!-- Sun -->
+  <div class="sun" id="sun"></div>
+
+  <!-- Clouds -->
+  <div class="cloud" style="top:6%;left:-120px;width:120px;height:38px;animation-duration:28s;animation-delay:0s">
+    <div style="position:absolute;width:60px;height:55px;border-radius:50%;background:rgba(255,255,255,0.92);top:-30px;left:20px"></div>
+    <div style="position:absolute;width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,0.92);top:-20px;left:55px"></div>
+  </div>
+  <div class="cloud" style="top:14%;left:-90px;width:90px;height:28px;animation-duration:38s;animation-delay:10s;opacity:.8">
+    <div style="position:absolute;width:46px;height:44px;border-radius:50%;background:rgba(255,255,255,0.92);top:-22px;left:12px"></div>
+    <div style="position:absolute;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.92);top:-15px;left:44px"></div>
+  </div>
+  <div class="cloud" style="top:3%;left:-160px;width:140px;height:42px;animation-duration:45s;animation-delay:20s;opacity:.7">
+    <div style="position:absolute;width:70px;height:60px;border-radius:50%;background:rgba(255,255,255,0.92);top:-34px;left:25px"></div>
+    <div style="position:absolute;width:50px;height:48px;border-radius:50%;background:rgba(255,255,255,0.92);top:-26px;left:68px"></div>
+  </div>
+
+  <!-- Birds -->
+  <div class="bird" style="top:18%;left:-80px;animation-duration:18s;animation-delay:2s"></div>
+  <div class="bird" style="top:22%;left:-80px;animation-duration:22s;animation-delay:7s;transform:scale(.7)"></div>
+  <div class="bird" style="top:16%;left:-80px;animation-duration:30s;animation-delay:14s;transform:scale(.85)"></div>
+
+  <!-- Balloons -->
+  <div class="balloon" style="background:radial-gradient(circle at 40% 35%,#ff8080,#e02020);bottom:55px;left:5%;animation-duration:3.5s">
+    <div class="balloon-string" style="height:22px"></div>
+  </div>
+  <div class="balloon" style="background:radial-gradient(circle at 40% 35%,#80c8ff,#1060e0);bottom:60px;right:7%;animation-duration:4s;animation-delay:.8s">
+    <div class="balloon-string" style="height:20px"></div>
+  </div>
+  <div class="balloon" style="background:radial-gradient(circle at 40% 35%,#ffe580,#ffa000);bottom:50px;left:18%;animation-duration:3s;animation-delay:1.5s;width:26px;height:32px">
+    <div class="balloon-string" style="height:16px"></div>
+  </div>
+</div>
+
+<div class="ground-strip"></div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <div id="title-bar">🌊 CONVECTION CURRENTS — COLOUR IN WATER 🌊</div>
+
+  <!-- Step bar -->
+  <div id="step-bar">
+    <div class="step-dot active" id="dot1">1</div>
+    <div class="step-line"></div>
+    <div class="step-dot" id="dot2">2</div>
+    <div class="step-line"></div>
+    <div class="step-dot" id="dot3">3</div>
+  </div>
+
+  <!-- Activity card -->
+  <div id="activity-card">
+
+    <!-- ══════════════ ACT 1 ══════════════ -->
+    <div id="act1">
+      <div class="act-title">🧪 Activity 1 — Set Up the Experiment!</div>
+      <div class="act-instruction">Drag the 🔴 red drop into the HOT jar &amp; the 🔵 blue drop into the COLD jar. Watch what happens!</div>
+
+      <div id="act1-arena">
+        <!-- Hot jar -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:34px">
+          <div class="jar-label hot">🔥 HOT WATER</div>
+          <div class="water-jar" id="jar-hot" data-temp="hot">
+            <div class="jar-water" id="jw-hot" style="background:linear-gradient(180deg,rgba(255,180,60,0.35),rgba(255,100,30,0.25))"></div>
+          </div>
+          <div class="flame-anim">🔥</div>
+        </div>
+
+        <!-- Centre labels/drops tray -->
+        <div class="drop-tray">
+          <div>
+            <div class="colour-drop red" id="drop-red" draggable="true" data-colour="red">💧</div>
+            <div class="drop-label">Red drop</div>
+          </div>
+          <div>
+            <div class="colour-drop blue" id="drop-blue" draggable="true" data-colour="blue">💧</div>
+            <div class="drop-label">Blue drop</div>
+          </div>
+        </div>
+
+        <!-- Cold jar -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:34px">
+          <div class="jar-label cold">❄️ COLD WATER</div>
+          <div class="water-jar" id="jar-cold" data-temp="cold">
+            <div class="jar-water" id="jw-cold" style="background:linear-gradient(180deg,rgba(30,144,255,0.25),rgba(0,180,200,0.4))"></div>
+          </div>
+          <div class="ice-anim">🧊</div>
+        </div>
+      </div>
+
+      <div class="safety-note">🛡️ Remember — Never touch hot water without a grown-up's help!</div>
+    </div>
+
+    <!-- ══════════════ ACT 2 ══════════════ -->
+    <div id="act2" style="display:none">
+      <div class="act-title">🌀 Activity 2 — Show the Movement!</div>
+      <div class="act-instruction">Drag the labels to the correct arrows inside the jar. Hot rises ↑ or sinks ↓?</div>
+
+      <div id="act2-arena">
+        <div style="position:relative">
+          <div id="act2-jar">
+            <div class="hot-wave"></div>
+            <div class="cold-wave"></div>
+
+            <!-- Drop zones inside jar -->
+            <div class="drop-zone-2" id="zone-top" data-expect="hot"
+              style="top:12%;left:50%;transform:translateX(-50%);">
+              <span>🔥 Drop HOT here</span>
+            </div>
+            <div class="drop-zone-2" id="zone-bot" data-expect="cold"
+              style="bottom:10%;left:50%;transform:translateX(-50%);">
+              <span>❄️ Drop COLD here</span>
+            </div>
+
+            <!-- Circular arrow (shown when both placed) -->
+            <svg class="circ-arrow" id="circ-arrow" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M40 8 A32 32 0 1 1 8 40" stroke="#ffd700" stroke-width="5" stroke-linecap="round" fill="none"/>
+              <polygon points="6,30 8,44 18,36" fill="#ffd700"/>
+            </svg>
+          </div>
+        </div>
+
+        <div id="act2-labels-tray">
+          <div class="arrow-label hot-label" id="lbl-hot" draggable="true" data-type="hot">
+            🔴 HOT rises ↑
+          </div>
+          <div class="arrow-label cold-label" id="lbl-cold" draggable="true" data-type="cold">
+            🔵 COLD sinks ↓
+          </div>
+          <div class="arrow-label" id="lbl-loop" draggable="true" data-type="loop" style="color:#b08000;border-color:#ffd700">
+            🔄 CONVECTION CURRENT!
+          </div>
+        </div>
+
+        <div class="fun-fact">💡 Just like dal swirling in Nani's pressure cooker!</div>
+      </div>
+    </div>
+
+    <!-- ══════════════ ACT 3 ══════════════ -->
+    <div id="act3" style="display:none">
+      <div class="act-title">📋 Activity 3 — Arrange the Steps!</div>
+      <div class="act-instruction">Drag the steps into the correct order to explain a convection current. Drop into the numbered slots!</div>
+
+      <div id="act3-arena">
+        <!-- LEFT: shuffled source cards -->
+        <div class="act3-col">
+          <div class="act3-col-title">📦 Steps (drag these)</div>
+          <div class="step-cards-grid" id="act3-source"></div>
+        </div>
+
+        <!-- RIGHT: numbered drop slots -->
+        <div class="act3-col">
+          <div class="act3-col-title">🔢 Order (1 → 5)</div>
+          <div id="act3-drop-area"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Next button -->
+    <button id="next-btn" onclick="advanceActivity()">Next Activity ➜</button>
+  </div>
+</div>
+
+<!-- ══════════ POPUPS ══════════ -->
+<!-- Activity complete popup -->
+<div class="popup-overlay" id="popup-act" style="display:none">
+  <div class="popup-box">
+    <div class="popup-emoji" id="popup-emoji">🎉</div>
+    <div class="popup-title" id="popup-title">Amazing!</div>
+    <div class="popup-text" id="popup-text"></div>
+    <button class="popup-btn" id="popup-btn-main" onclick="closeActPopup()">Let's keep going! →</button>
+  </div>
+</div>
+
+<!-- Final success popup -->
+<div class="popup-overlay" id="popup-final" style="display:none">
+  <div class="popup-box">
+    <div class="popup-emoji">🏆</div>
+    <div class="popup-title" style="background:linear-gradient(90deg,#ff8c00,#1e90ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">You're a Convection Scientist!</div>
+    <div class="popup-text">
+      🔴 <b>HOT water is lighter — it RISES up!</b><br>
+      🔵 <b>COLD water is heavier — it SINKS down!</b><br>
+      🔄 <b>This loop is a CONVECTION CURRENT!</b><br><br>
+      Just like dal swirling in the pot, agarbatti smoke rising, or the sea breeze in Chennai — now you can SEE why it happens! 🌊✨
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button class="popup-btn blue" onclick="location.reload()">🔁 Play Again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════ */
+let currentActivity = 1;
+let act1State = { hot: false, cold: false };
+let act2State = { top: false, bot: false };
+let act3Correct = 0;
+
+let touchDragEl = null;
+let touchClone = null;
+
+const ACT3_STEPS = [
+  { id:'s1', icon:'🔥', text:'Water gets heated at the bottom and becomes lighter.' },
+  { id:'s2', icon:'⬆️', text:'Hot water rises to the top of the jar.' },
+  { id:'s3', icon:'❄️', text:'At the top, water cools down and becomes heavier.' },
+  { id:'s4', icon:'⬇️', text:'Heavy cold water sinks back to the bottom.' },
+  { id:'s5', icon:'🔄', text:'The loop keeps going — this is a CONVECTION CURRENT!' },
+];
+
+/* ═══════════════════════════════════════════
+   SUN RAYS
+═══════════════════════════════════════════ */
+const sun = document.getElementById('sun');
+for(let i=0;i<8;i++){
+  const ray = document.createElement('div');
+  ray.className='sun-ray';
+  ray.style.transform=`translateX(-50%) rotate(${i*45}deg) translateY(-48px)`;
+  ray.style.left='50%';
+  sun.appendChild(ray);
+}
+
+/* ═══════════════════════════════════════════
+   ACTIVITY 1 — DRAG & DROP
+═══════════════════════════════════════════ */
+const jarHot = document.getElementById('jar-hot');
+const jarCold = document.getElementById('jar-cold');
+const dropRed = document.getElementById('drop-red');
+const dropBlue = document.getElementById('drop-blue');
+
+// Desktop drag
+[dropRed, dropBlue].forEach(el=>{
+  el.addEventListener('dragstart', e=>{
+    e.dataTransfer.setData('colour', el.dataset.colour);
+  });
+});
+
+[jarHot, jarCold].forEach(jar=>{
+  jar.addEventListener('dragover', e=>{
+    e.preventDefault();
+    jar.classList.add('glow-'+(jar.dataset.temp==='hot'?'hot':'cold'));
+  });
+  jar.addEventListener('dragleave', ()=>{
+    jar.classList.remove('glow-hot','glow-cold');
+  });
+  jar.addEventListener('drop', e=>{
+    e.preventDefault();
+    jar.classList.remove('glow-hot','glow-cold');
+    const colour = e.dataTransfer.getData('colour');
+    handleAct1Drop(jar.dataset.temp, colour);
+  });
+});
+
+function handleAct1Drop(temp, colour){
+  const correct = (temp==='hot' && colour==='red') || (temp==='cold' && colour==='blue');
+  if(!correct){
+    showWrongFeedback(temp==='hot' ? jarHot : jarCold);
+    return;
+  }
+  if(temp==='hot' && !act1State.hot){
+    act1State.hot=true;
+    dropRed.style.opacity='.3'; dropRed.style.pointerEvents='none';
+    injectStream(jarHot, 'rise');
+    jarHot.classList.add('glow-hot');
+  } else if(temp==='cold' && !act1State.cold){
+    act1State.cold=true;
+    dropBlue.style.opacity='.3'; dropBlue.style.pointerEvents='none';
+    injectStream(jarCold, 'sink');
+    jarCold.classList.add('glow-cold');
+  }
+
+  if(act1State.hot && act1State.cold){
+    setTimeout(()=>{
+      showActPopup(1);
+      document.getElementById('next-btn').style.display='block';
+    }, 2200);
+  }
+}
+
+function injectStream(jar, type){
+  const s = document.createElement('div');
+  s.className='colour-stream ' + (type==='rise'?'stream-rise':'stream-sink');
+  jar.appendChild(s);
+  const sp = document.createElement('div');
+  sp.className = type==='rise'?'spread-top':'spread-bot';
+  jar.appendChild(sp);
+}
+
+function showWrongFeedback(el){
+  el.style.animation='shake .4s';
+  setTimeout(()=>{el.style.animation='';},400);
+}
+
+/* ═══════════════════════════════════════════
+   ACTIVITY 2
+═══════════════════════════════════════════ */
+function setupAct2(){
+  const labels = document.querySelectorAll('.arrow-label');
+
+  // Wire desktop dragstart on each label
+  labels.forEach(lbl=>{
+    lbl.addEventListener('dragstart', e=>{
+      e.dataTransfer.setData('type', lbl.dataset.type);
+    });
+  });
+
+  // Wire dragover/drop on each zone
+  const zones = document.querySelectorAll('.drop-zone-2');
+  zones.forEach(zone=>{
+    zone.addEventListener('dragover', e=>{
+      e.preventDefault();
+      if(!zone.dataset.filled) zone.classList.add('hover-ok');
+    });
+    zone.addEventListener('dragleave', ()=>zone.classList.remove('hover-ok'));
+    zone.addEventListener('drop', e=>{
+      e.preventDefault();
+      zone.classList.remove('hover-ok');
+      const type = e.dataTransfer.getData('type');
+      handleAct2Drop(zone.id, type);
+    });
+  });
+}
+
+function handleAct2Drop(zoneId, type){
+  const zone = document.getElementById(zoneId);
+  if(!zone || zone.dataset.filled) return;
+
+  // Loop label can be dropped anywhere to trigger the circular arrow
+  if(type === 'loop'){
+    const lbl = document.getElementById('lbl-loop');
+    if(lbl){ lbl.style.opacity='.35'; lbl.style.pointerEvents='none'; }
+    document.getElementById('circ-arrow').classList.add('show');
+    checkAct2Done();
+    return;
+  }
+
+  const expect = zone.dataset.expect;
+  if(type !== expect){
+    // Wrong zone — shake it
+    zone.style.animation='shake .4s';
+    setTimeout(()=>zone.style.animation='', 450);
+    return;
+  }
+
+  // Correct placement
+  zone.dataset.filled = 'true';
+  const lbl = document.getElementById(type==='hot' ? 'lbl-hot' : 'lbl-cold');
+  if(lbl){ lbl.style.opacity='.35'; lbl.style.pointerEvents='none'; }
+
+  // Show label text in zone
+  const isHot = type==='hot';
+  zone.innerHTML = `<span style="font-weight:800;font-size:12px;color:${isHot?'#ff4d2e':'#1e90ff'};white-space:nowrap">${isHot?'🔴 HOT rises ↑':'🔵 COLD sinks ↓'}</span>`;
+  zone.style.borderStyle = 'solid';
+  zone.style.borderColor = isHot ? '#ff4d2e' : '#1e90ff';
+  zone.style.background = isHot ? 'rgba(255,77,46,0.12)' : 'rgba(30,144,255,0.12)';
+
+  if(type==='hot') act2State.top = true;
+  else act2State.bot = true;
+
+  checkAct2Done();
+}
+
+function checkAct2Done(){
+  if(act2State.top && act2State.bot){
+    document.getElementById('circ-arrow').classList.add('show');
+    setTimeout(()=>{
+      showActPopup(2);
+      document.getElementById('next-btn').style.display='block';
+    }, 1000);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   ACTIVITY 3
+═══════════════════════════════════════════ */
+function setupAct3(){
+  const shuffled = [...ACT3_STEPS].sort(()=>Math.random()-.5);
+  const src = document.getElementById('act3-source');
+  src.innerHTML='';
+  shuffled.forEach(step=>{
+    const card=document.createElement('div');
+    card.className='step-card';
+    card.dataset.id=step.id;
+    card.draggable=true;
+    card.innerHTML=`<span class="step-icon">${step.icon}</span><span>${step.text}</span>`;
+    card.addEventListener('dragstart', e=>{
+      e.dataTransfer.setData('stepId', step.id);
+      touchDragEl=card;
+      card.classList.add('dragging');
+    });
+    card.addEventListener('dragend', ()=>card.classList.remove('dragging'));
+    src.appendChild(card);
+  });
+
+  const dropArea=document.getElementById('act3-drop-area');
+  dropArea.innerHTML='';
+  ACT3_STEPS.forEach((step,i)=>{
+    const slot=document.createElement('div');
+    slot.className='drop-slot';
+    slot.dataset.order=step.id;
+    slot.dataset.slotIndex=i;
+    slot.innerHTML=`<span class="slot-num">${i+1}</span><span style="font-size:11px;color:#aaa;font-weight:700">Drop step ${i+1} here</span>`;
+    slot.addEventListener('dragover', e=>{
+      e.preventDefault();
+      if(!slot.dataset.filled) slot.classList.add('hover-ok');
+    });
+    slot.addEventListener('dragleave', ()=>slot.classList.remove('hover-ok'));
+    slot.addEventListener('drop', e=>{
+      e.preventDefault();
+      slot.classList.remove('hover-ok');
+      const stepId=e.dataTransfer.getData('stepId');
+      handleAct3Drop(slot, stepId);
+    });
+    dropArea.appendChild(slot);
+  });
+}
+
+function handleAct3Drop(slot, stepId){
+  if(slot.dataset.filled) return;
+  const correct = slot.dataset.order===stepId;
+  const step = ACT3_STEPS.find(s=>s.id===stepId);
+  const srcCard = document.querySelector(`[data-id="${stepId}"]`);
+
+  if(!correct){
+    slot.classList.add('hover-ok');
+    setTimeout(()=>slot.classList.remove('hover-ok'),300);
+    if(srcCard) { srcCard.classList.add('wrong'); setTimeout(()=>srcCard.classList.remove('wrong'),400); }
+    return;
+  }
+
+  // correct
+  slot.dataset.filled='true';
+  slot.classList.add('filled');
+  slot.innerHTML='';
+
+  const idx = ACT3_STEPS.findIndex(s=>s.id===stepId);
+  const card=document.createElement('div');
+  card.className='step-card correct';
+  card.style.cursor='default';
+  card.innerHTML=`<div class="step-num">${idx+1}</div><span class="step-icon">${step.icon}</span><span>${step.text}</span>`;
+  slot.appendChild(card);
+
+  if(srcCard){ srcCard.style.opacity='.3'; srcCard.style.pointerEvents='none'; }
+
+  act3Correct++;
+  if(act3Correct===ACT3_STEPS.length){
+    setTimeout(()=>showFinalPopup(), 700);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   POPUPS & FLOW
+═══════════════════════════════════════════ */
+const POPUP_DATA = {
+  1: {
+    emoji:'🎉',
+    title:'Brilliant! You set it up!',
+    text:'🔴 The red colour RISES in HOT water — hot water is lighter, it floats up!\n🔵 The blue colour SINKS in COLD water — cold water is heavier, it goes down!\nThis beautiful movement is how convection begins!'
+  },
+  2: {
+    emoji:'⭐',
+    title:'Wow! You found the pattern!',
+    text:'You placed the arrows correctly! Hot rises ↑ and cold sinks ↓ — over and over, making a swirling LOOP. This loop is the CONVECTION CURRENT! 🔄 Just like the dal swirling in Nani\'s pot!'
+  }
+};
+
+function showActPopup(act){
+  const d = POPUP_DATA[act];
+  document.getElementById('popup-emoji').textContent=d.emoji;
+  document.getElementById('popup-title').textContent=d.title;
+  document.getElementById('popup-text').textContent=d.text;
+  document.getElementById('popup-act').style.display='flex';
+  spawnConfetti();
+}
+
+function closeActPopup(){
+  document.getElementById('popup-act').style.display='none';
+}
+
+function showFinalPopup(){
+  spawnConfetti(60);
+  document.getElementById('popup-final').style.display='flex';
+}
+
+function advanceActivity(){
+  document.getElementById('next-btn').style.display='none';
+  currentActivity++;
+  updateStepBar();
+
+  if(currentActivity===2){
+    document.getElementById('act1').style.display='none';
+    document.getElementById('act2').style.display='block';
+    setupAct2();
+  } else if(currentActivity===3){
+    document.getElementById('act2').style.display='none';
+    document.getElementById('act3').style.display='block';
+    setupAct3();
+  }
+}
+
+function updateStepBar(){
+  for(let i=1;i<=3;i++){
+    const d=document.getElementById('dot'+i);
+    d.classList.remove('active','done');
+    if(i<currentActivity) d.classList.add('done'), d.textContent='✓';
+    else if(i===currentActivity) d.classList.add('active');
+  }
+}
+
+/* ═══════════════════════════════════════════
+   CONFETTI
+═══════════════════════════════════════════ */
+function spawnConfetti(count=40){
+  const colours=['#ff4d2e','#ff8c00','#ffd700','#1e90ff','#00cfcf','#43e97b','#ff69b4','#fff'];
+  for(let i=0;i<count;i++){
+    const el=document.createElement('div');
+    el.className='confetti-piece';
+    el.style.left=Math.random()*100+'vw';
+    el.style.top='-20px';
+    el.style.background=colours[Math.floor(Math.random()*colours.length)];
+    el.style.borderRadius=Math.random()>.5?'50%':'2px';
+    el.style.width=(8+Math.random()*10)+'px';
+    el.style.height=(8+Math.random()*10)+'px';
+    el.style.animationDuration=(1.5+Math.random()*2)+'s';
+    el.style.animationDelay=(Math.random()*.8)+'s';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(), 3500);
+  }
+}
+
+// ═══════════════════════════════════════════
+// UNIFIED TOUCH DRAG SYSTEM
+// ═══════════════════════════════════════════
+let touchDragType = null; // 'colour-drop' | 'arrow-label' | 'step-card'
+let touchDragData = null; // the data value being dragged
+
+document.addEventListener('touchstart', e=>{
+  const colourDrop = e.target.closest('.colour-drop');
+  const arrowLabel = e.target.closest('.arrow-label');
+  const stepCard   = e.target.closest('.step-card:not(.correct)');
+
+  let source = colourDrop || arrowLabel || stepCard;
+  if(!source) return;
+
+  touchDragEl = source;
+  if(colourDrop)  { touchDragType='colour-drop'; touchDragData=colourDrop.dataset.colour; }
+  if(arrowLabel)  { touchDragType='arrow-label'; touchDragData=arrowLabel.dataset.type; }
+  if(stepCard)    { touchDragType='step-card';   touchDragData=stepCard.dataset.id; }
+
+  // Create floating clone
+  if(touchClone) touchClone.remove();
+  touchClone = source.cloneNode(true);
+  const r = source.getBoundingClientRect();
+  const tx = e.touches[0].clientX, ty = e.touches[0].clientY;
+  touchClone.style.cssText = `position:fixed;left:${tx - r.width/2}px;top:${ty - r.height/2}px;
+    width:${r.width}px;opacity:.8;pointer-events:none;z-index:9999;transition:none;`;
+  document.body.appendChild(touchClone);
+}, {passive:true});
+
+document.addEventListener('touchmove', e=>{
+  if(!touchClone || !touchDragEl) return;
+  const touch = e.touches[0];
+  const r = touchDragEl.getBoundingClientRect();
+  touchClone.style.left = (touch.clientX - r.width/2)+'px';
+  touchClone.style.top  = (touch.clientY - r.height/2)+'px';
+
+  // Highlight valid targets
+  if(touchDragType === 'colour-drop'){
+    [jarHot, jarCold].forEach(jar=>{
+      const jr = jar.getBoundingClientRect();
+      const inside = touch.clientX>=jr.left && touch.clientX<=jr.right && touch.clientY>=jr.top && touch.clientY<=jr.bottom;
+      jar.classList.toggle('glow-hot',  inside && jar.dataset.temp==='hot');
+      jar.classList.toggle('glow-cold', inside && jar.dataset.temp==='cold');
+    });
+  }
+  if(touchDragType === 'arrow-label'){
+    document.querySelectorAll('.drop-zone-2').forEach(z=>{
+      if(z.dataset.filled) return;
+      const zr = z.getBoundingClientRect();
+      const inside = touch.clientX>=zr.left && touch.clientX<=zr.right && touch.clientY>=zr.top && touch.clientY<=zr.bottom;
+      z.classList.toggle('hover-ok', inside);
+    });
+  }
+  if(touchDragType === 'step-card'){
+    document.querySelectorAll('.drop-slot:not([data-filled])').forEach(s=>{
+      const sr = s.getBoundingClientRect();
+      const inside = touch.clientX>=sr.left && touch.clientX<=sr.right && touch.clientY>=sr.top && touch.clientY<=sr.bottom;
+      s.classList.toggle('hover-ok', inside);
+    });
+  }
+}, {passive:true});
+
+document.addEventListener('touchend', e=>{
+  if(touchClone){ touchClone.remove(); touchClone=null; }
+  if(!touchDragEl) return;
+
+  const touch = e.changedTouches[0];
+
+  if(touchDragType === 'colour-drop'){
+    [jarHot, jarCold].forEach(j=>j.classList.remove('glow-hot','glow-cold'));
+    [jarHot, jarCold].forEach(jar=>{
+      const jr = jar.getBoundingClientRect();
+      if(touch.clientX>=jr.left && touch.clientX<=jr.right && touch.clientY>=jr.top && touch.clientY<=jr.bottom){
+        handleAct1Drop(jar.dataset.temp, touchDragData);
+      }
+    });
+  }
+
+  if(touchDragType === 'arrow-label'){
+    document.querySelectorAll('.drop-zone-2').forEach(z=>{
+      z.classList.remove('hover-ok');
+      if(z.dataset.filled) return;
+      const zr = z.getBoundingClientRect();
+      if(touch.clientX>=zr.left && touch.clientX<=zr.right && touch.clientY>=zr.top && touch.clientY<=zr.bottom){
+        handleAct2Drop(z.id, touchDragData);
+      }
+    });
+  }
+
+  if(touchDragType === 'step-card'){
+    document.querySelectorAll('.drop-slot:not([data-filled])').forEach(slot=>{
+      slot.classList.remove('hover-ok');
+      const sr = slot.getBoundingClientRect();
+      if(touch.clientX>=sr.left && touch.clientX<=sr.right && touch.clientY>=sr.top && touch.clientY<=sr.bottom){
+        handleAct3Drop(slot, touchDragData);
+      }
+    });
+  }
+
+  touchDragEl = null;
+  touchDragType = null;
+  touchDragData = null;
+}, {passive:true});
+
+// Init
+updateStepBar();
+</script>
+</body>
+</html>

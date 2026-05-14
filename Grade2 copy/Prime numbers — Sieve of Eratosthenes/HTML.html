@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Prime Numbers — Sieve of Eratosthenes</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --hot-pink:#FF4D8D;--bubblegum:#FF85C2;--lavender:#C084FC;--mint:#34D399;
+  --lemon:#FDE047;--sky:#60D8FF;--coral:#FF7E5F;--cream:#FFF9F0;
+  --candy-red:#FF2D55;--candy-blue:#007AFF;--candy-purple:#AF52DE;
+  --stripe1:#FFB3D1;--stripe2:#B3E5FF;--stripe3:#FFE5B3;
+}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif}
+body{
+  background:linear-gradient(135deg,#FFE0F0 0%,#EEF9FF 35%,#FFF5E0 65%,#F0FFE8 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100vh;position:relative;
+}
+
+/* ─── CANDY DECORATIONS (fixed, behind everything) ─── */
+.candy-bg{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:hidden}
+.candy-el{position:absolute;animation:candyFloat linear infinite;opacity:.85}
+@keyframes candyFloat{
+  0%{transform:translateY(0) rotate(0deg)}
+  25%{transform:translateY(-14px) rotate(5deg)}
+  50%{transform:translateY(-5px) rotate(-4deg)}
+  75%{transform:translateY(-18px) rotate(7deg)}
+  100%{transform:translateY(0) rotate(0deg)}
+}
+@keyframes sparkle{
+  0%,100%{opacity:0;transform:scale(0) rotate(0deg)}
+  50%{opacity:1;transform:scale(1) rotate(180deg)}
+}
+.sparkle-el{position:fixed;pointer-events:none;z-index:1;font-size:14px;
+  animation:sparkle var(--dur,2s) ease-in-out infinite var(--delay,0s)}
+
+/* Candy stripe corners */
+.corner-stripe{position:fixed;width:90px;height:90px;overflow:hidden;pointer-events:none;z-index:1}
+.corner-stripe svg{width:100%;height:100%}
+.c-tl{top:0;left:0}.c-tr{top:0;right:0;transform:scaleX(-1)}
+.c-bl{bottom:0;left:0;transform:scaleY(-1)}.c-br{bottom:0;right:0;transform:scale(-1,-1)}
+
+/* ─── MAIN APP ─── */
+#app{
+  position:relative;z-index:10;
+  width:min(1020px,97vw);height:min(600px,95vh);
+  background:rgba(255,255,255,0.88);
+  border:3px solid var(--hot-pink);
+  border-radius:28px;
+  box-shadow:0 8px 40px rgba(255,77,141,0.25),0 0 0 6px rgba(255,181,209,0.4),inset 0 1px 0 rgba(255,255,255,0.9);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+
+/* ─── HEADER ─── */
+#header{
+  background:linear-gradient(90deg,#FF4D8D,#C084FC,#60D8FF,#FF4D8D);
+  background-size:300% 100%;
+  animation:headerShift 6s linear infinite;
+  padding:7px 20px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:3px solid rgba(255,255,255,0.4);
+}
+@keyframes headerShift{from{background-position:0% 50%}to{background-position:300% 50%}}
+#title-text{
+  font-family:'Fredoka One',cursive;font-size:clamp(13px,2vw,20px);
+  color:white;text-shadow:2px 2px 0 rgba(180,0,80,0.4),0 0 20px rgba(255,255,255,0.5);
+  letter-spacing:1px;
+}
+#prog-wrap{display:flex;gap:10px;align-items:center}
+.pdot{width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,0.3);
+  border:2px solid rgba(255,255,255,0.6);transition:all .4s;position:relative}
+.pdot.active{background:var(--lemon);border-color:#fff;box-shadow:0 0 8px var(--lemon);
+  animation:dotPulse 1s ease-in-out infinite alternate}
+.pdot.done{background:#34D399;border-color:#fff;box-shadow:0 0 8px #34D399}
+@keyframes dotPulse{from{box-shadow:0 0 4px var(--lemon)}to{box-shadow:0 0 14px var(--lemon),0 0 24px rgba(253,224,71,.5)}}
+
+/* ─── STAGE ─── */
+#stage{flex:1;display:flex;flex-direction:column;align-items:center;padding:6px 12px 6px;
+  position:relative;overflow:hidden;gap:5px;min-height:0}
+
+/* ─── PANELS ─── */
+.panel{display:none;width:100%;height:100%;flex-direction:column;align-items:center;gap:5px;min-height:0}
+.panel.active{display:flex}
+.pan-title{font-family:'Fredoka One',cursive;font-size:clamp(12px,1.9vw,18px);
+  color:var(--hot-pink);text-align:center;text-shadow:1px 1px 0 rgba(255,77,141,0.2)}
+.pan-sub{font-size:clamp(10px,1.3vw,12.5px);color:#5a3060;text-align:center;font-weight:700;
+  background:linear-gradient(135deg,#FFE0F0,#EEF9FF);border-radius:16px;
+  padding:5px 16px;border:1.5px solid rgba(192,132,252,0.4);max-width:680px}
+
+/* ─── 1–100 GRID ─── */
+.grid-wrap{width:100%;display:flex;justify-content:center;flex:1;align-items:center;overflow:hidden;min-height:0}
+#numgrid{
+  display:grid;grid-template-columns:repeat(10,1fr);
+  gap:2px;width:min(580px,93%);
+}
+.gcell{
+  width:100%;aspect-ratio:1;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Fredoka One',cursive;
+  font-size:clamp(6.5px,1vw,11.5px);
+  line-height:1;letter-spacing:0;
+  border-radius:5px;cursor:pointer;border:1.5px solid transparent;
+  background:#FFF0F7;color:#7C3C6E;transition:all .18s;user-select:none;
+  position:relative;overflow:hidden;min-width:0;min-height:0;
+  padding:0;
+}
+.gcell:hover{transform:scale(1.1);z-index:2;box-shadow:0 3px 10px rgba(255,77,141,.35)}
+.gcell.sel1{background:linear-gradient(135deg,var(--lemon),#FDB)!important;
+  border-color:var(--coral)!important;color:#7A3000!important;transform:scale(1.08)}
+.gcell.crossed{
+  background:#e5e5e5!important;
+  border-color:#ccc!important;cursor:default;
+}
+.gcell.crossed .num-txt{opacity:0}
+.gcell.crossed::before{
+  content:'✕';
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:clamp(6px,1vw,11px);color:#bbb;
+  font-family:'Nunito',sans-serif;font-weight:700;
+}
+.gcell.prime-hl{background:linear-gradient(135deg,#FF4D8D,#C084FC)!important;
+  color:white!important;border-color:#FF4D8D!important;
+  box-shadow:0 0 8px rgba(255,77,141,.6)!important;animation:primeGlow .6s ease}
+.gcell.prime-sel{background:linear-gradient(135deg,#34D399,#60D8FF)!important;
+  color:white!important;border-color:#34D399!important;
+  box-shadow:0 0 8px rgba(52,211,153,.6)!important}
+.gcell.wrong-sel{background:linear-gradient(135deg,#FF6B6B,#FF8E8E)!important;
+  color:white!important;animation:shake .35s ease}
+.gcell.num1{background:#FFE5CC!important;color:#8B4513!important;
+  border-color:#FFA07A!important;cursor:default}
+@keyframes primeGlow{0%{transform:scale(1)}50%{transform:scale(1.12)}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+
+/* multiple highlight colors */
+.gcell.m2{background:#FFD6E7!important;border-color:#FF85C2!important}
+.gcell.m3{background:#DFD6FF!important;border-color:#C084FC!important}
+.gcell.m5{background:#D6F5FF!important;border-color:#60D8FF!important}
+.gcell.m7{background:#D6FFE8!important;border-color:#34D399!important}
+.gcell.mbase{background:linear-gradient(135deg,#FF4D8D,#FF85C2)!important;
+  color:white!important;border-color:transparent!important}
+
+/* ─── SHARED GRID LAYOUT (sieve + prime) ─── */
+#sieve-grid,#prime-grid{
+  display:grid;grid-template-columns:repeat(10,1fr);
+  gap:2px;width:min(540px,91%);margin:0 auto;
+}
+/* number span inside each cell */
+.num-txt{
+  display:block;text-align:center;line-height:1;
+  pointer-events:none;position:relative;z-index:1;
+}
+
+/* ─── SIEVE CONTROLS ─── */
+.sieve-controls{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center}
+.sieve-btn{
+  padding:6px 14px;border-radius:20px;border:2px solid transparent;
+  font-family:'Nunito',sans-serif;font-weight:800;font-size:12px;cursor:pointer;
+  transition:all .2s;position:relative;overflow:hidden;
+}
+.sieve-btn::before{content:'';position:absolute;inset:0;background:rgba(255,255,255,0.2);
+  transform:translateX(-100%);transition:transform .3s}
+.sieve-btn:hover::before{transform:translateX(0)}
+.sb2{background:linear-gradient(135deg,#FF85C2,#FF4D8D);color:white;border-color:#FF4D8D}
+.sb3{background:linear-gradient(135deg,#C084FC,#9F4FE0);color:white;border-color:#9F4FE0}
+.sb5{background:linear-gradient(135deg,#60D8FF,#007AFF);color:white;border-color:#007AFF}
+.sb7{background:linear-gradient(135deg,#34D399,#059669);color:white;border-color:#059669}
+.sieve-btn:disabled{opacity:.45;cursor:not-allowed}
+.sieve-btn.done-step{opacity:.5;transform:scale(.95)}
+
+/* ─── FEEDBACK ─── */
+#fb1,#fb2,#fb3{
+  min-height:28px;padding:4px 16px;border-radius:16px;font-size:12px;font-weight:800;
+  text-align:center;transition:all .3s;background:rgba(255,230,240,.6);
+  border:1.5px solid rgba(255,133,194,.3);color:#7C3C6E;
+}
+.fb-good{background:rgba(52,211,153,.15)!important;border-color:#34D399!important;color:#065F46!important}
+.fb-bad{background:rgba(255,77,141,.1)!important;border-color:#FF4D8D!important;color:#9D0040!important}
+
+/* ─── BUTTONS ─── */
+.btn-candy{
+  padding:9px 24px;border-radius:20px;font-family:'Fredoka One',cursive;font-size:14px;
+  cursor:pointer;border:none;transition:all .2s;letter-spacing:.5px;
+  background:linear-gradient(135deg,var(--hot-pink),var(--lavender));color:white;
+  box-shadow:0 4px 14px rgba(255,77,141,.4),0 2px 0 rgba(180,0,80,.3);
+}
+.btn-candy:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(255,77,141,.5)}
+.btn-candy:active{transform:translateY(1px)}
+.btn-ghost{background:transparent!important;border:2px solid var(--lavender)!important;
+  color:var(--candy-purple)!important;box-shadow:none!important;
+  font-family:'Nunito',sans-serif!important;font-weight:800!important;font-size:12px!important}
+.btn-ghost:hover{background:rgba(192,132,252,.1)!important}
+
+/* ─── SCORE STRIP (act3) ─── */
+.score-strip{display:flex;gap:14px;align-items:center;justify-content:center}
+.score-box{padding:4px 14px;border-radius:14px;font-weight:800;font-size:12px;
+  background:linear-gradient(135deg,#FFE0F0,#EEF9FF);border:1.5px solid #C084FC;color:#5a3060}
+.score-box span{color:var(--hot-pink);font-family:'Fredoka One',cursive;font-size:15px}
+
+/* ─── POPUP ─── */
+#pop-overlay{position:fixed;inset:0;background:rgba(100,0,60,.5);z-index:200;
+  display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+#pop-overlay.show{display:flex}
+#pop-box{
+  background:white;border-radius:28px;padding:28px 32px;max-width:420px;width:90%;
+  text-align:center;position:relative;overflow:hidden;
+  border:3px solid var(--hot-pink);
+  box-shadow:0 12px 50px rgba(255,77,141,.4),0 0 0 8px rgba(255,181,209,.3);
+  animation:popIn .4s cubic-bezier(.17,.67,.35,1.5);
+}
+@keyframes popIn{from{transform:scale(.5) rotate(-8deg);opacity:0}to{transform:scale(1) rotate(0);opacity:1}}
+#pop-box::before{content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,#FFF0F7 0%,#F0F9FF 100%);z-index:-1}
+.pop-icon{font-size:54px;display:block;margin-bottom:8px;animation:iconBounce .6s ease infinite alternate}
+@keyframes iconBounce{from{transform:translateY(0)}to{transform:translateY(-8px)}}
+.pop-title{font-family:'Fredoka One',cursive;font-size:24px;color:var(--hot-pink);
+  margin-bottom:8px;text-shadow:2px 2px 0 rgba(255,77,141,.2)}
+.pop-body{font-size:14px;color:#5a3060;line-height:1.6;margin-bottom:18px;font-weight:600}
+.pop-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+
+/* ─── PARTICLES ─── */
+.particle{position:fixed;pointer-events:none;z-index:300;border-radius:50%;
+  animation:pFly var(--dur,.9s) ease-out forwards}
+@keyframes pFly{
+  0%{transform:translate(0,0) scale(1) rotate(0deg);opacity:1}
+  100%{transform:translate(var(--tx),var(--ty)) scale(0) rotate(360deg);opacity:0}
+}
+
+/* ─── LEGEND (sieve) ─── */
+.legend{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:#5a3060}
+.leg-dot{width:12px;height:12px;border-radius:4px;border:1.5px solid transparent}
+
+/* ─── PROGRESS BAR (act3) ─── */
+.progress-track{width:min(500px,90%);height:10px;background:#FFE0F0;border-radius:10px;
+  overflow:hidden;border:1.5px solid #FFB3D1}
+.progress-fill{height:100%;background:linear-gradient(90deg,#FF4D8D,#C084FC,#60D8FF);
+  border-radius:10px;transition:width .4s ease;width:0%}
+
+/* Act1 instruction cards */
+.act1-cards{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.info-card{padding:6px 12px;border-radius:14px;font-size:11px;font-weight:700;
+  border:1.5px solid transparent;text-align:center}
+.ic-pink{background:#FFE0F0;border-color:#FFB3D1;color:#9D0040}
+.ic-blue{background:#E0F4FF;border-color:#93C5FD;color:#1E3A6E}
+.ic-purple{background:#F3E8FF;border-color:#DDD6FE;color:#5B21B6}
+</style>
+</head>
+<body>
+
+<!-- Candy background decorations -->
+<div class="candy-bg" id="candybg"></div>
+
+<!-- Corner candy stripes -->
+<div class="corner-stripe c-tl">
+  <svg viewBox="0 0 90 90"><path d="M0,0 L90,0 L0,90 Z" fill="none"
+    stroke="#FF85C2" stroke-width="8" stroke-dasharray="12,8" opacity=".6"/></svg>
+</div>
+<div class="corner-stripe c-tr">
+  <svg viewBox="0 0 90 90"><path d="M0,0 L90,0 L0,90 Z" fill="none"
+    stroke="#C084FC" stroke-width="8" stroke-dasharray="12,8" opacity=".6"/></svg>
+</div>
+<div class="corner-stripe c-bl">
+  <svg viewBox="0 0 90 90"><path d="M0,0 L90,0 L0,90 Z" fill="none"
+    stroke="#60D8FF" stroke-width="8" stroke-dasharray="12,8" opacity=".6"/></svg>
+</div>
+<div class="corner-stripe c-br">
+  <svg viewBox="0 0 90 90"><path d="M0,0 L90,0 L0,90 Z" fill="none"
+    stroke="#34D399" stroke-width="8" stroke-dasharray="12,8" opacity=".6"/></svg>
+</div>
+
+<!-- Main App -->
+<div id="app">
+  <div id="header">
+    <span id="title-text">🍭 PRIME NUMBERS — SIEVE OF ERATOSTHENES 🍭</span>
+    <div id="prog-wrap">
+      <div class="pdot active" id="d1"></div>
+      <div class="pdot" id="d2"></div>
+      <div class="pdot" id="d3"></div>
+    </div>
+  </div>
+
+  <div id="stage">
+
+    <!-- ═══════ ACTIVITY 1: Explore the Grid ═══════ -->
+    <div class="panel active" id="p1">
+      <div class="pan-title">🍬 Activity 1 — The Candy Number Kingdom</div>
+      <div class="pan-sub">Look at the numbers 1–100! Click on the number <b>1</b> first, then try clicking any numbers you think might be special "prime" numbers. We'll discover the pattern!</div>
+      <div class="act1-cards">
+        <div class="info-card ic-pink">🍭 Tap number 1 — it's UNIQUE!</div>
+        <div class="info-card ic-blue">🧁 A prime is only divisible by 1 and itself</div>
+        <div class="info-card ic-purple">🐻 Select at least 5 numbers to continue</div>
+      </div>
+      <div class="grid-wrap"><div id="numgrid" id="g1"></div></div>
+      <div id="fb1">Tap the number 1, then explore! Which numbers feel special?</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+        <button class="btn-candy btn-ghost" onclick="act1Reset()">↺ Reset</button>
+        <button class="btn-candy" id="btn1next" style="display:none" onclick="completeAct1()">Next Activity 🍬</button>
+      </div>
+    </div>
+
+    <!-- ═══════ ACTIVITY 2: Sieve Method ═══════ -->
+    <div class="panel" id="p2">
+      <div class="pan-title">🧁 Activity 2 — The Great Candy Sieve!</div>
+      <div class="pan-sub">Click each button to <b>cross out</b> multiples and <b>circle</b> the prime! Watch the non-primes disappear like melted candy! Complete all 4 steps.</div>
+      <div class="sieve-controls" id="sieve-btns">
+        <button class="sieve-btn sb2" id="sbtn2" onclick="sieveStep(2)">✨ Sieve 2s</button>
+        <button class="sieve-btn sb3" id="sbtn3" onclick="sieveStep(3)" disabled>✨ Sieve 3s</button>
+        <button class="sieve-btn sb5" id="sbtn5" onclick="sieveStep(5)" disabled>✨ Sieve 5s</button>
+        <button class="sieve-btn sb7" id="sbtn7" onclick="sieveStep(7)" disabled>✨ Sieve 7s</button>
+      </div>
+      <div class="legend">
+        <div class="leg-item"><div class="leg-dot" style="background:#FFD6E7;border-color:#FF85C2"></div>Multiples of 2</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#DFD6FF;border-color:#C084FC"></div>Multiples of 3</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#D6F5FF;border-color:#60D8FF"></div>Multiples of 5</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#D6FFE8;border-color:#34D399"></div>Multiples of 7</div>
+        <div class="leg-item"><div class="leg-dot" style="background:linear-gradient(135deg,#FF4D8D,#FF85C2);border-color:#FF4D8D"></div>The Prime!</div>
+      </div>
+      <div class="grid-wrap"><div id="sieve-grid"></div></div>
+      <div id="fb2">Click "Sieve 2s" to start — circle 2, then cross out all multiples of 2!</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+        <button class="btn-candy btn-ghost" onclick="sieveReset()">↺ Reset</button>
+        <button class="btn-candy" id="btn2next" style="display:none" onclick="completeAct2()">Next Activity 🍭</button>
+      </div>
+    </div>
+
+    <!-- ═══════ ACTIVITY 3: Identify All Primes ═══════ -->
+    <div class="panel" id="p3">
+      <div class="pan-title">🌟 Activity 3 — Prime Detective!</div>
+      <div class="pan-sub">Now YOU find ALL the prime numbers from 1–100! Click every prime number. There are <b>25 primes</b> hiding in the candy kingdom! 🕵️</div>
+      <div class="score-strip">
+        <div class="score-box">Found: <span id="found-count">0</span>/25</div>
+        <div class="progress-track"><div class="progress-fill" id="prog-fill"></div></div>
+        <div class="score-box">Mistakes: <span id="err-count">0</span></div>
+      </div>
+      <div class="grid-wrap"><div id="prime-grid"></div></div>
+      <div id="fb3">Click every prime number! Primes have exactly 2 factors: 1 and themselves.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+        <button class="btn-candy btn-ghost" onclick="act3Reset()">↺ Reset</button>
+        <button class="btn-candy" id="btn3done" style="display:none" onclick="completeAct3()">🎉 I'm Done!</button>
+      </div>
+    </div>
+
+  </div><!-- /stage -->
+</div><!-- /app -->
+
+<!-- Popup -->
+<div id="pop-overlay">
+  <div id="pop-box">
+    <span class="pop-icon" id="pop-icon">🍭</span>
+    <div class="pop-title" id="pop-title">Sweet!</div>
+    <div class="pop-body" id="pop-body">Great work!</div>
+    <div class="pop-btns" id="pop-btns"></div>
+  </div>
+</div>
+
+<script>
+/* ───────────────────────────────────────────────
+   CANDY BACKGROUND GENERATOR
+─────────────────────────────────────────────── */
+(function(){
+  const bg = document.getElementById('candybg');
+  const emojis = ['🍭','🍬','🧁','🎂','🍰','🍩','🍪','🐻','🌈','⭐','🍡','🎈'];
+  const sparkles = ['✨','⭐','💫','🌟'];
+  emojis.forEach((e,i)=>{
+    const el = document.createElement('div');
+    el.className = 'candy-el';
+    el.textContent = e;
+    el.style.cssText = `
+      font-size:${22+Math.random()*22}px;
+      left:${Math.random()*96}%;
+      top:${Math.random()*90}%;
+      animation-duration:${6+Math.random()*7}s;
+      animation-delay:${Math.random()*4}s;
+      opacity:${0.5+Math.random()*0.35};
+    `;
+    bg.appendChild(el);
+  });
+  sparkles.forEach((s,i)=>{
+    const el = document.createElement('div');
+    el.className = 'sparkle-el';
+    el.textContent = s;
+    el.style.cssText = `
+      left:${Math.random()*95}%;top:${Math.random()*95}%;
+      --dur:${1.5+Math.random()*2}s;--delay:${Math.random()*3}s;
+      font-size:${10+Math.random()*12}px;
+    `;
+    document.body.appendChild(el);
+  });
+})();
+
+/* ───────────────────────────────────────────────
+   PRIME MATH
+─────────────────────────────────────────────── */
+const PRIMES_100 = new Set([2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97]);
+
+function isPrime(n){ return PRIMES_100.has(n) }
+
+/* ───────────────────────────────────────────────
+   PARTICLES & POPUP
+─────────────────────────────────────────────── */
+function burst(x,y,count=16){
+  const cols=['#FF4D8D','#C084FC','#60D8FF','#34D399','#FDE047','#FF7E5F','#FF85C2'];
+  for(let i=0;i<count;i++){
+    const p=document.createElement('div');p.className='particle';
+    const angle=Math.random()*360,dist=60+Math.random()*90;
+    const tx=Math.cos(angle*Math.PI/180)*dist,ty=Math.sin(angle*Math.PI/180)*dist;
+    p.style.cssText=`left:${x}px;top:${y}px;width:${5+Math.random()*7}px;height:${5+Math.random()*7}px;
+      background:${cols[Math.floor(Math.random()*cols.length)]};
+      --tx:${tx}px;--ty:${ty}px;--dur:${0.7+Math.random()*0.5}s;`;
+    document.body.appendChild(p);
+    setTimeout(()=>p.remove(),1200);
+  }
+}
+
+function showPopup(icon,title,body,btns){
+  document.getElementById('pop-icon').textContent=icon;
+  document.getElementById('pop-title').textContent=title;
+  document.getElementById('pop-body').textContent=body;
+  const bb=document.getElementById('pop-btns');bb.innerHTML='';
+  btns.forEach(b=>{
+    const btn=document.createElement('button');
+    btn.className='btn-candy'+(b.ghost?' btn-ghost':'');
+    btn.textContent=b.label;btn.onclick=b.fn;bb.appendChild(btn);
+  });
+  document.getElementById('pop-overlay').classList.add('show');
+  burst(window.innerWidth/2,window.innerHeight/2,24);
+}
+function closePopup(){ document.getElementById('pop-overlay').classList.remove('show') }
+
+/* ───────────────────────────────────────────────
+   FEEDBACK
+─────────────────────────────────────────────── */
+function setFb(id,msg,type=''){
+  const el=document.getElementById(id);
+  el.textContent=msg;el.className='';
+  if(type==='good')el.classList.add('fb-good');
+  if(type==='bad')el.classList.add('fb-bad');
+}
+
+/* ───────────────────────────────────────────────
+   PROGRESS DOTS
+─────────────────────────────────────────────── */
+function setDot(n){
+  for(let i=1;i<=3;i++){
+    const d=document.getElementById('d'+i);
+    d.className='pdot';
+    if(i<n)d.classList.add('done');
+    else if(i===n)d.classList.add('active');
+  }
+}
+
+/* ───────────────────────────────────────────────
+   SWITCH PANEL
+─────────────────────────────────────────────── */
+function switchTo(n){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('p'+n).classList.add('active');
+  setDot(n);
+  if(n===2) initSieveGrid();
+  if(n===3) initPrimeGrid();
+}
+
+/* ═══════════════════════════════════════════════
+   ACTIVITY 1 — EXPLORE THE GRID
+═══════════════════════════════════════════════ */
+let act1Selected=new Set(),act1Started=false,act1Num1Done=false;
+
+function makeCell(n,idStr){
+  const c=document.createElement('div');
+  c.className='gcell';c.dataset.n=n;c.id=idStr;
+  const sp=document.createElement('span');
+  sp.className='num-txt';sp.textContent=n;
+  c.appendChild(sp);
+  return c;
+}
+
+function buildGrid1(){
+  const g=document.getElementById('numgrid');
+  g.innerHTML='';
+  for(let n=1;n<=100;n++){
+    const c=makeCell(n,'g1c'+n);
+    c.onclick=()=>act1Click(n,c);
+    g.appendChild(c);
+  }
+}
+
+function act1Click(n,c){
+  if(n===1 && !act1Num1Done){
+    c.classList.add('num1');
+    act1Num1Done=true;
+    setFb('fb1','👆 Great! The number 1 is SPECIAL — it\'s not prime and not composite. It stands alone!','good');
+    setTimeout(()=>setFb('fb1','Now click any numbers you think are prime — they can only be divided by 1 and themselves!'),2000);
+    return;
+  }
+  if(n===1)return;
+  if(act1Selected.has(n)){
+    act1Selected.delete(n);
+    c.classList.remove('sel1');
+  } else {
+    act1Selected.add(n);
+    c.classList.add('sel1');
+    const rect=c.getBoundingClientRect();
+    burst(rect.left+rect.width/2,rect.top+rect.height/2,8);
+    if(isPrime(n)) setFb('fb1',`🌟 ${n} looks prime! Can it be divided equally? Only by 1 and ${n}!`,'good');
+    else setFb('fb1',`Hmm, is ${n} really only divisible by 1 and ${n}? Think carefully!`,'');
+  }
+  if(act1Num1Done && act1Selected.size>=5){
+    document.getElementById('btn1next').style.display='inline-block';
+    setFb('fb1','🍭 Wonderful exploring! Ready to discover the Sieve of Eratosthenes?','good');
+  }
+}
+
+function act1Reset(){
+  act1Selected.clear();act1Num1Done=false;
+  buildGrid1();
+  document.getElementById('btn1next').style.display='none';
+  setFb('fb1','Tap the number 1, then explore! Which numbers feel special?');
+}
+
+function completeAct1(){
+  showPopup('🍬','Candy Explorer!',
+    'You explored the Number Kingdom! Now meet Eratosthenes — an ancient Greek who invented the perfect candy sieve to find ALL prime numbers!',
+    [{label:'🧁 Use the Sieve →',fn:()=>{closePopup();switchTo(2)}}]);
+}
+
+/* ═══════════════════════════════════════════════
+   ACTIVITY 2 — SIEVE METHOD
+═══════════════════════════════════════════════ */
+const SIEVE_STEPS=[2,3,5,7];
+let sieveDone=new Set(),crossedCells=new Set(),sieveStepIdx=0;
+
+function initSieveGrid(){
+  const g=document.getElementById('sieve-grid');
+  g.innerHTML='';
+  for(let n=1;n<=100;n++){
+    const c=makeCell(n,'s2c'+n);
+    if(n===1){c.classList.add('num1')}
+    g.appendChild(c);
+  }
+  sieveDone.clear();crossedCells.clear();sieveStepIdx=0;
+  SIEVE_STEPS.forEach((p,i)=>{ document.getElementById('sbtn'+p).disabled=(i!==0);
+    document.getElementById('sbtn'+p).classList.remove('done-step'); });
+  document.getElementById('btn2next').style.display='none';
+  setFb('fb2','Click "✨ Sieve 2s" to begin — 2 is the first prime, and we cross out all its multiples!');
+}
+
+function sieveStep(prime){
+  const btn=document.getElementById('sbtn'+prime);
+  btn.disabled=true;btn.classList.add('done-step');
+  sieveDone.add(prime);
+
+  // Highlight base
+  const baseEl=document.getElementById('s2c'+prime);
+  if(baseEl){baseEl.className='gcell mbase';baseEl.title='PRIME!'}
+
+  // Cross out multiples
+  let delay=0,count=0;
+  for(let m=prime*2;m<=100;m+=prime){
+    if(!crossedCells.has(m)){
+      crossedCells.add(m);
+      const cls=`m${prime}`;
+      setTimeout(()=>{
+        const el=document.getElementById('s2c'+m);
+        if(el && !el.classList.contains('mbase')){
+          el.className=`gcell crossed`;
+          el.title=`${m} = multiple of ${prime}`;
+          const sp=el.querySelector('.num-txt');
+          if(sp)sp.style.visibility='hidden';
+        }
+      }, delay+=60);
+      count++;
+    }
+  }
+
+  const nextIdx=SIEVE_STEPS.indexOf(prime)+1;
+  setTimeout(()=>{
+    if(nextIdx<SIEVE_STEPS.length){
+      const nextP=SIEVE_STEPS[nextIdx];
+      document.getElementById('sbtn'+nextP).disabled=false;
+      setFb('fb2',`🍭 ${prime} is circled as PRIME! Crossed out ${count} multiples. Now sieve ${nextP}s!`,'good');
+    } else {
+      // Done — reveal remaining primes
+      revealRemainingPrimes();
+    }
+  }, delay+200);
+}
+
+function revealRemainingPrimes(){
+  let idx=0;
+  const cells=document.querySelectorAll('#sieve-grid .gcell');
+  cells.forEach(c=>{
+    const n=parseInt(c.dataset.n);
+    if(n>1 && !crossedCells.has(n) && !c.classList.contains('mbase')){
+      setTimeout(()=>{
+        c.className='gcell mbase';c.title='PRIME!';
+        const rect=c.getBoundingClientRect();
+        burst(rect.left+c.offsetWidth/2,rect.top+c.offsetHeight/2,6);
+      },idx*80);idx++;
+    }
+  });
+  setTimeout(()=>{
+    setFb('fb2','🌟 All done! The numbers that survived the sieve are ALL prime — they couldn\'t be crossed out!','good');
+    document.getElementById('btn2next').style.display='inline-block';
+    burst(window.innerWidth/2,window.innerHeight/2,20);
+  },idx*80+400);
+}
+
+function sieveReset(){
+  initSieveGrid();
+}
+
+function completeAct2(){
+  showPopup('🧁','Sieve Champion!',
+    'You used the Sieve of Eratosthenes — just like the ancient Greek mathematician did 2,200 years ago! Now prove you\'ve mastered it: find ALL 25 prime numbers yourself!',
+    [{label:'🌟 Find All Primes →',fn:()=>{closePopup();switchTo(3)}}]);
+}
+
+/* ═══════════════════════════════════════════════
+   ACTIVITY 3 — FIND ALL PRIMES
+═══════════════════════════════════════════════ */
+let foundPrimes=new Set(),errCount=0;
+
+function initPrimeGrid(){
+  const g=document.getElementById('prime-grid');
+  g.innerHTML='';
+  foundPrimes.clear();errCount=0;
+  document.getElementById('found-count').textContent='0';
+  document.getElementById('err-count').textContent='0';
+  document.getElementById('prog-fill').style.width='0%';
+  document.getElementById('btn3done').style.display='none';
+  for(let n=1;n<=100;n++){
+    const c=makeCell(n,'p3c'+n);
+    if(n===1){c.classList.add('num1');c.title='1 is neither prime nor composite'}
+    else c.onclick=()=>act3Click(n,c);
+    g.appendChild(c);
+  }
+  setFb('fb3','Click every prime number! Primes have exactly 2 factors: 1 and themselves.');
+}
+
+function act3Click(n,c){
+  if(c.classList.contains('prime-sel')||c.classList.contains('wrong-sel'))return;
+  const rect=c.getBoundingClientRect();
+  if(isPrime(n)){
+    c.classList.add('prime-sel');c.onclick=null;
+    foundPrimes.add(n);
+    burst(rect.left+rect.width/2,rect.top+rect.height/2,10);
+    document.getElementById('found-count').textContent=foundPrimes.size;
+    document.getElementById('prog-fill').style.width=(foundPrimes.size/25*100)+'%';
+    const msgs=['🍭 Yes! Prime!','🌟 Correct!','🧁 You got it!','🎉 Prime found!','⭐ Nice one!'];
+    setFb('fb3',msgs[Math.floor(Math.random()*msgs.length)]+` ${n} is prime!`,'good');
+    if(foundPrimes.size===25){
+      document.getElementById('btn3done').style.display='inline-block';
+      setFb('fb3','🏆 INCREDIBLE! You found ALL 25 prime numbers from 1–100!','good');
+      burst(window.innerWidth/2,window.innerHeight/2,30);
+    }
+  } else {
+    errCount++;
+    document.getElementById('err-count').textContent=errCount;
+    c.classList.add('wrong-sel');
+    setFb('fb3',`Oops! ${n} is NOT prime — it can be divided by more than just 1 and ${n}. Try again!`,'bad');
+    setTimeout(()=>c.classList.remove('wrong-sel'),600);
+  }
+}
+
+function act3Reset(){
+  initPrimeGrid();
+}
+
+function completeAct3(){
+  const stars=errCount===0?'🌟🌟🌟':errCount<=5?'🌟🌟':'🌟';
+  const msg=errCount===0
+    ?'PERFECT SCORE! Zero mistakes — you are a true Prime Number Master of the Candy Kingdom!'
+    :`You found all 25 primes with only ${errCount} mistake${errCount===1?'':'s'}! The Candy Kingdom celebrates you!`;
+  showPopup('🏆','Prime Master!',msg,[
+    {label:'🔄 Play Again',fn:()=>{closePopup();switchTo(1);buildGrid1();act1Reset()}},
+    {label:'🎉 Celebrate!',fn:()=>{
+      for(let i=0;i<4;i++) setTimeout(()=>burst(
+        window.innerWidth*(.2+Math.random()*.6),
+        window.innerHeight*(.2+Math.random()*.6),22),i*300);
+    }}
+  ]);
+}
+
+/* ─── INIT ─── */
+buildGrid1();
+</script>
+</body>
+</html>

@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HEAT TRANSFER — CONDUCTION DEMO</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --lava:#FF4500;--lava2:#FF6B00;--lava3:#FFB300;
+  --rock:#3D2B1F;--rock2:#5C3D2E;--rock3:#7A4F3A;
+  --hot:#FF2200;--warm:#FF8800;--cool:#4FC3F7;
+  --bg1:#1A0800;--bg2:#2D1200;
+  --text:#FFF3E0;--subtext:#FFCC80;
+  --success:#00E676;--card:#2D1A0E;
+}
+html,body{width:100%;height:100%;overflow:hidden}
+body{
+  font-family:'Nunito',sans-serif;
+  background:var(--bg1);
+  color:var(--text);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  position:relative;
+}
+
+/* ─── CANVAS BG ─── */
+#bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none}
+
+/* ─── LAVA CRACKS ─── */
+.lava-crack{position:fixed;bottom:0;width:100%;height:180px;z-index:1;pointer-events:none}
+.lava-crack svg{width:100%;height:100%}
+
+/* ─── MAIN CARD ─── */
+.main-card{
+  position:relative;z-index:10;
+  background:rgba(45,26,14,0.92);
+  border:2px solid var(--lava2);
+  border-radius:20px;
+  width:min(820px,96vw);
+  max-height:96vh;
+  padding:20px 28px 18px;
+  box-shadow:0 0 40px rgba(255,69,0,0.4),0 0 80px rgba(255,69,0,0.15);
+  overflow:hidden;
+}
+
+/* ─── TITLE ─── */
+.title-bar{text-align:center;margin-bottom:12px;position:relative}
+.title-bar h1{
+  font-family:'Baloo 2',sans-serif;font-weight:800;font-size:clamp(1.3rem,3vw,1.75rem);
+  background:linear-gradient(90deg,#FF6B00,#FFD600,#FF6B00);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;letter-spacing:1px;
+  animation:titleGlow 2s ease-in-out infinite alternate;
+}
+@keyframes titleGlow{from{filter:drop-shadow(0 0 4px #FF8800)}to{filter:drop-shadow(0 0 12px #FFD600)}}
+.subtitle{font-size:0.78rem;color:var(--subtext);letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+
+/* ─── PROGRESS DOTS ─── */
+.progress-dots{display:flex;gap:10px;justify-content:center;margin-bottom:12px}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--rock3);border:2px solid var(--rock2);transition:all .4s ease;cursor:default}
+.dot.active{background:var(--lava2);border-color:var(--lava3);box-shadow:0 0 10px var(--lava2)}
+.dot.done{background:var(--success);border-color:#00C853}
+
+/* ─── ACTIVITY PANEL ─── */
+.activity{display:none;animation:fadeIn .5s ease}
+.activity.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.act-title{
+  font-family:'Baloo 2',sans-serif;font-weight:600;font-size:1rem;
+  color:var(--lava3);margin-bottom:8px;text-align:center;letter-spacing:.5px;
+}
+.act-desc{font-size:0.82rem;color:var(--subtext);text-align:center;margin-bottom:12px;line-height:1.5}
+
+/* ─── ACTIVITY 1: SPOON PREDICT ─── */
+.spoon-scene{display:flex;gap:16px;justify-content:center;align-items:flex-end;margin-bottom:14px;flex-wrap:wrap}
+.vessel-wrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.vessel-label{font-size:0.72rem;color:var(--subtext);letter-spacing:1px;text-transform:uppercase}
+.vessel{
+  width:120px;height:90px;position:relative;cursor:pointer;
+  border-radius:0 0 30px 30px;
+  background:linear-gradient(180deg,#5C3D2E 0%,#3D2B1F 60%);
+  border:3px solid var(--rock3);border-top:none;
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .2s;
+  overflow:visible;
+}
+.vessel::before{
+  content:'';position:absolute;top:-8px;left:-6px;right:-6px;height:16px;
+  background:var(--rock2);border-radius:6px;border:3px solid var(--rock3);
+}
+.steam{
+  position:absolute;top:-40px;font-size:1.2rem;
+  animation:steamRise 1.5s ease-in-out infinite;opacity:0;
+}
+.steam:nth-child(1){left:25%;animation-delay:0s}
+.steam:nth-child(2){left:50%;animation-delay:.5s}
+.steam:nth-child(3){left:70%;animation-delay:1s}
+@keyframes steamRise{0%{opacity:0;transform:translateY(0)}40%{opacity:.8}100%{opacity:0;transform:translateY(-30px)}}
+.spoon-img{position:absolute;width:16px;border-radius:8px 8px 0 0;transition:background .5s,box-shadow .5s}
+.metal-spoon{background:linear-gradient(180deg,#C0C0C0,#888);height:75px;top:-10px;right:35px;box-shadow:2px 0 4px rgba(0,0,0,.4)}
+.wood-spoon{background:linear-gradient(180deg,#8B6343,#5C3D2E);height:70px;top:-8px;left:30px;width:14px;border-radius:6px 6px 2px 2px}
+.hot-indicator{
+  position:absolute;font-size:0.6rem;font-weight:700;padding:2px 6px;border-radius:10px;
+  top:-30px;white-space:nowrap;opacity:0;transition:opacity .4s;pointer-events:none;
+}
+.temp-bar{width:120px;height:10px;background:#2D1A0E;border-radius:5px;border:1px solid var(--rock3);overflow:hidden;margin-top:4px}
+.temp-fill{height:100%;width:0%;border-radius:5px;transition:width 1s ease,background 1s ease}
+.temp-label{font-size:0.68rem;color:var(--subtext);margin-top:2px;text-align:center}
+
+.choices{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.choice-btn{
+  padding:8px 20px;border-radius:20px;border:2px solid var(--lava2);
+  background:rgba(255,107,0,0.12);color:var(--text);
+  font-family:'Nunito',sans-serif;font-weight:700;font-size:0.82rem;
+  cursor:pointer;transition:all .25s;letter-spacing:.5px;
+}
+.choice-btn:hover{background:rgba(255,107,0,0.3);transform:scale(1.04)}
+.choice-btn.correct{background:#00E676;border-color:#00C853;color:#003311}
+.choice-btn.wrong{background:#FF1744;border-color:#D50000;animation:shake .4s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+.feedback-msg{
+  text-align:center;font-size:0.8rem;font-weight:700;
+  padding:6px 12px;border-radius:10px;margin:8px auto;max-width:90%;
+  opacity:0;transition:opacity .4s;
+}
+.feedback-msg.show{opacity:1}
+.feedback-msg.good{background:rgba(0,230,118,0.15);color:#00E676;border:1px solid #00E676}
+.feedback-msg.bad{background:rgba(255,23,68,0.15);color:#FF8A80;border:1px solid #FF5252}
+
+.next-btn{
+  display:block;margin:8px auto 0;padding:9px 30px;
+  background:linear-gradient(135deg,var(--lava),var(--lava2));
+  border:none;border-radius:20px;color:white;
+  font-family:'Nunito',sans-serif;font-weight:700;font-size:0.85rem;
+  cursor:pointer;opacity:0;transition:opacity .4s,transform .2s;letter-spacing:.5px;
+}
+.next-btn.show{opacity:1}
+.next-btn:hover{transform:scale(1.05)}
+
+/* ─── ACTIVITY 2: HEAT FLOW ─── */
+.heatflow-scene{position:relative;width:100%;max-width:560px;margin:0 auto 12px;height:140px}
+.hf-rail{
+  position:absolute;top:50%;left:10px;right:10px;height:28px;
+  transform:translateY(-50%);
+  background:linear-gradient(90deg,#7A4F3A,#B87333,#C0C0C0);
+  border-radius:14px;border:2px solid #8B6343;
+  display:flex;align-items:center;padding:0 8px;gap:0;
+}
+.hf-rod-label{position:absolute;font-size:0.65rem;color:var(--subtext);letter-spacing:.5px;text-transform:uppercase}
+.hf-rod-label.wood{top:50%;left:14px;transform:translateY(-50%);color:#CD9B6A}
+.hf-rod-label.metal{top:50%;right:14px;transform:translateY(-50%);color:#B0BEC5}
+.hf-flame{position:absolute;left:4px;top:50%;transform:translateY(-50%);font-size:1.6rem;z-index:5;animation:flameFlicker .6s ease-in-out infinite alternate}
+@keyframes flameFlicker{from{transform:translateY(-50%) scale(1)}to{transform:translateY(-55%) scale(1.1)}}
+.heat-particle{
+  position:absolute;width:14px;height:14px;border-radius:50%;
+  background:radial-gradient(circle,#FFD600,var(--lava));
+  box-shadow:0 0 8px var(--lava2);
+  top:50%;transform:translateY(-50%);
+  opacity:0;cursor:grab;transition:opacity .3s;
+  z-index:10;
+  display:flex;align-items:center;justify-content:center;
+  font-size:8px;
+}
+.heat-particle.dragging{cursor:grabbing;z-index:20;box-shadow:0 0 16px #FFD600}
+.drop-zone{
+  position:absolute;width:36px;height:36px;border-radius:50%;
+  border:2px dashed rgba(255,200,0,0.4);top:50%;transform:translateY(-50%);
+  transition:all .3s;display:flex;align-items:center;justify-content:center;
+  font-size:0.55rem;color:rgba(255,200,0,0.5);text-align:center;
+}
+.drop-zone.highlight{border-color:#FFD600;background:rgba(255,215,0,0.1)}
+.drop-zone.filled{border-style:solid;border-color:var(--lava2);background:rgba(255,107,0,0.2)}
+.hf-thermometer{
+  position:absolute;right:8px;top:8px;width:22px;height:90px;
+  background:#2D1A0E;border-radius:11px;border:2px solid var(--rock3);
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:3px;
+}
+.thermo-fill{width:12px;border-radius:6px;background:linear-gradient(180deg,var(--hot),var(--warm));transition:height 1s ease;height:0%}
+.thermo-val{font-size:0.55rem;color:var(--subtext);margin-bottom:2px}
+.particle-tray{
+  display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:8px;
+  padding:8px;background:rgba(0,0,0,0.3);border-radius:12px;border:1px dashed rgba(255,107,0,0.3);
+}
+.particle-source{
+  width:22px;height:22px;border-radius:50%;
+  background:radial-gradient(circle,#FFD600,var(--lava));
+  box-shadow:0 0 8px var(--lava2);cursor:grab;
+  display:flex;align-items:center;justify-content:center;font-size:10px;
+  transition:transform .2s;flex-shrink:0;
+}
+.particle-source:hover{transform:scale(1.2)}
+.particle-source.used{opacity:0.3;cursor:default}
+
+/* ─── ACTIVITY 3: VASELINE BEADS ─── */
+.bead-scene{display:flex;gap:20px;justify-content:center;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px}
+.rod-container{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;min-width:180px}
+.rod-title{font-size:0.72rem;color:var(--subtext);text-transform:uppercase;letter-spacing:1px;font-weight:700}
+.rod-wrap{position:relative;width:160px;height:120px;display:flex;align-items:center}
+.rod{height:16px;width:130px;border-radius:8px;position:relative;border:2px solid;display:flex;align-items:center;justify-content:space-around;padding:0 4px}
+.rod.metal{background:linear-gradient(90deg,#888,#C0C0C0,#888);border-color:#9E9E9E}
+.rod.wood{background:linear-gradient(90deg,#5C3D2E,#8B6343,#5C3D2E);border-color:#7D5A3C}
+.bead{
+  width:16px;height:16px;border-radius:50%;
+  background:#FFF9C4;border:2px solid #E6C86A;
+  position:relative;transition:all .5s ease;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.bead.melting{
+  background:radial-gradient(circle,#FFF9C4 30%,#FFD600);
+  border-color:#FF8800;
+  animation:meltAnim .6s ease forwards;
+  box-shadow:0 0 6px #FFD600;
+}
+@keyframes meltAnim{0%{transform:scale(1)}30%{transform:scale(1.3)}100%{transform:scale(0.6) translateY(6px);opacity:0.6}}
+.bead.melted{background:#FFD600;border-color:#FF8800;transform:scale(0.5) translateY(4px);opacity:0.5}
+.bead-num{font-size:0.5rem;color:#8B6343;font-weight:700}
+.rod-flame{font-size:1.8rem;position:absolute;left:-20px;top:50%;transform:translateY(-50%);animation:flameFlicker .6s infinite alternate;cursor:pointer;user-select:none}
+.rod-flame.inactive{filter:grayscale(1);opacity:.5}
+.rod-flame.active{filter:none;animation:flameFlicker .4s infinite alternate}
+.bead-timer{font-size:0.68rem;color:var(--subtext);text-align:center}
+.bead-score{font-size:0.78rem;color:var(--lava3);font-weight:700;text-align:center;min-height:18px}
+.start-rod-btn{
+  padding:5px 14px;border-radius:12px;border:1px solid var(--lava2);
+  background:rgba(255,107,0,0.15);color:var(--lava3);
+  font-family:'Nunito',sans-serif;font-weight:700;font-size:0.72rem;cursor:pointer;
+  transition:all .2s;
+}
+.start-rod-btn:hover{background:rgba(255,107,0,0.35)}
+.start-rod-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ─── POPUP ─── */
+.popup-overlay{
+  display:none;position:fixed;inset:0;z-index:100;
+  background:rgba(10,4,0,0.85);
+  align-items:center;justify-content:center;
+}
+.popup-overlay.show{display:flex}
+.popup-box{
+  background:var(--card);border:3px solid var(--lava2);border-radius:20px;
+  padding:28px 36px;text-align:center;max-width:420px;width:90%;
+  box-shadow:0 0 60px rgba(255,69,0,0.5);
+  animation:popIn .4s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes popIn{from{transform:scale(0.7);opacity:0}to{transform:scale(1);opacity:1}}
+.popup-icon{font-size:3rem;margin-bottom:12px;display:block}
+.popup-title{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:1.4rem;color:var(--lava3);margin-bottom:8px}
+.popup-msg{font-size:0.85rem;color:var(--subtext);line-height:1.6;margin-bottom:16px}
+.popup-btn{
+  padding:10px 32px;border-radius:20px;border:none;
+  background:linear-gradient(135deg,var(--lava),var(--lava2));
+  color:white;font-family:'Nunito',sans-serif;font-weight:800;font-size:0.9rem;
+  cursor:pointer;transition:transform .2s;letter-spacing:.5px;
+}
+.popup-btn:hover{transform:scale(1.06)}
+.confetti-container{position:fixed;inset:0;pointer-events:none;z-index:200;overflow:hidden}
+.confetti-piece{
+  position:absolute;width:10px;height:10px;top:-20px;
+  border-radius:2px;animation:confettiFall linear forwards;
+}
+@keyframes confettiFall{to{transform:translateY(110vh) rotate(720deg);opacity:0}}
+
+/* ─── ROCK DECORATIONS ─── */
+.rock{position:fixed;border-radius:40%;background:var(--rock);border:2px solid var(--rock2);z-index:2;pointer-events:none}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+<div class="lava-crack">
+<svg viewBox="0 0 1200 180" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="lavaGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF4500" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#FF2200" stop-opacity="0.4"/>
+    </linearGradient>
+  </defs>
+  <path d="M0,140 Q60,80 120,130 Q180,60 240,120 Q300,80 360,130 Q420,60 480,110 Q540,70 600,130 Q660,60 720,120 Q780,80 840,140 Q900,70 960,120 Q1020,80 1080,130 Q1140,70 1200,120 L1200,180 L0,180 Z" fill="url(#lavaGrad)">
+    <animate attributeName="d" dur="3s" repeatCount="indefinite"
+      values="M0,140 Q60,80 120,130 Q180,60 240,120 Q300,80 360,130 Q420,60 480,110 Q540,70 600,130 Q660,60 720,120 Q780,80 840,140 Q900,70 960,120 Q1020,80 1080,130 Q1140,70 1200,120 L1200,180 L0,180 Z;
+              M0,130 Q60,90 120,140 Q180,70 240,110 Q300,90 360,140 Q420,70 480,120 Q540,80 600,140 Q660,70 720,110 Q780,90 840,130 Q900,80 960,130 Q1020,70 1080,120 Q1140,80 1200,130 L1200,180 L0,180 Z;
+              M0,140 Q60,80 120,130 Q180,60 240,120 Q300,80 360,130 Q420,60 480,110 Q540,70 600,130 Q660,60 720,120 Q780,80 840,140 Q900,70 960,120 Q1020,80 1080,130 Q1140,70 1200,120 L1200,180 L0,180 Z"/>
+  </path>
+  <path d="M0,160 Q100,120 200,160 Q300,120 400,155 Q500,120 600,155 Q700,115 800,160 Q900,125 1000,155 Q1100,120 1200,155 L1200,180 L0,180 Z" fill="rgba(255,100,0,0.5)">
+    <animate attributeName="d" dur="2.2s" repeatCount="indefinite"
+      values="M0,160 Q100,120 200,160 Q300,120 400,155 Q500,120 600,155 Q700,115 800,160 Q900,125 1000,155 Q1100,120 1200,155 L1200,180 L0,180 Z;
+              M0,155 Q100,130 200,155 Q300,115 400,160 Q500,130 600,160 Q700,120 800,155 Q900,130 1000,160 Q1100,115 1200,160 L1200,180 L0,180 Z;
+              M0,160 Q100,120 200,160 Q300,120 400,155 Q500,120 600,155 Q700,115 800,160 Q900,125 1000,155 Q1100,120 1200,155 L1200,180 L0,180 Z"/>
+  </path>
+</svg>
+</div>
+
+<!-- ROCKS -->
+<div class="rock" style="width:80px;height:55px;bottom:140px;left:30px;transform:rotate(-15deg)"></div>
+<div class="rock" style="width:55px;height:40px;bottom:155px;left:80px;transform:rotate(10deg)"></div>
+<div class="rock" style="width:90px;height:60px;bottom:140px;right:20px;transform:rotate(12deg)"></div>
+<div class="rock" style="width:50px;height:38px;bottom:158px;right:90px;transform:rotate(-8deg)"></div>
+
+<!-- MAIN CARD -->
+<div class="main-card">
+  <div class="title-bar">
+    <h1>🌋 HEAT TRANSFER — CONDUCTION DEMO</h1>
+    <div class="subtitle">Explore · Drag · Discover</div>
+  </div>
+
+  <div class="progress-dots">
+    <div class="dot active" id="dot1"></div>
+    <div class="dot" id="dot2"></div>
+    <div class="dot" id="dot3"></div>
+  </div>
+
+  <!-- ═══ ACTIVITY 1 ═══ -->
+  <div class="activity active" id="act1">
+    <div class="act-title">🥄 Activity 1 — The Spoon Prediction</div>
+    <div class="act-desc">Two spoons are placed in HOT water — one metal, one wooden.<br>Which one will get hot first? <strong style="color:var(--lava3)">Click your answer!</strong></div>
+
+    <div class="spoon-scene">
+      <!-- Metal -->
+      <div class="vessel-wrap">
+        <div class="vessel-label">Metal Spoon</div>
+        <div class="vessel" id="metalVessel">
+          <span class="steam">♨</span><span class="steam">♨</span><span class="steam">♨</span>
+          <div class="spoon-img metal-spoon" id="metalSpoon"></div>
+          <div class="hot-indicator" id="metalIndicator" style="color:#FF4500;background:rgba(255,69,0,0.2);border:1px solid #FF4500">🔥 HEATING UP!</div>
+        </div>
+        <div class="temp-bar"><div class="temp-fill" id="metalBar"></div></div>
+        <div class="temp-label" id="metalTemp">— °</div>
+      </div>
+      <!-- Wooden -->
+      <div class="vessel-wrap">
+        <div class="vessel-label">Wooden Spoon</div>
+        <div class="vessel" id="woodVessel">
+          <span class="steam">♨</span><span class="steam">♨</span><span class="steam">♨</span>
+          <div class="spoon-img wood-spoon" id="woodSpoon"></div>
+          <div class="hot-indicator" id="woodIndicator" style="color:#4FC3F7;background:rgba(79,195,247,0.2);border:1px solid #4FC3F7">❄ STAYS COOL</div>
+        </div>
+        <div class="temp-bar"><div class="temp-fill" id="woodBar"></div></div>
+        <div class="temp-label" id="woodTemp">— °</div>
+      </div>
+    </div>
+
+    <div class="choices">
+      <button class="choice-btn" onclick="checkA1('metal')">🥄 Metal gets hot first</button>
+      <button class="choice-btn" onclick="checkA1('wood')">🍴 Wooden gets hot first</button>
+      <button class="choice-btn" onclick="checkA1('same')">🤔 Both same</button>
+    </div>
+    <div class="feedback-msg" id="fb1"></div>
+    <button class="next-btn" id="next1" onclick="openPopup(1)">Next Activity →</button>
+  </div>
+
+  <!-- ═══ ACTIVITY 2 ═══ -->
+  <div class="activity" id="act2">
+    <div class="act-title">🔥 Activity 2 — Heat Flow Challenge</div>
+    <div class="act-desc">Drag the <strong style="color:#FFD600">heat particles</strong> from the tray and drop them along the metal rod to show how heat travels!</div>
+
+    <div class="particle-tray" id="particleTray"></div>
+
+    <div class="heatflow-scene" id="hfScene">
+      <div class="hf-rail" id="hfRail">
+        <div class="hf-rod-label wood">WOOD</div>
+        <div class="hf-rod-label metal">METAL</div>
+      </div>
+      <span class="hf-flame">🔥</span>
+      <div class="hf-thermometer">
+        <div class="thermo-val" id="thermoVal">0°</div>
+        <div class="thermo-fill" id="thermoFill" style="height:0%"></div>
+      </div>
+    </div>
+
+    <div class="feedback-msg" id="fb2"></div>
+    <button class="next-btn" id="next2" onclick="openPopup(2)">Next Activity →</button>
+  </div>
+
+  <!-- ═══ ACTIVITY 3 ═══ -->
+  <div class="activity" id="act3">
+    <div class="act-title">🕯 Activity 3 — The Bead Melt Race</div>
+    <div class="act-desc">Wax beads are placed on metal and wooden rods. <strong style="color:var(--lava3)">Light the flame</strong> and watch which rod melts beads fastest!</div>
+
+    <div class="bead-scene">
+      <!-- Metal Rod -->
+      <div class="rod-container">
+        <div class="rod-title" style="color:#B0BEC5">⚙ Metal Rod</div>
+        <div class="rod-wrap">
+          <span class="rod-flame inactive" id="metalFlame" onclick="lightFlame('metal')">🔥</span>
+          <div class="rod metal" id="metalRod">
+            <div class="bead" id="mb1" onclick="clickBead('metal',1)"><span class="bead-num">1</span></div>
+            <div class="bead" id="mb2" onclick="clickBead('metal',2)"><span class="bead-num">2</span></div>
+            <div class="bead" id="mb3" onclick="clickBead('metal',3)"><span class="bead-num">3</span></div>
+            <div class="bead" id="mb4" onclick="clickBead('metal',4)"><span class="bead-num">4</span></div>
+            <div class="bead" id="mb5" onclick="clickBead('metal',5)"><span class="bead-num">5</span></div>
+          </div>
+        </div>
+        <div class="bead-timer" id="metalTimer">Ready to light!</div>
+        <div class="bead-score" id="metalScore"></div>
+        <button class="start-rod-btn" id="metalBtn" onclick="lightFlame('metal')">🔥 Light Flame</button>
+      </div>
+      <!-- Wooden Rod -->
+      <div class="rod-container">
+        <div class="rod-title" style="color:#CD9B6A">🪵 Wooden Rod</div>
+        <div class="rod-wrap">
+          <span class="rod-flame inactive" id="woodFlame" onclick="lightFlame('wood')">🔥</span>
+          <div class="rod wood" id="woodRod">
+            <div class="bead" id="wb1" onclick="clickBead('wood',1)"><span class="bead-num">1</span></div>
+            <div class="bead" id="wb2" onclick="clickBead('wood',2)"><span class="bead-num">2</span></div>
+            <div class="bead" id="wb3" onclick="clickBead('wood',3)"><span class="bead-num">3</span></div>
+            <div class="bead" id="wb4" onclick="clickBead('wood',4)"><span class="bead-num">4</span></div>
+            <div class="bead" id="wb5" onclick="clickBead('wood',5)"><span class="bead-num">5</span></div>
+          </div>
+        </div>
+        <div class="bead-timer" id="woodTimer">Ready to light!</div>
+        <div class="bead-score" id="woodScore"></div>
+        <button class="start-rod-btn" id="woodBtn" onclick="lightFlame('wood')">🔥 Light Flame</button>
+      </div>
+    </div>
+    <div class="feedback-msg" id="fb3"></div>
+    <button class="next-btn" id="next3" onclick="openPopup(3)">🏆 See Results →</button>
+  </div>
+</div>
+
+<!-- ═══ POPUP ═══ -->
+<div class="popup-overlay" id="popupOverlay">
+  <div class="popup-box">
+    <span class="popup-icon" id="popupIcon">🌋</span>
+    <div class="popup-title" id="popupTitle">Great Work!</div>
+    <div class="popup-msg" id="popupMsg">You discovered something amazing!</div>
+    <button class="popup-btn" id="popupBtn" onclick="closePopup()">Continue 🔥</button>
+  </div>
+</div>
+
+<div class="confetti-container" id="confettiContainer"></div>
+
+<script>
+// ─── CANVAS BACKGROUND (lava bubbles + floating embers) ───
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+let W, H, particles = [], embers = [];
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+class LavaBubble {
+  constructor() { this.reset(); }
+  reset() {
+    this.x = Math.random() * W;
+    this.y = H + 20;
+    this.r = 4 + Math.random() * 12;
+    this.speed = 0.3 + Math.random() * 0.6;
+    this.alpha = 0.05 + Math.random() * 0.12;
+    this.color = Math.random() > 0.5 ? '#FF4500' : '#FF8800';
+  }
+  update() {
+    this.y -= this.speed;
+    if (this.y < -20) this.reset();
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = this.alpha;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+class Ember {
+  constructor() { this.reset(); }
+  reset() {
+    this.x = Math.random() * W;
+    this.y = H - 60 - Math.random() * 80;
+    this.vx = (Math.random() - 0.5) * 1.2;
+    this.vy = -0.8 - Math.random() * 1.5;
+    this.life = 1;
+    this.decay = 0.005 + Math.random() * 0.01;
+    this.size = 1.5 + Math.random() * 2.5;
+  }
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.life -= this.decay;
+    if (this.life <= 0) this.reset();
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,${150 + Math.floor(this.life*80)},0,${this.life * 0.7})`;
+    ctx.fill();
+  }
+}
+
+for (let i = 0; i < 40; i++) particles.push(new LavaBubble());
+for (let i = 0; i < 60; i++) embers.push(new Ember());
+
+function animBG() {
+  ctx.clearRect(0, 0, W, H);
+  particles.forEach(p => { p.update(); p.draw(); });
+  embers.forEach(e => { e.update(); e.draw(); });
+  requestAnimationFrame(animBG);
+}
+animBG();
+
+// ─── ACTIVITY 1 ───
+let a1Done = false;
+function checkA1(answer) {
+  if (a1Done) return;
+  const btns = document.querySelectorAll('#act1 .choice-btn');
+  const fb = document.getElementById('fb1');
+  if (answer === 'metal') {
+    btns[0].classList.add('correct');
+    btns[1].classList.add('wrong');
+    btns[2].classList.add('wrong');
+    fb.textContent = '✅ Correct! Metal conducts heat quickly — it\'s a great conductor!';
+    fb.className = 'feedback-msg show good';
+  } else {
+    btns[answer === 'wood' ? 1 : 2].classList.add('wrong');
+    btns[0].classList.add('correct');
+    fb.textContent = '💡 Metal gets hot first! It conducts heat much faster than wood.';
+    fb.className = 'feedback-msg show bad';
+  }
+  a1Done = true;
+  animateSpoons();
+  setTimeout(() => {
+    document.getElementById('next1').classList.add('show');
+  }, 2200);
+}
+
+function animateSpoons() {
+  const metalBar = document.getElementById('metalBar');
+  const woodBar = document.getElementById('woodBar');
+  const metalTemp = document.getElementById('metalTemp');
+  const woodTemp = document.getElementById('woodTemp');
+  const metalInd = document.getElementById('metalIndicator');
+  const woodInd = document.getElementById('woodIndicator');
+  let mPct = 0, wPct = 0;
+  metalInd.style.opacity = 1;
+  woodInd.style.opacity = 1;
+  const iv = setInterval(() => {
+    mPct = Math.min(100, mPct + 4);
+    wPct = Math.min(30, wPct + 0.8);
+    const mColor = `hsl(${30 - mPct * 0.3},100%,50%)`;
+    const wColor = `hsl(${200 - wPct},80%,60%)`;
+    metalBar.style.width = mPct + '%';
+    metalBar.style.background = mColor;
+    woodBar.style.width = wPct + '%';
+    woodBar.style.background = wColor;
+    metalTemp.textContent = Math.round(mPct * 0.85) + ' °C';
+    woodTemp.textContent = Math.round(wPct * 0.4) + ' °C';
+    document.getElementById('metalSpoon').style.background = `linear-gradient(180deg,${mColor},#888)`;
+    document.getElementById('metalSpoon').style.boxShadow = `0 0 ${mPct / 10}px ${mColor}`;
+    if (mPct >= 100) clearInterval(iv);
+  }, 50);
+}
+
+// ─── ACTIVITY 2 ───
+const hfDropZones = [];
+let hfParticlesPlaced = 0;
+const HF_TOTAL = 6;
+
+function setupAct2() {
+  const rail = document.getElementById('hfRail');
+  const scene = document.getElementById('hfScene');
+  const tray = document.getElementById('particleTray');
+  tray.innerHTML = '';
+  hfDropZones.length = 0;
+  hfParticlesPlaced = 0;
+
+  // Drop zones along the rod
+  const sceneRect = scene.getBoundingClientRect();
+  const positions = [18, 30, 44, 58, 72, 86];
+  positions.forEach((pct, i) => {
+    const dz = document.createElement('div');
+    dz.className = 'drop-zone';
+    dz.style.left = pct + '%';
+    dz.dataset.idx = i;
+    dz.innerHTML = '<span style="font-size:0.5rem;color:rgba(255,200,0,0.4)">drop</span>';
+    scene.appendChild(dz);
+    hfDropZones.push(dz);
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('highlight'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('highlight'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault();
+      dz.classList.remove('highlight');
+      if (dz.classList.contains('filled')) return;
+      dz.classList.add('filled');
+      dz.innerHTML = '<span style="font-size:0.9rem">🔥</span>';
+      hfParticlesPlaced++;
+      updateThermo();
+      checkA2Complete();
+    });
+  });
+
+  // Tray particles
+  for (let i = 0; i < HF_TOTAL; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle-source';
+    p.draggable = true;
+    p.innerHTML = '🌡';
+    p.dataset.idx = i;
+    p.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('text', i);
+      setTimeout(() => p.classList.add('used'), 10);
+    });
+    p.addEventListener('dragend', () => {
+      if (!p.classList.contains('used')) return;
+    });
+    tray.appendChild(p);
+  }
+}
+
+function updateThermo() {
+  const pct = (hfParticlesPlaced / HF_TOTAL) * 100;
+  document.getElementById('thermoFill').style.height = pct + '%';
+  document.getElementById('thermoVal').textContent = Math.round(pct * 0.8) + '°';
+}
+
+function checkA2Complete() {
+  if (hfParticlesPlaced >= HF_TOTAL) {
+    const fb = document.getElementById('fb2');
+    fb.textContent = '🔥 Amazing! Heat particles travel through the metal rod — that\'s conduction in action!';
+    fb.className = 'feedback-msg show good';
+    document.getElementById('next2').classList.add('show');
+  } else {
+    const fb = document.getElementById('fb2');
+    fb.textContent = `💡 ${HF_TOTAL - hfParticlesPlaced} more heat particle(s) to place!`;
+    fb.className = 'feedback-msg show';
+  }
+}
+
+// ─── ACTIVITY 3 ───
+let metalLit = false, woodLit = false;
+let metalBeadsDone = 0, woodBeadsDone = 0;
+let metalInterval = null, woodInterval = null;
+let metalTime = 0, woodTime = 0;
+let a3Done = false;
+
+function lightFlame(type) {
+  if (type === 'metal' && !metalLit) {
+    metalLit = true;
+    document.getElementById('metalFlame').classList.remove('inactive');
+    document.getElementById('metalFlame').classList.add('active');
+    document.getElementById('metalBtn').disabled = true;
+    runBeads('metal');
+  }
+  if (type === 'wood' && !woodLit) {
+    woodLit = true;
+    document.getElementById('woodFlame').classList.remove('inactive');
+    document.getElementById('woodFlame').classList.add('active');
+    document.getElementById('woodBtn').disabled = true;
+    runBeads('wood');
+  }
+}
+
+function runBeads(type) {
+  const delays = type === 'metal' ? [600, 1400, 2400, 3600, 5000] : [2800, 6000, 10000, 15000, 22000];
+  const prefix = type === 'metal' ? 'mb' : 'wb';
+  let startTime = Date.now();
+  const timerEl = document.getElementById(type + 'Timer');
+  const timerIv = setInterval(() => {
+    if (type === 'metal') metalTime = Date.now() - startTime;
+    else woodTime = Date.now() - startTime;
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    timerEl.textContent = `⏱ ${elapsed}s`;
+  }, 100);
+  if (type === 'metal') metalInterval = timerIv;
+  else woodInterval = timerIv;
+
+  delays.forEach((d, i) => {
+    setTimeout(() => {
+      const bead = document.getElementById(prefix + (i + 1));
+      if (!bead) return;
+      bead.classList.add('melting');
+      setTimeout(() => bead.classList.add('melted'), 600);
+      if (type === 'metal') metalBeadsDone++;
+      else woodBeadsDone++;
+
+      if (i === 4) {
+        clearInterval(timerIv);
+        const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        timerEl.textContent = `✅ Done in ${totalTime}s`;
+        document.getElementById(type + 'Score').textContent =
+          type === 'metal' ? `⚡ Metal: All 5 beads melted in ${totalTime}s!` : `🐢 Wood: Slow conduction...`;
+        checkA3Both();
+      }
+    }, d);
+  });
+}
+
+function clickBead(type, num) {}
+
+function checkA3Both() {
+  if (a3Done) return;
+  const metalDone = document.getElementById('mb5').classList.contains('melted') || document.getElementById('mb5').classList.contains('melting');
+  if (metalBeadsDone >= 5 && !a3Done) {
+    a3Done = true;
+    setTimeout(() => {
+      const fb = document.getElementById('fb3');
+      fb.textContent = '🏆 Metal conducted heat much faster — it\'s an excellent conductor. Wood is a poor conductor (insulator)!';
+      fb.className = 'feedback-msg show good';
+      document.getElementById('next3').classList.add('show');
+    }, 800);
+  }
+}
+
+// ─── POPUP SYSTEM ───
+const popupData = {
+  1: {
+    icon: '🥄',
+    title: 'Brilliant Discovery!',
+    msg: 'You got it! Metal is a CONDUCTOR — it lets heat pass through quickly. Wood is an INSULATOR — it slows heat down. That\'s why pot handles are made of wood or plastic!',
+    btn: 'Try Activity 2 →'
+  },
+  2: {
+    icon: '⚡',
+    title: 'Heat Flow Expert!',
+    msg: 'You placed the heat particles perfectly! Heat travels from hot to cool through metal by conduction — particle to particle, like a relay race!',
+    btn: 'Try Activity 3 →'
+  },
+  3: {
+    icon: '🏆',
+    title: 'Conduction Champion!',
+    msg: '🔥 WOW! You\'ve completed all 3 activities! \n\nCONDUCTION = heat moving through TOUCH.\nMetal conducts fast → CONDUCTOR\nWood stays cool → INSULATOR\n\nYou\'re a Heat Transfer hero!',
+    btn: '🌋 Celebrate!'
+  }
+};
+
+let currentPopup = 0;
+
+function openPopup(n) {
+  currentPopup = n;
+  const data = popupData[n];
+  document.getElementById('popupIcon').textContent = data.icon;
+  document.getElementById('popupTitle').textContent = data.title;
+  document.getElementById('popupMsg').textContent = data.msg;
+  document.getElementById('popupBtn').textContent = data.btn;
+  document.getElementById('popupOverlay').classList.add('show');
+  if (n === 3) spawnConfetti();
+}
+
+function closePopup() {
+  document.getElementById('popupOverlay').classList.remove('show');
+  if (currentPopup === 1) goToAct(2);
+  else if (currentPopup === 2) goToAct(3);
+}
+
+function goToAct(n) {
+  document.querySelectorAll('.activity').forEach(a => a.classList.remove('active'));
+  document.getElementById('act' + n).classList.add('active');
+  for (let i = 1; i <= 3; i++) {
+    const dot = document.getElementById('dot' + i);
+    dot.classList.remove('active', 'done');
+    if (i < n) dot.classList.add('done');
+    else if (i === n) dot.classList.add('active');
+  }
+  if (n === 2) setupAct2();
+}
+
+// ─── CONFETTI ───
+function spawnConfetti() {
+  const container = document.getElementById('confettiContainer');
+  const colors = ['#FF4500','#FF8800','#FFD600','#00E676','#4FC3F7','#FF6B9D','#B388FF'];
+  for (let i = 0; i < 70; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + '%';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.width = (6 + Math.random() * 10) + 'px';
+    piece.style.height = (6 + Math.random() * 10) + 'px';
+    piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    piece.style.animationDuration = (1.5 + Math.random() * 2) + 's';
+    piece.style.animationDelay = Math.random() * 1 + 's';
+    container.appendChild(piece);
+  }
+  setTimeout(() => container.innerHTML = '', 4000);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GITHUB — PULL REQUESTS & CODE REVIEW</title>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#080c1a;font-family:'Rajdhani',sans-serif}
+:root{
+  --gold:#ffd440;--amber:#ff9500;--cyan:#00e5ff;--green:#39ff14;
+  --red:#ff2d55;--purple:#bf5fff;--dark:#080c1a;--panel:rgba(10,18,40,0.88);
+  --text:#e8f4ff;--dim:#7090b0;
+}
+
+/* ── CANVAS ── */
+#bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none}
+
+/* ── SKYLINE SVG ── */
+#skyline{position:fixed;bottom:0;left:0;width:100%;z-index:1;pointer-events:none}
+
+/* ── LIGHTNING ── */
+.lightning{
+  position:fixed;top:0;width:2px;background:linear-gradient(180deg,rgba(255,212,64,0),rgba(255,212,64,0.9),rgba(255,212,64,0));
+  z-index:2;pointer-events:none;opacity:0;border-radius:2px;
+  animation:ltStrike 0s linear infinite;
+}
+.lightning:nth-child(1){left:12%;height:35vh;animation:ltStrike 7s 1s linear infinite}
+.lightning:nth-child(2){left:72%;height:28vh;animation:ltStrike 11s 3.5s linear infinite}
+.lightning:nth-child(3){left:45%;height:42vh;animation:ltStrike 9s 6s linear infinite}
+.lightning:nth-child(4){left:88%;height:22vh;animation:ltStrike 13s 2s linear infinite}
+@keyframes ltStrike{
+  0%,90%,100%{opacity:0}
+  92%{opacity:1;transform:scaleX(1)}
+  93%{opacity:0.2}
+  94%{opacity:0.9}
+  96%{opacity:0}
+}
+
+/* ── CAPE ── */
+.cape{
+  position:fixed;font-size:36px;z-index:2;pointer-events:none;
+  animation:capeFly linear infinite;filter:drop-shadow(0 0 8px rgba(255,212,64,0.5));
+}
+.cape:nth-child(1){bottom:25%;animation-duration:18s;animation-delay:0s}
+.cape:nth-child(2){bottom:40%;animation-duration:24s;animation-delay:8s;font-size:24px}
+@keyframes capeFly{
+  0%{left:-80px;transform:scaleX(1)}
+  49%{transform:scaleX(1)}
+  50%{left:calc(100vw + 80px);transform:scaleX(1)}
+  51%{left:calc(100vw + 80px);transform:scaleX(-1)}
+  100%{left:-80px;transform:scaleX(-1)}
+}
+
+/* ── MAIN WRAPPER ── */
+#app{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#shell{
+  width:96vw;height:96vh;max-width:1200px;
+  display:flex;flex-direction:column;
+  background:rgba(8,12,26,0.78);
+  border:2px solid rgba(255,212,64,0.3);
+  border-radius:10px;
+  overflow:hidden;
+  backdrop-filter:blur(10px);
+  box-shadow:0 0 60px rgba(255,212,64,0.08),inset 0 0 60px rgba(0,0,0,0.4);
+}
+
+/* ── HEADER ── */
+#hdr{
+  padding:8px 20px;
+  background:linear-gradient(90deg,rgba(255,149,0,0.12),rgba(255,212,64,0.08),rgba(0,229,255,0.08));
+  border-bottom:1.5px solid rgba(255,212,64,0.25);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+}
+.hdr-title{
+  font-family:'Bangers',cursive;font-size:clamp(14px,2vw,20px);
+  letter-spacing:3px;color:var(--gold);
+  text-shadow:0 0 20px rgba(255,212,64,0.5);
+}
+.hdr-badge{
+  display:flex;align-items:center;gap:10px;
+}
+.hdr-pip{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pip 2s ease-in-out infinite}
+@keyframes pip{0%,100%{opacity:1}50%{opacity:.2}}
+.hdr-tag{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim)}
+
+/* ── CONTENT ── */
+#content{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 18px;overflow:hidden;position:relative}
+
+/* ── ACTIVITY VIEWS ── */
+.av{display:none;flex-direction:column;align-items:center;width:100%;gap:6px}
+.av.active{display:flex}
+
+/* ── MISSION TAG ── */
+.mission-tag{
+  font-family:'Bangers',cursive;font-size:13px;letter-spacing:4px;
+  color:var(--amber);text-shadow:0 0 10px rgba(255,149,0,0.5);
+}
+.act-title{
+  font-family:'Bangers',cursive;font-size:clamp(16px,2.5vw,22px);
+  letter-spacing:2px;color:#fff;text-align:center;
+  text-shadow:0 0 20px rgba(255,212,64,0.3);
+}
+.act-sub{font-size:12px;color:var(--dim);font-family:'Share Tech Mono',monospace;text-align:center;letter-spacing:.5px}
+
+/* ── DRAG CHIPS ── */
+.chip{
+  padding:7px 14px;
+  background:rgba(10,20,50,0.9);
+  border:1.5px solid rgba(255,212,64,0.35);
+  border-radius:6px;
+  font-family:'Share Tech Mono',monospace;font-size:11px;
+  color:var(--gold);cursor:grab;user-select:none;
+  transition:all .18s;white-space:nowrap;
+  box-shadow:0 0 8px rgba(255,212,64,0.1);
+}
+.chip:hover{border-color:var(--gold);box-shadow:0 0 20px rgba(255,212,64,0.3);transform:translateY(-2px)}
+.chip:active{cursor:grabbing;transform:scale(.95)}
+.chip.placed{border-color:var(--green);color:var(--green);box-shadow:0 0 12px rgba(57,255,20,0.3);cursor:default}
+.chip.wrong{border-color:var(--red);color:var(--red);cursor:default}
+
+/* ── DROP ZONES ── */
+.dz{
+  display:flex;align-items:center;justify-content:center;
+  min-height:46px;padding:7px;
+  background:rgba(0,15,35,0.5);
+  border:1.5px dashed rgba(255,212,64,0.2);
+  border-radius:8px;flex:1;
+  transition:all .18s;
+  font-family:'Share Tech Mono',monospace;font-size:10px;
+  color:rgba(255,212,64,0.25);text-align:center;
+}
+.dz.over{border-color:var(--gold);background:rgba(255,212,64,0.06);box-shadow:0 0 16px rgba(255,212,64,0.2)}
+.dz.correct{border-color:var(--green);background:rgba(57,255,20,0.05);border-style:solid}
+.dz.wrong-drop{border-color:var(--red);animation:shk .3s ease}
+@keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+/* ── POOL ── */
+.pool{
+  display:flex;flex-wrap:wrap;gap:7px;
+  padding:8px 12px;
+  background:rgba(0,10,25,0.5);
+  border:1px solid rgba(255,212,64,0.12);
+  border-radius:8px;
+}
+
+/* ── STEP LABELS ── */
+.step-lbl{font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--dim);text-align:center;margin-bottom:2px}
+
+/* ── ARROW ── */
+.arr{color:var(--amber);font-size:18px;flex-shrink:0;padding:0 3px;opacity:.7}
+
+/* ── VERIFY BUTTON ── */
+.btn-v{
+  padding:9px 28px;
+  font-family:'Bangers',cursive;font-size:16px;letter-spacing:2px;
+  background:transparent;border:2px solid var(--gold);border-radius:6px;
+  color:var(--gold);cursor:pointer;transition:all .18s;
+  box-shadow:0 0 12px rgba(255,212,64,0.15);
+}
+.btn-v:hover{background:rgba(255,212,64,0.1);box-shadow:0 0 30px rgba(255,212,64,0.4)}
+.btn-v:disabled{opacity:.35;cursor:not-allowed}
+
+/* ── FEEDBACK ── */
+.fb{
+  padding:7px 14px;border-radius:6px;font-family:'Share Tech Mono',monospace;font-size:11px;
+  text-align:center;min-height:32px;transition:all .25s;width:100%;
+}
+.fb.ok{background:rgba(57,255,20,0.07);border:1px solid rgba(57,255,20,0.3);color:var(--green)}
+.fb.err{background:rgba(255,45,85,0.07);border:1px solid rgba(255,45,85,0.3);color:var(--red)}
+.fb.hint{background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.2);color:var(--cyan)}
+
+/* ── PROGRESS ── */
+.prog-wrap{position:absolute;bottom:10px;left:18px;right:18px;display:flex;align-items:center;gap:10px}
+.prog-track{flex:1;height:3px;background:rgba(255,212,64,0.1);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--amber),var(--gold));border-radius:2px;transition:width .5s ease}
+.prog-txt{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);white-space:nowrap}
+
+/* ── POPUPS ── */
+.pop{
+  position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+  background:rgba(8,12,26,0.88);backdrop-filter:blur(10px);
+  opacity:0;pointer-events:none;transition:opacity .35s;
+}
+.pop.show{opacity:1;pointer-events:all}
+.pop-box{
+  background:rgba(10,18,40,0.97);
+  border:2px solid rgba(255,212,64,0.4);
+  border-radius:12px;padding:28px 36px;max-width:480px;width:90%;
+  text-align:center;transform:scale(.85);transition:transform .35s;
+  box-shadow:0 0 60px rgba(255,212,64,0.15),0 0 120px rgba(255,149,0,0.08);
+}
+.pop.show .pop-box{transform:scale(1)}
+.pop-icon{font-size:52px;margin-bottom:12px;animation:popBounce .5s ease}
+@keyframes popBounce{0%{transform:scale(0)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
+.pop-title{font-family:'Bangers',cursive;font-size:26px;letter-spacing:3px;color:var(--gold);text-shadow:0 0 20px rgba(255,212,64,0.5);margin-bottom:10px}
+.pop-body{font-size:13px;color:var(--dim);line-height:1.7;margin-bottom:20px}
+.pop-next{
+  padding:11px 32px;font-family:'Bangers',cursive;font-size:17px;letter-spacing:2px;
+  background:linear-gradient(135deg,rgba(255,149,0,0.15),rgba(255,212,64,0.1));
+  border:2px solid var(--gold);border-radius:8px;color:var(--gold);cursor:pointer;transition:all .18s;
+}
+.pop-next:hover{box-shadow:0 0 30px rgba(255,212,64,0.4)}
+.badge-row{display:flex;justify-content:center;gap:10px;margin:14px 0;flex-wrap:wrap}
+.badge{padding:5px 12px;border-radius:20px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px}
+.b-gold{background:rgba(255,212,64,0.1);border:1px solid rgba(255,212,64,0.4);color:var(--gold)}
+.b-green{background:rgba(57,255,20,0.08);border:1px solid rgba(57,255,20,0.35);color:var(--green)}
+.b-cyan{background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.3);color:var(--cyan)}
+
+/* ── ACT 2 — PR REVIEW UI ── */
+.pr-card{
+  background:rgba(5,12,30,0.7);border:1px solid rgba(255,212,64,0.15);
+  border-radius:8px;padding:8px 12px;width:100%;
+}
+.pr-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.pr-avatar{
+  width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;flex-shrink:0;
+}
+.pr-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;color:#fff}
+.pr-sub{font-size:11px;color:var(--dim);font-family:'Share Tech Mono',monospace}
+
+.code-diff{
+  background:rgba(0,8,20,0.8);border:1px solid rgba(0,229,255,0.15);
+  border-radius:6px;padding:8px 10px;font-family:'Share Tech Mono',monospace;font-size:10px;
+  line-height:1.7;
+}
+.diff-add{color:var(--green);background:rgba(57,255,20,0.05)}
+.diff-rem{color:var(--red);background:rgba(255,45,85,0.05)}
+.diff-ctx{color:#556}
+
+.review-slot{
+  min-height:38px;padding:6px 10px;
+  background:rgba(0,15,35,0.4);
+  border:1.5px dashed rgba(255,212,64,0.18);
+  border-radius:6px;
+  display:flex;align-items:center;gap:6px;
+  font-family:'Share Tech Mono',monospace;font-size:10px;
+  color:rgba(255,212,64,0.2);transition:all .18s;
+}
+.review-slot.over{border-color:var(--gold);background:rgba(255,212,64,0.05)}
+.review-slot.placed-ok{border-color:var(--green);border-style:solid;color:var(--green)}
+.review-slot.placed-err{border-color:var(--red);border-style:solid;color:var(--red)}
+
+.comment-chip{
+  padding:6px 10px;
+  background:rgba(10,20,50,0.9);
+  border:1.5px solid rgba(0,229,255,0.35);
+  border-radius:6px;
+  font-family:'Share Tech Mono',monospace;font-size:10px;
+  color:var(--cyan);cursor:grab;user-select:none;transition:all .18s;
+  white-space:nowrap;
+}
+.comment-chip:hover{border-color:var(--cyan);box-shadow:0 0 12px rgba(0,229,255,0.25);transform:translateY(-1px)}
+.comment-chip.placed{opacity:.4;cursor:not-allowed}
+.comment-chip.approve-chip{border-color:rgba(57,255,20,0.4);color:var(--green)}
+.comment-chip.request-chip{border-color:rgba(255,149,0,0.4);color:var(--amber)}
+
+/* ── ACT 3 — BRANCH DIAGRAM ── */
+.branch-diagram{width:100%;position:relative}
+.branch-svg{width:100%;height:150px}
+
+.branch-slot{
+  display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:100px;
+}
+.branch-drop{
+  min-height:44px;padding:6px;width:100%;
+  background:rgba(0,15,35,0.5);
+  border:1.5px dashed rgba(255,212,64,0.2);
+  border-radius:8px;display:flex;align-items:center;justify-content:center;
+  font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(255,212,64,0.2);
+  text-align:center;transition:all .18s;
+}
+.branch-drop.over{border-color:var(--gold);background:rgba(255,212,64,0.06)}
+.branch-drop.ok{border-color:var(--green);border-style:solid;background:rgba(57,255,20,0.04)}
+.branch-drop.bad{border-color:var(--red);animation:shk .3s ease}
+
+.branch-chip{
+  padding:7px 12px;
+  background:rgba(10,20,50,0.9);
+  border:1.5px solid rgba(191,95,255,0.4);
+  border-radius:6px;font-family:'Share Tech Mono',monospace;font-size:11px;
+  color:var(--purple);cursor:grab;user-select:none;transition:all .18s;white-space:nowrap;
+}
+.branch-chip:hover{border-color:var(--purple);box-shadow:0 0 12px rgba(191,95,255,0.3);transform:translateY(-2px)}
+.branch-chip.placed{opacity:.4;cursor:not-allowed}
+.branch-chip.main-chip{border-color:rgba(255,212,64,0.4);color:var(--gold)}
+.branch-chip.merge-chip{border-color:rgba(0,229,255,0.4);color:var(--cyan)}
+
+.zone-lbl{font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--dim);text-align:center}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<!-- SKYLINE -->
+<svg id="skyline" viewBox="0 0 1200 220" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="glow2"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <!-- buildings back -->
+  <rect x="0" y="80" width="60" height="140" fill="#0a1020"/>
+  <rect x="10" y="60" width="40" height="160" fill="#0c1428"/>
+  <rect x="70" y="100" width="50" height="120" fill="#08101e"/>
+  <rect x="140" y="50" width="35" height="170" fill="#0a1422"/>
+  <rect x="185" y="90" width="45" height="130" fill="#09111f"/>
+  <rect x="240" y="70" width="55" height="150" fill="#0b1525"/>
+  <rect x="305" y="40" width="40" height="180" fill="#0a1320"/>
+  <rect x="355" y="85" width="60" height="135" fill="#081020"/>
+  <rect x="425" y="55" width="45" height="165" fill="#0c1530"/>
+  <rect x="480" y="100" width="50" height="120" fill="#0a1220"/>
+  <rect x="540" y="60" width="35" height="160" fill="#091120"/>
+  <rect x="585" y="80" width="55" height="140" fill="#0b1428"/>
+  <rect x="650" y="45" width="40" height="175" fill="#0a1322"/>
+  <rect x="700" y="90" width="60" height="130" fill="#08101c"/>
+  <rect x="770" y="65" width="45" height="155" fill="#0c1530"/>
+  <rect x="825" y="50" width="35" height="170" fill="#0a1220"/>
+  <rect x="870" y="85" width="55" height="135" fill="#091120"/>
+  <rect x="935" y="70" width="50" height="150" fill="#0b1428"/>
+  <rect x="995" y="40" width="40" height="180" fill="#0a1322"/>
+  <rect x="1045" y="90" width="60" height="130" fill="#09101e"/>
+  <rect x="1115" y="60" width="45" height="160" fill="#0c1530"/>
+  <rect x="1170" y="80" width="55" height="140" fill="#0a1220"/>
+  <!-- antenna lights -->
+  <circle cx="25" cy="58" r="2" fill="rgba(255,45,85,0.8)" filter="url(#glow2)"><animate attributeName="opacity" values="1;0.2;1" dur="2s" repeatCount="indefinite"/></circle>
+  <circle cx="160" cy="48" r="2" fill="rgba(255,212,64,0.9)" filter="url(#glow2)"><animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite"/></circle>
+  <circle cx="323" cy="38" r="2" fill="rgba(0,229,255,0.8)" filter="url(#glow2)"><animate attributeName="opacity" values="1;0.1;1" dur="2.5s" repeatCount="indefinite"/></circle>
+  <circle cx="665" cy="43" r="2" fill="rgba(255,45,85,0.8)" filter="url(#glow2)"><animate attributeName="opacity" values="1;0.4;1" dur="1.8s" repeatCount="indefinite"/></circle>
+  <circle cx="843" cy="48" r="2" fill="rgba(255,212,64,0.7)" filter="url(#glow2)"><animate attributeName="opacity" values="1;0.2;1" dur="2.2s" repeatCount="indefinite"/></circle>
+  <circle cx="1010" cy="38" r="2" fill="rgba(0,229,255,0.8)" filter="url(#glow2)"><animate attributeName="opacity" values="1;0.3;1" dur="1.6s" repeatCount="indefinite"/></circle>
+  <!-- windows glow rows -->
+  <g opacity="0.6">
+    <rect x="15" y="70" width="5" height="4" rx="1" fill="rgba(255,212,64,0.6)"><animate attributeName="opacity" values="0.6;0.1;0.6" dur="3s" repeatCount="indefinite"/></rect>
+    <rect x="25" y="70" width="5" height="4" rx="1" fill="rgba(0,229,255,0.5)"><animate attributeName="opacity" values="0.5;0.8;0.5" dur="2s" repeatCount="indefinite"/></rect>
+    <rect x="150" y="60" width="5" height="4" rx="1" fill="rgba(255,212,64,0.6)"><animate attributeName="opacity" values="0.6;0.2;0.6" dur="2.5s" repeatCount="indefinite"/></rect>
+    <rect x="160" y="60" width="5" height="4" rx="1" fill="rgba(255,149,0,0.5)"><animate attributeName="opacity" values="0.5;0.9;0.5" dur="1.8s" repeatCount="indefinite"/></rect>
+    <rect x="310" y="50" width="5" height="4" rx="1" fill="rgba(0,229,255,0.6)"><animate attributeName="opacity" values="0.6;0.1;0.6" dur="3.2s" repeatCount="indefinite"/></rect>
+    <rect x="432" y="65" width="5" height="4" rx="1" fill="rgba(255,212,64,0.5)"><animate attributeName="opacity" values="0.5;0.8;0.5" dur="2.8s" repeatCount="indefinite"/></rect>
+    <rect x="656" y="55" width="5" height="4" rx="1" fill="rgba(255,45,85,0.5)"><animate attributeName="opacity" values="0.5;0.2;0.5" dur="2.1s" repeatCount="indefinite"/></rect>
+    <rect x="776" y="75" width="5" height="4" rx="1" fill="rgba(255,212,64,0.6)"><animate attributeName="opacity" values="0.6;0.1;0.6" dur="2.7s" repeatCount="indefinite"/></rect>
+    <rect x="1000" y="50" width="5" height="4" rx="1" fill="rgba(0,229,255,0.5)"><animate attributeName="opacity" values="0.5;0.9;0.5" dur="1.9s" repeatCount="indefinite"/></rect>
+    <rect x="1120" y="70" width="5" height="4" rx="1" fill="rgba(255,149,0,0.6)"><animate attributeName="opacity" values="0.6;0.2;0.6" dur="2.3s" repeatCount="indefinite"/></rect>
+  </g>
+</svg>
+
+<!-- LIGHTNING STREAKS -->
+<div class="lightning"></div>
+<div class="lightning"></div>
+<div class="lightning"></div>
+<div class="lightning"></div>
+
+<!-- CAPES -->
+<div class="cape">🦸</div>
+<div class="cape">🦸‍♀️</div>
+
+<!-- APP -->
+<div id="app">
+<div id="shell">
+
+  <div id="hdr">
+    <div class="hdr-title">GITHUB — PULL REQUESTS &amp; CODE REVIEW</div>
+    <div class="hdr-badge">
+      <div class="hdr-pip"></div>
+      <div class="hdr-tag">HERO HQ · TEAM OPS ACTIVE</div>
+    </div>
+  </div>
+
+  <div id="content">
+
+    <!-- ═══ ACT 1: PR Workflow ═══ -->
+    <div class="av active" id="act1">
+      <div class="mission-tag">⚡ MISSION 01 / 03</div>
+      <div class="act-title">The Collaboration Sequence</div>
+      <div class="act-sub">Drag each step into the correct order for the Pull Request workflow</div>
+
+      <div style="display:flex;gap:10px;width:100%;align-items:flex-start">
+        <div style="display:flex;flex-direction:column;gap:5px;min-width:125px">
+          <div class="step-lbl">STEP CARDS</div>
+          <div class="pool" id="pool1" style="flex-direction:column;gap:6px">
+            <div class="chip" draggable="true" data-id="pr">🔀 Open Pull Request</div>
+            <div class="chip" draggable="true" data-id="fork">🍴 Fork the Repo</div>
+            <div class="chip" draggable="true" data-id="commit">💾 Commit Changes</div>
+            <div class="chip" draggable="true" data-id="change">✏️ Make Changes</div>
+            <div class="chip" draggable="true" data-id="merge">✅ Merge Approved</div>
+            <div class="chip" draggable="true" data-id="review">👁️ Code Review</div>
+          </div>
+        </div>
+
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+          <div class="step-lbl">BUILD THE WORKFLOW →</div>
+          <div style="display:flex;gap:5px;align-items:center;width:100%">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">
+              <div class="step-lbl">STEP 1</div>
+              <div class="dz" id="s1-1" data-ans="fork">Drop here</div>
+            </div>
+            <div class="arr">→</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">
+              <div class="step-lbl">STEP 2</div>
+              <div class="dz" id="s1-2" data-ans="change">Drop here</div>
+            </div>
+            <div class="arr">→</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">
+              <div class="step-lbl">STEP 3</div>
+              <div class="dz" id="s1-3" data-ans="commit">Drop here</div>
+            </div>
+            <div class="arr">→</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">
+              <div class="step-lbl">STEP 4</div>
+              <div class="dz" id="s1-4" data-ans="pr">Drop here</div>
+            </div>
+            <div class="arr">→</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">
+              <div class="step-lbl">STEP 5</div>
+              <div class="dz" id="s1-5" data-ans="review">Drop here</div>
+            </div>
+            <div class="arr">→</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">
+              <div class="step-lbl">STEP 6</div>
+              <div class="dz" id="s1-6" data-ans="merge">Drop here</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <div style="flex:1;background:rgba(0,8,20,0.7);border:1px solid rgba(255,212,64,0.12);border-radius:6px;padding:8px 10px;font-family:Share Tech Mono,monospace;font-size:10px;line-height:1.8;color:var(--dim)">
+              <span style="color:var(--gold);font-weight:bold">// Cricket Scoring App — PR Flow</span><br>
+              1. Fork → Copy the main project<br>
+              2. Change → Write Super Over logic<br>
+              3. Commit → Save your milestone<br>
+              4. PR → Ask team to check it<br>
+              5. Review → Teammates read code<br>
+              6. Merge → Changes go live!
+            </div>
+            <div style="flex:1;background:rgba(0,8,20,0.7);border:1px solid rgba(0,229,255,0.1);border-radius:6px;padding:8px 10px;font-family:Share Tech Mono,monospace;font-size:10px;line-height:1.8;color:var(--dim)">
+              <span style="color:var(--cyan);font-weight:bold">// ISRO Analogy</span><br>
+              Like scientists tracking every<br>
+              software version before<br>
+              a rocket launch — each<br>
+              change is reviewed by<br>
+              multiple senior engineers<br>
+              before going into the mission!
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fb" id="fb1"></div>
+      <button class="btn-v" id="btn1">⚡ VERIFY SEQUENCE</button>
+    </div>
+
+    <!-- ═══ ACT 2: Code Review ═══ -->
+    <div class="av" id="act2">
+      <div class="mission-tag">⚡ MISSION 02 / 03</div>
+      <div class="act-title">The Peer Review Circle</div>
+      <div class="act-sub">Drag the correct review comment or action to each section of the Pull Request</div>
+
+      <div style="display:flex;gap:10px;width:100%;align-items:flex-start">
+
+        <!-- PR Card -->
+        <div style="flex:1;display:flex;flex-direction:column;gap:7px">
+          <div class="pr-card">
+            <div class="pr-header">
+              <div class="pr-avatar" style="background:rgba(57,255,20,0.15);border:1px solid rgba(57,255,20,0.3);color:var(--green)">AK</div>
+              <div>
+                <div class="pr-title">feat: Add Super Over logic to scoring engine</div>
+                <div class="pr-sub">by arjun-k · branch: feature/super-over → main</div>
+              </div>
+              <div style="margin-left:auto;padding:3px 9px;border-radius:12px;background:rgba(255,149,0,0.1);border:1px solid rgba(255,149,0,0.3);font-size:10px;font-family:Share Tech Mono,monospace;color:var(--amber)">OPEN</div>
+            </div>
+            <div class="code-diff">
+              <div class="diff-ctx"> function calculateScore(overs) {</div>
+              <div class="diff-rem">-  return overs * 6;</div>
+              <div class="diff-add">+  if (overs === 'superOver') return superOverRules();</div>
+              <div class="diff-add">+  return overs * 6;</div>
+              <div class="diff-ctx"> }</div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div class="step-lbl">REVIEW SLOTS — Drop the correct card in each area</div>
+
+            <div style="display:flex;align-items:center;gap:6px">
+              <div style="font-size:10px;color:var(--dim);font-family:Share Tech Mono,monospace;white-space:nowrap;width:90px">LINE COMMENT:</div>
+              <div class="review-slot dz" id="rs1" data-ans="good-comment" style="flex:1">Drop a line comment here</div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:6px">
+              <div style="font-size:10px;color:var(--dim);font-family:Share Tech Mono,monospace;white-space:nowrap;width:90px">SUGGESTION:</div>
+              <div class="review-slot dz" id="rs2" data-ans="suggestion" style="flex:1">Drop a suggestion here</div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:6px">
+              <div style="font-size:10px;color:var(--dim);font-family:Share Tech Mono,monospace;white-space:nowrap;width:90px">FINAL ACTION:</div>
+              <div class="review-slot dz" id="rs3" data-ans="approve" style="flex:1">Drop the final action here</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Comment pool -->
+        <div style="display:flex;flex-direction:column;gap:5px;min-width:175px">
+          <div class="step-lbl">REVIEW TOOLKIT</div>
+          <div class="pool" id="pool2" style="flex-direction:column;gap:6px">
+            <div class="comment-chip" draggable="true" data-id="good-comment">"I noticed the super over<br>check comes first — looks good!"</div>
+            <div class="comment-chip" draggable="true" data-id="bad-comment">"This is written all wrong."</div>
+            <div class="comment-chip suggestion-chip" draggable="true" data-id="suggestion">"Could we try adding a comment<br>above superOverRules() for clarity?"</div>
+            <div class="comment-chip approve-chip" draggable="true" data-id="approve">✅ Approve — Great work, ready to merge!</div>
+            <div class="comment-chip request-chip" draggable="true" data-id="reject">🔄 Request Changes — Needs more tests</div>
+            <div class="comment-chip" draggable="true" data-id="noise">"lgtm" (no explanation)</div>
+          </div>
+          <div style="margin-top:6px;padding:7px 8px;background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.12);border-radius:6px;font-size:10px;color:var(--dim);font-family:Share Tech Mono,monospace;line-height:1.8">
+            <span style="color:var(--cyan)">Reviewer's Code:</span><br>
+            ✓ Be kind &amp; specific<br>
+            ✓ "Could we..." not "You must..."<br>
+            ✓ Explain WHY, not just WHAT<br>
+            ✗ Avoid vague or harsh words
+          </div>
+        </div>
+      </div>
+
+      <div class="fb" id="fb2"></div>
+      <button class="btn-v" id="btn2">⚡ SUBMIT REVIEW</button>
+    </div>
+
+    <!-- ═══ ACT 3: Branch Strategy ═══ -->
+    <div class="av" id="act3">
+      <div class="mission-tag">⚡ MISSION 03 / 03</div>
+      <div class="act-title">Branch Strategy Diagram</div>
+      <div class="act-sub">Drag each branch label into its correct position in the development flow</div>
+
+      <!-- SVG diagram -->
+      <svg class="branch-svg" viewBox="0 0 780 155" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="aG" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3z" fill="rgba(255,212,64,0.6)"/></marker>
+          <marker id="aP" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3z" fill="rgba(191,95,255,0.6)"/></marker>
+          <marker id="aC" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3z" fill="rgba(0,229,255,0.6)"/></marker>
+          <filter id="gf"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+
+        <!-- main branch line -->
+        <line x1="30" y1="78" x2="750" y2="78" stroke="rgba(255,212,64,0.25)" stroke-width="1.5" stroke-dasharray="5 3"/>
+
+        <!-- feature branch arcs -->
+        <path d="M200,78 Q230,78 250,40 L440,40 Q460,40 490,78" fill="none" stroke="rgba(191,95,255,0.35)" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <path d="M520,78 Q550,78 570,120 L660,120 Q680,120 700,78" fill="none" stroke="rgba(0,229,255,0.3)" stroke-width="1.5" stroke-dasharray="4 3"/>
+
+        <!-- arrows -->
+        <line x1="80" y1="78" x2="170" y2="78" stroke="rgba(255,212,64,0.5)" stroke-width="1.5" marker-end="url(#aG)"/>
+        <line x1="530" y1="78" x2="600" y2="78" stroke="rgba(255,212,64,0.5)" stroke-width="1.5" marker-end="url(#aG)"/>
+        <line x1="700" y1="78" x2="720" y2="78" stroke="rgba(0,229,255,0.5)" stroke-width="1.5" marker-end="url(#aC)"/>
+
+        <!-- main commits -->
+        <circle cx="30" cy="78" r="7" fill="rgba(255,212,64,0.15)" stroke="rgba(255,212,64,0.7)" stroke-width="1.5" filter="url(#gf)"/>
+        <circle cx="200" cy="78" r="7" fill="rgba(255,212,64,0.15)" stroke="rgba(255,212,64,0.7)" stroke-width="1.5" filter="url(#gf)"/>
+        <circle cx="490" cy="78" r="8" fill="rgba(191,95,255,0.2)" stroke="rgba(191,95,255,0.8)" stroke-width="2" filter="url(#gf)"/>
+        <circle cx="700" cy="78" r="8" fill="rgba(0,229,255,0.15)" stroke="rgba(0,229,255,0.7)" stroke-width="2" filter="url(#gf)"/>
+        <circle cx="750" cy="78" r="7" fill="rgba(255,212,64,0.15)" stroke="rgba(255,212,64,0.7)" stroke-width="1.5" filter="url(#gf)"/>
+
+        <!-- feature commits -->
+        <circle cx="250" cy="40" r="5" fill="rgba(191,95,255,0.15)" stroke="rgba(191,95,255,0.6)" stroke-width="1.5" filter="url(#gf)"/>
+        <circle cx="440" cy="40" r="5" fill="rgba(191,95,255,0.15)" stroke="rgba(191,95,255,0.6)" stroke-width="1.5" filter="url(#gf)"/>
+        <circle cx="570" cy="120" r="5" fill="rgba(0,229,255,0.12)" stroke="rgba(0,229,255,0.5)" stroke-width="1.5" filter="url(#gf)"/>
+        <circle cx="660" cy="120" r="5" fill="rgba(0,229,255,0.12)" stroke="rgba(0,229,255,0.5)" stroke-width="1.5" filter="url(#gf)"/>
+
+        <!-- static labels -->
+        <text x="30" y="65" font-family="Share Tech Mono" font-size="9" fill="rgba(255,212,64,0.6)" text-anchor="middle">v1.0</text>
+        <text x="490" y="65" font-family="Rajdhani" font-size="9" fill="rgba(191,95,255,0.9)" text-anchor="middle" font-weight="bold">MERGE 1</text>
+        <text x="700" y="65" font-family="Rajdhani" font-size="9" fill="rgba(0,229,255,0.9)" text-anchor="middle" font-weight="bold">MERGE 2</text>
+        <text x="750" y="65" font-family="Share Tech Mono" font-size="9" fill="rgba(255,212,64,0.6)" text-anchor="middle">Deploy</text>
+        <text x="4" y="82" font-family="Rajdhani" font-size="9" fill="rgba(255,212,64,0.5)">main</text>
+      </svg>
+
+      <div style="display:flex;gap:10px;width:100%;align-items:flex-start">
+        <div style="display:flex;flex-direction:column;gap:5px;min-width:150px">
+          <div class="step-lbl">BRANCH LABELS</div>
+          <div class="pool" id="pool3" style="flex-direction:column;gap:6px">
+            <div class="branch-chip main-chip" draggable="true" data-id="main">🏆 main (production)</div>
+            <div class="branch-chip" draggable="true" data-id="feat1">🌿 feature/super-over</div>
+            <div class="branch-chip" draggable="true" data-id="feat2">🌿 feature/live-score</div>
+            <div class="branch-chip merge-chip" draggable="true" data-id="pr1">🔀 Pull Request #1</div>
+            <div class="branch-chip merge-chip" draggable="true" data-id="pr2">🔀 Pull Request #2</div>
+          </div>
+        </div>
+
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+          <div class="step-lbl">PLACE EACH LABEL IN ITS CORRECT ZONE</div>
+          <div style="display:flex;gap:6px;align-items:stretch;width:100%">
+            <div class="branch-slot">
+              <div class="zone-lbl">STABLE TRUNK</div>
+              <div class="branch-drop" id="bz1" data-ans="main">Drop here</div>
+            </div>
+            <div class="arr" style="align-self:center">↕</div>
+            <div class="branch-slot">
+              <div class="zone-lbl">NEW FEATURE A</div>
+              <div class="branch-drop" id="bz2" data-ans="feat1">Drop here</div>
+            </div>
+            <div class="arr" style="align-self:center">↕</div>
+            <div class="branch-slot">
+              <div class="zone-lbl">NEW FEATURE B</div>
+              <div class="branch-drop" id="bz3" data-ans="feat2">Drop here</div>
+            </div>
+            <div class="arr" style="align-self:center">↕</div>
+            <div class="branch-slot">
+              <div class="zone-lbl">FEATURE A → MAIN</div>
+              <div class="branch-drop" id="bz4" data-ans="pr1">Drop here</div>
+            </div>
+            <div class="arr" style="align-self:center">↕</div>
+            <div class="branch-slot">
+              <div class="zone-lbl">FEATURE B → MAIN</div>
+              <div class="branch-drop" id="bz5" data-ans="pr2">Drop here</div>
+            </div>
+          </div>
+
+          <div style="background:rgba(0,8,20,0.7);border:1px solid rgba(255,212,64,0.1);border-radius:6px;padding:7px 10px;font-family:Share Tech Mono,monospace;font-size:10px;color:var(--dim);line-height:1.8">
+            <span style="color:var(--gold)">// Society Committee Analogy</span><br>
+            Think of <span style="color:var(--gold)">main</span> as the official building rulebook · Each <span style="color:var(--purple)">feature branch</span> is a member drafting a new rule proposal · A <span style="color:var(--cyan)">Pull Request</span> is presenting that proposal to the full committee for a vote before it becomes official!
+          </div>
+        </div>
+      </div>
+
+      <div class="fb" id="fb3"></div>
+      <button class="btn-v" id="btn3">⚡ SUBMIT BRANCH MAP</button>
+    </div>
+
+    <!-- Progress -->
+    <div class="prog-wrap">
+      <div class="prog-txt" id="pLabel">MISSION 1 / 3</div>
+      <div class="prog-track"><div class="prog-fill" id="pFill" style="width:33%"></div></div>
+      <div class="prog-txt" id="pPct">33%</div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- ═══ POPUPS ═══ -->
+<div class="pop" id="pop1">
+  <div class="pop-box">
+    <div class="pop-icon">⚡</div>
+    <div class="pop-title">MISSION 1 COMPLETE!</div>
+    <div class="pop-body">
+      You've unlocked the Pull Request workflow!<br><br>
+      <span style="color:var(--gold);font-family:Share Tech Mono,monospace">Fork → Change → Commit → PR → Review → Merge</span><br><br>
+      Just like the Cricket team checks every Super Over rule before going live — every code change is reviewed by teammates before joining the main project!
+    </div>
+    <button class="pop-next" onclick="goAct(2)">LAUNCH MISSION 02 →</button>
+  </div>
+</div>
+
+<div class="pop" id="pop2">
+  <div class="pop-box">
+    <div class="pop-icon">🔍</div>
+    <div class="pop-title">CODE REVIEW MASTERED!</div>
+    <div class="pop-body">
+      Excellent reviewing, Hero!<br><br>
+      Remember the Reviewer's Rule:<br>
+      <span style="color:var(--cyan);font-family:Share Tech Mono,monospace">"Review is about the CODE, not the person."</span><br><br>
+      Use "Could we try..." instead of "This is wrong." — like a newspaper editor who makes the article better, not worse!
+    </div>
+    <button class="pop-next" onclick="goAct(3)">LAUNCH FINAL MISSION →</button>
+  </div>
+</div>
+
+<div class="pop" id="popF">
+  <div class="pop-box">
+    <div class="pop-icon">🏆</div>
+    <div class="pop-title">ALL MISSIONS COMPLETE!</div>
+    <div class="pop-body">You are now a certified Code Review Hero!</div>
+    <div class="badge-row">
+      <div class="badge b-gold">PR WORKFLOW</div>
+      <div class="badge b-green">CODE REVIEW</div>
+      <div class="badge b-cyan">BRANCH STRATEGY</div>
+    </div>
+    <div class="pop-body" style="font-size:12px;margin-top:6px">
+      A <strong style="color:var(--gold)">Pull Request</strong> is your proposal to the team · <strong style="color:var(--green)">Code Review</strong> catches mistakes with kindness · <strong style="color:var(--purple)">Branches</strong> let teams work without stepping on each other!
+    </div>
+    <button class="pop-next" onclick="resetAll()">🔄 REPLAY MISSIONS</button>
+  </div>
+</div>
+
+<script>
+/* ─── CANVAS BG ─── */
+(function(){
+  const c=document.getElementById('bgCanvas'),ctx=c.getContext('2d');
+  let W,H,stars,sparks;
+  function resize(){
+    W=c.width=window.innerWidth;H=c.height=window.innerHeight;
+    stars=Array(120).fill(0).map(()=>({x:Math.random()*W,y:Math.random()*H*0.7,r:Math.random()*1.5+.3,a:Math.random(),da:(Math.random()-.5)*.02}));
+    sparks=Array(25).fill(0).map(mkSpark);
+  }
+  function mkSpark(){return{x:Math.random()*W,y:Math.random()*H*.6,vx:(Math.random()-.5)*1.5,vy:(Math.random()-.5)*1.5,r:Math.random()*2+.5,hue:Math.random()<.5?45:200,a:Math.random()*.8+.2}}
+  function draw(){
+    ctx.fillStyle='rgba(8,12,26,0.12)';ctx.fillRect(0,0,W,H);
+    stars.forEach(s=>{
+      s.a=Math.max(.05,Math.min(1,s.a+s.da));
+      if(s.a<=.05||s.a>=1)s.da*=-1;
+      ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(255,220,120,${s.a*.6})`;ctx.fill();
+    });
+    sparks.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H*.65)p.vy*=-1;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=`hsla(${p.hue},100%,70%,${p.a*.5})`;ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  window.addEventListener('resize',resize);resize();draw();
+})();
+
+/* ─── DRAG ENGINE ─── */
+let dragging=null,dragOrigin=null;
+function makeDraggable(el){
+  el.addEventListener('dragstart',e=>{dragging=el;dragOrigin=el.parentElement;setTimeout(()=>el.style.opacity='.35',0);e.dataTransfer.effectAllowed='move'});
+  el.addEventListener('dragend',()=>el.style.opacity='1');
+}
+function makeDroppable(zone,onDrop){
+  zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('over')});
+  zone.addEventListener('dragleave',()=>zone.classList.remove('over'));
+  zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('over');onDrop(zone,dragging,dragOrigin)});
+}
+
+/* ─── ACT 1 ─── */
+const pool1=document.getElementById('pool1');
+const slots1=['s1-1','s1-2','s1-3','s1-4','s1-5','s1-6'].map(id=>document.getElementById(id));
+const sc1={};
+pool1.querySelectorAll('.chip').forEach(makeDraggable);
+slots1.forEach(slot=>makeDroppable(slot,(zone,chip,origin)=>{
+  if(!chip)return;
+  const occ=sc1[zone.id];
+  if(occ){(origin.classList.contains('dz')?(()=>{origin.textContent='Drop here';delete sc1[origin.id];origin.classList.remove('correct','wrong-drop')})():pool1.appendChild(occ));occ.classList.remove('placed','wrong')}
+  if(origin&&origin.classList.contains('dz')&&origin!==zone){origin.textContent='Drop here';delete sc1[origin.id];origin.classList.remove('correct','wrong-drop')}
+  zone.textContent='';zone.appendChild(chip);sc1[zone.id]=chip;
+}));
+document.getElementById('btn1').addEventListener('click',()=>{
+  let ok=true;
+  slots1.forEach(s=>{
+    const chip=sc1[s.id];if(!chip){ok=false;return}
+    const good=chip.dataset.id===s.dataset.ans;
+    s.classList.remove('correct','wrong-drop');chip.classList.remove('placed','wrong');
+    if(good){s.classList.add('correct');chip.classList.add('placed')}else{s.classList.add('wrong-drop');chip.classList.add('wrong');ok=false}
+  });
+  const fb=document.getElementById('fb1');
+  if(ok){fb.textContent='✓ Perfect! Pull Request workflow sequence unlocked.';fb.className='fb ok';setTimeout(()=>showPop('pop1'),700)}
+  else{fb.textContent='✗ Some steps are out of order — check the reference panel!';fb.className='fb err'}
+});
+
+/* ─── ACT 2 ─── */
+const pool2=document.getElementById('pool2');
+const rs=['rs1','rs2','rs3'].map(id=>document.getElementById(id));
+const sc2={};
+pool2.querySelectorAll('.comment-chip').forEach(makeDraggable);
+rs.forEach(slot=>makeDroppable(slot,(zone,chip,origin)=>{
+  if(!chip||!chip.classList.contains('comment-chip'))return;
+  const occ=sc2[zone.id];
+  if(occ){pool2.appendChild(occ);occ.classList.remove('placed');delete sc2[zone.id]}
+  if(origin&&origin.classList.contains('dz')&&origin!==zone){origin.textContent=origin.id==='rs1'?'Drop a line comment here':origin.id==='rs2'?'Drop a suggestion here':'Drop the final action here';delete sc2[origin.id];origin.classList.remove('placed-ok','placed-err')}
+  zone.textContent='';zone.appendChild(chip);sc2[zone.id]=chip;
+}));
+document.getElementById('btn2').addEventListener('click',()=>{
+  let ok=true;
+  rs.forEach(s=>{
+    const chip=sc2[s.id];if(!chip){ok=false;return}
+    const good=chip.dataset.id===s.dataset.ans;
+    s.classList.remove('placed-ok','placed-err');
+    if(good){s.classList.add('placed-ok')}else{s.classList.add('placed-err');ok=false}
+  });
+  const fb=document.getElementById('fb2');
+  if(ok){fb.textContent='✓ Brilliant review! Kind, specific, and professional — ISRO-level quality checking!';fb.className='fb ok';setTimeout(()=>showPop('pop2'),700)}
+  else{fb.textContent='✗ Some review actions are misplaced. Remember: be kind, specific, and constructive!';fb.className='fb err'}
+});
+
+/* ─── ACT 3 ─── */
+const pool3=document.getElementById('pool3');
+const bzs=['bz1','bz2','bz3','bz4','bz5'].map(id=>document.getElementById(id));
+const sc3={};
+pool3.querySelectorAll('.branch-chip').forEach(makeDraggable);
+bzs.forEach(slot=>makeDroppable(slot,(zone,chip,origin)=>{
+  if(!chip||!chip.classList.contains('branch-chip'))return;
+  const occ=sc3[zone.id];
+  if(occ){pool3.appendChild(occ);occ.classList.remove('placed');delete sc3[zone.id]}
+  if(origin&&origin.classList.contains('branch-drop')&&origin!==zone){origin.textContent='Drop here';delete sc3[origin.id];origin.classList.remove('ok','bad')}
+  zone.textContent='';zone.appendChild(chip);sc3[zone.id]=chip;
+}));
+document.getElementById('btn3').addEventListener('click',()=>{
+  let ok=true;
+  bzs.forEach(s=>{
+    const chip=sc3[s.id];if(!chip){ok=false;return}
+    const good=chip.dataset.id===s.dataset.ans;
+    s.classList.remove('ok','bad');
+    if(good){s.classList.add('ok')}else{s.classList.add('bad');ok=false}
+  });
+  const fb=document.getElementById('fb3');
+  if(ok){fb.textContent='✓ Branch strategy complete! Your team can now work in parallel without conflicts.';fb.className='fb ok';setTimeout(()=>showPop('popF'),700)}
+  else{fb.textContent='✗ Some branches are in the wrong zone. Think: main is stable, features branch off, PRs bring them back!';fb.className='fb err'}
+});
+
+/* ─── NAV ─── */
+function showPop(id){document.getElementById(id).classList.add('show')}
+function goAct(n){
+  document.querySelectorAll('.pop').forEach(p=>p.classList.remove('show'));
+  document.querySelectorAll('.av').forEach(a=>a.classList.remove('active'));
+  document.getElementById('act'+n).classList.add('active');
+  const pct=Math.round((n/3)*100);
+  document.getElementById('pFill').style.width=pct+'%';
+  document.getElementById('pPct').textContent=pct+'%';
+  document.getElementById('pLabel').textContent='MISSION '+n+' / 3';
+}
+function resetAll(){
+  document.querySelectorAll('.pop').forEach(p=>p.classList.remove('show'));
+  // reset act1
+  slots1.forEach(s=>{if(sc1[s.id]){pool1.appendChild(sc1[s.id]);sc1[s.id].classList.remove('placed','wrong');delete sc1[s.id]}s.textContent='Drop here';s.classList.remove('correct','wrong-drop')});
+  document.getElementById('fb1').className='fb';document.getElementById('fb1').textContent='';
+  // reset act2
+  rs.forEach(s=>{if(sc2[s.id]){pool2.appendChild(sc2[s.id]);sc2[s.id].classList.remove('placed');delete sc2[s.id]}s.textContent=s.id==='rs1'?'Drop a line comment here':s.id==='rs2'?'Drop a suggestion here':'Drop the final action here';s.classList.remove('placed-ok','placed-err')});
+  document.getElementById('fb2').className='fb';document.getElementById('fb2').textContent='';
+  // reset act3
+  bzs.forEach(s=>{if(sc3[s.id]){pool3.appendChild(sc3[s.id]);sc3[s.id].classList.remove('placed');delete sc3[s.id]}s.textContent='Drop here';s.classList.remove('ok','bad')});
+  document.getElementById('fb3').className='fb';document.getElementById('fb3').textContent='';
+  goAct(1);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chromatography — Separate Ink Colours</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+:root{
+  --neon-cyan:#00fff7;--neon-pink:#ff2d9b;--neon-green:#39ff14;--neon-amber:#ffb300;
+  --neon-purple:#bf5fff;--neon-blue:#4dc3ff;
+  --bg-deep:#050a14;--bg-panel:rgba(10,20,40,0.85);--bg-card:rgba(0,255,247,0.06);
+  --text-main:#e8f4ff;--text-dim:#7aadcc;
+  --border-glow:rgba(0,255,247,0.25);
+}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Exo 2',sans-serif;}
+body{background:var(--bg-deep);color:var(--text-main);display:flex;flex-direction:column;align-items:center;justify-content:center;}
+
+/* === BACKGROUND CANVAS === */
+#bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;}
+
+/* === LAYOUT === */
+#app{position:relative;z-index:2;width:100vw;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:0;}
+
+/* === HEADER === */
+header{width:100%;padding:10px 32px 6px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-glow);background:rgba(5,10,20,0.7);backdrop-filter:blur(8px);flex-shrink:0;}
+.logo{font-family:'Orbitron',monospace;font-size:11px;letter-spacing:3px;color:var(--neon-cyan);opacity:0.7;}
+h1{font-family:'Orbitron',monospace;font-size:clamp(13px,1.6vw,18px);letter-spacing:2px;text-align:center;color:#fff;text-shadow:0 0 20px var(--neon-cyan);}
+.step-pills{display:flex;gap:8px;}
+.pill{padding:4px 12px;border-radius:20px;font-size:10px;letter-spacing:1.5px;font-weight:600;border:1px solid;transition:all .4s;}
+.pill.done{border-color:var(--neon-green);background:rgba(57,255,20,0.15);color:var(--neon-green);}
+.pill.active{border-color:var(--neon-cyan);background:rgba(0,255,247,0.15);color:var(--neon-cyan);box-shadow:0 0 12px rgba(0,255,247,0.4);}
+.pill.idle{border-color:rgba(255,255,255,0.15);color:rgba(255,255,255,0.3);}
+
+/* === MAIN STAGE === */
+#stage{flex:1;width:100%;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+
+/* === ACTIVITY PANELS === */
+.activity{display:none;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;gap:10px;padding:10px 24px;}
+.activity.visible{display:flex;}
+
+.act-title{font-family:'Orbitron',monospace;font-size:clamp(11px,1.4vw,14px);letter-spacing:2px;color:var(--neon-amber);text-align:center;text-shadow:0 0 10px var(--neon-amber);}
+.act-desc{font-size:clamp(11px,1.3vw,13px);color:var(--text-dim);text-align:center;max-width:620px;line-height:1.5;}
+
+/* === DRAG ITEMS === */
+.drag-item{
+  padding:8px 16px;border-radius:8px;cursor:grab;font-size:13px;font-weight:600;
+  border:1.5px solid;transition:transform .15s,box-shadow .15s;letter-spacing:.5px;
+  display:flex;align-items:center;gap:8px;white-space:nowrap;
+}
+.drag-item:hover{transform:scale(1.05);}
+.drag-item.dragging{opacity:.5;cursor:grabbing;}
+
+/* === DROP ZONES === */
+.drop-zone{
+  border:2px dashed;border-radius:12px;padding:10px;min-height:60px;
+  display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;
+  transition:background .2s,border-color .2s;font-size:12px;color:var(--text-dim);
+}
+.drop-zone.over{background:rgba(0,255,247,0.08);border-color:var(--neon-cyan);}
+.drop-zone.correct-flash{animation:correctPulse .6s ease;}
+.drop-zone.wrong-flash{animation:wrongPulse .5s ease;}
+@keyframes correctPulse{0%,100%{box-shadow:none;}50%{box-shadow:0 0 20px var(--neon-green),inset 0 0 10px rgba(57,255,20,0.2);}}
+@keyframes wrongPulse{0%,50%,100%{background:transparent;}25%,75%{background:rgba(255,45,45,0.15);}}
+
+.panel-box{
+  background:rgba(0,255,247,0.04);border:1px solid var(--border-glow);
+  border-radius:14px;padding:14px 18px;backdrop-filter:blur(4px);
+}
+.zone-label{font-size:11px;font-family:'Orbitron',monospace;letter-spacing:1.5px;margin-bottom:6px;color:var(--neon-cyan);}
+
+/* ===== ACTIVITY 1 ===== */
+#act1 .source-row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:680px;}
+#act1 .zones-row{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;}
+#act1 .zone-col{min-width:200px;max-width:260px;flex:1;}
+
+/* ===== ACTIVITY 2 ===== */
+#act2 .setup-row{display:flex;gap:24px;align-items:flex-start;justify-content:center;flex-wrap:wrap;}
+#act2 .supply-col{display:flex;flex-direction:column;gap:10px;align-items:center;}
+
+#beaker-area{position:relative;width:180px;height:220px;}
+#beaker-svg{width:100%;height:100%;}
+#drop-zone-beaker{position:absolute;top:10px;left:10px;right:10px;bottom:10px;border-radius:4px;}
+
+#filter-setup{display:flex;flex-direction:column;align-items:center;gap:0;position:relative;}
+#filter-strip{
+  width:60px;height:160px;background:rgba(245,235,200,0.15);border:1.5px solid rgba(200,180,120,0.4);
+  border-radius:4px 4px 8px 8px;position:relative;overflow:hidden;display:flex;flex-direction:column-reverse;
+}
+.ink-dot-placed{width:16px;height:16px;border-radius:50%;background:#222;position:absolute;left:50%;transform:translateX(-50%);bottom:12px;box-shadow:0 0 6px rgba(0,0,0,0.5);}
+#water-beaker-small{
+  width:70px;height:40px;position:relative;display:flex;align-items:flex-end;justify-content:center;
+  border-bottom:3px solid rgba(77,195,255,0.6);border-left:2px solid rgba(77,195,255,0.4);
+  border-right:2px solid rgba(77,195,255,0.4);border-radius:0 0 4px 4px;
+  background:rgba(77,195,255,0.1);overflow:hidden;
+}
+#strip-dip-bottom{
+  width:4px;height:20px;background:rgba(245,235,200,0.4);position:absolute;bottom:0;
+  border:1px solid rgba(200,180,120,0.3);border-radius:0;
+}
+
+.colour-band{width:100%;position:absolute;left:0;right:0;opacity:0;transition:opacity .8s ease;}
+
+#filter-drop-zone{
+  width:100px;height:100px;border:2px dashed rgba(77,195,255,0.4);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-dim);
+  text-align:center;transition:all .2s;position:relative;
+}
+#filter-drop-zone.has-ink .ink-indicator{display:flex;}
+.ink-indicator{
+  display:none;width:28px;height:28px;border-radius:50%;background:#222;
+  box-shadow:0 0 10px rgba(0,0,0,0.8);position:absolute;
+}
+
+.act2-step{
+  font-size:12px;padding:6px 14px;border-radius:6px;border:1px solid;letter-spacing:.5px;
+  transition:all .3s;font-weight:600;text-align:center;
+}
+.act2-step.pending{border-color:rgba(255,255,255,0.15);color:rgba(255,255,255,0.3);}
+.act2-step.active{border-color:var(--neon-cyan);color:var(--neon-cyan);box-shadow:0 0 8px rgba(0,255,247,0.3);}
+.act2-step.done-step{border-color:var(--neon-green);color:var(--neon-green);}
+
+/* ===== ACTIVITY 3 ===== */
+#act3 .bands-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+#act3 .labels-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:6px;}
+.band-item{
+  width:48px;height:48px;border-radius:10px;cursor:grab;border:2px solid rgba(255,255,255,0.2);
+  display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;
+  letter-spacing:.5px;transition:transform .15s;
+}
+.band-item:hover{transform:scale(1.1);}
+.ink-label-zone{
+  min-width:120px;padding:8px 12px;border:2px dashed;border-radius:10px;
+  display:flex;flex-direction:column;align-items:center;gap:4px;min-height:70px;
+  font-size:11px;font-weight:600;letter-spacing:1px;transition:all .2s;
+}
+.ink-label-zone .zone-top{font-size:12px;font-family:'Orbitron',monospace;}
+.band-slot{width:40px;height:40px;border-radius:8px;border:1.5px dashed rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;}
+.result-note{font-size:11px;color:var(--neon-green);text-align:center;margin-top:2px;height:14px;}
+
+/* === BUTTONS === */
+.btn{
+  padding:10px 28px;border-radius:8px;font-family:'Orbitron',monospace;font-size:12px;
+  letter-spacing:2px;font-weight:700;cursor:pointer;border:2px solid;transition:all .25s;
+}
+.btn-primary{border-color:var(--neon-cyan);color:var(--neon-cyan);background:rgba(0,255,247,0.1);}
+.btn-primary:hover{background:rgba(0,255,247,0.2);box-shadow:0 0 20px rgba(0,255,247,0.4);}
+.btn-primary:disabled{opacity:.3;cursor:not-allowed;box-shadow:none;}
+.btn-success{border-color:var(--neon-green);color:var(--neon-green);background:rgba(57,255,20,0.1);}
+.btn-success:hover{background:rgba(57,255,20,0.2);box-shadow:0 0 20px rgba(57,255,20,0.4);}
+
+/* === POPUP === */
+#popup-overlay{
+  position:fixed;inset:0;z-index:100;background:rgba(5,10,20,0.85);
+  display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px);
+}
+#popup-overlay.show{display:flex;}
+#popup-box{
+  background:linear-gradient(135deg,rgba(5,15,35,0.98),rgba(10,25,55,0.98));
+  border:1.5px solid var(--neon-cyan);border-radius:20px;padding:36px 44px;
+  max-width:480px;text-align:center;box-shadow:0 0 60px rgba(0,255,247,0.2);
+  animation:popIn .5s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes popIn{from{transform:scale(.7);opacity:0;}to{transform:scale(1);opacity:1;}}
+.popup-icon{font-size:48px;margin-bottom:12px;}
+.popup-title{font-family:'Orbitron',monospace;font-size:18px;letter-spacing:2px;margin-bottom:10px;color:var(--neon-cyan);}
+.popup-body{font-size:14px;color:var(--text-dim);line-height:1.6;margin-bottom:24px;}
+.popup-body strong{color:var(--text-main);}
+
+/* === SCORE === */
+.score-bar{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--text-dim);}
+.score-dot{width:10px;height:10px;border-radius:50%;border:1.5px solid;}
+.score-dot.earned{background:var(--neon-green);border-color:var(--neon-green);box-shadow:0 0 6px var(--neon-green);}
+.score-dot.missed{background:transparent;border-color:rgba(255,255,255,0.2);}
+
+/* === SEPARATOR === */
+.sep{width:100%;height:1px;background:var(--border-glow);opacity:.5;}
+
+/* animated separator */
+.glow-line{height:1px;background:linear-gradient(90deg,transparent,var(--neon-cyan),transparent);opacity:.5;}
+
+.feedback-msg{min-height:20px;font-size:12px;font-weight:600;letter-spacing:.5px;text-align:center;transition:all .3s;}
+
+/* Final celebration */
+@keyframes confettiFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1;}100%{transform:translateY(120px) rotate(720deg);opacity:0;}}
+.confetti-piece{position:absolute;width:8px;height:8px;border-radius:2px;animation:confettiFall 2s ease-in forwards;}
+</style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+<div id="app">
+  <header>
+    <div class="logo">PLANRS ACADEMY</div>
+    <h1>CHROMATOGRAPHY — SEPARATE INK COLOURS</h1>
+    <div class="step-pills">
+      <div class="pill active" id="pill-1">ACT 1</div>
+      <div class="pill idle" id="pill-2">ACT 2</div>
+      <div class="pill idle" id="pill-3">ACT 3</div>
+    </div>
+  </header>
+
+  <div id="stage">
+
+    <!-- ======= ACTIVITY 1 ======= -->
+    <div class="activity visible" id="act1">
+      <div class="act-title">⚗ ACTIVITY 1 — THE HIDDEN MIXTURE SORTER</div>
+      <div class="act-desc">Drag each ink sample into the correct category. Some inks are a <strong style="color:var(--neon-amber)">single pure colour</strong>. Others are secret <strong style="color:var(--neon-pink)">mixtures of colours</strong>!</div>
+      <div class="source-row" id="source-row-1">
+        <div class="drag-item" draggable="true" data-id="black" data-type="mixture" style="border-color:#555;background:rgba(0,0,0,0.5);color:#ccc;">
+          <span style="width:18px;height:18px;border-radius:50%;background:#111;border:1px solid #555;display:inline-block;"></span> Black Ink
+        </div>
+        <div class="drag-item" draggable="true" data-id="red" data-type="pure" style="border-color:#ff4466;background:rgba(255,68,102,0.15);color:#ff6688;">
+          <span style="width:18px;height:18px;border-radius:50%;background:#ff4466;display:inline-block;"></span> Red Ink
+        </div>
+        <div class="drag-item" draggable="true" data-id="green" data-type="mixture" style="border-color:#39ff14;background:rgba(57,255,20,0.1);color:#39ff14;">
+          <span style="width:18px;height:18px;border-radius:50%;background:#39ff14;display:inline-block;"></span> Green Ink
+        </div>
+        <div class="drag-item" draggable="true" data-id="blue" data-type="pure" style="border-color:#4dc3ff;background:rgba(77,195,255,0.15);color:#4dc3ff;">
+          <span style="width:18px;height:18px;border-radius:50%;background:#4dc3ff;display:inline-block;"></span> Blue Ink
+        </div>
+        <div class="drag-item" draggable="true" data-id="purple" data-type="mixture" style="border-color:#bf5fff;background:rgba(191,95,255,0.15);color:#bf5fff;">
+          <span style="width:18px;height:18px;border-radius:50%;background:#bf5fff;display:inline-block;"></span> Purple Ink
+        </div>
+        <div class="drag-item" draggable="true" data-id="yellow" data-type="pure" style="border-color:#ffee00;background:rgba(255,238,0,0.1);color:#ffe033;">
+          <span style="width:18px;height:18px;border-radius:50%;background:#ffee00;display:inline-block;"></span> Yellow Ink
+        </div>
+        <div class="drag-item" draggable="true" data-id="orange" data-type="mixture" style="border-color:#ff8c00;background:rgba(255,140,0,0.15);color:#ff8c00;">
+          <span style="width:18px;height:18px;border-radius:50%;background:#ff8c00;display:inline-block;"></span> Orange Ink
+        </div>
+      </div>
+
+      <div class="zones-row">
+        <div class="zone-col panel-box">
+          <div class="zone-label">✦ PURE COLOUR</div>
+          <div class="drop-zone" id="zone-pure" data-accepts="pure" style="border-color:rgba(77,195,255,0.4);min-width:200px;">Drop pure inks here</div>
+          <div class="result-note" id="pure-note"></div>
+        </div>
+        <div class="zone-col panel-box">
+          <div class="zone-label">⚗ COLOUR MIXTURE</div>
+          <div class="drop-zone" id="zone-mixture" data-accepts="mixture" style="border-color:rgba(255,45,155,0.4);min-width:200px;">Drop mixture inks here</div>
+          <div class="result-note" id="mix-note"></div>
+        </div>
+      </div>
+
+      <div class="feedback-msg" id="act1-feedback" style="color:var(--neon-green);"></div>
+      <button class="btn btn-primary" id="btn-next-1" disabled>NEXT ACTIVITY →</button>
+    </div>
+
+    <!-- ======= ACTIVITY 2 ======= -->
+    <div class="activity" id="act2">
+      <div class="act-title">🧪 ACTIVITY 2 — THE COLOUR RACE EXPERIMENT</div>
+      <div class="act-desc">Set up the chromatography experiment! Drag the <strong style="color:#222;background:#ddd;padding:0 4px;border-radius:3px;">Ink Dot</strong> onto the filter strip, then drag the <strong style="color:var(--neon-blue)">Water Drop</strong> into the beaker. Watch the colours race up!</div>
+
+      <div class="setup-row">
+        <div class="supply-col">
+          <div class="zone-label" style="font-size:10px;">SUPPLIES</div>
+          <div class="drag-item" id="ink-dot-supply" draggable="true" data-id="ink" style="border-color:#555;background:rgba(0,0,0,0.6);color:#ccc;cursor:grab;">
+            <span style="width:20px;height:20px;border-radius:50%;background:#111;border:1px solid #666;display:inline-block;"></span> Black Ink Dot
+          </div>
+          <div class="drag-item" id="water-supply" draggable="true" data-id="water" style="border-color:rgba(77,195,255,0.6);background:rgba(77,195,255,0.1);color:var(--neon-blue);cursor:grab;">
+            💧 Water Drop
+          </div>
+
+          <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px;min-width:140px;">
+            <div class="act2-step pending" id="step-ink">1. Place ink dot on strip</div>
+            <div class="act2-step pending" id="step-water">2. Add water to beaker</div>
+            <div class="act2-step pending" id="step-watch">3. Watch colours separate!</div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+          <div style="display:flex;gap:20px;align-items:flex-end;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+              <div class="zone-label" style="font-size:10px;">FILTER STRIP</div>
+              <div id="filter-drop-zone" title="Drop ink dot here">
+                <span id="filter-prompt" style="font-size:10px;text-align:center;line-height:1.4;color:var(--text-dim);">Drop ink<br>dot here</span>
+                <div class="ink-indicator" id="ink-on-strip"></div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+              <div class="zone-label" style="font-size:10px;">BEAKER + WATER</div>
+              <div id="beaker-area">
+                <svg id="beaker-svg" viewBox="0 0 180 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M30 20 L30 180 Q30 200 50 200 L130 200 Q150 200 150 180 L150 20 Z" fill="rgba(77,195,255,0.04)" stroke="rgba(77,195,255,0.3)" stroke-width="2"/>
+                  <rect x="20" y="15" width="140" height="12" rx="4" fill="rgba(77,195,255,0.1)" stroke="rgba(77,195,255,0.3)" stroke-width="1.5"/>
+                  <rect id="water-level" x="32" y="160" width="116" height="0" rx="2" fill="rgba(77,195,255,0.25)" opacity="0">
+                    <animate id="water-anim" attributeName="height" from="0" to="36" dur="1.5s" begin="indefinite" fill="freeze"/>
+                    <animate id="water-anim-y" attributeName="y" from="160" to="124" dur="1.5s" begin="indefinite" fill="freeze"/>
+                  </rect>
+                  <text x="90" y="170" text-anchor="middle" fill="rgba(77,195,255,0.3)" font-size="11" font-family="Exo 2">drop water here</text>
+                </svg>
+                <div id="drop-zone-beaker" style="cursor:crosshair;"></div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+              <div class="zone-label" style="font-size:10px;">RESULT</div>
+              <div id="filter-strip" style="border-radius:4px 4px 8px 8px;">
+                <div class="colour-band" id="band1" style="height:22%;bottom:16%;background:linear-gradient(90deg,rgba(255,238,0,0.6),rgba(255,238,0,0.8),rgba(255,238,0,0.6));"></div>
+                <div class="colour-band" id="band2" style="height:22%;bottom:37%;background:linear-gradient(90deg,rgba(255,140,0,0.5),rgba(255,140,0,0.7),rgba(255,140,0,0.5));"></div>
+                <div class="colour-band" id="band3" style="height:22%;bottom:58%;background:linear-gradient(90deg,rgba(255,80,80,0.5),rgba(220,40,40,0.7),rgba(255,80,80,0.5));"></div>
+                <div class="colour-band" id="band4" style="height:20%;bottom:78%;background:linear-gradient(90deg,rgba(80,80,255,0.5),rgba(60,60,220,0.7),rgba(80,80,255,0.5));"></div>
+                <div class="ink-dot-placed" id="ink-dot-placed" style="display:none;"></div>
+              </div>
+              <div style="width:60px;height:36px;border-bottom:2px solid rgba(77,195,255,0.5);border-left:1.5px solid rgba(77,195,255,0.3);border-right:1.5px solid rgba(77,195,255,0.3);border-radius:0 0 4px 4px;background:rgba(77,195,255,0.06);display:flex;align-items:flex-end;justify-content:center;padding-bottom:2px;">
+                <div id="strip-dip-bottom"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="colour-legend" style="display:none;flex-wrap:wrap;gap:6px;justify-content:center;max-width:340px;margin-top:4px;">
+            <div style="font-size:10px;font-weight:600;letter-spacing:1px;color:var(--text-dim);width:100%;text-align:center;">HIDDEN COLOURS REVEALED:</div>
+            <span style="background:rgba(80,80,255,0.2);border:1px solid rgba(80,80,255,0.5);color:#9999ff;padding:2px 10px;border-radius:4px;font-size:11px;">Indigo</span>
+            <span style="background:rgba(220,40,40,0.2);border:1px solid rgba(220,40,40,0.5);color:#ff7777;padding:2px 10px;border-radius:4px;font-size:11px;">Red</span>
+            <span style="background:rgba(255,140,0,0.2);border:1px solid rgba(255,140,0,0.5);color:#ffb04d;padding:2px 10px;border-radius:4px;font-size:11px;">Orange</span>
+            <span style="background:rgba(255,238,0,0.2);border:1px solid rgba(255,220,0,0.5);color:#ffe033;padding:2px 10px;border-radius:4px;font-size:11px;">Yellow</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="feedback-msg" id="act2-feedback" style="color:var(--neon-cyan);"></div>
+      <button class="btn btn-primary" id="btn-next-2" disabled>NEXT ACTIVITY →</button>
+    </div>
+
+    <!-- ======= ACTIVITY 3 ======= -->
+    <div class="activity" id="act3">
+      <div class="act-title">🔬 ACTIVITY 3 — IDENTIFY THE INK MIXTURES</div>
+      <div class="act-desc">These are colour bands separated from different inks. Drag each band to the ink it came from. Find which inks are mixtures!</div>
+
+      <div class="panel-box" style="max-width:680px;width:100%;">
+        <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:10px;">
+          <div class="band-item draggable-band" draggable="true" data-band="cyan-band" data-belongs="cyan-ink" style="background:rgba(0,240,255,0.25);border-color:rgba(0,240,255,0.6);color:#00f0ff;">CYAN</div>
+          <div class="band-item draggable-band" draggable="true" data-band="blue-band" data-belongs="purple-ink" style="background:rgba(80,80,255,0.25);border-color:rgba(80,80,255,0.6);color:#9999ff;">BLUE</div>
+          <div class="band-item draggable-band" draggable="true" data-band="red-band" data-belongs="orange-ink" style="background:rgba(255,60,60,0.25);border-color:rgba(255,60,60,0.6);color:#ff7777;">RED</div>
+          <div class="band-item draggable-band" draggable="true" data-band="magenta-band" data-belongs="purple-ink" style="background:rgba(255,0,180,0.25);border-color:rgba(255,0,180,0.6);color:#ff66cc;">MAGENTA</div>
+          <div class="band-item draggable-band" draggable="true" data-band="yellow-band" data-belongs="orange-ink" style="background:rgba(255,230,0,0.25);border-color:rgba(255,230,0,0.6);color:#ffe033;">YELLOW</div>
+          <div class="band-item draggable-band" draggable="true" data-band="cyan2-band" data-belongs="cyan-ink" style="background:rgba(0,200,200,0.25);border-color:rgba(0,200,200,0.6);color:#00dddd;">AQUA</div>
+        </div>
+        <div class="glow-line" style="margin-bottom:10px;"></div>
+        <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+          <div class="ink-label-zone" id="zone-cyan-ink" data-ink="cyan-ink" data-bands="cyan-band,cyan2-band" data-count="2" style="border-color:rgba(0,240,255,0.4);">
+            <div class="zone-top" style="color:#00f0ff;">CYAN INK</div>
+            <div style="display:flex;gap:4px;">
+              <div class="band-slot" id="slot-cyan-1"></div>
+              <div class="band-slot" id="slot-cyan-2"></div>
+            </div>
+            <div class="result-note" id="note-cyan-ink"></div>
+          </div>
+          <div class="ink-label-zone" id="zone-purple-ink" data-ink="purple-ink" data-bands="blue-band,magenta-band" data-count="2" style="border-color:rgba(191,95,255,0.4);">
+            <div class="zone-top" style="color:#bf5fff;">PURPLE INK</div>
+            <div style="display:flex;gap:4px;">
+              <div class="band-slot" id="slot-purple-1"></div>
+              <div class="band-slot" id="slot-purple-2"></div>
+            </div>
+            <div class="result-note" id="note-purple-ink"></div>
+          </div>
+          <div class="ink-label-zone" id="zone-orange-ink" data-ink="orange-ink" data-bands="red-band,yellow-band" data-count="2" style="border-color:rgba(255,140,0,0.4);">
+            <div class="zone-top" style="color:#ff8c00;">ORANGE INK</div>
+            <div style="display:flex;gap:4px;">
+              <div class="band-slot" id="slot-orange-1"></div>
+              <div class="band-slot" id="slot-orange-2"></div>
+            </div>
+            <div class="result-note" id="note-orange-ink"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feedback-msg" id="act3-feedback" style="color:var(--neon-green);"></div>
+      <button class="btn btn-success" id="btn-finish" disabled>🎉 COMPLETE EXPERIMENT</button>
+    </div>
+
+  </div><!-- /stage -->
+</div><!-- /app -->
+
+<!-- POPUP -->
+<div id="popup-overlay">
+  <div id="popup-box">
+    <div class="popup-icon" id="popup-icon">✅</div>
+    <div class="popup-title" id="popup-title">ACTIVITY COMPLETE!</div>
+    <div class="popup-body" id="popup-body">Great work, scientist!</div>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+      <button class="btn btn-primary" id="popup-btn">CONTINUE →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===================== BACKGROUND CANVAS ===================== */
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+
+function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
+resize();window.addEventListener('resize',resize);
+
+const particles=[];
+const PARTICLE_COUNT=60;
+const MOLECULE_COUNT=14;
+const FLASK_COUNT=5;
+
+const colours=['#00fff7','#ff2d9b','#39ff14','#ffb300','#bf5fff','#4dc3ff','#ff8c00','#ffee00','#ff4466'];
+
+for(let i=0;i<PARTICLE_COUNT;i++){
+  particles.push({
+    x:Math.random()*window.innerWidth,y:Math.random()*window.innerHeight,
+    r:Math.random()*2.5+0.5,
+    vx:(Math.random()-.5)*.4,vy:(Math.random()-.5)*.4,
+    col:colours[Math.floor(Math.random()*colours.length)],
+    alpha:Math.random()*.6+.1,pulse:Math.random()*Math.PI*2,pulseSpeed:0.02+Math.random()*0.03
+  });
+}
+
+const molecules=[];
+for(let i=0;i<MOLECULE_COUNT;i++){
+  molecules.push({
+    x:Math.random()*window.innerWidth,y:Math.random()*window.innerHeight,
+    vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,
+    r:18+Math.random()*22,
+    bonds:Math.floor(Math.random()*3)+2,
+    col:colours[Math.floor(Math.random()*colours.length)],
+    rot:0,rotSpeed:(Math.random()-.5)*0.008
+  });
+}
+
+const flasks=[];
+for(let i=0;i<FLASK_COUNT;i++){
+  flasks.push({
+    x:Math.random()*window.innerWidth,y:Math.random()*window.innerHeight,
+    scale:0.7+Math.random()*0.5,
+    col:colours[Math.floor(Math.random()*colours.length)],
+    bubble:0,bubbleSpeed:0.015+Math.random()*0.02,
+    vx:(Math.random()-.5)*.15,vy:(Math.random()-.5)*.15,
+    alpha:0.08+Math.random()*0.1
+  });
+}
+
+function drawMolecule(m){
+  ctx.save();
+  ctx.translate(m.x,m.y);ctx.rotate(m.rot);
+  ctx.globalAlpha=0.12;
+  ctx.strokeStyle=m.col;ctx.lineWidth=1.5;
+  for(let b=0;b<m.bonds;b++){
+    const angle=(b/m.bonds)*Math.PI*2;
+    const x2=Math.cos(angle)*m.r,y2=Math.sin(angle)*m.r;
+    ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(x2,y2);ctx.stroke();
+    ctx.beginPath();ctx.arc(x2,y2,4,0,Math.PI*2);
+    ctx.fillStyle=m.col;ctx.fill();
+  }
+  ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fillStyle=m.col;ctx.fill();
+  ctx.restore();
+}
+
+function drawFlask(f){
+  ctx.save();
+  ctx.translate(f.x,f.y);ctx.scale(f.scale,f.scale);ctx.globalAlpha=f.alpha;
+  ctx.strokeStyle=f.col;ctx.lineWidth=1.5;
+  ctx.beginPath();
+  ctx.moveTo(-10,-40);ctx.lineTo(-10,-15);ctx.lineTo(-30,15);ctx.lineTo(-30,35);
+  ctx.lineTo(30,35);ctx.lineTo(30,15);ctx.lineTo(10,-15);ctx.lineTo(10,-40);
+  ctx.closePath();ctx.stroke();
+  const bY=5+Math.sin(f.bubble)*10;
+  ctx.beginPath();ctx.arc(-8,bY,4,0,Math.PI*2);ctx.fillStyle=f.col;ctx.globalAlpha=f.alpha*.6;ctx.fill();
+  ctx.beginPath();ctx.arc(5,bY-14,3,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(-2,bY-28,2,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+function animate(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  particles.forEach(p=>{
+    p.pulse+=p.pulseSpeed;
+    const a=p.alpha*(0.6+0.4*Math.sin(p.pulse));
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle=p.col;ctx.globalAlpha=a;ctx.fill();
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0;
+    if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0;
+  });
+
+  molecules.forEach(m=>{
+    drawMolecule(m);
+    m.rot+=m.rotSpeed;m.x+=m.vx;m.y+=m.vy;
+    if(m.x<-50)m.x=canvas.width+50;if(m.x>canvas.width+50)m.x=-50;
+    if(m.y<-50)m.y=canvas.height+50;if(m.y>canvas.height+50)m.y=-50;
+  });
+
+  flasks.forEach(f=>{
+    drawFlask(f);
+    f.bubble+=f.bubbleSpeed;f.x+=f.vx;f.y+=f.vy;
+    if(f.x<-60)f.x=canvas.width+60;if(f.x>canvas.width+60)f.x=-60;
+    if(f.y<-60)f.y=canvas.height+60;if(f.y>canvas.height+60)f.y=-60;
+  });
+
+  ctx.globalAlpha=1;
+  requestAnimationFrame(animate);
+}
+animate();
+
+/* ===================== ACTIVITY 1 ===================== */
+let act1Placed=0,act1Score=0;
+const TOTAL_A1=7;
+
+document.querySelectorAll('#act1 .drag-item').forEach(item=>{
+  item.addEventListener('dragstart',e=>{
+    e.dataTransfer.setData('id',item.dataset.id);
+    e.dataTransfer.setData('type',item.dataset.type);
+    e.dataTransfer.setData('elemId',item.id||item.dataset.id);
+    item.classList.add('dragging');
+  });
+  item.addEventListener('dragend',()=>item.classList.remove('dragging'));
+});
+
+['zone-pure','zone-mixture'].forEach(zId=>{
+  const zone=document.getElementById(zId);
+  zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('over');});
+  zone.addEventListener('dragleave',()=>zone.classList.remove('over'));
+  zone.addEventListener('drop',e=>{
+    e.preventDefault();zone.classList.remove('over');
+    const type=e.dataTransfer.getData('type');
+    const id=e.dataTransfer.getData('id');
+    const accepts=zone.dataset.accepts;
+    const correct=type===accepts;
+
+    const source=document.querySelector(`[data-id="${id}"]`);
+    if(!source||source.parentElement===zone)return;
+
+    if(correct){
+      zone.classList.add('correct-flash');
+      source.style.cursor='default';source.removeAttribute('draggable');
+      zone.appendChild(source);
+      act1Score++;
+      setTimeout(()=>zone.classList.remove('correct-flash'),700);
+      const noteId=accepts==='pure'?'pure-note':'mix-note';
+      document.getElementById(noteId).textContent=`+${Math.round((act1Score/TOTAL_A1)*100)}% correct`;
+      document.getElementById(noteId).style.color='var(--neon-green)';
+    } else {
+      zone.classList.add('wrong-flash');
+      setTimeout(()=>zone.classList.remove('wrong-flash'),600);
+    }
+    act1Placed++;
+    if(act1Score===TOTAL_A1){
+      document.getElementById('act1-feedback').textContent='🎉 All inks sorted correctly! Black ink, green, purple, and orange are all hidden mixtures!';
+      document.getElementById('btn-next-1').disabled=false;
+    } else if(act1Placed>=TOTAL_A1&&act1Score<TOTAL_A1){
+      document.getElementById('act1-feedback').textContent=`✓ ${act1Score}/${TOTAL_A1} correct — try dragging again!`;
+      document.getElementById('act1-feedback').style.color='var(--neon-amber)';
+    }
+  });
+});
+
+document.getElementById('btn-next-1').addEventListener('click',()=>{
+  showPopup({
+    icon:'🎨',
+    title:'ACTIVITY 1 COMPLETE!',
+    body:`<strong>Amazing discovery!</strong> You identified that <strong>Black, Green, Purple, and Orange</strong> inks are actually <em>secret mixtures</em> of many colours hiding together — just like a bowl of Mixed Fruit Chaat looks like one thing but contains many fruits! Now let's separate those hidden colours!`,
+    btnText:'START EXPERIMENT →',
+    onBtn:()=>{switchActivity(1,2);}
+  });
+});
+
+/* ===================== ACTIVITY 2 ===================== */
+let inkPlaced=false,waterPlaced=false;
+
+const inkSupply=document.getElementById('ink-dot-supply');
+const waterSupply=document.getElementById('water-supply');
+const filterZone=document.getElementById('filter-drop-zone');
+const beakerZone=document.getElementById('drop-zone-beaker');
+
+inkSupply.addEventListener('dragstart',e=>{e.dataTransfer.setData('supply','ink');inkSupply.classList.add('dragging');});
+inkSupply.addEventListener('dragend',()=>inkSupply.classList.remove('dragging'));
+waterSupply.addEventListener('dragstart',e=>{e.dataTransfer.setData('supply','water');waterSupply.classList.add('dragging');});
+waterSupply.addEventListener('dragend',()=>waterSupply.classList.remove('dragging'));
+
+filterZone.addEventListener('dragover',e=>{e.preventDefault();filterZone.style.borderColor='var(--neon-cyan)';});
+filterZone.addEventListener('dragleave',()=>filterZone.style.borderColor='rgba(77,195,255,0.4)');
+filterZone.addEventListener('drop',e=>{
+  e.preventDefault();
+  filterZone.style.borderColor='rgba(77,195,255,0.4)';
+  if(e.dataTransfer.getData('supply')==='ink'&&!inkPlaced){
+    inkPlaced=true;
+    document.getElementById('filter-prompt').style.display='none';
+    document.getElementById('ink-on-strip').style.display='flex';
+    filterZone.style.borderColor='var(--neon-green)';
+    document.getElementById('ink-dot-placed').style.display='block';
+    inkSupply.style.opacity='0.3';inkSupply.removeAttribute('draggable');
+    const s=document.getElementById('step-ink');s.className='act2-step done-step';
+    if(waterPlaced) tryRunExperiment();
+    else {document.getElementById('step-water').className='act2-step active';}
+  }
+});
+
+beakerZone.addEventListener('dragover',e=>{e.preventDefault();});
+beakerZone.addEventListener('drop',e=>{
+  e.preventDefault();
+  if(e.dataTransfer.getData('supply')==='water'&&!waterPlaced){
+    waterPlaced=true;
+    waterSupply.style.opacity='0.3';waterSupply.removeAttribute('draggable');
+    const anim=document.getElementById('water-anim');
+    const animY=document.getElementById('water-anim-y');
+    const rect=document.getElementById('water-level');
+    rect.setAttribute('opacity','1');
+    anim.beginElement();animY.beginElement();
+    const s=document.getElementById('step-water');s.className='act2-step done-step';
+    if(inkPlaced) tryRunExperiment();
+    else {document.getElementById('act2-feedback').textContent='Now place the ink dot on the filter strip!';}
+  }
+});
+
+function tryRunExperiment(){
+  if(inkPlaced&&waterPlaced){
+    document.getElementById('step-watch').className='act2-step active';
+    document.getElementById('act2-feedback').textContent='Water is climbing the strip… colours are separating!';
+    setTimeout(()=>{
+      ['band1','band2','band3','band4'].forEach((id,i)=>{
+        setTimeout(()=>{document.getElementById(id).style.opacity='1';},i*600);
+      });
+      setTimeout(()=>{
+        document.getElementById('colour-legend').style.display='flex';
+        document.getElementById('step-watch').className='act2-step done-step';
+        document.getElementById('act2-feedback').textContent='🌈 Black ink separated into Indigo, Red, Orange and Yellow — it was a mixture all along!';
+        document.getElementById('btn-next-2').disabled=false;
+      },3200);
+    },800);
+  }
+}
+
+document.getElementById('btn-next-2').addEventListener('click',()=>{
+  showPopup({
+    icon:'🌈',
+    title:'COLOURS REVEALED!',
+    body:`<strong>Brilliant experiment!</strong> The water climbed up the filter strip and carried the ink colours with it. <strong>Faster colours</strong> (like Yellow) raced to the top, while <strong>slower colours</strong> (like Indigo) stayed lower. Black ink is made of <strong>at least 4 hidden colours</strong>!`,
+    btnText:'FINAL CHALLENGE →',
+    onBtn:()=>{switchActivity(2,3);}
+  });
+});
+
+/* ===================== ACTIVITY 3 ===================== */
+let act3Filled={};
+const ACT3_ZONES={'cyan-ink':['cyan-band','cyan2-band'],'purple-ink':['blue-band','magenta-band'],'orange-ink':['red-band','yellow-band']};
+const act3SlotCounters={'cyan-ink':0,'purple-ink':0,'orange-ink':0};
+
+document.querySelectorAll('.draggable-band').forEach(band=>{
+  band.addEventListener('dragstart',e=>{
+    e.dataTransfer.setData('band',band.dataset.band);
+    e.dataTransfer.setData('belongs',band.dataset.belongs);
+    band.classList.add('dragging');
+  });
+  band.addEventListener('dragend',()=>band.classList.remove('dragging'));
+});
+
+document.querySelectorAll('.ink-label-zone').forEach(zone=>{
+  zone.addEventListener('dragover',e=>{e.preventDefault();zone.style.background='rgba(255,255,255,0.05)';});
+  zone.addEventListener('dragleave',()=>zone.style.background='');
+  zone.addEventListener('drop',e=>{
+    e.preventDefault();zone.style.background='';
+    const band=e.dataTransfer.getData('band');
+    const belongs=e.dataTransfer.getData('belongs');
+    const inkId=zone.dataset.ink;
+    const correct=belongs===inkId;
+    const source=document.querySelector(`[data-band="${band}"]`);
+    if(!source||source.parentElement.classList.contains('band-slot'))return;
+
+    if(correct){
+      const count=act3SlotCounters[inkId];
+      const slotMap={'cyan-ink':['slot-cyan-1','slot-cyan-2'],'purple-ink':['slot-purple-1','slot-purple-2'],'orange-ink':['slot-orange-1','slot-orange-2']};
+      const slotId=slotMap[inkId][count];
+      const slot=document.getElementById(slotId);
+      if(slot&&!slot.children.length){
+        source.style.cursor='default';source.removeAttribute('draggable');
+        source.style.width='36px';source.style.height='36px';source.style.fontSize='9px';
+        slot.appendChild(source);
+        act3SlotCounters[inkId]++;
+        zone.classList.add('correct-flash');
+        setTimeout(()=>zone.classList.remove('correct-flash'),700);
+
+        if(act3SlotCounters[inkId]===2){
+          act3Filled[inkId]=true;
+          const noteEl=document.getElementById('note-'+inkId);
+          noteEl.textContent=inkId==='cyan-ink'?'Pure-ish (2 similar shades)':'MIXTURE! Multiple colours inside.';
+          noteEl.style.color=inkId==='cyan-ink'?'var(--neon-blue)':'var(--neon-green)';
+          zone.style.borderStyle='solid';
+        }
+        checkAct3();
+      }
+    } else {
+      zone.classList.add('wrong-flash');
+      setTimeout(()=>zone.classList.remove('wrong-flash'),500);
+      document.getElementById('act3-feedback').textContent='Hmm, that band belongs to a different ink. Try again!';
+      document.getElementById('act3-feedback').style.color='var(--neon-amber)';
+      setTimeout(()=>{document.getElementById('act3-feedback').textContent='';},2000);
+    }
+  });
+});
+
+function checkAct3(){
+  const done=Object.values(act3Filled).filter(Boolean).length;
+  if(done===3){
+    document.getElementById('act3-feedback').textContent='🎉 All bands matched! You can see which inks are mixtures of colours!';
+    document.getElementById('act3-feedback').style.color='var(--neon-green)';
+    document.getElementById('btn-finish').disabled=false;
+  } else {
+    document.getElementById('act3-feedback').textContent=`✓ ${done}/3 inks identified — keep going!`;
+    document.getElementById('act3-feedback').style.color='var(--neon-cyan)';
+  }
+}
+
+document.getElementById('btn-finish').addEventListener('click',()=>{
+  showFinalPopup();
+});
+
+/* ===================== POPUP SYSTEM ===================== */
+function showPopup({icon,title,body,btnText,onBtn}){
+  const overlay=document.getElementById('popup-overlay');
+  document.getElementById('popup-icon').textContent=icon;
+  document.getElementById('popup-title').textContent=title;
+  document.getElementById('popup-body').innerHTML=body;
+  const btn=document.getElementById('popup-btn');
+  btn.textContent=btnText;
+  btn.onclick=()=>{overlay.classList.remove('show');onBtn&&onBtn();};
+  overlay.classList.add('show');
+}
+
+function showFinalPopup(){
+  const overlay=document.getElementById('popup-overlay');
+  document.getElementById('popup-icon').textContent='🏆';
+  document.getElementById('popup-title').textContent='EXPERIMENT COMPLETE!';
+  document.getElementById('popup-body').innerHTML=`
+    <strong>Outstanding work, Scientist!</strong><br><br>
+    You discovered that <strong>Black, Green, Purple, and Orange</strong> inks are hidden mixtures.<br><br>
+    You ran a real <strong>chromatography experiment</strong> — water carried colours up the filter strip at different speeds, separating them one by one.<br><br>
+    You identified that <strong>Purple</strong> = Blue + Magenta, and <strong>Orange</strong> = Red + Yellow!<br><br>
+    <span style="color:var(--neon-cyan);font-size:12px;letter-spacing:1px;">CHROMATOGRAPHY: The science of separating hidden colours.</span>
+  `;
+  const btn=document.getElementById('popup-btn');
+  btn.textContent='🎉 CELEBRATE!';
+  btn.onclick=()=>{launchConfetti();};
+  overlay.classList.add('show');
+
+  // confetti inside popup
+  const box=document.getElementById('popup-box');
+  box.style.borderColor='var(--neon-green)';
+  box.style.boxShadow='0 0 60px rgba(57,255,20,0.3)';
+}
+
+function launchConfetti(){
+  const overlay=document.getElementById('popup-overlay');
+  overlay.classList.remove('show');
+  const container=document.getElementById('app');
+  const confColours=['#00fff7','#ff2d9b','#39ff14','#ffb300','#bf5fff','#4dc3ff','#ff8c00','#ffee00'];
+  for(let i=0;i<60;i++){
+    setTimeout(()=>{
+      const c=document.createElement('div');
+      c.className='confetti-piece';
+      c.style.left=Math.random()*100+'%';
+      c.style.top='-10px';
+      c.style.background=confColours[Math.floor(Math.random()*confColours.length)];
+      c.style.animationDuration=(1.5+Math.random())*1.5+'s';
+      c.style.animationDelay=Math.random()*.5+'s';
+      container.appendChild(c);
+      setTimeout(()=>c.remove(),3000);
+    },i*30);
+  }
+}
+
+/* ===================== NAVIGATION ===================== */
+function switchActivity(from,to){
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('visible'));
+  document.getElementById('act'+to).classList.add('visible');
+  ['pill-1','pill-2','pill-3'].forEach((id,i)=>{
+    const p=document.getElementById(id);
+    if(i+1<to)p.className='pill done';
+    else if(i+1===to)p.className='pill active';
+    else p.className='pill idle';
+  });
+}
+</script>
+</body>
+</html>

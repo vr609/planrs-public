@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NON-NEWTONIAN FLUID — OOBLECK</title>
+<link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;user-select:none}
+:root{
+  --deep:#03153a;--mid:#062a6e;--surf:#0a4fa3;--teal:#00c9b1;--cyan:#22e5f5;
+  --green:#39ff5a;--coral:#ff6b6b;--gold:#ffd93d;--orange:#ff9f1c;--pink:#ff6eb4;
+  --white:#e8f8ff;--muted:#8dd4f0;
+  --jelly:#b980ff;--seaweed:#1aab5e;
+}
+html,body{width:100vw;height:100vh;overflow:hidden;background:var(--deep);font-family:'Nunito',sans-serif;color:var(--white)}
+
+/* ═══ UNDERWATER CANVAS ═══ */
+#ocean-bg{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+/* light rays */
+.ray{position:fixed;top:-10%;width:60px;background:linear-gradient(180deg,rgba(34,229,245,0.13),transparent);transform-origin:top center;pointer-events:none;animation:raySway ease-in-out infinite alternate}
+@keyframes raySway{0%{transform:rotate(-6deg) scaleX(1)}100%{transform:rotate(6deg) scaleX(1.4)}}
+
+/* bubbles */
+.bubble{position:fixed;border-radius:50%;border:1.5px solid rgba(34,229,245,0.5);background:rgba(34,229,245,0.07);pointer-events:none;animation:bubbleRise linear infinite}
+@keyframes bubbleRise{0%{transform:translateY(0) translateX(0);opacity:0}10%{opacity:1}85%{opacity:0.7}100%{transform:translateY(-105vh) translateX(var(--bx));opacity:0}}
+
+/* seaweed */
+.seaweed-wrap{position:fixed;bottom:0;pointer-events:none}
+.seaweed{width:18px;border-radius:50% 50% 0 0;transform-origin:bottom center;animation:sway ease-in-out infinite alternate}
+@keyframes sway{0%{transform:rotate(-18deg)}100%{transform:rotate(18deg)}}
+
+/* jellyfish */
+.jelly{position:fixed;pointer-events:none;animation:jellyFloat ease-in-out infinite}
+@keyframes jellyFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}}
+.jelly-body{border-radius:50% 50% 0 0;background:radial-gradient(ellipse at 40% 40%,rgba(200,140,255,0.9),rgba(150,80,255,0.6));box-shadow:0 0 18px rgba(185,128,255,0.7),inset 0 0 12px rgba(255,255,255,0.2);animation:jellyPulse 2s ease-in-out infinite}
+@keyframes jellyPulse{0%,100%{transform:scaleX(1)}50%{transform:scaleX(0.88)}}
+.jelly-tent{position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);display:flex;gap:3px}
+.jelly-t{width:2px;border-radius:1px;background:rgba(185,128,255,0.6);transform-origin:top center;animation:tentWave ease-in-out infinite alternate}
+@keyframes tentWave{0%{transform:rotate(-15deg) scaleY(1)}100%{transform:rotate(15deg) scaleY(0.8)}}
+
+/* fish */
+.fish{position:fixed;pointer-events:none;animation:fishSwim linear infinite}
+@keyframes fishSwim{0%{transform:translateX(-120px)}100%{transform:translateX(calc(100vw + 120px))}}
+.fish-body{border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;position:relative}
+.fish-tail{position:absolute;right:-12px;top:50%;transform:translateY(-50%);width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent}
+.fish-eye{position:absolute;width:5px;height:5px;border-radius:50%;background:#fff;top:30%;left:18%}
+.fish-eye::after{content:'';position:absolute;width:3px;height:3px;border-radius:50%;background:#1a1a2e;top:1px;left:1px}
+
+/* coral */
+.coral{position:fixed;bottom:0;pointer-events:none}
+
+/* treasure */
+.treasure{position:fixed;pointer-events:none}
+.treasure-chest{font-size:28px;animation:treasureGlow 2s ease-in-out infinite alternate}
+@keyframes treasureGlow{0%{filter:drop-shadow(0 0 4px #ffd93d)}100%{filter:drop-shadow(0 0 14px #ff9f1c)}}
+
+/* shimmer particles */
+.shimmer{position:fixed;pointer-events:none;border-radius:50%;animation:shimmerFloat linear infinite}
+@keyframes shimmerFloat{0%{opacity:0;transform:translate(0,0) scale(0)}30%{opacity:0.8}70%{opacity:0.5}100%{opacity:0;transform:translate(var(--sx),var(--sy)) scale(1.5)}}
+
+/* ═══ APP LAYOUT ═══ */
+#app{position:relative;z-index:10;width:100vw;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ═══ HEADER ═══ */
+#header{flex-shrink:0;padding:8px 20px 6px;background:linear-gradient(135deg,rgba(6,42,110,0.85),rgba(0,201,177,0.25));border-bottom:2px solid rgba(0,201,177,0.4);display:flex;align-items:center;justify-content:space-between;gap:10px}
+#header-left{display:flex;align-items:center;gap:10px}
+#header h1{font-family:'Boogaloo',cursive;font-size:clamp(16px,2.2vw,26px);background:linear-gradient(135deg,#22e5f5,#39ff5a,#ffd93d);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:1.5px;text-transform:uppercase;line-height:1.1}
+#header p{font-size:11px;color:var(--muted)}
+.header-deco{font-size:26px;animation:headerBob 2s ease-in-out infinite alternate}
+@keyframes headerBob{from{transform:translateY(0)}to{transform:translateY(-5px)}}
+
+/* progress */
+#progress-bar{flex-shrink:0;padding:5px 16px;display:flex;align-items:center;gap:8px;background:rgba(0,0,0,0.25)}
+.step-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;transition:all 0.4s;border:2px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:var(--muted);flex-shrink:0}
+.step-dot.active{background:var(--teal);color:#062a6e;border-color:var(--teal);box-shadow:0 0 14px rgba(0,201,177,0.7);transform:scale(1.1)}
+.step-dot.done{background:var(--green);color:#062a6e;border-color:var(--green)}
+.step-line{flex:1;height:3px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden}
+.step-line-fill{height:100%;background:linear-gradient(90deg,var(--teal),var(--green));border-radius:2px;transition:width 0.6s ease;width:0%}
+.step-label{font-size:10px;color:var(--muted);font-weight:700;min-width:72px;text-align:center;display:none}
+@media(min-width:520px){.step-label{display:block}}
+
+/* ═══ MAIN ═══ */
+#main{flex:1;display:flex;overflow:hidden;position:relative;min-height:0}
+.activity{position:absolute;inset:0;display:flex;flex-direction:column;padding:8px 14px;opacity:0;pointer-events:none;transition:opacity 0.5s}
+.activity.active{opacity:1;pointer-events:all}
+.act-title{font-family:'Boogaloo',cursive;font-size:clamp(14px,1.9vw,20px);color:var(--cyan);margin-bottom:3px;display:flex;align-items:center;gap:8px}
+.act-title span{font-size:10px;background:rgba(0,201,177,0.2);color:var(--teal);padding:2px 10px;border-radius:20px;font-family:'Nunito',sans-serif;font-weight:700}
+.act-desc{font-size:11.5px;color:var(--muted);margin-bottom:8px;line-height:1.5}
+
+/* ═══ DRAG GHOST ═══ */
+#drag-ghost{position:fixed;pointer-events:none;z-index:999;opacity:0.85;transform:scale(1.1) rotate(-6deg);display:none}
+
+/* ════════════════════════════════
+   ACTIVITY 1 — SORT MATERIALS
+════════════════════════════════ */
+#act1-layout{display:flex;gap:10px;flex:1;min-height:0;overflow:hidden}
+#act1-cards-col{width:120px;flex-shrink:0;display:flex;flex-direction:column;gap:6px}
+.cards-bank{background:rgba(6,42,110,0.5);border:1.5px solid rgba(0,201,177,0.3);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:5px;flex:1;overflow-y:auto}
+.cards-bank-label{font-size:10px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:1px;text-align:center;margin-bottom:2px}
+.mat-card{padding:5px 8px;border-radius:10px;font-size:11px;font-weight:700;cursor:grab;border:1.5px solid;transition:transform 0.15s,box-shadow 0.15s;text-align:center;line-height:1.3;background:rgba(255,255,255,0.07)}
+.mat-card:hover{transform:scale(1.08) rotate(-3deg);box-shadow:0 4px 14px rgba(0,0,0,0.4)}
+.mat-card:active{cursor:grabbing}
+.mat-card.used{opacity:0.25;cursor:not-allowed;transform:none}
+
+#act1-zones{display:flex;gap:10px;flex:1;min-width:0}
+.sort-zone{flex:1;background:rgba(6,42,110,0.4);border-radius:14px;border:2px dashed rgba(255,255,255,0.2);padding:8px;display:flex;flex-direction:column;gap:5px;transition:border-color 0.3s,background 0.3s;overflow-y:auto}
+.sort-zone.over{border-style:solid;border-color:var(--gold);background:rgba(255,217,61,0.08)}
+.zone-header{text-align:center;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:4px;flex-shrink:0}
+.zone-icon{font-size:22px;display:block;margin-bottom:2px}
+.zone-title{font-family:'Boogaloo',cursive;font-size:14px}
+.zone-subtitle{font-size:10px;color:var(--muted)}
+.zone-item{padding:4px 8px;border-radius:8px;font-size:11px;font-weight:700;text-align:center;animation:itemDrop 0.3s ease}
+@keyframes itemDrop{0%{transform:scale(0.5) translateY(-10px);opacity:0}70%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+.zone-item.correct{background:rgba(57,255,90,0.2);border:1px solid rgba(57,255,90,0.5);color:var(--green)}
+.zone-item.wrong{background:rgba(255,107,107,0.2);border:1px solid rgba(255,107,107,0.5);color:var(--coral);animation:shakeItem 0.35s ease}
+@keyframes shakeItem{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+#act1-score-bar{display:flex;align-items:center;gap:8px;margin-top:6px;flex-shrink:0}
+.score-pill{background:rgba(0,201,177,0.2);border:1px solid rgba(0,201,177,0.4);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;color:var(--teal)}
+#act1-next{margin-left:auto;padding:6px 18px;border-radius:20px;border:none;background:linear-gradient(135deg,var(--teal),var(--cyan));color:#062a6e;font-weight:900;font-size:12px;cursor:pointer;opacity:0;transition:all 0.4s;transform:scale(0.8);font-family:'Nunito',sans-serif}
+#act1-next.visible{opacity:1;transform:scale(1);box-shadow:0 0 16px rgba(0,201,177,0.5)}
+#act1-next:hover{transform:scale(1.06)}
+
+/* ════════════════════════════════
+   ACTIVITY 2 — OOBLECK LAB
+════════════════════════════════ */
+#act2-layout{display:flex;gap:10px;flex:1;min-height:0;overflow:hidden}
+#act2-left{width:120px;flex-shrink:0;display:flex;flex-direction:column;gap:8px}
+#act2-center{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+#act2-right{width:118px;flex-shrink:0;display:flex;flex-direction:column;gap:6px}
+
+.ingredient-card{padding:8px;border-radius:12px;border:2px solid;cursor:grab;text-align:center;font-weight:700;font-size:12px;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:4px}
+.ingredient-card:hover{transform:scale(1.07) rotate(-4deg)}
+.ingredient-card:active{cursor:grabbing}
+.ingredient-card.used{opacity:0.3;cursor:not-allowed}
+.ingr-icon{font-size:26px}
+#ingr-cornstarch{background:rgba(255,217,61,0.12);border-color:#ffd93d;color:#ffd93d}
+#ingr-water{background:rgba(34,229,245,0.12);border-color:#22e5f5;color:#22e5f5}
+
+#mixing-bowl-wrap{flex:1;display:flex;align-items:center;justify-content:center;position:relative}
+#mixing-bowl{position:relative;width:200px;height:160px}
+#bowl-svg{width:100%;height:100%;overflow:visible}
+#bowl-drop-zone{position:absolute;top:20%;left:10%;width:80%;height:65%;border-radius:50%;cursor:default;transition:all 0.3s}
+#bowl-drop-zone.over{background:rgba(255,217,61,0.15)}
+
+#oobleck-display{width:180px;height:110px;border-radius:10px;border:2px solid rgba(0,201,177,0.3);background:rgba(6,42,110,0.5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px;text-align:center;flex-shrink:0}
+#oobleck-state-label{font-family:'Boogaloo',cursive;font-size:15px;color:var(--teal);transition:all 0.4s}
+#oobleck-canvas{width:160px;height:60px;border-radius:8px;overflow:hidden;position:relative;border:1px solid rgba(0,201,177,0.2)}
+#oobleck-inner{width:100%;height:100%;transition:all 0.5s;border-radius:8px;position:relative;overflow:hidden}
+
+.pressure-btn{padding:8px;border-radius:10px;border:none;font-weight:800;font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'Nunito',sans-serif;width:100%;display:flex;flex-direction:column;align-items:center;gap:2px}
+.pressure-btn:hover{transform:scale(1.05)}
+.pressure-btn:active{transform:scale(0.96)}
+#btn-squeeze{background:linear-gradient(135deg,#ff6b6b,#ff9f1c);color:#fff;box-shadow:0 4px 12px rgba(255,107,107,0.4)}
+#btn-release{background:linear-gradient(135deg,#22e5f5,#00c9b1);color:#062a6e;box-shadow:0 4px 12px rgba(34,229,245,0.4)}
+.btn-sub{font-size:10px;font-weight:600;opacity:0.85}
+
+.bowl-ingredients{display:flex;flex-direction:column;gap:4px;padding:6px 8px;background:rgba(6,42,110,0.5);border-radius:10px;border:1px solid rgba(0,201,177,0.2)}
+.bowl-ingr-row{display:flex;align-items:center;gap:5px;font-size:11px}
+.ingr-dot{width:10px;height:10px;border-radius:50%}
+.ingr-check{margin-left:auto;font-size:13px;transition:all 0.3s}
+
+.mix-fact{background:rgba(0,201,177,0.1);border:1px solid rgba(0,201,177,0.3);border-radius:10px;padding:7px 8px;font-size:11px;color:var(--muted);line-height:1.5;flex:1}
+#act2-next{padding:7px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--green),var(--teal));color:#062a6e;font-weight:900;font-size:12px;cursor:pointer;opacity:0;transition:all 0.4s;transform:scale(0.8);font-family:'Nunito',sans-serif}
+#act2-next.visible{opacity:1;transform:scale(1)}
+#act2-next:hover{transform:scale(1.05)}
+
+/* ════════════════════════════════
+   ACTIVITY 3 — FORCE & OUTCOME
+════════════════════════════════ */
+#act3-layout{display:flex;gap:10px;flex:1;min-height:0;overflow:hidden}
+#act3-actions-col{width:115px;flex-shrink:0;display:flex;flex-direction:column;gap:6px}
+.actions-bank{background:rgba(6,42,110,0.5);border:1.5px solid rgba(255,107,180,0.3);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:5px;flex:1}
+.action-card{padding:6px 8px;border-radius:10px;font-size:11px;font-weight:700;cursor:grab;border:1.5px solid;text-align:center;transition:all 0.2s;line-height:1.3}
+.action-card:hover{transform:scale(1.08) rotate(-3deg)}
+.action-card:active{cursor:grabbing}
+.action-card.used{opacity:0.25;cursor:not-allowed}
+
+#act3-center{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0}
+.outcome-zone{flex:1;background:rgba(6,42,110,0.4);border-radius:14px;border:2px dashed rgba(255,255,255,0.2);padding:10px;display:flex;flex-direction:column;gap:6px;transition:all 0.3s;overflow-y:auto}
+.outcome-zone.over{border-style:solid;border-color:var(--gold);background:rgba(255,217,61,0.07)}
+.outcome-header{display:flex;align-items:center;gap:8px;flex-shrink:0;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1)}
+.outcome-icon{font-size:20px}
+.outcome-title{font-family:'Boogaloo',cursive;font-size:14px}
+.outcome-desc{font-size:10px;color:var(--muted)}
+.placed-action{padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;text-align:center;animation:itemDrop 0.3s ease}
+.placed-action.correct{background:rgba(57,255,90,0.2);border:1px solid rgba(57,255,90,0.5);color:var(--green)}
+.placed-action.wrong{background:rgba(255,107,107,0.2);border:1px solid rgba(255,107,107,0.5);color:var(--coral);animation:shakeItem 0.35s ease}
+
+#act3-right{width:118px;flex-shrink:0;display:flex;flex-direction:column;gap:6px}
+.fact-card{background:rgba(6,42,110,0.5);border-radius:12px;border:1px solid rgba(34,229,245,0.3);padding:8px;font-size:11px;color:var(--muted);line-height:1.5;flex:1}
+#act3-score{background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.3);border-radius:10px;padding:8px;text-align:center}
+#act3-score-label{font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;display:block;margin-bottom:2px}
+#act3-counter{font-family:'Boogaloo',cursive;font-size:32px;color:var(--teal);line-height:1}
+#act3-next{padding:7px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--pink),var(--coral));color:#fff;font-weight:900;font-size:12px;cursor:pointer;opacity:0;transition:all 0.4s;transform:scale(0.8);font-family:'Nunito',sans-serif}
+#act3-next.visible{opacity:1;transform:scale(1)}
+#act3-next:hover{transform:scale(1.05)}
+
+/* ════════════════════════════════
+   POPUPS
+════════════════════════════════ */
+.popup-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,10,30,0.78);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.4s}
+.popup-overlay.show{opacity:1;pointer-events:all}
+.popup-box{background:linear-gradient(145deg,#062a6e,#03153a);border-radius:24px;border:2px solid;padding:24px 22px;text-align:center;max-width:350px;width:90%;transform:scale(0.6) rotate(-8deg);transition:all 0.45s cubic-bezier(0.34,1.56,0.64,1);position:relative;overflow:hidden}
+.popup-overlay.show .popup-box{transform:scale(1) rotate(0deg)}
+.popup-box::before{content:'';position:absolute;top:-60%;left:-60%;width:220%;height:220%;background:conic-gradient(transparent 0deg,rgba(0,201,177,0.07) 60deg,transparent 120deg);animation:popSpin 5s linear infinite;pointer-events:none}
+@keyframes popSpin{to{transform:rotate(360deg)}}
+.popup-emoji{font-size:48px;display:block;margin-bottom:8px;animation:emojiPop 0.5s ease infinite alternate}
+@keyframes emojiPop{from{transform:scale(1) rotate(-5deg)}to{transform:scale(1.12) rotate(5deg)}}
+.popup-title{font-family:'Boogaloo',cursive;font-size:24px;background:linear-gradient(135deg,#22e5f5,#39ff5a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px;position:relative}
+.popup-msg{font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.6;position:relative}
+.popup-fact{background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.3);border-radius:12px;padding:9px 12px;font-size:12px;color:var(--cyan);margin-bottom:14px;position:relative;line-height:1.6}
+.popup-stars{display:flex;justify-content:center;gap:5px;margin-bottom:8px;font-size:26px;position:relative}
+.popup-star{display:inline-block;animation:starPop 0.4s ease forwards;opacity:0;transform:scale(0)}
+.popup-star:nth-child(1){animation-delay:0.1s}.popup-star:nth-child(2){animation-delay:0.3s}.popup-star:nth-child(3){animation-delay:0.5s}
+@keyframes starPop{to{opacity:1;transform:scale(1) rotate(20deg)}}
+.popup-btn{display:inline-block;padding:11px 26px;border-radius:50px;border:none;font-family:'Boogaloo',cursive;font-size:16px;cursor:pointer;transition:all 0.2s;position:relative}
+.popup-btn:hover{transform:scale(1.08);box-shadow:0 6px 20px rgba(0,0,0,0.5)}
+.popup-btn-primary{background:linear-gradient(135deg,#22e5f5,#00c9b1);color:#03153a}
+.popup-btn-final{background:linear-gradient(135deg,#39ff5a,#00c9b1);color:#03153a}
+
+/* confetti */
+#final-confetti{position:fixed;inset:0;pointer-events:none;z-index:300}
+.conf-piece{position:absolute;animation:confFall linear forwards}
+@keyframes confFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+
+/* scrollbar */
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:rgba(0,201,177,0.3);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- ═══ OCEAN BACKGROUND ═══ -->
+<canvas id="ocean-bg"></canvas>
+<div id="bg-elements"></div>
+
+<!-- Drag Ghost -->
+<div id="drag-ghost"></div>
+
+<!-- ═══ APP ═══ -->
+<div id="app">
+  <div id="header">
+    <div id="header-left">
+      <span class="header-deco">🐙</span>
+      <div>
+        <h1>Non-Newtonian Fluid — Oobleck</h1>
+        <p>Deep Sea Science Lab · Drag, mix, and discover!</p>
+      </div>
+    </div>
+    <span class="header-deco" style="animation-delay:0.5s">🐠</span>
+  </div>
+
+  <div id="progress-bar">
+    <div class="step-dot active" id="dot1">1</div>
+    <span class="step-label" style="color:var(--cyan)">Sort Matter</span>
+    <div class="step-line"><div class="step-line-fill" id="line1"></div></div>
+    <div class="step-dot" id="dot2">2</div>
+    <span class="step-label">Oobleck Lab</span>
+    <div class="step-line"><div class="step-line-fill" id="line2"></div></div>
+    <div class="step-dot" id="dot3">3</div>
+    <span class="step-label">Force & Flow</span>
+  </div>
+
+  <div id="main">
+
+    <!-- ════════ ACTIVITY 1 ════════ -->
+    <div class="activity active" id="activity1">
+      <div class="act-title">🔬 Sort the Materials <span>Activity 1 of 3</span></div>
+      <div class="act-desc">Drag each item into the correct category: <strong style="color:#22e5f5">Solid</strong>, <strong style="color:#39ff5a">Liquid</strong>, or <strong style="color:#ffd93d">Non-Newtonian Fluid</strong>.</div>
+      <div id="act1-layout">
+        <div id="act1-cards-col">
+          <div class="cards-bank-label">🎒 Items</div>
+          <div class="cards-bank" id="act1-bank"></div>
+        </div>
+        <div id="act1-zones">
+          <div class="sort-zone" id="zone-solid" data-zone="solid">
+            <div class="zone-header">
+              <span class="zone-icon">🪨</span>
+              <div class="zone-title" style="color:#22e5f5">Solid</div>
+              <div class="zone-subtitle">Keeps its shape</div>
+            </div>
+          </div>
+          <div class="sort-zone" id="zone-liquid" data-zone="liquid">
+            <div class="zone-header">
+              <span class="zone-icon">💧</span>
+              <div class="zone-title" style="color:#39ff5a">Liquid</div>
+              <div class="zone-subtitle">Flows &amp; pours</div>
+            </div>
+          </div>
+          <div class="sort-zone" id="zone-nonnewtonian" data-zone="nonnewtonian">
+            <div class="zone-header">
+              <span class="zone-icon">🌀</span>
+              <div class="zone-title" style="color:#ffd93d">Non-Newtonian</div>
+              <div class="zone-subtitle">Acts like both!</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="act1-score-bar">
+        <div class="score-pill">✅ <span id="act1-correct">0</span> correct</div>
+        <div class="score-pill" style="color:var(--coral);border-color:rgba(255,107,107,0.4);background:rgba(255,107,107,0.12)">❌ <span id="act1-wrong">0</span> wrong</div>
+        <button id="act1-next">Next Activity →</button>
+      </div>
+    </div>
+
+    <!-- ════════ ACTIVITY 2 ════════ -->
+    <div class="activity" id="activity2">
+      <div class="act-title">⚗️ The Oobleck Lab <span>Activity 2 of 3</span></div>
+      <div class="act-desc">Drag <strong style="color:#ffd93d">Cornstarch</strong> and <strong style="color:#22e5f5">Water</strong> into the bowl to mix Oobleck. Then press the buttons to see how it reacts!</div>
+      <div id="act2-layout">
+        <div id="act2-left">
+          <div class="ingredient-card" id="ingr-cornstarch">
+            <span class="ingr-icon">🌽</span>
+            <span>Cornstarch</span>
+            <span style="font-size:9px;font-weight:600;opacity:0.7">2 parts</span>
+          </div>
+          <div class="ingredient-card" id="ingr-water">
+            <span class="ingr-icon">💧</span>
+            <span>Water</span>
+            <span style="font-size:9px;font-weight:600;opacity:0.7">1 part</span>
+          </div>
+          <div style="background:rgba(6,42,110,0.4);border:1px solid rgba(0,201,177,0.2);border-radius:10px;padding:7px;font-size:10px;color:var(--muted);line-height:1.6;flex:1">
+            💡 <strong style="color:var(--teal)">Recipe:</strong><br>2 parts cornstarch + 1 part water = Oobleck!
+          </div>
+        </div>
+        <div id="act2-center">
+          <div id="mixing-bowl-wrap">
+            <div id="mixing-bowl">
+              <svg id="bowl-svg" viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="bowlGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#0a4fa3" stop-opacity="0.9"/>
+                    <stop offset="100%" stop-color="#062a6e" stop-opacity="0.9"/>
+                  </linearGradient>
+                  <linearGradient id="liquidGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#c8f035" stop-opacity="0.9"/>
+                    <stop offset="100%" stop-color="#8bcc00" stop-opacity="0.95"/>
+                  </linearGradient>
+                  <clipPath id="bowlClip">
+                    <ellipse cx="100" cy="90" rx="80" ry="55"/>
+                  </clipPath>
+                </defs>
+                <!-- Bowl body -->
+                <path d="M20,55 Q20,145 100,145 Q180,145 180,55 Z" fill="url(#bowlGrad)" stroke="rgba(0,201,177,0.5)" stroke-width="2"/>
+                <!-- Bowl rim -->
+                <ellipse cx="100" cy="55" rx="80" ry="18" fill="#0a4fa3" stroke="rgba(0,201,177,0.6)" stroke-width="2"/>
+                <ellipse cx="100" cy="55" rx="76" ry="15" fill="#062a6e" opacity="0.8"/>
+                <!-- Liquid inside (animated) -->
+                <g clip-path="url(#bowlClip)" id="bowl-liquid-group" opacity="0">
+                  <rect id="bowl-liquid" x="20" y="90" width="160" height="60" fill="url(#liquidGrad)"/>
+                  <ellipse id="liquid-surface" cx="100" cy="90" rx="78" ry="10" fill="#d4f54d" opacity="0.7"/>
+                </g>
+                <!-- Drop zone invisible hit area -->
+              </svg>
+              <div id="bowl-drop-zone"></div>
+            </div>
+          </div>
+          <div id="oobleck-display">
+            <div id="oobleck-state-label">Add ingredients!</div>
+            <div id="oobleck-canvas">
+              <div id="oobleck-inner"></div>
+            </div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px" id="oobleck-hint">Drag cornstarch &amp; water into the bowl</div>
+          </div>
+        </div>
+        <div id="act2-right">
+          <button class="pressure-btn" id="btn-squeeze" disabled style="opacity:0.4">
+            <span style="font-size:18px">👊</span>
+            <span>Squeeze Hard!</span>
+            <span class="btn-sub">High pressure</span>
+          </button>
+          <button class="pressure-btn" id="btn-release" disabled style="opacity:0.4">
+            <span style="font-size:18px">🖐️</span>
+            <span>Release Slow</span>
+            <span class="btn-sub">Low pressure</span>
+          </button>
+          <div class="bowl-ingredients">
+            <div style="font-size:10px;font-weight:800;color:var(--teal);margin-bottom:2px">Bowl contents:</div>
+            <div class="bowl-ingr-row">
+              <div class="ingr-dot" style="background:#ffd93d"></div>
+              <span style="font-size:11px">Cornstarch</span>
+              <span class="ingr-check" id="check-corn">⬜</span>
+            </div>
+            <div class="bowl-ingr-row">
+              <div class="ingr-dot" style="background:#22e5f5"></div>
+              <span style="font-size:11px">Water</span>
+              <span class="ingr-check" id="check-water">⬜</span>
+            </div>
+          </div>
+          <div class="mix-fact" id="mix-fact">
+            🌊 Oobleck is a <strong>non-Newtonian fluid</strong> — it breaks the rules of normal matter!
+          </div>
+          <button id="act2-next">Next Activity →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ ACTIVITY 3 ════════ -->
+    <div class="activity" id="activity3">
+      <div class="act-title">💥 Force &amp; Flow <span>Activity 3 of 3</span></div>
+      <div class="act-desc">Drag each action into the correct outcome. Does Oobleck act like a <strong style="color:#ff6b6b">SOLID</strong> or a <strong style="color:#22e5f5">LIQUID</strong>?</div>
+      <div id="act3-layout">
+        <div id="act3-actions-col">
+          <div style="font-size:10px;font-weight:800;color:var(--pink);text-transform:uppercase;letter-spacing:1px;text-align:center">Actions</div>
+          <div class="actions-bank" id="act3-bank"></div>
+        </div>
+        <div id="act3-center">
+          <div class="outcome-zone" id="zone-solid-out" data-outcome="solid">
+            <div class="outcome-header">
+              <span class="outcome-icon">🧱</span>
+              <div>
+                <div class="outcome-title" style="color:#ff6b6b">Acts Like a SOLID</div>
+                <div class="outcome-desc">Hardens under pressure — won't flow</div>
+              </div>
+            </div>
+          </div>
+          <div class="outcome-zone" id="zone-liquid-out" data-outcome="liquid">
+            <div class="outcome-header">
+              <span class="outcome-icon">🌊</span>
+              <div>
+                <div class="outcome-title" style="color:#22e5f5">Acts Like a LIQUID</div>
+                <div class="outcome-desc">Flows and drips — no resistance</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="act3-right">
+          <div class="fact-card">
+            🔬 <strong style="color:var(--cyan)">Why?</strong><br><br>
+            Fast force = particles lock together → <strong style="color:#ff6b6b">SOLID</strong><br><br>
+            Slow force = particles slide freely → <strong style="color:#22e5f5">LIQUID</strong>
+          </div>
+          <div id="act3-score">
+            <span id="act3-score-label">Correct Answers</span>
+            <div id="act3-counter">0</div>
+          </div>
+          <button id="act3-next">🏆 Finish!</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end #main -->
+</div><!-- end #app -->
+
+<!-- ═══ POPUP 1 ═══ -->
+<div class="popup-overlay" id="popup1">
+  <div class="popup-box" style="border-color:#22e5f5">
+    <span class="popup-emoji">🔬</span>
+    <div class="popup-stars"><span class="popup-star">⭐</span><span class="popup-star">⭐</span><span class="popup-star">⭐</span></div>
+    <div class="popup-title">Sorted!</div>
+    <div class="popup-msg" id="popup1-msg">You know your solids from your liquids!</div>
+    <div class="popup-fact">💡 Oobleck is special — it doesn't fully fit as a solid <em>or</em> a liquid. It's a <strong>Non-Newtonian fluid</strong> — a total rule-breaker!</div>
+    <button class="popup-btn popup-btn-primary" id="popup1-btn">Make Oobleck! ⚗️</button>
+  </div>
+</div>
+
+<!-- ═══ POPUP 2 ═══ -->
+<div class="popup-overlay" id="popup2">
+  <div class="popup-box" style="border-color:#39ff5a">
+    <span class="popup-emoji">🧪</span>
+    <div class="popup-stars"><span class="popup-star">⭐</span><span class="popup-star">⭐</span><span class="popup-star">⭐</span></div>
+    <div class="popup-title">Oobleck Made!</div>
+    <div class="popup-msg">You mixed your very own Oobleck!</div>
+    <div class="popup-fact">🌀 Did you feel it? <strong>Squeeze fast</strong> → feels solid and hard! <strong>Open hand slowly</strong> → drips like a liquid! It's all about pressure!</div>
+    <button class="popup-btn popup-btn-primary" id="popup2-btn">Test the Force! 💥</button>
+  </div>
+</div>
+
+<!-- ═══ FINAL POPUP ═══ -->
+<div class="popup-overlay" id="popup-final">
+  <div class="popup-box" style="border-color:#39ff5a;max-width:380px">
+    <span class="popup-emoji">🏆</span>
+    <div class="popup-stars"><span class="popup-star">🌟</span><span class="popup-star">🌟</span><span class="popup-star">🌟</span></div>
+    <div class="popup-title">Oobleck Expert!</div>
+    <div class="popup-msg">You've cracked the mystery of Non-Newtonian fluids!</div>
+    <div class="popup-fact" style="text-align:left">
+      ✅ Solids keep shape, liquids flow freely<br>
+      ✅ Oobleck breaks both rules!<br>
+      ✅ High pressure → solid · Low pressure → liquid<br>
+      ✅ Recipe: 2 parts cornstarch + 1 part water
+    </div>
+    <div style="font-size:24px;margin-bottom:12px;position:relative">🧪🌊🧱💧🎉</div>
+    <button class="popup-btn popup-btn-final" id="final-btn">Play Again! 🐠</button>
+  </div>
+</div>
+
+<div id="final-confetti"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// UNDERWATER BACKGROUND
+// ═══════════════════════════════════════════
+const bgCanvas = document.getElementById('ocean-bg');
+const ctx = bgCanvas.getContext('2d');
+function resizeBG(){bgCanvas.width=window.innerWidth;bgCanvas.height=window.innerHeight}
+resizeBG();
+window.addEventListener('resize',resizeBG);
+
+// Light rays
+const bgEl = document.getElementById('bg-elements');
+const rayPositions=[8,18,30,45,60,72,85];
+rayPositions.forEach((pos,i)=>{
+  const r=document.createElement('div');r.className='ray';
+  r.style.cssText=`left:${pos}%;height:${40+Math.random()*35}vh;opacity:${0.08+Math.random()*0.1};animation-duration:${4+i*1.2}s;animation-delay:${-i*0.8}s`;
+  bgEl.appendChild(r);
+});
+
+// Bubbles
+for(let i=0;i<22;i++){
+  const b=document.createElement('div');b.className='bubble';
+  const sz=3+Math.random()*12;
+  b.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}vw;bottom:${-sz}px;animation-duration:${5+Math.random()*10}s;animation-delay:${-Math.random()*10}s;--bx:${(Math.random()-0.5)*40}px`;
+  bgEl.appendChild(b);
+}
+
+// Seaweed clusters
+const swPositions=[3,8,88,94,15,80];
+swPositions.forEach(pos=>{
+  const wrap=document.createElement('div');wrap.className='seaweed-wrap';wrap.style.left=pos+'vw';
+  const height=50+Math.random()*60;const color=['#1aab5e','#0d8a4a','#16c46a'][Math.floor(Math.random()*3)];
+  wrap.innerHTML=`<div class="seaweed" style="height:${height}px;background:${color};animation-duration:${2.5+Math.random()*2}s;animation-delay:${-Math.random()*2}s"></div>`;
+  bgEl.appendChild(wrap);
+});
+
+// Jellyfish
+const jellyData=[{left:8,top:18,size:42,delay:0},{left:88,top:12,size:34,delay:1.2},{left:50,top:8,size:28,delay:2.1}];
+jellyData.forEach(jd=>{
+  const jel=document.createElement('div');jel.className='jelly';
+  jel.style.cssText=`left:${jd.left}%;top:${jd.top}%;animation-duration:${3+Math.random()*2}s;animation-delay:${-jd.delay}s`;
+  const tents=Array(6).fill(0).map((_,i)=>`<div class="jelly-t" style="height:${12+Math.random()*10}px;animation-duration:${0.8+Math.random()*0.6}s;animation-delay:${i*0.12}s"></div>`).join('');
+  jel.innerHTML=`<div class="jelly-body" style="width:${jd.size}px;height:${jd.size*0.7}px"></div><div class="jelly-tent">${tents}</div>`;
+  bgEl.appendChild(jel);
+});
+
+// Fish
+function spawnFish(){
+  const fish=document.createElement('div');fish.className='fish';
+  const sz=20+Math.random()*18;const fishColors=['#ff6eb4','#ff9f1c','#22e5f5','#ffd93d','#39ff5a'];
+  const col=fishColors[Math.floor(Math.random()*fishColors.length)];
+  const top=10+Math.random()*70;const dur=8+Math.random()*12;
+  fish.style.cssText=`top:${top}%;animation-duration:${dur}s;animation-delay:0s`;
+  fish.innerHTML=`<div class="fish-body" style="width:${sz}px;height:${sz*0.55}px;background:${col}"><div class="fish-tail" style="border-left:${sz*0.4}px solid ${col}"></div><div class="fish-eye"></div></div>`;
+  bgEl.appendChild(fish);
+  setTimeout(()=>fish.remove(),(dur+1)*1000);
+}
+spawnFish();setInterval(spawnFish,4000);
+
+// Coral
+const coralEmojis=['🪸','🌿'];
+[5,20,75,92].forEach((pos,i)=>{
+  const c=document.createElement('div');c.className='coral';
+  c.style.cssText=`left:${pos}%;bottom:0;font-size:${22+i*4}px`;
+  c.textContent=coralEmojis[i%2];bgEl.appendChild(c);
+});
+
+// Treasure
+const tr=document.createElement('div');tr.className='treasure';
+tr.style.cssText='right:5%;bottom:2%';
+tr.innerHTML='<div class="treasure-chest">🏴‍☠️</div>';
+bgEl.appendChild(tr);
+
+// Shimmer particles
+function spawnShimmer(){
+  const s=document.createElement('div');s.className='shimmer';
+  const sz=3+Math.random()*5;
+  s.style.cssText=`width:${sz}px;height:${sz}px;background:rgba(34,229,245,${0.3+Math.random()*0.4});left:${Math.random()*100}vw;top:${Math.random()*100}vh;animation-duration:${2+Math.random()*4}s;animation-delay:0s;--sx:${(Math.random()-0.5)*60}px;--sy:${(Math.random()-0.5)*60}px`;
+  bgEl.appendChild(s);
+  setTimeout(()=>s.remove(),6000);
+}
+setInterval(spawnShimmer,400);
+
+// ═══════════════════════════════════════════
+// DRAG SYSTEM
+// ═══════════════════════════════════════════
+const ghost=document.getElementById('drag-ghost');
+let dragging=null,dragData={};
+
+function startDrag(el,data,e){
+  dragging=el;dragData=data;
+  ghost.innerHTML=el.outerHTML;
+  ghost.style.display='block';
+  ghost.style.width=el.offsetWidth+'px';
+  moveDrag(e);
+  el.style.opacity='0.35';
+}
+function moveDrag(e){
+  const cx=e.touches?e.touches[0].clientX:e.clientX;
+  const cy=e.touches?e.touches[0].clientY:e.clientY;
+  ghost.style.left=(cx-ghost.offsetWidth/2)+'px';
+  ghost.style.top=(cy-ghost.offsetHeight/2)+'px';
+}
+function endDrag(e){
+  if(!dragging)return;
+  ghost.style.display='none';
+  if(dragData.restoreOpacity!==false)dragging.style.opacity=dragData.opacityAfter||'1';
+  const cx=e.changedTouches?e.changedTouches[0].clientX:e.clientX;
+  const cy=e.changedTouches?e.changedTouches[0].clientY:e.clientY;
+  const el=document.elementFromPoint(cx,cy);
+  dragData.onDrop&&dragData.onDrop(el,cx,cy);
+  dragging=null;dragData={};
+}
+document.addEventListener('mousemove',e=>dragging&&moveDrag(e));
+document.addEventListener('touchmove',e=>dragging&&moveDrag(e),{passive:true});
+document.addEventListener('mouseup',endDrag);
+document.addEventListener('touchend',endDrag);
+
+// drag-over highlights
+function setupZoneHover(sel){
+  document.querySelectorAll(sel).forEach(z=>{
+    z.addEventListener('mouseenter',()=>{if(dragging)z.classList.add('over')});
+    z.addEventListener('mouseleave',()=>z.classList.remove('over'));
+  });
+}
+
+// ═══════════════════════════════════════════
+// ACTIVITY 1 — SORT MATERIALS
+// ═══════════════════════════════════════════
+const materials=[
+  {id:'m1',label:'🪨 Rock',zone:'solid',color:'#8dd4f0'},
+  {id:'m2',label:'🥛 Milk',zone:'liquid',color:'#c8f5ff'},
+  {id:'m3',label:'🌀 Oobleck',zone:'nonnewtonian',color:'#ffd93d'},
+  {id:'m4',label:'🧊 Ice cube',zone:'solid',color:'#22e5f5'},
+  {id:'m5',label:'🫗 Orange juice',zone:'liquid',color:'#ff9f1c'},
+  {id:'m6',label:'🏏 Cricket bat',zone:'solid',color:'#c8a46e'},
+  {id:'m7',label:'🥥 Coconut oil',zone:'liquid',color:'#c8f5c0'},
+  {id:'m8',label:'🍯 Honey',zone:'liquid',color:'#ffb830'},
+  {id:'m9',label:'🌽 Cornstarch mix',zone:'nonnewtonian',color:'#d4f54d'},
+];
+const zoneColors={solid:'#22e5f5',liquid:'#39ff5a',nonnewtonian:'#ffd93d'};
+const zoneCardBg={solid:'rgba(34,229,245,0.12)',liquid:'rgba(57,255,90,0.12)',nonnewtonian:'rgba(255,217,61,0.12)'};
+
+let act1Correct=0,act1Wrong=0,act1Total=materials.length;
+const act1Bank=document.getElementById('act1-bank');
+
+materials.forEach(m=>{
+  const el=document.createElement('div');
+  el.className='mat-card';el.id=m.id;el.textContent=m.label;
+  el.style.borderColor=m.color;el.style.color=m.color;
+  el.addEventListener('mousedown',e=>{e.preventDefault();if(el.classList.contains('used'))return;startDrag(el,{type:'mat',mat:m,onDrop:dropMat,opacityAfter:'0.25'},e)});
+  el.addEventListener('touchstart',e=>{e.preventDefault();if(el.classList.contains('used'))return;startDrag(el,{type:'mat',mat:m,onDrop:dropMat,opacityAfter:'0.25'},e)},{passive:false});
+  act1Bank.appendChild(el);
+});
+
+setupZoneHover('.sort-zone');
+
+function dropMat(el){
+  let target=el;
+  while(target&&!target.classList.contains('sort-zone'))target=target.parentElement;
+  if(!target)return;
+  target.classList.remove('over');
+  const m=dragData.mat;
+  const correct=target.dataset.zone===m.zone;
+  const item=document.createElement('div');
+  item.className='zone-item '+(correct?'correct':'wrong');
+  item.textContent=m.label;
+  target.appendChild(item);
+  document.getElementById(m.id).classList.add('used');
+  if(correct){act1Correct++;document.getElementById('act1-correct').textContent=act1Correct;}
+  else{act1Wrong++;document.getElementById('act1-wrong').textContent=act1Wrong;}
+  if(act1Correct+act1Wrong>=act1Total){
+    document.getElementById('act1-next').classList.add('visible');
+    setTimeout(()=>showPopup('popup1'),700);
+  }
+}
+document.getElementById('act1-next').addEventListener('click',()=>goTo(2));
+
+// ═══════════════════════════════════════════
+// ACTIVITY 2 — OOBLECK LAB
+// ═══════════════════════════════════════════
+let hasCorn=false,hasWater=false,oobleckReady=false,pressCount=0;
+
+function makeDraggable(id,data){
+  const el=document.getElementById(id);
+  el.addEventListener('mousedown',e=>{e.preventDefault();if(el.classList.contains('used'))return;startDrag(el,{...data,onDrop:dropIngredient,opacityAfter:'0.25'},e)});
+  el.addEventListener('touchstart',e=>{e.preventDefault();if(el.classList.contains('used'))return;startDrag(el,{...data,onDrop:dropIngredient,opacityAfter:'0.25'},e)},{passive:false});
+}
+makeDraggable('ingr-cornstarch',{ingr:'corn'});
+makeDraggable('ingr-water',{ingr:'water'});
+
+const bowlDZ=document.getElementById('bowl-drop-zone');
+bowlDZ.addEventListener('mouseenter',()=>{if(dragging)bowlDZ.classList.add('over')});
+bowlDZ.addEventListener('mouseleave',()=>bowlDZ.classList.remove('over'));
+
+function dropIngredient(el){
+  let target=el;
+  while(target&&target.id!=='bowl-drop-zone'&&target.id!=='mixing-bowl'&&target.id!=='bowl-svg')target=target.parentElement;
+  if(!target)return;
+  bowlDZ.classList.remove('over');
+  const ingr=dragData.ingr;
+  if(ingr==='corn'&&!hasCorn){
+    hasCorn=true;document.getElementById('check-corn').textContent='✅';
+    document.getElementById('ingr-cornstarch').classList.add('used');
+    animateLiquid(hasCorn,hasWater);
+  }else if(ingr==='water'&&!hasWater){
+    hasWater=true;document.getElementById('check-water').textContent='✅';
+    document.getElementById('ingr-water').classList.add('used');
+    animateLiquid(hasCorn,hasWater);
+  }
+  if(hasCorn&&hasWater&&!oobleckReady){
+    oobleckReady=true;
+    enablePressButtons();
+    setOobleckState('ready');
+  }
+}
+
+function animateLiquid(corn,water){
+  const liq=document.getElementById('bowl-liquid-group');
+  liq.style.transition='opacity 0.6s';
+  if(corn&&water){liq.style.opacity='1';document.getElementById('bowl-liquid').setAttribute('fill','url(#liquidGrad)');}
+  else if(corn){liq.style.opacity='0.6';document.getElementById('bowl-liquid').setAttribute('fill','#e8e090');}
+  else{liq.style.opacity='0.5';document.getElementById('bowl-liquid').setAttribute('fill','rgba(34,229,245,0.6)');}
+}
+
+function enablePressButtons(){
+  ['btn-squeeze','btn-release'].forEach(id=>{
+    const b=document.getElementById(id);b.disabled=false;b.style.opacity='1';
+  });
+}
+
+function setOobleckState(state){
+  const inner=document.getElementById('oobleck-inner');
+  const label=document.getElementById('oobleck-state-label');
+  const hint=document.getElementById('oobleck-hint');
+  const fact=document.getElementById('mix-fact');
+  if(state==='ready'){
+    inner.style.cssText='width:100%;height:100%;background:linear-gradient(135deg,#c8f035,#8bcc00);animation:none';
+    label.textContent='Oobleck Ready! 🎉';label.style.color='var(--green)';
+    hint.textContent='Now press the buttons to test it!';
+    fact.innerHTML='🎉 Oobleck is ready! Press the buttons on the right to see how it reacts to pressure!';
+  }else if(state==='solid'){
+    inner.style.cssText='width:100%;height:100%;background:linear-gradient(135deg,#8bcc00,#5a9900);box-shadow:inset 0 0 0 3px #ffd93d';
+    inner.style.animation='none';
+    // Crack effect
+    label.textContent='💪 SOLID! It hardened!';label.style.color='#ff6b6b';
+    hint.textContent='High pressure locked the particles together!';
+    fact.innerHTML='🔬 <strong>Fast pressure</strong> forces the cornstarch particles to lock together — Oobleck acts like a <strong style="color:#ff6b6b">SOLID</strong>!';
+    pressCount++;if(pressCount>=2)unlockAct2Next();
+  }else if(state==='liquid'){
+    inner.style.cssText='width:100%;height:100%;background:linear-gradient(135deg,#b2f060,#9de030);transition:all 0.5s';
+    label.textContent='💧 LIQUID! It flows!';label.style.color='#22e5f5';
+    hint.textContent='Low pressure lets particles slide freely!';
+    fact.innerHTML='🌊 <strong>Slow/no pressure</strong> allows the cornstarch particles to slide past each other — Oobleck flows like a <strong style="color:#22e5f5">LIQUID</strong>!';
+    pressCount++;if(pressCount>=2)unlockAct2Next();
+  }
+}
+
+function unlockAct2Next(){
+  const n=document.getElementById('act2-next');
+  n.classList.add('visible');
+  if(pressCount>=2)setTimeout(()=>showPopup('popup2'),500);
+}
+
+document.getElementById('btn-squeeze').addEventListener('click',()=>{ if(!oobleckReady)return; setOobleckState('solid'); });
+document.getElementById('btn-release').addEventListener('click',()=>{ if(!oobleckReady)return; setOobleckState('liquid'); });
+document.getElementById('act2-next').addEventListener('click',()=>goTo(3));
+
+// ═══════════════════════════════════════════
+// ACTIVITY 3 — FORCE & FLOW
+// ═══════════════════════════════════════════
+const actions=[
+  {id:'a1',label:'👊 Punch fast',outcome:'solid',color:'#ff6b6b'},
+  {id:'a2',label:'🖐️ Hold gently',outcome:'liquid',color:'#22e5f5'},
+  {id:'a3',label:'⚡ Tap quickly',outcome:'solid',color:'#ff6b6b'},
+  {id:'a4',label:'🐌 Press slowly',outcome:'liquid',color:'#22e5f5'},
+  {id:'a5',label:'🏃 Run on it',outcome:'solid',color:'#ff6b6b'},
+  {id:'a6',label:'💤 Let it sit',outcome:'liquid',color:'#22e5f5'},
+];
+let act3Correct=0;
+const act3Bank=document.getElementById('act3-bank');
+
+actions.forEach(a=>{
+  const el=document.createElement('div');el.className='action-card';el.id=a.id;
+  el.textContent=a.label;el.style.borderColor=a.color;el.style.color=a.color;
+  el.style.background=`${a.color}18`;
+  el.addEventListener('mousedown',e=>{e.preventDefault();if(el.classList.contains('used'))return;startDrag(el,{type:'action',action:a,onDrop:dropAction,opacityAfter:'0.25'},e)});
+  el.addEventListener('touchstart',e=>{e.preventDefault();if(el.classList.contains('used'))return;startDrag(el,{type:'action',action:a,onDrop:dropAction,opacityAfter:'0.25'},e)},{passive:false});
+  act3Bank.appendChild(el);
+});
+
+setupZoneHover('.outcome-zone');
+
+function dropAction(el){
+  let target=el;
+  while(target&&!target.classList.contains('outcome-zone'))target=target.parentElement;
+  if(!target)return;
+  target.classList.remove('over');
+  const a=dragData.action;
+  const correct=target.dataset.outcome===a.outcome;
+  const placed=document.createElement('div');placed.className='placed-action '+(correct?'correct':'wrong');
+  placed.textContent=a.label;target.appendChild(placed);
+  document.getElementById(a.id).classList.add('used');
+  if(correct){
+    act3Correct++;
+    document.getElementById('act3-counter').textContent=act3Correct;
+  }
+  const used=document.querySelectorAll('#act3-bank .action-card.used').length;
+  if(used>=actions.length){
+    document.getElementById('act3-next').classList.add('visible');
+  }
+}
+document.getElementById('act3-next').addEventListener('click',showFinal);
+
+// ═══════════════════════════════════════════
+// POPUPS & NAVIGATION
+// ═══════════════════════════════════════════
+function showPopup(id){document.getElementById(id).classList.add('show')}
+function hidePopup(id){document.getElementById(id).classList.remove('show')}
+
+document.getElementById('popup1-btn').addEventListener('click',()=>{hidePopup('popup1');goTo(2)});
+document.getElementById('popup2-btn').addEventListener('click',()=>{hidePopup('popup2');goTo(3)});
+document.getElementById('final-btn').addEventListener('click',()=>{hidePopup('popup-final');resetAll()});
+
+function goTo(n){
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.getElementById('activity'+n).classList.add('active');
+  [1,2,3].forEach(i=>{
+    const d=document.getElementById('dot'+i);
+    d.classList.remove('active','done');
+    if(i<n)d.classList.add('done');
+    else if(i===n)d.classList.add('active');
+  });
+  [1,2].forEach(i=>document.getElementById('line'+i).style.width=n>i?'100%':'0%');
+}
+
+function showFinal(){
+  showPopup('popup-final');
+  spawnConfetti();
+}
+
+function spawnConfetti(){
+  const cont=document.getElementById('final-confetti');cont.innerHTML='';
+  const cols=['#22e5f5','#39ff5a','#ffd93d','#ff6b6b','#ff9f1c','#ff6eb4','#00c9b1'];
+  for(let i=0;i<90;i++){
+    const c=document.createElement('div');c.className='conf-piece';
+    c.style.left=Math.random()*100+'vw';c.style.top='-20px';
+    c.style.background=cols[Math.floor(Math.random()*cols.length)];
+    c.style.borderRadius=Math.random()>0.5?'50%':'2px';
+    c.style.width=(5+Math.random()*9)+'px';c.style.height=(5+Math.random()*9)+'px';
+    c.style.animationDuration=(1.5+Math.random()*2.5)+'s';
+    c.style.animationDelay=(Math.random()*1.5)+'s';
+    cont.appendChild(c);
+  }
+  setTimeout(()=>cont.innerHTML='',5000);
+}
+
+function resetAll(){
+  // Reset act1
+  act1Correct=0;act1Wrong=0;
+  document.getElementById('act1-correct').textContent='0';
+  document.getElementById('act1-wrong').textContent='0';
+  document.getElementById('act1-next').classList.remove('visible');
+  document.getElementById('act1-bank').querySelectorAll('.mat-card').forEach(c=>c.classList.remove('used'));
+  document.querySelectorAll('.sort-zone').forEach(z=>{
+    const header=z.querySelector('.zone-header');
+    z.innerHTML='';z.appendChild(header);
+  });
+  // Reset act2
+  hasCorn=false;hasWater=false;oobleckReady=false;pressCount=0;
+  document.getElementById('check-corn').textContent='⬜';document.getElementById('check-water').textContent='⬜';
+  document.getElementById('ingr-cornstarch').classList.remove('used');document.getElementById('ingr-water').classList.remove('used');
+  document.getElementById('ingr-cornstarch').style.opacity='1';document.getElementById('ingr-water').style.opacity='1';
+  document.getElementById('bowl-liquid-group').style.opacity='0';
+  document.getElementById('oobleck-state-label').textContent='Add ingredients!';
+  document.getElementById('oobleck-inner').style.cssText='width:100%;height:100%';
+  document.getElementById('oobleck-hint').textContent='Drag cornstarch & water into the bowl';
+  document.getElementById('mix-fact').innerHTML='🌊 Oobleck is a <strong>non-Newtonian fluid</strong> — it breaks the rules of normal matter!';
+  ['btn-squeeze','btn-release'].forEach(id=>{const b=document.getElementById(id);b.disabled=true;b.style.opacity='0.4'});
+  document.getElementById('act2-next').classList.remove('visible');
+  // Reset act3
+  act3Correct=0;document.getElementById('act3-counter').textContent='0';
+  document.getElementById('act3-next').classList.remove('visible');
+  document.getElementById('act3-bank').querySelectorAll('.action-card').forEach(c=>c.classList.remove('used'));
+  document.querySelectorAll('.outcome-zone').forEach(z=>{
+    const header=z.querySelector('.outcome-header');
+    z.innerHTML='';z.appendChild(header);
+  });
+  goTo(1);
+}
+</script>
+</body>
+</html>

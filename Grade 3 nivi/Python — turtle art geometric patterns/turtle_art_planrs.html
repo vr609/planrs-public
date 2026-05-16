@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python — Turtle Art: Geometric Patterns</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+:root{
+  --c:0,255,200;--p:180,0,255;--y:255,210,0;--b:0,180,255;--r:255,60,120;
+  --neon-g:#00ffc8;--neon-p:#b400ff;--neon-y:#ffd200;--neon-b:#00b4ff;--neon-r:#ff3c78;
+  --bg:#040810;--panel:rgba(4,14,28,0.92);--card:rgba(0,255,200,0.04);
+  --border:rgba(0,255,200,0.18);--text:#d0faff;--dim:#4a7a8a;
+  --mono:'Share Tech Mono',monospace;--head:'Orbitron',sans-serif;--body:'Rajdhani',sans-serif;
+}
+html,body{width:100%;height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:var(--body);}
+
+/* BG CANVAS */
+#bg{position:fixed;inset:0;z-index:0;pointer-events:none;}
+
+/* APP */
+#app{position:relative;z-index:2;width:100vw;height:100vh;display:flex;flex-direction:column;}
+
+/* HEADER */
+header{
+  flex-shrink:0;padding:8px 28px;display:flex;align-items:center;justify-content:space-between;
+  background:rgba(4,8,16,0.85);border-bottom:1px solid var(--border);
+  backdrop-filter:blur(10px);
+}
+.logo-text{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--neon-g);opacity:.7;}
+h1{font-family:var(--head);font-size:clamp(11px,1.5vw,16px);letter-spacing:2px;color:#fff;
+  text-shadow:0 0 18px var(--neon-g),0 0 40px rgba(0,255,200,.3);}
+.pills{display:flex;gap:8px;}
+.pill{
+  padding:3px 14px;border-radius:20px;font-family:var(--mono);font-size:9px;letter-spacing:2px;
+  font-weight:700;border:1px solid;transition:all .4s;
+}
+.pill.idle{border-color:rgba(255,255,255,.1);color:rgba(255,255,255,.25);}
+.pill.active{border-color:var(--neon-g);color:var(--neon-g);background:rgba(0,255,200,.1);
+  box-shadow:0 0 10px rgba(0,255,200,.3);}
+.pill.done{border-color:var(--neon-y);color:var(--neon-y);background:rgba(255,210,0,.08);}
+
+/* STAGE */
+#stage{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;}
+
+/* ACTIVITIES */
+.act{display:none;flex-direction:column;align-items:center;justify-content:center;
+  width:100%;height:100%;gap:8px;padding:8px 20px;}
+.act.on{display:flex;}
+
+.act-title{font-family:var(--head);font-size:clamp(10px,1.3vw,13px);letter-spacing:2px;
+  color:var(--neon-y);text-shadow:0 0 12px var(--neon-y);}
+.act-desc{font-size:clamp(11px,1.2vw,13px);color:var(--dim);text-align:center;max-width:680px;line-height:1.5;}
+.act-desc strong{color:var(--text);}
+
+/* DRAG BLOCKS */
+.block{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 14px;border-radius:6px;cursor:grab;font-family:var(--mono);
+  font-size:12px;font-weight:700;border:1.5px solid;
+  transition:transform .15s,box-shadow .15s;white-space:nowrap;flex-shrink:0;
+}
+.block:hover{transform:scale(1.06);}
+.block.dragging{opacity:.4;cursor:grabbing;}
+.block.mv{border-color:rgba(0,180,255,.7);background:rgba(0,180,255,.12);color:var(--neon-b);}
+.block.turn{border-color:rgba(255,210,0,.7);background:rgba(255,210,0,.1);color:var(--neon-y);}
+.block.loop{border-color:rgba(180,0,255,.7);background:rgba(180,0,255,.12);color:var(--neon-p);}
+.block.col{border-color:rgba(255,60,120,.7);background:rgba(255,60,120,.1);color:var(--neon-r);}
+.block.export{border-color:rgba(0,255,200,.7);background:rgba(0,255,200,.1);color:var(--neon-g);}
+.block.speed{border-color:rgba(255,140,0,.7);background:rgba(255,140,0,.12);color:#ff8c00;}
+.block.setup{border-color:rgba(100,200,100,.7);background:rgba(100,200,100,.1);color:#64c864;}
+
+/* SLOTS */
+.slot{
+  min-width:170px;min-height:38px;border:1.5px dashed rgba(0,255,200,.25);
+  border-radius:6px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:10px;color:rgba(0,255,200,.3);
+  padding:4px;transition:all .2s;position:relative;
+}
+.slot.over{border-color:var(--neon-g);background:rgba(0,255,200,.06);}
+.slot.filled{border-style:solid;border-color:rgba(0,255,200,.4);}
+.slot.correct{animation:cPulse .6s ease;}
+.slot.wrong{animation:wPulse .5s ease;}
+@keyframes cPulse{0%,100%{box-shadow:none;}50%{box-shadow:0 0 18px var(--neon-g),inset 0 0 8px rgba(0,255,200,.15);}}
+@keyframes wPulse{0%,50%,100%{background:transparent;}25%,75%{background:rgba(255,60,80,.12);}}
+
+.panel{
+  background:rgba(4,12,26,.9);border:1px solid var(--border);border-radius:12px;
+  padding:12px 16px;backdrop-filter:blur(4px);
+}
+.plabel{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--neon-g);margin-bottom:6px;}
+
+/* ===== ACT 1 ===== */
+#act1 .source{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:700px;}
+#act1 .seq-area{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;}
+.seq-col{min-width:180px;}
+.seq-col .seq-slots{display:flex;flex-direction:column;gap:6px;}
+.result-canvas{
+  width:140px;height:140px;border:1px solid var(--border);border-radius:8px;
+  background:rgba(0,255,200,.03);display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+}
+#turtle-canvas{border-radius:6px;}
+.shape-label{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:1px;margin-top:4px;text-align:center;}
+
+/* ===== ACT 2 ===== */
+#act2 .design-row{display:flex;gap:14px;justify-content:center;align-items:flex-start;flex-wrap:wrap;}
+.design-card{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  background:rgba(4,12,26,.9);border:1px solid;border-radius:12px;padding:12px;
+  min-width:160px;transition:border-color .3s;
+}
+.design-card.selected{box-shadow:0 0 20px rgba(0,255,200,.3);}
+#spirograph-card{border-color:rgba(0,180,255,.3);}
+#mandala-card{border-color:rgba(180,0,255,.3);}
+#snowflake-card{border-color:rgba(255,60,120,.3);}
+.mini-canvas{width:110px;height:110px;border-radius:6px;background:rgba(0,0,0,.4);}
+.drop-row{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;}
+.act2-slot{min-width:130px;min-height:36px;}
+
+/* ===== ACT 3 ===== */
+#act3 .workflow{
+  display:flex;gap:0;align-items:center;justify-content:center;flex-wrap:wrap;
+  max-width:720px;
+}
+.wf-step{display:flex;flex-direction:column;align-items:center;gap:4px;}
+.wf-arrow{font-size:20px;color:var(--neon-g);opacity:.5;margin:0 4px;align-self:center;}
+.wf-slot{min-width:120px;min-height:52px;flex-direction:column;gap:2px;font-size:9px;}
+.wf-label{font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--dim);text-align:center;}
+#export-canvas-wrap{position:relative;width:160px;height:160px;}
+#export-canvas{border-radius:8px;border:1px solid var(--border);}
+.export-overlay{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  border-radius:8px;font-family:var(--mono);font-size:10px;color:var(--neon-g);
+  background:rgba(0,255,200,.04);opacity:0;transition:opacity .5s;pointer-events:none;
+}
+
+/* FEEDBACK */
+.fb{min-height:18px;font-family:var(--mono);font-size:11px;letter-spacing:.5px;text-align:center;transition:all .3s;}
+
+/* BUTTONS */
+.btn{
+  padding:9px 26px;border-radius:6px;font-family:var(--head);font-size:10px;
+  letter-spacing:2px;font-weight:700;cursor:pointer;border:1.5px solid;transition:all .25s;
+  background:transparent;
+}
+.btn-g{border-color:var(--neon-g);color:var(--neon-g);}
+.btn-g:hover{background:rgba(0,255,200,.1);box-shadow:0 0 18px rgba(0,255,200,.35);}
+.btn-g:disabled{opacity:.25;cursor:not-allowed;box-shadow:none;}
+.btn-y{border-color:var(--neon-y);color:var(--neon-y);}
+.btn-y:hover{background:rgba(255,210,0,.1);box-shadow:0 0 18px rgba(255,210,0,.35);}
+.btn-y:disabled{opacity:.25;cursor:not-allowed;box-shadow:none;}
+
+/* POPUP */
+#pop{
+  position:fixed;inset:0;z-index:200;background:rgba(4,8,16,.88);
+  display:none;align-items:center;justify-content:center;backdrop-filter:blur(8px);
+}
+#pop.on{display:flex;}
+#pbox{
+  background:linear-gradient(140deg,rgba(4,16,36,.98),rgba(4,24,48,.98));
+  border:1.5px solid var(--neon-g);border-radius:18px;padding:34px 42px;
+  max-width:480px;text-align:center;
+  box-shadow:0 0 60px rgba(0,255,200,.18),0 0 120px rgba(0,255,200,.06);
+  animation:popIn .5s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes popIn{from{transform:scale(.65);opacity:0;}to{transform:scale(1);opacity:1;}}
+.p-icon{font-size:44px;margin-bottom:10px;}
+.p-title{font-family:var(--head);font-size:17px;letter-spacing:2px;margin-bottom:10px;color:var(--neon-g);}
+.p-body{font-size:13px;color:var(--dim);line-height:1.65;margin-bottom:22px;}
+.p-body strong{color:var(--text);}
+.p-body code{
+  font-family:var(--mono);font-size:12px;color:var(--neon-g);
+  background:rgba(0,255,200,.08);padding:1px 6px;border-radius:3px;
+}
+
+/* CONFETTI */
+@keyframes cfFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1;}100%{transform:translateY(110px) rotate(540deg);opacity:0;}}
+.cf{position:fixed;width:7px;height:7px;border-radius:2px;animation:cfFall 2s ease-in forwards;z-index:300;}
+
+/* CODE LINE STYLE */
+.code-line{
+  font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:4px;
+  background:rgba(0,255,200,.05);border-left:2px solid var(--neon-g);color:var(--neon-g);
+  letter-spacing:.5px;
+}
+
+/* STEP TRACKER */
+.steps{display:flex;flex-direction:column;gap:4px;min-width:130px;}
+.step-item{
+  font-family:var(--mono);font-size:9px;padding:4px 10px;border-radius:4px;
+  border:1px solid;letter-spacing:.5px;transition:all .35s;
+}
+.step-item.idle{border-color:rgba(255,255,255,.08);color:rgba(255,255,255,.2);}
+.step-item.cur{border-color:var(--neon-b);color:var(--neon-b);box-shadow:0 0 8px rgba(0,180,255,.2);}
+.step-item.ok{border-color:var(--neon-g);color:var(--neon-g);}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div id="app">
+  <header>
+    <div class="logo-text">PLANRS ACADEMY</div>
+    <h1>PYTHON — TURTLE ART: GEOMETRIC PATTERNS</h1>
+    <div class="pills">
+      <div class="pill active" id="p1">ACT 1</div>
+      <div class="pill idle"   id="p2">ACT 2</div>
+      <div class="pill idle"   id="p3">ACT 3</div>
+    </div>
+  </header>
+
+  <div id="stage">
+
+    <!-- ═══════════════ ACTIVITY 1 ═══════════════ -->
+    <div class="act on" id="act1">
+      <div class="act-title">⌨ ACTIVITY 1 — COMMAND SEQUENCE BUILDER</div>
+      <div class="act-desc">Drag the <strong>movement</strong> and <strong>turn</strong> commands into the correct sequence slots to make the turtle draw a perfect square. Order matters — the turtle follows every line exactly!</div>
+
+      <div style="display:flex;gap:20px;align-items:flex-start;justify-content:center;flex-wrap:wrap;">
+        <!-- SOURCE BLOCKS -->
+        <div class="panel">
+          <div class="plabel">⬡ COMMAND BLOCKS</div>
+          <div class="source" id="src1" style="flex-direction:column;gap:7px;min-width:175px;">
+            <div class="block mv" draggable="true" data-cmd="forward(100)" data-type="mv" id="b-f1">▶ turtle.forward(100)</div>
+            <div class="block turn" draggable="true" data-cmd="right(90)" data-type="turn" id="b-r1">↻ turtle.right(90)</div>
+            <div class="block mv" draggable="true" data-cmd="forward(100)" data-type="mv" id="b-f2">▶ turtle.forward(100)</div>
+            <div class="block turn" draggable="true" data-cmd="right(90)" data-type="turn" id="b-r2">↻ turtle.right(90)</div>
+            <div class="block mv" draggable="true" data-cmd="forward(100)" data-type="mv" id="b-f3">▶ turtle.forward(100)</div>
+            <div class="block turn" draggable="true" data-cmd="right(90)" data-type="turn" id="b-r3">↻ turtle.right(90)</div>
+            <div class="block mv" draggable="true" data-cmd="forward(100)" data-type="mv" id="b-f4">▶ turtle.forward(100)</div>
+            <div class="block turn" draggable="true" data-cmd="right(90)" data-type="turn" id="b-r4">↻ turtle.right(90)</div>
+          </div>
+        </div>
+
+        <!-- SEQUENCE SLOTS -->
+        <div class="panel" style="min-width:200px;">
+          <div class="plabel">📋 CODE SEQUENCE</div>
+          <div class="seq-slots" id="seq1">
+            <div class="slot" data-pos="0" data-expect-type="mv">line 1 — move command</div>
+            <div class="slot" data-pos="1" data-expect-type="turn">line 2 — turn command</div>
+            <div class="slot" data-pos="2" data-expect-type="mv">line 3 — move command</div>
+            <div class="slot" data-pos="3" data-expect-type="turn">line 4 — turn command</div>
+            <div class="slot" data-pos="4" data-expect-type="mv">line 5 — move command</div>
+            <div class="slot" data-pos="5" data-expect-type="turn">line 6 — turn command</div>
+            <div class="slot" data-pos="6" data-expect-type="mv">line 7 — move command</div>
+            <div class="slot" data-pos="7" data-expect-type="turn">line 8 — turn command</div>
+          </div>
+        </div>
+
+        <!-- LIVE TURTLE CANVAS -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <div class="panel" style="padding:10px;">
+            <div class="plabel">🐢 LIVE CANVAS</div>
+            <div class="result-canvas">
+              <canvas id="turtle-canvas" width="134" height="134"></canvas>
+            </div>
+          </div>
+          <div class="shape-label" id="shape-hint">Waiting for commands…</div>
+        </div>
+      </div>
+
+      <div class="fb" id="fb1" style="color:var(--neon-g);"></div>
+      <button class="btn btn-g" id="next1" disabled>NEXT ACTIVITY →</button>
+    </div>
+
+    <!-- ═══════════════ ACTIVITY 2 ═══════════════ -->
+    <div class="act" id="act2">
+      <div class="act-title">🔄 ACTIVITY 2 — LOOP & COLOUR BLOCK DESIGNER</div>
+      <div class="act-desc">Choose a design, then drag the correct <strong>loop block</strong> and <strong>colour block</strong> into position to generate that pattern. Watch the turtle paint it live!</div>
+
+      <div class="design-row" id="design-row">
+
+        <!-- SPIROGRAPH -->
+        <div class="design-card" id="spirograph-card">
+          <div style="font-family:var(--mono);font-size:9px;color:var(--neon-b);letter-spacing:1px;">SPIROGRAPH</div>
+          <canvas class="mini-canvas" id="spiro-canvas" width="110" height="110"></canvas>
+          <div class="drop-row" id="spiro-slots">
+            <div class="slot act2-slot" data-design="spiro" data-slot="loop" data-expect="loop36">loop block</div>
+            <div class="slot act2-slot" data-design="spiro" data-slot="col" data-expect="col-rainbow">colour block</div>
+          </div>
+        </div>
+
+        <!-- MANDALA -->
+        <div class="design-card" id="mandala-card">
+          <div style="font-family:var(--mono);font-size:9px;color:var(--neon-p);letter-spacing:1px;">MANDALA</div>
+          <canvas class="mini-canvas" id="mandala-canvas" width="110" height="110"></canvas>
+          <div class="drop-row" id="mandala-slots">
+            <div class="slot act2-slot" data-design="mandala" data-slot="loop" data-expect="loop8">loop block</div>
+            <div class="slot act2-slot" data-design="mandala" data-slot="col" data-expect="col-gold">colour block</div>
+          </div>
+        </div>
+
+        <!-- SNOWFLAKE -->
+        <div class="design-card" id="snowflake-card">
+          <div style="font-family:var(--mono);font-size:9px;color:var(--neon-r);letter-spacing:1px;">SNOWFLAKE</div>
+          <canvas class="mini-canvas" id="snow-canvas" width="110" height="110"></canvas>
+          <div class="drop-row" id="snow-slots">
+            <div class="slot act2-slot" data-design="snow" data-slot="loop" data-expect="loop6">loop block</div>
+            <div class="slot act2-slot" data-design="snow" data-slot="col" data-expect="col-ice">colour block</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- BLOCKS SOURCE -->
+      <div class="panel">
+        <div class="plabel">⬡ LOOP & COLOUR BLOCKS</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+          <div class="block loop" draggable="true" data-bid="loop36">⟳ repeat(36, step=10°)</div>
+          <div class="block loop" draggable="true" data-bid="loop8">⟳ repeat(8, step=45°)</div>
+          <div class="block loop" draggable="true" data-bid="loop6">⟳ repeat(6, step=60°)</div>
+          <div class="block col" draggable="true" data-bid="col-rainbow">🎨 rainbow[ ]</div>
+          <div class="block col" draggable="true" data-bid="col-gold">🎨 gold[ ]</div>
+          <div class="block col" draggable="true" data-bid="col-ice">🎨 ice[ ]</div>
+        </div>
+      </div>
+
+      <div class="fb" id="fb2" style="color:var(--neon-b);"></div>
+      <button class="btn btn-g" id="next2" disabled>FINAL ACTIVITY →</button>
+    </div>
+
+    <!-- ═══════════════ ACTIVITY 3 ═══════════════ -->
+    <div class="act" id="act3">
+      <div class="act-title">💾 ACTIVITY 3 — DESIGN, BUILD & EXPORT</div>
+      <div class="act-desc">Complete the full turtle art workflow! Drag each step into the correct position — then watch your geometric masterpiece get built and exported as a glowing digital artwork.</div>
+
+      <div style="display:flex;gap:18px;align-items:center;justify-content:center;flex-wrap:wrap;">
+
+        <!-- WORKFLOW STEPS -->
+        <div class="panel" style="min-width:360px;">
+          <div class="plabel">📐 WORKFLOW PIPELINE</div>
+          <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:center;">
+            <div class="wf-step">
+              <div class="wf-label">STEP 1</div>
+              <div class="slot wf-slot" data-wf="1" data-expect="setup">setup canvas</div>
+            </div>
+            <div class="wf-arrow">›</div>
+            <div class="wf-step">
+              <div class="wf-label">STEP 2</div>
+              <div class="slot wf-slot" data-wf="2" data-expect="speed">set speed</div>
+            </div>
+            <div class="wf-arrow">›</div>
+            <div class="wf-step">
+              <div class="wf-label">STEP 3</div>
+              <div class="slot wf-slot" data-wf="3" data-expect="loop">draw loop</div>
+            </div>
+            <div class="wf-arrow">›</div>
+            <div class="wf-step">
+              <div class="wf-label">STEP 4</div>
+              <div class="slot wf-slot" data-wf="4" data-expect="col">add colour</div>
+            </div>
+            <div class="wf-arrow">›</div>
+            <div class="wf-step">
+              <div class="wf-label">STEP 5</div>
+              <div class="slot wf-slot" data-wf="5" data-expect="export">export art</div>
+            </div>
+          </div>
+
+          <!-- BLOCK SUPPLY -->
+          <div style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap;justify-content:center;">
+            <div class="block setup" draggable="true" data-wid="setup">⚙ turtle.setup()</div>
+            <div class="block speed" draggable="true" data-wid="speed">⚡ turtle.speed(10)</div>
+            <div class="block loop" draggable="true" data-wid="loop">⟳ for i in range(72)</div>
+            <div class="block col" draggable="true" data-wid="col">🎨 pencolor(hue)</div>
+            <div class="block export" draggable="true" data-wid="export">💾 save_canvas()</div>
+          </div>
+
+          <!-- STEPS TRACKER -->
+          <div class="steps" style="margin-top:10px;flex-direction:row;gap:6px;flex-wrap:wrap;">
+            <div class="step-item cur" id="wf-s1">1 setup</div>
+            <div class="step-item idle" id="wf-s2">2 speed</div>
+            <div class="step-item idle" id="wf-s3">3 loop</div>
+            <div class="step-item idle" id="wf-s4">4 colour</div>
+            <div class="step-item idle" id="wf-s5">5 export</div>
+          </div>
+        </div>
+
+        <!-- EXPORT PREVIEW -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+          <div class="panel" style="padding:10px;display:flex;flex-direction:column;align-items:center;gap:6px;">
+            <div class="plabel">🖼 ARTWORK PREVIEW</div>
+            <div id="export-canvas-wrap">
+              <canvas id="export-canvas" width="160" height="160"></canvas>
+              <div class="export-overlay" id="exp-overlay">
+                <span style="text-shadow:0 0 10px var(--neon-g);">✓ EXPORTED</span>
+              </div>
+            </div>
+            <div class="fb" id="fb3" style="color:var(--neon-g);font-size:10px;max-width:160px;"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <button class="btn btn-y" id="finish3" disabled>🎉 COMPLETE ARTWORK</button>
+    </div>
+
+  </div><!-- /stage -->
+</div><!-- /app -->
+
+<!-- POPUP -->
+<div id="pop">
+  <div id="pbox">
+    <div class="p-icon" id="p-icon"></div>
+    <div class="p-title" id="p-title"></div>
+    <div class="p-body" id="p-body"></div>
+    <button class="btn btn-g" id="p-btn"></button>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════ BACKGROUND ═══════════════════ */
+const bgC=document.getElementById('bg');
+const bgX=bgC.getContext('2d');
+bgC.width=window.innerWidth;bgC.height=window.innerHeight;
+window.addEventListener('resize',()=>{bgC.width=window.innerWidth;bgC.height=window.innerHeight;});
+
+const GRID_SIZE=38;
+let gridOff=0;
+
+const particles=[];
+for(let i=0;i<55;i++){
+  particles.push({
+    x:Math.random()*window.innerWidth,y:Math.random()*window.innerHeight,
+    r:Math.random()*1.8+.3,vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5,
+    hue:Math.random()*360,pulse:Math.random()*Math.PI*2,ps:0.025+Math.random()*.02,alpha:.25+Math.random()*.35
+  });
+}
+
+const circuits=[];
+for(let i=0;i<18;i++){
+  const hor=Math.random()>.5;
+  circuits.push({
+    x:Math.random()*window.innerWidth,y:Math.random()*window.innerHeight,
+    len:40+Math.random()*120,hor,
+    hue:Math.random()>0.5?180:280,
+    prog:Math.random(),spd:0.003+Math.random()*.005,alpha:.12+Math.random()*.1
+  });
+}
+
+function drawBg(){
+  bgX.clearRect(0,0,bgC.width,bgC.height);
+
+  // grid
+  bgX.strokeStyle='rgba(0,255,200,0.045)';bgX.lineWidth=.5;
+  const ox=(gridOff%GRID_SIZE);
+  for(let x=ox;x<bgC.width;x+=GRID_SIZE){bgX.beginPath();bgX.moveTo(x,0);bgX.lineTo(x,bgC.height);bgX.stroke();}
+  for(let y=ox;y<bgC.height;y+=GRID_SIZE){bgX.beginPath();bgX.moveTo(0,y);bgX.lineTo(bgC.width,y);bgX.stroke();}
+  gridOff+=.15;
+
+  // circuit traces
+  circuits.forEach(c=>{
+    c.prog+=c.spd;if(c.prog>1)c.prog=0;
+    const gx=bgX.createLinearGradient(
+      c.x,c.y,c.hor?c.x+c.len:c.x,c.hor?c.y:c.y+c.len
+    );
+    gx.addColorStop(Math.max(0,c.prog-.15),'transparent');
+    gx.addColorStop(c.prog,`hsla(${c.hue},100%,65%,${c.alpha*3})`);
+    gx.addColorStop(Math.min(1,c.prog+.15),'transparent');
+    bgX.strokeStyle=gx;bgX.lineWidth=1.5;
+    bgX.beginPath();
+    bgX.moveTo(c.x,c.y);
+    bgX.lineTo(c.hor?c.x+c.len:c.x,c.hor?c.y:c.y+c.len);
+    bgX.stroke();
+  });
+
+  // particles
+  particles.forEach(p=>{
+    p.pulse+=p.ps;
+    const a=p.alpha*(0.5+0.5*Math.sin(p.pulse));
+    bgX.beginPath();bgX.arc(p.x,p.y,p.r,0,Math.PI*2);
+    bgX.fillStyle=`hsla(${p.hue},100%,70%,${a})`;bgX.fill();
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0)p.x=bgC.width;if(p.x>bgC.width)p.x=0;
+    if(p.y<0)p.y=bgC.height;if(p.y>bgC.height)p.y=0;
+  });
+
+  bgX.globalAlpha=1;
+  requestAnimationFrame(drawBg);
+}
+drawBg();
+
+/* ═══════════════════ DRAG HELPERS ═══════════════════ */
+let dragData={};
+function makeDraggable(el,data){
+  el.addEventListener('dragstart',e=>{
+    Object.assign(dragData,data);
+    el.classList.add('dragging');
+    e.dataTransfer.effectAllowed='copy';
+  });
+  el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+}
+function makeDropzone(el,onDrop){
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('over'));
+  el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('over');onDrop(el,dragData);});
+}
+function flash(el,type){
+  el.classList.add(type);setTimeout(()=>el.classList.remove(type),650);
+}
+function fillSlot(slot,block){
+  const clone=block.cloneNode(true);
+  clone.style.cursor='default';clone.removeAttribute('draggable');
+  clone.style.fontSize='10px';clone.style.padding='5px 10px';
+  slot.innerHTML='';slot.appendChild(clone);slot.classList.add('filled');
+}
+
+/* ═══════════════════ ACTIVITY 1 ═══════════════════ */
+const tC=document.getElementById('turtle-canvas');
+const tX=tC.getContext('2d');
+const SEQ_CORRECT=['mv','turn','mv','turn','mv','turn','mv','turn'];
+const act1Filled=Array(8).fill(false);
+let act1Count=0;
+
+document.querySelectorAll('#src1 .block').forEach(b=>{
+  const d={type:b.dataset.type,cmd:b.dataset.cmd,el:b};
+  makeDraggable(b,d);
+});
+
+document.querySelectorAll('#seq1 .slot').forEach(slot=>{
+  makeDropzone(slot,(s,d)=>{
+    if(s.classList.contains('filled'))return;
+    const pos=parseInt(s.dataset.pos);
+    const expected=SEQ_CORRECT[pos];
+    if(d.type===expected){
+      fillSlot(s,d.el);
+      act1Filled[pos]=true;
+      flash(s,'correct');
+      act1Count++;
+      updateTurtleCanvas();
+      if(act1Count===8){
+        document.getElementById('shape-hint').textContent='✓ Square complete!';
+        document.getElementById('shape-hint').style.color='var(--neon-g)';
+        document.getElementById('fb1').textContent='🎉 Perfect! 4× forward + 4× right(90°) = a square!';
+        document.getElementById('next1').disabled=false;
+      }
+    } else {
+      flash(s,'wrong');
+      document.getElementById('fb1').textContent='⚠ Turtle is confused — check the bracket and block type!';
+      document.getElementById('fb1').style.color='var(--neon-r)';
+      setTimeout(()=>{
+        document.getElementById('fb1').style.color='var(--neon-g)';
+        document.getElementById('fb1').textContent='';
+      },2000);
+    }
+  });
+});
+
+function updateTurtleCanvas(){
+  tX.clearRect(0,0,134,134);
+  const steps=act1Filled.filter(Boolean).length;
+  tX.strokeStyle='var(--neon-g)';tX.lineWidth=2;tX.shadowColor='var(--neon-g)';tX.shadowBlur=8;
+  tX.beginPath();
+  let cx=17,cy=67,angle=0;
+  const segLen=25;
+  tX.moveTo(cx,cy);
+  let drawn=0;
+  for(let i=0;i<8;i++){
+    if(!act1Filled[i])break;
+    if(i%2===0){
+      const nx=cx+Math.cos(angle*Math.PI/180)*segLen;
+      const ny=cy+Math.sin(angle*Math.PI/180)*segLen;
+      tX.lineTo(nx,ny);cx=nx;cy=ny;drawn++;
+    } else {
+      angle+=90;
+    }
+  }
+  tX.stroke();
+  // turtle head
+  tX.shadowBlur=4;
+  tX.fillStyle='var(--neon-g)';tX.beginPath();tX.arc(cx,cy,5,0,Math.PI*2);tX.fill();
+}
+
+document.getElementById('next1').addEventListener('click',()=>{
+  showPopup({
+    icon:'🟩',title:'SEQUENCE MASTERED!',
+    body:`The turtle obeyed every command in order! <code>turtle.forward(100)</code> moves straight, <code>turtle.right(90)</code> spins the nose. <strong>4 pairs of those commands</strong> = a perfect square — just like tracing the grid squares on a doorstep pattern!`,
+    btn:'DESIGN PATTERNS →',cb:()=>switchAct(1,2)
+  });
+});
+
+/* ═══════════════════ ACTIVITY 2 ═══════════════════ */
+const act2State={spiro:{loop:false,col:false},mandala:{loop:false,col:false},snow:{loop:false,col:false}};
+let act2Done=0;
+
+// pre-draw placeholder outlines
+function drawPlaceholder(canvas,color){
+  const cx=canvas.getContext('2d');cx.clearRect(0,0,110,110);
+  cx.strokeStyle=color+'55';cx.lineWidth=1;cx.setLineDash([3,3]);
+  cx.beginPath();cx.arc(55,55,40,0,Math.PI*2);cx.stroke();
+  cx.setLineDash([]);
+  cx.fillStyle=color+'22';cx.fillRect(0,0,110,110);
+}
+drawPlaceholder(document.getElementById('spiro-canvas'),'#00b4ff');
+drawPlaceholder(document.getElementById('mandala-canvas'),'#b400ff');
+drawPlaceholder(document.getElementById('snow-canvas'),'#ff3c78');
+
+const DESIGNS={
+  spiro:{loop:'loop36',col:'col-rainbow',canvas:'spiro-canvas',drawFn:drawSpiro},
+  mandala:{loop:'loop8',col:'col-gold',canvas:'mandala-canvas',drawFn:drawMandala},
+  snow:{loop:'loop6',col:'col-ice',canvas:'snow-canvas',drawFn:drawSnow}
+};
+
+document.querySelectorAll('#act2 .block').forEach(b=>{
+  makeDraggable(b,{bid:b.dataset.bid,el:b});
+});
+
+document.querySelectorAll('.act2-slot').forEach(slot=>{
+  makeDropzone(slot,(s,d)=>{
+    if(s.classList.contains('filled'))return;
+    const design=s.dataset.design;
+    const slotType=s.dataset.slot;
+    const expected=s.dataset.expect;
+    if(d.bid===expected){
+      fillSlot(s,d.el);
+      act2State[design][slotType]=true;
+      flash(s,'correct');
+      if(act2State[design].loop&&act2State[design].col){
+        DESIGNS[design].drawFn();
+        act2Done++;
+        if(act2Done===3){
+          document.getElementById('fb2').textContent='🌟 All three patterns generated! Loops create beautiful repeating art!';
+          document.getElementById('next2').disabled=false;
+        } else {
+          document.getElementById('fb2').textContent=`✓ ${act2Done}/3 patterns drawn — keep going!`;
+        }
+      }
+    } else {
+      flash(s,'wrong');
+      document.getElementById('fb2').textContent='⚠ Wrong block — each design needs its own matching loop and colour!';
+      document.getElementById('fb2').style.color='var(--neon-r)';
+      setTimeout(()=>{document.getElementById('fb2').style.color='var(--neon-b)';document.getElementById('fb2').textContent='';},2000);
+    }
+  });
+});
+
+function drawSpiro(){
+  const cv=document.getElementById('spiro-canvas');
+  const cx=cv.getContext('2d');cx.clearRect(0,0,110,110);
+  cx.save();cx.translate(55,55);
+  for(let i=0;i<36;i++){
+    const h=i*10;
+    cx.strokeStyle=`hsl(${h},100%,65%)`;cx.lineWidth=1.2;cx.shadowColor=`hsl(${h},100%,65%)`;cx.shadowBlur=6;
+    cx.beginPath();cx.arc(0,0,38-(i*.5),i*10*Math.PI/180,(i+1)*10*Math.PI/180);cx.stroke();
+    const r=(i*5)%40+5;
+    cx.beginPath();cx.moveTo(0,0);cx.lineTo(Math.cos(i*10*Math.PI/180)*r,Math.sin(i*10*Math.PI/180)*r);cx.stroke();
+  }
+  cx.restore();
+}
+function drawMandala(){
+  const cv=document.getElementById('mandala-canvas');
+  const cx=cv.getContext('2d');cx.clearRect(0,0,110,110);
+  cx.save();cx.translate(55,55);
+  const golds=['#ffd200','#ffb300','#ff8c00','#ffe566','#fff0aa','#ffc107','#e6a000','#ffd740'];
+  for(let i=0;i<8;i++){
+    cx.save();cx.rotate(i*45*Math.PI/180);
+    cx.strokeStyle=golds[i];cx.lineWidth=1.5;cx.shadowColor=golds[i];cx.shadowBlur=8;
+    cx.beginPath();cx.moveTo(0,0);cx.lineTo(0,38);cx.stroke();
+    cx.beginPath();cx.moveTo(-8,20);cx.lineTo(8,20);cx.stroke();
+    cx.beginPath();cx.arc(0,26,8,0,Math.PI*2);cx.stroke();
+    cx.restore();
+  }
+  cx.beginPath();cx.arc(0,0,12,0,Math.PI*2);cx.strokeStyle='#ffd200';cx.lineWidth=2;cx.shadowBlur=12;cx.stroke();
+  cx.restore();
+}
+function drawSnow(){
+  const cv=document.getElementById('snow-canvas');
+  const cx=cv.getContext('2d');cx.clearRect(0,0,110,110);
+  cx.save();cx.translate(55,55);
+  const ices=['#00ffc8','#00b4ff','#66e0ff','#00fff7','#b0f0ff','#4dc3ff'];
+  for(let i=0;i<6;i++){
+    cx.save();cx.rotate(i*60*Math.PI/180);
+    cx.strokeStyle=ices[i%ices.length];cx.lineWidth=1.5;cx.shadowColor=ices[i%ices.length];cx.shadowBlur=10;
+    cx.beginPath();cx.moveTo(0,0);cx.lineTo(0,40);cx.stroke();
+    for(let j=1;j<=3;j++){
+      const y=j*11;
+      cx.beginPath();cx.moveTo(-6,y);cx.lineTo(6,y);cx.stroke();
+    }
+    cx.restore();
+  }
+  cx.beginPath();cx.arc(0,0,5,0,Math.PI*2);cx.fillStyle='#00ffc8';cx.fill();
+  cx.restore();
+}
+
+document.getElementById('next2').addEventListener('click',()=>{
+  showPopup({
+    icon:'🔄',title:'PATTERNS UNLOCKED!',
+    body:`You used <code>repeat()</code> loops to make the turtle draw the same shape over and over — rotating each time — to create a <strong>Spirograph</strong>, <strong>Mandala</strong>, and <strong>Snowflake</strong>! Loops are the secret ingredient behind all geometric art in code.`,
+    btn:'EXPORT ARTWORK →',cb:()=>switchAct(2,3)
+  });
+});
+
+/* ═══════════════════ ACTIVITY 3 ═══════════════════ */
+const wfDone=Array(5).fill(false);
+let wfCount=0;
+const wfOrder=['setup','speed','loop','col','export'];
+
+document.querySelectorAll('#act3 .block').forEach(b=>{
+  makeDraggable(b,{wid:b.dataset.wid,el:b});
+});
+
+document.querySelectorAll('.wf-slot').forEach(slot=>{
+  makeDropzone(slot,(s,d)=>{
+    if(s.classList.contains('filled'))return;
+    const pos=parseInt(s.dataset.wf)-1;
+    if(d.wid===wfOrder[pos]){
+      fillSlot(s,d.el);
+      wfDone[pos]=true;
+      flash(s,'correct');
+      wfCount++;
+      // update step tracker
+      document.getElementById(`wf-s${pos+1}`).className='step-item ok';
+      if(pos+1<5)document.getElementById(`wf-s${pos+2}`).className='step-item cur';
+      // progressive canvas draw
+      animateExport(wfCount);
+      if(wfCount===5){
+        document.getElementById('exp-overlay').style.opacity='1';
+        document.getElementById('fb3').textContent='✓ All steps complete!';
+        document.getElementById('finish3').disabled=false;
+      } else {
+        document.getElementById('fb3').textContent=`Step ${wfCount}/5 done`;
+      }
+    } else {
+      flash(s,'wrong');
+    }
+  });
+});
+
+let exportAnimId=null;
+function animateExport(step){
+  const cv=document.getElementById('export-canvas');
+  const cx=cv.getContext('2d');
+  if(step===1){cx.fillStyle='#040810';cx.fillRect(0,0,160,160);}
+  if(step>=2){
+    cx.strokeStyle='rgba(0,255,200,.06)';cx.lineWidth=.5;
+    for(let i=0;i<160;i+=16){
+      cx.beginPath();cx.moveTo(i,0);cx.lineTo(i,160);cx.stroke();
+      cx.beginPath();cx.moveTo(0,i);cx.lineTo(160,i);cx.stroke();
+    }
+  }
+  if(step>=3){
+    // draw loop spiral
+    cx.save();cx.translate(80,80);
+    for(let i=0;i<72;i++){
+      const a=i*5*Math.PI/180,r=5+i*.65;
+      const x=Math.cos(a)*r,y=Math.sin(a)*r;
+      const h=i*5;
+      cx.strokeStyle=`hsl(${h},100%,60%)`;cx.lineWidth=1;cx.shadowColor=`hsl(${h},100%,60%)`;cx.shadowBlur=4;
+      cx.beginPath();
+      const pa=(i-1)*5*Math.PI/180,pr=5+(i-1)*.65;
+      cx.moveTo(Math.cos(pa)*pr,Math.sin(pa)*pr);cx.lineTo(x,y);cx.stroke();
+    }
+    cx.restore();
+  }
+  if(step>=4){
+    cx.save();cx.translate(80,80);
+    for(let i=0;i<6;i++){
+      cx.save();cx.rotate(i*60*Math.PI/180);
+      cx.strokeStyle='rgba(0,255,200,.6)';cx.lineWidth=1.2;cx.shadowColor='var(--neon-g)';cx.shadowBlur=8;
+      cx.beginPath();cx.moveTo(0,0);cx.lineTo(0,55);cx.stroke();
+      cx.restore();
+    }
+    cx.beginPath();cx.arc(0,0,8,0,Math.PI*2);
+    cx.strokeStyle='var(--neon-g)';cx.lineWidth=2;cx.shadowBlur=12;cx.stroke();
+    cx.restore();
+  }
+  if(step>=5){
+    cx.save();
+    cx.strokeStyle='rgba(255,210,0,.5)';cx.lineWidth=1.5;cx.setLineDash([4,4]);
+    cx.strokeRect(4,4,152,152);cx.setLineDash([]);
+    cx.font='8px "Share Tech Mono"';cx.fillStyle='rgba(255,210,0,.7)';
+    cx.fillText('turtle_art.png',8,154);
+    cx.restore();
+  }
+}
+
+document.getElementById('finish3').addEventListener('click',showFinal);
+
+/* ═══════════════════ POPUPS ═══════════════════ */
+function showPopup({icon,title,body,btn,cb}){
+  document.getElementById('p-icon').textContent=icon;
+  document.getElementById('p-title').textContent=title;
+  document.getElementById('p-body').innerHTML=body;
+  document.getElementById('p-btn').textContent=btn;
+  document.getElementById('p-btn').onclick=()=>{document.getElementById('pop').classList.remove('on');cb&&cb();};
+  document.getElementById('pop').classList.add('on');
+}
+
+function showFinal(){
+  document.getElementById('p-icon').textContent='🏆';
+  document.getElementById('p-title').textContent='ARTWORK COMPLETE!';
+  document.getElementById('p-body').innerHTML=`
+    <strong>Outstanding work!</strong> You mastered the full coding pipeline:<br><br>
+    ① <code>turtle.forward()</code> + <code>turtle.right()</code> to draw shapes<br>
+    ② <code>repeat()</code> loops to create Spirographs, Mandalas & Snowflakes<br>
+    ③ A full setup → draw → colour → export workflow<br><br>
+    <span style="color:var(--neon-g);font-size:11px;letter-spacing:1px;">Every great digital artwork starts with a single line of code.</span>
+  `;
+  document.getElementById('p-btn').textContent='🎉 CELEBRATE!';
+  document.getElementById('p-btn').onclick=()=>{
+    document.getElementById('pop').classList.remove('on');
+    launchConfetti();
+    document.getElementById('pbox').style.borderColor='var(--neon-y)';
+  };
+  document.getElementById('pop').classList.add('on');
+}
+
+function launchConfetti(){
+  const cols=['#00ffc8','#ffd200','#b400ff','#00b4ff','#ff3c78','#ff8c00'];
+  for(let i=0;i<70;i++){
+    setTimeout(()=>{
+      const c=document.createElement('div');
+      c.className='cf';
+      c.style.left=Math.random()*100+'%';
+      c.style.top='-10px';
+      c.style.background=cols[Math.floor(Math.random()*cols.length)];
+      c.style.animationDuration=(1.4+Math.random()*1.4)+'s';
+      c.style.animationDelay=Math.random()*.6+'s';
+      document.body.appendChild(c);
+      setTimeout(()=>c.remove(),3000);
+    },i*28);
+  }
+}
+
+/* ═══════════════════ NAVIGATION ═══════════════════ */
+function switchAct(from,to){
+  document.querySelectorAll('.act').forEach(a=>a.classList.remove('on'));
+  document.getElementById('act'+to).classList.add('on');
+  ['p1','p2','p3'].forEach((id,i)=>{
+    const p=document.getElementById(id);
+    p.className='pill '+(i+1<to?'done':i+1===to?'active':'idle');
+  });
+}
+</script>
+</body>
+</html>

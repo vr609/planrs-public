@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How GPS Works — Triangulation Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --v1: #1a0030;
+    --v2: #2d0057;
+    --v3: #4b0082;
+    --v4: #6a0dad;
+    --v5: #9b30ff;
+    --v6: #bf7fff;
+    --v7: #e0b3ff;
+    --accent: #ff79f2;
+    --gold: #ffd700;
+    --cyan: #00f5ff;
+    --white: #f0e6ff;
+    --success: #39ff14;
+    --error: #ff4444;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--v1);
+    color: var(--white);
+    font-family: 'Exo 2', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* ── ANIMATED CANVAS BACKGROUND ── */
+  #bg-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .page-wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 20px 20px 60px;
+  }
+
+  /* ── TITLE ── */
+  .main-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(1.4rem, 4vw, 2.4rem);
+    font-weight: 900;
+    text-align: center;
+    letter-spacing: 0.08em;
+    margin-bottom: 36px;
+    background: linear-gradient(120deg, var(--v6), var(--accent), var(--cyan), var(--v5));
+    background-size: 300% 300%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 4s ease infinite;
+    text-shadow: none;
+    filter: drop-shadow(0 0 18px rgba(155,48,255,0.7));
+  }
+
+  @keyframes shimmer {
+    0%,100%{background-position:0% 50%}
+    50%{background-position:100% 50%}
+  }
+
+  /* ── TAB NAV ── */
+  .tabs {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+
+  .tab-btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 10px 22px;
+    border: 2px solid var(--v4);
+    border-radius: 40px;
+    background: rgba(75,0,130,0.3);
+    color: var(--v6);
+    cursor: pointer;
+    transition: all 0.35s;
+    position: relative;
+    overflow: hidden;
+  }
+  .tab-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 0%, var(--v5) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.35s;
+  }
+  .tab-btn:hover::before, .tab-btn.active::before { opacity: 0.35; }
+  .tab-btn.active {
+    border-color: var(--accent);
+    color: var(--white);
+    box-shadow: 0 0 24px rgba(255,121,242,0.5), inset 0 0 12px rgba(155,48,255,0.3);
+  }
+
+  /* ── ACTIVITY PANELS ── */
+  .activity { display: none; }
+  .activity.active { display: block; }
+
+  .activity-card {
+    background: linear-gradient(135deg, rgba(45,0,87,0.85), rgba(26,0,48,0.95));
+    border: 1.5px solid rgba(155,48,255,0.4);
+    border-radius: 20px;
+    padding: 28px;
+    box-shadow: 0 0 40px rgba(155,48,255,0.15), inset 0 0 60px rgba(75,0,130,0.2);
+  }
+
+  .activity-desc {
+    font-size: 0.92rem;
+    color: var(--v7);
+    line-height: 1.6;
+    margin-bottom: 24px;
+    text-align: center;
+    font-weight: 300;
+  }
+
+  /* ── FEEDBACK BADGE ── */
+  .feedback {
+    text-align: center;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    min-height: 32px;
+    margin-top: 16px;
+    transition: all 0.4s;
+  }
+  .feedback.ok  { color: var(--success); text-shadow: 0 0 12px var(--success); }
+  .feedback.err { color: var(--error);   text-shadow: 0 0 12px var(--error); }
+
+  /* ══════════════════════════════════════
+     ACTIVITY 1 – MATCH SATELLITE ROLES
+  ══════════════════════════════════════ */
+  #act1 .match-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    align-items: start;
+  }
+  #act1 .col-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    text-align: center;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+
+  .drag-item {
+    background: linear-gradient(135deg, rgba(106,13,173,0.6), rgba(75,0,130,0.4));
+    border: 1.5px solid var(--v5);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    cursor: grab;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--v7);
+    transition: all 0.25s;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+  .drag-item::after {
+    content: '⠿';
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.4;
+    font-size: 1rem;
+  }
+  .drag-item:hover {
+    border-color: var(--accent);
+    color: var(--white);
+    transform: translateX(-4px);
+    box-shadow: 4px 0 20px rgba(255,121,242,0.3);
+  }
+  .drag-item.dragging {
+    opacity: 0.5;
+    transform: scale(0.96);
+    cursor: grabbing;
+  }
+
+  .drop-zone {
+    background: rgba(26,0,48,0.6);
+    border: 2px dashed rgba(155,48,255,0.5);
+    border-radius: 12px;
+    padding: 14px 12px;
+    margin-bottom: 10px;
+    min-height: 52px;
+    font-size: 0.8rem;
+    color: rgba(224,179,255,0.5);
+    transition: all 0.25s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+  }
+  .drop-zone .zone-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.72rem;
+    color: var(--v6);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .drop-zone .zone-hint {
+    font-size: 0.75rem;
+    color: rgba(224,179,255,0.4);
+    font-style: italic;
+  }
+  .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(255,121,242,0.08);
+    box-shadow: 0 0 20px rgba(255,121,242,0.2);
+  }
+  .drop-zone.filled {
+    border-color: var(--success);
+    background: rgba(57,255,20,0.05);
+  }
+  .drop-zone.wrong {
+    border-color: var(--error);
+    background: rgba(255,68,68,0.07);
+    animation: shake 0.4s ease;
+  }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)}
+    20%,60%{transform:translateX(-6px)}
+    40%,80%{transform:translateX(6px)}
+  }
+
+  #act1 .reset-btn, #act2 .reset-btn, #act3 .reset-btn {
+    display: block;
+    margin: 20px auto 0;
+    padding: 10px 30px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    border: 2px solid var(--v5);
+    border-radius: 30px;
+    background: transparent;
+    color: var(--v6);
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  #act1 .reset-btn:hover, #act2 .reset-btn:hover, #act3 .reset-btn:hover {
+    border-color: var(--accent);
+    color: var(--white);
+    box-shadow: 0 0 18px rgba(255,121,242,0.3);
+  }
+
+  /* ══════════════════════════════════════
+     ACTIVITY 2 – BUILD SIGNAL CHAIN
+  ══════════════════════════════════════ */
+  #act2 .chain-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  #act2 .pieces-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+  #act2 .chain-piece {
+    background: linear-gradient(135deg, rgba(106,13,173,0.7), rgba(75,0,130,0.5));
+    border: 1.5px solid var(--v5);
+    border-radius: 10px;
+    padding: 10px 18px;
+    cursor: grab;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--v7);
+    transition: all 0.25s;
+    user-select: none;
+    text-align: center;
+  }
+  #act2 .chain-piece:hover {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: 0 0 14px rgba(0,245,255,0.3);
+    transform: translateY(-3px);
+  }
+  #act2 .chain-piece.dragging { opacity: 0.4; cursor: grabbing; }
+
+  #act2 .chain-slots {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  #act2 .chain-slot {
+    background: rgba(26,0,48,0.7);
+    border: 2px dashed rgba(155,48,255,0.4);
+    border-radius: 10px;
+    width: 120px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    color: rgba(224,179,255,0.35);
+    transition: all 0.25s;
+    text-align: center;
+    padding: 4px;
+    position: relative;
+    font-style: italic;
+  }
+  #act2 .chain-slot.drag-over {
+    border-color: var(--cyan);
+    background: rgba(0,245,255,0.05);
+    box-shadow: 0 0 16px rgba(0,245,255,0.25);
+  }
+  #act2 .chain-slot.filled {
+    border-color: var(--success);
+    background: rgba(57,255,20,0.06);
+    color: var(--white);
+    font-size: 0.78rem;
+    font-style: normal;
+    font-weight: 600;
+  }
+  #act2 .chain-slot.wrong {
+    border-color: var(--error);
+    animation: shake 0.4s ease;
+  }
+  #act2 .arrow {
+    color: var(--v5);
+    font-size: 1.5rem;
+    padding: 0 4px;
+    flex-shrink: 0;
+    animation: pulse-arrow 2s ease infinite;
+  }
+  @keyframes pulse-arrow {
+    0%,100%{opacity:0.4;transform:scaleX(1)}
+    50%{opacity:1;transform:scaleX(1.2)}
+  }
+  #act2 .step-num {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--accent);
+    background: var(--v2);
+    padding: 1px 6px;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    white-space: nowrap;
+  }
+
+  /* ══════════════════════════════════════
+     ACTIVITY 3 – TRIANGULATION MAP
+  ══════════════════════════════════════ */
+  #act3 .map-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+
+  #map-svg-container {
+    position: relative;
+    width: 100%;
+    max-width: 560px;
+  }
+
+  #map-svg {
+    width: 100%;
+    border-radius: 16px;
+    border: 1.5px solid rgba(155,48,255,0.4);
+    background: radial-gradient(ellipse at 40% 40%, rgba(75,0,130,0.5), rgba(26,0,48,0.95));
+    display: block;
+    overflow: visible;
+  }
+
+  #act3 .sat-bank {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .sat-token {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: grab;
+    user-select: none;
+    transition: transform 0.25s;
+  }
+  .sat-token:hover { transform: translateY(-4px) scale(1.08); }
+  .sat-token.dragging { opacity: 0.35; cursor: grabbing; }
+  .sat-token .sat-icon {
+    font-size: 2rem;
+    filter: drop-shadow(0 0 8px var(--v5));
+    animation: float 3s ease-in-out infinite;
+  }
+  .sat-token:nth-child(2) .sat-icon { animation-delay: 1s; }
+  .sat-token:nth-child(3) .sat-icon { animation-delay: 2s; }
+  @keyframes float {
+    0%,100%{transform:translateY(0)}
+    50%{transform:translateY(-6px)}
+  }
+  .sat-token .sat-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--v6);
+    letter-spacing: 0.08em;
+  }
+
+  #act3 .sat-slot {
+    fill: rgba(155,48,255,0.12);
+    stroke: rgba(155,48,255,0.5);
+    stroke-width: 2;
+    stroke-dasharray: 6 4;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  #act3 .sat-slot:hover, #act3 .sat-slot.drag-over {
+    fill: rgba(255,121,242,0.15);
+    stroke: var(--accent);
+    stroke-dasharray: none;
+  }
+  #act3 .sat-slot.placed {
+    fill: rgba(57,255,20,0.08);
+    stroke: var(--success);
+    stroke-dasharray: none;
+  }
+
+  /* ring animation on SVG */
+  .ring-anim {
+    animation: ring-expand 1.5s ease-out forwards;
+    transform-origin: center;
+  }
+  @keyframes ring-expand {
+    0%{r:0;opacity:0.9}
+    100%{r:120;opacity:0}
+  }
+
+  /* ── PROGRESS BAR ── */
+  .progress-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .progress-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    color: var(--v6);
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+  }
+  .progress-bar-wrap {
+    flex: 1;
+    height: 8px;
+    background: rgba(75,0,130,0.4);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(155,48,255,0.3);
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--v4), var(--accent), var(--cyan));
+    border-radius: 10px;
+    width: 0%;
+    transition: width 0.6s cubic-bezier(.4,0,.2,1);
+    box-shadow: 0 0 10px rgba(255,121,242,0.5);
+  }
+
+  /* ── STAR BURST on success ── */
+  .star-burst {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    font-size: 1.4rem;
+    animation: star-out 1s ease-out forwards;
+  }
+  @keyframes star-out {
+    0%{transform:scale(0) rotate(0deg);opacity:1}
+    100%{transform:scale(2.5) rotate(360deg) translateY(-80px);opacity:0}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<div class="page-wrap">
+
+  <h1 class="main-title">How GPS Works — Triangulation Game</h1>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab(1)">🛰️ Activity 1<br><span style="font-size:0.6em;opacity:.7">Match Satellite Roles</span></button>
+    <button class="tab-btn"        onclick="switchTab(2)">📡 Activity 2<br><span style="font-size:0.6em;opacity:.7">Build Signal Chain</span></button>
+    <button class="tab-btn"        onclick="switchTab(3)">🗺️ Activity 3<br><span style="font-size:0.6em;opacity:.7">Triangulation Map</span></button>
+  </div>
+
+  <!-- ══ ACTIVITY 1 ══ -->
+  <div id="act1" class="activity active">
+    <div class="activity-card">
+      <p class="activity-desc">Each GPS satellite has a specific job. Drag the <strong style="color:var(--accent)">role cards</strong> from the left and drop them onto the correct <strong style="color:var(--cyan)">description</strong> on the right.</p>
+
+      <div id="a1-progress" class="progress-row">
+        <span class="progress-label">PROGRESS</span>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="a1-fill"></div></div>
+        <span class="progress-label" id="a1-score">0/5</span>
+      </div>
+
+      <div class="match-grid">
+        <!-- LEFT: drag items -->
+        <div>
+          <div class="col-label">🛰️ Satellite Roles</div>
+          <div id="a1-pieces">
+            <div class="drag-item" draggable="true" data-role="orbit">📡 Orbital Beacon</div>
+            <div class="drag-item" draggable="true" data-role="time">⏱️ Atomic Clock</div>
+            <div class="drag-item" draggable="true" data-role="signal">📶 Signal Broadcaster</div>
+            <div class="drag-item" draggable="true" data-role="health">🩺 Health Monitor</div>
+            <div class="drag-item" draggable="true" data-role="nav">🧭 Navigation Data</div>
+          </div>
+        </div>
+        <!-- RIGHT: drop zones -->
+        <div>
+          <div class="col-label">📋 Descriptions</div>
+          <div class="drop-zone" data-answer="time">
+            <span class="zone-label">01</span>
+            <span class="zone-hint">Keeps ultra-precise time to nanosecond accuracy</span>
+          </div>
+          <div class="drop-zone" data-answer="signal">
+            <span class="zone-label">02</span>
+            <span class="zone-hint">Sends radio waves to Earth receivers</span>
+          </div>
+          <div class="drop-zone" data-answer="orbit">
+            <span class="zone-label">03</span>
+            <span class="zone-hint">Maintains known position 20,200 km above Earth</span>
+          </div>
+          <div class="drop-zone" data-answer="nav">
+            <span class="zone-label">04</span>
+            <span class="zone-hint">Carries almanac and ephemeris data</span>
+          </div>
+          <div class="drop-zone" data-answer="health">
+            <span class="zone-label">05</span>
+            <span class="zone-hint">Reports status to ground control stations</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="feedback" id="a1-feedback"></div>
+      <button class="reset-btn" onclick="resetAct1()">↺ RESET</button>
+    </div>
+  </div>
+
+  <!-- ══ ACTIVITY 2 ══ -->
+  <div id="act2" class="activity">
+    <div class="activity-card">
+      <p class="activity-desc">GPS signals travel through a chain of events. Drag the <strong style="color:var(--accent)">step cards</strong> below and drop them into the <strong style="color:var(--cyan)">correct sequence slots</strong> to build the signal chain!</p>
+
+      <div id="a2-progress" class="progress-row">
+        <span class="progress-label">PROGRESS</span>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="a2-fill"></div></div>
+        <span class="progress-label" id="a2-score">0/5</span>
+      </div>
+
+      <div class="chain-area">
+        <div class="pieces-row" id="a2-pieces">
+          <div class="chain-piece" draggable="true" data-step="calc">📐 Receiver Calculates Distance</div>
+          <div class="chain-piece" draggable="true" data-step="sat">🛰️ Satellite Broadcasts Signal</div>
+          <div class="chain-piece" draggable="true" data-step="tri">🎯 Triangulation Finds Location</div>
+          <div class="chain-piece" draggable="true" data-step="time">⏱️ Timestamp Recorded</div>
+          <div class="chain-piece" draggable="true" data-step="recv">📡 Receiver Gets Signal</div>
+        </div>
+
+        <div class="chain-slots">
+          <div class="chain-slot" data-order="1" data-answer="sat"><span class="step-num">STEP 1</span>Drop here…</div>
+          <div class="arrow">→</div>
+          <div class="chain-slot" data-order="2" data-answer="time"><span class="step-num">STEP 2</span>Drop here…</div>
+          <div class="arrow">→</div>
+          <div class="chain-slot" data-order="3" data-answer="recv"><span class="step-num">STEP 3</span>Drop here…</div>
+          <div class="arrow">→</div>
+          <div class="chain-slot" data-order="4" data-answer="calc"><span class="step-num">STEP 4</span>Drop here…</div>
+          <div class="arrow">→</div>
+          <div class="chain-slot" data-order="5" data-answer="tri"><span class="step-num">STEP 5</span>Drop here…</div>
+        </div>
+      </div>
+
+      <div class="feedback" id="a2-feedback"></div>
+      <button class="reset-btn" onclick="resetAct2()">↺ RESET</button>
+    </div>
+  </div>
+
+  <!-- ══ ACTIVITY 3 ══ -->
+  <div id="act3" class="activity">
+    <div class="activity-card">
+      <p class="activity-desc">GPS needs signals from <strong style="color:var(--gold)">at least 3 satellites</strong> to pin your location. Drag each satellite 🛰️ and drop it onto one of the <strong style="color:var(--accent)">dashed orbit slots</strong> above the map. Watch the signal rings close in!</p>
+
+      <div id="a3-progress" class="progress-row">
+        <span class="progress-label">PROGRESS</span>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="a3-fill"></div></div>
+        <span class="progress-label" id="a3-score">0/3</span>
+      </div>
+
+      <div class="map-wrap">
+        <!-- SVG MAP -->
+        <div id="map-svg-container">
+          <svg id="map-svg" viewBox="0 0 540 340" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="earth-grad" cx="50%" cy="55%" r="45%">
+                <stop offset="0%" stop-color="#1a0030"/>
+                <stop offset="100%" stop-color="#0a0018"/>
+              </radialGradient>
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="3" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+
+            <!-- Grid lines -->
+            <g stroke="rgba(155,48,255,0.12)" stroke-width="1">
+              <line x1="0" y1="85" x2="540" y2="85"/>
+              <line x1="0" y1="170" x2="540" y2="170"/>
+              <line x1="0" y1="255" x2="540" y2="255"/>
+              <line x1="90" y1="0" x2="90" y2="340"/>
+              <line x1="180" y1="0" x2="180" y2="340"/>
+              <line x1="270" y1="0" x2="270" y2="340"/>
+              <line x1="360" y1="0" x2="360" y2="340"/>
+              <line x1="450" y1="0" x2="450" y2="340"/>
+            </g>
+
+            <!-- Land masses (stylised) -->
+            <g fill="rgba(75,0,130,0.35)" stroke="rgba(155,48,255,0.3)" stroke-width="1">
+              <ellipse cx="140" cy="155" rx="80" ry="55"/>
+              <ellipse cx="320" cy="130" rx="110" ry="60"/>
+              <ellipse cx="440" cy="200" rx="55" ry="40"/>
+              <ellipse cx="230" cy="240" rx="65" ry="35"/>
+            </g>
+
+            <!-- TARGET LOCATION -->
+            <circle id="target-pt" cx="270" cy="185" r="8" fill="none"
+              stroke="var(--gold)" stroke-width="2.5" stroke-dasharray="4 3" opacity="0.7">
+              <animate attributeName="stroke-dashoffset" from="0" to="-14" dur="1s" repeatCount="indefinite"/>
+            </circle>
+            <text x="270" y="175" text-anchor="middle" font-family="Orbitron" font-size="9"
+              fill="var(--gold)" opacity="0.8">YOU</text>
+
+            <!-- ORBIT SLOTS (drop targets) -->
+            <circle class="sat-slot" id="slot-A" cx="100" cy="55"  r="28" data-slot="A"/>
+            <text x="100" y="59" text-anchor="middle" font-family="Orbitron" font-size="9"
+              fill="rgba(224,179,255,0.5)" pointer-events="none" id="slotA-lbl">SAT A</text>
+
+            <circle class="sat-slot" id="slot-B" cx="270" cy="35"  r="28" data-slot="B"/>
+            <text x="270" y="39" text-anchor="middle" font-family="Orbitron" font-size="9"
+              fill="rgba(224,179,255,0.5)" pointer-events="none" id="slotB-lbl">SAT B</text>
+
+            <circle class="sat-slot" id="slot-C" cx="440" cy="55"  r="28" data-slot="C"/>
+            <text x="440" y="59" text-anchor="middle" font-family="Orbitron" font-size="9"
+              fill="rgba(224,179,255,0.5)" pointer-events="none" id="slotC-lbl">SAT C</text>
+
+            <!-- Signal rings (added dynamically) -->
+            <g id="rings-layer"></g>
+
+            <!-- Connecting lines (added dynamically) -->
+            <g id="lines-layer"></g>
+
+            <!-- Final fix indicator -->
+            <g id="fix-group" display="none">
+              <circle cx="270" cy="185" r="14" fill="rgba(57,255,20,0.15)"
+                stroke="var(--success)" stroke-width="2">
+                <animate attributeName="r" values="14;22;14" dur="1.5s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.9;0.3;0.9" dur="1.5s" repeatCount="indefinite"/>
+              </circle>
+              <text x="270" y="210" text-anchor="middle" font-family="Orbitron" font-size="8"
+                fill="var(--success)">GPS FIX!</text>
+            </g>
+          </svg>
+        </div>
+
+        <!-- Satellite tokens to drag -->
+        <div class="sat-bank" id="a3-pieces">
+          <div class="sat-token" draggable="true" data-sat="A" style="--col:#ff79f2">
+            <span class="sat-icon">🛰️</span>
+            <span class="sat-label">SAT-ALPHA</span>
+          </div>
+          <div class="sat-token" draggable="true" data-sat="B" style="--col:#00f5ff">
+            <span class="sat-icon">🛰️</span>
+            <span class="sat-label">SAT-BETA</span>
+          </div>
+          <div class="sat-token" draggable="true" data-sat="C" style="--col:#ffd700">
+            <span class="sat-icon">🛰️</span>
+            <span class="sat-label">SAT-GAMMA</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="feedback" id="a3-feedback"></div>
+      <button class="reset-btn" onclick="resetAct3()">↺ RESET</button>
+    </div>
+  </div>
+
+</div><!-- /page-wrap -->
+
+<!-- ── BACKGROUND CANVAS ANIMATION ── -->
+<script>
+/* ── CANVAS BG: stars, birds, chain reaction ── */
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+/* Stars */
+const STAR_COUNT = 140;
+const stars = Array.from({length: STAR_COUNT}, () => ({
+  x: Math.random() * 2000,
+  y: Math.random() * 2000,
+  r: Math.random() * 1.6 + 0.3,
+  speed: Math.random() * 0.3 + 0.05,
+  twinkle: Math.random() * Math.PI * 2,
+  twinkleSpeed: Math.random() * 0.04 + 0.01,
+  color: ['#bf7fff','#e0b3ff','#ff79f2','#00f5ff','#ffd700'][Math.floor(Math.random()*5)]
+}));
+
+/* Birds */
+class Bird {
+  constructor() { this.reset(true); }
+  reset(init) {
+    this.x = init ? Math.random() * canvas.width : -60;
+    this.y = 60 + Math.random() * (canvas.height * 0.4);
+    this.speed = 0.8 + Math.random() * 1.2;
+    this.flap = Math.random() * Math.PI * 2;
+    this.flapSpeed = 0.08 + Math.random() * 0.06;
+    this.size = 8 + Math.random() * 8;
+    this.alpha = 0.2 + Math.random() * 0.35;
+    this.col = ['#bf7fff','#9b30ff','#ff79f2'][Math.floor(Math.random()*3)];
+  }
+  update() {
+    this.x += this.speed;
+    this.flap += this.flapSpeed;
+    if (this.x > canvas.width + 80) this.reset(false);
+  }
+  draw(ctx) {
+    const wing = Math.sin(this.flap) * this.size * 0.5;
+    ctx.save();
+    ctx.globalAlpha = this.alpha;
+    ctx.strokeStyle = this.col;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(this.x - this.size, this.y + wing);
+    ctx.quadraticCurveTo(this.x, this.y, this.x + this.size, this.y + wing);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+const birds = Array.from({length: 12}, () => new Bird());
+
+/* Chain reaction nodes */
+class ChainNode {
+  constructor() { this.reset(); }
+  reset() {
+    this.x = Math.random() * canvas.width;
+    this.y = Math.random() * canvas.height;
+    this.r = 2 + Math.random() * 3;
+    this.pulseR = this.r;
+    this.maxR = this.r + 40 + Math.random() * 30;
+    this.active = false;
+    this.alpha = 0;
+    this.delay = Math.random() * 8000;
+    this.col = ['#6a0dad','#9b30ff','#ff79f2','#00f5ff'][Math.floor(Math.random()*4)];
+    setTimeout(() => this.activate(), this.delay);
+  }
+  activate() {
+    this.active = true;
+    this.pulseR = this.r;
+    this.alpha = 0.7;
+    setTimeout(() => { this.active = false; this.alpha = 0; this.pulseR = this.r;
+      setTimeout(() => this.activate(), 4000 + Math.random() * 6000); }, 2000);
+  }
+  update() {
+    if (this.active) {
+      this.pulseR += 0.8;
+      this.alpha = Math.max(0, this.alpha - 0.006);
+      if (this.pulseR > this.maxR) { this.active = false; this.alpha = 0; }
+    }
+  }
+  draw(ctx) {
+    if (!this.active && this.alpha <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = this.alpha * 0.6;
+    ctx.strokeStyle = this.col;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.pulseR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+const chainNodes = Array.from({length: 16}, () => new ChainNode());
+
+/* Shooting stars */
+class Shoot {
+  constructor() { this.reset(true); }
+  reset(init) {
+    this.x = Math.random() * canvas.width * 1.5;
+    this.y = init ? Math.random() * canvas.height * 0.5 : -10;
+    this.len = 60 + Math.random() * 80;
+    this.speed = 3 + Math.random() * 5;
+    this.angle = Math.PI * 0.22;
+    this.alpha = init ? Math.random() : 0;
+    this.fade = 0.012 + Math.random() * 0.01;
+    this.active = false;
+    this.delay = Math.random() * 12000;
+    setTimeout(() => { this.active = true; }, this.delay);
+  }
+  update() {
+    if (!this.active) return;
+    this.x += Math.cos(this.angle) * this.speed;
+    this.y += Math.sin(this.angle) * this.speed;
+    this.alpha = Math.min(1, this.alpha + 0.08);
+    if (this.x > canvas.width + 200 || this.y > canvas.height + 50) {
+      this.reset(false);
+      this.active = true;
+      this.x = -this.len;
+      this.y = Math.random() * canvas.height * 0.5;
+    }
+  }
+  draw(ctx) {
+    if (!this.active || this.alpha <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = this.alpha * 0.6;
+    const grad = ctx.createLinearGradient(
+      this.x, this.y,
+      this.x - Math.cos(this.angle)*this.len,
+      this.y - Math.sin(this.angle)*this.len
+    );
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(1, 'transparent');
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.y);
+    ctx.lineTo(this.x - Math.cos(this.angle)*this.len, this.y - Math.sin(this.angle)*this.len);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+const shoots = Array.from({length: 5}, () => new Shoot());
+
+let t = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  t++;
+
+  /* stars */
+  stars.forEach(s => {
+    s.twinkle += s.twinkleSpeed;
+    const alpha = 0.3 + Math.sin(s.twinkle) * 0.4;
+    const sx = (s.x + t * s.speed * 0.3) % canvas.width;
+    const sy = (s.y + t * s.speed * 0.1) % canvas.height;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = s.color;
+    ctx.beginPath();
+    ctx.arc(sx, sy, s.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  /* shooting stars */
+  shoots.forEach(s => { s.update(); s.draw(ctx); });
+
+  /* chain nodes */
+  chainNodes.forEach(n => { n.update(); n.draw(ctx); });
+
+  /* birds */
+  birds.forEach(b => { b.update(); b.draw(ctx); });
+}
+animate();
+</script>
+
+<!-- ── ACTIVITY 1 LOGIC ── -->
+<script>
+let a1Score = 0;
+let a1Dragging = null;
+
+function initAct1() {
+  const items = document.querySelectorAll('#a1-pieces .drag-item');
+  items.forEach(item => {
+    item.addEventListener('dragstart', e => {
+      a1Dragging = item;
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    item.addEventListener('dragend', () => {
+      a1Dragging = null;
+      item.classList.remove('dragging');
+    });
+  });
+
+  const zones = document.querySelectorAll('#act1 .drop-zone');
+  zones.forEach(zone => {
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      if (!a1Dragging || zone.classList.contains('filled')) return;
+      const role = a1Dragging.dataset.role;
+      const answer = zone.dataset.answer;
+      if (role === answer) {
+        zone.classList.add('filled');
+        zone.classList.remove('wrong');
+        const text = a1Dragging.textContent.replace('⠿','').trim();
+        zone.innerHTML = `<span class="zone-label" style="color:var(--success)">✓</span><span style="color:var(--white);font-size:0.82rem;font-weight:700">${text}</span>`;
+        a1Dragging.remove();
+        a1Score++;
+        updateA1Progress();
+        spawnStars(zone);
+        if (a1Score === 5) {
+          setFeedback('a1-feedback', '🎉 PERFECT! All satellite roles matched!', 'ok');
+        }
+      } else {
+        zone.classList.add('wrong');
+        setFeedback('a1-feedback', '✗ Not quite! Check the description again.', 'err');
+        setTimeout(() => zone.classList.remove('wrong'), 600);
+      }
+    });
+  });
+}
+
+function updateA1Progress() {
+  document.getElementById('a1-fill').style.width = (a1Score / 5 * 100) + '%';
+  document.getElementById('a1-score').textContent = a1Score + '/5';
+}
+
+function resetAct1() {
+  a1Score = 0;
+  document.getElementById('a1-feedback').textContent = '';
+  document.getElementById('a1-feedback').className = 'feedback';
+  updateA1Progress();
+  const roles = [
+    {role:'orbit', text:'📡 Orbital Beacon'},
+    {role:'time',  text:'⏱️ Atomic Clock'},
+    {role:'signal',text:'📶 Signal Broadcaster'},
+    {role:'health',text:'🩺 Health Monitor'},
+    {role:'nav',   text:'🧭 Navigation Data'},
+  ];
+  const piecesEl = document.getElementById('a1-pieces');
+  piecesEl.innerHTML = '';
+  roles.forEach(r => {
+    const d = document.createElement('div');
+    d.className = 'drag-item';
+    d.draggable = true;
+    d.dataset.role = r.role;
+    d.textContent = r.text;
+    piecesEl.appendChild(d);
+  });
+  document.querySelectorAll('#act1 .drop-zone').forEach(z => {
+    z.className = 'drop-zone';
+    const ans = z.dataset.answer;
+    const hints = {
+      time:'Keeps ultra-precise time to nanosecond accuracy',
+      signal:'Sends radio waves to Earth receivers',
+      orbit:'Maintains known position 20,200 km above Earth',
+      nav:'Carries almanac and ephemeris data',
+      health:'Reports status to ground control stations'
+    };
+    const nums = {time:'01',signal:'02',orbit:'03',nav:'04',health:'05'};
+    z.innerHTML = `<span class="zone-label">${nums[ans]}</span><span class="zone-hint">${hints[ans]}</span>`;
+  });
+  initAct1();
+}
+
+initAct1();
+</script>
+
+<!-- ── ACTIVITY 2 LOGIC ── -->
+<script>
+let a2Score = 0;
+let a2Dragging = null;
+
+function initAct2() {
+  const pieces = document.querySelectorAll('#a2-pieces .chain-piece');
+  pieces.forEach(p => {
+    p.addEventListener('dragstart', e => {
+      a2Dragging = p;
+      p.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    p.addEventListener('dragend', () => {
+      a2Dragging = null;
+      p.classList.remove('dragging');
+    });
+  });
+
+  const slots = document.querySelectorAll('#act2 .chain-slot');
+  slots.forEach(slot => {
+    slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('drag-over'); });
+    slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
+    slot.addEventListener('drop', e => {
+      e.preventDefault();
+      slot.classList.remove('drag-over');
+      if (!a2Dragging || slot.classList.contains('filled')) return;
+      const step  = a2Dragging.dataset.step;
+      const answer = slot.dataset.answer;
+      const order  = slot.dataset.order;
+      if (step === answer) {
+        slot.classList.add('filled');
+        slot.classList.remove('wrong');
+        const stepNum = slot.querySelector('.step-num').outerHTML;
+        slot.innerHTML = stepNum + a2Dragging.textContent;
+        a2Dragging.remove();
+        a2Score++;
+        updateA2Progress();
+        spawnStars(slot);
+        if (a2Score === 5) {
+          setFeedback('a2-feedback', '🚀 BRILLIANT! The full GPS signal chain is complete!', 'ok');
+          animateChainLinks();
+        }
+      } else {
+        slot.classList.add('wrong');
+        setFeedback('a2-feedback', `✗ That step doesn't fit here. Think about order!`, 'err');
+        setTimeout(() => slot.classList.remove('wrong'), 600);
+      }
+    });
+  });
+}
+
+function animateChainLinks() {
+  const slots = document.querySelectorAll('#act2 .chain-slot');
+  slots.forEach((s, i) => {
+    setTimeout(() => {
+      s.style.boxShadow = '0 0 24px rgba(0,245,255,0.5)';
+      s.style.borderColor = 'var(--cyan)';
+    }, i * 200);
+  });
+}
+
+function updateA2Progress() {
+  document.getElementById('a2-fill').style.width = (a2Score / 5 * 100) + '%';
+  document.getElementById('a2-score').textContent = a2Score + '/5';
+}
+
+function resetAct2() {
+  a2Score = 0;
+  document.getElementById('a2-feedback').textContent = '';
+  document.getElementById('a2-feedback').className = 'feedback';
+  updateA2Progress();
+  const steps = [
+    {step:'calc', text:'📐 Receiver Calculates Distance'},
+    {step:'sat',  text:'🛰️ Satellite Broadcasts Signal'},
+    {step:'tri',  text:'🎯 Triangulation Finds Location'},
+    {step:'time', text:'⏱️ Timestamp Recorded'},
+    {step:'recv', text:'📡 Receiver Gets Signal'},
+  ];
+  const pieces = document.getElementById('a2-pieces');
+  pieces.innerHTML = '';
+  // shuffle
+  steps.sort(() => Math.random() - 0.5);
+  steps.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'chain-piece';
+    d.draggable = true;
+    d.dataset.step = s.step;
+    d.textContent = s.text;
+    pieces.appendChild(d);
+  });
+
+  document.querySelectorAll('#act2 .chain-slot').forEach(slot => {
+    slot.className = 'chain-slot';
+    slot.style.cssText = '';
+    const ord = slot.dataset.order;
+    slot.innerHTML = `<span class="step-num">STEP ${ord}</span>Drop here…`;
+  });
+  initAct2();
+}
+
+initAct2();
+</script>
+
+<!-- ── ACTIVITY 3 LOGIC ── -->
+<script>
+let a3Score = 0;
+let a3Dragging = null;
+const slotCenters = { A: [100,55], B: [270,35], C: [440,55] };
+const targetPt = [270, 185];
+const ringColors = { A: '#ff79f2', B: '#00f5ff', C: '#ffd700' };
+
+function initAct3() {
+  const tokens = document.querySelectorAll('#a3-pieces .sat-token');
+  tokens.forEach(t => {
+    t.addEventListener('dragstart', e => {
+      a3Dragging = t;
+      t.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    t.addEventListener('dragend', () => {
+      a3Dragging = null;
+      t.classList.remove('dragging');
+    });
+  });
+
+  const slots = document.querySelectorAll('#act3 .sat-slot');
+  slots.forEach(slot => {
+    slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('drag-over'); });
+    slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
+    slot.addEventListener('drop', e => {
+      e.preventDefault();
+      slot.classList.remove('drag-over');
+      if (!a3Dragging) return;
+      const slotId = slot.dataset.slot;
+      const satId  = a3Dragging.dataset.sat;
+
+      // any sat goes to any slot (thematic, not answer-based)
+      if (slot.classList.contains('placed')) return;
+      slot.classList.add('placed');
+      placeSatOnMap(slotId, satId);
+      a3Dragging.remove();
+      a3Score++;
+      updateA3Progress();
+      spawnStars(slot);
+      if (a3Score === 3) {
+        setTimeout(() => {
+          document.getElementById('fix-group').setAttribute('display', 'inline');
+          setFeedback('a3-feedback', '📍 GPS FIX ACQUIRED! All 3 satellites triangulated your position!', 'ok');
+        }, 800);
+      }
+    });
+  });
+}
+
+function placeSatOnMap(slotId, satId) {
+  const [sx, sy] = slotCenters[slotId];
+  const [tx, ty] = targetPt;
+  const col = ringColors[satId];
+  const ringsLayer = document.getElementById('rings-layer');
+  const linesLayer = document.getElementById('lines-layer');
+
+  // Satellite icon
+  const emoji = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  emoji.setAttribute('x', sx);
+  emoji.setAttribute('y', sy + 5);
+  emoji.setAttribute('text-anchor', 'middle');
+  emoji.setAttribute('font-size', '20');
+  emoji.setAttribute('pointer-events', 'none');
+  emoji.textContent = '🛰️';
+  emoji.style.animation = 'float 3s ease-in-out infinite';
+  linesLayer.appendChild(emoji);
+
+  // Signal line
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('x1', sx); line.setAttribute('y1', sy);
+  line.setAttribute('x2', tx); line.setAttribute('y2', ty);
+  line.setAttribute('stroke', col);
+  line.setAttribute('stroke-width', '1.5');
+  line.setAttribute('stroke-dasharray', '6 4');
+  line.setAttribute('opacity', '0.7');
+  line.style.animation = 'none';
+  linesLayer.appendChild(line);
+
+  // Animated dash offset
+  line.innerHTML = `<animate attributeName="stroke-dashoffset" from="0" to="-20" dur="1s" repeatCount="indefinite"/>`;
+
+  // Ring
+  const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  ring.setAttribute('cx', sx); ring.setAttribute('cy', sy);
+  ring.setAttribute('r', '0');
+  ring.setAttribute('fill', 'none');
+  ring.setAttribute('stroke', col);
+  ring.setAttribute('stroke-width', '1.5');
+  ring.setAttribute('opacity', '0.5');
+  ring.innerHTML = `<animate attributeName="r" values="0;130" dur="1.8s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.6;0" dur="1.8s" repeatCount="indefinite"/>`;
+  ringsLayer.appendChild(ring);
+
+  // Update slot label
+  const lbl = document.getElementById(`slot${slotId}-lbl`);
+  if (lbl) { lbl.textContent = '✓'; lbl.setAttribute('fill', 'var(--success)'); }
+}
+
+function updateA3Progress() {
+  document.getElementById('a3-fill').style.width = (a3Score / 3 * 100) + '%';
+  document.getElementById('a3-score').textContent = a3Score + '/3';
+}
+
+function resetAct3() {
+  a3Score = 0;
+  document.getElementById('a3-feedback').textContent = '';
+  document.getElementById('a3-feedback').className = 'feedback';
+  updateA3Progress();
+  document.getElementById('rings-layer').innerHTML = '';
+  document.getElementById('lines-layer').innerHTML = '';
+  document.getElementById('fix-group').setAttribute('display', 'none');
+
+  document.querySelectorAll('#act3 .sat-slot').forEach(s => {
+    s.className = 'sat-slot';
+  });
+  ['A','B','C'].forEach(id => {
+    const lbl = document.getElementById(`slot${id}-lbl`);
+    if (lbl) { lbl.textContent = `SAT ${id}`; lbl.setAttribute('fill', 'rgba(224,179,255,0.5)'); }
+  });
+
+  const bank = document.getElementById('a3-pieces');
+  bank.innerHTML = `
+    <div class="sat-token" draggable="true" data-sat="A">
+      <span class="sat-icon">🛰️</span><span class="sat-label">SAT-ALPHA</span>
+    </div>
+    <div class="sat-token" draggable="true" data-sat="B">
+      <span class="sat-icon">🛰️</span><span class="sat-label">SAT-BETA</span>
+    </div>
+    <div class="sat-token" draggable="true" data-sat="C">
+      <span class="sat-icon">🛰️</span><span class="sat-label">SAT-GAMMA</span>
+    </div>`;
+  initAct3();
+}
+
+initAct3();
+</script>
+
+<!-- ── SHARED HELPERS ── -->
+<script>
+function switchTab(n) {
+  document.querySelectorAll('.activity').forEach((a, i) => {
+    a.classList.toggle('active', i === n - 1);
+  });
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', i === n - 1);
+  });
+}
+
+function setFeedback(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'feedback ' + type;
+}
+
+function spawnStars(anchorEl) {
+  const rect = anchorEl.getBoundingClientRect ? anchorEl.getBoundingClientRect() : {left:200, top:300, width:100, height:40};
+  const stars = ['⭐','✨','💫','🌟','⚡'];
+  for (let i = 0; i < 5; i++) {
+    const el = document.createElement('div');
+    el.className = 'star-burst';
+    el.textContent = stars[Math.floor(Math.random() * stars.length)];
+    el.style.left = (rect.left + rect.width * Math.random()) + 'px';
+    el.style.top  = (rect.top  + rect.height * Math.random()) + 'px';
+    el.style.animationDelay = (i * 0.08) + 's';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1200);
+  }
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Negative Numbers — Intro</title>
+<link href="https://fonts.googleapis.com/css2?family=Righteous&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif}
+:root{
+  --neg:#3a7bd5;--neg-l:#5b9cf6;--neg-g:rgba(58,123,213,.4);
+  --pos:#e87c1e;--pos-l:#f5a623;--pos-g:rgba(232,124,30,.4);
+  --zero:#8e44ad;--zero-l:#b06fd4;
+  --gold:#ffd166;--mint:#06d6a0;--coral:#ff6b6b;
+  --glass:rgba(8,22,6,.78);--border:rgba(80,200,60,.22);
+}
+
+#bg{position:fixed;inset:0;z-index:0;width:100%;height:100%}
+
+/* ── Layout shell ── */
+#app{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;overflow:hidden}
+
+#hdr{width:100%;text-align:center;padding:9px 14px 3px;flex-shrink:0;pointer-events:none}
+#hdr h1{font-family:'Righteous',cursive;font-size:clamp(17px,3vw,34px);letter-spacing:1px;
+  background:linear-gradient(90deg,#a8ff78,#ffd166,#ff9966);-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 10px rgba(100,255,60,.4))}
+#hdr .sub{color:rgba(180,255,140,.65);font-size:clamp(9px,1.2vw,13px);font-weight:600;letter-spacing:.5px}
+
+#prog{display:flex;gap:8px;margin:3px 0 5px;pointer-events:none;flex-shrink:0}
+.pd{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.12);border:2px solid rgba(100,220,60,.3);transition:all .5s}
+.pd.active{background:var(--gold);border-color:var(--gold);box-shadow:0 0 9px var(--gold)}
+.pd.done{background:var(--mint);border-color:var(--mint);box-shadow:0 0 9px var(--mint)}
+
+#sc{position:fixed;top:9px;right:13px;z-index:300;pointer-events:none;
+  background:rgba(5,18,4,.8);border:1px solid var(--border);border-radius:30px;
+  padding:4px 13px;display:flex;align-items:center;gap:5px}
+#sc .sl{color:rgba(160,240,120,.6);font-size:11px;font-weight:600}
+#sc .sv{color:var(--gold);font-weight:800;font-size:14px}
+
+#aw{width:min(840px,96vw);flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+
+.act{display:none;flex-direction:column;height:100%;background:var(--glass);
+  backdrop-filter:blur(13px);border:1px solid var(--border);border-radius:18px;
+  padding:11px 15px;gap:6px;overflow:hidden}
+.act.on{display:flex}
+
+.ah{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.ab{background:linear-gradient(135deg,#4caf35,#a8ff78);color:#0a1a08;
+  font-family:'Righteous',cursive;font-size:12px;padding:3px 11px;border-radius:20px;flex-shrink:0}
+.at{font-family:'Righteous',cursive;font-size:clamp(13px,1.9vw,19px);
+  background:linear-gradient(90deg,#a8ff78,#ffd166);-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;background-clip:text}
+.ai{color:rgba(180,240,150,.78);font-size:clamp(10px,1.25vw,13px);line-height:1.4;flex-shrink:0}
+
+/* ── Chips (draggable) ── */
+.chip{display:inline-flex;align-items:center;justify-content:center;
+  min-width:52px;height:34px;padding:0 10px;border-radius:10px;font-weight:700;font-size:13px;
+  color:#fff;cursor:grab;user-select:none;
+  box-shadow:0 3px 10px rgba(0,0,0,.38);flex-shrink:0;white-space:nowrap;
+  touch-action:none;position:relative;z-index:2}
+.chip.used{opacity:.25;cursor:not-allowed;pointer-events:none}
+.chip.dragging{opacity:.3;pointer-events:none}
+
+/* ── Drop zones/slots ── */
+.dzone,.dslot{
+  border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:600;color:rgba(180,240,150,.4);
+  border:2px dashed rgba(100,220,60,.32);background:rgba(20,80,10,.15);
+  transition:border-color .2s,background .2s;cursor:default}
+.dzone.over,.dslot.over{border-color:var(--gold)!important;background:rgba(255,210,80,.12)!important}
+.dzone.filled,.dslot.filled{border-style:solid;border-color:rgba(100,220,60,.5);background:rgba(60,200,80,.1)}
+.dzone.bad,.dslot.bad{animation:shk .4s}
+@keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+@keyframes popc{0%{transform:scale(1)}50%{transform:scale(1.18)}100%{transform:scale(1)}}
+
+/* ── Ghost (drag shadow) ── */
+#ghost{position:fixed;pointer-events:none;z-index:9999;
+  transform:translate(-50%,-50%);border-radius:10px;padding:0 12px;height:34px;
+  display:none;align-items:center;justify-content:center;
+  font-weight:700;font-size:13px;color:#fff;white-space:nowrap;
+  box-shadow:0 8px 28px rgba(0,0,0,.55);opacity:.92}
+
+/* ── Next button ── */
+.nb{display:none;align-self:center;flex-shrink:0;margin-top:5px;
+  background:linear-gradient(135deg,var(--gold),#f5a623);color:#1a0800;
+  font-family:'Righteous',cursive;font-size:15px;padding:7px 30px;
+  border-radius:30px;border:none;cursor:pointer;
+  box-shadow:0 4px 18px rgba(255,200,80,.45);transition:transform .2s}
+.nb:hover{transform:translateY(-2px)}
+.nb.show{display:block;animation:pgld 1.8s infinite}
+@keyframes pgld{0%,100%{box-shadow:0 4px 18px rgba(255,200,80,.4)}50%{box-shadow:0 4px 28px rgba(255,200,80,.8)}}
+
+/* ── Popup ── */
+#pov{position:fixed;inset:0;z-index:1000;background:rgba(0,10,0,.65);
+  display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;
+  transition:opacity .4s;backdrop-filter:blur(9px)}
+#pov.show{opacity:1;pointer-events:all}
+#pop{background:rgba(5,20,4,.97);border:2px solid rgba(100,220,60,.4);border-radius:22px;
+  padding:26px 36px;text-align:center;max-width:400px;width:90%;
+  transform:scale(.75);transition:transform .4s cubic-bezier(.34,1.56,.64,1)}
+#pov.show #pop{transform:scale(1)}
+#pop .pi{font-size:44px;margin-bottom:7px;display:block}
+.pst{display:flex;justify-content:center;gap:5px;margin-bottom:10px}
+.pst span{font-size:22px;opacity:0;animation:starin .4s forwards}
+@keyframes starin{0%{opacity:0;transform:scale(0) rotate(-20deg)}70%{opacity:1;transform:scale(1.3)}100%{opacity:1;transform:scale(1)}}
+#pop h2{font-family:'Righteous',cursive;font-size:26px;
+  background:linear-gradient(90deg,#a8ff78,var(--gold));-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px}
+#pop p{color:rgba(190,240,160,.82);font-size:14px;line-height:1.55;margin-bottom:18px}
+#pbtn{background:linear-gradient(135deg,var(--mint),#04b890);color:#001a0e;
+  font-family:'Righteous',cursive;font-size:17px;padding:9px 34px;
+  border-radius:30px;border:none;cursor:pointer;
+  box-shadow:0 4px 18px rgba(0,200,150,.4);transition:transform .2s}
+#pbtn:hover{transform:scale(1.06)}
+
+/* ── Float feedback ── */
+.ffb{position:fixed;pointer-events:none;z-index:5000;font-weight:800;font-size:15px;
+  animation:fup .9s ease-out forwards;transform:translate(-50%,-50%)}
+@keyframes fup{0%{opacity:1;transform:translate(-50%,-50%)}100%{opacity:0;transform:translate(-50%,-200%)}}
+
+/* ═══ ACT 1 ═══ */
+#a1b{flex:1;display:flex;gap:8px;min-height:0;overflow:hidden}
+#a1bank{width:200px;flex-shrink:0;background:rgba(20,60,10,.4);border:1px dashed rgba(100,200,50,.22);
+  border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:5px;overflow-y:auto}
+#a1bank h4{color:var(--mint);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;text-align:center;margin-bottom:2px}
+#a1zones{flex:1;display:flex;gap:6px;min-height:0}
+.zone{flex:1;border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:5px;overflow-y:auto;border:1px solid}
+.zone h3{font-family:'Righteous',cursive;font-size:clamp(11px,1.4vw,14px);text-align:center;margin-bottom:3px;flex-shrink:0}
+.zone-placed{display:flex;flex-direction:column;gap:4px;align-items:center}
+.placed-chip{width:100%;max-width:150px;min-height:28px;padding:3px 7px;border-radius:8px;
+  font-weight:700;font-size:11px;color:#fff;text-align:center;word-break:break-word;
+  display:flex;align-items:center;justify-content:center;line-height:1.2}
+.zneg{background:rgba(58,123,213,.15);border-color:rgba(58,123,213,.4)}
+.zneg h3{color:var(--neg-l)}
+.zpos{background:rgba(232,124,30,.12);border-color:rgba(232,124,30,.38)}
+.zpos h3{color:var(--pos-l)}
+.zzero{background:rgba(142,68,173,.12);border-color:rgba(142,68,173,.38)}
+.zzero h3{color:var(--zero-l)}
+.zdrop{min-height:44px;border:1.5px dashed rgba(200,200,200,.2);
+  border-radius:9px;display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:rgba(180,220,150,.35);font-weight:600;transition:all .2s;flex-shrink:0}
+.zdrop.over{border-color:var(--gold)!important;background:rgba(255,210,80,.08)!important}
+
+/* ═══ ACT 2 ═══ */
+#a2b{flex:1;display:flex;flex-direction:column;gap:8px;min-height:0;overflow:hidden}
+#a2chips-row{display:flex;flex-wrap:wrap;gap:6px;padding:4px 2px;flex-shrink:0;justify-content:center}
+#a2nl-wrap{flex:1;position:relative;min-height:0;display:flex;align-items:center;justify-content:center}
+#a2nl-svg{width:100%;height:100%;max-height:230px}
+.nl-slot{position:absolute;transform:translate(-50%,-50%);
+  width:46px;height:34px;display:flex;align-items:center;justify-content:center;
+  border-radius:8px;border:2px dashed rgba(200,200,200,.3);background:rgba(20,60,10,.3);
+  font-size:11px;color:rgba(180,220,150,.35);font-weight:600;transition:all .2s;cursor:default}
+.nl-slot.over{border-color:var(--gold);background:rgba(255,210,80,.12)}
+.nl-slot.filled{border-style:solid;border-color:rgba(100,220,60,.5);background:rgba(60,200,80,.12)}
+.nl-slot.bad{animation:shk .4s}
+.a2-legend{display:flex;gap:10px;justify-content:center;flex-shrink:0}
+.leg{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600}
+.leg-dot{width:10px;height:10px;border-radius:50%}
+
+/* ═══ ACT 3 ═══ */
+#a3b{flex:1;display:flex;flex-direction:column;gap:6px;min-height:0;overflow:hidden}
+#a3probs{flex:1;display:flex;flex-direction:column;gap:7px;overflow-y:auto;min-height:0;padding-right:2px}
+.prob-row{display:flex;align-items:center;gap:8px;background:rgba(20,60,10,.38);
+  border:1px solid rgba(80,200,50,.15);border-radius:11px;padding:8px 10px;flex-shrink:0;flex-wrap:wrap}
+.prob-eq{display:flex;align-items:center;gap:5px;font-weight:700;font-size:clamp(13px,1.7vw,16px);flex-shrink:0}
+.prob-num{font-family:'Righteous',cursive}
+.prob-op{color:rgba(200,240,160,.5)}
+.prob-blank{width:62px;height:34px;border-radius:8px;border:2px dashed rgba(200,200,200,.3);
+  background:rgba(20,60,10,.3);display:flex;align-items:center;justify-content:center;
+  font-size:12px;color:rgba(180,220,150,.35);font-weight:600;transition:all .2s;cursor:default}
+.prob-blank.over{border-color:var(--gold);background:rgba(255,210,80,.1)}
+.prob-blank.filled{border-style:solid;border-color:rgba(100,220,60,.5);background:rgba(60,200,80,.1)}
+.prob-blank.bad{animation:shk .4s}
+.prob-nl{flex:1;min-width:120px;height:30px;position:relative;margin-left:4px}
+.pnl-track{position:absolute;top:50%;left:4px;right:4px;height:3px;background:rgba(150,220,100,.2);border-radius:2px;transform:translateY(-50%)}
+.pnl-zero{position:absolute;top:50%;width:2px;height:14px;background:rgba(200,200,200,.4);border-radius:1px;transform:translate(-50%,-50%)}
+.pnl-dot{position:absolute;top:50%;width:13px;height:13px;border-radius:50%;transform:translate(-50%,-50%);transition:left .55s cubic-bezier(.34,1.56,.64,1);z-index:2}
+.pnl-arr{position:absolute;top:50%;height:3px;border-radius:2px;transform-origin:left center;transform:translateY(-50%);transition:all .55s;opacity:0}
+#a3chips-row{display:flex;flex-wrap:wrap;gap:5px;padding:4px 2px;flex-shrink:0;justify-content:center}
+
+@keyframes burst{0%{transform:scale(0) rotate(0);opacity:1}100%{transform:scale(3.5) rotate(720deg);opacity:0}}
+</style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+
+<div id="app">
+  <div id="hdr">
+    <h1>🌿 Negative Numbers — Intro</h1>
+    <div class="sub">Explore the world below zero!</div>
+  </div>
+  <div id="prog">
+    <div class="pd active" id="pd1"></div>
+    <div class="pd" id="pd2"></div>
+    <div class="pd" id="pd3"></div>
+  </div>
+  <div id="aw">
+
+    <!-- ACT 1 -->
+    <div class="act on" id="act1">
+      <div class="ah"><span class="ab">Activity 1</span><span class="at">Sort It — Positive, Zero or Negative? 🌡️</span></div>
+      <div class="ai">Drag each card from the bank into the correct category box!</div>
+      <div id="a1b">
+        <div id="a1bank"><h4>Card Bank</h4><div id="a1chips"></div></div>
+        <div id="a1zones">
+          <div class="zone zneg">
+            <h3>⬇ Below Zero<br><small style="font-size:10px;opacity:.7">(Negative)</small></h3>
+            <div class="zdrop" id="zdrop-neg" data-cat="neg">Drop here</div>
+            <div class="zone-placed" id="zpl-neg"></div>
+          </div>
+          <div class="zone zzero">
+            <h3>🔘 Zero<br><small style="font-size:10px;opacity:.7">(Neither)</small></h3>
+            <div class="zdrop" id="zdrop-zero" data-cat="zero">Drop here</div>
+            <div class="zone-placed" id="zpl-zero"></div>
+          </div>
+          <div class="zone zpos">
+            <h3>⬆ Above Zero<br><small style="font-size:10px;opacity:.7">(Positive)</small></h3>
+            <div class="zdrop" id="zdrop-pos" data-cat="pos">Drop here</div>
+            <div class="zone-placed" id="zpl-pos"></div>
+          </div>
+        </div>
+      </div>
+      <button class="nb" id="nb1" onclick="showPop(1)">Next Activity →</button>
+    </div>
+
+    <!-- ACT 2 -->
+    <div class="act" id="act2">
+      <div class="ah"><span class="ab">Activity 2</span><span class="at">Place on the Number Line 📏</span></div>
+      <div class="ai">Drag each number card to its correct spot on the number line!</div>
+      <div id="a2b">
+        <div id="a2chips-row"></div>
+        <div id="a2nl-wrap">
+          <svg id="a2nl-svg" viewBox="0 0 700 180" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
+          <!-- .nl-slot elements injected by JS -->
+        </div>
+        <div class="a2-legend">
+          <div class="leg"><div class="leg-dot" style="background:var(--neg-l)"></div><span style="color:rgba(160,220,255,.75)">Negative (below zero)</span></div>
+          <div class="leg"><div class="leg-dot" style="background:rgba(200,200,200,.7)"></div><span style="color:rgba(200,200,200,.65)">Zero</span></div>
+          <div class="leg"><div class="leg-dot" style="background:var(--pos-l)"></div><span style="color:rgba(255,200,130,.75)">Positive (above zero)</span></div>
+        </div>
+      </div>
+      <button class="nb" id="nb2" onclick="showPop(2)">Next Activity →</button>
+    </div>
+
+    <!-- ACT 3 -->
+    <div class="act" id="act3">
+      <div class="ah"><span class="ab">Activity 3</span><span class="at">Adding on the Number Line ➕</span></div>
+      <div class="ai">Drag the correct answer to each problem and watch the dot move!</div>
+      <div id="a3b">
+        <div id="a3probs"></div>
+        <div id="a3chips-row"></div>
+      </div>
+      <button class="nb" id="nb3" onclick="showPop(3)">Complete! 🎉</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- drag ghost -->
+<div id="ghost"></div>
+
+<!-- popup -->
+<div id="pov"><div id="pop">
+  <span class="pi" id="pi">🎉</span>
+  <div class="pst" id="pst"></div>
+  <h2 id="ph">Brilliant!</h2>
+  <p id="pp">You did it!</p>
+  <button id="pbtn" onclick="nextAct()">Continue →</button>
+</div></div>
+
+<div id="sc"><span class="sl">Score</span><span class="sv" id="sv">0</span></div>
+
+<script>
+/* ══════════════════════════════════════
+   BACKGROUND CANVAS
+══════════════════════════════════════ */
+const bgc = document.getElementById('bg'), bx = bgc.getContext('2d');
+let W, H;
+let leaves = [], flies = [], vines = [], parrots = [], mist = [];
+
+function rsz() {
+  W = bgc.width = innerWidth;
+  H = bgc.height = innerHeight;
+  initBG();
+}
+
+function initBG() {
+  leaves = Array.from({length:22}, () => ({
+    x:Math.random()*W, y:Math.random()*H, sz:8+Math.random()*14,
+    angle:Math.random()*Math.PI*2, vx:(Math.random()-.5)*.4, vy:.3+Math.random()*.5,
+    rot:(.5+Math.random())*(Math.random()<.5?1:-1)*.015,
+    hue:90+Math.floor(Math.random()*50), op:.5+Math.random()*.4
+  }));
+  flies = Array.from({length:20}, () => ({
+    x:Math.random()*W, y:H*.15+Math.random()*H*.7,
+    vx:(Math.random()-.5)*.35, vy:(Math.random()-.5)*.25,
+    glow:Math.random(), gD:1, gS:.018+Math.random()*.022, r:1.5+Math.random()*2
+  }));
+  vines = Array.from({length:7}, () => ({
+    x:Math.random()*W, segs:6+Math.floor(Math.random()*5),
+    phase:Math.random()*Math.PI*2, spd:.012+Math.random()*.01, len:50+Math.random()*80
+  }));
+  parrots = [
+    {x:-80, y:H*.25, dir:1, spd:.55, wave:0, ws:.045, sz:.9, col:'#e84c4c'},
+    {x:W+80, y:H*.5,  dir:-1, spd:.5, wave:1.2, ws:.04, sz:.75, col:'#4caf35'},
+    {x:-80, y:H*.72, dir:1, spd:.65, wave:2, ws:.05, sz:.8, col:'#ffd166'},
+  ];
+  mist = Array.from({length:5}, () => ({
+    x:Math.random()*W, y:H*.4+Math.random()*H*.4,
+    w:200+Math.random()*300, h:50+Math.random()*70,
+    vx:.1+Math.random()*.15, op:.05+Math.random()*.06
+  }));
+}
+
+function drawBG() {
+  const g = bx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#050f03'); g.addColorStop(.35,'#0a1f07');
+  g.addColorStop(.7,'#0d2a09'); g.addColorStop(1,'#071503');
+  bx.fillStyle = g; bx.fillRect(0,0,W,H);
+
+  for (let i = 0; i < 5; i++) {
+    const rx = W*.08 + i*W*.21;
+    const sg = bx.createLinearGradient(rx,0,rx+30,H*.55);
+    sg.addColorStop(0,'rgba(180,255,80,.05)'); sg.addColorStop(1,'rgba(180,255,80,0)');
+    bx.save(); bx.beginPath();
+    bx.moveTo(rx-25,0); bx.lineTo(rx+65,H*.65); bx.lineTo(rx+20,H*.65); bx.lineTo(rx-70,0);
+    bx.closePath(); bx.fillStyle=sg; bx.fill(); bx.restore();
+  }
+
+  mist.forEach(m => {
+    m.x = (m.x + m.vx) % W;
+    const mg = bx.createRadialGradient(m.x,m.y,0,m.x,m.y,m.w/2);
+    mg.addColorStop(0,`rgba(120,200,100,${m.op})`); mg.addColorStop(1,'rgba(120,200,100,0)');
+    bx.beginPath(); bx.ellipse(m.x,m.y,m.w/2,m.h/2,0,0,Math.PI*2); bx.fillStyle=mg; bx.fill();
+  });
+
+  vines.forEach(v => {
+    v.phase += v.spd;
+    bx.beginPath(); bx.moveTo(v.x,0);
+    for (let i = 0; i < v.segs; i++) {
+      const py = (i+1)*v.len/v.segs*1.3, sw = Math.sin(v.phase+i*.8)*16;
+      i===0 ? bx.lineTo(v.x+sw,py) : bx.quadraticCurveTo(v.x+sw,py-10,v.x+sw,py);
+    }
+    bx.strokeStyle='rgba(50,150,30,.55)'; bx.lineWidth=3; bx.lineCap='round'; bx.stroke();
+    const ex=v.x+Math.sin(v.phase+v.segs*.8)*16, ey=v.len*1.2;
+    bx.beginPath(); bx.ellipse(ex,ey,10,6,Math.sin(v.phase)*.5,0,Math.PI*2);
+    bx.fillStyle='rgba(60,180,40,.65)'; bx.fill();
+  });
+
+  leaves.forEach(l => {
+    l.x += l.vx; l.y += l.vy; l.angle += l.rot;
+    if (l.y > H+20) { l.y=-20; l.x=Math.random()*W; }
+    if (l.x<-20||l.x>W+20) l.vx *= -1;
+    bx.save(); bx.translate(l.x,l.y); bx.rotate(l.angle);
+    bx.beginPath(); bx.ellipse(0,0,l.sz,l.sz*.5,0,0,Math.PI*2);
+    bx.fillStyle=`hsla(${l.hue},70%,38%,${l.op})`; bx.fill(); bx.restore();
+  });
+
+  flies.forEach(f => {
+    f.x+=f.vx; f.y+=f.vy;
+    if(f.x<0||f.x>W) f.vx*=-1; if(f.y<H*.1||f.y>H*.9) f.vy*=-1;
+    f.glow += f.gD*f.gS;
+    if(f.glow>=1||f.glow<=0){f.gD*=-1; f.glow=Math.max(0,Math.min(1,f.glow));}
+    const a=.15+.85*f.glow;
+    const fg=bx.createRadialGradient(f.x,f.y,0,f.x,f.y,f.r*5);
+    fg.addColorStop(0,`rgba(160,255,80,${a*.55})`); fg.addColorStop(1,'rgba(160,255,80,0)');
+    bx.beginPath(); bx.arc(f.x,f.y,f.r*5,0,Math.PI*2); bx.fillStyle=fg; bx.fill();
+    bx.beginPath(); bx.arc(f.x,f.y,f.r,0,Math.PI*2); bx.fillStyle=`rgba(210,255,130,${a})`; bx.fill();
+  });
+
+  parrots.forEach(p => {
+    p.wave += p.ws; p.x += p.dir*p.spd;
+    if(p.dir===1&&p.x>W+100){p.x=-100; p.y=H*.1+Math.random()*H*.7;}
+    if(p.dir===-1&&p.x<-100){p.x=W+100; p.y=H*.1+Math.random()*H*.7;}
+    const wy=Math.sin(p.wave)*4, s=p.sz;
+    bx.save(); bx.translate(p.x,p.y+wy); bx.scale(p.dir,1);
+    bx.beginPath(); bx.ellipse(0,0,16*s,9*s,0,0,Math.PI*2); bx.fillStyle=p.col+'cc'; bx.fill();
+    const wf=Math.abs(Math.sin(p.wave*2))*10*s;
+    bx.beginPath(); bx.moveTo(-5*s,-3*s); bx.quadraticCurveTo(-14*s,-10*s-wf,-18*s,0);
+    bx.quadraticCurveTo(-14*s,4*s,-5*s,3*s); bx.closePath(); bx.fillStyle=p.col+'99'; bx.fill();
+    bx.beginPath(); bx.arc(10*s,-1*s,2.2*s,0,Math.PI*2); bx.fillStyle='rgba(0,0,0,.55)'; bx.fill();
+    bx.beginPath(); bx.moveTo(16*s,0); bx.lineTo(22*s,-3*s); bx.lineTo(16*s,4*s);
+    bx.fillStyle='#f9c74f'; bx.fill(); bx.restore();
+  });
+
+  [[W*.03,H],[W*.97,H],[W*.5,H]].forEach(([tx,ty]) => {
+    bx.beginPath(); bx.moveTo(tx-10,ty); bx.lineTo(tx+10,ty); bx.lineTo(tx+7,ty-H*.16); bx.lineTo(tx-7,ty-H*.16); bx.closePath();
+    bx.fillStyle='rgba(15,45,8,.8)'; bx.fill();
+    bx.beginPath(); bx.ellipse(tx,ty-H*.2,38,52,0,0,Math.PI*2); bx.fillStyle='rgba(22,65,14,.82)'; bx.fill();
+    bx.beginPath(); bx.ellipse(tx+18,ty-H*.25,30,40,0,0,Math.PI*2); bx.fillStyle='rgba(28,75,16,.78)'; bx.fill();
+  });
+}
+function animBG(){requestAnimationFrame(animBG); drawBG();}
+window.addEventListener('resize', rsz); rsz(); animBG();
+
+/* ══════════════════════════════════════
+   POINTER-BASED DRAG ENGINE
+   Works for both mouse and touch
+══════════════════════════════════════ */
+const ghost = document.getElementById('ghost');
+let drag = null;   // {chipEl, val, bg, label, offX, offY}
+let dropTargets = [];  // [{el, onDrop}]
+
+function registerChip(el, val, bg, label) {
+  el.dataset.val  = val;
+  el.dataset.bg   = bg;
+  el.dataset.lbl  = label;
+  el.addEventListener('pointerdown', startDrag, {passive:false});
+}
+
+function registerDrop(el, onDrop) {
+  dropTargets.push({el, onDrop});
+}
+
+function startDrag(e) {
+  const chip = e.currentTarget;
+  if (chip.classList.contains('used')) return;
+  e.preventDefault();
+
+  const rect = chip.getBoundingClientRect();
+  const cx = e.clientX ?? e.touches?.[0].clientX;
+  const cy = e.clientY ?? e.touches?.[0].clientY;
+
+  drag = {
+    chipEl: chip,
+    val:    chip.dataset.val,
+    bg:     chip.dataset.bg,
+    label:  chip.dataset.lbl,
+    offX:   cx - rect.left - rect.width/2,
+    offY:   cy - rect.top  - rect.height/2,
+  };
+
+  chip.classList.add('dragging');
+  ghost.style.cssText = `display:flex;background:${drag.bg};left:${cx}px;top:${cy}px`;
+  ghost.textContent   = drag.label;
+
+  document.addEventListener('pointermove', onMove, {passive:false});
+  document.addEventListener('pointerup',   onUp,   {passive:false});
+  document.addEventListener('pointercancel', onUp, {passive:false});
+}
+
+function onMove(e) {
+  if (!drag) return;
+  e.preventDefault();
+  const cx = e.clientX, cy = e.clientY;
+  ghost.style.left = cx + 'px';
+  ghost.style.top  = cy + 'px';
+
+  // highlight drop targets
+  dropTargets.forEach(({el}) => {
+    if (el.classList.contains('filled') || el.classList.contains('ok')) return;
+    const r = el.getBoundingClientRect();
+    const inside = cx>=r.left && cx<=r.right && cy>=r.top && cy<=r.bottom;
+    el.classList.toggle('over', inside);
+  });
+}
+
+function onUp(e) {
+  if (!drag) return;
+  document.removeEventListener('pointermove', onMove);
+  document.removeEventListener('pointerup',   onUp);
+  document.removeEventListener('pointercancel', onUp);
+
+  ghost.style.display = 'none';
+  drag.chipEl.classList.remove('dragging');
+
+  const cx = e.clientX, cy = e.clientY;
+
+  // find hit target
+  let hit = null;
+  dropTargets.forEach(({el, onDrop}) => {
+    el.classList.remove('over');
+    if (hit) return;
+    if (el.classList.contains('filled') || el.classList.contains('ok')) return;
+    const r = el.getBoundingClientRect();
+    if (cx>=r.left && cx<=r.right && cy>=r.top && cy<=r.bottom) {
+      hit = {el, onDrop};
+    }
+  });
+
+  if (hit) hit.onDrop(drag, hit.el);
+
+  drag = null;
+}
+
+/* helpers */
+let score = 0;
+function addSc(n){ score+=n; document.getElementById('sv').textContent=score; }
+
+function floatFB(txt, col) {
+  const d = document.createElement('div'); d.className='ffb';
+  d.style.left=W/2+'px'; d.style.top=H/2+'px'; d.style.color=col; d.textContent=txt;
+  document.body.appendChild(d); setTimeout(()=>d.remove(), 950);
+}
+
+function fillSlot(slot, label, bg) {
+  slot.classList.remove('over'); slot.classList.add('filled');
+  slot.style.animation='popc .45s';
+  slot.addEventListener('animationend', ()=>slot.style.animation='', {once:true});
+  slot.innerHTML = '';
+  const sp = document.createElement('span');
+  sp.textContent = label;
+  sp.style.cssText = `background:${bg};color:#fff;padding:2px 8px;border-radius:7px;font-weight:700;font-size:12px`;
+  slot.appendChild(sp);
+}
+
+function wrongAnim(el) {
+  el.classList.add('bad');
+  el.addEventListener('animationend', ()=>el.classList.remove('bad'), {once:true});
+}
+
+/* ══════════════════════════════════════
+   ACTIVITY 1 — Sort Cards
+══════════════════════════════════════ */
+const a1Items = [
+  {id:'n1', cat:'neg',  label:'−3°C (freezing)',       bg:'#3a7bd5'},
+  {id:'z1', cat:'zero', label:'Floor G (ground = 0)',   bg:'#7b2d8b'},
+  {id:'p1', cat:'pos',  label:'+5°C (warm day)',        bg:'#e87c1e'},
+  {id:'n2', cat:'neg',  label:'Basement 2 (underground)',bg:'#3a7bd5'},
+  {id:'z2', cat:'zero', label:'₹0 balance (empty)',     bg:'#7b2d8b'},
+  {id:'p2', cat:'pos',  label:'₹10 credit (money in)',  bg:'#e87c1e'},
+  {id:'n3', cat:'neg',  label:'−₹5 debt (money owed)', bg:'#3a7bd5'},
+  {id:'p3', cat:'pos',  label:'Floor 3 (above ground)', bg:'#e87c1e'},
+  {id:'n4', cat:'neg',  label:'−2°C (below freezing)',  bg:'#3a7bd5'},
+  {id:'z3', cat:'zero', label:'Sea level (= 0)',         bg:'#7b2d8b'},
+];
+let a1placed = 0, a1done = false;
+
+function initA1() {
+  a1placed = 0; a1done = false;
+  document.getElementById('nb1').classList.remove('show');
+  dropTargets = dropTargets.filter(t => !t.el.classList.contains('zdrop'));
+
+  const wrap = document.getElementById('a1chips'); wrap.innerHTML='';
+  ['neg','zero','pos'].forEach(cat => {
+    document.getElementById('zpl-'+cat).innerHTML='';
+  });
+
+  a1Items.forEach(item => {
+    const chip = document.createElement('div'); chip.className='chip';
+    chip.id = 'a1c-'+item.id; chip.style.background = item.bg;
+    chip.style.cssText += ';font-size:11px;height:auto;min-height:30px;white-space:normal;text-align:center;line-height:1.2;padding:4px 8px;max-width:185px';
+    chip.textContent = item.label;
+    registerChip(chip, item.id, item.bg, item.label);
+    wrap.appendChild(chip);
+  });
+
+  ['neg','zero','pos'].forEach(cat => {
+    const dropEl = document.getElementById('zdrop-'+cat);
+    registerDrop(dropEl, (drag, el) => {
+      const item = a1Items.find(x => x.id === drag.val);
+      if (!item) return;
+      if (item.cat === cat) {
+        drag.chipEl.classList.add('used');
+        const placed = document.getElementById('zpl-'+cat);
+        const c = document.createElement('div'); c.className='placed-chip';
+        c.style.background = item.bg+'cc'; c.textContent = item.label;
+        placed.appendChild(c);
+        el.classList.remove('over');
+        addSc(10); floatFB('✓ +10','#a8ff78'); a1placed++;
+        if (a1placed >= a1Items.length && !a1done) {
+          a1done=true; document.getElementById('nb1').classList.add('show'); burst();
+        }
+      } else {
+        wrongAnim(el); floatFB('Try again!','#ff6b6b');
+      }
+    });
+  });
+}
+
+/* ══════════════════════════════════════
+   ACTIVITY 2 — Number Line
+══════════════════════════════════════ */
+const NL_Y = 95, NL_CX = 350, NL_W = 620;
+function nlX(n){ return NL_CX + (n/10)*NL_W; }
+const nlToPlace = [-4,-2,0,2,4];
+const nlGiven   = [-5,-3,-1,1,3,5];
+let a2filled = {}, a2done = false;
+
+function colForN(n){ return n<0?'#3a7bd5':n===0?'#7b2d8b':'#e87c1e'; }
+function lblForN(n){ return n===0?'0':n<0?String(n):'+'+n; }
+
+function initA2() {
+  a2filled={}; a2done=false;
+  document.getElementById('nb2').classList.remove('show');
+  dropTargets = dropTargets.filter(t => !t.el.classList.contains('nl-slot'));
+  renderNLSVG(); renderA2Chips();
+  requestAnimationFrame(()=>requestAnimationFrame(placeNLSlots));
+}
+
+function renderNLSVG(){
+  const svg=document.getElementById('a2nl-svg'); svg.innerHTML='';
+  const ns='http://www.w3.org/2000/svg';
+  function mk(tag,attrs){const e=document.createElementNS(ns,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));return e;}
+
+  svg.appendChild(mk('rect',{x:nlX(-5)-18,y:NL_Y-8,width:nlX(0)-(nlX(-5)-18),height:16,fill:'rgba(58,123,213,.1)',rx:'4'}));
+  svg.appendChild(mk('rect',{x:nlX(0),y:NL_Y-8,width:nlX(5)+18-nlX(0),height:16,fill:'rgba(232,124,30,.1)',rx:'4'}));
+  svg.appendChild(mk('line',{x1:nlX(-5)-18,y1:NL_Y,x2:nlX(5)+18,y2:NL_Y,stroke:'rgba(150,230,100,.38)','stroke-width':3,'stroke-linecap':'round'}));
+  svg.appendChild(mk('polygon',{points:`${nlX(-5)-24},${NL_Y} ${nlX(-5)-12},${NL_Y-6} ${nlX(-5)-12},${NL_Y+6}`,fill:'rgba(150,230,100,.5)'}));
+  svg.appendChild(mk('polygon',{points:`${nlX(5)+24},${NL_Y} ${nlX(5)+12},${NL_Y-6} ${nlX(5)+12},${NL_Y+6}`,fill:'rgba(150,230,100,.5)'}));
+  svg.appendChild(mk('line',{x1:nlX(0),y1:NL_Y-18,x2:nlX(0),y2:NL_Y+18,stroke:'rgba(180,120,230,.7)','stroke-width':'2.5'}));
+
+  const negL=mk('text',{x:nlX(-2.5),y:NL_Y-22,'text-anchor':'middle','font-size':'10',fill:'rgba(91,156,246,.6)','font-family':'Nunito,sans-serif'});
+  negL.textContent='⬅ Negative'; svg.appendChild(negL);
+  const posL=mk('text',{x:nlX(2.5),y:NL_Y-22,'text-anchor':'middle','font-size':'10',fill:'rgba(245,166,35,.6)','font-family':'Nunito,sans-serif'});
+  posL.textContent='Positive ➡'; svg.appendChild(posL);
+
+  nlGiven.forEach(n=>{
+    const x=nlX(n);
+    svg.appendChild(mk('line',{x1:x,y1:NL_Y-10,x2:x,y2:NL_Y+10,stroke:n<0?'rgba(91,156,246,.6)':'rgba(245,166,35,.6)','stroke-width':'2'}));
+    const t=mk('text',{x,y:NL_Y+28,'text-anchor':'middle','font-size':'13','font-weight':'700',fill:n<0?'#5b9cf6':'rgba(220,200,100,.9)','font-family':'Righteous,cursive'});
+    t.textContent=lblForN(n); svg.appendChild(t);
+  });
+  const z0=mk('text',{x:nlX(0),y:NL_Y+28,'text-anchor':'middle','font-size':'13','font-weight':'800',fill:'rgba(180,120,230,.9)','font-family':'Righteous,cursive'});
+  z0.textContent='0'; svg.appendChild(z0);
+}
+
+function renderA2Chips(){
+  const row=document.getElementById('a2chips-row'); row.innerHTML='';
+  nlToPlace.forEach((n,i)=>{
+    const chip=document.createElement('div'); chip.className='chip';
+    chip.id='a2c'+i; chip.style.background=colForN(n); chip.style.minWidth='46px';
+    chip.textContent=lblForN(n);
+    if(a2filled[n]) chip.classList.add('used');
+    registerChip(chip, String(n), colForN(n), lblForN(n));
+    row.appendChild(chip);
+  });
+}
+
+function placeNLSlots(){
+  document.querySelectorAll('.nl-slot').forEach(s=>s.remove());
+  const wrap=document.getElementById('a2nl-wrap');
+  const svgEl=document.getElementById('a2nl-svg');
+  const sr=svgEl.getBoundingClientRect(), wr=wrap.getBoundingClientRect();
+  const scX=sr.width/700, scY=sr.height/180;
+
+  nlToPlace.forEach(n=>{
+    const px=nlX(n)*scX, py=NL_Y*scY;
+    const slot=document.createElement('div'); slot.className='nl-slot'; slot.id='nls'+n;
+    slot.style.left=(sr.left-wr.left+px)+'px';
+    slot.style.top =(sr.top -wr.top+py)+'px';
+    slot.textContent='?';
+
+    if(a2filled[n]){
+      slot.classList.add('filled'); slot.textContent='';
+      const sp=document.createElement('span'); sp.textContent=lblForN(n);
+      sp.style.cssText=`background:${colForN(n)};color:#fff;padding:1px 6px;border-radius:6px;font-weight:700;font-size:13px`;
+      slot.appendChild(sp);
+    } else {
+      registerDrop(slot, (drg, el)=>{
+        if(parseInt(drg.val)===n){
+          a2filled[n]=true; drg.chipEl.classList.add('used');
+          fillSlot(el, drg.label, drg.bg);
+          addSc(12); floatFB('✓ +12','#a8ff78');
+          if(Object.keys(a2filled).length>=nlToPlace.length && !a2done){
+            a2done=true; document.getElementById('nb2').classList.add('show'); burst();
+          }
+        } else { wrongAnim(el); floatFB('Not quite!','#ff6b6b'); }
+      });
+    }
+    wrap.appendChild(slot);
+  });
+}
+
+window.addEventListener('resize',()=>{ if(document.getElementById('act2').classList.contains('on')) setTimeout(placeNLSlots,120); });
+
+/* ══════════════════════════════════════
+   ACTIVITY 3 — Integer Addition
+══════════════════════════════════════ */
+const a3probs = [
+  {start:-3, add:5,  ans:2,  eq:'−3 + 5'},
+  {start:2,  add:-4, ans:-2, eq:'2 + (−4)'},
+  {start:-1, add:3,  ans:2,  eq:'−1 + 3'},
+  {start:0,  add:-3, ans:-3, eq:'0 + (−3)'},
+  {start:-2, add:2,  ans:0,  eq:'−2 + 2'},
+];
+const a3pool = [-4,-3,-2,-1,0,1,2,2,3,4];
+let a3filled = {}, a3done = false;
+
+function initA3() {
+  a3filled={}; a3done=false;
+  document.getElementById('nb3').classList.remove('show');
+  dropTargets = dropTargets.filter(t => !t.el.classList.contains('prob-blank'));
+  renderA3();
+}
+
+function renderA3(){
+  const area=document.getElementById('a3probs'); area.innerHTML='';
+
+  a3probs.forEach((p,i)=>{
+    const row=document.createElement('div'); row.className='prob-row';
+
+    // equation
+    const eq=document.createElement('div'); eq.className='prob-eq';
+    const numSp=document.createElement('span'); numSp.className='prob-num';
+    numSp.style.color=colForN(p.start); numSp.textContent=p.eq+' =';
+    eq.appendChild(numSp);
+    eq.appendChild(document.createTextNode(' '));
+
+    const blank=document.createElement('div'); blank.className='prob-blank'; blank.id='a3bl'+i;
+    blank.textContent='?';
+    if(a3filled[i]!==undefined){
+      const v=a3filled[i];
+      blank.classList.add('filled'); blank.textContent='';
+      const sp=document.createElement('span'); sp.textContent=lblForN(v);
+      sp.style.cssText=`background:${colForN(v)};color:#fff;padding:1px 7px;border-radius:6px;font-weight:700;font-size:13px`;
+      blank.appendChild(sp);
+    } else {
+      registerDrop(blank, (drg, el)=>{
+        const v=parseInt(drg.val);
+        if(v===p.ans){
+          a3filled[i]=v; drg.chipEl.classList.add('used');
+          fillSlot(el, drg.label, drg.bg);
+          animDot(i,p,v);
+          addSc(15); floatFB('✓ +15','#a8ff78');
+          if(Object.keys(a3filled).length>=a3probs.length && !a3done){
+            a3done=true; document.getElementById('nb3').classList.add('show'); burst();
+          }
+        } else { wrongAnim(el); floatFB('Try again!','#ff6b6b'); }
+      });
+    }
+    eq.appendChild(blank);
+
+    // mini number line
+    const nl=document.createElement('div'); nl.className='prob-nl';
+    const track=document.createElement('div'); track.className='pnl-track'; nl.appendChild(track);
+    const zm=document.createElement('div'); zm.className='pnl-zero'; zm.style.left='50%'; nl.appendChild(zm);
+    const dot=document.createElement('div'); dot.className='pnl-dot'; dot.id='dot'+i;
+    const startPct=50+p.start*8;
+    dot.style.left=startPct+'%'; dot.style.background=colForN(p.start);
+    dot.style.boxShadow=`0 0 8px ${colForN(p.start)}88`;
+    nl.appendChild(dot);
+    const arr=document.createElement('div'); arr.className='pnl-arr'; arr.id='arr'+i; nl.appendChild(arr);
+    if(a3filled[i]!==undefined){
+      const v=a3filled[i]; dot.style.left=(50+v*8)+'%'; dot.style.background=colForN(v);
+    }
+
+    row.appendChild(eq); row.appendChild(nl);
+    area.appendChild(row);
+  });
+
+  // chips
+  const chipRow=document.getElementById('a3chips-row'); chipRow.innerHTML='';
+  a3pool.forEach((v,i)=>{
+    const chip=document.createElement('div'); chip.className='chip';
+    chip.id='a3c'+i; chip.style.background=colForN(v);
+    chip.style.minWidth='44px'; chip.style.height='32px';
+    chip.textContent=lblForN(v);
+    registerChip(chip, String(v), colForN(v), lblForN(v));
+    chipRow.appendChild(chip);
+  });
+}
+
+function animDot(i,p,ans){
+  const dot=document.getElementById('dot'+i), arr=document.getElementById('arr'+i);
+  if(!dot) return;
+  const ep=50+ans*8;
+  dot.style.left=ep+'%'; dot.style.background=colForN(ans); dot.style.boxShadow=`0 0 10px ${colForN(ans)}99`;
+  if(arr){
+    const sp=50+p.start*8, lft=Math.min(sp,ep), wd=Math.abs(ep-sp);
+    arr.style.left=lft+'%'; arr.style.width=wd+'%';
+    arr.style.background=p.add<0?'rgba(91,156,246,.6)':'rgba(245,166,35,.6)';
+    arr.style.opacity='1';
+  }
+}
+
+/* ══════════════════════════════════════
+   POPUP & FLOW
+══════════════════════════════════════ */
+let curAct=1;
+const popData={
+  1:{ico:'🌿',h:'Sorting Champion!',p:'You can tell exactly which numbers are negative, zero, and positive. The jungle birds are cheering for you!',btn:'Explore the Number Line →'},
+  2:{ico:'📏',h:'Line Navigator!',p:'You placed every number on the number line correctly — left for negative, right for positive!',btn:'Try Integer Addition →'},
+  3:{ico:'🦜',h:'Math Explorer!',p:'You used the number line to add positive and negative numbers like a pro. The rainforest is yours!',btn:'Play Again 🌿'},
+};
+
+function showPop(n){
+  curAct=n; const d=popData[n];
+  document.getElementById('pi').textContent=d.ico;
+  document.getElementById('ph').textContent=d.h;
+  document.getElementById('pp').textContent=d.p;
+  document.getElementById('pbtn').textContent=d.btn;
+  const ps=document.getElementById('pst'); ps.innerHTML='';
+  for(let i=0;i<3;i++){const s=document.createElement('span');s.style.animationDelay=(i*.15)+'s';s.textContent='⭐';ps.appendChild(s);}
+  document.getElementById('pov').classList.add('show'); burst();
+}
+
+function nextAct(){
+  document.getElementById('pov').classList.remove('show');
+  if(curAct===1) swAct(2);
+  else if(curAct===2) swAct(3);
+  else { score=0; document.getElementById('sv').textContent='0'; swAct(1); initA1(); initA2(); initA3(); }
+}
+
+function swAct(n){
+  document.querySelectorAll('.act').forEach((a,i)=>a.classList.toggle('on',i+1===n));
+  document.querySelectorAll('.pd').forEach((d,i)=>{d.classList.toggle('active',i+1===n);d.classList.toggle('done',i+1<n);});
+  if(n===2) requestAnimationFrame(()=>requestAnimationFrame(placeNLSlots));
+}
+
+function burst(){
+  const items=['🌿','🦜','🦋','✨','🌟','💫','🍃','⭐'];
+  for(let i=0;i<14;i++) setTimeout(()=>{
+    const el=document.createElement('div');
+    el.style.cssText=`position:fixed;pointer-events:none;z-index:9000;font-size:${16+Math.random()*22}px;left:${10+Math.random()*80}%;top:${15+Math.random()*65}%;animation:burst ${.5+Math.random()*.6}s forwards`;
+    el.textContent=items[Math.floor(Math.random()*items.length)];
+    document.body.appendChild(el); setTimeout(()=>el.remove(),1100);
+  }, i*70);
+}
+
+/* init */
+initA1(); initA2(); initA3();
+</script>
+</body>
+</html>

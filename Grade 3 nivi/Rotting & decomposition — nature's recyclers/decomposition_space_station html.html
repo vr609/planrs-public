@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rotting & Decomposition — Nature's Recyclers</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --void:#020818;
+  --deep:#040d2a;
+  --panel:#071440;
+  --panel2:#0a1a52;
+  --glow-blue:#00d4ff;
+  --glow-green:#39ff8c;
+  --glow-amber:#ffc857;
+  --glow-coral:#ff6b6b;
+  --glow-purple:#b06fff;
+  --text-main:#e8f4ff;
+  --text-dim:#7aa8cc;
+  --text-muted:#3a6080;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--void);font-family:'Exo 2',sans-serif;color:var(--text-main)}
+#universe{position:fixed;inset:0;overflow:hidden}
+
+/* STARS */
+.star-layer{position:absolute;inset:0;pointer-events:none}
+.star{position:absolute;border-radius:50%;animation:twinkle var(--d,3s) ease-in-out infinite alternate}
+@keyframes twinkle{from{opacity:.1;transform:scale(1)}to{opacity:1;transform:scale(1.4)}}
+@keyframes drift{from{transform:translateY(0) translateX(0)}to{transform:translateY(-30px) translateX(10px)}}
+
+/* SATELLITE */
+.satellite{position:absolute;animation:orbit 18s linear infinite;pointer-events:none}
+@keyframes orbit{from{transform:rotate(0deg) translateX(120px) rotate(0deg)} to{transform:rotate(360deg) translateX(120px) rotate(-360deg)}}
+.sat-body{width:22px;height:10px;background:linear-gradient(135deg,#888,#ddd);border-radius:2px;position:relative}
+.sat-body::before,.sat-body::after{content:'';position:absolute;top:50%;width:28px;height:4px;background:linear-gradient(90deg,#ffc857,#ff9500);transform:translateY(-50%)}
+.sat-body::before{right:100%;margin-right:2px}
+.sat-body::after{left:100%;margin-left:2px}
+
+/* ASTRONAUT */
+.astronaut{position:absolute;pointer-events:none;font-size:28px;animation:float-astro var(--fd,8s) ease-in-out infinite}
+@keyframes float-astro{0%,100%{transform:translateY(0) rotate(0deg)}33%{transform:translateY(-18px) rotate(5deg)}66%{transform:translateY(8px) rotate(-3deg)}}
+
+/* EARTH */
+#earth{position:absolute;bottom:-120px;right:-80px;width:320px;height:320px;border-radius:50%;background:radial-gradient(ellipse at 35% 30%,#1a6b3c,#0d4a2f 30%,#1565c0 55%,#1976d2 70%,#0d47a1);box-shadow:0 0 60px rgba(0,150,255,.25),inset -30px -20px 60px rgba(0,0,80,.4);animation:earth-spin 40s linear infinite}
+#earth::after{content:'';position:absolute;inset:0;border-radius:50%;background:radial-gradient(ellipse at 25% 20%,rgba(255,255,255,.35) 0%,transparent 50%),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cellipse cx='80' cy='90' rx='60' ry='20' fill='rgba(255,255,255,0.15)' transform='rotate(-15,80,90)'/%3E%3Cellipse cx='200' cy='60' rx='50' ry='15' fill='rgba(255,255,255,0.1)' transform='rotate(10,200,60)'/%3E%3Cellipse cx='150' cy='180' rx='80' ry='18' fill='rgba(255,255,255,0.12)' transform='rotate(-5,150,180)'/%3E%3C/svg%3E")}
+@keyframes earth-spin{from{filter:hue-rotate(0deg)}to{filter:hue-rotate(5deg)}}
+
+/* HOLOGRAPHIC GRID */
+.holo-grid{position:absolute;inset:0;pointer-events:none;opacity:.06;background-image:linear-gradient(var(--glow-blue) 1px,transparent 1px),linear-gradient(90deg,var(--glow-blue) 1px,transparent 1px);background-size:60px 60px;animation:grid-shift 20s linear infinite}
+@keyframes grid-shift{from{background-position:0 0}to{background-position:60px 60px}}
+
+/* GLOW ORBS */
+.glow-orb{position:absolute;border-radius:50%;filter:blur(60px);animation:orb-pulse 6s ease-in-out infinite alternate;pointer-events:none}
+@keyframes orb-pulse{from{opacity:.2;transform:scale(1)}to{opacity:.5;transform:scale(1.2)}}
+
+/* MAIN LAYOUT */
+#app{position:relative;z-index:10;width:100%;height:100vh;display:flex;flex-direction:column;padding:10px 16px;gap:8px}
+
+/* HEADER */
+#header{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:rgba(7,20,64,.7);border:1px solid rgba(0,212,255,.2);border-radius:12px;backdrop-filter:blur(12px)}
+.mission-title{font-family:'Orbitron',monospace;font-size:13px;font-weight:700;letter-spacing:3px;color:var(--glow-blue);text-shadow:0 0 12px rgba(0,212,255,.5)}
+.mission-badge{font-family:'Orbitron',monospace;font-size:10px;color:var(--glow-green);background:rgba(57,255,140,.08);border:1px solid rgba(57,255,140,.25);padding:4px 12px;border-radius:20px;letter-spacing:2px}
+.station-status{display:flex;gap:6px;align-items:center}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--glow-green);animation:blink 1.5s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.status-label{font-size:10px;color:var(--text-dim);letter-spacing:1.5px}
+
+/* ACTIVITY CONTAINER */
+#activity-area{flex:1;display:flex;gap:12px;min-height:0}
+
+/* LEFT PANEL */
+.side-panel{width:160px;flex-shrink:0;display:flex;flex-direction:column;gap:8px}
+.panel-card{background:rgba(7,20,64,.6);border:1px solid rgba(0,212,255,.15);border-radius:10px;padding:12px;backdrop-filter:blur(8px)}
+.panel-label{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:2px;color:var(--glow-blue);margin-bottom:8px}
+.progress-steps{display:flex;flex-direction:column;gap:8px}
+.step-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;border:1px solid transparent;transition:all .3s}
+.step-item.active{background:rgba(0,212,255,.1);border-color:rgba(0,212,255,.3)}
+.step-item.done{background:rgba(57,255,140,.06);border-color:rgba(57,255,140,.2)}
+.step-num{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',monospace;font-size:9px;font-weight:700;border:1.5px solid var(--text-muted);color:var(--text-muted);transition:all .3s}
+.step-item.active .step-num{border-color:var(--glow-blue);color:var(--glow-blue);box-shadow:0 0 8px rgba(0,212,255,.4)}
+.step-item.done .step-num{border-color:var(--glow-green);color:var(--glow-green);background:rgba(57,255,140,.1)}
+.step-text{font-size:9px;color:var(--text-dim);line-height:1.3}
+.step-item.active .step-text{color:var(--text-main)}
+
+/* CONTROL DIALS */
+.dial-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.dial{background:rgba(0,0,0,.3);border:1px solid rgba(0,212,255,.1);border-radius:8px;padding:8px 6px;text-align:center}
+.dial-value{font-family:'Orbitron',monospace;font-size:14px;font-weight:700;color:var(--glow-amber)}
+.dial-name{font-size:8px;color:var(--text-muted);letter-spacing:1px;margin-top:2px}
+
+/* MAIN CONTENT */
+#main-content{flex:1;min-width:0;position:relative}
+.activity-screen{display:none;width:100%;height:100%;flex-direction:column;gap:10px}
+.activity-screen.visible{display:flex}
+
+.activity-frame{background:rgba(4,13,42,.75);border:1px solid rgba(0,212,255,.2);border-radius:14px;backdrop-filter:blur(16px);flex:1;display:flex;flex-direction:column;padding:16px;gap:10px;min-height:0;position:relative;overflow:hidden}
+.activity-frame::before{content:'';position:absolute;inset:0;border-radius:14px;background:linear-gradient(135deg,rgba(0,212,255,.03) 0%,transparent 50%,rgba(176,111,255,.03) 100%);pointer-events:none}
+
+.act-header{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.act-number{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:3px;color:var(--glow-purple);background:rgba(176,111,255,.1);border:1px solid rgba(176,111,255,.25);padding:3px 10px;border-radius:20px}
+.act-title{font-family:'Orbitron',monospace;font-size:14px;font-weight:600;color:var(--text-main)}
+.act-subtitle{font-size:11px;color:var(--text-dim);line-height:1.4;flex-shrink:0}
+
+/* DRAG ITEMS */
+.drag-items-row{display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
+.drag-item{padding:7px 14px;border-radius:22px;font-size:12px;font-weight:500;cursor:grab;user-select:none;transition:all .2s;border:1.5px solid;position:relative;flex-shrink:0}
+.drag-item:active{cursor:grabbing;transform:scale(1.05);z-index:100}
+.drag-item.dragging{opacity:.4}
+.drag-item[data-speed="fast"]{color:#39ff8c;border-color:rgba(57,255,140,.4);background:rgba(57,255,140,.08)}
+.drag-item[data-speed="slow"]{color:#ffc857;border-color:rgba(255,200,87,.4);background:rgba(255,200,87,.08)}
+.drag-item.item-default{color:var(--glow-blue);border-color:rgba(0,212,255,.35);background:rgba(0,212,255,.07)}
+.drag-item.item-placed{opacity:.35;pointer-events:none}
+
+/* DROP ZONES */
+.drop-zones{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1;min-height:0}
+.drop-zone{border:2px dashed rgba(0,212,255,.2);border-radius:12px;padding:10px;transition:all .25s;display:flex;flex-direction:column;gap:6px;min-height:0;overflow:hidden}
+.drop-zone.zone-fast{border-color:rgba(57,255,140,.25);background:rgba(57,255,140,.03)}
+.drop-zone.zone-slow{border-color:rgba(255,200,87,.25);background:rgba(255,200,87,.03)}
+.drop-zone.drop-target{transform:scale(1.02);box-shadow:0 0 20px rgba(0,212,255,.2)}
+.drop-zone.zone-fast.drop-target{box-shadow:0 0 20px rgba(57,255,140,.25);border-color:rgba(57,255,140,.6)}
+.drop-zone.zone-slow.drop-target{box-shadow:0 0 20px rgba(255,200,87,.25);border-color:rgba(255,200,87,.6)}
+.zone-header{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.zone-icon{font-size:18px}
+.zone-title{font-family:'Orbitron',monospace;font-size:10px;letter-spacing:1.5px;font-weight:600}
+.zone-fast .zone-title{color:var(--glow-green)}
+.zone-slow .zone-title{color:var(--glow-amber)}
+.zone-desc{font-size:9px;color:var(--text-muted);line-height:1.3}
+.zone-items{display:flex;flex-wrap:wrap;gap:5px;flex:1;align-content:flex-start}
+.zone-dropped{padding:5px 10px;border-radius:16px;font-size:11px;animation:pop-in .25s ease}
+.zone-fast .zone-dropped{color:#39ff8c;background:rgba(57,255,140,.12);border:1px solid rgba(57,255,140,.3)}
+.zone-slow .zone-dropped{color:#ffc857;background:rgba(255,200,87,.12);border:1px solid rgba(255,200,87,.3)}
+@keyframes pop-in{from{transform:scale(0.6);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* FEEDBACK */
+.feedback-banner{padding:8px 14px;border-radius:8px;font-size:11px;text-align:center;animation:pop-in .3s ease;flex-shrink:0}
+.feedback-correct{background:rgba(57,255,140,.12);border:1px solid rgba(57,255,140,.3);color:var(--glow-green)}
+.feedback-wrong{background:rgba(255,107,107,.12);border:1px solid rgba(255,107,107,.3);color:var(--glow-coral)}
+.feedback-info{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);color:var(--glow-blue)}
+
+/* NEXT BUTTON */
+.next-btn{align-self:flex-end;font-family:'Orbitron',monospace;font-size:10px;letter-spacing:2px;padding:9px 22px;background:linear-gradient(135deg,rgba(0,212,255,.15),rgba(176,111,255,.15));border:1.5px solid var(--glow-blue);border-radius:25px;color:var(--glow-blue);cursor:pointer;transition:all .25s;display:none}
+.next-btn:hover{background:linear-gradient(135deg,rgba(0,212,255,.28),rgba(176,111,255,.25));box-shadow:0 0 18px rgba(0,212,255,.35);transform:translateY(-1px)}
+.next-btn.show{display:block}
+
+/* ACTIVITY 2 — BURIAL SIM */
+.burial-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;flex:1;min-height:0}
+.burial-slot{border-radius:12px;border:1.5px dashed rgba(0,212,255,.2);background:rgba(4,13,42,.5);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;position:relative;overflow:hidden;transition:all .3s;min-height:0}
+.burial-slot.drop-target{border-color:var(--glow-blue);box-shadow:0 0 16px rgba(0,212,255,.3)}
+.soil-layer{position:absolute;bottom:0;left:0;right:0;height:45%;background:linear-gradient(180deg,#3d2008 0%,#5c3010 40%,#7a4020 100%);border-radius:0 0 10px 10px;display:flex;align-items:center;justify-content:center}
+.soil-label{font-size:8px;letter-spacing:1px;color:rgba(255,200,120,.5)}
+.burial-item-display{position:relative;z-index:2;font-size:26px;margin-bottom:48%;transition:all .5s;text-align:center}
+.burial-item-display.decomposing{animation:decompose 2s forwards}
+@keyframes decompose{0%{opacity:1;filter:none}100%{opacity:.2;filter:blur(2px) sepia(1) hue-rotate(60deg);transform:scale(.6) translateY(8px)}}
+.slot-label{position:absolute;top:8px;font-size:9px;color:var(--text-muted);text-align:center;width:100%;letter-spacing:.5px}
+.change-badge{position:absolute;bottom:52%;font-size:9px;padding:2px 8px;border-radius:10px;font-weight:600;opacity:0;transition:opacity .5s}
+.decomposed-badge{background:rgba(57,255,140,.15);color:#39ff8c;border:1px solid rgba(57,255,140,.3)}
+.intact-badge{background:rgba(255,107,107,.15);color:#ff6b6b;border:1px solid rgba(255,107,107,.3)}
+.time-bar{flex-shrink:0;display:flex;align-items:center;gap:10px}
+.time-track{flex:1;height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+.time-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--glow-blue),var(--glow-purple));border-radius:3px;transition:width 2.5s ease}
+.time-label{font-family:'Orbitron',monospace;font-size:9px;color:var(--text-dim);white-space:nowrap}
+.simulate-btn{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:1.5px;padding:7px 16px;background:rgba(176,111,255,.12);border:1.5px solid rgba(176,111,255,.4);border-radius:20px;color:var(--glow-purple);cursor:pointer;transition:all .2s;white-space:nowrap}
+.simulate-btn:hover{background:rgba(176,111,255,.22);box-shadow:0 0 12px rgba(176,111,255,.25)}
+
+/* ACTIVITY 3 — INVESTIGATION */
+.invest-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1;min-height:0}
+.invest-zone{border-radius:12px;border:1.5px dashed;padding:10px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+.invest-zone.obs-zone{border-color:rgba(0,212,255,.25);background:rgba(0,212,255,.03)}
+.invest-zone.con-zone{border-color:rgba(176,111,255,.25);background:rgba(176,111,255,.03)}
+.invest-zone.drop-target{box-shadow:0 0 16px rgba(0,212,255,.2)}
+.invest-zone.con-zone.drop-target{box-shadow:0 0 16px rgba(176,111,255,.2)}
+.inv-zone-title{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:2px;margin-bottom:2px}
+.obs-zone .inv-zone-title{color:var(--glow-blue)}
+.con-zone .inv-zone-title{color:var(--glow-purple)}
+.inv-items-pool{display:flex;flex-wrap:wrap;gap:6px;flex:1;align-content:flex-start;overflow-y:auto}
+.inv-card{padding:5px 10px;border-radius:8px;font-size:10px;line-height:1.4}
+.obs-zone .inv-card{background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.2);color:#a0d8ef}
+.con-zone .inv-card{background:rgba(176,111,255,.1);border:1px solid rgba(176,111,255,.2);color:#d4aaff}
+.correct-card{box-shadow:0 0 10px rgba(57,255,140,.4)}
+.wrong-card{box-shadow:0 0 10px rgba(255,107,107,.4)}
+
+/* SCORE BAR */
+.score-row{display:flex;gap:8px;align-items:center;flex-shrink:0}
+.score-chip{padding:4px 12px;border-radius:14px;font-family:'Orbitron',monospace;font-size:10px;background:rgba(7,20,64,.6);border:1px solid rgba(0,212,255,.15);color:var(--text-dim)}
+.score-chip span{color:var(--glow-amber);font-weight:700}
+
+/* POPUP OVERLAY */
+#popup-overlay{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;background:rgba(2,8,24,.8);backdrop-filter:blur(8px)}
+#popup-overlay.visible{display:flex}
+.popup-card{background:linear-gradient(135deg,rgba(7,20,64,.95),rgba(4,13,42,.98));border:1.5px solid rgba(0,212,255,.3);border-radius:20px;padding:32px 36px;text-align:center;max-width:420px;width:90%;position:relative;box-shadow:0 0 60px rgba(0,212,255,.15)}
+.popup-card::before{content:'';position:absolute;inset:0;border-radius:20px;background:linear-gradient(135deg,rgba(0,212,255,.04),transparent,rgba(176,111,255,.04));pointer-events:none}
+.popup-icon{font-size:52px;margin-bottom:12px;display:block}
+.popup-title{font-family:'Orbitron',monospace;font-size:16px;font-weight:700;color:var(--glow-blue);margin-bottom:8px;letter-spacing:2px}
+.popup-msg{font-size:13px;color:var(--text-dim);line-height:1.6;margin-bottom:20px}
+.popup-fact{font-size:11px;color:var(--glow-green);background:rgba(57,255,140,.08);border:1px solid rgba(57,255,140,.2);border-radius:8px;padding:10px 14px;margin-bottom:20px;line-height:1.5;text-align:left}
+.popup-fact-label{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:2px;color:var(--glow-amber);margin-bottom:4px}
+.popup-btn{font-family:'Orbitron',monospace;font-size:11px;letter-spacing:2px;padding:11px 28px;background:linear-gradient(135deg,rgba(0,212,255,.18),rgba(176,111,255,.18));border:1.5px solid var(--glow-blue);border-radius:25px;color:var(--glow-blue);cursor:pointer;transition:all .25s}
+.popup-btn:hover{background:linear-gradient(135deg,rgba(0,212,255,.3),rgba(176,111,255,.3));box-shadow:0 0 22px rgba(0,212,255,.4);transform:translateY(-2px)}
+.popup-stars{display:flex;justify-content:center;gap:8px;margin:12px 0;font-size:22px}
+
+/* RIGHT PANEL */
+.right-panel{width:140px;flex-shrink:0;display:flex;flex-direction:column;gap:8px}
+.scan-card{background:rgba(7,20,64,.6);border:1px solid rgba(0,212,255,.15);border-radius:10px;padding:12px;backdrop-filter:blur(8px);flex:1;display:flex;flex-direction:column;gap:8px}
+.scan-title{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:2px;color:var(--glow-purple)}
+.data-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.data-key{font-size:9px;color:var(--text-muted)}
+.data-val{font-family:'Orbitron',monospace;font-size:9px;color:var(--glow-blue)}
+.bio-meter{margin-top:4px}
+.bio-bar{height:4px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden;margin-top:3px}
+.bio-fill{height:100%;border-radius:2px;transition:width 1s ease}
+
+.scanner-anim{height:60px;position:relative;overflow:hidden;border-radius:8px;background:rgba(0,0,0,.3);border:1px solid rgba(0,212,255,.1)}
+.scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--glow-blue),transparent);animation:scan 2s ease-in-out infinite}
+@keyframes scan{from{top:0;opacity:.8}to{top:100%;opacity:.3}}
+
+/* FINAL */
+.final-screen{display:none;width:100%;height:100%;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.final-screen.visible{display:flex}
+.final-title{font-family:'Orbitron',monospace;font-size:20px;font-weight:900;letter-spacing:4px;color:var(--glow-green);text-shadow:0 0 30px rgba(57,255,140,.5)}
+.trophy-emoji{font-size:64px;animation:bounce .6s ease-in-out infinite alternate}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-12px)}}
+
+/* RESPONSIVE */
+@media(max-height:640px){
+  .drag-item{font-size:10px;padding:5px 10px}
+  .act-title{font-size:12px}
+  .burial-item-display{font-size:20px}
+}
+</style>
+</head>
+<body>
+
+<div id="universe">
+  <div class="holo-grid"></div>
+  <div class="star-layer" id="stars"></div>
+  <div class="glow-orb" style="width:400px;height:400px;top:-100px;left:-100px;background:rgba(0,80,180,.3);animation-delay:0s"></div>
+  <div class="glow-orb" style="width:300px;height:300px;bottom:50px;right:200px;background:rgba(100,0,200,.2);animation-delay:2s"></div>
+  <div id="earth"></div>
+  <div class="astronaut" style="top:12%;left:8%;--fd:9s;animation-delay:-2s">👨‍🚀</div>
+  <div class="astronaut" style="top:65%;left:72%;--fd:11s;animation-delay:-5s;font-size:20px;transform:rotate(30deg)">👩‍🚀</div>
+  <div style="position:absolute;top:30%;left:40%;--fd:14s">
+    <div class="satellite" style="--delay:0s">
+      <div class="sat-body"></div>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div class="mission-title">⬡ MISSION CONTROL — BIOSPHERE LAB</div>
+    <div style="font-family:'Orbitron',monospace;font-size:15px;font-weight:900;color:var(--text-main);letter-spacing:1px">ROTTING & DECOMPOSITION<span style="color:var(--glow-green)"> — NATURE'S RECYCLERS</span></div>
+    <div class="station-status">
+      <div class="status-dot"></div>
+      <div class="status-label">STATION ONLINE</div>
+      <div class="mission-badge">LIVE</div>
+    </div>
+  </div>
+
+  <!-- MAIN AREA -->
+  <div id="activity-area">
+
+    <!-- LEFT PANEL -->
+    <div class="side-panel">
+      <div class="panel-card">
+        <div class="panel-label">MISSION LOG</div>
+        <div class="progress-steps">
+          <div class="step-item active" id="step1">
+            <div class="step-num">1</div>
+            <div class="step-text">Classify Decomposers</div>
+          </div>
+          <div class="step-item" id="step2">
+            <div class="step-num">2</div>
+            <div class="step-text">Burial Simulation</div>
+          </div>
+          <div class="step-item" id="step3">
+            <div class="step-num">3</div>
+            <div class="step-text">Investigation Report</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel-card">
+        <div class="panel-label">STATION METRICS</div>
+        <div class="dial-row">
+          <div class="dial"><div class="dial-value" id="score-dial">0</div><div class="dial-name">SCORE</div></div>
+          <div class="dial"><div class="dial-value" id="act-dial">1/3</div><div class="dial-name">MODULE</div></div>
+        </div>
+      </div>
+      <div class="panel-card" style="flex:1">
+        <div class="panel-label">OXYGEN READING</div>
+        <div class="scanner-anim"><div class="scan-line"></div></div>
+        <div class="bio-meter">
+          <div style="font-size:8px;color:var(--text-muted)">Biodegradation Rate</div>
+          <div class="bio-bar"><div class="bio-fill" id="bio-fill" style="width:65%;background:linear-gradient(90deg,var(--glow-green),var(--glow-blue))"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER CONTENT -->
+    <div id="main-content">
+
+      <!-- ACTIVITY 1 -->
+      <div class="activity-screen visible" id="act1">
+        <div class="activity-frame">
+          <div class="act-header">
+            <div class="act-number">MODULE 01</div>
+            <div class="act-title">DECOMPOSITION CLASSIFIER</div>
+          </div>
+          <div class="act-subtitle">Drag each material into the correct category. Does it break down quickly, or does it linger in the environment for a long time?</div>
+
+          <div class="drag-items-row" id="items1">
+            <div class="drag-item item-default" draggable="true" data-item="apple" data-correct="fast" data-emoji="🍎">🍎 Apple Core</div>
+            <div class="drag-item item-default" draggable="true" data-item="paper" data-correct="fast" data-emoji="📄">📄 Paper</div>
+            <div class="drag-item item-default" draggable="true" data-item="leaf" data-correct="fast" data-emoji="🍃">🍃 Leaf</div>
+            <div class="drag-item item-default" draggable="true" data-item="cotton" data-correct="fast" data-emoji="🧶">🧶 Cotton Cloth</div>
+            <div class="drag-item item-default" draggable="true" data-item="plastic" data-correct="slow" data-emoji="🧴">🧴 Plastic Bottle</div>
+            <div class="drag-item item-default" draggable="true" data-item="glass" data-correct="slow" data-emoji="🥛">🥛 Glass Jar</div>
+            <div class="drag-item item-default" draggable="true" data-item="metal" data-correct="slow" data-emoji="🔩">🔩 Metal Bolt</div>
+            <div class="drag-item item-default" draggable="true" data-item="rubber" data-correct="slow" data-emoji="🫙">🫙 Rubber Band</div>
+          </div>
+
+          <div class="drop-zones">
+            <div class="drop-zone zone-fast" id="zone-fast" data-zone="fast">
+              <div class="zone-header">
+                <div class="zone-icon">🌿</div>
+                <div>
+                  <div class="zone-title">DECOMPOSES QUICKLY</div>
+                  <div class="zone-desc">Weeks to months — nature breaks these down</div>
+                </div>
+              </div>
+              <div class="zone-items" id="fast-items"></div>
+            </div>
+            <div class="drop-zone zone-slow" id="zone-slow" data-zone="slow">
+              <div class="zone-header">
+                <div class="zone-icon">⚠️</div>
+                <div>
+                  <div class="zone-title">DECOMPOSES SLOWLY</div>
+                  <div class="zone-desc">Hundreds to thousands of years</div>
+                </div>
+              </div>
+              <div class="zone-items" id="slow-items"></div>
+            </div>
+          </div>
+
+          <div id="feedback1" style="display:none"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+            <div class="score-row"><div class="score-chip">Classified: <span id="count1">0</span>/8</div></div>
+            <button class="next-btn" id="next1" onclick="openPopup(1)">NEXT MODULE ▶</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTIVITY 2 -->
+      <div class="activity-screen" id="act2">
+        <div class="activity-frame">
+          <div class="act-header">
+            <div class="act-number">MODULE 02</div>
+            <div class="act-title">SOIL BURIAL SIMULATION</div>
+          </div>
+          <div class="act-subtitle">Drag materials into the soil containers, then run the simulation to see what happens after two weeks underground.</div>
+
+          <div class="drag-items-row" id="items2">
+            <div class="drag-item item-default" draggable="true" data-item2="banana" data-rate="fast" data-emoji2="🍌">🍌 Banana Peel</div>
+            <div class="drag-item item-default" draggable="true" data-item2="wood" data-rate="med" data-emoji2="🪵">🪵 Wood Chip</div>
+            <div class="drag-item item-default" draggable="true" data-item2="plastic2" data-rate="slow" data-emoji2="🛍️">🛍️ Plastic Bag</div>
+            <div class="drag-item item-default" draggable="true" data-item2="tin" data-rate="slow" data-emoji2="🥫">🥫 Tin Can</div>
+          </div>
+
+          <div class="burial-grid" id="burial-grid">
+            <div class="burial-slot" id="bslot0" data-slot="0"><div class="slot-label">CONTAINER A</div><div class="burial-item-display" id="bitem0"></div><div class="change-badge" id="bbadge0"></div><div class="soil-layer"><div class="soil-label">◆ SOIL ◆</div></div></div>
+            <div class="burial-slot" id="bslot1" data-slot="1"><div class="slot-label">CONTAINER B</div><div class="burial-item-display" id="bitem1"></div><div class="change-badge" id="bbadge1"></div><div class="soil-layer"><div class="soil-label">◆ SOIL ◆</div></div></div>
+            <div class="burial-slot" id="bslot2" data-slot="2"><div class="slot-label">CONTAINER C</div><div class="burial-item-display" id="bitem2"></div><div class="change-badge" id="bbadge2"></div><div class="soil-layer"><div class="soil-label">◆ SOIL ◆</div></div></div>
+            <div class="burial-slot" id="bslot3" data-slot="3"><div class="slot-label">CONTAINER D</div><div class="burial-item-display" id="bitem3"></div><div class="change-badge" id="bbadge3"></div><div class="soil-layer"><div class="soil-label">◆ SOIL ◆</div></div></div>
+          </div>
+
+          <div class="time-bar" style="flex-shrink:0">
+            <button class="simulate-btn" id="sim-btn" onclick="runSimulation()">▶ RUN 2-WEEK SIMULATION</button>
+            <div class="time-track"><div class="time-fill" id="time-fill"></div></div>
+            <div class="time-label" id="time-label">DAY 0</div>
+          </div>
+
+          <div id="feedback2" style="display:none"></div>
+          <div style="display:flex;justify-content:flex-end;flex-shrink:0">
+            <button class="next-btn" id="next2" onclick="openPopup(2)">NEXT MODULE ▶</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTIVITY 3 -->
+      <div class="activity-screen" id="act3">
+        <div class="activity-frame">
+          <div class="act-header">
+            <div class="act-number">MODULE 03</div>
+            <div class="act-title">RECYCLING INVESTIGATION REPORT</div>
+          </div>
+          <div class="act-subtitle">Build your scientific report! Drag each card into the correct section — Observations belong in one column, Conclusions in the other.</div>
+
+          <div class="drag-items-row" id="items3">
+            <div class="drag-item item-default" draggable="true" data-card="c1" data-type="obs">🔬 Apple turned dark and soft after one week</div>
+            <div class="drag-item item-default" draggable="true" data-card="c2" data-type="con">♻️ Natural materials return nutrients to soil</div>
+            <div class="drag-item item-default" draggable="true" data-card="c3" data-type="obs">🛍️ Plastic bag looked unchanged after two weeks</div>
+            <div class="drag-item item-default" draggable="true" data-card="c4" data-type="con">⚠️ Synthetic materials persist and pollute ecosystems</div>
+            <div class="drag-item item-default" draggable="true" data-card="c5" data-type="obs">🍃 Leaf crumbled into tiny pieces in damp soil</div>
+            <div class="drag-item item-default" draggable="true" data-card="c6" data-type="con">🌱 Decomposers are essential — they clean our planet</div>
+          </div>
+
+          <div class="invest-grid">
+            <div class="invest-zone obs-zone" id="inv-obs" data-izone="obs">
+              <div class="inv-zone-title">🔬 OBSERVATIONS</div>
+              <div style="font-size:9px;color:var(--text-muted);margin-bottom:4px">What we saw happen in the experiment</div>
+              <div class="inv-items-pool" id="obs-pool"></div>
+            </div>
+            <div class="invest-zone con-zone" id="inv-con" data-izone="con">
+              <div class="inv-zone-title">💡 CONCLUSIONS</div>
+              <div style="font-size:9px;color:var(--text-muted);margin-bottom:4px">What this means for our planet</div>
+              <div class="inv-items-pool" id="con-pool"></div>
+            </div>
+          </div>
+
+          <div id="feedback3" style="display:none"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+            <div class="score-chip">Placed: <span id="count3">0</span>/6</div>
+            <button class="next-btn" id="next3" onclick="openPopup(3)">COMPLETE MISSION ▶</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+      <div class="scan-card">
+        <div class="scan-title">BIO-SCANNER</div>
+        <div class="data-row"><div class="data-key">Temperature</div><div class="data-val" id="r-temp">22°C</div></div>
+        <div class="data-row"><div class="data-key">Humidity</div><div class="data-val" id="r-hum">78%</div></div>
+        <div class="data-row"><div class="data-key">Bacteria</div><div class="data-val" id="r-bact">HIGH</div></div>
+        <div class="data-row"><div class="data-key">Fungi</div><div class="data-val" id="r-fungi">ACTIVE</div></div>
+        <div class="bio-meter" style="margin-top:6px">
+          <div style="font-size:8px;color:var(--text-muted)">Worm Activity</div>
+          <div class="bio-bar"><div class="bio-fill" style="width:82%;background:linear-gradient(90deg,var(--glow-amber),var(--glow-coral))"></div></div>
+        </div>
+        <div class="bio-meter" style="margin-top:4px">
+          <div style="font-size:8px;color:var(--text-muted)">CO₂ Release</div>
+          <div class="bio-bar"><div class="bio-fill" style="width:54%;background:linear-gradient(90deg,var(--glow-purple),var(--glow-blue))"></div></div>
+        </div>
+      </div>
+      <div class="panel-card" style="flex:1">
+        <div class="panel-label">SCIENCE FACTS</div>
+        <div id="fact-rotator" style="font-size:9px;color:var(--text-dim);line-height:1.5">Loading fact...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- POPUP OVERLAY -->
+<div id="popup-overlay">
+  <div class="popup-card">
+    <span class="popup-icon" id="popup-icon">🎉</span>
+    <div class="popup-stars" id="popup-stars">⭐⭐⭐</div>
+    <div class="popup-title" id="popup-title">MODULE COMPLETE!</div>
+    <div class="popup-msg" id="popup-msg">Great work, space scientist!</div>
+    <div class="popup-fact">
+      <div class="popup-fact-label">⬡ SCIENCE INTEL</div>
+      <div id="popup-fact-text"></div>
+    </div>
+    <button class="popup-btn" id="popup-btn" onclick="nextModule()">CONTINUE MISSION ▶</button>
+  </div>
+</div>
+
+<script>
+// STARS
+(function(){
+  const sl=document.getElementById('stars');
+  for(let i=0;i<140;i++){
+    const s=document.createElement('div');
+    s.className='star';
+    const sz=Math.random()*2.5+.5;
+    s.style.cssText=`width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;background:${Math.random()>.8?'#ffc857':Math.random()>.5?'#a0d8ef':'#fff'};--d:${2+Math.random()*4}s;animation-delay:${-Math.random()*5}s`;
+    sl.appendChild(s);
+  }
+})();
+
+// FACT ROTATOR
+const facts=[
+  "🦠 A single teaspoon of healthy soil contains over a billion bacteria!",
+  "🍄 Fungi use thread-like hyphae to break down wood into nutrients.",
+  "🪱 One earthworm can eat half its body weight in organic matter daily.",
+  "⏳ A plastic bottle can take 450+ years to fully decompose.",
+  "🌿 Leaves decompose 10× faster in warm, moist conditions.",
+  "♻️ Composting reduces greenhouse gases by keeping waste out of landfills.",
+  "🧫 Bacteria produce enzymes that dissolve organic molecules.",
+  "🌍 Without decomposers, Earth would be buried in dead matter!"
+];
+let fi=0;
+function rotateFact(){
+  const el=document.getElementById('fact-rotator');
+  el.style.opacity=0;
+  setTimeout(()=>{el.textContent=facts[fi%facts.length];el.style.opacity=1;fi++;},400);
+}
+rotateFact();
+setInterval(rotateFact,5000);
+document.getElementById('fact-rotator').style.transition='opacity .4s';
+
+// RANDOM SCANNER VALUES
+setInterval(()=>{
+  document.getElementById('r-temp').textContent=(20+Math.random()*5).toFixed(1)+'°C';
+  document.getElementById('r-hum').textContent=Math.floor(70+Math.random()*15)+'%';
+  document.getElementById('bio-fill').style.width=Math.floor(50+Math.random()*40)+'%';
+},3000);
+
+// ============ ACTIVITY 1 ============
+let placed1=0;let score=0;
+function setupDrag(container,onDrop){
+  const items=container.querySelectorAll('[draggable]');
+  items.forEach(item=>{
+    item.addEventListener('dragstart',e=>{
+      e.dataTransfer.setData('text/plain',JSON.stringify({
+        item:item.dataset.item||item.dataset.item2||item.dataset.card,
+        correct:item.dataset.correct,
+        rate:item.dataset.rate,
+        type:item.dataset.type,
+        emoji:item.dataset.emoji||item.dataset.emoji2,
+        text:item.textContent.trim()
+      }));
+      item.classList.add('dragging');
+      setTimeout(()=>item.classList.remove('dragging'),0);
+    });
+  });
+}
+
+function setupZoneDrop(zone,onDrop){
+  zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drop-target')});
+  zone.addEventListener('dragleave',()=>zone.classList.remove('drop-target'));
+  zone.addEventListener('drop',e=>{
+    e.preventDefault();
+    zone.classList.remove('drop-target');
+    try{const d=JSON.parse(e.dataTransfer.getData('text/plain'));onDrop(d,zone);}catch(err){}
+  });
+}
+
+// Act1 setup
+const items1Container=document.getElementById('items1');
+setupDrag(items1Container);
+
+['zone-fast','zone-slow'].forEach(zid=>{
+  const zone=document.getElementById(zid);
+  setupZoneDrop(zone,(d,z)=>{
+    const sourceEl=items1Container.querySelector(`[data-item="${d.item}"]`);
+    if(!sourceEl||sourceEl.classList.contains('item-placed'))return;
+    const zoneType=z.dataset.zone;
+    const correct=d.correct===zoneType;
+    const poolId=zoneType==='fast'?'fast-items':'slow-items';
+    const pool=document.getElementById(poolId);
+    const chip=document.createElement('div');
+    chip.className='zone-dropped';
+    chip.textContent=d.text;
+    pool.appendChild(chip);
+    sourceEl.classList.add('item-placed');
+    placed1++;
+    document.getElementById('count1').textContent=placed1;
+    if(correct){
+      score+=15;
+      document.getElementById('score-dial').textContent=score;
+      showFeedback('feedback1','feedback-correct',`✓ Correct! ${d.text} ${zoneType==='fast'?'does break down quickly 🌿':'takes centuries to decompose ⚠️'}`,true);
+    }else{
+      showFeedback('feedback1','feedback-wrong',`✗ Not quite! ${d.text} actually belongs in the other category. Drag it again!`,false);
+      setTimeout(()=>{sourceEl.classList.remove('item-placed');placed1--;document.getElementById('count1').textContent=placed1;chip.remove();},1400);
+    }
+    if(placed1>=8){
+      document.getElementById('next1').classList.add('show');
+    }
+  });
+});
+
+// ============ ACTIVITY 2 ============
+const buryData=[null,null,null,null];
+let simDone=false;
+setupDrag(document.getElementById('items2'));
+[0,1,2,3].forEach(i=>{
+  const slot=document.getElementById('bslot'+i);
+  setupZoneDrop(slot,(d,z)=>{
+    const slotIdx=parseInt(z.dataset.slot);
+    if(buryData[slotIdx])return;
+    const sourceEl=document.getElementById('items2').querySelector(`[data-item2="${d.item}"]`);
+    if(!sourceEl||sourceEl.classList.contains('item-placed'))return;
+    buryData[slotIdx]={item:d.item,rate:d.rate,emoji:d.emoji,text:d.text};
+    document.getElementById('bitem'+slotIdx).textContent=d.emoji;
+    sourceEl.classList.add('item-placed');
+    slot.style.borderColor='rgba(0,212,255,.4)';
+  });
+});
+
+function runSimulation(){
+  const filled=buryData.filter(Boolean);
+  if(filled.length===0){
+    showFeedback('feedback2','feedback-info','Place at least one material into a container first!',false);
+    return;
+  }
+  if(simDone)return;
+  simDone=true;
+  document.getElementById('sim-btn').disabled=true;
+  document.getElementById('sim-btn').style.opacity='.4';
+  const fill=document.getElementById('time-fill');
+  const label=document.getElementById('time-label');
+  fill.style.width='100%';
+  let d=0;
+  const timer=setInterval(()=>{d+=2;label.textContent='DAY '+d;if(d>=14)clearInterval(timer);},200);
+  setTimeout(()=>{
+    label.textContent='DAY 14 — RESULTS';
+    buryData.forEach((d,i)=>{
+      if(!d)return;
+      const itemEl=document.getElementById('bitem'+i);
+      const badge=document.getElementById('bbadge'+i);
+      if(d.rate==='fast'){
+        itemEl.classList.add('decomposing');
+        badge.className='change-badge decomposed-badge';
+        badge.textContent='DECOMPOSED ✓';
+        badge.style.opacity='1';
+        score+=20;
+      }else if(d.rate==='med'){
+        itemEl.style.filter='sepia(.5)';
+        badge.className='change-badge decomposed-badge';
+        badge.textContent='PARTIALLY ↓';
+        badge.style.opacity='1';
+        score+=15;
+      }else{
+        badge.className='change-badge intact-badge';
+        badge.textContent='INTACT ✗';
+        badge.style.opacity='1';
+        score+=10;
+      }
+    });
+    document.getElementById('score-dial').textContent=score;
+    showFeedback('feedback2','feedback-correct','Simulation complete! Organic materials decomposed while synthetic items remained intact.',true);
+    document.getElementById('next2').classList.add('show');
+  },2800);
+}
+
+// ============ ACTIVITY 3 ============
+let placed3=0;
+
+// Make all children of invest-zones non-interactive so dragover/drop fire on the zone itself
+document.querySelectorAll('.invest-zone *').forEach(el=>el.style.pointerEvents='none');
+
+// Dedicated drag state for act3
+let act3DragData=null;
+
+document.getElementById('items3').querySelectorAll('[draggable]').forEach(item=>{
+  item.addEventListener('dragstart',e=>{
+    act3DragData={
+      card:item.dataset.card,
+      type:item.dataset.type,
+      text:item.textContent.trim()
+    };
+    e.dataTransfer.setData('text/plain',item.dataset.card);
+    item.classList.add('dragging');
+  });
+  item.addEventListener('dragend',()=>item.classList.remove('dragging'));
+});
+
+['inv-obs','inv-con'].forEach(zid=>{
+  const zone=document.getElementById(zid);
+  zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drop-target');});
+  zone.addEventListener('dragleave',e=>{
+    if(!zone.contains(e.relatedTarget)) zone.classList.remove('drop-target');
+  });
+  zone.addEventListener('drop',e=>{
+    e.preventDefault();
+    zone.classList.remove('drop-target');
+    const d=act3DragData;
+    if(!d)return;
+    const sourceEl=document.getElementById('items3').querySelector(`[data-card="${d.card}"]`);
+    if(!sourceEl||sourceEl.classList.contains('item-placed'))return;
+    const zoneType=zone.dataset.izone;
+    const correct=d.type===zoneType;
+    const poolId=zoneType==='obs'?'obs-pool':'con-pool';
+    const pool=document.getElementById(poolId);
+    const card=document.createElement('div');
+    card.className='inv-card '+(correct?'correct-card':'wrong-card');
+    card.style.pointerEvents='auto';
+    card.textContent=d.text;
+    pool.appendChild(card);
+    sourceEl.classList.add('item-placed');
+    placed3++;
+    document.getElementById('count3').textContent=placed3;
+    if(correct){
+      score+=20;
+      document.getElementById('score-dial').textContent=score;
+      showFeedback('feedback3','feedback-correct',`✓ Correct! That's a great ${zoneType==='obs'?'observation':'conclusion'}.`,true);
+    }else{
+      showFeedback('feedback3','feedback-wrong',`✗ That belongs in the ${d.type==='obs'?'Observations':'Conclusions'} section. Try again!`,false);
+      setTimeout(()=>{
+        sourceEl.classList.remove('item-placed');
+        placed3--;
+        document.getElementById('count3').textContent=placed3;
+        card.remove();
+        act3DragData=null;
+      },1400);
+      return;
+    }
+    act3DragData=null;
+    if(placed3>=6) document.getElementById('next3').classList.add('show');
+  });
+});
+
+// ============ FEEDBACK UTIL ============
+function showFeedback(id,cls,msg,persist){
+  const el=document.getElementById(id);
+  el.innerHTML=`<div class="feedback-banner ${cls}">${msg}</div>`;
+  el.style.display='block';
+  if(!persist)setTimeout(()=>{el.style.display='none';},2200);
+}
+
+// ============ POPUP SYSTEM ============
+let currentModule=1;
+const popupData={
+  1:{icon:'🌿',stars:'⭐⭐⭐',title:'CLASSIFIER COMPLETE!',msg:'You successfully sorted organic from synthetic materials. Your planet needs scientists like you!',fact:'Paper decomposes in 2–6 weeks, while a glass bottle could last over 1 million years without breaking down.'},
+  2:{icon:'🪱',stars:'⭐⭐⭐',title:'SIMULATION LOGGED!',msg:'Excellent experiment! You observed how decomposers work over time and which materials stay in the environment.',fact:'Earthworms, bacteria, and fungi together decompose an entire fallen tree in just 50–100 years — turning it back into rich soil.'},
+  3:{icon:'🏆',stars:'⭐⭐⭐',title:'MISSION ACCOMPLISHED!',msg:'Outstanding scientific work! You have completed all three modules and proved you understand decomposition.',fact:'Every atom in your body was once part of something else. Decomposition keeps those atoms cycling through life on Earth — forever!'}
+};
+
+function openPopup(module){
+  currentModule=module;
+  const d=popupData[module];
+  document.getElementById('popup-icon').textContent=d.icon;
+  document.getElementById('popup-stars').textContent=d.stars;
+  document.getElementById('popup-title').textContent=d.title;
+  document.getElementById('popup-msg').textContent=d.msg;
+  document.getElementById('popup-fact-text').textContent=d.fact;
+  const btn=document.getElementById('popup-btn');
+  btn.textContent=module<3?'CONTINUE MISSION ▶':'VIEW RESULTS ▶';
+  document.getElementById('popup-overlay').classList.add('visible');
+}
+
+function nextModule(){
+  document.getElementById('popup-overlay').classList.remove('visible');
+  if(currentModule===3){showFinalScreen();return;}
+  const next=currentModule+1;
+  document.getElementById('act'+currentModule).classList.remove('visible');
+  document.getElementById('act'+next).classList.add('visible');
+  document.getElementById('step'+currentModule).classList.remove('active');
+  document.getElementById('step'+currentModule).classList.add('done');
+  const nextStep=document.getElementById('step'+next);
+  nextStep.classList.add('active');
+  document.getElementById('act-dial').textContent=next+'/3';
+}
+
+function showFinalScreen(){
+  document.getElementById('act3').classList.remove('visible');
+  document.getElementById('step3').classList.remove('active');
+  document.getElementById('step3').classList.add('done');
+  const main=document.getElementById('main-content');
+  main.innerHTML=`
+  <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px">
+    <div style="font-size:58px;animation:bounce .6s ease-in-out infinite alternate">🌍</div>
+    <div style="font-family:'Orbitron',monospace;font-size:18px;font-weight:900;letter-spacing:4px;color:var(--glow-green);text-shadow:0 0 30px rgba(57,255,140,.5)">MISSION COMPLETE!</div>
+    <div style="font-family:'Orbitron',monospace;font-size:11px;color:var(--glow-blue);letter-spacing:2px">NATURE'S RECYCLERS — FULLY UNDERSTOOD</div>
+    <div style="background:rgba(7,20,64,.7);border:1px solid rgba(57,255,140,.3);border-radius:14px;padding:20px 28px;text-align:center;max-width:480px;backdrop-filter:blur(12px)">
+      <div style="font-size:38px;margin-bottom:8px">⭐⭐⭐</div>
+      <div style="font-family:'Orbitron',monospace;font-size:26px;color:var(--glow-amber);font-weight:700;margin-bottom:6px">${score}</div>
+      <div style="font-family:'Orbitron',monospace;font-size:9px;letter-spacing:2px;color:var(--text-dim);margin-bottom:16px">TOTAL SCIENCE POINTS</div>
+      <div style="font-size:12px;color:var(--text-dim);line-height:1.7;margin-bottom:16px">You classified decomposers, ran a burial simulation, and filed your investigation report. Decomposition is nature's most important recycling system — and now you know why! 🌿</div>
+      <div style="background:rgba(57,255,140,.06);border:1px solid rgba(57,255,140,.2);border-radius:10px;padding:12px;font-size:11px;color:var(--glow-green);line-height:1.6;text-align:left">
+        <div style="font-family:'Orbitron',monospace;font-size:8px;letter-spacing:2px;color:var(--glow-amber);margin-bottom:6px">⬡ MISSION DEBRIEF</div>
+        Fungi, bacteria, and worms are nature's recyclers — they break dead matter into nutrients that feed new life. Without them, Earth would be buried under waste. Biodegradable materials join this cycle; synthetic materials disrupt it.
+      </div>
+    </div>
+  </div>`;
+}
+
+// touch fallback for mobile drag
+(function(){
+  let dragged=null,clone=null,origData=null;
+  function addTouch(el){
+    el.addEventListener('touchstart',e=>{
+      const t=e.touches[0];
+      dragged=el;
+      origData={
+        item:el.dataset.item||el.dataset.item2||el.dataset.card,
+        correct:el.dataset.correct,rate:el.dataset.rate,
+        type:el.dataset.type,emoji:el.dataset.emoji||el.dataset.emoji2,
+        text:el.textContent.trim()
+      };
+      clone=el.cloneNode(true);
+      clone.style.cssText=`position:fixed;z-index:999;pointer-events:none;opacity:.85;transition:none;transform:scale(1.05);top:${t.clientY-20}px;left:${t.clientX-40}px`;
+      document.body.appendChild(clone);
+      el.style.opacity='.3';
+    },{passive:true});
+    el.addEventListener('touchmove',e=>{
+      if(!clone)return;
+      const t=e.touches[0];
+      clone.style.top=(t.clientY-20)+'px';
+      clone.style.left=(t.clientX-40)+'px';
+    },{passive:true});
+    el.addEventListener('touchend',e=>{
+      if(!clone)return;
+      const t=e.changedTouches[0];
+      clone.remove();clone=null;
+      if(dragged)dragged.style.opacity='';
+      const target=document.elementFromPoint(t.clientX,t.clientY);
+      const zone=target&&(target.classList.contains('drop-zone')||target.classList.contains('burial-slot')||target.classList.contains('invest-zone'))?target:target&&target.closest('.drop-zone,.burial-slot,.invest-zone');
+      if(zone&&origData){
+        zone.dispatchEvent(new CustomEvent('manual-drop',{detail:origData,bubbles:false}));
+      }
+      dragged=null;origData=null;
+    });
+  }
+  const obs=new MutationObserver(()=>{
+    document.querySelectorAll('[draggable]:not(.touch-ready)').forEach(el=>{el.classList.add('touch-ready');addTouch(el);});
+  });
+  obs.observe(document.body,{childList:true,subtree:true});
+  document.querySelectorAll('[draggable]').forEach(el=>{el.classList.add('touch-ready');addTouch(el);});
+})();
+</script>
+</body>
+</html>

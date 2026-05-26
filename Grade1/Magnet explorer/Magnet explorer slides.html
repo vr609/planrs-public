@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>MAGNET EXPLORER</title>
+<style>
+/* ═══════════════════════════════════════════════════════════
+   FONTS & RESET
+═══════════════════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif;user-select:none}
+
+/* ═══════════════════════════════════════════════════════════
+   ARCTIC BACKGROUND
+═══════════════════════════════════════════════════════════ */
+body{
+  background:linear-gradient(180deg,
+    #050d1f 0%, #0a1a3a 18%, #0d2b55 32%,
+    #0e3060 42%, #103570 52%,
+    #0a2a4a 68%, #071e35 82%, #040d1c 100%);
+  position:relative;
+}
+
+/* Aurora layers */
+#aurora{position:fixed;inset:0;pointer-events:none;z-index:1;overflow:hidden}
+.aurora-band{
+  position:absolute;width:200%;height:180px;
+  border-radius:50%;filter:blur(28px);
+  animation:auroraDrift linear infinite alternate;
+  transform-origin:center center;
+}
+.a1{background:radial-gradient(ellipse,rgba(0,255,150,.22) 0%,transparent 65%);
+    top:4%;left:-30%;animation-duration:12s;animation-delay:0s}
+.a2{background:radial-gradient(ellipse,rgba(80,180,255,.18) 0%,transparent 65%);
+    top:10%;left:-10%;animation-duration:16s;animation-delay:-5s}
+.a3{background:radial-gradient(ellipse,rgba(160,80,255,.15) 0%,transparent 65%);
+    top:2%;left:10%;animation-duration:20s;animation-delay:-3s}
+.a4{background:radial-gradient(ellipse,rgba(0,220,180,.12) 0%,transparent 65%);
+    top:14%;left:-20%;animation-duration:14s;animation-delay:-8s}
+@keyframes auroraDrift{
+  0%{transform:translateX(0) scaleY(1)}
+  100%{transform:translateX(60px) scaleY(1.3)}
+}
+
+/* Stars */
+#stars{position:fixed;inset:0;pointer-events:none;z-index:1}
+.star{position:absolute;background:#fff;border-radius:50%;animation:starTwinkle ease-in-out infinite alternate}
+@keyframes starTwinkle{0%{opacity:.2}100%{opacity:.9}}
+
+/* Snowflakes */
+#snow{position:fixed;inset:0;pointer-events:none;z-index:2;overflow:hidden}
+.flake{
+  position:absolute;top:-20px;color:#fff;
+  animation:snowFall linear infinite;
+  opacity:0;
+}
+@keyframes snowFall{
+  0%{transform:translateY(0) rotate(0deg) translateX(0);opacity:0}
+  5%{opacity:.8}
+  90%{opacity:.6}
+  100%{transform:translateY(102vh) rotate(720deg) translateX(var(--drift));opacity:0}
+}
+
+/* Arctic ground / icebergs */
+#ground-layer{position:fixed;bottom:0;left:0;width:100%;height:38%;z-index:2;pointer-events:none}
+
+/* ═══════════════════════════════════════════════════════════
+   APP LAYOUT
+═══════════════════════════════════════════════════════════ */
+#app{
+  position:relative;z-index:10;
+  width:100vw;height:100vh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:clamp(4px,1.2vh,14px) clamp(6px,1.5vw,18px);
+  gap:clamp(4px,1vh,10px);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════════════════════ */
+#header{text-align:center;animation:slideDown .7s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes slideDown{from{transform:translateY(-50px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+#header h1{
+  font-family:'Fredoka One',cursive;
+  font-size:clamp(18px,3.8vw,40px);
+  letter-spacing:2px;
+  background:linear-gradient(135deg,#7fe8ff,#aaffd4,#e0b0ff,#7fe8ff);
+  background-size:300% 300%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:titleShine 4s ease infinite;
+  filter:drop-shadow(0 0 18px rgba(127,232,255,.45));
+}
+@keyframes titleShine{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+
+/* Progress pills */
+#progress{display:flex;gap:8px;justify-content:center;margin-top:3px}
+.pdot{
+  width:clamp(32px,6vw,56px);height:7px;border-radius:99px;
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);
+  transition:all .5s;position:relative;overflow:hidden;
+}
+.pdot.active::after{
+  content:'';position:absolute;inset:0;border-radius:99px;
+  background:linear-gradient(90deg,#7fe8ff,#aaffd4);
+  animation:pillPulse 1.5s ease-in-out infinite;
+}
+.pdot.done{background:linear-gradient(90deg,#aaffd4,#7fe8ff);box-shadow:0 0 10px rgba(127,232,255,.5);border-color:#aaffd4}
+@keyframes pillPulse{0%,100%{opacity:.7}50%{opacity:1}}
+#act-lbl{font-size:clamp(9px,1.4vw,13px);font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#7fe8ff;opacity:.8;margin-top:2px}
+
+/* ═══════════════════════════════════════════════════════════
+   GAME CARD
+═══════════════════════════════════════════════════════════ */
+#game-card{
+  width:100%;max-width:940px;
+  background:rgba(5,20,50,.8);
+  border:1.5px solid rgba(127,232,255,.2);
+  border-radius:22px;
+  backdrop-filter:blur(20px);
+  padding:clamp(10px,2.5vh,22px) clamp(12px,2.5vw,28px);
+  box-shadow:0 0 60px rgba(0,150,255,.08),inset 0 1px 0 rgba(255,255,255,.05);
+  display:flex;flex-direction:column;align-items:center;
+  gap:clamp(6px,1.4vh,14px);
+  flex:1;max-height:calc(100vh - 110px);
+  animation:cardIn .5s ease both;
+}
+@keyframes cardIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+
+.instr{
+  font-size:clamp(9px,1.5vw,13px);font-weight:700;color:rgba(224,245,255,.75);
+  text-align:center;background:rgba(127,232,255,.08);
+  border:1px solid rgba(127,232,255,.2);border-radius:10px;
+  padding:6px 16px;max-width:640px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DRAGGABLE ITEMS
+═══════════════════════════════════════════════════════════ */
+.item{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;
+  width:clamp(52px,9vw,80px);height:clamp(52px,9vw,80px);
+  border-radius:14px;cursor:grab;flex-shrink:0;
+  background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);
+  transition:transform .15s,box-shadow .15s,opacity .2s;
+  position:relative;
+}
+.item:hover{transform:translateY(-3px) scale(1.08);box-shadow:0 6px 22px rgba(127,232,255,.35)}
+.item.dragging{opacity:.4;cursor:grabbing;transform:scale(1.12)}
+.item .ico{font-size:clamp(20px,3.5vw,34px);line-height:1}
+.item .lbl{font-size:clamp(7px,1vw,10px);font-weight:800;color:rgba(224,245,255,.8);text-transform:uppercase;letter-spacing:.5px;text-align:center}
+
+/* ═══════════════════════════════════════════════════════════
+   DROP ZONES
+═══════════════════════════════════════════════════════════ */
+.drop-zone{
+  border:2px dashed rgba(127,232,255,.3);border-radius:16px;
+  background:rgba(127,232,255,.04);
+  display:flex;flex-wrap:wrap;align-content:flex-start;
+  gap:clamp(4px,1vw,8px);padding:clamp(6px,1.2vh,10px);
+  transition:all .2s;min-height:clamp(60px,12vh,100px);
+  align-items:center;justify-content:center;
+}
+.drop-zone.drag-over{
+  border-color:#7fe8ff;background:rgba(127,232,255,.12);
+  box-shadow:0 0 20px rgba(127,232,255,.3);transform:scale(1.02);
+}
+.drop-zone.correct-flash{animation:correctFlash .5s ease}
+.drop-zone.wrong-flash{animation:wrongFlash .4s ease}
+@keyframes correctFlash{0%,100%{box-shadow:0 0 0 rgba(170,255,212,0)}50%{box-shadow:0 0 30px rgba(170,255,212,.8)}}
+@keyframes wrongFlash{0%,100%{transform:scale(1.02)}25%{transform:scale(1.02) translateX(-6px)}75%{transform:scale(1.02) translateX(6px)}}
+
+.zone-header{
+  font-family:'Fredoka One',cursive;font-size:clamp(11px,1.8vw,17px);
+  text-align:center;padding:4px 0;letter-spacing:.5px;
+}
+.zone-wrap{display:flex;flex-direction:column;gap:6px;flex:1;min-width:0}
+
+/* ═══════════════════════════════════════════════════════════
+   ACTIVITY 1 — MAGNETIC vs NON-MAGNETIC SORT
+═══════════════════════════════════════════════════════════ */
+#act1{width:100%;display:flex;flex-direction:column;align-items:center;gap:clamp(6px,1.2vh,12px)}
+#a1-pool{display:flex;flex-wrap:wrap;gap:clamp(4px,1vw,8px);justify-content:center;align-items:center;min-height:clamp(60px,11vh,95px)}
+#a1-zones{display:flex;gap:clamp(8px,2vw,20px);width:100%;justify-content:center}
+#a1-zones .zone-wrap{max-width:340px}
+#a1-score{font-family:'Fredoka One',cursive;font-size:clamp(11px,1.8vw,16px);color:#7fe8ff}
+#a1-msg{font-size:clamp(9px,1.4vw,12px);font-weight:700;min-height:16px;text-align:center}
+
+/* ═══════════════════════════════════════════════════════════
+   ACTIVITY 2 — BARRIERS (does magnetism work through?)
+═══════════════════════════════════════════════════════════ */
+#act2{width:100%;display:flex;flex-direction:column;align-items:center;gap:clamp(6px,1.2vh,12px)}
+
+#a2-arena{
+  display:flex;gap:clamp(10px,2vw,24px);align-items:stretch;
+  justify-content:center;flex-wrap:wrap;width:100%;
+}
+
+.barrier-slot{
+  width:clamp(80px,13vw,130px);min-height:clamp(90px,15vh,140px);
+  border:2px dashed rgba(127,232,255,.25);border-radius:14px;
+  background:rgba(127,232,255,.04);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:8px;padding:8px;transition:all .2s;flex-shrink:0;
+}
+.barrier-slot.drag-over{border-color:#ffd700;background:rgba(255,215,0,.08);box-shadow:0 0 18px rgba(255,215,0,.3)}
+.barrier-slot.filled{border-style:solid;border-color:rgba(127,232,255,.4)}
+.barrier-slot .bs-label{font-size:clamp(8px,1.2vw,11px);font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:rgba(224,245,255,.5);text-align:center}
+
+.result-panel{
+  flex:1;min-width:clamp(140px,22vw,220px);
+  background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.08);
+  border-radius:14px;padding:clamp(8px,1.5vh,14px);
+  display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;
+}
+.result-item{
+  display:flex;align-items:center;gap:8px;
+  font-size:clamp(8px,1.3vw,12px);font-weight:700;color:rgba(224,245,255,.7);
+  width:100%;
+}
+.result-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.r-yes{background:#aaffd4}
+.r-no{background:#ff8080}
+.r-wait{background:rgba(255,255,255,.3)}
+
+#a2-barrier-pool{display:flex;gap:clamp(5px,1vw,10px);flex-wrap:wrap;justify-content:center}
+.barrier-item{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:8px 10px;border-radius:12px;cursor:grab;
+  background:rgba(255,215,0,.1);border:1.5px solid rgba(255,215,0,.3);
+  transition:transform .15s,box-shadow .15s;flex-shrink:0;
+}
+.barrier-item:hover{transform:translateY(-3px) scale(1.08);box-shadow:0 6px 20px rgba(255,215,0,.4)}
+.barrier-item.dragging{opacity:.4}
+.barrier-item .b-ico{font-size:clamp(18px,3vw,28px)}
+.barrier-item .b-lbl{font-size:clamp(7px,1vw,10px);font-weight:800;color:rgba(255,215,0,.9);text-transform:uppercase}
+.barrier-item.used{opacity:.35;cursor:not-allowed}
+
+.a2-demo{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:clamp(8px,1.5vh,14px) clamp(10px,2vw,18px);
+  background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.1);
+  border-radius:14px;flex-shrink:0;min-width:clamp(120px,18vw,180px);
+}
+.a2-demo .d-title{font-family:'Fredoka One',cursive;font-size:clamp(11px,1.8vw,16px);color:#7fe8ff;text-align:center}
+.a2-demo .magnet-vis{font-size:clamp(28px,5vw,52px);animation:magnetPulse 2s ease-in-out infinite}
+@keyframes magnetPulse{0%,100%{filter:drop-shadow(0 0 6px rgba(127,232,255,.5))}50%{filter:drop-shadow(0 0 18px rgba(127,232,255,.9))}}
+.a2-demo .clip-vis{font-size:clamp(20px,3.5vw,36px);transition:transform .4s,filter .4s}
+.a2-demo .barrier-vis{font-size:clamp(18px,3vw,30px);margin:2px 0}
+
+#a2-msg{font-size:clamp(9px,1.4vw,12px);font-weight:700;min-height:16px;text-align:center}
+#a2-progress{font-family:'Fredoka One',cursive;font-size:clamp(11px,1.8vw,15px);color:#7fe8ff}
+
+/* ═══════════════════════════════════════════════════════════
+   ACTIVITY 3 — CHALLENGE SORT
+═══════════════════════════════════════════════════════════ */
+#act3{width:100%;display:flex;flex-direction:column;align-items:center;gap:clamp(6px,1.2vh,12px)}
+#a3-pool{display:flex;flex-wrap:wrap;gap:clamp(4px,1vw,8px);justify-content:center;align-items:center;min-height:clamp(60px,11vh,95px)}
+#a3-zones{display:flex;gap:clamp(6px,1.5vw,14px);width:100%;justify-content:center;flex-wrap:wrap}
+#a3-zones .zone-wrap{min-width:clamp(120px,18vw,200px);max-width:260px}
+#a3-score{font-family:'Fredoka One',cursive;font-size:clamp(11px,1.8vw,16px);color:#7fe8ff}
+#a3-msg{font-size:clamp(9px,1.4vw,12px);font-weight:700;min-height:16px;text-align:center}
+
+/* ═══════════════════════════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════════════════════════ */
+.btn{
+  font-family:'Fredoka One',cursive;font-size:clamp(12px,2vw,18px);
+  padding:clamp(6px,1.2vh,10px) clamp(18px,3.5vw,36px);
+  border-radius:99px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,#0e7a6e,#0a9ecf);color:#fff;
+  box-shadow:0 4px 20px rgba(0,150,200,.4);
+  transition:transform .15s,box-shadow .15s;letter-spacing:.8px;
+}
+.btn:hover{transform:translateY(-2px) scale(1.04);box-shadow:0 8px 28px rgba(0,150,200,.55)}
+.btn:active{transform:scale(.97)}
+.btn.ice-btn{background:linear-gradient(135deg,#1a3a6e,#0a5a9e)}
+
+/* ═══════════════════════════════════════════════════════════
+   POPUP
+═══════════════════════════════════════════════════════════ */
+.overlay{
+  position:fixed;inset:0;z-index:100;
+  background:rgba(2,8,20,.88);backdrop-filter:blur(12px);
+  display:flex;align-items:center;justify-content:center;
+  animation:overlayIn .3s ease;
+}
+@keyframes overlayIn{from{opacity:0}to{opacity:1}}
+.popup{
+  background:linear-gradient(160deg,rgba(5,20,55,.97),rgba(2,10,30,.98));
+  border:1.5px solid rgba(127,232,255,.3);
+  border-radius:26px;
+  padding:clamp(22px,5vh,42px) clamp(24px,5vw,52px);
+  text-align:center;max-width:440px;width:90%;
+  box-shadow:0 0 80px rgba(0,150,255,.2),0 0 0 1px rgba(255,255,255,.04);
+  animation:popIn .4s cubic-bezier(.34,1.56,.64,1);
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+}
+@keyframes popIn{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+.p-emoji{font-size:clamp(44px,8vw,72px);animation:emojiSpin .7s ease}
+@keyframes emojiSpin{from{transform:scale(0) rotate(-200deg)}to{transform:scale(1) rotate(0)}}
+.p-title{
+  font-family:'Fredoka One',cursive;font-size:clamp(20px,4vw,34px);
+  background:linear-gradient(135deg,#7fe8ff,#aaffd4);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.p-sub{font-size:clamp(11px,1.8vw,14px);color:rgba(224,245,255,.7);font-weight:600;line-height:1.6}
+.p-stars{display:flex;gap:8px;font-size:clamp(24px,4.5vw,40px)}
+.p-stat{font-family:'Fredoka One',cursive;font-size:clamp(12px,2vw,17px);color:#ffd700}
+
+/* Snowflake confetti */
+.conf{
+  position:fixed;pointer-events:none;z-index:200;
+  animation:confFall linear forwards;
+  font-size:16px;
+}
+@keyframes confFall{
+  0%{transform:translateY(-10px) rotate(0deg);opacity:1}
+  100%{transform:translateY(100vh) rotate(720deg);opacity:0}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ AURORA ═══ -->
+<div id="aurora">
+  <div class="aurora-band a1"></div>
+  <div class="aurora-band a2"></div>
+  <div class="aurora-band a3"></div>
+  <div class="aurora-band a4"></div>
+</div>
+
+<!-- ═══ STARS ═══ -->
+<div id="stars"></div>
+
+<!-- ═══ SNOW ═══ -->
+<div id="snow"></div>
+
+<!-- ═══ GROUND / ICEBERGS ═══ -->
+<svg id="ground-layer" viewBox="0 0 1400 220" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+  <!-- Ocean -->
+  <rect x="0" y="150" width="1400" height="70" fill="#04152e" opacity=".9"/>
+  <!-- Ocean shimmer -->
+  <ellipse cx="700" cy="156" rx="720" ry="12" fill="#062040" opacity=".7"/>
+  <!-- Far icebergs -->
+  <polygon points="80,152 130,80 180,152" fill="#8ec8e8" opacity=".4"/>
+  <polygon points="120,152 145,100 170,152" fill="#aad4ee" opacity=".35"/>
+  <polygon points="280,152 340,55 400,152" fill="#9acfe8" opacity=".38"/>
+  <polygon points="1050,152 1110,70 1170,152" fill="#8ec8e8" opacity=".4"/>
+  <polygon points="1200,152 1250,90 1300,152" fill="#9acfe8" opacity=".38"/>
+  <!-- Main ice shelf -->
+  <polygon points="0,220 0,155 160,130 320,148 480,125 640,142 800,128 960,145 1120,132 1280,150 1400,138 1400,220" fill="#c8e8f8" opacity=".9"/>
+  <!-- Ice highlights -->
+  <polygon points="0,155 160,130 320,148" fill="#e0f4ff" opacity=".5"/>
+  <polygon points="480,125 640,142 800,128" fill="#d8f0fc" opacity=".5"/>
+  <polygon points="960,145 1120,132 1280,150" fill="#e0f4ff" opacity=".5"/>
+  <!-- Penguins -->
+  <!-- Left penguin -->
+  <g transform="translate(200,130)">
+    <ellipse cx="0" cy="18" rx="12" ry="16" fill="#1a1a2e"/>
+    <ellipse cx="0" cy="20" rx="8" ry="11" fill="#f0f0f0"/>
+    <circle cx="0" cy="5" r="9" fill="#1a1a2e"/>
+    <ellipse cx="0" cy="7" rx="5" ry="4" fill="#f0f0f0"/>
+    <ellipse cx="0" cy="10" rx="3" ry="2" fill="#ff8c00"/>
+    <ellipse cx="-10" cy="18" rx="4" ry="2" fill="#1a1a2e" transform="rotate(-20,-10,18)"/>
+    <ellipse cx="10" cy="18" rx="4" ry="2" fill="#1a1a2e" transform="rotate(20,10,18)"/>
+    <ellipse cx="-4" cy="31" rx="4" ry="2" fill="#ff8c00"/>
+    <ellipse cx="4" cy="31" rx="4" ry="2" fill="#ff8c00"/>
+  </g>
+  <!-- Right penguin group -->
+  <g transform="translate(1140,132)">
+    <ellipse cx="0" cy="16" rx="11" ry="14" fill="#1a1a2e"/>
+    <ellipse cx="0" cy="18" rx="7" ry="10" fill="#f0f0f0"/>
+    <circle cx="0" cy="4" r="8" fill="#1a1a2e"/>
+    <ellipse cx="0" cy="6" rx="4.5" ry="3.5" fill="#f0f0f0"/>
+    <ellipse cx="0" cy="9" rx="2.5" ry="1.8" fill="#ff8c00"/>
+    <ellipse cx="-9" cy="16" rx="3.5" ry="1.8" fill="#1a1a2e" transform="rotate(-20,-9,16)"/>
+    <ellipse cx="9" cy="16" rx="3.5" ry="1.8" fill="#1a1a2e" transform="rotate(20,9,16)"/>
+    <ellipse cx="-3.5" cy="28" rx="3.5" ry="1.8" fill="#ff8c00"/>
+    <ellipse cx="3.5" cy="28" rx="3.5" ry="1.8" fill="#ff8c00"/>
+  </g>
+  <g transform="translate(1170,135)">
+    <ellipse cx="0" cy="14" rx="9" ry="12" fill="#1a1a2e"/>
+    <ellipse cx="0" cy="16" rx="6" ry="8.5" fill="#f0f0f0"/>
+    <circle cx="0" cy="3.5" r="7" fill="#1a1a2e"/>
+    <ellipse cx="0" cy="5" rx="4" ry="3" fill="#f0f0f0"/>
+    <ellipse cx="0" cy="8" rx="2" ry="1.5" fill="#ff8c00"/>
+    <ellipse cx="-3" cy="24" rx="3" ry="1.5" fill="#ff8c00"/>
+    <ellipse cx="3" cy="24" rx="3" ry="1.5" fill="#ff8c00"/>
+  </g>
+  <!-- Polar bear far right -->
+  <g transform="translate(1310,135)">
+    <ellipse cx="0" cy="15" rx="18" ry="12" fill="#e8f4fc"/>
+    <circle cx="-12" cy="10" r="8" fill="#e8f4fc"/>
+    <circle cx="-14" cy="6" r="3.5" fill="#e8f4fc"/>
+    <circle cx="-8" cy="5" r="3" fill="#e8f4fc"/>
+    <circle cx="-8" cy="5" r="1.2" fill="#1a1a2e"/>
+    <ellipse cx="-13" cy="9" rx="2" ry="1.2" fill="#d0a090"/>
+    <ellipse cx="-8" cy="24" rx="4" ry="2.5" fill="#d8eef8"/>
+    <ellipse cx="8" cy="24" rx="4" ry="2.5" fill="#d8eef8"/>
+  </g>
+</svg>
+
+<!-- ═══ APP ═══ -->
+<div id="app">
+  <div id="header">
+    <h1>🧲 MAGNET EXPLORER 🧲</h1>
+    <div id="progress">
+      <div class="pdot active" id="pd1"></div>
+      <div class="pdot" id="pd2"></div>
+      <div class="pdot" id="pd3"></div>
+    </div>
+    <div id="act-lbl">ACTIVITY 1 OF 3</div>
+  </div>
+
+  <div id="game-card">
+
+    <!-- ─── ACTIVITY 1 ─── -->
+    <div id="act1">
+      <div class="instr">🔬 Drag each object to the correct bin! Does a magnet ATTRACT it or NOT?</div>
+      <div id="a1-pool"></div>
+      <div id="a1-zones">
+        <div class="zone-wrap">
+          <div class="zone-header" style="color:#aaffd4">🧲 MAGNETIC ✅</div>
+          <div class="drop-zone" id="a1-mag" data-zone="magnetic"></div>
+        </div>
+        <div class="zone-wrap">
+          <div class="zone-header" style="color:#ffb3b3">🚫 NON-MAGNETIC ❌</div>
+          <div class="drop-zone" id="a1-non" data-zone="non"></div>
+        </div>
+      </div>
+      <div id="a1-score">Sorted: <span id="a1-cnt">0</span> / 8</div>
+      <div id="a1-msg"></div>
+      <button class="btn" id="a1-next" style="display:none" onclick="showAct1Done()">Next: Barrier Test! ❄️</button>
+    </div>
+
+    <!-- ─── ACTIVITY 2 ─── -->
+    <div id="act2" style="display:none">
+      <div class="instr">🧊 Drag a barrier between the magnet and paperclip. Does the magnetic force still work THROUGH it?</div>
+      <div id="a2-arena">
+        <!-- Demo panel -->
+        <div class="a2-demo">
+          <div class="d-title">Testing Table</div>
+          <div class="magnet-vis" id="a2-magnet">🧲</div>
+          <div class="barrier-vis" id="a2-barrier-show" style="opacity:0;font-size:28px">—</div>
+          <div class="clip-vis" id="a2-clip">📎</div>
+          <div id="a2-result-text" style="font-size:clamp(9px,1.4vw,12px);font-weight:800;min-height:14px;text-align:center;color:#aaffd4"></div>
+        </div>
+
+        <!-- Barrier drop slot -->
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center">
+          <div style="font-size:clamp(9px,1.4vw,12px);font-weight:800;color:rgba(224,245,255,.6);text-transform:uppercase;letter-spacing:1px">Drop a barrier:</div>
+          <div class="barrier-slot" id="a2-slot" data-slot="barrier">
+            <div class="bs-label">Place barrier<br>here</div>
+          </div>
+          <button class="btn ice-btn" id="a2-test-btn" style="font-size:clamp(10px,1.6vw,14px);padding:6px 16px" onclick="runBarrierTest()">⚡ Test It!</button>
+          <button class="btn ice-btn" id="a2-clear-btn" style="font-size:clamp(9px,1.4vw,12px);padding:5px 14px;display:none" onclick="clearBarrier()">🔄 Clear</button>
+        </div>
+
+        <!-- Results list -->
+        <div class="result-panel" id="a2-results">
+          <div style="font-family:'Fredoka One',cursive;font-size:clamp(11px,1.8vw,15px);color:#7fe8ff">Results</div>
+          <div id="a2-result-list" style="width:100%;display:flex;flex-direction:column;gap:5px"></div>
+        </div>
+      </div>
+
+      <!-- Barrier items pool -->
+      <div id="a2-barrier-pool"></div>
+      <div id="a2-progress">Tested: <span id="a2-cnt">0</span> / 4</div>
+      <div id="a2-msg"></div>
+      <button class="btn" id="a2-next" style="display:none" onclick="showAct2Done()">Final Challenge! 🏆</button>
+    </div>
+
+    <!-- ─── ACTIVITY 3 ─── -->
+    <div id="act3" style="display:none">
+      <div class="instr">🏁 FINAL CHALLENGE! Sort ALL objects correctly. Careful — some tricky ones this time! Score as high as you can!</div>
+      <div id="a3-pool"></div>
+      <div id="a3-zones">
+        <div class="zone-wrap">
+          <div class="zone-header" style="color:#aaffd4">🧲 MAGNETIC</div>
+          <div class="drop-zone" id="a3-mag" data-zone="magnetic"></div>
+        </div>
+        <div class="zone-wrap">
+          <div class="zone-header" style="color:#ffb3b3">🚫 NON-MAGNETIC</div>
+          <div class="drop-zone" id="a3-non" data-zone="non"></div>
+        </div>
+        <div class="zone-wrap">
+          <div class="zone-header" style="color:#ffd700">❓ NOT SURE</div>
+          <div class="drop-zone" id="a3-maybe" data-zone="maybe"></div>
+        </div>
+      </div>
+      <div id="a3-score">Correct: <span id="a3-cnt">0</span> / 10</div>
+      <div id="a3-msg"></div>
+      <button class="btn" id="a3-finish" style="display:none" onclick="showFinal()">See My Results! 🏆</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Popup root -->
+<div id="popup-root"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   BACKGROUND INIT
+═══════════════════════════════════════════════════════════ */
+(function initBg(){
+  // Stars
+  const sc = document.getElementById('stars');
+  for(let i=0;i<80;i++){
+    const s=document.createElement('div');
+    s.className='star';
+    const sz = .8+Math.random()*2;
+    s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*65}%;
+      animation-duration:${2+Math.random()*4}s;animation-delay:${-Math.random()*6}s;`;
+    sc.appendChild(s);
+  }
+
+  // Snow
+  const sn = document.getElementById('snow');
+  const flakes = ['❄','❅','❆','·','*','•'];
+  for(let i=0;i<40;i++){
+    const f=document.createElement('div');
+    f.className='flake';
+    f.textContent = flakes[Math.floor(Math.random()*flakes.length)];
+    const sz=8+Math.random()*14;
+    const drift=(Math.random()-.5)*120;
+    f.style.cssText=`left:${Math.random()*105}%;font-size:${sz}px;
+      animation-duration:${6+Math.random()*14}s;animation-delay:${-Math.random()*16}s;
+      --drift:${drift}px;`;
+    sn.appendChild(f);
+  }
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════════════════════ */
+const $=id=>document.getElementById(id);
+const rand=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+
+function updateProgress(act){
+  ['pd1','pd2','pd3'].forEach((id,i)=>{
+    const el=$(id); el.className='pdot';
+    if(i+1<act) el.classList.add('done');
+    if(i+1===act) el.classList.add('active');
+  });
+  $('act-lbl').textContent=`ACTIVITY ${act} OF 3`;
+}
+
+function showPopup(html, onClose){
+  const root=$('popup-root');
+  root.innerHTML=`<div class="overlay">${html}</div>`;
+  root.querySelector('.overlay').addEventListener('click',e=>{
+    if(e.target===root.querySelector('.overlay')){root.innerHTML='';if(onClose)onClose();}
+  });
+  const btn=root.querySelector('[data-close]');
+  if(btn) btn.addEventListener('click',()=>{root.innerHTML='';if(onClose)onClose();});
+}
+
+function snowConfetti(){
+  const items=['❄','❅','❆','⭐','🌟','✨','💫'];
+  for(let i=0;i<60;i++){
+    const c=document.createElement('div');
+    c.className='conf';
+    c.textContent=items[rand(0,items.length-1)];
+    c.style.cssText=`left:${Math.random()*100}vw;top:-20px;
+      font-size:${12+rand(0,14)}px;
+      animation-duration:${1.5+Math.random()*2}s;
+      animation-delay:${Math.random()*.8}s;`;
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(),4000);
+  }
+}
+
+function switchAct(from,to,actNum){
+  const f=$(from);
+  f.style.transition='opacity .3s, transform .3s';
+  f.style.opacity='0'; f.style.transform='scale(.96)';
+  setTimeout(()=>{
+    f.style.display='none'; f.style.opacity=''; f.style.transform=''; f.style.transition='';
+    const t=$(to);
+    t.style.display='flex'; t.style.flexDirection='column';
+    t.style.alignItems='center'; t.style.gap='clamp(6px,1.2vh,12px)'; t.style.width='100%';
+    updateProgress(actNum);
+  },280);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DRAG & DROP ENGINE (mouse + touch)
+═══════════════════════════════════════════════════════════ */
+let dragSrc=null, touchClone=null, touchSrc=null;
+
+function makeDraggable(el){
+  el.draggable=true;
+  el.addEventListener('dragstart',e=>{
+    dragSrc=el; el.classList.add('dragging');
+    e.dataTransfer.setData('id',el.id);
+    e.dataTransfer.effectAllowed='move';
+  });
+  el.addEventListener('dragend',()=>{el.classList.remove('dragging');dragSrc=null;});
+  // touch
+  el.addEventListener('touchstart',e=>{
+    touchSrc=el;
+    const r=el.getBoundingClientRect();
+    touchClone=el.cloneNode(true);
+    touchClone.style.cssText=`position:fixed;z-index:999;pointer-events:none;opacity:.85;
+      width:${r.width}px;height:${r.height}px;top:${r.top}px;left:${r.left}px;transition:none;`;
+    document.body.appendChild(touchClone);
+    el.classList.add('dragging');
+    dragSrc=el;
+  },{passive:true});
+}
+
+document.addEventListener('touchmove',e=>{
+  if(!touchClone) return;
+  e.preventDefault();
+  const t=e.touches[0];
+  touchClone.style.top=(t.clientY-touchClone.offsetHeight/2)+'px';
+  touchClone.style.left=(t.clientX-touchClone.offsetWidth/2)+'px';
+},{passive:false});
+
+document.addEventListener('touchend',e=>{
+  if(!touchSrc||!touchClone) return;
+  const t=e.changedTouches[0];
+  touchClone.remove(); touchClone=null;
+  touchSrc.classList.remove('dragging');
+  const el=document.elementFromPoint(t.clientX,t.clientY);
+  if(el){
+    const dz=el.closest('.drop-zone');
+    const bs=el.closest('.barrier-slot');
+    if(dz) handleDrop(touchSrc,dz);
+    else if(bs) handleBarrierDrop(touchSrc,bs);
+  }
+  touchSrc=null; dragSrc=null;
+},{passive:true});
+
+function makeDropZone(el, handler){
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over')});
+  el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
+  el.addEventListener('drop',e=>{
+    e.preventDefault();el.classList.remove('drag-over');
+    if(dragSrc) handler(dragSrc,el);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ACTIVITY 1 DATA & LOGIC
+═══════════════════════════════════════════════════════════ */
+const a1Items=[
+  {id:'safety-pin',ico:'📌',lbl:'Safety Pin',mag:true},
+  {id:'rupee5',ico:'🪙',lbl:'₹5 Coin',mag:true},
+  {id:'paper-clip',ico:'📎',lbl:'Paper Clip',mag:true},
+  {id:'iron-key',ico:'🗝️',lbl:'Iron Key',mag:true},
+  {id:'eraser',ico:'🧹',lbl:'Eraser',mag:false},
+  {id:'pencil',ico:'✏️',lbl:'Pencil',mag:false},
+  {id:'rupee1',ico:'💰',lbl:'₹1 Coin',mag:false},
+  {id:'rubber-band',ico:'🔴',lbl:'Rubber Band',mag:false},
+];
+
+let a1Correct=0;
+
+function initAct1(){
+  const pool=$('a1-pool');
+  pool.innerHTML='';
+  const shuffled=[...a1Items].sort(()=>Math.random()-.5);
+  shuffled.forEach(d=>{
+    const el=makeItem(d.id,d.ico,d.lbl);
+    el.dataset.magnetic=d.mag?'true':'false';
+    pool.appendChild(el);
+    makeDraggable(el);
+  });
+  makeDropZone($('a1-mag'),(src,tgt)=>a1Drop(src,tgt));
+  makeDropZone($('a1-non'),(src,tgt)=>a1Drop(src,tgt));
+}
+
+function makeItem(id,ico,lbl){
+  const el=document.createElement('div');
+  el.className='item'; el.id=id;
+  el.innerHTML=`<div class="ico">${ico}</div><div class="lbl">${lbl}</div>`;
+  return el;
+}
+
+function a1Drop(src,tgt){
+  const zone=tgt.dataset.zone;
+  const isM=src.dataset.magnetic==='true';
+  const correct=(zone==='magnetic'&&isM)||(zone==='non'&&!isM);
+
+  // Remove from pool or current zone
+  src.parentNode.removeChild(src);
+  tgt.appendChild(src);
+  src.classList.remove('dragging');
+
+  if(correct){
+    a1Correct++;
+    $('a1-cnt').textContent=a1Correct;
+    src.style.border='2px solid #aaffd4';
+    src.style.boxShadow='0 0 12px rgba(170,255,212,.6)';
+    tgt.classList.add('correct-flash');
+    setTimeout(()=>tgt.classList.remove('correct-flash'),600);
+    $('a1-msg').style.color='#aaffd4';
+    $('a1-msg').textContent=isM?`✅ ${src.querySelector('.lbl').textContent} IS magnetic — it contains iron/steel!`
+                                :`✅ ${src.querySelector('.lbl').textContent} is NON-magnetic!`;
+    if(a1Correct>=6) $('a1-next').style.display='inline-block';
+  } else {
+    src.style.border='2px solid #ff8080';
+    src.style.boxShadow='0 0 12px rgba(255,128,128,.5)';
+    tgt.classList.add('wrong-flash');
+    setTimeout(()=>tgt.classList.remove('wrong-flash'),450);
+    $('a1-msg').style.color='#ff8080';
+    $('a1-msg').textContent=`🤔 Hmm! Try again — drag it to the other bin!`;
+    // bounce back after delay
+    setTimeout(()=>{
+      src.parentNode.removeChild(src);
+      $('a1-pool').appendChild(src);
+      src.style.border='';src.style.boxShadow='';
+    },900);
+  }
+}
+
+function showAct1Done(){
+  snowConfetti();
+  const stars=a1Correct>=8?3:a1Correct>=6?2:1;
+  showPopup(`<div class="popup">
+    <div class="p-emoji">🧲</div>
+    <div class="p-title">Magnetic Master!</div>
+    <div class="p-stars">${'⭐'.repeat(stars)}${'☆'.repeat(3-stars)}</div>
+    <div class="p-stat">${a1Correct} / 8 sorted correctly!</div>
+    <div class="p-sub">Did the ₹1 coin surprise you? It is made of aluminium — <b>NOT all metals are magnetic!</b><br>Ready for the barrier test?</div>
+    <button class="btn" data-close>Test Barriers! ❄️</button>
+  </div>`,()=>{
+    switchAct('act1','act2',2);
+    initAct2();
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ACTIVITY 2 DATA & LOGIC — Barrier Test
+═══════════════════════════════════════════════════════════ */
+const barriers=[
+  {id:'b-paper',ico:'📄',lbl:'Paper',works:true,fact:'Magnetic force passes through paper!'},
+  {id:'b-cloth',ico:'🧣',lbl:'Cloth',works:true,fact:'Magnetic force passes through cloth!'},
+  {id:'b-plastic',ico:'🪣',lbl:'Plastic',works:true,fact:'Magnetic force passes through plastic!'},
+  {id:'b-iron',ico:'🔧',lbl:'Iron Sheet',works:false,fact:'Iron blocks/absorbs magnetic force!'},
+];
+
+let a2Current=null, a2Tested=[], a2TestedCount=0;
+
+function initAct2(){
+  const pool=$('a2-barrier-pool');
+  pool.innerHTML='';
+  const shuffled=[...barriers].sort(()=>Math.random()-.5);
+  shuffled.forEach(b=>{
+    const el=document.createElement('div');
+    el.className='barrier-item'; el.id=b.id;
+    el.dataset.bid=b.id;
+    el.innerHTML=`<div class="b-ico">${b.ico}</div><div class="b-lbl">${b.lbl}</div>`;
+    pool.appendChild(el);
+    makeDraggable(el);
+  });
+  // Barrier slot
+  const slot=$('a2-slot');
+  slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('drag-over')});
+  slot.addEventListener('dragleave',()=>slot.classList.remove('drag-over'));
+  slot.addEventListener('drop',e=>{
+    e.preventDefault();slot.classList.remove('drag-over');
+    if(dragSrc&&dragSrc.classList.contains('barrier-item')) handleBarrierDrop(dragSrc,slot);
+  });
+}
+
+function handleBarrierDrop(src,slot){
+  if(src.classList.contains('used')) return;
+  const bid=src.dataset.bid;
+  const bData=barriers.find(b=>b.id===bid);
+  if(!bData) return;
+  a2Current=bData;
+  // Show in slot
+  slot.innerHTML=`<div style="font-size:clamp(22px,4vw,40px)">${bData.ico}</div>
+    <div style="font-size:clamp(8px,1.2vw,11px);font-weight:800;color:#ffd700;text-transform:uppercase">${bData.lbl}</div>`;
+  slot.classList.add('filled');
+  // Show in demo
+  const bv=$('a2-barrier-show');
+  bv.textContent=bData.ico; bv.style.opacity='1';
+  $('a2-result-text').textContent='';
+  $('a2-clip').style.transform=''; $('a2-clip').style.filter='';
+  $('a2-clear-btn').style.display='inline-block';
+}
+
+function runBarrierTest(){
+  if(!a2Current){ $('a2-msg').style.color='#ffd700'; $('a2-msg').textContent='⬆️ Drop a barrier first, then test!'; return; }
+  const b=a2Current;
+  const clip=$('a2-clip');
+  if(b.works){
+    clip.style.transform='translateY(-18px) rotate(-20deg)';
+    clip.style.filter='drop-shadow(0 0 8px rgba(170,255,212,.8))';
+    $('a2-result-text').style.color='#aaffd4';
+    $('a2-result-text').textContent='📎 ATTRACTED! ✅';
+    $('a2-msg').style.color='#aaffd4';
+    $('a2-msg').textContent=`🎉 ${b.fact}`;
+  } else {
+    clip.style.transform='translateY(4px)';
+    clip.style.filter='drop-shadow(0 0 8px rgba(255,128,128,.8))';
+    $('a2-result-text').style.color='#ff8080';
+    $('a2-result-text').textContent='📎 NOT attracted ❌';
+    $('a2-msg').style.color='#ff8080';
+    $('a2-msg').textContent=`🔩 ${b.fact}`;
+  }
+
+  // Add to results if not already
+  if(!a2Tested.includes(b.id)){
+    a2Tested.push(b.id);
+    a2TestedCount++;
+    $('a2-cnt').textContent=a2TestedCount;
+    const ri=document.createElement('div');
+    ri.className='result-item';
+    ri.innerHTML=`<div class="result-dot ${b.works?'r-yes':'r-no'}"></div>
+      <span>${b.ico} ${b.lbl}: ${b.works?'WORKS ✅':'BLOCKED ❌'}</span>`;
+    $('a2-result-list').appendChild(ri);
+    // Mark item used in pool
+    const poolEl=document.getElementById(b.id);
+    if(poolEl) poolEl.classList.add('used');
+    if(a2TestedCount>=4) $('a2-next').style.display='inline-block';
+  }
+}
+
+function clearBarrier(){
+  a2Current=null;
+  const slot=$('a2-slot');
+  slot.innerHTML='<div class="bs-label">Place barrier<br>here</div>';
+  slot.classList.remove('filled');
+  $('a2-barrier-show').style.opacity='0';
+  $('a2-clip').style.transform=''; $('a2-clip').style.filter='';
+  $('a2-result-text').textContent='';
+  $('a2-msg').textContent='';
+  $('a2-clear-btn').style.display='none';
+}
+
+function showAct2Done(){
+  snowConfetti();
+  showPopup(`<div class="popup">
+    <div class="p-emoji">⚡</div>
+    <div class="p-title">Barrier Scientist!</div>
+    <div class="p-stars">⭐⭐⭐</div>
+    <div class="p-stat">All ${a2TestedCount} barriers tested!</div>
+    <div class="p-sub">Magnetic force travels through <b>paper, cloth and plastic</b> — but <b>iron blocks it!</b><br>
+    That is why MRI rooms have special iron-lined walls!<br><br>Ready for the FINAL CHALLENGE?</div>
+    <button class="btn" data-close>Final Challenge! 🏆</button>
+  </div>`,()=>{
+    switchAct('act2','act3',3);
+    initAct3();
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ACTIVITY 3 DATA & LOGIC — Challenge Sort
+═══════════════════════════════════════════════════════════ */
+const a3Items=[
+  {id:'a3-scissor',ico:'✂️',lbl:'Scissors',mag:true,tricky:false},
+  {id:'a3-nail',ico:'🔨',lbl:'Iron Nail',mag:true,tricky:false},
+  {id:'a3-clip2',ico:'📎',lbl:'Paper Clip',mag:true,tricky:false},
+  {id:'a3-compass',ico:'🧭',lbl:'Compass',mag:true,tricky:true,note:'Compass needle IS magnetic!'},
+  {id:'a3-coin1',ico:'🪙',lbl:'₹1 Coin',mag:false,tricky:true,note:'₹1 = Aluminium — NOT magnetic!'},
+  {id:'a3-wood',ico:'🪵',lbl:'Wooden Block',mag:false,tricky:false},
+  {id:'a3-glass',ico:'🔵',lbl:'Glass Bangle',mag:false,tricky:false},
+  {id:'a3-aluminium',ico:'🥄',lbl:'Aluminium Spoon',mag:false,tricky:true,note:'Aluminium is NOT magnetic!'},
+  {id:'a3-copper',ico:'🔌',lbl:'Copper Wire',mag:false,tricky:true,note:'Copper is NOT magnetic!'},
+  {id:'a3-steel',ico:'⚙️',lbl:'Steel Bolt',mag:true,tricky:false},
+];
+
+let a3Score=0;
+
+function initAct3(){
+  const pool=$('a3-pool');
+  pool.innerHTML='';
+  const shuffled=[...a3Items].sort(()=>Math.random()-.5);
+  shuffled.forEach(d=>{
+    const el=makeItem(d.id,d.ico,d.lbl);
+    el.dataset.magnetic=d.mag?'true':'false';
+    if(d.tricky) el.dataset.tricky='true';
+    if(d.note) el.dataset.note=d.note;
+    pool.appendChild(el);
+    makeDraggable(el);
+  });
+  makeDropZone($('a3-mag'),(src,tgt)=>a3Drop(src,tgt,'magnetic'));
+  makeDropZone($('a3-non'),(src,tgt)=>a3Drop(src,tgt,'non'));
+  makeDropZone($('a3-maybe'),(src,tgt)=>a3Drop(src,tgt,'maybe'));
+}
+
+function a3Drop(src,tgt,zone){
+  const isM=src.dataset.magnetic==='true';
+  const note=src.dataset.note||'';
+  const lbl=src.querySelector('.lbl').textContent;
+
+  let correct=false;
+  if(zone==='magnetic'&&isM) correct=true;
+  else if(zone==='non'&&!isM) correct=true;
+  // 'maybe' zone: always give partial credit + info
+  else if(zone==='maybe') correct=false;
+
+  src.parentNode.removeChild(src);
+  tgt.appendChild(src);
+  src.classList.remove('dragging');
+
+  if(correct){
+    a3Score++;
+    $('a3-cnt').textContent=a3Score;
+    src.style.border='2px solid #aaffd4';
+    src.style.boxShadow='0 0 12px rgba(170,255,212,.6)';
+    tgt.classList.add('correct-flash');
+    setTimeout(()=>tgt.classList.remove('correct-flash'),600);
+    $('a3-msg').style.color='#aaffd4';
+    $('a3-msg').textContent=note?`✅ Correct! ${note}`:`✅ ${lbl} — well done!`;
+  } else if(zone==='maybe'){
+    src.style.border='2px solid #ffd700';
+    $('a3-msg').style.color='#ffd700';
+    $('a3-msg').textContent=note?`💡 Hint: ${note}`:`💡 Try magnetic or non-magnetic!`;
+  } else {
+    src.style.border='2px solid #ff8080';
+    src.style.boxShadow='0 0 12px rgba(255,128,128,.5)';
+    tgt.classList.add('wrong-flash');
+    setTimeout(()=>tgt.classList.remove('wrong-flash'),450);
+    $('a3-msg').style.color='#ff8080';
+    $('a3-msg').textContent=note?`❌ Not quite! ${note}`:`❌ Try the other category!`;
+    setTimeout(()=>{
+      src.parentNode.removeChild(src);
+      $('a3-pool').appendChild(src);
+      src.style.border=''; src.style.boxShadow='';
+    },1000);
+    return;
+  }
+
+  // Check if all 10 placed
+  const poolCount=$('a3-pool').children.length;
+  if(poolCount===0) $('a3-finish').style.display='inline-block';
+}
+
+function showFinal(){
+  snowConfetti();
+  setTimeout(snowConfetti,600);
+  const stars=a3Score>=9?3:a3Score>=7?2:1;
+  const grade=a3Score>=9?'Magnet Champion!':a3Score>=7?'Magnet Expert!':'Magnet Explorer!';
+  showPopup(`<div class="popup">
+    <div class="p-emoji">🏆</div>
+    <div class="p-title">${grade}</div>
+    <div class="p-stars">${'⭐'.repeat(stars)}${'☆'.repeat(3-stars)}</div>
+    <div class="p-stat">${a3Score} / 10 correct! Amazing work!</div>
+    <div class="p-sub">
+      You tested objects, discovered barriers,<br>and sorted like a real scientist! 🔬<br><br>
+      <b>Remember:</b> Only iron, steel, nickel &amp; cobalt are magnetic.<br>
+      Aluminium and copper are NOT — even though they look like metals!<br><br>
+      <span style="color:#7fe8ff">🧲 Try the fridge magnet test at home!</span>
+    </div>
+    <div style="font-size:clamp(24px,4.5vw,40px)">🧲 ❄️ 🐧 🌌 🏆</div>
+    <button class="btn" data-close onclick="resetAll()">🔄 Play Again!</button>
+    <div style="font-size:clamp(8px,1.2vw,11px);color:rgba(224,245,255,.35);margin-top:4px">You are a certified Magnet Explorer!</div>
+  </div>`);
+}
+
+function resetAll(){
+  a1Correct=0; a2Current=null; a2Tested=[]; a2TestedCount=0; a3Score=0;
+  $('a1-cnt').textContent='0'; $('a1-msg').textContent=''; $('a1-next').style.display='none';
+  $('a2-cnt').textContent='0'; $('a2-msg').textContent=''; $('a2-next').style.display='none';
+  $('a2-result-list').innerHTML='';
+  clearBarrier();
+  $('a3-cnt').textContent='0'; $('a3-msg').textContent=''; $('a3-finish').style.display='none';
+  ['act2','act3'].forEach(id=>{$(id).style.display='none'});
+  $('act1').style.display='flex';$('act1').style.flexDirection='column';
+  $('act1').style.alignItems='center';$('act1').style.width='100%';
+  updateProgress(1);
+  initAct1();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════ */
+updateProgress(1);
+initAct1();
+</script>
+</body>
+</html>

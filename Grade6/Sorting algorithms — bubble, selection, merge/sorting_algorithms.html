@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sorting Algorithms — Bubble, Selection, Merge</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg1:#0d0d1a; --bg2:#1a0d2e; --bg3:#0d1a2e;
+  --gold:#ffd700; --amber:#ffb300; --hot:#ff4fa0;
+  --cyan:#00e5ff; --lime:#b2ff59; --violet:#e040fb;
+  --card:#ffffff12; --border:#ffffff20;
+  --text:#f0eaff; --sub:#b0a0cc;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100vw;height:100vh;overflow:hidden;font-family:'Nunito',sans-serif;color:var(--text);}
+
+/* ── BACKGROUND ── */
+#stage{position:fixed;inset:0;z-index:0;
+  background:radial-gradient(ellipse at 20% 50%,#2a0a4a 0%,#0d0d1a 45%),
+             radial-gradient(ellipse at 80% 30%,#001a3a 0%,transparent 60%);
+}
+/* Spotlight beams */
+.beam{position:fixed;top:-10px;width:120px;height:100vh;opacity:.07;
+  transform-origin:top center;pointer-events:none;z-index:1;
+  animation:beamSway 6s ease-in-out infinite alternate;}
+.beam1{left:8%;background:linear-gradient(180deg,var(--gold),transparent);animation-delay:0s;}
+.beam2{left:25%;background:linear-gradient(180deg,var(--hot),transparent);animation-delay:1s;}
+.beam3{left:55%;background:linear-gradient(180deg,var(--cyan),transparent);animation-delay:2s;}
+.beam4{left:75%;background:linear-gradient(180deg,var(--violet),transparent);animation-delay:.5s;}
+.beam5{left:90%;background:linear-gradient(180deg,var(--lime),transparent);animation-delay:1.5s;}
+@keyframes beamSway{0%{transform:rotate(-8deg)skewX(-4deg);}100%{transform:rotate(8deg)skewX(4deg);}}
+
+/* Stage lights row */
+#lights-row{position:fixed;top:0;left:0;right:0;height:14px;z-index:2;
+  display:flex;justify-content:space-around;align-items:flex-start;padding-top:2px;}
+.stage-light{width:16px;height:16px;border-radius:50%;
+  animation:lightPulse 2s ease-in-out infinite;}
+@keyframes lightPulse{0%,100%{opacity:.5;transform:scale(1);}50%{opacity:1;transform:scale(1.3);}}
+
+/* Sound-wave bars */
+#wave-bar{position:fixed;bottom:0;left:0;right:0;height:48px;z-index:1;
+  display:flex;align-items:flex-end;justify-content:center;gap:2px;padding-bottom:4px;}
+.wave-seg{width:5px;border-radius:3px 3px 0 0;opacity:.35;
+  animation:waveBounce 1.2s ease-in-out infinite;}
+@keyframes waveBounce{0%,100%{transform:scaleY(.3);}50%{transform:scaleY(1);}}
+
+/* Floating notes */
+.note{position:fixed;z-index:2;font-size:18px;pointer-events:none;
+  animation:noteFloat 8s linear infinite;}
+@keyframes noteFloat{
+  0%  {transform:translateY(100vh) rotate(0deg);opacity:0;}
+  10% {opacity:.7;}
+  90% {opacity:.5;}
+  100%{transform:translateY(-80px) rotate(360deg);opacity:0;}
+}
+
+/* Particles */
+.particle{position:fixed;z-index:1;border-radius:50%;pointer-events:none;
+  animation:particleDrift 10s linear infinite;}
+@keyframes particleDrift{
+  0%  {transform:translate(0,0);opacity:0;}
+  20% {opacity:.6;}
+  80% {opacity:.4;}
+  100%{transform:translate(var(--px),var(--py));opacity:0;}
+}
+
+/* ── APP LAYOUT ── */
+#app{position:relative;z-index:5;width:100vw;height:100vh;
+  display:flex;flex-direction:column;align-items:center;padding:6px 10px;}
+
+/* Header */
+#hdr{text-align:center;flex-shrink:0;margin-bottom:5px;}
+#hdr h1{font-family:'Fredoka One',cursive;
+  font-size:clamp(14px,2.5vw,26px);letter-spacing:2px;
+  background:linear-gradient(90deg,var(--gold),var(--hot),var(--cyan),var(--lime),var(--gold));
+  background-size:300% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;animation:hdrShift 4s linear infinite;}
+@keyframes hdrShift{0%{background-position:0%}100%{background-position:300%}}
+#hdr p{font-size:clamp(9px,1.2vw,11px);color:var(--sub);letter-spacing:3px;
+  text-transform:uppercase;font-weight:700;margin-top:1px;}
+
+/* Progress */
+#prog{display:flex;gap:8px;justify-content:center;align-items:center;
+  flex-shrink:0;margin-bottom:5px;}
+.pdot{width:26px;height:26px;border-radius:50%;border:2px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:800;color:var(--sub);transition:all .4s;position:relative;}
+.pdot.active{border-color:var(--gold);color:var(--gold);
+  box-shadow:0 0 14px var(--gold),0 0 28px rgba(255,215,0,.3);}
+.pdot.done{border-color:var(--lime);color:var(--lime);background:rgba(178,255,89,.1);}
+.pline{width:30px;height:2px;background:var(--border);border-radius:2px;transition:background .4s;}
+.pline.done{background:var(--lime);}
+
+/* Main card */
+#card{width:100%;max-width:960px;flex:1;min-height:0;
+  background:rgba(255,255,255,.06);backdrop-filter:blur(20px);
+  border-radius:20px;border:1.5px solid var(--border);
+  box-shadow:0 0 60px rgba(255,215,0,.04),0 8px 40px rgba(0,0,0,.5);
+  display:flex;flex-direction:column;overflow:hidden;padding:12px 14px 8px;}
+
+.activity{display:none;flex-direction:column;height:100%;}
+.activity.active{display:flex;}
+
+.act-title{font-family:'Fredoka One',cursive;font-size:clamp(13px,2vw,20px);
+  color:var(--gold);margin-bottom:2px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.act-sub{font-size:clamp(9px,1.2vw,11px);color:var(--sub);margin-bottom:8px;
+  font-weight:600;flex-shrink:0;}
+
+/* ─────────────────────────────────────────────────────────
+   ACTIVITY 1 — Bubble Sort Step-by-Step
+───────────────────────────────────────────────────────── */
+.a1-layout{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;}
+
+.step-desc{background:rgba(255,215,0,.07);border:1.5px solid rgba(255,215,0,.2);
+  border-radius:12px;padding:8px 12px;flex-shrink:0;}
+.step-desc .step-label{font-family:'Fredoka One',cursive;font-size:12px;
+  color:var(--gold);letter-spacing:1px;margin-bottom:3px;}
+.step-desc .step-text{font-size:11px;color:var(--text);font-weight:600;line-height:1.5;}
+
+.arena{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;overflow-y:auto;}
+
+.step-row{display:flex;align-items:center;gap:8px;padding:6px 8px;
+  background:rgba(255,255,255,.04);border-radius:12px;border:1.5px solid var(--border);
+  transition:border-color .3s;}
+.step-row.active-step{border-color:rgba(255,215,0,.4);background:rgba(255,215,0,.06);}
+.step-row.solved-step{border-color:rgba(178,255,89,.4);background:rgba(178,255,89,.05);}
+.step-num{font-family:'Fredoka One',cursive;font-size:11px;color:var(--sub);
+  width:55px;flex-shrink:0;}
+.block-track{display:flex;gap:5px;flex:1;flex-wrap:wrap;min-height:36px;
+  align-items:center;border-radius:10px;padding:4px 6px;
+  border:1.5px dashed rgba(255,255,255,.12);transition:border-color .3s,background .3s;}
+.block-track.is-target{border-color:rgba(0,229,255,.5);background:rgba(0,229,255,.06);}
+.block-track.track-correct{border-color:rgba(178,255,89,.5);background:rgba(178,255,89,.06);}
+.block-track.track-wrong{border-color:rgba(255,79,160,.6);background:rgba(255,79,160,.06);
+  animation:shk .35s;}
+@keyframes shk{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
+
+.num-block{min-width:34px;height:34px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Fredoka One',cursive;font-size:15px;cursor:grab;
+  border:2px solid transparent;transition:transform .2s,box-shadow .2s,opacity .2s;
+  user-select:none;padding:0 6px;}
+.num-block:hover{transform:scale(1.12);}
+.num-block.dragging{opacity:.3;transform:scale(.9);cursor:grabbing;}
+.num-block.placed-blk{opacity:.3;pointer-events:none;}
+.nb-r{background:linear-gradient(135deg,#ff4fa0,#c2185b);border-color:#ff4fa0;color:#fff;}
+.nb-g{background:linear-gradient(135deg,#b2ff59,#558b2f);border-color:#b2ff59;color:#1a3a00;}
+.nb-b{background:linear-gradient(135deg,#00e5ff,#0277bd);border-color:#00e5ff;color:#fff;}
+.nb-y{background:linear-gradient(135deg,#ffd700,#f57f17);border-color:#ffd700;color:#3a2000;}
+.nb-v{background:linear-gradient(135deg,#e040fb,#6a1b9a);border-color:#e040fb;color:#fff;}
+
+.source-pool{display:flex;gap:6px;flex-wrap:wrap;padding:6px;
+  background:rgba(255,255,255,.04);border-radius:12px;border:1.5px solid var(--border);
+  flex-shrink:0;}
+.pool-label{font-size:10px;color:var(--sub);font-weight:800;
+  text-transform:uppercase;letter-spacing:1.5px;width:100%;}
+
+/* ─────────────────────────────────────────────────────────
+   ACTIVITY 2 — Selection & Merge Sort flows
+───────────────────────────────────────────────────────── */
+.a2-layout{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1;min-height:0;}
+
+.sort-panel{background:rgba(255,255,255,.04);border-radius:14px;
+  border:1.5px solid var(--border);padding:8px 10px;
+  display:flex;flex-direction:column;gap:6px;overflow:hidden;}
+.panel-title{font-family:'Fredoka One',cursive;font-size:13px;
+  display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.panel-sub{font-size:10px;color:var(--sub);font-weight:600;flex-shrink:0;}
+
+.action-bank{display:flex;flex-wrap:wrap;gap:5px;padding:6px;
+  background:rgba(255,255,255,.04);border-radius:10px;flex-shrink:0;}
+.action-chip{padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;
+  cursor:grab;user-select:none;border:2px solid transparent;
+  transition:transform .2s,opacity .2s;white-space:nowrap;}
+.action-chip:hover{transform:scale(1.07);}
+.action-chip.dragging{opacity:.3;}
+.action-chip.chip-used{opacity:.25;pointer-events:none;}
+
+.ac-sel{background:linear-gradient(135deg,#ffd700,#f57f17);border-color:#ffd700;color:#3a2000;}
+.ac-mrg{background:linear-gradient(135deg,#e040fb,#4a148c);border-color:#e040fb;color:#fff;}
+.ac-both{background:linear-gradient(135deg,#00e5ff,#01579b);border-color:#00e5ff;color:#fff;}
+
+.flow-slots{display:flex;flex-direction:column;gap:5px;flex:1;overflow-y:auto;}
+.flow-slot{min-height:34px;border-radius:10px;border:1.5px dashed rgba(255,255,255,.18);
+  display:flex;align-items:center;gap:6px;padding:4px 8px;
+  transition:border-color .3s,background .3s;font-size:10px;color:var(--sub);font-weight:600;}
+.flow-slot.dragover{border-color:var(--cyan);background:rgba(0,229,255,.08);}
+.flow-slot.fs-correct{border-color:var(--lime);border-style:solid;background:rgba(178,255,89,.08);}
+.flow-slot.fs-wrong{border-color:var(--hot);animation:shk .35s;}
+.flow-slot .slot-num{font-family:'Fredoka One',cursive;color:var(--sub);
+  font-size:10px;flex-shrink:0;width:18px;}
+.filled-chip{padding:3px 9px;border-radius:14px;font-size:10px;font-weight:700;}
+
+/* ─────────────────────────────────────────────────────────
+   ACTIVITY 3 — Match Properties + Code snippets
+───────────────────────────────────────────────────────── */
+.a3-layout{display:grid;grid-template-columns:1fr 1.6fr;gap:10px;flex:1;min-height:0;}
+
+.labels-col{display:flex;flex-direction:column;gap:6px;overflow:hidden;}
+.labels-col h3{font-size:10px;font-weight:800;color:var(--sub);
+  text-transform:uppercase;letter-spacing:1.5px;flex-shrink:0;}
+.labels-pool{display:flex;flex-direction:column;gap:5px;overflow-y:auto;flex:1;}
+.label-chip{padding:6px 10px;border-radius:12px;font-size:10px;font-weight:700;
+  cursor:grab;user-select:none;border:2px solid transparent;
+  transition:transform .2s,opacity .2s;display:flex;flex-direction:column;gap:1px;}
+.label-chip:hover{transform:translateX(4px) scale(1.02);}
+.label-chip.dragging{opacity:.3;}
+.label-chip.lc-used{opacity:.2;pointer-events:none;}
+.lc-detail{font-size:9px;opacity:.7;font-weight:600;}
+.lc-q{background:linear-gradient(135deg,#ff4fa0,#880e4f);border-color:#ff4fa0;color:#fff;}
+.lc-nlog{background:linear-gradient(135deg,#00e5ff,#006064);border-color:#00e5ff;color:#fff;}
+.lc-both3{background:linear-gradient(135deg,#b2ff59,#33691e);border-color:#b2ff59;color:#1a3a00;}
+
+.cats-col{display:flex;flex-direction:column;gap:8px;overflow-y:auto;}
+.complexity-cat{border-radius:14px;padding:8px 10px;border:1.5px solid var(--border);}
+.cc-quad{background:rgba(255,79,160,.07);border-color:rgba(255,79,160,.3);}
+.cc-nlog{background:rgba(0,229,255,.07);border-color:rgba(0,229,255,.3);}
+.cat-title{font-family:'Fredoka One',cursive;font-size:13px;margin-bottom:4px;}
+.cc-quad .cat-title{color:var(--hot);}
+.cc-nlog .cat-title{color:var(--cyan);}
+.cat-drops{display:flex;flex-wrap:wrap;gap:5px;min-height:28px;
+  padding:4px;border-radius:8px;border:1.5px dashed rgba(255,255,255,.1);
+  transition:border-color .3s,background .3s;}
+.cat-drops.dragover{border-color:var(--gold);background:rgba(255,215,0,.07);}
+.cat-drops.cd-correct{border-color:var(--lime);border-style:solid;background:rgba(178,255,89,.07);}
+.cat-drops.cd-wrong{border-color:var(--hot);animation:shk .35s;}
+.cat-placeholder{font-size:10px;color:rgba(255,255,255,.2);font-weight:600;align-self:center;}
+
+.code-box{border-radius:12px;padding:8px 10px;
+  background:rgba(0,0,0,.4);border:1.5px solid rgba(255,255,255,.1);}
+.code-box .code-title{font-family:'Fredoka One',cursive;font-size:11px;
+  color:var(--amber);margin-bottom:5px;}
+.code-box pre{font-family:'Courier New',monospace;font-size:9.5px;
+  line-height:1.6;color:#d0c8e8;white-space:pre-wrap;}
+.kw{color:#e040fb;}
+.fn{color:#00e5ff;}
+.co{color:#78909c;}
+.st{color:#b2ff59;}
+.nm{color:#ffd700;}
+
+/* ── NEXT BUTTON ── */
+.next-btn{align-self:flex-end;margin-top:6px;flex-shrink:0;
+  padding:7px 22px;border-radius:25px;font-family:'Fredoka One',cursive;
+  font-size:14px;letter-spacing:1px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,var(--amber),var(--hot));color:#fff;
+  box-shadow:0 4px 20px rgba(255,179,0,.35);
+  transition:transform .2s,box-shadow .2s,opacity .3s;
+  opacity:.35;pointer-events:none;}
+.next-btn.on{opacity:1;pointer-events:all;}
+.next-btn.on:hover{transform:scale(1.08) translateY(-2px);
+  box-shadow:0 8px 32px rgba(255,79,160,.5);}
+
+/* ── POPUP ── */
+.pop-ov{position:fixed;inset:0;z-index:100;
+  background:rgba(0,0,0,.65);backdrop-filter:blur(10px);
+  display:none;align-items:center;justify-content:center;}
+.pop-ov.show{display:flex;}
+.pop-box{background:linear-gradient(145deg,#1a0d2e,#0d1a2e);
+  border-radius:24px;border:2px solid var(--gold);
+  box-shadow:0 0 60px rgba(255,215,0,.25),0 20px 60px rgba(0,0,0,.6);
+  padding:28px 32px;text-align:center;max-width:440px;width:92%;
+  animation:popIn .4s cubic-bezier(.34,1.56,.64,1);}
+@keyframes popIn{from{transform:scale(.6);opacity:0;}to{transform:scale(1);opacity:1;}}
+.pop-emo{font-size:48px;margin-bottom:8px;}
+.pop-title{font-family:'Fredoka One',cursive;font-size:22px;
+  background:linear-gradient(90deg,var(--gold),var(--hot),var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;margin-bottom:8px;}
+.pop-body{font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:18px;font-weight:600;}
+.pop-btn{padding:10px 28px;border-radius:25px;font-family:'Fredoka One',cursive;
+  font-size:15px;letter-spacing:1px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,var(--gold),var(--hot));color:#fff;
+  box-shadow:0 4px 20px rgba(255,79,160,.4);transition:transform .2s,box-shadow .2s;}
+.pop-btn:hover{transform:scale(1.08);box-shadow:0 8px 30px rgba(255,215,0,.5);}
+.confetti-row{font-size:20px;letter-spacing:4px;margin-bottom:6px;}
+
+/* scrollbars */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(255,215,0,.25);border-radius:4px;}
+</style>
+</head>
+<body>
+
+<!-- Stage -->
+<div id="stage"></div>
+<div class="beam beam1"></div>
+<div class="beam beam2"></div>
+<div class="beam beam3"></div>
+<div class="beam beam4"></div>
+<div class="beam beam5"></div>
+<div id="lights-row"></div>
+<div id="wave-bar"></div>
+<div id="notes-container"></div>
+<div id="particles-container"></div>
+
+<!-- ══ APP ══ -->
+<div id="app">
+  <div id="hdr">
+    <h1>🎵 SORTING ALGORITHMS — BUBBLE · SELECTION · MERGE 🎵</h1>
+    <p>🎸 Drag · Drop · Orchestrate the Perfect Order 🥁</p>
+  </div>
+
+  <div id="prog">
+    <div class="pdot active" id="pd1">1</div>
+    <div class="pline" id="pl1"></div>
+    <div class="pdot" id="pd2">2</div>
+    <div class="pline" id="pl2"></div>
+    <div class="pdot" id="pd3">3</div>
+    <div class="pline" id="pl3"></div>
+    <div class="pdot" id="pd4">🏆</div>
+  </div>
+
+  <div id="card">
+
+    <!-- ══ ACTIVITY 1 ══ -->
+    <div class="activity active" id="act1">
+      <div class="act-title">🫧 Activity 1: Bubble Sort — Swap the Beats!</div>
+      <div class="act-sub">Drag number blocks from the pool into each step's track to show the correct order after each Bubble Sort pass.</div>
+      <div class="a1-layout">
+        <div class="step-desc">
+          <div class="step-label">🎵 HOW BUBBLE SORT WORKS</div>
+          <div class="step-text">Compare two neighbours → if left &gt; right, swap them! Repeat until no swaps are needed. The largest number "bubbles up" to the end each pass.</div>
+        </div>
+        <div class="arena" id="a1-arena"><!-- populated by JS --></div>
+        <div class="source-pool" id="a1-pool">
+          <div class="pool-label">🎸 Drag from here →</div>
+        </div>
+      </div>
+      <button class="next-btn" id="nb1" onclick="showPop('pop1')">Next Stage ►</button>
+    </div>
+
+    <!-- ══ ACTIVITY 2 ══ -->
+    <div class="activity" id="act2">
+      <div class="act-title">🎼 Activity 2: Selection & Merge — Compose the Flow!</div>
+      <div class="act-sub">Drag each action into the correct numbered step for Selection Sort and Merge Sort.</div>
+      <div class="a2-layout">
+        <!-- Selection Sort panel -->
+        <div class="sort-panel">
+          <div class="panel-title" style="color:var(--gold);">🥇 Selection Sort</div>
+          <div class="panel-sub">Find the smallest, move it to the front — repeat!</div>
+          <div class="action-bank" id="sel-bank"><!-- JS --></div>
+          <div class="flow-slots" id="sel-slots"><!-- JS --></div>
+        </div>
+        <!-- Merge Sort panel -->
+        <div class="sort-panel">
+          <div class="panel-title" style="color:var(--violet);">🔀 Merge Sort</div>
+          <div class="panel-sub">Split in half, sort each half, merge together!</div>
+          <div class="action-bank" id="mrg-bank"><!-- JS --></div>
+          <div class="flow-slots" id="mrg-slots"><!-- JS --></div>
+        </div>
+      </div>
+      <button class="next-btn" id="nb2" onclick="showPop('pop2')">Final Stage ►</button>
+    </div>
+
+    <!-- ══ ACTIVITY 3 ══ -->
+    <div class="activity" id="act3">
+      <div class="act-title">📊 Activity 3: Match the Algorithm Properties!</div>
+      <div class="act-sub">Drag each label into O(n²) or O(n log n) category, then study the Python snippets below.</div>
+      <div class="a3-layout">
+        <div class="labels-col">
+          <h3>🎹 Labels — drag each one!</h3>
+          <div class="labels-pool" id="labels-pool"><!-- JS --></div>
+        </div>
+        <div class="cats-col">
+          <div class="complexity-cat cc-quad" id="cat-quad">
+            <div class="cat-title">⏱ O(n²) — Quadratic</div>
+            <div class="cat-drops" id="drop-quad" data-cat="quad">
+              <span class="cat-placeholder">Drop slower algorithms here…</span>
+            </div>
+          </div>
+          <div class="complexity-cat cc-nlog" id="cat-nlog">
+            <div class="cat-title">⚡ O(n log n) — Efficient</div>
+            <div class="cat-drops" id="drop-nlog" data-cat="nlog">
+              <span class="cat-placeholder">Drop faster algorithms here…</span>
+            </div>
+          </div>
+          <!-- Code snippets -->
+          <div class="code-box">
+            <div class="code-title">🐍 Python Snippets — How They Look in Code</div>
+            <pre><span class="co"># Bubble Sort</span>
+<span class="kw">def</span> <span class="fn">bubble_sort</span>(arr):
+    n = <span class="fn">len</span>(arr)
+    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(n):
+        <span class="kw">for</span> j <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">0</span>, n-i-<span class="nm">1</span>):
+            <span class="kw">if</span> arr[j] > arr[j+<span class="nm">1</span>]:
+                arr[j], arr[j+<span class="nm">1</span>] = arr[j+<span class="nm">1</span>], arr[j]
+<span class="co"># Selection Sort</span>
+<span class="kw">def</span> <span class="fn">selection_sort</span>(arr):
+    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="fn">len</span>(arr)):
+        min_i = i
+        <span class="kw">for</span> j <span class="kw">in</span> <span class="fn">range</span>(i+<span class="nm">1</span>, <span class="fn">len</span>(arr)):
+            <span class="kw">if</span> arr[j] < arr[min_i]: min_i = j
+        arr[i], arr[min_i] = arr[min_i], arr[i]
+<span class="co"># Merge Sort</span>
+<span class="kw">def</span> <span class="fn">merge_sort</span>(arr):
+    <span class="kw">if</span> <span class="fn">len</span>(arr) <= <span class="nm">1</span>: <span class="kw">return</span> arr
+    mid = <span class="fn">len</span>(arr) // <span class="nm">2</span>
+    L = <span class="fn">merge_sort</span>(arr[:mid])
+    R = <span class="fn">merge_sort</span>(arr[mid:])
+    <span class="kw">return</span> <span class="fn">merge</span>(L, R)</pre>
+          </div>
+        </div>
+      </div>
+      <button class="next-btn" id="nb3" onclick="showPop('pop-fin')">🎉 Finish!</button>
+    </div>
+
+  </div><!-- /card -->
+</div><!-- /app -->
+
+<!-- ══ POPUPS ══ -->
+<div class="pop-ov" id="pop1">
+  <div class="pop-box">
+    <div class="pop-emo">🎶</div>
+    <div class="confetti-row">🎸⭐🎵🌟🎹</div>
+    <div class="pop-title">Activity 1 Complete!</div>
+    <div class="pop-body">Brilliant! You traced every Bubble Sort swap perfectly — comparing neighbours and bubbling the biggest number up to the top like a rising bass note! 🎵</div>
+    <button class="pop-btn" onclick="goAct(2)">On to Activity 2! 🎼</button>
+  </div>
+</div>
+<div class="pop-ov" id="pop2">
+  <div class="pop-box">
+    <div class="pop-emo">🥁</div>
+    <div class="confetti-row">⚡🎺🔀✨🎵</div>
+    <div class="pop-title">Activity 2 Complete!</div>
+    <div class="pop-body">Amazing rhythm! You composed the full flows for both Selection Sort and Merge Sort — from finding the minimum to divide-and-conquer splitting! 🎼</div>
+    <button class="pop-btn" onclick="goAct(3)">Final Challenge! 🏆</button>
+  </div>
+</div>
+<div class="pop-ov" id="pop-fin">
+  <div class="pop-box">
+    <div class="pop-emo">🏆</div>
+    <div class="confetti-row">🎊🎸🎵🏆⭐🎹🌟</div>
+    <div class="pop-title">Sorting Maestro! 🎵</div>
+    <div class="pop-body">
+      You aced all three challenges! You now understand:<br><br>
+      🫧 <strong>Bubble Sort</strong> — swap neighbours until sorted<br>
+      🥇 <strong>Selection Sort</strong> — pick smallest, place it first<br>
+      🔀 <strong>Merge Sort</strong> — split, sort, merge back together<br><br>
+      These algorithms are the music your computer uses to organize the world! 🌍
+    </div>
+    <button class="pop-btn" onclick="location.reload()">✨ Play Again!</button>
+  </div>
+</div>
+
+<script>
+// ── DECORATIONS ──────────────────────────────────────────
+(function(){
+  // Stage lights
+  const lr = document.getElementById('lights-row');
+  const lc = ['#ffd700','#ff4fa0','#00e5ff','#b2ff59','#e040fb','#ffb300','#00e5ff','#ff4fa0'];
+  for(let i=0;i<28;i++){
+    const l=document.createElement('div');
+    l.className='stage-light';
+    const c=lc[i%lc.length];
+    l.style.cssText=`background:${c};box-shadow:0 0 8px ${c},0 0 20px ${c}40;animation-delay:${(i*0.15)%2}s;animation-duration:${1.5+Math.random()}s;`;
+    lr.appendChild(l);
+  }
+  // Wave bar
+  const wb=document.getElementById('wave-bar');
+  const wc=['#ffd700','#ff4fa0','#00e5ff','#b2ff59','#e040fb','#ffb300'];
+  for(let i=0;i<90;i++){
+    const b=document.createElement('div');
+    b.className='wave-seg';
+    const c=wc[i%wc.length];
+    b.style.cssText=`background:${c};height:${20+Math.random()*28}px;animation-delay:${Math.random()*1.2}s;animation-duration:${0.8+Math.random()*0.8}s;`;
+    wb.appendChild(b);
+  }
+  // Floating notes
+  const nc=document.getElementById('notes-container');
+  const notes=['♩','♪','♫','♬','🎵','🎶','♭','♯'];
+  for(let i=0;i<18;i++){
+    const n=document.createElement('div');
+    n.className='note';
+    n.textContent=notes[Math.floor(Math.random()*notes.length)];
+    const hue=[0,40,180,280,120][Math.floor(Math.random()*5)];
+    n.style.cssText=`left:${Math.random()*96}%;color:hsl(${hue},80%,65%);font-size:${12+Math.random()*16}px;animation-delay:${Math.random()*8}s;animation-duration:${6+Math.random()*6}s;`;
+    nc.appendChild(n);
+  }
+  // Particles
+  const pc=document.getElementById('particles-container');
+  const pcolors=['#ffd700','#ff4fa0','#00e5ff','#b2ff59','#e040fb'];
+  for(let i=0;i<20;i++){
+    const p=document.createElement('div');
+    p.className='particle';
+    const c=pcolors[Math.floor(Math.random()*pcolors.length)];
+    const px=(Math.random()-0.5)*300+'px', py=-(100+Math.random()*400)+'px';
+    p.style.cssText=`width:${3+Math.random()*5}px;height:${3+Math.random()*5}px;background:${c};top:${Math.random()*90}%;left:${Math.random()*96}%;--px:${px};--py:${py};animation-delay:${Math.random()*10}s;animation-duration:${7+Math.random()*5}s;`;
+    pc.appendChild(p);
+  }
+})();
+
+// ── ACTIVITY 1 ───────────────────────────────────────────
+// Starting array: [5,3,8,1,4] — show passes of bubble sort
+// Pass 0 (start): 5 3 8 1 4
+// After pass 1:   3 5 1 4 8  (8 bubbles to end)
+// After pass 2:   3 1 4 5 8  (5 bubbles)
+// After pass 3:   1 3 4 5 8  (3 bubbles to pos)
+// After pass 4:   1 3 4 5 8  (sorted)
+
+const STEPS = [
+  { label:'START', desc:'Original unsorted sequence', answer:[5,3,8,1,4] },
+  { label:'PASS 1', desc:'Compared all neighbours → 8 bubbled to end', answer:[3,5,1,4,8] },
+  { label:'PASS 2', desc:'5 moved right → 5 is now in place', answer:[3,1,4,5,8] },
+  { label:'PASS 3', desc:'3 swapped with 1 → almost sorted!', answer:[1,3,4,5,8] },
+  { label:'DONE ✓', desc:'No swaps needed — fully sorted!', answer:[1,3,4,5,8] },
+];
+
+const COLORS=['nb-r','nb-g','nb-b','nb-y','nb-v'];
+const NUM_COLOR={1:'nb-g',3:'nb-b',4:'nb-y',5:'nb-r',8:'nb-v'};
+
+let a1Done=0;
+const A1_TOTAL=STEPS.length;
+let a1DragItem=null;
+
+function buildA1(){
+  const arena=document.getElementById('a1-arena');
+  const pool=document.getElementById('a1-pool');
+  arena.innerHTML='';
+
+  STEPS.forEach((step,si)=>{
+    const row=document.createElement('div');
+    row.className='step-row'+(si===0?' active-step':'');
+    row.id='sr-'+si;
+    const nums=step.answer;
+
+    row.innerHTML=`<div class="step-num">${step.label}</div>
+      <div class="block-track${si===0?' is-target':''}" id="track-${si}" data-step="${si}">
+        ${si===0?nums.map(n=>`<div class="num-block ${NUM_COLOR[n]||'nb-r'}">${n}</div>`).join('')
+         :'<span style="font-size:10px;color:rgba(255,255,255,.2);font-weight:600;">'+(si===STEPS.length-1?'Drag the final sorted sequence here…':'Drag the result of '+step.label+' here…')+'</span>'}
+      </div>
+      <span style="font-size:10px;color:var(--sub);font-weight:600;flex-shrink:0;">${step.desc}</span>`;
+    arena.appendChild(row);
+  });
+
+  // Pool: all unique numbers for dragging — for each step>0
+  // We provide individual draggable blocks per step (cloned for each slot)
+  pool.innerHTML='<div class="pool-label">🎸 Drag from here →</div>';
+  // Create a draggable set for each non-solved step
+  refreshPool();
+  setupA1Drops();
+}
+
+function refreshPool(){
+  const pool=document.getElementById('a1-pool');
+  // remove old blocks
+  pool.querySelectorAll('.num-block').forEach(b=>b.remove());
+  // For each unsolved step, offer its answer blocks
+  STEPS.forEach((step,si)=>{
+    if(si===0) return; // start is pre-filled
+    const track=document.getElementById('track-'+si);
+    if(track.dataset.solved) return;
+    step.answer.forEach(n=>{
+      const b=document.createElement('div');
+      b.className=`num-block ${NUM_COLOR[n]||'nb-r'}`;
+      b.textContent=n;
+      b.draggable=true;
+      b.dataset.val=n;
+      b.dataset.step=si;
+      b.addEventListener('dragstart',e=>{
+        a1DragItem=b;
+        b.classList.add('dragging');
+        e.dataTransfer.setData('stepIdx',si);
+        e.dataTransfer.setData('val',n);
+      });
+      b.addEventListener('dragend',()=>b.classList.remove('dragging'));
+      pool.appendChild(b);
+    });
+  });
+}
+
+function setupA1Drops(){
+  STEPS.forEach((step,si)=>{
+    if(si===0) return;
+    const track=document.getElementById('track-'+si);
+    track.addEventListener('dragover',e=>{
+      e.preventDefault();
+      if(!track.dataset.solved) track.classList.add('is-target');
+    });
+    track.addEventListener('dragleave',()=>{
+      if(!track.dataset.solved) track.classList.remove('is-target');
+    });
+    track.addEventListener('drop',e=>{
+      e.preventDefault();
+      track.classList.remove('is-target');
+      if(track.dataset.solved) return;
+
+      const fromStep=parseInt(e.dataTransfer.getData('stepIdx'));
+      if(fromStep!==si) {
+        // Wrong step slot
+        track.classList.add('track-wrong');
+        setTimeout(()=>track.classList.remove('track-wrong'),500);
+        return;
+      }
+      // They dropped the right step's set — check if this is the whole set
+      // We accept any drop for this step's items; we collect all by re-rendering
+      // Mark as solved if the current drag is from this step
+      track.dataset.solved='1';
+      track.innerHTML=step.answer.map(n=>`<div class="num-block ${NUM_COLOR[n]||'nb-r'}">${n}</div>`).join('');
+      track.classList.add('track-correct');
+      document.getElementById('sr-'+si).classList.remove('active-step');
+      document.getElementById('sr-'+si).classList.add('solved-step');
+      a1Done++;
+      refreshPool();
+      if(a1Done===A1_TOTAL-1){
+        document.getElementById('nb1').classList.add('on');
+      }
+    });
+  });
+}
+
+buildA1();
+
+// ── ACTIVITY 2 ───────────────────────────────────────────
+const SEL_ACTIONS=[
+  {id:'sa1',text:'🔍 Scan whole unsorted list',cls:'ac-sel'},
+  {id:'sa2',text:'📌 Find the minimum value',cls:'ac-sel'},
+  {id:'sa3',text:'🔄 Swap min with first unsorted',cls:'ac-sel'},
+  {id:'sa4',text:'➡️ Move boundary one step right',cls:'ac-sel'},
+  {id:'sa5',text:'✅ List fully sorted!',cls:'ac-both'},
+];
+const SEL_ANSWER=['sa1','sa2','sa3','sa4','sa5'];
+
+const MRG_ACTIONS=[
+  {id:'ma1',text:'✂️ Split list into two halves',cls:'ac-mrg'},
+  {id:'ma2',text:'🔁 Recursively sort each half',cls:'ac-mrg'},
+  {id:'ma3',text:'🔗 Merge two sorted halves',cls:'ac-mrg'},
+  {id:'ma4',text:'📏 Compare front elements',cls:'ac-mrg'},
+  {id:'ma5',text:'✅ Merged list is sorted!',cls:'ac-both'},
+];
+const MRG_ANSWER=['ma1','ma2','ma4','ma3','ma5'];
+
+let selProgress=Array(5).fill(null);
+let mrgProgress=Array(5).fill(null);
+let a2DragData=null;
+
+function buildA2(){
+  // Selection bank
+  buildBank('sel-bank', SEL_ACTIONS, 'sel');
+  buildFlowSlots('sel-slots', SEL_ANSWER.length, 'sel');
+  // Merge bank
+  buildBank('mrg-bank', MRG_ACTIONS, 'mrg');
+  buildFlowSlots('mrg-slots', MRG_ANSWER.length, 'mrg');
+}
+
+function buildBank(containerId, actions, type){
+  const el=document.getElementById(containerId);
+  el.innerHTML='';
+  actions.forEach(a=>{
+    const chip=document.createElement('div');
+    chip.className='action-chip '+a.cls;
+    chip.draggable=true;
+    chip.dataset.aid=a.id;
+    chip.dataset.type=type;
+    chip.textContent=a.text;
+    chip.id='chip-'+a.id;
+    chip.addEventListener('dragstart',e=>{
+      a2DragData={aid:a.id,type};
+      chip.classList.add('dragging');
+      e.dataTransfer.setData('aid',a.id);
+      e.dataTransfer.setData('atype',type);
+    });
+    chip.addEventListener('dragend',()=>chip.classList.remove('dragging'));
+    el.appendChild(chip);
+  });
+}
+
+function buildFlowSlots(containerId, count, type){
+  const el=document.getElementById(containerId);
+  el.innerHTML='';
+  const answer=type==='sel'?SEL_ANSWER:MRG_ANSWER;
+  const actions=type==='sel'?SEL_ACTIONS:MRG_ACTIONS;
+  for(let i=0;i<count;i++){
+    const slot=document.createElement('div');
+    slot.className='flow-slot';
+    slot.dataset.idx=i;
+    slot.dataset.type=type;
+    slot.dataset.expected=answer[i];
+    slot.innerHTML=`<span class="slot-num">${i+1}.</span><span style="color:rgba(255,255,255,.2);font-size:10px;">Drop step ${i+1} here…</span>`;
+    slot.addEventListener('dragover',e=>{e.preventDefault();if(!slot.dataset.filled)slot.classList.add('dragover');});
+    slot.addEventListener('dragleave',()=>slot.classList.remove('dragover'));
+    slot.addEventListener('drop',e=>{
+      e.preventDefault();
+      slot.classList.remove('dragover');
+      if(slot.dataset.filled) return;
+      const aid=e.dataTransfer.getData('aid');
+      const atype=e.dataTransfer.getData('atype');
+      if(atype!==type){slot.classList.add('fs-wrong');setTimeout(()=>slot.classList.remove('fs-wrong'),500);return;}
+      const expected=slot.dataset.expected;
+      if(aid===expected){
+        slot.dataset.filled='1';
+        slot.classList.add('fs-correct');
+        const acts=type==='sel'?SEL_ACTIONS:MRG_ACTIONS;
+        const a=acts.find(x=>x.id===aid);
+        slot.innerHTML=`<span class="slot-num">${parseInt(slot.dataset.idx)+1}.</span><span class="filled-chip ${a.cls}">${a.text}</span>`;
+        const chipEl=document.getElementById('chip-'+aid);
+        if(chipEl) chipEl.classList.add('chip-used');
+        if(type==='sel') selProgress[i]=aid; else mrgProgress[i]=aid;
+        checkA2Done();
+      } else {
+        slot.classList.add('fs-wrong');
+        setTimeout(()=>slot.classList.remove('fs-wrong'),500);
+      }
+    });
+    el.appendChild(slot);
+  }
+}
+
+function checkA2Done(){
+  const selOk=selProgress.every((v,i)=>v===SEL_ANSWER[i]);
+  const mrgOk=mrgProgress.every((v,i)=>v===MRG_ANSWER[i]);
+  if(selOk&&mrgOk) document.getElementById('nb2').classList.add('on');
+}
+
+buildA2();
+
+// ── ACTIVITY 3 ───────────────────────────────────────────
+const LABELS=[
+  {id:'lb1',text:'Bubble Sort',detail:'Compare & swap neighbours',cat:'quad',cls:'lc-q'},
+  {id:'lb2',text:'Selection Sort',detail:'Find min, place at front',cat:'quad',cls:'lc-q'},
+  {id:'lb3',text:'Merge Sort',detail:'Divide and conquer strategy',cat:'nlog',cls:'lc-nlog'},
+  {id:'lb4',text:'Worst Case: n² comparisons',detail:'Quadratic growth',cat:'quad',cls:'lc-q'},
+  {id:'lb5',text:'Best for large datasets',detail:'Scales efficiently',cat:'nlog',cls:'lc-nlog'},
+  {id:'lb6',text:'Simple but slow for big data',detail:'Good for small lists',cat:'quad',cls:'lc-q'},
+  {id:'lb7',text:'Uses recursion & splitting',detail:'Efficient recursive approach',cat:'nlog',cls:'lc-nlog'},
+];
+
+let a3State={quad:[],nlog:[]};
+let a3LabelDrag=null;
+const A3_CORRECT={quad:['lb1','lb2','lb4','lb6'],nlog:['lb3','lb5','lb7']};
+
+function buildA3(){
+  const pool=document.getElementById('labels-pool');
+  pool.innerHTML='';
+  LABELS.forEach(lb=>{
+    const chip=document.createElement('div');
+    chip.className='label-chip '+lb.cls;
+    chip.draggable=true;
+    chip.id='lc-'+lb.id;
+    chip.dataset.lid=lb.id;
+    chip.dataset.cat=lb.cat;
+    chip.innerHTML=`<span>${lb.text}</span><span class="lc-detail">${lb.detail}</span>`;
+    chip.addEventListener('dragstart',e=>{
+      a3LabelDrag={id:lb.id,cat:lb.cat};
+      chip.classList.add('dragging');
+      e.dataTransfer.setData('lid',lb.id);
+      e.dataTransfer.setData('lcat',lb.cat);
+    });
+    chip.addEventListener('dragend',()=>chip.classList.remove('dragging'));
+    pool.appendChild(chip);
+  });
+
+  ['drop-quad','drop-nlog'].forEach(dropId=>{
+    const area=document.getElementById(dropId);
+    const cat=area.dataset.cat;
+    area.addEventListener('dragover',e=>{e.preventDefault();area.classList.add('dragover');});
+    area.addEventListener('dragleave',()=>area.classList.remove('dragover'));
+    area.addEventListener('drop',e=>{
+      e.preventDefault();
+      area.classList.remove('dragover');
+      const lid=e.dataTransfer.getData('lid');
+      const lcat=e.dataTransfer.getData('lcat');
+      if(!lid) return;
+      // already placed?
+      if(document.querySelector('#drop-quad .placed-lb[data-lid="'+lid+'"]')||
+         document.querySelector('#drop-nlog .placed-lb[data-lid="'+lid+'"]')) return;
+      if(lcat===cat){
+        // correct
+        const lb=LABELS.find(x=>x.id===lid);
+        const ph=area.querySelector('.cat-placeholder');
+        if(ph) ph.remove();
+        const placed=document.createElement('div');
+        placed.className='filled-chip placed-lb '+lb.cls;
+        placed.dataset.lid=lid;
+        placed.textContent=lb.text;
+        area.appendChild(placed);
+        document.getElementById('lc-'+lid).classList.add('lc-used');
+        a3State[cat].push(lid);
+        checkA3Done();
+      } else {
+        area.classList.add('cd-wrong');
+        setTimeout(()=>area.classList.remove('cd-wrong'),500);
+      }
+    });
+  });
+}
+
+function checkA3Done(){
+  const qOk=A3_CORRECT.quad.every(id=>a3State.quad.includes(id));
+  const nOk=A3_CORRECT.nlog.every(id=>a3State.nlog.includes(id));
+  if(qOk) document.getElementById('drop-quad').classList.add('cd-correct');
+  if(nOk) document.getElementById('drop-nlog').classList.add('cd-correct');
+  if(qOk&&nOk) document.getElementById('nb3').classList.add('on');
+}
+
+buildA3();
+
+// ── NAVIGATION ───────────────────────────────────────────
+function showPop(id){document.getElementById(id).classList.add('show');}
+
+function goAct(n){
+  document.querySelectorAll('.pop-ov').forEach(p=>p.classList.remove('show'));
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.getElementById('act'+n).classList.add('active');
+  // progress dots
+  ['pd1','pd2','pd3','pd4'].forEach((id,i)=>{
+    const d=document.getElementById(id);
+    d.classList.remove('active','done');
+    if(i<n-1) d.classList.add('done');
+    else if(i===n-1) d.classList.add('active');
+  });
+  ['pl1','pl2','pl3'].forEach((id,i)=>{
+    const l=document.getElementById(id);
+    l.classList.toggle('done',i<n-1);
+  });
+}
+</script>
+</body>
+</html>

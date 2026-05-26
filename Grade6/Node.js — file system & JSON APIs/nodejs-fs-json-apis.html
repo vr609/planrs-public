@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Node.js — File System & JSON APIs</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --deep:#03172e;--mid:#062a4e;--upper:#0a4a7c;--surface:#1a7aad;
+  --teal:#00d4c8;--teal2:#00a89e;--teal3:#007c74;
+  --coral:#ff6b5b;--coral2:#e04535;
+  --gold:#ffd166;--gold2:#f0a800;
+  --purple:#c77dff;--purple2:#9d4edd;
+  --green:#06d6a0;--green2:#059669;
+  --sand:#e8d5a3;--sand2:#c9a96e;
+  --text:#e0f4ff;--muted:#7ec8e3;--light:#f0faff;
+  --panel:rgba(3,40,80,.82);--panel2:rgba(6,55,100,.9);
+  --border:rgba(0,212,200,.25);--border2:rgba(0,212,200,.5);
+  --shadow:0 8px 40px rgba(0,0,0,.5);
+}
+html,body{width:100%;height:100%;overflow:hidden}
+body{
+  font-family:'Syne',sans-serif;color:var(--text);
+  background:linear-gradient(180deg,var(--upper) 0%,var(--mid) 40%,var(--deep) 100%);
+  display:flex;flex-direction:column;align-items:center;position:relative;
+}
+
+/* ═══ CANVAS ═══ */
+#sea{position:fixed;inset:0;pointer-events:none;z-index:0}
+
+/* ═══ LIGHT RAYS ═══ */
+.rays{
+  position:fixed;top:0;left:0;right:0;height:40%;pointer-events:none;z-index:1;
+  background:repeating-linear-gradient(
+    175deg,
+    transparent 0%,transparent 8%,
+    rgba(26,122,173,.07) 8%,rgba(26,122,173,.07) 12%,
+    transparent 12%,transparent 20%
+  );
+  animation:rayShift 8s ease-in-out infinite alternate;
+}
+@keyframes rayShift{from{transform:skewX(-3deg)}to{transform:skewX(3deg)}}
+
+/* ═══ HEADER ═══ */
+.header{
+  position:relative;z-index:10;text-align:center;
+  padding:8px 20px 3px;flex-shrink:0;width:100%;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,rgba(3,23,46,.9) 0%,transparent 100%);
+}
+.header h1{
+  font-family:'Fredoka One',cursive;
+  font-size:clamp(15px,2.5vw,25px);
+  color:var(--teal);
+  text-shadow:0 0 30px rgba(0,212,200,.6),0 2px 0 rgba(0,0,0,.5);
+  letter-spacing:.5px;line-height:1.2;
+}
+.header h1 em{color:var(--gold);font-style:normal}
+.header .sub{
+  font-size:clamp(9px,1.1vw,11px);color:var(--muted);
+  letter-spacing:2.5px;text-transform:uppercase;font-weight:600;margin-top:2px;
+}
+.fish-header{position:absolute;right:clamp(12px,4vw,60px);top:50%;transform:translateY(-50%);font-size:clamp(22px,3.5vw,36px);animation:fishWiggle 3s ease-in-out infinite}
+@keyframes fishWiggle{0%,100%{transform:translateY(-50%) rotate(-8deg)}50%{transform:translateY(-52%) rotate(8deg)}}
+
+/* ═══ PROGRESS ═══ */
+.progress-wrap{
+  display:flex;align-items:center;gap:8px;padding:4px 20px;
+  position:relative;z-index:10;flex-shrink:0;
+}
+.pip{
+  width:clamp(26px,3.8vw,34px);height:clamp(26px,3.8vw,34px);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:clamp(10px,1.3vw,13px);
+  font-family:'JetBrains Mono',monospace;
+  border:2px solid;transition:all .4s cubic-bezier(.34,1.56,.64,1);
+}
+.pip.done{background:var(--teal);border-color:var(--teal2);color:var(--deep);box-shadow:0 0 16px rgba(0,212,200,.5)}
+.pip.active{background:transparent;border-color:var(--gold);color:var(--gold);box-shadow:0 0 18px rgba(255,209,102,.4);animation:pipGlow 1.5s ease-in-out infinite}
+.pip.todo{background:rgba(255,255,255,.05);border-color:rgba(126,200,227,.2);color:rgba(126,200,227,.3)}
+.pline{flex:1;height:2px;background:rgba(0,212,200,.12);border-radius:2px;overflow:hidden}
+.pline-fill{height:100%;background:linear-gradient(90deg,var(--teal),var(--gold));border-radius:2px;width:0;transition:width .7s ease}
+@keyframes pipGlow{0%,100%{box-shadow:0 0 18px rgba(255,209,102,.4)}50%{box-shadow:0 0 30px rgba(255,209,102,.7)}}
+
+/* ═══ CONTENT ═══ */
+.content{
+  position:relative;z-index:10;flex:1;width:100%;max-width:980px;
+  padding:0 12px 8px;display:flex;flex-direction:column;min-height:0;
+}
+.panel{
+  background:var(--panel);backdrop-filter:blur(14px);
+  border-radius:18px;border:1px solid var(--border2);
+  box-shadow:var(--shadow),inset 0 1px 0 rgba(0,212,200,.1);
+  padding:clamp(10px,1.4vw,16px) clamp(12px,2vw,22px);
+  flex:1;display:flex;flex-direction:column;min-height:0;
+  animation:panelRise .5s cubic-bezier(.34,1.56,.64,1);
+  position:relative;overflow:hidden;
+}
+.panel::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--teal),var(--gold),var(--purple),transparent);
+  animation:shimmer 4s linear infinite;background-size:200% 100%;
+}
+@keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+@keyframes panelRise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+
+.act-title{
+  font-family:'Fredoka One',cursive;
+  font-size:clamp(13px,1.9vw,19px);color:var(--teal);
+  display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-shrink:0;
+  text-shadow:0 0 20px rgba(0,212,200,.3);
+}
+.abadge{
+  padding:2px 10px;border-radius:20px;font-size:clamp(9px,1.1vw,11px);
+  font-family:'JetBrains Mono',monospace;font-weight:600;border:1px solid;
+}
+.ab1{background:rgba(255,209,102,.12);border-color:rgba(255,209,102,.4);color:var(--gold)}
+.ab2{background:rgba(0,212,200,.1);border-color:rgba(0,212,200,.35);color:var(--teal)}
+.ab3{background:rgba(199,125,255,.1);border-color:rgba(199,125,255,.35);color:var(--purple)}
+.act-desc{
+  font-size:clamp(10px,1.3vw,13px);color:var(--muted);
+  margin-bottom:8px;font-weight:600;flex-shrink:0;
+}
+.act-desc b{color:var(--gold)}
+
+/* ═══ ARENA ═══ */
+.arena{flex:1;display:flex;gap:10px;min-height:0;overflow:hidden}
+.src-col{display:flex;flex-direction:column;gap:5px;min-width:clamp(155px,21vw,215px);flex-shrink:0}
+.src-label{
+  font-size:10px;font-weight:700;color:var(--teal2);
+  text-transform:uppercase;letter-spacing:.9px;
+  padding-bottom:4px;border-bottom:1px solid var(--border);
+  font-family:'JetBrains Mono',monospace;margin-bottom:2px;
+}
+.targets{flex:1;display:flex;gap:8px;min-height:0}
+
+/* ═══ DROP ZONES ═══ */
+.dz{
+  flex:1;border-radius:12px;padding:8px;
+  border:2px dashed;display:flex;flex-direction:column;gap:5px;
+  transition:all .22s;min-height:0;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--teal3) transparent;
+}
+.dz::-webkit-scrollbar{width:3px}
+.dz::-webkit-scrollbar-thumb{background:var(--teal3);border-radius:3px}
+.dz-json{border-color:rgba(255,209,102,.35);background:rgba(255,209,102,.04)}
+.dz-fs{border-color:rgba(0,212,200,.35);background:rgba(0,212,200,.04)}
+.dz-plain{border-color:rgba(199,125,255,.3);background:rgba(199,125,255,.04)}
+.dz-add{border-color:rgba(6,214,160,.35);background:rgba(6,214,160,.04)}
+.dz-search{border-color:rgba(0,212,200,.35);background:rgba(0,212,200,.04)}
+.dz-delete{border-color:rgba(255,107,91,.4);background:rgba(255,107,91,.05)}
+.dz.drag-over{transform:scale(1.025);border-style:solid;box-shadow:0 0 24px rgba(0,212,200,.2)}
+.dz-label{
+  font-size:clamp(9px,1.1vw,11px);font-weight:700;padding:4px 8px;
+  border-radius:6px;text-align:center;flex-shrink:0;
+  font-family:'JetBrains Mono',monospace;letter-spacing:.3px;
+}
+.dz-json .dz-label{background:rgba(255,209,102,.15);color:var(--gold2)}
+.dz-fs .dz-label{background:rgba(0,212,200,.12);color:var(--teal2)}
+.dz-plain .dz-label{background:rgba(199,125,255,.12);color:var(--purple2)}
+.dz-add .dz-label{background:rgba(6,214,160,.12);color:var(--green2)}
+.dz-search .dz-label{background:rgba(0,212,200,.12);color:var(--teal2)}
+.dz-delete .dz-label{background:rgba(255,107,91,.12);color:var(--coral2)}
+
+/* ═══ CARDS ═══ */
+.card{
+  background:rgba(6,55,100,.85);border-radius:8px;padding:6px 9px;
+  border:1px solid var(--border);cursor:grab;
+  font-family:'JetBrains Mono',monospace;font-size:clamp(9px,1.1vw,11px);
+  line-height:1.55;color:var(--text);
+  box-shadow:0 2px 10px rgba(0,0,0,.35);
+  transition:all .18s;user-select:none;flex-shrink:0;
+}
+.card:hover{border-color:var(--teal);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,212,200,.15)}
+.card.dragging{opacity:.3;cursor:grabbing}
+.card.ok{border-color:var(--green)!important;background:rgba(6,214,160,.08)!important}
+.card.fail{border-color:var(--coral)!important;background:rgba(255,107,91,.07)!important;animation:shake .38s ease}
+.ctag{display:inline-block;font-size:9px;padding:1px 6px;border-radius:3px;margin-bottom:3px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.4px}
+.t-json{background:rgba(255,209,102,.18);color:var(--gold)}
+.t-fs{background:rgba(0,212,200,.15);color:var(--teal)}
+.t-plain{background:rgba(199,125,255,.15);color:var(--purple)}
+.t-add{background:rgba(6,214,160,.15);color:var(--green)}
+.t-search{background:rgba(0,212,200,.15);color:var(--teal)}
+.t-del{background:rgba(255,107,91,.15);color:var(--coral)}
+.t-step{background:rgba(232,213,163,.15);color:var(--sand)}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+/* ═══ JSON PREVIEW (Act 1) ═══ */
+.json-frame{
+  flex:1;display:flex;flex-direction:column;min-height:0;border-radius:12px;
+  border:1px solid var(--border2);background:rgba(3,23,46,.75);overflow:hidden;
+}
+.json-header{
+  padding:6px 12px;background:rgba(0,212,200,.08);border-bottom:1px solid var(--border);
+  flex-shrink:0;display:flex;align-items:center;gap:8px;
+}
+.json-dot{width:8px;height:8px;border-radius:50%}
+.json-fn{font-family:'JetBrains Mono',monospace;font-size:clamp(10px,1.2vw,12px);color:var(--muted)}
+.json-body{flex:1;display:flex;gap:8px;padding:8px;min-height:0;overflow:hidden}
+.json-brace{
+  font-family:'JetBrains Mono',monospace;font-size:clamp(11px,1.4vw,14px);
+  color:var(--gold);padding:4px 6px;align-self:flex-start;flex-shrink:0;font-weight:600;
+}
+
+/* ═══ ACT 2 — SEQUENCE ═══ */
+.seq-wrap{flex:1;display:flex;gap:10px;min-height:0}
+.seq-slots{flex:1;display:flex;flex-direction:column;gap:5px;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--teal3) transparent}
+.seq-slot{
+  display:flex;align-items:stretch;border-radius:10px;overflow:hidden;
+  border:2px dashed rgba(0,212,200,.25);background:rgba(0,212,200,.03);
+  transition:all .2s;min-height:42px;flex-shrink:0;
+}
+.seq-slot.filled{border-style:solid;border-color:var(--teal)}
+.seq-slot.drag-over-slot{border-color:var(--gold);background:rgba(255,209,102,.05)}
+.seq-num{
+  width:28px;background:linear-gradient(180deg,rgba(0,212,200,.18),rgba(0,212,200,.08));
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:11px;color:var(--teal);flex-shrink:0;
+  font-family:'JetBrains Mono',monospace;border-right:1px solid rgba(0,212,200,.2);
+}
+.seq-drop{flex:1;padding:5px 8px;font-size:clamp(9px,1.1vw,11px);font-family:'JetBrains Mono',monospace;line-height:1.5;color:var(--muted)}
+.seq-slot .card{border:none!important;box-shadow:none!important;background:transparent!important;padding:0!important}
+
+/* ═══ ACT 3 — WORKFLOW ═══ */
+.workflow-arena{flex:1;display:flex;gap:8px;min-height:0}
+.op-block{
+  flex:1;display:flex;flex-direction:column;min-height:0;border-radius:12px;
+  border:1px solid var(--border);background:rgba(3,23,46,.5);overflow:hidden;
+}
+.op-header{
+  padding:5px 10px;border-bottom:1px solid var(--border);flex-shrink:0;
+  font-family:'JetBrains Mono',monospace;font-size:clamp(9px,1.1vw,11px);color:var(--muted);
+}
+.op-fn{font-weight:600}
+.op-fn.add{color:var(--green)}
+.op-fn.search{color:var(--teal)}
+.op-fn.del{color:var(--coral)}
+
+/* ═══ FEEDBACK ═══ */
+.fb{
+  border-radius:8px;padding:6px 12px;font-size:clamp(10px,1.3vw,12px);font-weight:700;
+  display:none;flex-shrink:0;margin-top:5px;font-family:'JetBrains Mono',monospace;
+  border:1px solid;animation:fbIn .3s ease;
+}
+.fb.show{display:block}
+.fb.good{background:rgba(6,214,160,.08);color:var(--green);border-color:rgba(6,214,160,.3)}
+.fb.bad{background:rgba(255,107,91,.07);color:#ff9988;border-color:rgba(255,107,91,.3)}
+@keyframes fbIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* ═══ BUTTON ═══ */
+.chk-btn{
+  align-self:flex-end;margin-top:6px;flex-shrink:0;
+  padding:clamp(7px,1vw,10px) clamp(18px,2.5vw,28px);
+  border-radius:40px;border:1px solid var(--teal2);cursor:pointer;
+  font-family:'Fredoka One',cursive;font-size:clamp(12px,1.5vw,15px);
+  background:linear-gradient(135deg,rgba(0,212,200,.18),rgba(0,168,158,.12));
+  color:var(--teal);letter-spacing:.5px;
+  box-shadow:0 0 20px rgba(0,212,200,.2);transition:all .2s;
+}
+.chk-btn:hover{transform:translateY(-2px);box-shadow:0 0 32px rgba(0,212,200,.4);border-color:var(--teal)}
+.chk-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+/* ═══ POPUP ═══ */
+.overlay{
+  position:fixed;inset:0;z-index:100;
+  background:rgba(3,23,46,.75);backdrop-filter:blur(10px);
+  display:flex;align-items:center;justify-content:center;
+}
+.overlay.hidden{display:none}
+.pop{
+  background:linear-gradient(140deg,var(--panel2),rgba(3,23,46,.98));
+  border-radius:20px;padding:clamp(22px,3vw,38px);
+  text-align:center;max-width:440px;width:90%;
+  border:1px solid var(--border2);
+  box-shadow:0 0 80px rgba(0,212,200,.2),var(--shadow);
+  animation:popIn .42s cubic-bezier(.34,1.56,.64,1);
+  position:relative;overflow:hidden;
+}
+.pop::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--teal),var(--gold),var(--purple),var(--teal))}
+@keyframes popIn{from{opacity:0;transform:scale(.72)}to{opacity:1;transform:none}}
+.pop-icon{font-size:clamp(44px,6vw,62px);display:block;margin-bottom:8px;animation:bloop 2s ease-in-out infinite alternate}
+@keyframes bloop{from{transform:scale(1) rotate(-5deg)}to{transform:scale(1.08) rotate(5deg)}}
+.pop-title{font-family:'Fredoka One',cursive;font-size:clamp(17px,2.6vw,24px);color:var(--teal);margin-bottom:7px;text-shadow:0 0 20px rgba(0,212,200,.4)}
+.pop-score{
+  display:inline-block;padding:4px 18px;border-radius:20px;
+  background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.35);
+  color:var(--gold);font-family:'JetBrains Mono',monospace;
+  font-size:clamp(11px,1.3vw,13px);font-weight:600;margin-bottom:12px;
+}
+.pop-msg{font-size:clamp(11px,1.4vw,13px);color:var(--muted);line-height:1.65;margin-bottom:18px;font-weight:600}
+.pop-msg b{color:var(--teal)}
+.pop-btn{
+  padding:10px 32px;border-radius:40px;border:1px solid var(--teal2);cursor:pointer;
+  font-family:'Fredoka One',cursive;font-size:clamp(13px,1.6vw,16px);
+  background:linear-gradient(135deg,rgba(0,212,200,.22),rgba(0,168,158,.15));
+  color:var(--teal);box-shadow:0 0 24px rgba(0,212,200,.25);transition:all .2s;
+}
+.pop-btn:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(0,212,200,.45)}
+.conf-cv{position:absolute;inset:0;pointer-events:none}
+</style>
+</head>
+<body>
+
+<canvas id="sea"></canvas>
+<div class="rays"></div>
+
+<div class="header">
+  <h1>Node.js — <em>File System &amp; JSON APIs</em> 🌊</h1>
+  <div class="sub">🐠 Digital Notebooks — Deep Sea Storage Lab</div>
+  <div class="fish-header">🐡</div>
+</div>
+
+<div class="progress-wrap">
+  <div class="pip active" id="p1">1</div>
+  <div class="pline"><div class="pline-fill" id="l1"></div></div>
+  <div class="pip todo" id="p2">2</div>
+  <div class="pline"><div class="pline-fill" id="l2"></div></div>
+  <div class="pip todo" id="p3">3</div>
+</div>
+
+<div class="content">
+
+<!-- ═══════ ACT 1 ═══════ -->
+<div class="panel" id="act1">
+  <div class="act-title">
+    <span class="abadge ab1">ACT 01</span>
+    🐚 JSON Organiser — Build the Contact Record
+  </div>
+  <div class="act-desc">JSON stores data in a structured format — like a treasure chest with labelled compartments. Drag each contact detail into the correct <b>JSON field</b> or <b>File System</b> or <b>Plain Text</b> category.</div>
+  <div class="arena">
+    <div class="src-col">
+      <div class="src-label">🦑 Data Items</div>
+      <div id="src1"></div>
+    </div>
+    <div class="json-frame">
+      <div class="json-header">
+        <div class="json-dot" style="background:#ff6b5b"></div>
+        <div class="json-dot" style="background:#ffd166"></div>
+        <div class="json-dot" style="background:#06d6a0"></div>
+        <span class="json-fn">contacts.json &nbsp;—&nbsp; Drag values into the correct section below</span>
+      </div>
+      <div class="json-body">
+        <span class="json-brace">{</span>
+        <div style="flex:1;display:flex;gap:8px;min-height:0">
+          <div class="dz dz-json" id="dz-json" ondragover="ov(event,this)" ondragleave="ol(this)" ondrop="dp(event,this,'a1')">
+            <div class="dz-label">📋 JSON Fields</div>
+          </div>
+          <div class="dz dz-fs" id="dz-fs" ondragover="ov(event,this)" ondragleave="ol(this)" ondrop="dp(event,this,'a1')">
+            <div class="dz-label">💾 fs Module Code</div>
+          </div>
+          <div class="dz dz-plain" id="dz-plain" ondragover="ov(event,this)" ondragleave="ol(this)" ondrop="dp(event,this,'a1')">
+            <div class="dz-label">📄 Plain Text Only</div>
+          </div>
+        </div>
+        <span class="json-brace">}</span>
+      </div>
+    </div>
+  </div>
+  <div class="fb" id="fb1"></div>
+  <button class="chk-btn" id="cb1" onclick="chk1()">🔍 Validate JSON Structure</button>
+</div>
+
+<!-- ═══════ ACT 2 ═══════ -->
+<div class="panel" id="act2" style="display:none">
+  <div class="act-title">
+    <span class="abadge ab2">ACT 02</span>
+    🐙 File Operations — Order the fs Steps
+  </div>
+  <div class="act-desc">The <b>fs module</b> reads and writes files in a strict sequence — like a deep-sea diver following a safety checklist. Drag the steps into the correct order (1 → 7).</div>
+  <div class="seq-wrap">
+    <div class="src-col">
+      <div class="src-label">🌊 Steps (mixed up)</div>
+      <div id="src2"></div>
+    </div>
+    <div class="seq-slots" id="slots2"></div>
+  </div>
+  <div class="fb" id="fb2"></div>
+  <button class="chk-btn" id="cb2" onclick="chk2()">🔍 Run File Operations</button>
+</div>
+
+<!-- ═══════ ACT 3 ═══════ -->
+<div class="panel" id="act3" style="display:none">
+  <div class="act-title">
+    <span class="abadge ab3">ACT 03</span>
+    🦀 Contact Book CLI — Sort the Operations
+  </div>
+  <div class="act-desc">A contact book CLI needs three operations. Drag each code action into <b>Add Contact</b>, <b>Search Contact</b>, or <b>Delete Contact</b>.</div>
+  <div class="workflow-arena">
+    <div class="op-block">
+      <div class="op-header"><span class="op-fn add">addContact()</span> <span style="color:var(--muted)">→ save to file</span></div>
+      <div style="flex:1;padding:6px;display:flex;flex-direction:column;min-height:0">
+        <div class="dz dz-add" id="dz-add" style="flex:1" ondragover="ov(event,this)" ondragleave="ol(this)" ondrop="dp(event,this,'a3')">
+          <div class="dz-label">➕ Add Operations</div>
+        </div>
+      </div>
+    </div>
+    <div class="op-block">
+      <div class="op-header"><span class="op-fn search">searchContact()</span> <span style="color:var(--muted)">→ read + filter</span></div>
+      <div style="flex:1;padding:6px;display:flex;flex-direction:column;min-height:0">
+        <div class="dz dz-search" id="dz-search" style="flex:1" ondragover="ov(event,this)" ondragleave="ol(this)" ondrop="dp(event,this,'a3')">
+          <div class="dz-label">🔎 Search Operations</div>
+        </div>
+      </div>
+    </div>
+    <div class="op-block">
+      <div class="op-header"><span class="op-fn del">deleteContact()</span> <span style="color:var(--muted)">→ filter + overwrite</span></div>
+      <div style="flex:1;padding:6px;display:flex;flex-direction:column;min-height:0">
+        <div class="dz dz-delete" id="dz-delete" style="flex:1" ondragover="ov(event,this)" ondragleave="ol(this)" ondrop="dp(event,this,'a3')">
+          <div class="dz-label">🗑 Delete Operations</div>
+        </div>
+      </div>
+    </div>
+    <div class="src-col" style="min-width:clamp(148px,20vw,205px)">
+      <div class="src-label">🦐 Code Actions</div>
+      <div id="src3"></div>
+    </div>
+  </div>
+  <div class="fb" id="fb3"></div>
+  <button class="chk-btn" id="cb3" onclick="chk3()">🔍 Compile Contact Book</button>
+</div>
+
+</div><!-- .content -->
+
+<!-- ═══ POPUPS ═══ -->
+<div class="overlay hidden" id="pop1">
+  <div class="pop">
+    <canvas class="conf-cv" id="cf1" width="440" height="400"></canvas>
+    <span class="pop-icon">🐚</span>
+    <div class="pop-title">JSON Structured!</div>
+    <div class="pop-score" id="sc1">–</div>
+    <div class="pop-msg">Excellent! You know that <b>JSON fields</b> hold structured data, <b>fs module code</b> reads and writes files, and plain text is unstructured. Ready to master file operations in order?</div>
+    <button class="pop-btn" onclick="goAct(2)">Next: File Operations →</button>
+  </div>
+</div>
+<div class="overlay hidden" id="pop2">
+  <div class="pop">
+    <canvas class="conf-cv" id="cf2" width="440" height="400"></canvas>
+    <span class="pop-icon">🐙</span>
+    <div class="pop-title">File Sequence Locked!</div>
+    <div class="pop-score" id="sc2">–</div>
+    <div class="pop-msg">The <b>fs module</b> is your bridge to the hard drive — and order matters! Require → read → parse → modify → stringify → write → confirm. One final challenge awaits!</div>
+    <button class="pop-btn" onclick="goAct(3)">Final Mission: Contact Book →</button>
+  </div>
+</div>
+<div class="overlay hidden" id="popF">
+  <div class="pop" style="max-width:460px">
+    <canvas class="conf-cv" id="cfF" width="460" height="420"></canvas>
+    <span class="pop-icon">🏆</span>
+    <div class="pop-title">Deep Sea Data Master!</div>
+    <div class="pop-score" id="scF">–</div>
+    <div class="pop-msg" id="fmsg">You have unlocked the power of <b>persistent storage</b>! Your data now survives past program restarts — saved in JSON, read by fs, and managed through a real CLI contact book.</div>
+    <button class="pop-btn" onclick="restart()">🔄 Dive Again!</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// UNDERWATER CANVAS ANIMATION
+// ═══════════════════════════════════════════
+(function(){
+  const cv=document.getElementById('sea');
+  const cx=cv.getContext('2d');
+  let W,H,bubbles=[],fish=[],jellyfish=[],seaweed=[];
+
+  function rnd(a,b){return a+Math.random()*(b-a)}
+  function resize(){W=cv.width=window.innerWidth;H=cv.height=window.innerHeight;if(!bubbles.length)init()}
+
+  function mkBubble(){return{x:rnd(0,W),y:H+rnd(10,60),r:rnd(3,14),speed:rnd(.3,.9),alpha:rnd(.2,.55),wobble:rnd(0,Math.PI*2),wobbleSpeed:rnd(.02,.06),wobbleAmp:rnd(6,20)}}
+  function mkFish(){
+    const dir=Math.random()<.5?1:-1;
+    const cols=['#ff9f43','#ffd166','#06d6a0','#c77dff','#ff6b5b','#00d4c8'];
+    return{x:dir===1?-60:W+60,y:rnd(H*.1,H*.8),speed:rnd(.6,2)*dir,size:rnd(14,28),col:cols[Math.floor(Math.random()*cols.length)],tail:0,tailSpeed:rnd(.08,.18),dir}
+  }
+  function mkJelly(){return{x:rnd(W*.05,W*.95),y:rnd(H*.1,H*.7),size:rnd(18,36),phase:rnd(0,Math.PI*2),speed:rnd(.008,.02),alpha:rnd(.3,.6),col:Math.random()<.5?'#c77dff':'#00d4c8'}}
+  function mkSeaweed(x){return{x,segments:Math.floor(rnd(6,12)),len:rnd(40,100),phase:rnd(0,Math.PI*2),speed:rnd(.008,.018)}}
+
+  function init(){
+    for(let i=0;i<30;i++) bubbles.push(mkBubble());
+    for(let i=0;i<6;i++){const f=mkFish();f.x=rnd(0,W);fish.push(f)}
+    for(let i=0;i<8;i++) jellyfish.push(mkJelly());
+    for(let i=0;i<12;i++) seaweed.push(mkSeaweed(rnd(0,W)));
+  }
+
+  function drawBubble(b){
+    cx.save();cx.globalAlpha=b.alpha;
+    cx.strokeStyle='rgba(180,240,255,.7)';cx.lineWidth=1;
+    cx.beginPath();cx.arc(b.x,b.y,b.r,0,Math.PI*2);cx.stroke();
+    cx.globalAlpha=b.alpha*.3;cx.fillStyle='rgba(200,240,255,.5)';
+    cx.beginPath();cx.arc(b.x-b.r*.3,b.y-b.r*.3,b.r*.3,0,Math.PI*2);cx.fill();
+    cx.restore();
+  }
+  function drawFish(f){
+    cx.save();cx.translate(f.x,f.y);if(f.dir<0)cx.scale(-1,1);
+    cx.globalAlpha=.7;
+    const s=f.size;const tail=Math.sin(f.tail)*s*.5;
+    cx.fillStyle=f.col;
+    cx.beginPath();cx.ellipse(0,0,s,s*.5,0,0,Math.PI*2);cx.fill();
+    cx.beginPath();cx.moveTo(-s,0);cx.lineTo(-s-s*.6,tail);cx.lineTo(-s-s*.6,-tail);cx.closePath();cx.fill();
+    cx.fillStyle='rgba(255,255,255,.8)';cx.beginPath();cx.arc(s*.3,-s*.1,s*.15,0,Math.PI*2);cx.fill();
+    cx.fillStyle='#000';cx.beginPath();cx.arc(s*.32,-s*.12,s*.07,0,Math.PI*2);cx.fill();
+    cx.restore();
+  }
+  function drawJelly(j){
+    cx.save();cx.globalAlpha=j.alpha;cx.translate(j.x,j.y);
+    const pulse=Math.sin(j.phase)*.2+.85;cx.scale(1,pulse);
+    const gr=cx.createRadialGradient(0,0,0,0,0,j.size);
+    gr.addColorStop(0,j.col+'cc');gr.addColorStop(1,j.col+'11');
+    cx.fillStyle=gr;
+    cx.beginPath();cx.arc(0,0,j.size,Math.PI,0);cx.fill();
+    cx.strokeStyle=j.col+'66';cx.lineWidth=1;
+    for(let i=-3;i<=3;i++){cx.beginPath();cx.moveTo(i*j.size*.25,0);cx.bezierCurveTo(i*j.size*.25+Math.sin(j.phase+i)*8,j.size*.5,i*j.size*.2+Math.sin(j.phase+i)*6,j.size,i*j.size*.15,j.size*1.5);cx.stroke()}
+    cx.restore();
+  }
+  function drawSeaweed(s){
+    cx.save();cx.globalAlpha=.35;cx.strokeStyle='#06d6a0';cx.lineWidth=3;cx.lineCap='round';
+    cx.beginPath();let px=s.x,py=H;
+    for(let i=0;i<s.segments;i++){
+      const wave=Math.sin(s.phase+i*.5)*20;const seg=s.len/s.segments;
+      const nx=px+wave,ny=py-seg;
+      cx.quadraticCurveTo(px+wave*1.5,py-seg*.5,nx,ny);
+      px=nx;py=ny;
+    }
+    cx.stroke();cx.restore();
+  }
+
+  // Sand/gravel floor
+  function drawFloor(){
+    cx.save();
+    const gr=cx.createLinearGradient(0,H*.85,0,H);
+    gr.addColorStop(0,'rgba(18,60,100,.0)');gr.addColorStop(.3,'rgba(30,80,60,.4)');gr.addColorStop(1,'rgba(10,30,20,.9)');
+    cx.fillStyle=gr;cx.fillRect(0,H*.85,W,H*.15);
+    cx.restore();
+  }
+
+  // Coral clusters
+  const corals=[];
+  function initCorals(){
+    for(let i=0;i<10;i++) corals.push({x:rnd(0,W),h:rnd(20,55),col:Math.random()<.5?'#ff6b5b':'#c77dff',branches:Math.floor(rnd(3,7))});
+  }
+  function drawCorals(){
+    corals.forEach(c=>{
+      cx.save();cx.globalAlpha=.45;cx.strokeStyle=c.col;cx.lineWidth=3;cx.lineCap='round';
+      for(let b=0;b<c.branches;b++){
+        const angle=-Math.PI/2+(b-c.branches/2)*(.4);
+        cx.beginPath();cx.moveTo(c.x,H);cx.lineTo(c.x+Math.cos(angle)*c.h,H-Math.sin(-angle)*c.h);cx.stroke();
+      }
+      cx.restore();
+    });
+  }
+
+  let t=0;
+  function loop(){
+    cx.clearRect(0,0,W,H);t++;
+    drawFloor();drawCorals();
+    seaweed.forEach(s=>{s.phase+=s.speed;drawSeaweed(s)});
+    bubbles.forEach((b,i)=>{
+      b.y-=b.speed;b.x+=Math.sin(b.wobble)*b.wobbleAmp*.05;b.wobble+=b.wobbleSpeed;
+      if(b.y<-20){bubbles[i]=mkBubble();bubbles[i].y=H+10}
+      drawBubble(b);
+    });
+    jellyfish.forEach(j=>{j.phase+=j.speed;j.y+=Math.sin(j.phase)*.4;drawJelly(j)});
+    fish.forEach((f,i)=>{
+      f.x+=f.speed;f.tail+=f.tailSpeed;
+      if(f.dir>0&&f.x>W+80||f.dir<0&&f.x<-80){fish[i]=mkFish()}
+      drawFish(f);
+    });
+    requestAnimationFrame(loop);
+  }
+  window.addEventListener('resize',resize);
+  resize();initCorals();loop();
+})();
+
+// ═══════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════
+const A1=[
+  {id:'c1',label:'"name": "Arjun Sharma"',      zone:'dz-json',  tag:'json', hint:'Name field in JSON'},
+  {id:'c2',label:'"phone": "9876543210"',        zone:'dz-json',  tag:'json', hint:'Phone field in JSON'},
+  {id:'c3',label:'"city": "Bengaluru"',          zone:'dz-json',  tag:'json', hint:'City field in JSON'},
+  {id:'c4',label:'"email": "arjun@mail.com"',    zone:'dz-json',  tag:'json', hint:'Email in JSON'},
+  {id:'c5',label:'const fs = require("fs");',    zone:'dz-fs',    tag:'fs',   hint:'Require the fs module'},
+  {id:'c6',label:'fs.writeFileSync(\n  "contacts.json",\n  JSON.stringify(data)\n);',zone:'dz-fs',tag:'fs',hint:'Write JSON to file'},
+  {id:'c7',label:'fs.readFileSync(\n  "contacts.json",\n  "utf-8"\n);',zone:'dz-fs',tag:'fs',hint:'Read file contents'},
+  {id:'c8',label:'Arjun, 9876543210, Bengaluru\nArjun phone Bengaluru student',zone:'dz-plain',tag:'plain',hint:'Unstructured plain text'},
+  {id:'c9',label:'Name: Arjun | Phone: 98...\n// No keys, no structure',zone:'dz-plain',tag:'plain',hint:'Plain text — no JSON structure'},
+];
+
+const A2_ORDER=[
+  {id:'s1',label:"const fs = require('fs');\n// Step 1: Import the fs module",tag:'step'},
+  {id:'s2',label:"const raw = fs.readFileSync(\n  'contacts.json', 'utf-8'\n);\n// Step 2: Read the file",tag:'step'},
+  {id:'s3',label:"const contacts = JSON.parse(raw);\n// Step 3: Parse JSON string → object",tag:'step'},
+  {id:'s4',label:"contacts.push(newContact);\n// Step 4: Modify the data in memory",tag:'step'},
+  {id:'s5',label:"const updated = JSON.stringify(\n  contacts, null, 2\n);\n// Step 5: Stringify back to JSON",tag:'step'},
+  {id:'s6',label:"fs.writeFileSync(\n  'contacts.json', updated\n);\n// Step 6: Write back to file",tag:'step'},
+  {id:'s7',label:"console.log('✅ Contact saved!');\n// Step 7: Confirm to the user",tag:'step'},
+];
+
+const A3=[
+  {id:'a1',label:"const data = JSON.parse(\n  fs.readFileSync('contacts.json','utf-8')\n);",zone:'dz-add',tag:'add',hint:'Read existing contacts'},
+  {id:'a2',label:"data.push({\n  name, phone, city\n});\n// Append new contact object",zone:'dz-add',tag:'add',hint:'Add new contact to array'},
+  {id:'a3',label:"fs.writeFileSync(\n  'contacts.json',\n  JSON.stringify(data, null, 2)\n);",zone:'dz-add',tag:'add',hint:'Save updated contacts'},
+  {id:'a4',label:"const all = JSON.parse(\n  fs.readFileSync('contacts.json','utf-8')\n);",zone:'dz-search',tag:'search',hint:'Load all contacts to search'},
+  {id:'a5',label:"const found = all.filter(\n  c => c.name.includes(query)\n);",zone:'dz-search',tag:'search',hint:'Filter contacts by name'},
+  {id:'a6',label:"console.log(found.length\n  ? found : 'No match found');",zone:'dz-search',tag:'search',hint:'Display search results'},
+  {id:'a7',label:"const contacts = JSON.parse(\n  fs.readFileSync('contacts.json','utf-8')\n);",zone:'dz-delete',tag:'del',hint:'Load contacts for deletion'},
+  {id:'a8',label:"const remaining = contacts.filter(\n  c => c.name !== targetName\n);",zone:'dz-delete',tag:'del',hint:'Remove matching contact'},
+  {id:'a9',label:"fs.writeFileSync(\n  'contacts.json',\n  JSON.stringify(remaining, null, 2)\n);",zone:'dz-delete',tag:'del',hint:'Overwrite file without deleted'},
+];
+
+let dragging=null,slotMap={},scores={a1:0,a2:0,a3:0};
+
+// ═══════════════════════════════════════════
+// DRAG HELPERS
+// ═══════════════════════════════════════════
+function ov(e,el){e.preventDefault();el.classList.add('drag-over')}
+function ol(el){el.classList.remove('drag-over')}
+
+function mkCard(d,act){
+  const div=document.createElement('div');
+  div.className='card';div.id=d.id;div.draggable=true;
+  if(d.hint)div.title=d.hint;
+  const tagClass={json:'t-json',fs:'t-fs',plain:'t-plain',add:'t-add',search:'t-search',del:'t-del',step:'t-step'}[d.tag]||'t-step';
+  const tagLabel={json:'JSON',fs:'fs',plain:'TEXT',add:'ADD',search:'SEARCH',del:'DELETE',step:'STEP'}[d.tag]||d.tag.toUpperCase();
+  div.innerHTML=`<span class="ctag ${tagClass}">${tagLabel}</span><pre style="white-space:pre-wrap;font-size:inherit;margin:0">${d.label}</pre>`;
+  div.addEventListener('dragstart',e=>{dragging={el:div,d,act};div.classList.add('dragging');e.dataTransfer.effectAllowed='move'});
+  div.addEventListener('dragend',()=>div.classList.remove('dragging'));
+  return div;
+}
+
+function dp(e,zone,act){
+  e.preventDefault();zone.classList.remove('drag-over');
+  if(!dragging||dragging.act!==act)return;
+  zone.appendChild(dragging.el);
+  dragging.el.dataset.dz=zone.id;
+  dragging=null;
+}
+
+// ═══════════════════════════════════════════
+// BUILD
+// ═══════════════════════════════════════════
+function shuf(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
+
+function buildAct1(){
+  const s=document.getElementById('src1');s.innerHTML='';
+  shuf(A1).forEach(d=>s.appendChild(mkCard(d,'a1')));
+  ['dz-json','dz-fs','dz-plain'].forEach(id=>{const z=document.getElementById(id);while(z.children.length>1)z.removeChild(z.lastChild)});
+}
+
+function buildSlots(){
+  const c=document.getElementById('slots2');c.innerHTML='';slotMap={};
+  for(let i=0;i<A2_ORDER.length;i++){
+    const sl=document.createElement('div');sl.className='seq-slot';sl.dataset.i=i;
+    sl.innerHTML=`<div class="seq-num">${i+1}</div><div class="seq-drop" id="sd${i}">Drop step here…</div>`;
+    sl.addEventListener('dragover',e=>{e.preventDefault();sl.classList.add('drag-over-slot')});
+    sl.addEventListener('dragleave',()=>sl.classList.remove('drag-over-slot'));
+    sl.addEventListener('drop',e=>{
+      e.preventDefault();sl.classList.remove('drag-over-slot');
+      if(!dragging||dragging.act!=='a2')return;
+      const prev=slotMap[i];
+      if(prev&&prev!==dragging.el.id){const old=document.getElementById(prev);if(old)document.getElementById('src2').appendChild(old)}
+      const drop=sl.querySelector('.seq-drop');drop.innerHTML='';drop.appendChild(dragging.el);
+      sl.classList.add('filled');slotMap[i]=dragging.el.id;dragging=null;
+    });
+    c.appendChild(sl);
+  }
+}
+function buildAct2(){
+  const s=document.getElementById('src2');s.innerHTML='';
+  shuf(A2_ORDER).forEach(d=>s.appendChild(mkCard(d,'a2')));
+  buildSlots();
+}
+
+function buildAct3(){
+  const s=document.getElementById('src3');s.innerHTML='';
+  shuf(A3).forEach(d=>s.appendChild(mkCard(d,'a3')));
+  ['dz-add','dz-search','dz-delete'].forEach(id=>{const z=document.getElementById(id);while(z.children.length>1)z.removeChild(z.lastChild)});
+}
+
+// ═══════════════════════════════════════════
+// CHECKS
+// ═══════════════════════════════════════════
+function chk1(){
+  let r=0;
+  A1.forEach(d=>{
+    const el=document.getElementById(d.id);
+    if(el?.parentElement?.id===d.zone){el.classList.add('ok');r++}
+    else el?.classList.add('fail');
+  });
+  scores.a1=r;const total=A1.length;
+  setFb('fb1',r,total,r>=total?`🐚 Perfect! All ${total} items correctly categorised! JSON holds structure, fs reads/writes, plain text stores nothing structured.`:`${r}/${total} correct — think: does it belong inside the JSON object, or is it fs code, or unstructured text?`);
+  if(r>=Math.ceil(total*.6)){document.getElementById('cb1').disabled=true;setTimeout(()=>showPop('pop1',`${r}/${total} Items Sorted`,'cf1'),900)}
+}
+function chk2(){
+  let r=0;
+  A2_ORDER.forEach((d,i)=>{
+    const slot=document.querySelector(`#sd${i} .card`);
+    if(slot?.id===d.id){slot.classList.add('ok');r++}
+    else if(slot)slot.classList.add('fail');
+  });
+  scores.a2=r;const total=A2_ORDER.length;
+  setFb('fb2',r,total,r>=total?`🐙 Flawless sequence! require → readFile → parse → modify → stringify → writeFile → confirm. That's the fs cycle!`:`${r}/${total} in order — remember: you must read and parse BEFORE modifying, and stringify BEFORE writing.`);
+  if(r>=Math.ceil(total*.6)){document.getElementById('cb2').disabled=true;setTimeout(()=>showPop('pop2',`${r}/${total} Steps Ordered`,'cf2'),900)}
+}
+function chk3(){
+  let r=0;
+  A3.forEach(d=>{
+    const el=document.getElementById(d.id);
+    if(el?.parentElement?.id===d.zone){el.classList.add('ok');r++}
+    else el?.classList.add('fail');
+  });
+  scores.a3=r;const total=A3.length;
+  setFb('fb3',r,total,r>=total?`🦀 Contact book complete! All three CRUD operations are wired correctly!`:`${r}/${total} — each operation follows read → modify/filter → write. Which zone does each belong in?`);
+  if(r>=Math.ceil(total*.6)){document.getElementById('cb3').disabled=true;setTimeout(showFinal,900)}
+}
+
+function setFb(id,r,total,msg){
+  const el=document.getElementById(id);
+  el.className='fb show '+(r>=Math.ceil(total*.6)?'good':'bad');
+  el.textContent=(r>=Math.ceil(total*.6)?'✅ ':'❌ ')+msg;
+}
+
+// ═══════════════════════════════════════════
+// POPUP / FLOW
+// ═══════════════════════════════════════════
+function showPop(id,score,cfId){
+  document.getElementById(id).classList.remove('hidden');
+  document.getElementById(id).querySelector('.pop-score').textContent=score;
+  launchConfetti(cfId);
+}
+function goAct(n){
+  ['pop1','pop2'].forEach(p=>document.getElementById(p).classList.add('hidden'));
+  [1,2,3].forEach(i=>document.getElementById(`act${i}`).style.display='none');
+  document.getElementById(`act${n}`).style.display='flex';
+  updatePips(n);
+  if(n===2)buildAct2();
+  if(n===3)buildAct3();
+}
+function showFinal(){
+  const tot=scores.a1+scores.a2+scores.a3;
+  const max=A1.length+A2_ORDER.length+A3.length;
+  const pct=Math.round(tot/max*100);
+  document.getElementById('scF').textContent=`Total: ${tot}/${max} — ${pct}%`;
+  document.getElementById('fmsg').textContent=
+    pct>=88?'Outstanding! You have given your Node.js programs a long-term memory. JSON structures your data, fs stores it forever, and your contact book CLI brings it all together. You are a data persistence expert!':
+    pct>=65?'Great work! You understand how files outlive programs. Keep practising the read → parse → modify → stringify → write cycle!':
+    'Good effort! The ocean of knowledge is vast — retry to strengthen your understanding of fs and JSON!';
+  document.getElementById('popF').classList.remove('hidden');
+  launchConfetti('cfF');
+}
+function updatePips(n){
+  [1,2,3].forEach(i=>{
+    document.getElementById(`p${i}`).className='pip '+(i<n?'done':i===n?'active':'todo');
+    if(i<3)document.getElementById(`l${i}`).style.width=i<n?'100%':'0';
+  });
+}
+function restart(){
+  document.getElementById('popF').classList.add('hidden');
+  scores={a1:0,a2:0,a3:0};
+  [1,2,3].forEach(i=>{
+    const cb=document.getElementById(`cb${i}`);if(cb)cb.disabled=false;
+    const fb=document.getElementById(`fb${i}`);if(fb){fb.className='fb';fb.textContent=''}
+  });
+  buildAct1();buildAct2();buildAct3();
+  [2,3].forEach(i=>document.getElementById(`act${i}`).style.display='none');
+  document.getElementById('act1').style.display='flex';
+  updatePips(1);
+}
+
+// ═══════════════════════════════════════════
+// CONFETTI
+// ═══════════════════════════════════════════
+function launchConfetti(id){
+  const cv=document.getElementById(id);if(!cv)return;
+  const cx=cv.getContext('2d');const W=cv.width,H=cv.height;
+  const COLS=['#00d4c8','#ffd166','#c77dff','#ff6b5b','#06d6a0','#fff','#1a7aad'];
+  const parts=[];
+  for(let i=0;i<75;i++)parts.push({
+    x:W/2+(Math.random()-.5)*80,y:H*.45,
+    vx:(Math.random()-.5)*14,vy:-(Math.random()*11+3),
+    r:Math.random()*7+2,col:COLS[Math.floor(Math.random()*COLS.length)],
+    rot:Math.random()*360,rs:(Math.random()-.5)*10,life:0,
+    shape:Math.random()<.3?'circle':Math.random()<.5?'rect':'bubble'
+  });
+  function step(){
+    cx.clearRect(0,0,W,H);let alive=false;
+    parts.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;p.vy+=.32;p.rot+=p.rs;p.life++;
+      const a=Math.max(0,1-p.life/80);if(a>0){alive=true;
+        cx.save();cx.globalAlpha=a;cx.translate(p.x,p.y);cx.rotate(p.rot*Math.PI/180);
+        if(p.shape==='bubble'){cx.strokeStyle=p.col;cx.lineWidth=1.5;cx.beginPath();cx.arc(0,0,p.r,0,Math.PI*2);cx.stroke()}
+        else if(p.shape==='circle'){cx.fillStyle=p.col;cx.beginPath();cx.arc(0,0,p.r,0,Math.PI*2);cx.fill()}
+        else{cx.fillStyle=p.col;cx.fillRect(-p.r,-p.r/2,p.r*2,p.r)}
+        cx.restore();
+      }
+    });
+    if(alive)requestAnimationFrame(step);
+  }
+  step();
+}
+
+// ═══ INIT ═══
+buildAct1();
+</script>
+</body>
+</html>

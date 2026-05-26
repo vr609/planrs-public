@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TypeScript — Why Types Matter</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --pink:#f9a8d4;--pink2:#ec4899;--purple:#c4b5fd;--purple2:#8b5cf6;
+  --blue:#93c5fd;--yellow:#fde68a;--green:#86efac;--orange:#fdba74;
+  --white:#fff;--soft:#fdf4ff;--text:#1e1b4b;--muted:#6d28d9;
+  --card-bg:rgba(255,255,255,0.85);--shadow:0 8px 32px rgba(139,92,246,0.18);
+}
+html,body{width:100%;height:100%;overflow:hidden}
+body{
+  font-family:'Nunito',sans-serif;
+  background:linear-gradient(135deg,#fce7f3 0%,#ede9fe 35%,#dbeafe 65%,#d1fae5 100%);
+  color:var(--text);position:relative;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+
+/* ── CANVAS BG ── */
+#bgCanvas{position:fixed;inset:0;pointer-events:none;z-index:0}
+
+/* ── HEADER ── */
+.header{
+  position:relative;z-index:10;text-align:center;padding:10px 0 6px;
+  flex-shrink:0;
+}
+.header h1{
+  font-size:clamp(18px,2.8vw,28px);font-weight:900;letter-spacing:-0.5px;
+  background:linear-gradient(90deg,#7c3aed,#ec4899,#f59e0b);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  line-height:1.2;
+}
+.header .subtitle{font-size:clamp(11px,1.4vw,14px);color:#6d28d9;font-weight:700;margin-top:2px;letter-spacing:1px}
+
+/* ── PROGRESS BAR ── */
+.progress-wrap{
+  display:flex;align-items:center;gap:10px;padding:6px 24px;
+  position:relative;z-index:10;flex-shrink:0;
+}
+.step-pip{
+  width:clamp(28px,5vw,36px);height:clamp(28px,5vw,36px);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:clamp(11px,1.5vw,14px);
+  transition:all .4s cubic-bezier(.34,1.56,.64,1);cursor:default;
+  border:3px solid transparent;
+}
+.step-pip.done{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;border-color:#fff;box-shadow:0 0 14px rgba(139,92,246,.5)}
+.step-pip.active{background:#fff;color:#8b5cf6;border-color:#8b5cf6;box-shadow:0 0 18px rgba(139,92,246,.4);animation:pipPulse 1.5s ease-in-out infinite}
+.step-pip.todo{background:rgba(255,255,255,.5);color:#c4b5fd;border-color:#c4b5fd}
+.step-line{flex:1;height:3px;border-radius:2px;background:#e9d5ff;overflow:hidden;position:relative}
+.step-line-fill{height:100%;background:linear-gradient(90deg,#8b5cf6,#ec4899);border-radius:2px;width:0;transition:width .6s ease}
+@keyframes pipPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+
+/* ── MAIN CONTENT ── */
+.content{
+  position:relative;z-index:10;flex:1;width:100%;max-width:960px;
+  padding:0 16px 8px;display:flex;flex-direction:column;min-height:0;
+}
+.activity-panel{
+  background:var(--card-bg);backdrop-filter:blur(12px);
+  border-radius:20px;border:2px solid rgba(196,181,253,.5);
+  box-shadow:var(--shadow);
+  padding:clamp(12px,2vw,20px) clamp(14px,2.5vw,24px);
+  flex:1;display:flex;flex-direction:column;min-height:0;
+  animation:slideIn .5s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes slideIn{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:none}}
+
+.act-title{
+  font-size:clamp(13px,1.8vw,18px);font-weight:900;color:#7c3aed;
+  display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0;
+}
+.act-title .badge{
+  background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;
+  padding:2px 10px;border-radius:20px;font-size:clamp(10px,1.2vw,12px);font-weight:800;
+}
+.act-desc{font-size:clamp(11px,1.4vw,13px);color:#6d28d9;margin-bottom:10px;font-weight:600;flex-shrink:0}
+
+/* ── DRAG AREA ── */
+.drag-arena{flex:1;display:flex;gap:12px;min-height:0;overflow:hidden}
+.drag-source{
+  display:flex;flex-direction:column;gap:6px;
+  min-width:clamp(160px,22vw,220px);flex-shrink:0;
+}
+.drag-source-label{font-size:11px;font-weight:800;color:#9333ea;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
+.drag-targets{flex:1;display:flex;gap:10px;min-height:0}
+.drop-zone{
+  flex:1;border-radius:14px;padding:10px;
+  border:2.5px dashed;display:flex;flex-direction:column;gap:6px;
+  transition:all .25s;min-height:0;overflow-y:auto;
+}
+.drop-zone::-webkit-scrollbar{width:4px}
+.drop-zone::-webkit-scrollbar-thumb{background:#c4b5fd;border-radius:4px}
+.drop-zone.correct{border-color:#22c55e;background:rgba(134,239,172,.15)}
+.drop-zone.incorrect{border-color:#f87171;background:rgba(252,165,165,.12)}
+.drop-zone.compile{border-color:#f59e0b;background:rgba(253,230,138,.15)}
+.drop-zone.runtime{border-color:#ef4444;background:rgba(239,68,68,.1)}
+.drop-zone.ts-zone{border-color:#8b5cf6;background:rgba(196,181,253,.12)}
+.drop-zone-label{
+  font-size:clamp(10px,1.3vw,12px);font-weight:900;text-align:center;
+  padding:4px 6px;border-radius:8px;flex-shrink:0;
+}
+.drop-zone.correct .drop-zone-label{color:#15803d;background:rgba(134,239,172,.3)}
+.drop-zone.incorrect .drop-zone-label{color:#dc2626;background:rgba(252,165,165,.25)}
+.drop-zone.compile .drop-zone-label{color:#b45309;background:rgba(253,230,138,.35)}
+.drop-zone.runtime .drop-zone-label{color:#dc2626;background:rgba(239,68,68,.15)}
+.drop-zone.ts-zone .drop-zone-label{color:#6d28d9;background:rgba(196,181,253,.3)}
+.drop-zone.drag-over{transform:scale(1.02);box-shadow:0 0 20px rgba(139,92,246,.25)}
+
+/* ── DRAG CARDS ── */
+.drag-card{
+  background:#fff;border-radius:10px;padding:8px 10px;
+  border:2px solid #e9d5ff;cursor:grab;
+  font-family:'Space Mono',monospace;font-size:clamp(9px,1.2vw,11px);
+  line-height:1.5;color:#1e1b4b;
+  box-shadow:0 2px 8px rgba(139,92,246,.12);
+  transition:all .2s;user-select:none;flex-shrink:0;
+  position:relative;
+}
+.drag-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(139,92,246,.22);border-color:#c4b5fd}
+.drag-card.dragging{opacity:.4;transform:scale(.97);cursor:grabbing}
+.drag-card.dropped-correct{border-color:#22c55e;background:#f0fdf4}
+.drag-card.dropped-wrong{border-color:#f87171;background:#fef2f2;animation:shake .4s ease}
+.drag-card .card-emoji{font-size:14px;margin-right:4px}
+.drag-card .card-label{font-family:'Nunito',sans-serif;font-size:10px;font-weight:800;color:#8b5cf6;margin-bottom:3px;display:block}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+/* ── ACTIVITY 2 SPECIAL ── */
+.transform-area{flex:1;display:flex;gap:12px;min-height:0;flex-direction:column}
+.js-ts-row{display:flex;gap:12px;flex:1;min-height:0}
+.code-block{
+  flex:1;border-radius:14px;padding:10px 14px;
+  font-family:'Space Mono',monospace;font-size:clamp(10px,1.3vw,12px);
+  line-height:1.8;background:rgba(30,27,75,.06);
+  border:2px solid #e9d5ff;position:relative;overflow:hidden;
+}
+.code-block-label{
+  font-family:'Nunito',sans-serif;font-size:11px;font-weight:900;
+  margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px;
+}
+.code-line{display:flex;align-items:center;gap:6px;padding:2px 0}
+.code-kw{color:#8b5cf6;font-weight:700}
+.code-var{color:#1e1b4b}
+.code-op{color:#ec4899}
+.code-str{color:#059669}
+.code-num{color:#d97706}
+.code-type-slot{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:70px;height:22px;border-radius:6px;
+  border:2.5px dashed #c4b5fd;background:rgba(196,181,253,.15);
+  font-size:11px;color:#8b5cf6;font-weight:700;
+  transition:all .25s;vertical-align:middle;margin:0 2px;
+  cursor:default;
+}
+.code-type-slot.filled{border-style:solid;border-color:#8b5cf6;background:rgba(139,92,246,.12);color:#6d28d9}
+.code-type-slot.drag-over-slot{border-color:#ec4899;background:rgba(236,72,153,.1);transform:scale(1.08)}
+.annotation-pool{
+  display:flex;flex-wrap:wrap;gap:8px;padding:10px;
+  background:rgba(255,255,255,.7);border-radius:12px;
+  border:2px solid #e9d5ff;flex-shrink:0;align-items:center;
+}
+.annotation-pool-label{font-size:11px;font-weight:900;color:#9333ea;text-transform:uppercase;letter-spacing:.7px;width:100%;margin-bottom:2px}
+.ann-chip{
+  padding:5px 14px;border-radius:20px;font-family:'Space Mono',monospace;
+  font-size:clamp(10px,1.3vw,12px);font-weight:700;cursor:grab;
+  border:2px solid;transition:all .2s;
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
+}
+.ann-chip:hover{transform:translateY(-2px) scale(1.06)}
+.ann-chip.dragging{opacity:.35;cursor:grabbing}
+.ann-chip.used{opacity:.3;cursor:not-allowed;pointer-events:none}
+.chip-string{background:#d1fae5;border-color:#34d399;color:#065f46}
+.chip-number{background:#dbeafe;border-color:#60a5fa;color:#1e40af}
+.chip-boolean{background:#fce7f3;border-color:#f9a8d4;color:#9d174d}
+
+/* ── CHECK BUTTON ── */
+.check-btn{
+  align-self:flex-end;margin-top:8px;
+  padding:clamp(8px,1vw,12px) clamp(20px,3vw,32px);
+  border-radius:40px;border:none;cursor:pointer;font-family:'Nunito',sans-serif;
+  font-size:clamp(12px,1.5vw,15px);font-weight:900;
+  background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;
+  box-shadow:0 4px 16px rgba(139,92,246,.35);
+  transition:all .2s;flex-shrink:0;
+}
+.check-btn:hover{transform:translateY(-2px) scale(1.04);box-shadow:0 8px 24px rgba(139,92,246,.45)}
+.check-btn:active{transform:scale(.98)}
+.check-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* ── FEEDBACK BAR ── */
+.feedback-bar{
+  border-radius:10px;padding:8px 14px;font-size:clamp(11px,1.4vw,13px);font-weight:700;
+  display:none;text-align:center;flex-shrink:0;margin-top:6px;
+  animation:fadeIn .3s ease;
+}
+.feedback-bar.show{display:block}
+.feedback-bar.good{background:#d1fae5;color:#065f46;border:1.5px solid #6ee7b7}
+.feedback-bar.bad{background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ── POPUP ── */
+.popup-overlay{
+  position:fixed;inset:0;z-index:100;
+  background:rgba(88,28,135,.35);backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;
+  animation:fadeIn .3s ease;
+}
+.popup-overlay.hidden{display:none}
+.popup-box{
+  background:#fff;border-radius:24px;padding:clamp(20px,3vw,36px);
+  text-align:center;max-width:420px;width:90%;
+  box-shadow:0 20px 60px rgba(139,92,246,.3);
+  animation:popIn .4s cubic-bezier(.34,1.56,.64,1);
+  position:relative;overflow:hidden;
+}
+@keyframes popIn{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
+.popup-confetti{position:absolute;inset:0;pointer-events:none}
+.popup-emoji{font-size:clamp(40px,7vw,64px);display:block;margin-bottom:10px;animation:bounce .6s ease infinite alternate}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-10px)}}
+.popup-title{font-size:clamp(18px,3vw,26px);font-weight:900;color:#7c3aed;margin-bottom:8px}
+.popup-msg{font-size:clamp(12px,1.6vw,15px);color:#6d28d9;line-height:1.6;margin-bottom:18px;font-weight:600}
+.popup-btn{
+  padding:12px 36px;border-radius:40px;border:none;cursor:pointer;
+  font-family:'Nunito',sans-serif;font-size:clamp(13px,1.6vw,16px);font-weight:900;
+  background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;
+  box-shadow:0 6px 20px rgba(139,92,246,.4);transition:all .2s;display:inline-block;
+}
+.popup-btn:hover{transform:translateY(-2px) scale(1.05)}
+.popup-score{
+  display:inline-block;padding:6px 20px;border-radius:20px;
+  background:linear-gradient(135deg,#fde68a,#fdba74);
+  color:#92400e;font-weight:900;font-size:clamp(12px,1.5vw,14px);
+  margin-bottom:14px;
+}
+.final-stars{font-size:28px;margin-bottom:8px}
+
+/* ── SCROLLBAR FOR DZ ── */
+.drop-zone{scrollbar-width:thin;scrollbar-color:#c4b5fd transparent}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<div class="header">
+  <h1>✨ TypeScript — Why Types Matter ✨</h1>
+  <div class="subtitle">🦄 Drag, Drop &amp; Discover the Magic of Types 🌈</div>
+</div>
+
+<div class="progress-wrap">
+  <div class="step-pip active" id="pip1">1</div>
+  <div class="step-line"><div class="step-line-fill" id="line1"></div></div>
+  <div class="step-pip todo" id="pip2">2</div>
+  <div class="step-line"><div class="step-line-fill" id="line2"></div></div>
+  <div class="step-pip todo" id="pip3">3</div>
+</div>
+
+<div class="content">
+  <!-- ═══════════ ACTIVITY 1 ═══════════ -->
+  <div class="activity-panel" id="act1">
+    <div class="act-title">
+      <span class="badge">Activity 1</span>
+      <span>🔍 Bug Spotter</span>
+    </div>
+    <div class="act-desc">JavaScript can surprise you! Drag each code snippet to <strong>Correct Code</strong> or <strong>Buggy Code</strong>.</div>
+    <div class="drag-arena" id="arena1">
+      <div class="drag-source">
+        <div class="drag-source-label">📦 Code Snippets</div>
+        <div id="source1"></div>
+      </div>
+      <div class="drag-targets">
+        <div class="drop-zone correct" id="dz-correct" ondragover="dzOver(event,this)" ondragleave="dzLeave(this)" ondrop="doDrop(event,this,'act1')">
+          <div class="drop-zone-label">✅ Correct Code</div>
+        </div>
+        <div class="drop-zone incorrect" id="dz-incorrect" ondragover="dzOver(event,this)" ondragleave="dzLeave(this)" ondrop="doDrop(event,this,'act1')">
+          <div class="drop-zone-label">🐛 Buggy Code</div>
+        </div>
+      </div>
+    </div>
+    <div class="feedback-bar" id="fb1"></div>
+    <button class="check-btn" id="check1" onclick="checkAct1()">Check Answers ✨</button>
+  </div>
+
+  <!-- ═══════════ ACTIVITY 2 ═══════════ -->
+  <div class="activity-panel" id="act2" style="display:none">
+    <div class="act-title">
+      <span class="badge">Activity 2</span>
+      <span>🪄 Type Transformer</span>
+    </div>
+    <div class="act-desc">Drag the correct type annotations into the slots to convert JavaScript into TypeScript!</div>
+    <div class="transform-area">
+      <div class="js-ts-row">
+        <div class="code-block">
+          <div class="code-block-label" style="color:#d97706">⚡ JavaScript (Before)</div>
+          <div class="code-line"><span class="code-kw">let</span> <span class="code-var">studentName</span> <span class="code-op">=</span> <span class="code-str">"Ishaan"</span><span class="code-op">;</span></div>
+          <div class="code-line"><span class="code-kw">let</span> <span class="code-var">rollNumber</span> <span class="code-op">=</span> <span class="code-num">42</span><span class="code-op">;</span></div>
+          <div class="code-line"><span class="code-kw">let</span> <span class="code-var">isPresent</span> <span class="code-op">=</span> <span class="code-str" style="color:#8b5cf6">true</span><span class="code-op">;</span></div>
+          <div class="code-line"><span class="code-kw">let</span> <span class="code-var">marks</span> <span class="code-op">=</span> <span class="code-num">95.5</span><span class="code-op">;</span></div>
+          <div class="code-line"><span class="code-kw">let</span> <span class="code-var">subjectName</span> <span class="code-op">=</span> <span class="code-str">"Math"</span><span class="code-op">;</span></div>
+          <div class="code-line"><span class="code-kw">let</span> <span class="code-var">busRoute</span> <span class="code-op">=</span> <span class="code-num">7</span><span class="code-op">;</span></div>
+        </div>
+        <div class="code-block" style="background:rgba(139,92,246,.06);border-color:#c4b5fd">
+          <div class="code-block-label" style="color:#8b5cf6">💜 TypeScript (After)</div>
+          <div class="code-line"><span class="code-kw">let</span> <span class="code-var">studentName</span><span class="code-op">:</span> <span class="code-type-slot" id="slot0" ondragover="slotOver(event,this)" ondragleave="slotLeave(this)" ondrop="dropOnSlot(event,this,0)">type?</span> <span class="code-op">=</span> <span class="code-str">"Ishaan"</span><span class="code-op">;</span></div>
+          <div class="code-line"><span class="code-kw">let</span> <span class="code-var">rollNumber</span><span class="code-op">:</span> <span class="code-type-slot" id="slot1" ondragover="slotOver(event,this)" ondragleave="slotLeave(this)" ondrop="dropOnSlot(event,this,1)">type?</span> <span class="code-op">=</span> <span class="code-num">42</span><span class="code-op">;</span></div>
+          <div class="code-line"><span class="code-kw">let</span> <span class="code-var">isPresent</span><span class="code-op">:</span> <span class="code-type-slot" id="slot2" ondragover="slotOver(event,this)" ondragleave="slotLeave(this)" ondrop="dropOnSlot(event,this,2)">type?</span> <span class="code-op">=</span> <span class="code-str" style="color:#8b5cf6">true</span><span class="code-op">;</span></div>
+          <div class="code-line"><span class="code-kw">let</span> <span class="code-var">marks</span><span class="code-op">:</span> <span class="code-type-slot" id="slot3" ondragover="slotOver(event,this)" ondragleave="slotLeave(this)" ondrop="dropOnSlot(event,this,3)">type?</span> <span class="code-op">=</span> <span class="code-num">95.5</span><span class="code-op">;</span></div>
+          <div class="code-line"><span class="code-kw">let</span> <span class="code-var">subjectName</span><span class="code-op">:</span> <span class="code-type-slot" id="slot4" ondragover="slotOver(event,this)" ondragleave="slotLeave(this)" ondrop="dropOnSlot(event,this,4)">type?</span> <span class="code-op">=</span> <span class="code-str">"Math"</span><span class="code-op">;</span></div>
+          <div class="code-line"><span class="code-kw">let</span> <span class="code-var">busRoute</span><span class="code-op">:</span> <span class="code-type-slot" id="slot5" ondragover="slotOver(event,this)" ondragleave="slotLeave(this)" ondrop="dropOnSlot(event,this,5)">type?</span> <span class="code-op">=</span> <span class="code-num">7</span><span class="code-op">;</span></div>
+        </div>
+      </div>
+      <div class="annotation-pool" id="pool2">
+        <div class="annotation-pool-label">🎯 Type Annotations — Drag to the slots above!</div>
+      </div>
+    </div>
+    <div class="feedback-bar" id="fb2"></div>
+    <button class="check-btn" id="check2" onclick="checkAct2()">Check Answers ✨</button>
+  </div>
+
+  <!-- ═══════════ ACTIVITY 3 ═══════════ -->
+  <div class="activity-panel" id="act3" style="display:none">
+    <div class="act-title">
+      <span class="badge">Activity 3</span>
+      <span>⏱️ Error Timeline</span>
+    </div>
+    <div class="act-desc">TypeScript catches bugs BEFORE you run! Drag each example to when you'd find the error.</div>
+    <div class="drag-arena" id="arena3">
+      <div class="drag-source">
+        <div class="drag-source-label">🧩 Error Examples</div>
+        <div id="source3"></div>
+      </div>
+      <div class="drag-targets">
+        <div class="drop-zone compile" id="dz-compile" ondragover="dzOver(event,this)" ondragleave="dzLeave(this)" ondrop="doDrop(event,this,'act3')">
+          <div class="drop-zone-label">🔵 TypeScript Catches It — Before Running</div>
+        </div>
+        <div class="drop-zone runtime" id="dz-runtime" ondragover="dzOver(event,this)" ondragleave="dzLeave(this)" ondrop="doDrop(event,this,'act3')">
+          <div class="drop-zone-label">🔴 Only Found — While Running</div>
+        </div>
+      </div>
+    </div>
+    <div class="feedback-bar" id="fb3"></div>
+    <button class="check-btn" id="check3" onclick="checkAct3()">Check Answers ✨</button>
+  </div>
+</div>
+
+<!-- ═══════════ POPUPS ═══════════ -->
+<div class="popup-overlay hidden" id="popup1">
+  <div class="popup-box">
+    <canvas class="popup-confetti" id="conf1" width="420" height="400"></canvas>
+    <span class="popup-emoji">🎉</span>
+    <div class="popup-title">Bug Spotter — Unlocked!</div>
+    <div class="popup-score" id="score1"></div>
+    <div class="popup-msg">You found which JavaScript code hides sneaky bugs! TypeScript labels everything so no bug can hide. Ready to become a Type Transformer? 🪄</div>
+    <button class="popup-btn" onclick="goAct(2)">Next: Type Transformer →</button>
+  </div>
+</div>
+
+<div class="popup-overlay hidden" id="popup2">
+  <div class="popup-box">
+    <canvas class="popup-confetti" id="conf2" width="420" height="400"></canvas>
+    <span class="popup-emoji">🦄</span>
+    <div class="popup-title">Type Transformer — Complete!</div>
+    <div class="popup-score" id="score2"></div>
+    <div class="popup-msg">Amazing! You just wrote TypeScript! Each annotation is like a label on a tiffin box — it tells the code exactly what belongs inside. One more challenge! ⏱️</div>
+    <button class="popup-btn" onclick="goAct(3)">Final Activity: Error Timeline →</button>
+  </div>
+</div>
+
+<div class="popup-overlay hidden" id="popupFinal">
+  <div class="popup-box" style="max-width:480px">
+    <canvas class="popup-confetti" id="confFinal" width="480" height="420"></canvas>
+    <div class="final-stars">⭐⭐⭐</div>
+    <div class="popup-title">🎊 TypeScript Master! 🎊</div>
+    <div class="popup-score" id="scoreFinal"></div>
+    <div class="popup-msg" id="finalMsg"></div>
+    <button class="popup-btn" onclick="restartAll()">🔄 Play Again!</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// BACKGROUND CANVAS — floating sparkles, stars, clouds
+// ═══════════════════════════════════════════════════
+(function(){
+  const canvas=document.getElementById('bgCanvas');
+  const ctx=canvas.getContext('2d');
+  let W,H,particles=[];
+  const COLORS=['#f9a8d4','#c4b5fd','#93c5fd','#86efac','#fde68a','#fdba74','#fff'];
+
+  function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;if(!particles.length)init()}
+  function rand(a,b){return a+Math.random()*(b-a)}
+  function init(){
+    particles=[];
+    const N=Math.floor(W*H/9000)+30;
+    for(let i=0;i<N;i++) particles.push(makeParticle());
+  }
+  function makeParticle(fromBottom){
+    const type=Math.random()<.55?'sparkle':Math.random()<.6?'star':'cloud';
+    return{
+      x:rand(0,W),y:fromBottom?H+20:rand(0,H),
+      size:type==='cloud'?rand(40,90):rand(3,type==='star'?10:6),
+      speed:rand(.15,.5)*(type==='cloud'?.4:1),
+      dx:rand(-.3,.3)*(type==='cloud'?-.8:1),
+      alpha:rand(.25,.7),
+      rot:rand(0,Math.PI*2),
+      rotSpeed:rand(-.01,.01),
+      type,color:COLORS[Math.floor(Math.random()*COLORS.length)],
+      phase:rand(0,Math.PI*2),freq:rand(.01,.03)
+    };
+  }
+  function drawStar(ctx,x,y,r,col,alpha){
+    ctx.save();ctx.globalAlpha=alpha;ctx.fillStyle=col;
+    ctx.beginPath();
+    for(let i=0;i<5;i++){
+      const a=i*Math.PI*2/5-Math.PI/2;
+      const a2=a+Math.PI/5;
+      ctx.lineTo(x+r*Math.cos(a),y+r*Math.sin(a));
+      ctx.lineTo(x+r*.4*Math.cos(a2),y+r*.4*Math.sin(a2));
+    }
+    ctx.closePath();ctx.fill();
+    ctx.shadowBlur=8;ctx.shadowColor=col;ctx.fill();
+    ctx.restore();
+  }
+  function drawSparkle(ctx,x,y,r,col,alpha,rot){
+    ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.rotate(rot);
+    ctx.fillStyle=col;ctx.shadowBlur=6;ctx.shadowColor=col;
+    for(let i=0;i<4;i++){
+      ctx.save();ctx.rotate(i*Math.PI/2);
+      ctx.beginPath();ctx.moveTo(0,0);ctx.quadraticCurveTo(r*.3,r*.3,0,r);ctx.quadraticCurveTo(-r*.3,r*.3,0,0);
+      ctx.closePath();ctx.fill();ctx.restore();
+    }
+    ctx.restore();
+  }
+  function drawCloud(ctx,x,y,w,alpha){
+    ctx.save();ctx.globalAlpha=alpha*.6;ctx.fillStyle='rgba(255,255,255,.85)';
+    ctx.shadowBlur=18;ctx.shadowColor='rgba(196,181,253,.4)';
+    ctx.beginPath();
+    ctx.arc(x,y,w*.28,0,Math.PI*2);
+    ctx.arc(x+w*.22,y-w*.13,w*.22,0,Math.PI*2);
+    ctx.arc(x+w*.45,y,w*.26,0,Math.PI*2);
+    ctx.arc(x+w*.22,y+w*.12,w*.2,0,Math.PI*2);
+    ctx.closePath();ctx.fill();
+    ctx.restore();
+  }
+
+  let t=0;
+  function loop(){
+    ctx.clearRect(0,0,W,H);
+    t++;
+    particles.forEach((p,i)=>{
+      const wobble=Math.sin(t*p.freq+p.phase)*1.5;
+      p.x+=p.dx+wobble*.2;p.y-=p.speed;p.rot+=p.rotSpeed;
+      if(p.y<-100||(p.x<-120||p.x>W+120)){
+        particles[i]=makeParticle(true);return;
+      }
+      if(p.type==='sparkle') drawSparkle(ctx,p.x,p.y,p.size,p.color,p.alpha,p.rot);
+      else if(p.type==='star') drawStar(ctx,p.x,p.y,p.size,p.color,p.alpha);
+      else drawCloud(ctx,p.x,p.y,p.size,p.alpha);
+    });
+    requestAnimationFrame(loop);
+  }
+  window.addEventListener('resize',resize);
+  resize();loop();
+})();
+
+// ═══════════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════════
+const ACT1_CARDS=[
+  {id:'a1c1',label:'😮 5 + "5" = ?',code:'let a = 5 + "5";\n// Result: "55" 😱',category:'incorrect',tip:'Number + String = String!'},
+  {id:'a1c2',label:'✅ Safe math',code:'let score = 10 + 20;\n// Result: 30 ✓',category:'correct',tip:'Both are numbers, safe!'},
+  {id:'a1c3',label:'😮 City + Number?',code:'let city = "Delhi";\ncity = 42;\n// 😱 Oops!',category:'incorrect',tip:'You changed the type!'},
+  {id:'a1c4',label:'✅ Clear boolean',code:'let isHoliday = true;\n// Clearly true/false ✓',category:'correct',tip:'Boolean is always safe!'},
+  {id:'a1c5',label:'😮 Undefined trap',code:'let name;\nconsole.log(name);\n// undefined 😱',category:'incorrect',tip:'No value assigned!'},
+  {id:'a1c6',label:'✅ Rupee price',code:'let price = 250;\n// ₹250 — number ✓',category:'correct',tip:'Clear number value!'},
+];
+const ACT2_SLOTS=[
+  {id:0,correct:'string',val:'"Ishaan"'},
+  {id:1,correct:'number',val:'42'},
+  {id:2,correct:'boolean',val:'true'},
+  {id:3,correct:'number',val:'95.5'},
+  {id:4,correct:'string',val:'"Math"'},
+  {id:5,correct:'number',val:'7'},
+];
+const ACT2_CHIPS=[
+  {type:'string',count:2},{type:'number',count:3},{type:'boolean',count:1}
+];
+const ACT3_CARDS=[
+  {id:'a3c1',label:'🔵 TypeScript Type Error',code:'let age: number = "twenty";\n// TS Error: string not assignable',category:'compile',tip:'TS catches wrong type!'},
+  {id:'a3c2',label:'🔴 Division by Zero',code:'let x = 10 / 0;\n// Infinity — only at runtime',category:'runtime',tip:'JS just returns Infinity'},
+  {id:'a3c3',label:'🔵 Wrong type assigned',code:'let isActive: boolean = 42;\n// TS yells before running!',category:'compile',tip:'TS sees it immediately'},
+  {id:'a3c4',label:'🔴 Undefined property',code:'let obj = {};\nconsole.log(obj.name);\n// undefined — at runtime',category:'runtime',tip:'Only when you run it'},
+  {id:'a3c5',label:'🔵 String to number slot',code:'let marks: number = "A+";\n// TS Error — compile time!',category:'compile',tip:'TS is your guardian'},
+  {id:'a3c6',label:'🔴 Fetch fail',code:'fetch("bad-url")\n  .then(r => r.json())\n// Error only when run',category:'runtime',tip:'Network errors = runtime'},
+];
+
+let scores={a1:0,a2:0,a3:0};
+let act2Answers={};
+
+// ═══════════════════════════════════════════════════
+// DRAG HELPERS
+// ═══════════════════════════════════════════════════
+let dragging=null;
+function dzOver(e,el){e.preventDefault();el.classList.add('drag-over')}
+function dzLeave(el){el.classList.remove('drag-over')}
+function slotOver(e,el){e.preventDefault();el.classList.add('drag-over-slot')}
+function slotLeave(el){el.classList.remove('drag-over-slot')}
+
+function makeDragCard(card,act){
+  const div=document.createElement('div');
+  div.className='drag-card';div.id=card.id;div.draggable=true;
+  div.innerHTML=`<span class="card-label">${card.label}</span><pre style="white-space:pre-wrap;font-size:inherit">${card.code}</pre>`;
+  div.addEventListener('dragstart',e=>{dragging={el:div,card,act};div.classList.add('dragging');e.dataTransfer.effectAllowed='move'});
+  div.addEventListener('dragend',()=>div.classList.remove('dragging'));
+  return div;
+}
+function makeChip(type,idx){
+  const span=document.createElement('span');
+  span.className=`ann-chip chip-${type}`;
+  span.draggable=true;span.dataset.type=type;span.dataset.idx=idx;
+  span.textContent=type;
+  span.id=`chip-${type}-${idx}`;
+  span.addEventListener('dragstart',e=>{dragging={chip:span,type};span.classList.add('dragging');e.dataTransfer.effectAllowed='move'});
+  span.addEventListener('dragend',()=>span.classList.remove('dragging'));
+  return span;
+}
+
+function doDrop(e,zone,act){
+  e.preventDefault();zone.classList.remove('drag-over');
+  if(!dragging||dragging.act!==act) return;
+  const {el,card}=dragging;
+  zone.appendChild(el);
+  el.dataset.droppedZone=zone.id;
+  dragging=null;
+}
+
+function dropOnSlot(e,slot,slotIdx){
+  e.preventDefault();slot.classList.remove('drag-over-slot');
+  if(!dragging||!dragging.chip) return;
+  const {chip,type}=dragging;
+  // If slot had a previous chip, restore it
+  const prev=slot.dataset.chipId;
+  if(prev){
+    const old=document.getElementById(prev);
+    if(old){old.classList.remove('used');old.style.display=''}
+  }
+  slot.textContent=type;
+  slot.classList.add('filled');
+  slot.dataset.chipId=chip.id;
+  act2Answers[slotIdx]=type;
+  chip.classList.add('used');
+  dragging=null;
+}
+
+// ═══════════════════════════════════════════════════
+// BUILD ACTIVITIES
+// ═══════════════════════════════════════════════════
+function buildAct1(){
+  const src=document.getElementById('source1');
+  src.innerHTML='';
+  ACT1_CARDS.forEach(c=>src.appendChild(makeDragCard(c,'act1')));
+}
+function buildAct2(){
+  const pool=document.getElementById('pool2');
+  // keep label
+  const label=pool.querySelector('.annotation-pool-label');
+  pool.innerHTML='';pool.appendChild(label);
+  ACT2_CHIPS.forEach(({type,count})=>{
+    for(let i=0;i<count;i++) pool.appendChild(makeChip(type,`${type}${i}`));
+  });
+  // reset slots
+  for(let i=0;i<6;i++){
+    const s=document.getElementById(`slot${i}`);
+    s.textContent='type?';s.classList.remove('filled');delete s.dataset.chipId;
+  }
+  act2Answers={};
+}
+function buildAct3(){
+  const src=document.getElementById('source3');
+  src.innerHTML='';
+  ACT3_CARDS.forEach(c=>src.appendChild(makeDragCard(c,'act3')));
+}
+
+// ═══════════════════════════════════════════════════
+// CHECKS
+// ═══════════════════════════════════════════════════
+function checkAct1(){
+  let right=0,total=ACT1_CARDS.length;
+  ACT1_CARDS.forEach(c=>{
+    const el=document.getElementById(c.id);
+    const zone=el?.parentElement?.id;
+    const expected=c.category==='correct'?'dz-correct':'dz-incorrect';
+    if(zone===expected){el.classList.add('dropped-correct');right++}
+    else el.classList.add('dropped-wrong');
+  });
+  scores.a1=right;
+  const fb=document.getElementById('fb1');
+  fb.className='feedback-bar show '+(right===total?'good':'bad');
+  fb.textContent=right===total?`Perfect! ${right}/${total} — All bugs spotted! 🎉`:`${right}/${total} correct — Some are still hiding! Check the wrong ones.`;
+  if(right>=total*0.6){
+    document.getElementById('check1').disabled=true;
+    setTimeout(()=>{showPopup('popup1',`${right}/${total} Bugs Found!`,'conf1');},900);
+  }
+}
+function checkAct2(){
+  let right=0;
+  ACT2_SLOTS.forEach(s=>{
+    const slot=document.getElementById(`slot${s.id}`);
+    if(act2Answers[s.id]===s.correct){slot.style.background='rgba(134,239,172,.2)';slot.style.borderColor='#22c55e';slot.style.color='#065f46';right++}
+    else{slot.style.background='rgba(252,165,165,.2)';slot.style.borderColor='#f87171';slot.style.color='#dc2626'}
+  });
+  scores.a2=right;
+  const fb=document.getElementById('fb2');
+  fb.className='feedback-bar show '+(right===6?'good':'bad');
+  fb.textContent=right===6?`All 6 types correct! You speak TypeScript! 💜`:`${right}/6 correct — Try the remaining slots!`;
+  if(right>=4){
+    document.getElementById('check2').disabled=true;
+    setTimeout(()=>{showPopup('popup2',`${right}/6 Types Correct!`,'conf2');},900);
+  }
+}
+function checkAct3(){
+  let right=0,total=ACT3_CARDS.length;
+  ACT3_CARDS.forEach(c=>{
+    const el=document.getElementById(c.id);
+    const zone=el?.parentElement?.id;
+    const expected=c.category==='compile'?'dz-compile':'dz-runtime';
+    if(zone===expected){el.classList.add('dropped-correct');right++}
+    else el.classList.add('dropped-wrong');
+  });
+  scores.a3=right;
+  const fb=document.getElementById('fb3');
+  fb.className='feedback-bar show '+(right===total?'good':'bad');
+  fb.textContent=right===total?`Brilliant! ${right}/${total} — You understand when errors happen! 🌟`:`${right}/${total} — Keep thinking about WHEN each error is found!`;
+  if(right>=total*0.6){
+    document.getElementById('check3').disabled=true;
+    setTimeout(showFinal,900);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// POPUP / PROGRESSION
+// ═══════════════════════════════════════════════════
+function showPopup(id,scoreText,confId){
+  document.getElementById(id).classList.remove('hidden');
+  document.getElementById(id).querySelector('.popup-score').textContent=scoreText;
+  launchConfetti(confId);
+}
+function goAct(n){
+  document.getElementById('popup1').classList.add('hidden');
+  document.getElementById('popup2').classList.add('hidden');
+  document.getElementById('act1').style.display='none';
+  document.getElementById('act2').style.display='none';
+  document.getElementById('act3').style.display='none';
+  document.getElementById(`act${n}`).style.display='flex';
+  updateProgress(n);
+  if(n===2){buildAct2();}
+  if(n===3){buildAct3();}
+}
+function showFinal(){
+  const total=scores.a1+scores.a2+scores.a3;
+  const max=ACT1_CARDS.length+6+ACT3_CARDS.length;
+  const pct=Math.round(total/max*100);
+  document.getElementById('scoreFinal').textContent=`Total: ${total}/${max} — ${pct}%`;
+  const msgs=[
+    'Superstar! You have truly mastered the magic of TypeScript types! 🦄✨',
+    'Fantastic work! TypeScript would love to have you as its friend! 🌈',
+    'Great effort! Every detective gets better with practice — keep exploring! 🔍'
+  ];
+  document.getElementById('finalMsg').textContent=pct>=90?msgs[0]:pct>=70?msgs[1]:msgs[2];
+  document.getElementById('popupFinal').classList.remove('hidden');
+  launchConfetti('confFinal');
+}
+function updateProgress(n){
+  [1,2,3].forEach(i=>{
+    const pip=document.getElementById(`pip${i}`);
+    pip.className='step-pip '+(i<n?'done':i===n?'active':'todo');
+    if(i<3)document.getElementById(`line${i}`).style.width=i<n?'100%':'0';
+  });
+}
+function restartAll(){
+  document.getElementById('popupFinal').classList.add('hidden');
+  scores={a1:0,a2:0,a3:0};act2Answers={};
+  document.getElementById('check1').disabled=false;
+  document.getElementById('check2').disabled=false;
+  document.getElementById('check3').disabled=false;
+  ['fb1','fb2','fb3'].forEach(id=>{const el=document.getElementById(id);el.className='feedback-bar';el.textContent='';});
+  buildAct1();buildAct2();buildAct3();
+  document.getElementById('act2').style.display='none';
+  document.getElementById('act3').style.display='none';
+  document.getElementById('act1').style.display='flex';
+  updateProgress(1);
+}
+
+// ═══════════════════════════════════════════════════
+// CONFETTI
+// ═══════════════════════════════════════════════════
+function launchConfetti(canvasId){
+  const canvas=document.getElementById(canvasId);
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
+  const parts=[];
+  const cols=['#f9a8d4','#c4b5fd','#93c5fd','#fde68a','#86efac','#fdba74','#ec4899','#8b5cf6'];
+  for(let i=0;i<80;i++) parts.push({
+    x:W/2+(Math.random()-.5)*40,y:H/2,
+    vx:(Math.random()-.5)*12,vy:Math.random()*-12-3,
+    size:Math.random()*8+4,col:cols[Math.floor(Math.random()*cols.length)],
+    rot:Math.random()*360,rotS:(Math.random()-.5)*8,alpha:1,life:0
+  });
+  function step(){
+    ctx.clearRect(0,0,W,H);
+    let alive=false;
+    parts.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;p.vy+=.35;p.rot+=p.rotS;p.life++;
+      p.alpha=Math.max(0,1-p.life/80);
+      if(p.alpha>0){alive=true;ctx.save();ctx.globalAlpha=p.alpha;ctx.translate(p.x,p.y);ctx.rotate(p.rot*Math.PI/180);ctx.fillStyle=p.col;ctx.fillRect(-p.size/2,-p.size/4,p.size,p.size/2);ctx.restore();}
+    });
+    if(alive) requestAnimationFrame(step);
+  }
+  step();
+}
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+buildAct1();
+</script>
+</body>
+</html>

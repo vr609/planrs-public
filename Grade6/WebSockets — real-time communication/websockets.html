@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebSockets — Real-Time Communication</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Philosopher:wght@400;700&family=Quicksand:wght@400;500;600;700&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --forest:#0A1F0F;
+  --forest2:#0D2914;
+  --moss:#1A3D20;
+  --glow:#7FFF9A;
+  --glow2:#AFFFB8;
+  --fairy:#FFD700;
+  --fairy2:#FFF176;
+  --violet:#9B59FF;
+  --violet2:#C5A3FF;
+  --ember:#FF7043;
+  --ember2:#FFAB91;
+  --teal:#00E5CC;
+  --teal2:#80FFF0;
+  --rose:#FF4F9A;
+  --rose2:#FF9DC8;
+  --card:rgba(10,31,15,0.92);
+  --card2:rgba(14,42,20,0.88);
+  --text:#D4FFDF;
+  --text2:#7CB88A;
+  --border:rgba(127,255,154,0.2);
+  --r:12px;
+}
+html,body{width:100vw;height:100vh;overflow:hidden;font-family:'Quicksand',sans-serif;background:var(--forest);color:var(--text);user-select:none}
+
+#bgc{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+#app{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;pointer-events:none}
+
+/* HEADER */
+#hdr{
+  pointer-events:auto;height:54px;flex-shrink:0;
+  background:linear-gradient(90deg,rgba(10,31,15,0.98),rgba(127,255,154,0.06),rgba(10,31,15,0.98));
+  border-bottom:1.5px solid rgba(127,255,154,0.35);
+  display:flex;align-items:center;justify-content:space-between;padding:0 18px;
+  box-shadow:0 2px 30px rgba(127,255,154,0.1),0 0 60px rgba(127,255,154,0.04);
+}
+.hl{display:flex;align-items:center;gap:11px}
+.hicon{width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#FFD700,#FF8C00);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 18px rgba(255,215,0,0.6),0 0 35px rgba(255,215,0,0.2);flex-shrink:0;animation:fairyBob 3s ease-in-out infinite}
+@keyframes fairyBob{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-4px) scale(1.05)}}
+.htitle{font-family:'Philosopher',serif;font-size:15px;font-weight:700;letter-spacing:1.5px;color:var(--text);text-transform:uppercase}
+.htitle span{color:var(--glow)}
+.hbadge{background:rgba(127,255,154,0.08);border:1px solid rgba(127,255,154,0.35);color:var(--glow);font-family:'Philosopher',serif;font-size:9px;padding:3px 10px;border-radius:20px;letter-spacing:1.5px}
+.pwrap{display:flex;align-items:center;gap:7px}
+.ps{width:26px;height:26px;border-radius:50%;border:2px solid rgba(124,184,138,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text2);transition:all 0.4s;font-family:'Philosopher',serif}
+.ps.active{border-color:var(--glow);background:var(--glow);color:var(--forest);box-shadow:0 0 14px rgba(127,255,154,0.6)}
+.ps.done{border-color:var(--fairy);background:var(--fairy);color:var(--forest)}
+.pl{width:22px;height:2px;background:rgba(124,184,138,0.15);border-radius:2px;transition:background 0.4s}
+.pl.done{background:var(--fairy)}
+
+/* SCREENS */
+.scr{position:fixed;inset:54px 0 0 0;display:none;flex-direction:column;padding:10px 16px 7px;pointer-events:auto;overflow:hidden}
+.scr.on{display:flex}
+.atitle{font-family:'Philosopher',serif;font-size:15px;font-weight:700;color:var(--glow);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:2px;display:flex;align-items:center;gap:8px}
+.asub{font-size:11.5px;color:var(--text2);margin-bottom:8px;font-weight:600}
+
+/* POOL */
+.pool{display:flex;flex-wrap:wrap;gap:6px;padding:7px 10px;background:rgba(10,31,15,0.8);border:1.5px dashed rgba(127,255,154,0.2);border-radius:var(--r);margin-bottom:8px;min-height:40px}
+.chip{padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;cursor:grab;transition:transform 0.15s,box-shadow 0.15s,opacity 0.2s;white-space:nowrap;display:flex;align-items:center;gap:5px;border:1.5px solid transparent;font-family:'Quicksand',sans-serif}
+.chip:active{cursor:grabbing}
+.chip.drag{opacity:0.25;transform:scale(0.87)}
+.chip:hover{transform:scale(1.06)}
+.chip.glow{background:rgba(127,255,154,0.12);border-color:rgba(127,255,154,0.4);color:var(--glow2)}
+.chip.fairy{background:rgba(255,215,0,0.12);border-color:rgba(255,215,0,0.4);color:var(--fairy2)}
+.chip.violet{background:rgba(155,89,255,0.12);border-color:rgba(155,89,255,0.4);color:var(--violet2)}
+.chip.teal{background:rgba(0,229,204,0.1);border-color:rgba(0,229,204,0.35);color:var(--teal2)}
+.chip.ember{background:rgba(255,112,67,0.1);border-color:rgba(255,112,67,0.35);color:var(--ember2)}
+.chip.rose{background:rgba(255,79,154,0.1);border-color:rgba(255,79,154,0.35);color:var(--rose2)}
+
+/* DROP ZONES */
+.dz{border:1.5px dashed rgba(127,255,154,0.18);border-radius:var(--r);min-height:38px;padding:6px 8px;transition:border-color 0.2s,background 0.2s;display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start;position:relative;background:rgba(10,31,15,0.5)}
+.dz.over{border-color:var(--glow);background:rgba(127,255,154,0.06)}
+.dzl{position:absolute;top:-9px;left:10px;font-size:8px;color:var(--text2);background:var(--forest2);padding:0 5px;border-radius:8px;letter-spacing:0.5px;font-weight:700;white-space:nowrap}
+
+/* CARDS */
+.card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:6px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.3),inset 0 1px 0 rgba(127,255,154,0.08)}
+.ctitle{font-family:'Philosopher',serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:7px;padding-bottom:6px;border-bottom:1px solid rgba(127,255,154,0.12);flex-shrink:0}
+
+/* ACT 1: HTTP vs WS */
+.cmpgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1;min-height:0}
+.flow-panel{display:flex;flex-direction:column;gap:6px;overflow:hidden}
+.flow-lane{background:rgba(10,31,15,0.7);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;flex:1;min-height:0;overflow-y:auto;border:1.5px solid rgba(127,255,154,0.1)}
+.flow-slot{border:1.5px dashed rgba(127,255,154,0.2);border-radius:8px;min-height:34px;display:flex;align-items:center;padding:0 10px;gap:7px;transition:all 0.2s;flex-shrink:0;background:rgba(10,31,15,0.4)}
+.flow-slot.over{border-color:var(--glow);background:rgba(127,255,154,0.07)}
+.flow-slot.filled{border-style:solid;border-color:rgba(127,255,154,0.3);background:rgba(127,255,154,0.05)}
+.flow-slot.ok{border-color:var(--glow);background:rgba(127,255,154,0.1)}
+.flow-slot.ng{border-color:var(--rose);background:rgba(255,79,154,0.07)}
+.fnum{width:18px;height:18px;border-radius:50%;background:rgba(127,255,154,0.15);border:1px solid rgba(127,255,154,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:var(--glow);flex-shrink:0;font-family:'Philosopher',serif}
+.fhint{font-size:9px;color:rgba(212,255,223,0.2);font-style:italic}
+.panel-badge{border-radius:8px;padding:5px 10px;font-size:10px;font-weight:800;text-align:center;flex-shrink:0;font-family:'Philosopher',serif;letter-spacing:0.5px}
+.pb-http{background:rgba(255,112,67,0.15);border:1.5px solid rgba(255,112,67,0.35);color:var(--ember2)}
+.pb-ws{background:rgba(127,255,154,0.12);border:1.5px solid rgba(127,255,154,0.35);color:var(--glow2)}
+.compare-bar{display:flex;gap:8px;align-items:center;flex-shrink:0}
+.cbar-item{flex:1;background:rgba(10,31,15,0.6);border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-size:10px;color:var(--text2);font-weight:600;text-align:center}
+.cbar-item strong{color:var(--text);display:block;font-size:11px;margin-bottom:2px}
+
+/* ACT 2: Socket.io workflow */
+.wfgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1;min-height:0}
+.wf-slots{display:flex;flex-direction:column;gap:5px;flex:1;overflow-y:auto}
+.wfslot{border:1.5px dashed rgba(0,229,204,0.2);border-radius:8px;min-height:36px;display:flex;align-items:center;padding:0 10px;gap:8px;transition:all 0.2s;flex-shrink:0;background:rgba(10,31,15,0.4)}
+.wfslot.over{border-color:var(--teal);background:rgba(0,229,204,0.06)}
+.wfslot.filled{border-style:solid;border-color:rgba(0,229,204,0.35);background:rgba(0,229,204,0.04)}
+.wfslot.ok{border-color:var(--glow);background:rgba(127,255,154,0.06)}
+.wfslot.ng{border-color:var(--rose);background:rgba(255,79,154,0.06)}
+.wnum{width:18px;height:18px;border-radius:50%;background:rgba(0,229,204,0.15);border:1px solid rgba(0,229,204,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:var(--teal);flex-shrink:0;font-family:'Philosopher',serif}
+
+.wf-visual{display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.wf-progress{background:rgba(10,31,15,0.7);border:1px solid rgba(0,229,204,0.2);border-radius:8px;padding:8px 11px;flex-shrink:0}
+.wf-prog-label{font-size:9px;font-weight:700;color:var(--text2);margin-bottom:5px;font-family:'Philosopher',serif;letter-spacing:0.5px;text-transform:uppercase}
+.wf-bar-wrap{height:8px;background:rgba(0,229,204,0.12);border-radius:20px;overflow:hidden}
+.wf-bar{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--teal),var(--glow),var(--fairy));width:0%;transition:width 0.5s cubic-bezier(0.34,1.56,0.64,1)}
+.wf-steps-vis{display:flex;flex-direction:column;gap:4px;flex:1;overflow-y:auto}
+.wfvstep{display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:7px;background:rgba(10,31,15,0.5);border:1px solid rgba(0,229,204,0.1);font-size:10px;font-weight:700;color:var(--text2);transition:all 0.3s;flex-shrink:0}
+.wfvstep.lit{background:rgba(127,255,154,0.08);border-color:rgba(127,255,154,0.25);color:var(--text)}
+.wfvstep .wfvi{font-size:15px;flex-shrink:0}
+.wfvstep .wfchk{margin-left:auto;opacity:0;transition:opacity 0.3s;font-size:13px}
+.wfvstep.lit .wfchk{opacity:1}
+
+/* ACT 3: Live chat diagram */
+.diagramgrid{display:grid;grid-template-columns:1fr 1.2fr;gap:10px;flex:1;min-height:0}
+.diagram-canvas{position:relative;background:rgba(10,31,15,0.75);border:1.5px solid rgba(127,255,154,0.18);border-radius:var(--r);overflow:hidden}
+.diagram-svg{position:absolute;inset:0;width:100%;height:100%}
+.dnode{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:4px;z-index:5}
+.dnode-body{width:62px;height:62px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:2px solid transparent;transition:all 0.3s;cursor:default}
+.dnode-body .dni{font-size:22px}
+.dnode-body .dnn{font-size:8px;font-weight:700;font-family:'Philosopher',serif;letter-spacing:0.3px}
+.dnode.empty .dnode-body{border-style:dashed;border-color:rgba(127,255,154,0.2);background:rgba(10,31,15,0.5)}
+.dnode.empty .dnn{color:rgba(212,255,223,0.2)}
+.dnode.placed-user .dnode-body{background:rgba(155,89,255,0.15);border-color:rgba(155,89,255,0.5);box-shadow:0 0 16px rgba(155,89,255,0.3)}
+.dnode.placed-user .dnn{color:var(--violet2)}
+.dnode.placed-server .dnode-body{background:rgba(0,229,204,0.12);border-color:rgba(0,229,204,0.45);box-shadow:0 0 16px rgba(0,229,204,0.3)}
+.dnode.placed-server .dnn{color:var(--teal2)}
+.dnode.placed-msg .dnode-body{background:rgba(255,215,0,0.12);border-color:rgba(255,215,0,0.4);box-shadow:0 0 14px rgba(255,215,0,0.25);width:70px;height:38px}
+.dnode.placed-msg .dnn{color:var(--fairy2)}
+
+.msg-flow-line{stroke-dasharray:6,4;animation:flowAnim 1s linear infinite}
+@keyframes flowAnim{to{stroke-dashoffset:-20}}
+
+.node-slot{position:absolute;transform:translate(-50%,-50%);width:68px;min-height:44px;border:1.5px dashed rgba(127,255,154,0.2);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:rgba(10,31,15,0.5);transition:all 0.2s;z-index:6}
+.node-slot.over{border-color:var(--glow);background:rgba(127,255,154,0.08)}
+.node-slot.placed{border-style:solid}
+.node-slot.ns-user{border-color:rgba(155,89,255,0.3)}
+.node-slot.ns-server{border-color:rgba(0,229,204,0.3)}
+.node-slot.ns-msg{border-color:rgba(255,215,0,0.25);width:80px;min-height:32px}
+.node-slot .ns-hint{font-size:8px;color:rgba(212,255,223,0.2);font-style:italic;text-align:center}
+
+.conn-lines-wrap{flex:1;min-height:0;overflow:hidden;position:relative}
+.conn-status{background:rgba(10,31,15,0.7);border:1px solid rgba(127,255,154,0.15);border-radius:7px;padding:7px 10px;font-size:10px;color:var(--text2);line-height:1.7;flex-shrink:0;font-weight:600}
+.conn-status strong{color:var(--text)}
+
+/* BUTTONS */
+.btn{padding:8px 18px;border-radius:20px;font-family:'Philosopher',serif;font-size:12px;font-weight:700;letter-spacing:0.8px;cursor:pointer;border:none;transition:all 0.2s;text-transform:uppercase}
+.btn-p{background:linear-gradient(135deg,var(--glow),var(--teal));color:var(--forest);box-shadow:0 0 20px rgba(127,255,154,0.35)}
+.btn-p:hover{box-shadow:0 0 32px rgba(127,255,154,0.55);transform:translateY(-1px)}
+.btn-p:disabled{background:rgba(124,184,138,0.15);color:var(--text2);box-shadow:none;cursor:not-allowed;transform:none}
+.btn-c{background:rgba(0,229,204,0.1);border:1.5px solid rgba(0,229,204,0.4);color:var(--teal)}
+.btn-c:hover{background:rgba(0,229,204,0.18)}
+.btnrow{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:5px;flex-shrink:0}
+.bhint{flex:1;font-size:10px;color:var(--text2);font-weight:600}
+
+.infopill{background:rgba(10,31,15,0.65);border:1px solid var(--border);border-radius:8px;padding:7px 11px;font-size:10.5px;color:var(--text2);line-height:1.6;flex-shrink:0;font-weight:600}
+.infopill strong{color:var(--text)}
+
+/* POPUPS */
+.popo{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.82);display:none;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+.popo.on{display:flex}
+.popb{
+  background:linear-gradient(145deg,rgba(10,31,15,0.99),rgba(14,42,20,0.99));
+  border:2px solid rgba(127,255,154,0.45);border-radius:18px;padding:26px 30px;max-width:440px;width:90%;
+  text-align:center;box-shadow:0 0 60px rgba(127,255,154,0.2),0 0 100px rgba(127,255,154,0.07);
+  animation:popi 0.38s cubic-bezier(0.34,1.56,0.64,1);
+}
+.popb.fin{border-color:var(--fairy);box-shadow:0 0 60px rgba(255,215,0,0.25)}
+@keyframes popi{from{transform:scale(0.6);opacity:0}to{transform:scale(1);opacity:1}}
+.picon{font-size:46px;margin-bottom:9px;display:block;animation:fairyBob 2s ease-in-out infinite}
+.ptitle{font-family:'Philosopher',serif;font-size:21px;font-weight:700;color:var(--glow);margin-bottom:7px;text-transform:uppercase;letter-spacing:1.5px}
+.popb.fin .ptitle{color:var(--fairy)}
+.pbody{font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:12px;font-weight:600}
+.pbody strong{color:var(--text)}
+.pins{background:rgba(127,255,154,0.05);border:1px solid rgba(127,255,154,0.18);border-radius:10px;padding:10px 13px;font-size:11px;color:var(--text2);text-align:left;margin-bottom:16px;line-height:1.6;font-weight:600}
+.pins .pil{font-family:'Philosopher',serif;font-size:9px;color:var(--glow);letter-spacing:1px;margin-bottom:4px;text-transform:uppercase;display:block}
+.scgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:13px}
+.sc2{background:rgba(10,31,15,0.7);border-radius:10px;padding:9px 6px;text-align:center;border:1px solid rgba(127,255,154,0.1)}
+.sc2 .sn2{font-family:'Philosopher',serif;font-size:18px;color:var(--glow);font-weight:700}
+.sc2 .sl2{font-size:9px;color:var(--text2);margin-top:2px;font-weight:600}
+.blt{font-size:10.5px;color:var(--text2);text-align:left;display:flex;gap:5px;align-items:flex-start;line-height:1.5;margin-bottom:4px;font-weight:600}
+.blt::before{content:'✨';flex-shrink:0;font-size:10px}
+
+/* TOAST */
+.toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%) translateY(18px);background:rgba(10,31,15,0.97);border:1.5px solid var(--glow);color:var(--text);padding:7px 18px;border-radius:20px;font-size:11px;font-weight:700;opacity:0;transition:all 0.3s;z-index:200;pointer-events:none;font-family:'Philosopher',serif;letter-spacing:0.8px;white-space:nowrap;text-transform:uppercase;box-shadow:0 0 20px rgba(127,255,154,0.2)}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.e{border-color:var(--rose);color:var(--rose2)}
+.toast.g{border-color:var(--fairy);color:var(--fairy2)}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:rgba(127,255,154,0.2);border-radius:2px}
+</style>
+</head>
+<body>
+<canvas id="bgc"></canvas>
+
+<div id="app">
+  <!-- HEADER -->
+  <div id="hdr">
+    <div class="hl">
+      <div class="hicon">🧚</div>
+      <div>
+        <div class="htitle">WebSockets — <span>Real-Time Communication</span></div>
+      </div>
+      <div class="hbadge">PLANRS ACADEMY</div>
+    </div>
+    <div class="pwrap">
+      <div class="ps active" id="ps1">I</div>
+      <div class="pl" id="pl1"></div>
+      <div class="ps" id="ps2">II</div>
+      <div class="pl" id="pl2"></div>
+      <div class="ps" id="ps3">III</div>
+    </div>
+  </div>
+
+  <!-- ====== ACT 1: HTTP vs WS ====== -->
+  <div class="scr on" id="a1">
+    <div class="atitle">🍄 Activity 1 — The Open Door vs The Knock</div>
+    <div class="asub">Drag each communication step into the correct column — Traditional HTTP (knock every time!) vs WebSocket (always open line)!</div>
+    <div class="pool" id="pool1">
+      <div class="chip ember" draggable="true" data-id="h1" data-lane="http">🚪 Client knocks — sends request</div>
+      <div class="chip glow" draggable="true" data-id="w1" data-lane="ws">🤝 One-time handshake opens connection</div>
+      <div class="chip ember" draggable="true" data-id="h2" data-lane="http">⏳ Server waits to be asked again</div>
+      <div class="chip glow" draggable="true" data-id="w2" data-lane="ws">📡 Server pushes data anytime!</div>
+      <div class="chip ember" draggable="true" data-id="h3" data-lane="http">🔄 Client refreshes to get new data</div>
+      <div class="chip glow" draggable="true" data-id="w3" data-lane="ws">⚡ Both sides talk simultaneously</div>
+      <div class="chip ember" draggable="true" data-id="h4" data-lane="http">❌ Connection closes after each reply</div>
+      <div class="chip glow" draggable="true" data-id="w4" data-lane="ws">🔗 Connection stays open until closed</div>
+    </div>
+    <div class="cmpgrid">
+      <div class="flow-panel card">
+        <div class="panel-badge pb-http">🚪 Traditional HTTP — Knock &amp; Wait</div>
+        <div class="flow-lane">
+          <div class="flow-slot" data-lane="http" data-slot="0" id="hs0"><div class="fnum">1</div><div class="fhint">First thing happens…</div></div>
+          <div class="flow-slot" data-lane="http" data-slot="1" id="hs1"><div class="fnum">2</div><div class="fhint">What does server do?</div></div>
+          <div class="flow-slot" data-lane="http" data-slot="2" id="hs2"><div class="fnum">3</div><div class="fhint">To get more data…</div></div>
+          <div class="flow-slot" data-lane="http" data-slot="3" id="hs3"><div class="fnum">4</div><div class="fhint">After each reply…</div></div>
+        </div>
+        <div class="infopill">🐢 <strong>Slow &amp; tiring!</strong> Like refreshing Cricbuzz every second to see the cricket score — painful!</div>
+      </div>
+      <div class="flow-panel card">
+        <div class="panel-badge pb-ws">✨ WebSocket — The Always-Open Line</div>
+        <div class="flow-lane">
+          <div class="flow-slot" data-lane="ws" data-slot="0" id="ws0"><div class="fnum">1</div><div class="fhint">How it starts…</div></div>
+          <div class="flow-slot" data-lane="ws" data-slot="1" id="ws1"><div class="fnum">2</div><div class="fhint">Now what can happen?</div></div>
+          <div class="flow-slot" data-lane="ws" data-slot="2" id="ws2"><div class="fnum">3</div><div class="fhint">Who talks first?</div></div>
+          <div class="flow-slot" data-lane="ws" data-slot="3" id="ws3"><div class="fnum">4</div><div class="fhint">The connection is…</div></div>
+        </div>
+        <div class="infopill">⚡ <strong>Instant magic!</strong> Like a live phone call — Priya types a message, Arjun sees it appear immediately on WhatsApp!</div>
+      </div>
+    </div>
+    <div class="btnrow">
+      <div class="bhint">Place all 8 steps correctly across both communication styles</div>
+      <button class="btn btn-c" onclick="chk1()">✦ Verify Steps</button>
+      <button class="btn btn-p" id="n1" onclick="sp('pp1')" disabled>Socket.io Workflow →</button>
+    </div>
+  </div>
+
+  <!-- ====== ACT 2: Socket.io workflow ====== -->
+  <div class="scr" id="a2">
+    <div class="atitle">🌿 Activity 2 — Socket.io Chat App Workflow</div>
+    <div class="asub">Arrange the steps in order to see how a real-time chat app works from start to finish using Socket.io!</div>
+    <div class="pool" id="pool2">
+      <div class="chip teal" draggable="true" data-id="c4" data-correct="3">📢 Server broadcasts to all users</div>
+      <div class="chip glow" draggable="true" data-id="c1" data-correct="0">🌐 User opens chat page in browser</div>
+      <div class="chip fairy" draggable="true" data-id="c6" data-correct="5">🔄 Chat stays live — repeat instantly!</div>
+      <div class="chip violet" draggable="true" data-id="c3" data-correct="2">💬 User types &amp; sends a message</div>
+      <div class="chip glow" draggable="true" data-id="c2" data-correct="1">🤝 WebSocket handshake opens connection</div>
+      <div class="chip teal" draggable="true" data-id="c5" data-correct="4">✅ All browsers receive &amp; show message</div>
+    </div>
+    <div class="wfgrid">
+      <div class="card">
+        <div class="ctitle" style="color:var(--teal)">🔗 Arrange the Chat App Steps</div>
+        <div class="wf-slots" id="wfslots">
+          <div class="wfslot" data-slot="0" id="wfsl0"><div class="wnum">1</div><div style="font-size:9.5px;color:rgba(212,255,223,0.2);font-style:italic">Beginning…</div></div>
+          <div class="wfslot" data-slot="1" id="wfsl1"><div class="wnum">2</div><div style="font-size:9.5px;color:rgba(212,255,223,0.2);font-style:italic">Connection opens…</div></div>
+          <div class="wfslot" data-slot="2" id="wfsl2"><div class="wnum">3</div><div style="font-size:9.5px;color:rgba(212,255,223,0.2);font-style:italic">Someone does something…</div></div>
+          <div class="wfslot" data-slot="3" id="wfsl3"><div class="wnum">4</div><div style="font-size:9.5px;color:rgba(212,255,223,0.2);font-style:italic">Server reacts…</div></div>
+          <div class="wfslot" data-slot="4" id="wfsl4"><div class="wnum">5</div><div style="font-size:9.5px;color:rgba(212,255,223,0.2);font-style:italic">Everyone sees…</div></div>
+          <div class="wfslot" data-slot="5" id="wfsl5"><div class="wnum">6</div><div style="font-size:9.5px;color:rgba(212,255,223,0.2);font-style:italic">Then what?</div></div>
+        </div>
+      </div>
+      <div class="wf-visual">
+        <div class="wf-progress">
+          <div class="wf-prog-label">✨ Workflow Progress</div>
+          <div class="wf-bar-wrap"><div class="wf-bar" id="wf-bar"></div></div>
+          <div style="font-size:9px;color:var(--text2);margin-top:4px;font-weight:600" id="wf-prog-txt">Drop steps to build the flow…</div>
+        </div>
+        <div class="card" style="flex:1;min-height:0">
+          <div class="ctitle" style="color:var(--violet)">🔮 Live Flow Tracker</div>
+          <div class="wf-steps-vis">
+            <div class="wfvstep" id="wfv0"><div class="wfvi">🌐</div><div>Browser opens app</div><div class="wfchk">✅</div></div>
+            <div class="wfvstep" id="wfv1"><div class="wfvi">🤝</div><div>Handshake establishes</div><div class="wfchk">✅</div></div>
+            <div class="wfvstep" id="wfv2"><div class="wfvi">💬</div><div>Message sent</div><div class="wfchk">✅</div></div>
+            <div class="wfvstep" id="wfv3"><div class="wfvi">📢</div><div>Server broadcasts</div><div class="wfchk">✅</div></div>
+            <div class="wfvstep" id="wfv4"><div class="wfvi">✅</div><div>All users receive</div><div class="wfchk">✅</div></div>
+            <div class="wfvstep" id="wfv5"><div class="wfvi">🔄</div><div>Cycle continues</div><div class="wfchk">✅</div></div>
+          </div>
+        </div>
+        <div class="infopill"><strong style="color:var(--teal)">Real example:</strong> When you get a WhatsApp message, Socket.io (or similar tech) pushed it to your phone the instant it was sent — no refresh!</div>
+      </div>
+    </div>
+    <div class="btnrow">
+      <div class="bhint">Arrange all 6 workflow steps in the correct order</div>
+      <button class="btn btn-c" onclick="chk2()">✦ Check Workflow</button>
+      <button class="btn btn-p" id="n2" onclick="sp('pp2')" disabled>Build Live Chat →</button>
+    </div>
+  </div>
+
+  <!-- ====== ACT 3: Live chat diagram ====== -->
+  <div class="scr" id="a3">
+    <div class="atitle">🌟 Activity 3 — Build the Live Chat Diagram</div>
+    <div class="asub">Drag users, the server, and messages onto the diagram to complete the real-time communication network!</div>
+    <div class="pool" id="pool3">
+      <div class="chip violet" draggable="true" data-id="u1" data-type="user">👤 Priya (User A)</div>
+      <div class="chip violet" draggable="true" data-id="u2" data-type="user">👤 Arjun (User B)</div>
+      <div class="chip teal" draggable="true" data-id="srv" data-type="server">🖥️ WebSocket Server</div>
+      <div class="chip fairy" draggable="true" data-id="m1" data-type="msg">💬 "Score is 6!" (Cricket live!)</div>
+      <div class="chip fairy" draggable="true" data-id="m2" data-type="msg">📍 "Driver nearby!" (Ola/Uber)</div>
+      <div class="chip rose" draggable="true" data-id="m3" data-type="msg">🔴 "Market at ₹450" (Live stocks)</div>
+    </div>
+    <div class="diagramgrid">
+      <div class="card diagram-canvas" id="dia-canvas">
+        <svg class="diagram-svg" id="dia-svg"></svg>
+        <!-- Node slots -->
+        <div class="node-slot ns-user" id="ns-u1" data-accepts="user" style="left:20%;top:30%">
+          <div class="ns-hint">User A</div>
+        </div>
+        <div class="node-slot ns-user" id="ns-u2" data-accepts="user" style="left:20%;top:70%">
+          <div class="ns-hint">User B</div>
+        </div>
+        <div class="node-slot ns-server" id="ns-srv" data-accepts="server" style="left:60%;top:50%">
+          <div class="ns-hint">Server</div>
+        </div>
+        <div class="node-slot ns-msg" id="ns-m1" data-accepts="msg" style="left:80%;top:25%">
+          <div class="ns-hint">Msg 1</div>
+        </div>
+        <div class="node-slot ns-msg" id="ns-m2" data-accepts="msg" style="left:80%;top:50%">
+          <div class="ns-hint">Msg 2</div>
+        </div>
+        <div class="node-slot ns-msg" id="ns-m3" data-accepts="msg" style="left:80%;top:75%">
+          <div class="ns-hint">Msg 3</div>
+        </div>
+        <div style="position:absolute;bottom:6px;left:50%;transform:translateX(-50%);font-size:8px;color:rgba(127,255,154,0.25);font-family:'Philosopher',serif;letter-spacing:0.5px;white-space:nowrap">REAL-TIME NETWORK DIAGRAM</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;min-height:0;overflow:hidden">
+        <div class="card" style="flex-shrink:0">
+          <div class="ctitle" style="color:var(--glow)">📡 Connection Status</div>
+          <div id="conn-status-area">
+            <div class="conn-status">Place <strong>both users</strong>, the <strong>server</strong>, and <strong>3 messages</strong> on the diagram to build the live network!</div>
+          </div>
+          <div style="margin-top:4px">
+            <div style="height:6px;background:rgba(127,255,154,0.1);border-radius:20px;overflow:hidden"><div id="diag-bar" style="height:100%;background:linear-gradient(90deg,var(--glow),var(--fairy));width:0%;transition:width 0.5s cubic-bezier(0.34,1.56,0.64,1);border-radius:20px"></div></div>
+            <div style="font-size:9px;color:var(--text2);margin-top:3px;font-weight:600" id="diag-prog">0 of 6 elements placed</div>
+          </div>
+        </div>
+        <div class="card" style="flex:1;min-height:0;overflow-y:auto">
+          <div class="ctitle" style="color:var(--violet)">🔮 How It All Connects</div>
+          <div style="font-size:10.5px;color:var(--text2);line-height:1.8;font-weight:600">
+            <div>👤 <strong style="color:var(--violet2)">Users (Clients)</strong> connect to the server</div>
+            <div>🖥️ <strong style="color:var(--teal2)">Server</strong> receives messages from any user</div>
+            <div>📢 Server <strong style="color:var(--text)">instantly broadcasts</strong> to all connected users</div>
+            <div>💬 <strong style="color:var(--fairy2)">Messages</strong> flow both ways — no asking needed!</div>
+            <div style="margin-top:8px;padding:7px 10px;background:rgba(127,255,154,0.06);border:1px solid rgba(127,255,154,0.15);border-radius:7px">
+              🏏 <strong style="color:var(--glow)">Cricbuzz</strong> uses this exact setup — one source updates the score, ALL app users see it instantly without refreshing!
+            </div>
+          </div>
+        </div>
+        <div class="infopill" style="flex-shrink:0"><strong style="color:var(--glow)">Two-Way Magic:</strong> Unlike a website (you ask, it responds), WebSockets mean the server can talk to you <strong>anytime</strong> — even when you didn't ask!</div>
+      </div>
+    </div>
+    <div class="btnrow">
+      <div class="bhint" id="a3hint">Place all 6 elements (2 users + server + 3 messages) to complete the diagram</div>
+      <button class="btn btn-p" id="n3" onclick="sp('pp3')" disabled>See Results ✨</button>
+    </div>
+  </div>
+</div>
+
+<!-- POPUPS -->
+<div class="popo" id="pp1">
+  <div class="popb">
+    <span class="picon">🍄</span>
+    <div class="ptitle">The Door is Open!</div>
+    <div class="pbody">You perfectly sorted the two communication styles! <strong>HTTP knocks every time</strong> and waits — exhausting! <strong>WebSockets stay open</strong> so both sides can speak freely, like a walkie-talkie between friends.</div>
+    <div class="pins"><span class="pil">✨ Forest Insight</span>Every time your Zomato app shows a live delivery marker moving on the map — that's <strong>WebSockets</strong> pushing the location to your phone instantly, without you refreshing!</div>
+    <button class="btn btn-p" onclick="go2()">Build the Chat App →</button>
+  </div>
+</div>
+<div class="popo" id="pp2">
+  <div class="popb">
+    <span class="picon">🌿</span>
+    <div class="ptitle">Chat App Built!</div>
+    <div class="pbody">You arranged the complete Socket.io workflow! <strong>Open → Handshake → Message → Broadcast → Deliver → Repeat.</strong> This cycle happens in milliseconds — that's why WhatsApp feels instant!</div>
+    <div class="pins"><span class="pil">✨ Forest Insight</span>The "Typing…" indicator you see in WhatsApp? That's a tiny real-time WebSocket event — the server tells all participants "User X is typing" the moment they press a key!</div>
+    <button class="btn btn-p" onclick="go3()">Build the Network →</button>
+  </div>
+</div>
+<div class="popo" id="pp3">
+  <div class="popb fin">
+    <span class="picon">🏆</span>
+    <div class="ptitle">Real-Time Master!</div>
+    <div class="pbody">You've mastered the magic of WebSockets — the technology that makes the internet feel alive and instant!</div>
+    <div class="scgrid">
+      <div class="sc2"><div class="sn2">3/3</div><div class="sl2">Activities</div></div>
+      <div class="sc2"><div class="sn2">8</div><div class="sl2">Steps Sorted</div></div>
+      <div class="sc2"><div class="sn2">6</div><div class="sl2">Nodes Placed</div></div>
+    </div>
+    <div style="text-align:left;margin-bottom:14px">
+      <div class="blt">WebSockets keep a permanent open connection — no knock required!</div>
+      <div class="blt">Unlike HTTP, the server can push data to you anytime — without being asked.</div>
+      <div class="blt">WhatsApp, Cricbuzz, Zomato tracking, and online games all use real-time tech.</div>
+      <div class="blt">The one-time handshake is the secret — after that, the line stays open forever!</div>
+    </div>
+    <button class="btn btn-p" style="background:linear-gradient(135deg,var(--fairy),var(--glow));box-shadow:0 0 22px rgba(255,215,0,0.4)" onclick="location.reload()">🔄 Explore Again</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== ENCHANTED FOREST CANVAS =====
+const cv=document.getElementById('bgc');const ctx=cv.getContext('2d');
+let W,H;function rsz(){W=cv.width=window.innerWidth;H=cv.height=window.innerHeight}
+rsz();window.addEventListener('resize',rsz);
+
+// Fireflies
+const flies=[];
+for(let i=0;i<70;i++){
+  flies.push({
+    x:Math.random()*2000,y:Math.random()*900,
+    vx:(Math.random()-0.5)*0.35,vy:(Math.random()-0.5)*0.35,
+    r:Math.random()*2.2+0.5,
+    alpha:Math.random(),spd:Math.random()*0.025+0.008,
+    col:['#7FFF9A','#FFD700','#C5A3FF','#00E5CC','#FF9DC8'][Math.floor(Math.random()*5)],
+    phase:Math.random()*Math.PI*2
+  });
+}
+
+// Magic dust streams
+const dustStreams=[];
+for(let i=0;i<8;i++){
+  dustStreams.push({x:Math.random()*2000,y:Math.random()*900,len:Math.random()*50+20,angle:Math.random()*Math.PI*2,spd:Math.random()*0.4+0.1,alpha:Math.random()*0.12+0.03,col:['#7FFF9A','#FFD700','#C5A3FF'][Math.floor(Math.random()*3)]});
+}
+
+// Forest mushroom silhouettes (background)
+const mushrooms=[
+  {x:0.05,y:0.92,s:1.2},{x:0.12,y:0.95,s:0.8},{x:0.88,y:0.93,s:1.1},{x:0.95,y:0.96,s:0.7},
+  {x:0.22,y:0.97,s:0.6},{x:0.75,y:0.95,s:0.9},{x:0.5,y:0.98,s:0.5}
+];
+
+// Vine/branch paths
+const vines=[];
+for(let i=0;i<5;i++){
+  vines.push({x:Math.random()*2000,y:Math.random()*0.5*900,alpha:0.04+Math.random()*0.04,len:Math.random()*80+40,angle:Math.PI/6+Math.random()*Math.PI/4,phase:Math.random()*Math.PI*2});
+}
+
+// Energy pulses (WebSocket connection lines in background)
+const pulses=[];
+for(let i=0;i<4;i++){
+  pulses.push({x1:Math.random()*2000,y1:Math.random()*900,x2:0,y2:0,prog:0,spd:0.008+Math.random()*0.006,alpha:0.06+Math.random()*0.06,col:'#7FFF9A'});
+  pulses[i].x2=pulses[i].x1+Math.random()*200-100;
+  pulses[i].y2=pulses[i].y1+Math.random()*150-75;
+}
+
+let tick=0;
+
+function drawMushroom(m){
+  const mx=m.x*W,my=m.y*H,s=m.s;
+  ctx.fillStyle='rgba(26,61,32,0.6)';
+  ctx.beginPath();ctx.ellipse(mx,my,18*s,22*s,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(40,80,50,0.4)';
+  ctx.beginPath();ctx.ellipse(mx,my-14*s,24*s,12*s,0,0,Math.PI*2);ctx.fill();
+}
+
+function frame(){
+  tick++;ctx.clearRect(0,0,W,H);
+  // Forest gradient
+  const grd=ctx.createLinearGradient(0,0,0,H);
+  grd.addColorStop(0,'#030E06');grd.addColorStop(0.6,'#0A1F0F');grd.addColorStop(1,'#051208');
+  ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
+
+  // Grid / leaf pattern
+  ctx.strokeStyle='rgba(127,255,154,0.025)';ctx.lineWidth=0.5;
+  for(let x=0;x<W;x+=55){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+  for(let y=0;y<H;y+=55){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+
+  // Vines
+  vines.forEach(v=>{
+    ctx.strokeStyle='rgba(26,61,32,0.3)';ctx.lineWidth=1.5;ctx.globalAlpha=v.alpha*(0.5+Math.sin(v.phase+tick*0.006)*0.5);
+    ctx.beginPath();ctx.moveTo(v.x%W,v.y);
+    ctx.quadraticCurveTo(v.x%W+v.len*0.5,v.y-v.len*0.3,v.x%W+v.len,v.y+v.len*0.2);
+    ctx.stroke();ctx.globalAlpha=1;
+  });
+
+  // Energy pulses (bg connection lines)
+  pulses.forEach(p=>{
+    p.prog+=p.spd;if(p.prog>1)p.prog=0;
+    const px=(p.x1+( p.x2-p.x1)*p.prog)%W,py=p.y1+(p.y2-p.y1)*p.prog;
+    ctx.beginPath();ctx.arc(px,py,2.5,0,Math.PI*2);
+    ctx.fillStyle=p.col;ctx.globalAlpha=p.alpha*(1-p.prog);ctx.fill();ctx.globalAlpha=1;
+    ctx.strokeStyle=p.col;ctx.lineWidth=0.5;ctx.globalAlpha=p.alpha*0.3;
+    ctx.beginPath();ctx.moveTo(p.x1%W,p.y1);ctx.lineTo(p.x2%W,p.y2);ctx.stroke();ctx.globalAlpha=1;
+  });
+
+  // Mushrooms
+  mushrooms.forEach(m=>drawMushroom(m));
+
+  // Dust streams
+  dustStreams.forEach(d=>{
+    d.angle+=0.003;
+    ctx.strokeStyle=d.col;ctx.lineWidth=1;ctx.globalAlpha=d.alpha*(0.5+Math.sin(tick*0.02+d.x)*0.5);
+    ctx.beginPath();ctx.moveTo(d.x%W,d.y%H);
+    ctx.lineTo(d.x%W+Math.cos(d.angle)*d.len,d.y%H+Math.sin(d.angle)*d.len);
+    ctx.stroke();ctx.globalAlpha=1;
+  });
+
+  // Fireflies
+  flies.forEach(f=>{
+    f.x+=f.vx;f.y+=f.vy;f.phase+=f.spd;
+    if(f.x<-5)f.x=W+5;if(f.x>W+5)f.x=-5;
+    if(f.y<-5)f.y=H+5;if(f.y>H+5)f.y=-5;
+    const a=Math.abs(Math.sin(f.phase))*0.8+0.05;
+    ctx.beginPath();ctx.arc(f.x%W,f.y%H,f.r,0,Math.PI*2);
+    ctx.fillStyle=f.col;ctx.globalAlpha=a;ctx.fill();
+    // glow
+    ctx.beginPath();ctx.arc(f.x%W,f.y%H,f.r*2.5,0,Math.PI*2);
+    ctx.fillStyle=f.col;ctx.globalAlpha=a*0.18;ctx.fill();
+    ctx.globalAlpha=1;
+  });
+
+  // Scan shimmer
+  const sl=H*((tick%600)/600);
+  ctx.fillStyle='rgba(127,255,154,0.015)';ctx.fillRect(0,sl,W,2);
+  requestAnimationFrame(frame);
+}
+frame();
+
+// ===== DRAG SYSTEM =====
+let dragging=null;
+function initDrag(){
+  document.querySelectorAll('[draggable=true]').forEach(el=>{
+    el.addEventListener('dragstart',()=>{dragging=el;setTimeout(()=>el.classList.add('drag'),0)});
+    el.addEventListener('dragend',()=>el.classList.remove('drag'));
+  });
+  document.querySelectorAll('.pool').forEach(p=>{
+    p.addEventListener('dragover',e=>e.preventDefault());
+    p.addEventListener('drop',e=>{e.preventDefault();if(dragging)p.appendChild(dragging)});
+  });
+}
+
+// ===== ACT 1: HTTP vs WS =====
+const a1SlotContent={http:{},ws:{}};
+const A1_HTTP_ORDER=['h1','h2','h3','h4'];
+const A1_WS_ORDER=['w1','w2','w3','w4'];
+
+function initAct1Slots(){
+  document.querySelectorAll('.flow-slot').forEach(sl=>{
+    sl.addEventListener('dragover',e=>{e.preventDefault();sl.classList.add('over')});
+    sl.addEventListener('dragleave',()=>sl.classList.remove('over'));
+    sl.addEventListener('drop',e=>{
+      e.preventDefault();sl.classList.remove('over');
+      if(!dragging)return;
+      const lane=sl.dataset.lane,slot=parseInt(sl.dataset.slot);
+      const chipLane=dragging.dataset.lane;
+      // find old slot
+      ['http','ws'].forEach(l=>{
+        Object.entries(a1SlotContent[l]).forEach(([k,v])=>{
+          if(v===dragging){
+            const os=document.getElementById((l==='http'?'hs':'ws')+k);
+            os.innerHTML=`<div class="fnum">${parseInt(k)+1}</div><div class="fhint">Drop here…</div>`;
+            os.classList.remove('filled','ok','ng');delete a1SlotContent[l][k];
+          }
+        });
+      });
+      if(a1SlotContent[lane][slot])document.getElementById('pool1').appendChild(a1SlotContent[lane][slot]);
+      a1SlotContent[lane][slot]=dragging;sl.innerHTML='';sl.appendChild(dragging);sl.classList.add('filled');
+    });
+  });
+}
+
+function chk1(){
+  const hPlaced=Object.keys(a1SlotContent.http).length;
+  const wPlaced=Object.keys(a1SlotContent.ws).length;
+  if(hPlaced<4||wPlaced<4){showToast('Place all 8 steps first!','e');return}
+  let ok=true;
+  for(let i=0;i<4;i++){
+    const hsl=document.getElementById('hs'+i),wsl=document.getElementById('ws'+i);
+    const hc=a1SlotContent.http[i],wc=a1SlotContent.ws[i];
+    const hok=hc&&hc.dataset.id===A1_HTTP_ORDER[i],wok=wc&&wc.dataset.id===A1_WS_ORDER[i];
+    hsl.classList.toggle('ok',!!hok);hsl.classList.toggle('ng',!hok);
+    wsl.classList.toggle('ok',!!wok);wsl.classList.toggle('ng',!wok);
+    if(!hok||!wok)ok=false;
+  }
+  if(ok){showToast('Perfect! Both flows correct! ✨','g');document.getElementById('n1').disabled=false}
+  else showToast('Some steps are in the wrong spot!','e');
+}
+
+// ===== ACT 2: Socket.io Workflow =====
+const wfSlotContent={};
+const WF_ORDER=['c1','c2','c3','c4','c5','c6'];
+
+function initAct2Slots(){
+  document.querySelectorAll('.wfslot').forEach(sl=>{
+    sl.addEventListener('dragover',e=>{e.preventDefault();sl.classList.add('over')});
+    sl.addEventListener('dragleave',()=>sl.classList.remove('over'));
+    sl.addEventListener('drop',e=>{
+      e.preventDefault();sl.classList.remove('over');
+      if(!dragging)return;
+      const si=parseInt(sl.dataset.slot);
+      if(wfSlotContent[si])document.getElementById('pool2').appendChild(wfSlotContent[si]);
+      const prev=Object.entries(wfSlotContent).find(([k,v])=>v===dragging);
+      if(prev){const os=document.getElementById('wfsl'+prev[0]);os.innerHTML=`<div class="wnum">${parseInt(prev[0])+1}</div><div style="font-size:9.5px;color:rgba(212,255,223,0.2);font-style:italic">Drop here…</div>`;os.classList.remove('filled','ok','ng');delete wfSlotContent[prev[0]]}
+      wfSlotContent[si]=dragging;sl.innerHTML='';sl.appendChild(dragging);sl.classList.add('filled');
+      updateWFProgress();
+    });
+  });
+}
+
+function updateWFProgress(){
+  const ct=Object.keys(wfSlotContent).length;
+  document.getElementById('wf-bar').style.width=(ct/6*100)+'%';
+  document.getElementById('wf-prog-txt').textContent=ct>0?`${ct} of 6 steps placed`:'Drop steps to build the flow…';
+  for(let i=0;i<6;i++){
+    const v=document.getElementById('wfv'+i);
+    if(wfSlotContent[i])v.classList.add('lit');else v.classList.remove('lit');
+  }
+}
+
+function chk2(){
+  const placed=Object.keys(wfSlotContent).length;
+  if(placed<6){showToast('Place all 6 steps!','e');return}
+  let ok=true;
+  for(let i=0;i<6;i++){
+    const sl=document.getElementById('wfsl'+i);
+    const chip=wfSlotContent[i];
+    const correct=chip&&chip.dataset.id===WF_ORDER[i];
+    sl.classList.toggle('ok',!!correct);sl.classList.toggle('ng',!correct);
+    if(chip)chip.style.outline=correct?'none':'2px solid #FF4F9A';
+    if(!correct)ok=false;
+  }
+  if(ok){showToast('Workflow perfected! 🌿','g');document.getElementById('n2').disabled=false}
+  else showToast('Check the order — start with opening the app!','e');
+}
+
+// ===== ACT 3: Live Chat Diagram =====
+const diagContent={};
+const DIAG_SLOTS=['ns-u1','ns-u2','ns-srv','ns-m1','ns-m2','ns-m3'];
+
+function initAct3Slots(){
+  document.querySelectorAll('.node-slot').forEach(slot=>{
+    slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('over')});
+    slot.addEventListener('dragleave',()=>slot.classList.remove('over'));
+    slot.addEventListener('drop',e=>{
+      e.preventDefault();slot.classList.remove('over');
+      if(!dragging)return;
+      const sid=slot.id;
+      if(diagContent[sid])document.getElementById('pool3').appendChild(diagContent[sid]);
+      // remove from old slot
+      Object.keys(diagContent).forEach(k=>{if(diagContent[k]===dragging){document.getElementById(k).innerHTML=`<div class="ns-hint">${k.replace('ns-','').replace('u1','User A').replace('u2','User B').replace('srv','Server').replace('m1','Msg 1').replace('m2','Msg 2').replace('m3','Msg 3')}</div>`;document.getElementById(k).classList.remove('placed');delete diagContent[k]}});
+      diagContent[sid]=dragging;
+      slot.innerHTML='';
+      const icon=dragging.textContent.trim().split(' ')[0];
+      const label=dragging.textContent.trim().substring(2);
+      slot.innerHTML=`<span style="font-size:16px">${icon}</span><span style="font-size:8px;color:${dragging.classList.contains('violet')?'#C5A3FF':dragging.classList.contains('teal')?'#80FFF0':'#FFF176'};font-weight:700;text-align:center;line-height:1.2">${label.substring(0,14)}</span>`;
+      slot.classList.add('placed');
+      updateDiagram();
+    });
+  });
+}
+
+function updateDiagram(){
+  const ct=Object.keys(diagContent).length;
+  document.getElementById('diag-bar').style.width=(ct/6*100)+'%';
+  document.getElementById('diag-prog').textContent=`${ct} of 6 elements placed`;
+  drawDiagramLines();
+  if(ct===6){
+    document.getElementById('n3').disabled=false;
+    document.getElementById('a3hint').textContent='Network complete! The WebSocket magic is working! ✨';
+    document.getElementById('conn-status-area').innerHTML='<div class="conn-status" style="border-color:rgba(127,255,154,0.3);background:rgba(127,255,154,0.07)">🟢 <strong style="color:#7FFF9A">Live!</strong> All nodes connected — messages flowing in real time between users through the WebSocket server!</div>';
+  }
+}
+
+function drawDiagramLines(){
+  const svg=document.getElementById('dia-svg');svg.innerHTML='';
+  const canvas=document.getElementById('dia-canvas');
+  const cw=canvas.offsetWidth,ch=canvas.offsetHeight;
+  const srvSlot=document.getElementById('ns-srv');
+  if(!diagContent['ns-srv'])return;
+  const sx=(parseFloat(srvSlot.style.left)/100)*cw;
+  const sy=(parseFloat(srvSlot.style.top)/100)*ch;
+  ['ns-u1','ns-u2'].forEach(uid=>{
+    const uslot=document.getElementById(uid);
+    if(!diagContent[uid])return;
+    const ux=(parseFloat(uslot.style.left)/100)*cw;
+    const uy=(parseFloat(uslot.style.top)/100)*ch;
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',ux);line.setAttribute('y1',uy);line.setAttribute('x2',sx);line.setAttribute('y2',sy);
+    line.setAttribute('stroke','rgba(127,255,154,0.4)');line.setAttribute('stroke-width','2');
+    line.setAttribute('stroke-dasharray','6,4');
+    const anim=document.createElementNS('http://www.w3.org/2000/svg','animate');
+    anim.setAttribute('attributeName','stroke-dashoffset');anim.setAttribute('from','0');anim.setAttribute('to','-20');anim.setAttribute('dur','0.8s');anim.setAttribute('repeatCount','indefinite');
+    line.appendChild(anim);svg.appendChild(line);
+  });
+  ['ns-m1','ns-m2','ns-m3'].forEach(mid=>{
+    const mslot=document.getElementById(mid);
+    if(!diagContent[mid])return;
+    const mx=(parseFloat(mslot.style.left)/100)*cw;
+    const my=(parseFloat(mslot.style.top)/100)*ch;
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',sx);line.setAttribute('y1',sy);line.setAttribute('x2',mx);line.setAttribute('y2',my);
+    line.setAttribute('stroke','rgba(255,215,0,0.35)');line.setAttribute('stroke-width','1.5');
+    line.setAttribute('stroke-dasharray','4,4');
+    const anim=document.createElementNS('http://www.w3.org/2000/svg','animate');
+    anim.setAttribute('attributeName','stroke-dashoffset');anim.setAttribute('from','0');anim.setAttribute('to','-16');anim.setAttribute('dur','1s');anim.setAttribute('repeatCount','indefinite');
+    line.appendChild(anim);svg.appendChild(line);
+  });
+}
+
+// ===== NAVIGATION =====
+function go2(){hp('pp1');document.getElementById('a1').classList.remove('on');document.getElementById('a2').classList.add('on');prog(2)}
+function go3(){hp('pp2');document.getElementById('a2').classList.remove('on');document.getElementById('a3').classList.add('on');prog(3);setTimeout(initAct3Slots,100)}
+function prog(s){
+  for(let i=1;i<=3;i++){const p=document.getElementById('ps'+i);p.classList.remove('active','done');if(i<s)p.classList.add('done');else if(i===s)p.classList.add('active')}
+  for(let i=1;i<=2;i++)document.getElementById('pl'+i).classList.toggle('done',i<s);
+}
+function sp(id){document.getElementById(id).classList.add('on')}
+function hp(id){document.getElementById(id).classList.remove('on')}
+
+// ===== TOAST =====
+function showToast(msg,t=''){
+  const el=document.getElementById('toast');el.textContent=msg;
+  el.className='toast on '+(t==='e'?'e':t==='g'?'g':'');
+  setTimeout(()=>el.className='toast',2500);
+}
+
+// ===== INIT =====
+window.addEventListener('load',()=>{
+  initDrag();
+  initAct1Slots();
+  initAct2Slots();
+});
+</script>
+</body>
+</html>

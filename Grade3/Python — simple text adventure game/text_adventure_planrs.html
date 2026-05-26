@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python — Simple Text Adventure Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Space+Grotesk:wght@400;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+:root{
+  --amber:#ffd060;--teal:#00e8c6;--purple:#c87fff;--blue:#5bc8ff;--red:#ff5577;--green:#4dff91;
+  --bg:#03060f;--panel:rgba(6,14,32,0.93);--border:rgba(0,232,198,0.18);
+  --text:#dff0ff;--dim:#4a6a80;
+  --mono:'Share Tech Mono',monospace;--head:'Orbitron',sans-serif;--body:'Space Grotesk',sans-serif;
+}
+html,body{width:100%;height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:var(--body);}
+
+/* ── BACKGROUND ── */
+#bg{position:fixed;inset:0;z-index:0;pointer-events:none;}
+
+/* ── APP ── */
+#app{position:relative;z-index:2;width:100vw;height:100vh;display:flex;flex-direction:column;}
+
+/* ── HEADER ── */
+header{
+  flex-shrink:0;padding:7px 26px;display:flex;align-items:center;justify-content:space-between;
+  background:rgba(3,6,15,0.88);border-bottom:1px solid var(--border);backdrop-filter:blur(10px);
+}
+.brand{font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--teal);opacity:.65;}
+h1{font-family:var(--head);font-size:clamp(10px,1.4vw,15px);letter-spacing:2px;color:#fff;
+  text-shadow:0 0 20px var(--teal),0 0 50px rgba(0,232,198,.25);}
+.pills{display:flex;gap:7px;}
+.pill{padding:3px 13px;border-radius:20px;font-family:var(--mono);font-size:9px;letter-spacing:2px;border:1px solid;transition:all .4s;}
+.pill.idle{border-color:rgba(255,255,255,.1);color:rgba(255,255,255,.22);}
+.pill.active{border-color:var(--teal);color:var(--teal);background:rgba(0,232,198,.09);box-shadow:0 0 10px rgba(0,232,198,.28);}
+.pill.done{border-color:var(--amber);color:var(--amber);background:rgba(255,208,96,.07);}
+
+/* ── STAGE ── */
+#stage{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+
+/* ── ACTIVITIES ── */
+.act{display:none;flex-direction:column;align-items:center;justify-content:center;
+  width:100%;height:100%;gap:9px;padding:8px 18px;}
+.act.on{display:flex;}
+.act-title{font-family:var(--head);font-size:clamp(10px,1.25vw,13px);letter-spacing:2px;color:var(--amber);text-shadow:0 0 12px var(--amber);}
+.act-desc{font-size:clamp(11px,1.15vw,13px);color:var(--dim);text-align:center;max-width:700px;line-height:1.5;}
+.act-desc strong{color:var(--text);}
+
+/* ── PANEL ── */
+.panel{background:rgba(6,12,28,.92);border:1px solid var(--border);border-radius:12px;padding:11px 15px;backdrop-filter:blur(4px);}
+.plabel{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--teal);margin-bottom:7px;}
+
+/* ── BLOCKS ── */
+.block{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:6px;
+  cursor:grab;font-family:var(--mono);font-size:11px;font-weight:700;border:1.5px solid;
+  transition:transform .15s,box-shadow .15s;white-space:nowrap;flex-shrink:0;
+}
+.block:hover{transform:scale(1.06);}
+.block.dragging{opacity:.35;cursor:grabbing;}
+.block.room{border-color:rgba(91,200,255,.7);background:rgba(91,200,255,.1);color:var(--blue);}
+.block.action{border-color:rgba(77,255,145,.7);background:rgba(77,255,145,.1);color:var(--green);}
+.block.danger{border-color:rgba(255,85,119,.7);background:rgba(255,85,119,.1);color:var(--red);}
+.block.outcome{border-color:rgba(255,208,96,.7);background:rgba(255,208,96,.1);color:var(--amber);}
+.block.cond{border-color:rgba(200,127,255,.7);background:rgba(200,127,255,.1);color:var(--purple);}
+
+/* ── SLOTS ── */
+.slot{
+  min-width:148px;min-height:36px;border:1.5px dashed rgba(0,232,198,.22);border-radius:6px;
+  display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;
+  color:rgba(0,232,198,.28);padding:4px 6px;transition:all .2s;text-align:center;
+}
+.slot.over{border-color:var(--teal);background:rgba(0,232,198,.06);}
+.slot.filled{border-style:solid;border-color:rgba(0,232,198,.35);}
+.slot.correct{animation:cP .6s ease;}
+.slot.wrong{animation:wP .5s ease;}
+@keyframes cP{0%,100%{box-shadow:none;}50%{box-shadow:0 0 18px var(--teal),inset 0 0 8px rgba(0,232,198,.12);}}
+@keyframes wP{0%,50%,100%{background:transparent;}25%,75%{background:rgba(255,60,80,.1);}}
+
+/* ── FEEDBACK ── */
+.fb{min-height:18px;font-family:var(--mono);font-size:11px;letter-spacing:.5px;text-align:center;transition:all .3s;}
+
+/* ── BUTTONS ── */
+.btn{padding:8px 24px;border-radius:6px;font-family:var(--head);font-size:10px;letter-spacing:2px;font-weight:700;cursor:pointer;border:1.5px solid;transition:all .25s;background:transparent;}
+.btn-t{border-color:var(--teal);color:var(--teal);}
+.btn-t:hover{background:rgba(0,232,198,.1);box-shadow:0 0 16px rgba(0,232,198,.32);}
+.btn-t:disabled{opacity:.22;cursor:not-allowed;box-shadow:none;}
+.btn-a{border-color:var(--amber);color:var(--amber);}
+.btn-a:hover{background:rgba(255,208,96,.1);box-shadow:0 0 16px rgba(255,208,96,.32);}
+.btn-a:disabled{opacity:.22;cursor:not-allowed;box-shadow:none;}
+
+/* ── POPUP ── */
+#pop{position:fixed;inset:0;z-index:200;background:rgba(3,6,15,.88);display:none;align-items:center;justify-content:center;backdrop-filter:blur(8px);}
+#pop.on{display:flex;}
+#pbox{
+  background:linear-gradient(140deg,rgba(5,14,34,.98),rgba(5,20,48,.98));
+  border:1.5px solid var(--teal);border-radius:18px;padding:32px 40px;max-width:500px;text-align:center;
+  box-shadow:0 0 60px rgba(0,232,198,.16),0 0 120px rgba(0,232,198,.05);
+  animation:pIn .45s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes pIn{from{transform:scale(.62);opacity:0;}to{transform:scale(1);opacity:1;}}
+.p-icon{font-size:42px;margin-bottom:9px;}
+.p-title{font-family:var(--head);font-size:16px;letter-spacing:2px;margin-bottom:9px;color:var(--teal);}
+.p-body{font-size:13px;color:var(--dim);line-height:1.65;margin-bottom:20px;}
+.p-body strong{color:var(--text);}
+.p-body code{font-family:var(--mono);font-size:11px;color:var(--teal);background:rgba(0,232,198,.08);padding:1px 6px;border-radius:3px;}
+
+/* ── CONFETTI ── */
+@keyframes cfFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1;}100%{transform:translateY(120px) rotate(580deg);opacity:0;}}
+.cf{position:fixed;width:7px;height:7px;border-radius:2px;animation:cfFall 2.2s ease-in forwards;z-index:300;}
+
+/* ════════════ ACT 1 — ROOM MAP ════════════ */
+#room-map{
+  display:grid;grid-template-columns:repeat(3,120px);grid-template-rows:repeat(3,80px);
+  gap:8px;position:relative;
+}
+.map-cell{
+  border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;position:relative;
+}
+.map-cell.node{border:1px dashed rgba(91,200,255,.25);background:rgba(91,200,255,.04);}
+.map-cell.start-node{border:1px solid rgba(77,255,145,.4);background:rgba(77,255,145,.06);}
+.map-cell.empty{border:none;background:transparent;}
+.map-cell .room-slot{
+  width:112px;min-height:52px;border:1.5px dashed rgba(91,200,255,.3);border-radius:6px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:8px;color:rgba(91,200,255,.3);text-align:center;gap:2px;
+  transition:all .2s;
+}
+.map-cell .room-slot.over{border-color:var(--blue);background:rgba(91,200,255,.08);}
+.map-cell .room-slot.filled{border-style:solid;border-color:rgba(91,200,255,.5);}
+.map-cell .room-slot.correct{animation:cP .6s ease;}
+.map-cell .room-slot.wrong{animation:wP .5s ease;}
+.room-icon{font-size:18px;}
+.room-name-label{font-family:var(--mono);font-size:8px;letter-spacing:1px;}
+
+/* connector lines between cells */
+.connector{position:absolute;background:rgba(0,232,198,.18);border-radius:2px;z-index:0;}
+.conn-h{height:2px;}
+.conn-v{width:2px;}
+
+/* dict preview */
+.dict-line{font-family:var(--mono);font-size:10px;color:var(--dim);line-height:1.8;}
+.dict-line span.k{color:var(--blue);}
+.dict-line span.v{color:var(--amber);}
+.dict-line span.p{color:var(--purple);}
+.dict-val{color:var(--green);font-size:10px;transition:all .4s;}
+
+/* ════════════ ACT 2 — NAVIGATION ════════════ */
+#nav-board{display:flex;gap:14px;align-items:flex-start;justify-content:center;flex-wrap:wrap;}
+.seq-col{display:flex;flex-direction:column;gap:6px;min-width:170px;}
+.seq-label{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--amber);margin-bottom:2px;}
+
+/* terminal preview */
+#terminal{
+  background:#010306;border:1px solid rgba(77,255,145,.25);border-radius:8px;padding:10px 14px;
+  font-family:var(--mono);font-size:11px;line-height:1.8;min-width:230px;max-width:260px;
+  min-height:180px;color:var(--green);overflow:hidden;
+}
+.term-line{opacity:0;transform:translateY(6px);transition:opacity .35s,transform .35s;}
+.term-line.show{opacity:1;transform:none;}
+.term-prompt{color:var(--teal);}
+.term-choice{color:var(--amber);}
+.term-warn{color:var(--red);}
+.term-win{color:var(--green);}
+
+/* player dot on minimap */
+#minimap{position:relative;width:100px;height:100px;border:1px solid rgba(91,200,255,.2);border-radius:6px;background:rgba(3,6,15,.6);}
+.mm-room{position:absolute;width:26px;height:18px;border-radius:3px;border:1px solid;display:flex;align-items:center;justify-content:center;font-size:7px;font-family:var(--mono);}
+.mm-player{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--teal);box-shadow:0 0 8px var(--teal);transition:all .5s ease;}
+
+/* ════════════ ACT 3 — FLOWCHART ════════════ */
+#flow-area{display:flex;gap:12px;align-items:flex-start;justify-content:center;flex-wrap:wrap;}
+.flow-col{display:flex;flex-direction:column;align-items:center;gap:6px;}
+.flow-arrow{font-size:16px;color:var(--teal);opacity:.5;margin:2px 0;}
+.flow-node{
+  min-width:140px;padding:7px 12px;border-radius:8px;border:1px solid;text-align:center;
+  font-family:var(--mono);font-size:10px;letter-spacing:.5px;
+}
+.flow-node.fixed{cursor:default;}
+.flow-node.decision{
+  background:rgba(200,127,255,.08);border-color:rgba(200,127,255,.4);color:var(--purple);
+  clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);
+  width:120px;height:60px;display:flex;align-items:center;justify-content:center;
+  padding:0;font-size:9px;
+}
+.branches{display:flex;gap:16px;align-items:flex-start;}
+.branch{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:130px;}
+.branch-label{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:1px;}
+.branch-slot{min-width:130px;min-height:44px;}
+
+/* adventure canvas */
+#adv-canvas{border-radius:8px;border:1px solid rgba(255,208,96,.2);}
+
+/* score badge */
+.score-badge{
+  font-family:var(--mono);font-size:10px;padding:3px 12px;border-radius:20px;
+  border:1px solid;background:transparent;letter-spacing:1px;
+}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div id="app">
+  <header>
+    <div class="brand">PLANRS ACADEMY</div>
+    <h1>PYTHON — SIMPLE TEXT ADVENTURE GAME</h1>
+    <div class="pills">
+      <div class="pill active" id="p1">ACT 1</div>
+      <div class="pill idle"   id="p2">ACT 2</div>
+      <div class="pill idle"   id="p3">ACT 3</div>
+    </div>
+  </header>
+
+  <div id="stage">
+
+    <!-- ═══════════ ACTIVITY 1 — ROOM MAP ═══════════ -->
+    <div class="act on" id="act1">
+      <div class="act-title">🗺 ACTIVITY 1 — BUILD THE ROOM DICTIONARY</div>
+      <div class="act-desc">In a text adventure, rooms are stored like a dictionary. Drag each <strong>room block</strong> onto the correct map node to connect the space station layout.</div>
+
+      <div style="display:flex;gap:18px;align-items:flex-start;justify-content:center;flex-wrap:wrap;">
+
+        <!-- ROOM BLOCK SUPPLY -->
+        <div class="panel" style="min-width:170px;">
+          <div class="plabel">⬡ ROOM BLOCKS</div>
+          <div style="display:flex;flex-direction:column;gap:7px;" id="room-supply">
+            <div class="block room" draggable="true" data-rid="cargo" data-icon="📦">📦 Cargo Bay</div>
+            <div class="block room" draggable="true" data-rid="engine" data-icon="⚙">⚙ Engine Room</div>
+            <div class="block room" draggable="true" data-rid="bridge" data-icon="🌌">🌌 Bridge</div>
+            <div class="block room" draggable="true" data-rid="lab" data-icon="🔬">🔬 Science Lab</div>
+            <div class="block room" draggable="true" data-rid="vault" data-icon="🔐">🔐 Vault</div>
+          </div>
+        </div>
+
+        <!-- MAP GRID -->
+        <div class="panel" style="position:relative;">
+          <div class="plabel">📡 SPACE STATION MAP</div>
+          <div style="position:relative;">
+            <!-- Connector lines -->
+            <div class="connector conn-h" style="width:110px;left:120px;top:119px;"></div>
+            <div class="connector conn-h" style="width:110px;left:248px;top:119px;"></div>
+            <div class="connector conn-v" style="height:72px;left:183px;top:88px;"></div>
+            <div class="connector conn-v" style="height:72px;left:183px;top:168px;"></div>
+            <div class="connector conn-h" style="width:110px;left:120px;top:207px;"></div>
+
+            <div id="room-map">
+              <!-- Row 0 -->
+              <div class="map-cell empty"></div>
+              <div class="map-cell node" style="grid-column:2;grid-row:1;">
+                <div class="room-slot" data-accepts="bridge" data-pos="top-center">Bridge slot</div>
+              </div>
+              <div class="map-cell empty"></div>
+              <!-- Row 1 -->
+              <div class="map-cell node" style="grid-column:1;grid-row:2;">
+                <div class="room-slot" data-accepts="cargo" data-pos="mid-left">Cargo slot</div>
+              </div>
+              <div class="map-cell start-node" style="grid-column:2;grid-row:2;border-color:rgba(77,255,145,.4);">
+                <div style="font-size:16px;">🚀</div>
+                <div style="font-family:var(--mono);font-size:8px;color:var(--green);letter-spacing:1px;">AIRLOCK<br>(start)</div>
+              </div>
+              <div class="map-cell node" style="grid-column:3;grid-row:2;">
+                <div class="room-slot" data-accepts="engine" data-pos="mid-right">Engine slot</div>
+              </div>
+              <!-- Row 2 -->
+              <div class="map-cell node" style="grid-column:1;grid-row:3;">
+                <div class="room-slot" data-accepts="lab" data-pos="bot-left">Lab slot</div>
+              </div>
+              <div class="map-cell node" style="grid-column:2;grid-row:3;">
+                <div class="room-slot" data-accepts="vault" data-pos="bot-center">Vault slot</div>
+              </div>
+              <div class="map-cell empty"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DICT PREVIEW -->
+        <div class="panel" style="min-width:200px;">
+          <div class="plabel">📋 PYTHON DICTIONARY</div>
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <div class="dict-line"><span class="p">rooms</span> = {</div>
+            <div class="dict-line" style="padding-left:10px;"><span class="k">"airlock"</span>: <span class="v">"🚀 Airlock"</span>,</div>
+            <div class="dict-line" style="padding-left:10px;"><span class="k">"bridge"</span>: <span class="dict-val" id="dv-bridge" style="color:rgba(77,255,145,.25);">"???"</span>,</div>
+            <div class="dict-line" style="padding-left:10px;"><span class="k">"cargo"</span>: <span class="dict-val" id="dv-cargo" style="color:rgba(77,255,145,.25);">"???"</span>,</div>
+            <div class="dict-line" style="padding-left:10px;"><span class="k">"engine"</span>: <span class="dict-val" id="dv-engine" style="color:rgba(77,255,145,.25);">"???"</span>,</div>
+            <div class="dict-line" style="padding-left:10px;"><span class="k">"lab"</span>: <span class="dict-val" id="dv-lab" style="color:rgba(77,255,145,.25);">"???"</span>,</div>
+            <div class="dict-line" style="padding-left:10px;"><span class="k">"vault"</span>: <span class="dict-val" id="dv-vault" style="color:rgba(77,255,145,.25);">"???"</span>,</div>
+            <div class="dict-line">}</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="fb" id="fb1" style="color:var(--teal);"></div>
+      <button class="btn btn-t" id="next1" disabled>NEXT ACTIVITY →</button>
+    </div>
+
+    <!-- ═══════════ ACTIVITY 2 — NAVIGATE ═══════════ -->
+    <div class="act" id="act2">
+      <div class="act-title">🕹 ACTIVITY 2 — PLAYER NAVIGATION SEQUENCE</div>
+      <div class="act-desc">Drag the <strong>action cards</strong> into the correct sequence to navigate the space station — avoid the danger room and reach the Vault!</div>
+
+      <div id="nav-board">
+
+        <!-- ACTION SUPPLY -->
+        <div class="panel" style="min-width:175px;">
+          <div class="plabel">⬡ ACTION CARDS</div>
+          <div style="display:flex;flex-direction:column;gap:7px;" id="action-supply">
+            <div class="block action" draggable="true" data-aid="go_bridge" data-label="go_bridge">🌌 go "bridge"</div>
+            <div class="block action" draggable="true" data-aid="go_cargo" data-label="go_cargo">📦 go "cargo"</div>
+            <div class="block action" draggable="true" data-aid="go_engine" data-label="go_engine">⚙ go "engine"</div>
+            <div class="block danger" draggable="true" data-aid="go_danger" data-label="go_danger">⚠ go "reactor"</div>
+            <div class="block action" draggable="true" data-aid="pick_key" data-label="pick_key">🗝 pick up key</div>
+            <div class="block action" draggable="true" data-aid="go_vault" data-label="go_vault">🔐 go "vault"</div>
+            <div class="block action" draggable="true" data-aid="open_vault" data-label="open_vault">✅ open vault</div>
+          </div>
+        </div>
+
+        <!-- SEQUENCE SLOTS -->
+        <div class="panel" style="min-width:180px;">
+          <div class="plabel">📋 YOUR CODE SEQUENCE</div>
+          <div style="display:flex;flex-direction:column;gap:6px;" id="nav-seq">
+            <div class="seq-label">— STEP BY STEP →</div>
+            <div class="slot" data-ns="0" data-expect="go_bridge">step 1</div>
+            <div class="slot" data-ns="1" data-expect="pick_key">step 2</div>
+            <div class="slot" data-ns="2" data-expect="go_vault">step 3</div>
+            <div class="slot" data-ns="3" data-expect="open_vault">step 4</div>
+          </div>
+        </div>
+
+        <!-- TERMINAL OUTPUT -->
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div class="panel" style="padding:8px 10px;">
+            <div class="plabel">💻 CONSOLE OUTPUT</div>
+            <div id="terminal">
+              <div class="term-line show term-prompt">▶ game.start()</div>
+              <div class="term-line show">You are in the Airlock.</div>
+              <div class="term-line show">Exits: bridge, cargo, engine</div>
+              <div class="term-line show term-prompt">▶ waiting for input...</div>
+            </div>
+          </div>
+          <!-- MINI MAP -->
+          <div class="panel" style="padding:8px 10px;">
+            <div class="plabel">🗺 MINIMAP</div>
+            <div id="minimap">
+              <div class="mm-room" style="left:36px;top:4px;border-color:rgba(91,200,255,.5);color:var(--blue);">🌌</div>
+              <div class="mm-room" style="left:4px;top:36px;border-color:rgba(77,255,145,.5);color:var(--green);">📦</div>
+              <div class="mm-room" style="left:36px;top:36px;border-color:rgba(77,255,145,.8);color:var(--green);">🚀</div>
+              <div class="mm-room" style="left:68px;top:36px;border-color:rgba(91,200,255,.5);color:var(--blue);">⚙</div>
+              <div class="mm-room" style="left:4px;top:68px;border-color:rgba(255,85,119,.5);color:var(--red);">☢</div>
+              <div class="mm-room" style="left:36px;top:68px;border-color:rgba(255,208,96,.6);color:var(--amber);">🔐</div>
+              <div class="mm-player" id="mm-player" style="left:42px;top:40px;"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="fb" id="fb2" style="color:var(--teal);"></div>
+      <button class="btn btn-t" id="next2" disabled>FINAL CHALLENGE →</button>
+    </div>
+
+    <!-- ═══════════ ACTIVITY 3 — FLOWCHART ═══════════ -->
+    <div class="act" id="act3">
+      <div class="act-title">🔀 ACTIVITY 3 — IF-ELSE TREASURE HUNT FLOWCHART</div>
+      <div class="act-desc">Complete the adventure flowchart! Drag <strong>actions</strong> and <strong>outcomes</strong> into the correct branches — the player must find the treasure <em>or</em> escape the alien!</div>
+
+      <div id="flow-area">
+
+        <!-- BLOCK SUPPLY -->
+        <div class="panel" style="min-width:165px;">
+          <div class="plabel">⬡ DRAG BLOCKS</div>
+          <div style="display:flex;flex-direction:column;gap:7px;" id="flow-supply">
+            <div class="block outcome" draggable="true" data-fid="find_treasure">🏆 find_treasure()</div>
+            <div class="block danger" draggable="true" data-fid="escape_alien">🚨 escape_alien()</div>
+            <div class="block action" draggable="true" data-fid="input_choice">⌨ input("choice?")</div>
+            <div class="block cond" draggable="true" data-fid="if_vault">if choice=="vault"</div>
+            <div class="block outcome" draggable="true" data-fid="print_win">print("You win!")</div>
+            <div class="block danger" draggable="true" data-fid="print_lose">print("Alien appears!")</div>
+          </div>
+        </div>
+
+        <!-- FLOWCHART -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <!-- Fixed start -->
+          <div class="flow-node fixed" style="border-color:rgba(77,255,145,.5);color:var(--green);background:rgba(77,255,145,.07);">
+            🚀 game_start()
+          </div>
+          <div class="flow-arrow">↓</div>
+
+          <!-- Slot 1: input -->
+          <div class="slot" id="fs1" data-fslot="1" data-expect="input_choice" style="min-width:150px;">drag: ask player input</div>
+          <div class="flow-arrow">↓</div>
+
+          <!-- Slot 2: if condition -->
+          <div class="slot" id="fs2" data-fslot="2" data-expect="if_vault" style="min-width:150px;background:rgba(200,127,255,.04);border-color:rgba(200,127,255,.3);">drag: if condition</div>
+          <div class="flow-arrow">↓</div>
+
+          <!-- BRANCHES -->
+          <div class="branches">
+            <div class="branch">
+              <div class="branch-label">TRUE PATH ✓</div>
+              <div class="slot branch-slot" id="fs3" data-fslot="3" data-expect="find_treasure">drag: treasure action</div>
+              <div class="flow-arrow">↓</div>
+              <div class="slot branch-slot" id="fs5" data-fslot="5" data-expect="print_win">drag: print win</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 8px;">
+              <div style="font-family:var(--mono);font-size:20px;color:var(--purple);opacity:.5;">⇕</div>
+              <div style="font-family:var(--mono);font-size:8px;color:var(--dim);">else</div>
+            </div>
+            <div class="branch">
+              <div class="branch-label">FALSE PATH ✗</div>
+              <div class="slot branch-slot" id="fs4" data-fslot="4" data-expect="escape_alien">drag: danger action</div>
+              <div class="flow-arrow">↓</div>
+              <div class="slot branch-slot" id="fs6" data-fslot="6" data-expect="print_lose">drag: print lose</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ADVENTURE CANVAS -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+          <div class="panel" style="padding:8px 10px;">
+            <div class="plabel">🎮 ADVENTURE PREVIEW</div>
+            <canvas id="adv-canvas" width="160" height="200"></canvas>
+          </div>
+          <div class="score-badge" id="flow-score" style="border-color:rgba(0,232,198,.3);color:var(--dim);">0 / 6 steps placed</div>
+        </div>
+
+      </div>
+
+      <div class="fb" id="fb3" style="color:var(--teal);"></div>
+      <button class="btn btn-a" id="finish3" disabled>🎉 COMPLETE ADVENTURE</button>
+    </div>
+
+  </div><!-- /stage -->
+</div><!-- /app -->
+
+<!-- POPUP -->
+<div id="pop">
+  <div id="pbox">
+    <div class="p-icon" id="p-icon"></div>
+    <div class="p-title" id="p-title"></div>
+    <div class="p-body" id="p-body"></div>
+    <button class="btn btn-t" id="p-btn"></button>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════ BACKGROUND CANVAS ═══════════════════ */
+const bgC=document.getElementById('bg'),bgX=bgC.getContext('2d');
+function rszBg(){bgC.width=window.innerWidth;bgC.height=window.innerHeight;}
+rszBg();window.addEventListener('resize',rszBg);
+
+// Stars
+const stars=[];
+for(let i=0;i<220;i++){
+  stars.push({x:Math.random()*window.innerWidth,y:Math.random()*window.innerHeight,
+    r:Math.random()*1.4+.2,pulse:Math.random()*Math.PI*2,ps:.012+Math.random()*.02,
+    hue:Math.random()>0.8?200+Math.random()*60:0,sat:Math.random()>0.8?'100%':'0%'});
+}
+
+// Shooting stars
+const shooters=[];
+function newShooter(){
+  return{x:-50,y:Math.random()*window.innerHeight*.6,vx:4+Math.random()*4,vy:1+Math.random()*2,
+    len:60+Math.random()*80,alpha:1,dead:false};
+}
+let shootTimer=0;
+
+// Planets
+const planets=[
+  {x:.15,y:.2,r:28,col:'#3a5aaa',glow:'rgba(58,90,170,.4)',ring:true,dy:.0001},
+  {x:.82,y:.75,r:18,col:'#8b4513',glow:'rgba(139,69,19,.35)',ring:false,dy:-.00008},
+  {x:.6,y:.12,r:10,col:'#2a7a4f',glow:'rgba(42,122,79,.3)',ring:false,dy:.00012}
+];
+let pt=0;
+
+// Asteroids
+const asteroids=[];
+for(let i=0;i<12;i++){
+  asteroids.push({x:Math.random()*window.innerWidth,y:Math.random()*window.innerHeight,
+    vx:(Math.random()-.5)*.4,vy:(Math.random()-.5)*.3,rot:0,rotS:(Math.random()-.5)*.015,
+    sz:3+Math.random()*6});
+}
+
+// Satellite
+const sat={x:window.innerWidth*.3,y:60,angle:0,orbitR:55,cx:window.innerWidth*.5,cy:120};
+
+function drawBg(){
+  bgX.clearRect(0,0,bgC.width,bgC.height);
+
+  // stars
+  stars.forEach(s=>{
+    s.pulse+=s.ps;
+    const a=.3+.5*Math.sin(s.pulse);
+    bgX.beginPath();bgX.arc(s.x,s.y,s.r,0,Math.PI*2);
+    bgX.fillStyle=s.sat==='100%'?`hsla(${s.hue},100%,80%,${a})`:`rgba(255,255,255,${a})`;
+    bgX.fill();
+  });
+
+  // planets
+  pt+=.001;
+  planets.forEach(p=>{
+    const px=p.x*bgC.width,py=p.y*bgC.height+Math.sin(pt)*12;
+    const grad=bgX.createRadialGradient(px-p.r*.3,py-p.r*.3,0,px,py,p.r);
+    grad.addColorStop(0,'rgba(255,255,255,.15)');grad.addColorStop(1,p.col);
+    bgX.beginPath();bgX.arc(px,py,p.r,0,Math.PI*2);
+    bgX.fillStyle=grad;bgX.fill();
+    if(p.ring){
+      bgX.save();bgX.translate(px,py);bgX.scale(1,.3);
+      bgX.beginPath();bgX.arc(0,0,p.r*1.6,0,Math.PI*2);
+      bgX.strokeStyle='rgba(200,180,100,.3)';bgX.lineWidth=4;bgX.stroke();bgX.restore();
+    }
+    bgX.beginPath();bgX.arc(px,py,p.r+8,0,Math.PI*2);
+    bgX.strokeStyle=p.glow;bgX.lineWidth=8;bgX.stroke();
+  });
+
+  // asteroids
+  asteroids.forEach(a=>{
+    a.rot+=a.rotS;a.x+=a.vx;a.y+=a.vy;
+    if(a.x<-20)a.x=bgC.width+20;if(a.x>bgC.width+20)a.x=-20;
+    if(a.y<-20)a.y=bgC.height+20;if(a.y>bgC.height+20)a.y=-20;
+    bgX.save();bgX.translate(a.x,a.y);bgX.rotate(a.rot);
+    bgX.beginPath();bgX.moveTo(a.sz,0);
+    for(let i=1;i<6;i++){
+      const ang=i*(Math.PI*2/6),jitter=a.sz*(.6+Math.random()*.4);
+      bgX.lineTo(Math.cos(ang)*jitter,Math.sin(ang)*jitter);
+    }
+    bgX.closePath();bgX.fillStyle='rgba(120,100,80,.22)';bgX.fill();
+    bgX.strokeStyle='rgba(160,140,100,.3)';bgX.lineWidth=1;bgX.stroke();bgX.restore();
+  });
+
+  // satellite
+  sat.angle+=.006;
+  const sx=sat.cx+Math.cos(sat.angle)*sat.orbitR*2.5;
+  const sy=sat.cy+Math.sin(sat.angle)*sat.orbitR*.6;
+  bgX.save();bgX.translate(sx,sy);bgX.rotate(sat.angle);
+  bgX.fillStyle='rgba(180,200,255,.5)';
+  bgX.fillRect(-6,-2,12,4);
+  bgX.fillStyle='rgba(91,200,255,.6)';bgX.fillRect(-2,-2,4,4);
+  bgX.restore();
+  // orbit trail
+  bgX.beginPath();bgX.ellipse(sat.cx,sat.cy,sat.orbitR*2.5,sat.orbitR*.6,0,0,Math.PI*2);
+  bgX.strokeStyle='rgba(91,200,255,.05)';bgX.lineWidth=1;bgX.stroke();
+
+  // shooting stars
+  shootTimer++;
+  if(shootTimer>140){shooters.push(newShooter());shootTimer=0;}
+  shooters.forEach((s,i)=>{
+    if(s.dead)return;
+    s.x+=s.vx;s.y+=s.vy;
+    const grd=bgX.createLinearGradient(s.x,s.y,s.x-s.vx*8,s.y-s.vy*8);
+    grd.addColorStop(0,'rgba(255,255,255,.9)');grd.addColorStop(1,'transparent');
+    bgX.beginPath();bgX.moveTo(s.x,s.y);bgX.lineTo(s.x-s.vx*8,s.y-s.vy*8);
+    bgX.strokeStyle=grd;bgX.lineWidth=1.5;bgX.stroke();
+    if(s.x>bgC.width+100)s.dead=true;
+  });
+
+  requestAnimationFrame(drawBg);
+}
+drawBg();
+
+/* ═══════════════════ DRAG HELPERS ═══════════════════ */
+let dData={};
+function mkDrag(el,data){
+  el.addEventListener('dragstart',e=>{Object.assign(dData,data);el.classList.add('dragging');e.dataTransfer.effectAllowed='copy';});
+  el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+}
+function mkDrop(el,fn){
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('over'));
+  el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('over');fn(el,dData);});
+}
+function flash(el,type){el.classList.add(type);setTimeout(()=>el.classList.remove(type),660);}
+function putBlock(slot,srcEl){
+  const c=srcEl.cloneNode(true);
+  c.style.cursor='default';c.removeAttribute('draggable');
+  c.style.fontSize='10px';c.style.padding='4px 9px';c.style.width='100%';c.style.justifyContent='center';
+  slot.innerHTML='';slot.appendChild(c);slot.classList.add('filled');
+}
+
+/* ═══════════════════ ACTIVITY 1 ═══════════════════ */
+const dictEmojis={bridge:'🌌 Bridge',cargo:'📦 Cargo Bay',engine:'⚙ Engine Room',lab:'🔬 Science Lab',vault:'🔐 Vault'};
+let a1done=0;
+
+document.querySelectorAll('#room-supply .block').forEach(b=>{
+  mkDrag(b,{rid:b.dataset.rid,icon:b.dataset.icon,el:b});
+});
+
+document.querySelectorAll('.room-slot').forEach(slot=>{
+  mkDrop(slot,(s,d)=>{
+    if(s.classList.contains('filled'))return;
+    const expects=s.dataset.accepts;
+    if(d.rid===expects){
+      s.innerHTML=`<span style="font-size:18px;">${d.icon}</span><span class="room-name-label" style="color:var(--blue);">${dictEmojis[d.rid].split(' ').slice(1).join(' ')}</span>`;
+      s.classList.add('filled');flash(s,'correct');
+      const dv=document.getElementById('dv-'+d.rid);
+      if(dv){dv.textContent=`"${dictEmojis[d.rid]}"`;dv.style.color='var(--green)';}
+      a1done++;
+      if(a1done===5){
+        document.getElementById('fb1').textContent='🌌 Space station mapped! All rooms connected in the dictionary!';
+        document.getElementById('next1').disabled=false;
+      } else {
+        document.getElementById('fb1').textContent=`✓ ${a1done}/5 rooms placed — keep building!`;
+        document.getElementById('fb1').style.color='var(--teal)';
+      }
+    } else {
+      flash(s,'wrong');
+      document.getElementById('fb1').textContent='⚠ Wrong room for that slot — check the station layout!';
+      document.getElementById('fb1').style.color='var(--red)';
+      setTimeout(()=>{document.getElementById('fb1').textContent='';document.getElementById('fb1').style.color='var(--teal)';},2000);
+    }
+  });
+});
+
+document.getElementById('next1').addEventListener('click',()=>{
+  showPopup({icon:'🗺',title:'MAP COMPLETE!',
+    body:`Brilliant! The <code>rooms</code> dictionary now stores every location. A Python dictionary maps a <strong>key</strong> (room name) to a <strong>value</strong> (its description). When the player types <code>"bridge"</code>, Python looks up that key and finds exactly where to send them!`,
+    btn:'NAVIGATE ROOMS →',cb:()=>switchAct(1,2)});
+});
+
+/* ═══════════════════ ACTIVITY 2 ═══════════════════ */
+const NAV_CORRECT=['go_bridge','pick_key','go_vault','open_vault'];
+const NAV_TERMINAL=[
+  ['▶ go("bridge")','You enter the Bridge. Stars fill the view!','You find a glowing key here!','— exits: airlock, engine, vault'],
+  ['▶ pick_key()','You pick up the glowing key. 🗝','Key added to inventory.',''],
+  ['▶ go("vault")','You enter the Vault. 🔐','The locked chest glows faintly.','— You need a key to open it!'],
+  ['▶ open_vault()','You use the key. ✅','The chest bursts open! 🏆','print("You found the star crystal!")']
+];
+const MM_POS=[
+  {left:'42px',top:'8px'},  // bridge
+  {left:'42px',top:'8px'},  // still bridge (pick key)
+  {left:'42px',top:'72px'}, // vault
+  {left:'42px',top:'72px'}  // open vault
+];
+let a2done=0;
+
+document.querySelectorAll('#action-supply .block').forEach(b=>{
+  mkDrag(b,{aid:b.dataset.aid,el:b});
+});
+
+document.querySelectorAll('#nav-seq .slot').forEach(slot=>{
+  mkDrop(slot,(s,d)=>{
+    if(s.classList.contains('filled'))return;
+    const pos=parseInt(s.dataset.ns);
+    if(d.aid===NAV_CORRECT[pos]){
+      putBlock(s,d.el);flash(s,'correct');
+      a2done++;
+      // animate terminal
+      const term=document.getElementById('terminal');
+      const lines=NAV_TERMINAL[pos];
+      lines.filter(l=>l).forEach((l,i)=>{
+        setTimeout(()=>{
+          const div=document.createElement('div');
+          div.className='term-line '+(i===0?'term-prompt':l.includes('print')?'term-win':'');
+          div.textContent=l;term.appendChild(div);
+          requestAnimationFrame(()=>div.classList.add('show'));
+          term.scrollTop=term.scrollHeight;
+        },i*300);
+      });
+      // move minimap player
+      const pp=MM_POS[pos];
+      const pl=document.getElementById('mm-player');
+      pl.style.left=pp.left;pl.style.top=pp.top;
+
+      if(a2done===4){
+        document.getElementById('fb2').textContent='🏆 Navigation complete! The player reached the Vault and opened it!';
+        document.getElementById('next2').disabled=false;
+      } else {
+        document.getElementById('fb2').textContent=`✓ Step ${a2done}/4 executed — what's next?`;
+      }
+    } else if(d.aid==='go_danger'){
+      flash(s,'wrong');
+      document.getElementById('fb2').textContent='⚠ Reactor is dangerous! The computer checks the path first — choose a safe route!';
+      document.getElementById('fb2').style.color='var(--red)';
+      setTimeout(()=>{document.getElementById('fb2').style.color='var(--teal)';document.getElementById('fb2').textContent='';},2500);
+    } else {
+      flash(s,'wrong');
+      document.getElementById('fb2').textContent='⚠ Wrong sequence — commands must follow the story path in order!';
+      document.getElementById('fb2').style.color='var(--red)';
+      setTimeout(()=>{document.getElementById('fb2').style.color='var(--teal)';document.getElementById('fb2').textContent='';},2000);
+    }
+  });
+});
+
+document.getElementById('next2').addEventListener('click',()=>{
+  showPopup({icon:'🕹',title:'NAVIGATION MASTERED!',
+    body:`The player followed the correct code path: <strong>Bridge → pick key → Vault → open vault</strong>. Each line ran <strong>in order</strong>, top to bottom, just like reading a story — no step was skipped! Now complete the if-else flowchart to handle <em>any</em> player choice!`,
+    btn:'BUILD FLOWCHART →',cb:()=>switchAct(2,3)});
+});
+
+/* ═══════════════════ ACTIVITY 3 ═══════════════════ */
+const advC=document.getElementById('adv-canvas');
+const advX=advC.getContext('2d');
+let a3done=0;
+drawAdvCanvas(0);
+
+const FLOW_CORRECT={1:'input_choice',2:'if_vault',3:'find_treasure',4:'escape_alien',5:'print_win',6:'print_lose'};
+const FLOW_LABELS={1:'⌨ Player types answer',2:'🔀 Checking condition...',3:'🏆 Treasure found!',4:'🚨 Alien detected!',5:'✅ Victory screen!',6:'❌ Escape screen!'};
+
+document.querySelectorAll('#flow-supply .block').forEach(b=>{
+  mkDrag(b,{fid:b.dataset.fid,el:b});
+});
+
+document.querySelectorAll('[data-fslot]').forEach(slot=>{
+  mkDrop(slot,(s,d)=>{
+    if(s.classList.contains('filled'))return;
+    const pos=parseInt(s.dataset.fslot);
+    if(d.fid===FLOW_CORRECT[pos]){
+      putBlock(s,d.el);flash(s,'correct');
+      a3done++;
+      document.getElementById('flow-score').textContent=`${a3done} / 6 steps placed`;
+      drawAdvCanvas(a3done);
+      if(a3done===6){
+        document.getElementById('fb3').textContent='🎉 Flowchart complete! Both story branches are connected!';
+        document.getElementById('finish3').disabled=false;
+        document.getElementById('flow-score').style.borderColor='var(--teal)';
+        document.getElementById('flow-score').style.color='var(--teal)';
+      } else {
+        document.getElementById('fb3').textContent=`✓ ${a3done}/6 — ${FLOW_LABELS[pos]}`;
+      }
+    } else {
+      flash(s,'wrong');
+      document.getElementById('fb3').textContent='⚠ Wrong block for that branch — check which path it belongs to!';
+      document.getElementById('fb3').style.color='var(--red)';
+      setTimeout(()=>{document.getElementById('fb3').style.color='var(--teal)';document.getElementById('fb3').textContent='';},2000);
+    }
+  });
+});
+
+function drawAdvCanvas(step){
+  advX.clearRect(0,0,160,200);
+  // bg
+  const g=advX.createLinearGradient(0,0,0,200);
+  g.addColorStop(0,'#03060f');g.addColorStop(1,'#060c20');
+  advX.fillStyle=g;advX.fillRect(0,0,160,200);
+  // stars
+  advX.fillStyle='rgba(255,255,255,.5)';
+  [[10,15],[40,8],[80,20],[130,12],[155,30],[25,50],[110,40]].forEach(([x,y])=>{
+    advX.beginPath();advX.arc(x,y,1,0,Math.PI*2);advX.fill();
+  });
+  // planet
+  advX.beginPath();advX.arc(130,40,16,0,Math.PI*2);
+  advX.fillStyle='#1a3a6a';advX.fill();
+  advX.strokeStyle='rgba(91,200,255,.4)';advX.lineWidth=3;advX.stroke();
+
+  if(step>=1){
+    // player ship
+    advX.save();advX.translate(80,140);
+    advX.fillStyle='rgba(0,232,198,.8)';
+    advX.beginPath();advX.moveTo(0,-16);advX.lineTo(-10,8);advX.lineTo(10,8);advX.closePath();advX.fill();
+    advX.strokeStyle='var(--teal)';advX.lineWidth=1.5;advX.stroke();
+    // engine glow
+    advX.beginPath();advX.arc(0,10,4,0,Math.PI*2);
+    advX.fillStyle='rgba(255,208,96,.6)';advX.fill();
+    advX.restore();
+    advX.fillStyle='rgba(0,232,198,.7)';advX.font='9px "Share Tech Mono"';
+    advX.textAlign='center';advX.fillText('player.ship',80,172);
+  }
+  if(step>=2){
+    // input prompt bar
+    advX.fillStyle='rgba(0,232,198,.1)';advX.fillRect(10,180,140,16);
+    advX.strokeStyle='rgba(0,232,198,.4)';advX.lineWidth=1;advX.strokeRect(10,180,140,16);
+    advX.fillStyle='rgba(0,232,198,.8)';advX.font='8px "Share Tech Mono"';
+    advX.textAlign='left';advX.fillText('▶ input("go where?")',14,191);
+  }
+  if(step>=3){
+    // if-else fork visual
+    advX.strokeStyle='rgba(200,127,255,.5)';advX.lineWidth=1.5;advX.setLineDash([4,3]);
+    advX.beginPath();advX.moveTo(80,130);advX.lineTo(30,100);advX.stroke();
+    advX.beginPath();advX.moveTo(80,130);advX.lineTo(130,100);advX.stroke();
+    advX.setLineDash([]);
+    advX.fillStyle='rgba(200,127,255,.7)';advX.font='7px "Share Tech Mono"';
+    advX.textAlign='center';
+    advX.fillText('if vault?',80,128);
+  }
+  if(step>=4){
+    // treasure branch
+    advX.fillStyle='rgba(77,255,145,.2)';advX.fillRect(4,78,54,18);
+    advX.strokeStyle='rgba(77,255,145,.5)';advX.lineWidth=1;advX.strokeRect(4,78,54,18);
+    advX.fillStyle='rgba(77,255,145,.9)';advX.font='7px "Share Tech Mono"';
+    advX.textAlign='center';advX.fillText('🏆 TREASURE',31,90);
+  }
+  if(step>=5){
+    // danger branch
+    advX.fillStyle='rgba(255,85,119,.2)';advX.fillRect(102,78,54,18);
+    advX.strokeStyle='rgba(255,85,119,.5)';advX.lineWidth=1;advX.strokeRect(102,78,54,18);
+    advX.fillStyle='rgba(255,85,119,.9)';advX.font='7px "Share Tech Mono"';
+    advX.textAlign='center';advX.fillText('🚨 ALIEN!',129,90);
+  }
+  if(step>=6){
+    // win/lose labels
+    advX.fillStyle='rgba(255,208,96,.8)';advX.font='7px "Share Tech Mono"';
+    advX.textAlign='center';advX.fillText('print("You win!")',31,72);
+    advX.fillStyle='rgba(255,85,119,.7)';advX.fillText('print("Alien!")',129,72);
+    // glow the canvas
+    advX.strokeStyle='rgba(0,232,198,.3)';advX.lineWidth=2;advX.strokeRect(1,1,158,198);
+  }
+}
+
+document.getElementById('finish3').addEventListener('click',showFinal);
+
+/* ═══════════════════ POPUP ═══════════════════ */
+function showPopup({icon,title,body,btn,cb}){
+  document.getElementById('p-icon').textContent=icon;
+  document.getElementById('p-title').textContent=title;
+  document.getElementById('p-body').innerHTML=body;
+  const b=document.getElementById('p-btn');b.textContent=btn;
+  b.onclick=()=>{document.getElementById('pop').classList.remove('on');cb&&cb();};
+  document.getElementById('pop').classList.add('on');
+}
+
+function showFinal(){
+  document.getElementById('p-icon').textContent='🚀';
+  document.getElementById('p-title').textContent='ADVENTURE COMPLETE!';
+  document.getElementById('p-body').innerHTML=`
+    <strong>Outstanding, Game Developer!</strong><br><br>
+    You built a complete text adventure engine:<br><br>
+    ① A <code>rooms</code> dictionary connecting every location<br>
+    ② Sequential <code>go()</code> commands running line by line<br>
+    ③ An <code>if-else</code> flowchart giving players two story paths<br><br>
+    <span style="color:var(--teal);font-size:11px;letter-spacing:1px;">Every great game starts with a single <code>print()</code> command.</span>
+  `;
+  document.getElementById('p-btn').textContent='🎉 CELEBRATE!';
+  document.getElementById('p-btn').onclick=()=>{document.getElementById('pop').classList.remove('on');launchConfetti();};
+  document.getElementById('pop').classList.add('on');
+  document.getElementById('pbox').style.borderColor='var(--amber)';
+  document.getElementById('p-title').style.color='var(--amber)';
+}
+
+function launchConfetti(){
+  const cols=['#00e8c6','#ffd060','#c87fff','#5bc8ff','#ff5577','#4dff91'];
+  for(let i=0;i<72;i++){
+    setTimeout(()=>{
+      const c=document.createElement('div');c.className='cf';
+      c.style.left=Math.random()*100+'%';c.style.top='-10px';
+      c.style.background=cols[Math.floor(Math.random()*cols.length)];
+      c.style.animationDuration=(1.4+Math.random()*1.5)+'s';
+      c.style.animationDelay=Math.random()*.6+'s';
+      document.body.appendChild(c);setTimeout(()=>c.remove(),3200);
+    },i*26);
+  }
+}
+
+/* ═══════════════════ NAVIGATION ═══════════════════ */
+function switchAct(from,to){
+  document.querySelectorAll('.act').forEach(a=>a.classList.remove('on'));
+  document.getElementById('act'+to).classList.add('on');
+  ['p1','p2','p3'].forEach((id,i)=>{
+    document.getElementById(id).className='pill '+(i+1<to?'done':i+1===to?'active':'idle');
+  });
+}
+</script>
+</body>
+</html>

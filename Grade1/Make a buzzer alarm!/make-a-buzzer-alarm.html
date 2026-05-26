@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Make a Buzzer Alarm!</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bubblegum+Sans&family=Nunito:wght@400;600;700;800&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-user-select:none;user-select:none;}
+html,body{width:100%;height:100%;overflow:hidden;}
+
+:root{
+  --forest-dark:#0d2b1a;
+  --forest-mid:#1a4a2e;
+  --forest-light:#2d7a4f;
+  --leaf:#4caf7d;
+  --glow-green:#7fffa0;
+  --mushroom-red:#e8453c;
+  --mushroom-spot:#fff;
+  --fairy:#ffe066;
+  --gold:#ffd700;
+  --amber:#ffaa00;
+  --sky:#0a1628;
+  --firefly:#e8ff80;
+  --magic:#c084fc;
+  --copper:#b87333;
+  --copper-glow:#ff9d44;
+  --buzz-red:#ff3d3d;
+  --buzz-yellow:#ffe566;
+}
+
+body{
+  background:var(--forest-dark);
+  font-family:'Nunito',sans-serif;
+  overflow:hidden;
+}
+
+/* ── CANVAS BG ── */
+#bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+
+/* ── FOREST OVERLAY LAYERS ── */
+.forest-floor{
+  position:fixed;bottom:0;left:0;width:100%;height:22%;
+  background:linear-gradient(to top,#0a1f10,#1a3d22,transparent);
+  z-index:1;pointer-events:none;
+}
+.tree-layer{
+  position:fixed;bottom:0;left:0;width:100%;height:100%;
+  z-index:1;pointer-events:none;
+  overflow:hidden;
+}
+
+/* ── MUSHROOMS SVG ── */
+.mushroom-svg{position:fixed;bottom:0;z-index:2;pointer-events:none;}
+
+/* ── FIREFLIES ── */
+.firefly{
+  position:fixed;border-radius:50%;
+  background:radial-gradient(circle,#e8ff80,#aaff40 40%,transparent 70%);
+  pointer-events:none;z-index:3;
+  animation:fireflyFloat linear infinite;
+}
+@keyframes fireflyFloat{
+  0%{transform:translate(0,0) scale(1);opacity:0;}
+  10%{opacity:1;}
+  50%{transform:translate(var(--fx),var(--fy)) scale(1.3);opacity:0.9;}
+  90%{opacity:0.7;}
+  100%{transform:translate(var(--fx2),var(--fy2)) scale(0.8);opacity:0;}
+}
+
+/* ── MAGIC DUST ── */
+.dust{
+  position:fixed;border-radius:50%;pointer-events:none;z-index:3;
+  animation:dustDrift ease-in-out infinite;
+}
+@keyframes dustDrift{
+  0%{transform:translateY(0) rotate(0deg);opacity:0;}
+  20%{opacity:0.8;}
+  80%{opacity:0.4;}
+  100%{transform:translateY(-80px) rotate(360deg);opacity:0;}
+}
+
+/* ── MAIN APP ── */
+#app{
+  position:fixed;top:0;left:0;width:100%;height:100%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:10;padding:10px;
+}
+
+/* ── TITLE ── */
+.title-bar{text-align:center;margin-bottom:8px;}
+.title-bar h1{
+  font-family:'Bubblegum Sans',cursive;
+  font-size:clamp(18px,3.5vw,34px);
+  color:var(--glow-green);
+  text-shadow:0 0 20px rgba(127,255,160,0.7),0 0 40px rgba(127,255,160,0.3);
+  letter-spacing:1px;animation:titleGlow 3s ease infinite;
+}
+@keyframes titleGlow{
+  0%,100%{text-shadow:0 0 20px rgba(127,255,160,0.7),0 0 40px rgba(127,255,160,0.3);}
+  50%{text-shadow:0 0 30px rgba(127,255,160,1),0 0 60px rgba(127,255,160,0.5),0 0 80px rgba(192,132,252,0.3);}
+}
+.title-bar .sub{
+  font-size:clamp(10px,1.5vw,13px);color:#7fffa0;font-weight:700;
+  letter-spacing:3px;text-transform:uppercase;opacity:0.8;margin-top:2px;
+}
+
+/* ── PROGRESS ── */
+.progress{display:flex;justify-content:center;gap:8px;margin-bottom:8px;}
+.pdot{
+  height:8px;border-radius:4px;width:28px;
+  background:rgba(127,255,160,0.15);border:1px solid rgba(127,255,160,0.2);
+  transition:all 0.4s ease;
+}
+.pdot.active{background:linear-gradient(90deg,#7fffa0,#4caf7d);width:44px;box-shadow:0 0 10px rgba(127,255,160,0.5);}
+.pdot.done{background:linear-gradient(90deg,#ffd700,#ffaa00);box-shadow:0 0 8px rgba(255,215,0,0.4);}
+
+/* ── CARD ── */
+.card{
+  background:rgba(10,31,20,0.88);
+  backdrop-filter:blur(16px);
+  border-radius:24px;
+  border:1.5px solid rgba(127,255,160,0.2);
+  padding:16px 20px;
+  width:100%;max-width:720px;
+  box-shadow:0 0 40px rgba(0,0,0,0.6),0 0 80px rgba(127,255,160,0.05),inset 0 1px 0 rgba(127,255,160,0.1);
+  position:relative;overflow:hidden;
+}
+.card::before{
+  content:'';position:absolute;top:-40px;right:-40px;
+  width:160px;height:160px;border-radius:50%;
+  background:radial-gradient(circle,rgba(192,132,252,0.07),transparent 70%);
+  pointer-events:none;
+}
+
+/* ── ACT HEADER ── */
+.act-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.act-badge{
+  font-family:'Bubblegum Sans',cursive;font-size:12px;
+  padding:4px 14px;border-radius:20px;
+  background:linear-gradient(135deg,#2d7a4f,#1a4a2e);
+  color:#7fffa0;border:1px solid rgba(127,255,160,0.3);
+  box-shadow:0 0 12px rgba(127,255,160,0.2);white-space:nowrap;
+}
+.act-title{font-family:'Bubblegum Sans',cursive;font-size:clamp(15px,2.4vw,21px);color:#7fffa0;}
+.act-desc{font-size:clamp(11px,1.5vw,13px);color:#a8d5b5;margin-bottom:10px;line-height:1.5;font-weight:600;}
+
+/* ── SCORE ── */
+.score-bar{display:flex;justify-content:flex-end;align-items:center;gap:5px;margin-bottom:6px;font-family:'Bubblegum Sans',cursive;color:#ffd700;font-size:13px;}
+.score-val{font-size:17px;color:#ffe566;}
+
+/* ── WORKBENCH ── */
+.workbench{
+  background:rgba(26,74,46,0.3);border-radius:16px;
+  border:1px solid rgba(127,255,160,0.12);
+  padding:12px;margin:6px 0;
+}
+
+/* ── COMPONENT ITEMS ── */
+.comp{
+  display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;padding:8px 10px;border-radius:14px;cursor:grab;
+  border:1.5px solid rgba(127,255,160,0.25);
+  background:rgba(26,74,46,0.6);
+  transition:transform 0.15s,box-shadow 0.15s,border-color 0.2s;
+  min-width:70px;
+}
+.comp:hover{transform:scale(1.07);box-shadow:0 0 16px rgba(127,255,160,0.3);}
+.comp.dragging{opacity:0.4;transform:scale(0.93);}
+.comp .icon{font-size:clamp(24px,3.5vw,32px);}
+.comp .label{font-size:clamp(9px,1.2vw,11px);color:#7fffa0;font-weight:700;text-align:center;line-height:1.2;}
+
+/* ── SLOTS ── */
+.slot{
+  display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;padding:8px 10px;border-radius:14px;
+  border:2px dashed rgba(127,255,160,0.3);
+  background:rgba(127,255,160,0.04);
+  min-width:70px;min-height:60px;
+  transition:border-color 0.2s,background 0.2s,box-shadow 0.2s;
+  cursor:default;
+}
+.slot.hover-over{border-color:#7fffa0;background:rgba(127,255,160,0.12);box-shadow:0 0 16px rgba(127,255,160,0.3);}
+.slot.filled{border-style:solid;border-color:rgba(127,255,160,0.4);animation:slotPop 0.4s ease;}
+.slot.correct{border-color:#7fffa0;background:rgba(127,255,160,0.12);box-shadow:0 0 20px rgba(127,255,160,0.4);}
+.slot.wrong{border-color:#ff3d3d;background:rgba(255,61,61,0.1);animation:slotShake 0.4s ease;}
+@keyframes slotPop{0%{transform:scale(0.85);}60%{transform:scale(1.08);}100%{transform:scale(1);}}
+@keyframes slotShake{0%,100%{transform:translateX(0);}25%{transform:translateX(-5px);}75%{transform:translateX(5px);}}
+
+/* ── WIRE / CONNECTION ── */
+.wire-connector{
+  display:flex;align-items:center;justify-content:center;
+  flex:1;height:6px;border-radius:3px;
+  background:rgba(184,115,51,0.15);border:1px dashed rgba(184,115,51,0.3);
+  position:relative;overflow:hidden;transition:background 0.4s,border-color 0.4s;
+  min-width:24px;
+}
+.wire-connector.live{
+  background:linear-gradient(90deg,#b87333,#ff9d44,#b87333);
+  border-color:#ff9d44;
+  box-shadow:0 0 12px rgba(255,157,68,0.6);
+  animation:wireFlow 1.2s linear infinite;
+}
+@keyframes wireFlow{
+  0%{background-position:0% 50%;}100%{background-position:200% 50%;}
+}
+
+/* ── CIRCUIT ROWS ── */
+.circuit-row{display:flex;align-items:center;gap:8px;justify-content:center;flex-wrap:wrap;}
+.circuit-label{
+  font-size:10px;color:#4caf7d;font-weight:700;letter-spacing:1px;text-transform:uppercase;text-align:center;
+  margin-top:3px;
+}
+
+/* ── BUZZER ANIMATION ── */
+.buzzer-active{animation:buzzPulse 0.3s ease infinite;}
+@keyframes buzzPulse{0%,100%{box-shadow:0 0 8px rgba(255,61,61,0.4);}50%{box-shadow:0 0 24px rgba(255,61,61,0.9),0 0 40px rgba(255,230,102,0.5);}}
+
+/* ── DOOR FRAME (ACT 2) ── */
+.door-wrap{
+  display:flex;align-items:center;justify-content:center;gap:16px;
+  flex-wrap:wrap;
+}
+.door-frame{
+  width:clamp(130px,20vw,170px);height:clamp(200px,28vh,230px);
+  border:5px solid #5a3a1a;border-radius:4px 4px 0 0;
+  background:linear-gradient(135deg,#3d2210,#5a3a1a);
+  position:relative;box-shadow:0 0 20px rgba(0,0,0,0.5);
+}
+.door-frame::before{
+  content:'🪵';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:40px;opacity:0.15;
+}
+.door-knob{
+  position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  width:14px;height:14px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#ffd700,#b8860b);
+  box-shadow:0 2px 6px rgba(0,0,0,0.4);
+}
+.tape-slot{
+  position:absolute;width:22px;height:22px;border-radius:6px;
+  border:2px dashed rgba(184,115,51,0.5);background:rgba(184,115,51,0.08);
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.3s;cursor:default;
+}
+.tape-slot.hover-over{border-color:#ff9d44;background:rgba(255,157,68,0.2);box-shadow:0 0 12px rgba(255,157,68,0.5);}
+.tape-slot.filled{border-color:#ff9d44;background:rgba(255,157,68,0.25);box-shadow:0 0 10px rgba(255,157,68,0.5);}
+.tape-slot.correct{border-color:#7fffa0;animation:slotPop 0.4s ease;}
+
+/* ── PLACEMENT CARDS (ACT 3) ── */
+.placement-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+}
+.pcard{
+  border-radius:12px;border:1.5px dashed rgba(127,255,160,0.25);
+  background:rgba(26,74,46,0.3);
+  min-height:72px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;padding:6px;
+  transition:all 0.25s;
+}
+.pcard .slot-label{font-size:9px;color:#4caf7d;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.pcard.hover-over{border-color:#7fffa0;background:rgba(127,255,160,0.1);box-shadow:0 0 14px rgba(127,255,160,0.3);}
+.pcard.filled{border-style:solid;border-color:rgba(127,255,160,0.4);}
+.pcard.correct{border-color:#7fffa0;box-shadow:0 0 18px rgba(127,255,160,0.4);}
+.pcard.wrong{border-color:#ff3d3d;animation:slotShake 0.4s ease;}
+
+/* ── FEEDBACK ── */
+.feedback{
+  text-align:center;font-family:'Bubblegum Sans',cursive;
+  font-size:clamp(13px,2vw,17px);min-height:24px;margin-top:6px;transition:all 0.3s;
+}
+.feedback.good{color:#7fffa0;text-shadow:0 0 10px rgba(127,255,160,0.5);}
+.feedback.bad{color:#ff6b6b;}
+
+/* ── BTNS ── */
+.btn{
+  font-family:'Bubblegum Sans',cursive;font-size:clamp(13px,1.8vw,16px);
+  padding:9px 26px;border:none;border-radius:50px;cursor:pointer;
+  transition:transform 0.15s,box-shadow 0.15s;
+}
+.btn:hover{transform:translateY(-2px);}
+.btn:active{transform:translateY(0);}
+.btn-primary{
+  background:linear-gradient(135deg,#2d7a4f,#4caf7d);
+  color:#fff;box-shadow:0 4px 18px rgba(76,175,125,0.4);
+}
+.btn-primary:hover{box-shadow:0 6px 24px rgba(76,175,125,0.6);}
+.btn-row{display:flex;justify-content:center;gap:10px;margin-top:10px;}
+
+/* ── CHOICES TRAY ── */
+.tray{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:8px;
+  background:rgba(26,74,46,0.2);border-radius:14px;
+  border:1px solid rgba(127,255,160,0.1);padding:10px;margin-top:8px;
+}
+.tray-label{
+  width:100%;text-align:center;font-size:10px;color:#4caf7d;
+  font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;
+}
+.comp.used{opacity:0.25;pointer-events:none;filter:grayscale(0.8);}
+
+/* ── POPUP ── */
+.popup-overlay{
+  position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,0.7);backdrop-filter:blur(10px);
+  z-index:100;display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity 0.35s;
+}
+.popup-overlay.show{opacity:1;pointer-events:all;}
+.popup{
+  background:linear-gradient(135deg,rgba(13,43,26,0.97),rgba(26,74,46,0.97));
+  border-radius:28px;padding:28px 32px;max-width:420px;width:90%;
+  text-align:center;
+  border:1.5px solid rgba(127,255,160,0.3);
+  box-shadow:0 0 60px rgba(127,255,160,0.2),0 0 120px rgba(0,0,0,0.5);
+  transform:scale(0.85);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+}
+.popup-overlay.show .popup{transform:scale(1);}
+.popup-emoji{font-size:58px;display:block;animation:floatEmoji 3s ease infinite;margin-bottom:10px;}
+@keyframes floatEmoji{0%,100%{transform:translateY(0);}50%{transform:translateY(-10px);}}
+.popup h2{font-family:'Bubblegum Sans',cursive;font-size:24px;color:#7fffa0;margin-bottom:8px;text-shadow:0 0 20px rgba(127,255,160,0.5);}
+.popup p{color:#a8d5b5;font-size:14px;line-height:1.6;margin-bottom:14px;font-weight:600;}
+.popup .star-row{font-size:28px;letter-spacing:4px;margin:6px 0 14px;}
+
+/* ── SPARK PARTICLES ── */
+.spark{
+  position:fixed;border-radius:50%;pointer-events:none;z-index:200;
+  animation:sparkFly linear forwards;
+}
+@keyframes sparkFly{
+  to{transform:translate(var(--sx),var(--sy)) scale(0);opacity:0;}
+}
+
+/* ── BUZZER WAVE RINGS ── */
+.wave-ring{
+  position:absolute;border-radius:50%;border:2px solid #ff3d3d;
+  pointer-events:none;
+  animation:waveExpand 0.8s ease-out forwards;
+}
+@keyframes waveExpand{
+  0%{transform:translate(-50%,-50%) scale(0);opacity:1;}
+  100%{transform:translate(-50%,-50%) scale(3);opacity:0;}
+}
+
+/* ── ACTIVITY HIDDEN/SHOWN ── */
+.activity{display:none;}
+.activity.active{display:block;}
+
+/* ── GLOW TEXT ── */
+.glow-text{
+  color:#ffd700;font-family:'Bubblegum Sans',cursive;font-size:clamp(13px,2vw,17px);
+  text-shadow:0 0 10px rgba(255,215,0,0.6);text-align:center;
+  margin:6px 0;
+}
+
+/* ── CIRCUIT COMPLETE ANIM ── */
+@keyframes circuitGlow{
+  0%,100%{box-shadow:0 0 10px rgba(127,255,160,0.3);}
+  50%{box-shadow:0 0 30px rgba(127,255,160,0.8),0 0 50px rgba(127,255,160,0.4);}
+}
+.circuit-complete{animation:circuitGlow 1s ease infinite;}
+
+/* ── ACT2 CIRCUIT LINES ── */
+.circuit-path{
+  stroke-dasharray:200;stroke-dashoffset:200;
+  transition:stroke-dashoffset 1s ease, stroke 0.5s ease;
+}
+.circuit-path.live{stroke-dashoffset:0;stroke:#ff9d44;}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<div id="app">
+  <div class="title-bar">
+    <h1>🔔 Make a Buzzer Alarm! 🌿</h1>
+    <div class="sub">🍄 Enchanted Forest Engineering Lab 🍄</div>
+  </div>
+
+  <div class="progress" id="progressDots">
+    <div class="pdot active" id="pd0"></div>
+    <div class="pdot" id="pd1"></div>
+    <div class="pdot" id="pd2"></div>
+  </div>
+
+  <div class="card">
+    <div class="score-bar">✨ Magic Points: <span class="score-val" id="scoreVal">0</span></div>
+
+    <!-- ══════════════ ACTIVITY 1 ══════════════ -->
+    <div class="activity active" id="act1">
+      <div class="act-head">
+        <div class="act-badge">Activity 1</div>
+        <div class="act-title">Build Your First Circuit!</div>
+      </div>
+      <div class="act-desc">Drag each magic component into the correct slot to complete the buzzer circuit — Battery → Copper Tape → Buzzer!</div>
+
+      <div class="workbench">
+        <div class="circuit-row" id="circuitRow1">
+          <!-- slots filled by JS -->
+        </div>
+        <div style="display:flex;justify-content:center;margin-top:6px;">
+          <div id="circuitStatus" style="font-family:'Bubblegum Sans',cursive;font-size:12px;color:#4caf7d;letter-spacing:1px;">Connect all components to close the circuit!</div>
+        </div>
+      </div>
+
+      <div class="tray" id="tray1">
+        <div class="tray-label">🌿 Enchanted Components — Drag to the slots above!</div>
+      </div>
+      <div class="feedback" id="fb1"></div>
+      <div class="btn-row" id="btnRow1" style="display:none;">
+        <button class="btn btn-primary" onclick="openTransPopup(2)">Next Activity →</button>
+      </div>
+    </div>
+
+    <!-- ══════════════ ACTIVITY 2 ══════════════ -->
+    <div class="activity" id="act2">
+      <div class="act-head">
+        <div class="act-badge">Activity 2</div>
+        <div class="act-title">Wire the Door Alarm!</div>
+      </div>
+      <div class="act-desc">Drag the copper tape strips onto the door frame to complete the circuit path. Connect all 4 spots to trigger the alarm!</div>
+
+      <div class="workbench" style="padding:8px;">
+        <div class="door-wrap">
+          <!-- Door + circuit diagram -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+            <div style="font-size:10px;color:#4caf7d;font-weight:700;letter-spacing:1px;">DOOR FRAME</div>
+            <div class="door-frame" id="doorFrame">
+              <div class="door-knob"></div>
+              <!-- tape slots at corners/sides -->
+              <div class="tape-slot" id="ts0" style="top:6px;left:6px;" data-idx="0"></div>
+              <div class="tape-slot" id="ts1" style="top:6px;right:6px;" data-idx="1"></div>
+              <div class="tape-slot" id="ts2" style="bottom:6px;left:6px;" data-idx="2"></div>
+              <div class="tape-slot" id="ts3" style="bottom:6px;right:6px;" data-idx="3"></div>
+              <!-- SVG circuit lines overlay -->
+              <svg id="doorSvg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;" viewBox="0 0 170 230">
+                <path class="circuit-path" id="cp0" d="M 28 28 L 142 28" stroke="rgba(184,115,51,0.2)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path class="circuit-path" id="cp1" d="M 142 28 L 142 202" stroke="rgba(184,115,51,0.2)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path class="circuit-path" id="cp2" d="M 28 202 L 142 202" stroke="rgba(184,115,51,0.2)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path class="circuit-path" id="cp3" d="M 28 28 L 28 202" stroke="rgba(184,115,51,0.2)" stroke-width="3" fill="none" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Right panel: battery + buzzer indicator -->
+          <div style="display:flex;flex-direction:column;gap:10px;align-items:center;">
+            <div style="background:rgba(26,74,46,0.5);border-radius:12px;border:1px solid rgba(127,255,160,0.15);padding:10px 14px;text-align:center;">
+              <div style="font-size:28px;">🔋</div>
+              <div style="font-size:10px;color:#7fffa0;font-weight:700;">BATTERY</div>
+              <div style="font-size:9px;color:#4caf7d;">Power Source</div>
+            </div>
+            <div style="background:rgba(26,74,46,0.5);border-radius:12px;border:1px solid rgba(255,61,61,0.2);padding:10px 14px;text-align:center;" id="buzzer2">
+              <div style="font-size:28px;">🔔</div>
+              <div style="font-size:10px;color:#ff6b6b;font-weight:700;">BUZZER</div>
+              <div style="font-size:9px;color:#ff6b6b;opacity:0.7;" id="bzStatus2">Waiting...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tray" id="tray2">
+        <div class="tray-label">🌿 Copper Tape Strips — Drag onto the door corners!</div>
+      </div>
+      <div class="feedback" id="fb2"></div>
+      <div class="btn-row" id="btnRow2" style="display:none;">
+        <button class="btn btn-primary" onclick="openTransPopup(3)">Final Challenge →</button>
+      </div>
+    </div>
+
+    <!-- ══════════════ ACTIVITY 3 ══════════════ -->
+    <div class="activity" id="act3">
+      <div class="act-head">
+        <div class="act-badge">Activity 3</div>
+        <div class="act-title">Design the Secret Alarm!</div>
+      </div>
+      <div class="act-desc">Drag each component to its correct position in the alarm blueprint to protect the forest gateway!</div>
+
+      <div class="workbench">
+        <div class="placement-grid" id="placementGrid">
+          <!-- 6 placement cards built by JS -->
+        </div>
+      </div>
+
+      <div class="tray" id="tray3">
+        <div class="tray-label">🌿 Magic Components — Place them in the right spots!</div>
+      </div>
+      <div class="feedback" id="fb3"></div>
+      <div class="btn-row" id="btnRow3" style="display:none;">
+        <button class="btn btn-primary" onclick="showFinalPopup()">See Results! 🎉</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TRANSITION POPUP ══ -->
+<div class="popup-overlay" id="transPopup">
+  <div class="popup">
+    <span class="popup-emoji" id="transEmoji">🍄</span>
+    <h2 id="transTitle">Brilliant!</h2>
+    <p id="transMsg">The forest spirits celebrate your discovery!</p>
+    <div class="star-row" id="transStars">⭐⭐⭐</div>
+    <button class="btn btn-primary" id="transBtn">Keep Going! →</button>
+  </div>
+</div>
+
+<!-- ══ FINAL POPUP ══ -->
+<div class="popup-overlay" id="finalPopup">
+  <div class="popup">
+    <span class="popup-emoji">🦋</span>
+    <h2>Super Engineer!</h2>
+    <p>You built three buzzer alarms and protected the enchanted forest! The fairy guardian is amazed by your circuit skills!</p>
+    <div class="star-row" id="finalStars">⭐⭐⭐</div>
+    <div style="font-family:'Bubblegum Sans',cursive;color:#ffd700;font-size:17px;margin-bottom:14px;">Magic Points: <span id="finalScore">0</span> / 50</div>
+    <button class="btn btn-primary" onclick="restartAll()">Play Again! 🌿</button>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════
+   ENCHANTED FOREST BACKGROUND CANVAS
+═══════════════════════════════════════ */
+(function(){
+  const c=document.getElementById('bgCanvas');
+  const ctx=c.getContext('2d');
+  let W,H;
+  function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
+  resize();window.addEventListener('resize',resize);
+
+  /* Trees */
+  function drawTree(x,h,col){
+    ctx.save();
+    /* trunk */
+    ctx.fillStyle='#2a1a0a';
+    ctx.fillRect(x-6,H-h*0.35,12,h*0.35);
+    /* canopy layers */
+    [0.55,0.7,0.85].forEach((frac,i)=>{
+      const ty=H-h*frac;const tw=h*0.32-i*h*0.07;
+      ctx.beginPath();ctx.moveTo(x,ty-tw*0.6);ctx.lineTo(x-tw,ty+tw*0.4);ctx.lineTo(x+tw,ty+tw*0.4);ctx.closePath();
+      ctx.fillStyle=col;ctx.fill();
+    });
+    ctx.restore();
+  }
+
+  /* Mushrooms */
+  function drawMushroom(x,y,scale,r,g,b){
+    ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);
+    /* stem */
+    ctx.fillStyle=`rgb(${r+60},${g+40},${b+20})`;
+    ctx.beginPath();ctx.roundRect(-5,0,10,18,3);ctx.fill();
+    /* cap */
+    ctx.fillStyle=`rgb(${r},${g},${b})`;
+    ctx.beginPath();ctx.ellipse(0,-2,16,12,0,Math.PI,0);ctx.fill();
+    /* spots */
+    ctx.fillStyle='rgba(255,255,255,0.7)';
+    [[0,-8,3],[-7,-4,2],[7,-4,2]].forEach(([sx,sy,sr])=>{
+      ctx.beginPath();ctx.arc(sx,sy,sr,0,Math.PI*2);ctx.fill();
+    });
+    ctx.restore();
+  }
+
+  /* Fireflies */
+  const fflies=[];
+  for(let i=0;i<22;i++){
+    fflies.push({
+      x:Math.random()*1400,y:Math.random()*600+80,
+      vx:(Math.random()-0.5)*0.6,vy:(Math.random()-0.5)*0.4,
+      phase:Math.random()*Math.PI*2,r:Math.random()*3+2,
+      life:Math.random()
+    });
+  }
+
+  /* Dust particles */
+  const dust=[];
+  for(let i=0;i<35;i++){
+    dust.push({
+      x:Math.random()*1400,y:Math.random()*700,
+      vx:(Math.random()-0.5)*0.3,vy:-Math.random()*0.4-0.1,
+      r:Math.random()*2+0.5,
+      color:['#7fffa0','#c084fc','#ffd700','#7ec8f7'][Math.floor(Math.random()*4)],
+      alpha:Math.random(),dalpha:0.006+Math.random()*0.008
+    });
+  }
+
+  let t=0;
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+
+    /* Sky gradient */
+    const sky=ctx.createLinearGradient(0,0,0,H);
+    sky.addColorStop(0,'#06111f');sky.addColorStop(0.5,'#0a1f14');sky.addColorStop(1,'#0d2b1a');
+    ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+
+    /* Moon */
+    ctx.save();ctx.globalAlpha=0.6;
+    const mg=ctx.createRadialGradient(W*0.85,H*0.12,0,W*0.85,H*0.12,60);
+    mg.addColorStop(0,'rgba(255,240,180,0.9)');mg.addColorStop(0.4,'rgba(255,220,120,0.5)');mg.addColorStop(1,'transparent');
+    ctx.fillStyle=mg;ctx.fillRect(0,0,W,H);
+    ctx.restore();
+
+    /* Background trees */
+    const treeData=[
+      [W*0.05,H*0.55,'#0e3320'],[W*0.12,H*0.62,'#112e1e'],[W*0.88,H*0.58,'#0e3320'],
+      [W*0.94,H*0.65,'#112e1e'],[W*0.02,H*0.45,'#0a2415'],[W*0.98,H*0.5,'#0a2415'],
+      [W*0.18,H*0.48,'#0d2e1c'],[W*0.82,H*0.52,'#0d2e1c'],
+    ];
+    treeData.forEach(([x,h,col])=>drawTree(x,h,col));
+
+    /* Ground */
+    const grd=ctx.createLinearGradient(0,H*0.78,0,H);
+    grd.addColorStop(0,'rgba(13,43,26,0)');grd.addColorStop(1,'rgba(5,15,10,0.9)');
+    ctx.fillStyle=grd;ctx.fillRect(0,H*0.78,W,H*0.22);
+
+    /* Mushrooms */
+    const mushData=[
+      [W*0.04,H*0.86,1.4,220,60,50],[W*0.07,H*0.88,1.0,220,60,50],
+      [W*0.91,H*0.85,1.3,220,60,50],[W*0.95,H*0.87,0.9,200,50,40],
+      [W*0.15,H*0.9,0.8,200,140,50],[W*0.84,H*0.91,0.7,200,140,50],
+    ];
+    mushData.forEach(([x,y,s,r,g,b])=>drawMushroom(x,y,s,r,g,b));
+
+    t+=0.012;
+
+    /* Fireflies */
+    fflies.forEach(f=>{
+      f.x+=f.vx+Math.sin(t+f.phase)*0.3;
+      f.y+=f.vy+Math.cos(t*0.7+f.phase)*0.25;
+      if(f.x<0)f.x=W;if(f.x>W)f.x=0;
+      if(f.y<50)f.y=H*0.7;if(f.y>H*0.75)f.y=80;
+      const flicker=0.5+0.5*Math.sin(t*4+f.phase);
+      ctx.save();ctx.globalAlpha=flicker*0.85;
+      const fg=ctx.createRadialGradient(f.x,f.y,0,f.x,f.y,f.r*3);
+      fg.addColorStop(0,'rgba(232,255,128,1)');fg.addColorStop(0.5,'rgba(180,255,80,0.5)');fg.addColorStop(1,'transparent');
+      ctx.fillStyle=fg;ctx.beginPath();ctx.arc(f.x,f.y,f.r*3,0,Math.PI*2);ctx.fill();
+      ctx.restore();
+    });
+
+    /* Dust */
+    dust.forEach(d=>{
+      d.x+=d.vx;d.y+=d.vy;
+      if(d.y<-10){d.y=H+10;d.x=Math.random()*W;}
+      d.alpha+=d.dalpha;
+      if(d.alpha>1||d.alpha<0)d.dalpha*=-1;
+      d.alpha=Math.max(0,Math.min(1,d.alpha));
+      ctx.save();ctx.globalAlpha=d.alpha*0.6;ctx.fillStyle=d.color;
+      ctx.beginPath();ctx.arc(d.x,d.y,d.r,0,Math.PI*2);ctx.fill();ctx.restore();
+    });
+
+    /* Twinkling stars */
+    if(!window._stars){window._stars=[];for(let i=0;i<50;i++)window._stars.push({x:Math.random()*W,y:Math.random()*H*0.55,r:Math.random()*1.5+0.3,p:Math.random()*Math.PI*2});}
+    window._stars.forEach(s=>{
+      const b=0.3+0.7*Math.abs(Math.sin(t*1.5+s.p));
+      ctx.save();ctx.globalAlpha=b*0.8;ctx.fillStyle='#e8f4ff';
+      ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();ctx.restore();
+    });
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ═══════════════════════════════════════
+   GAME STATE
+═══════════════════════════════════════ */
+let score=0;
+let dragSrc=null;
+
+function addScore(n){score+=n;document.getElementById('scoreVal').textContent=score;}
+function showFeedback(id,msg,type){const el=document.getElementById(id);el.textContent=msg;el.className='feedback '+type;}
+function updateProgress(active){
+  [0,1,2].forEach(i=>{
+    const d=document.getElementById('pd'+i);d.className='pdot';
+    if(i<active)d.classList.add('done');
+    if(i===active)d.classList.add('active');
+  });
+}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 1 — Build the Circuit
+═══════════════════════════════════════ */
+const act1Schema=[
+  {key:'battery',icon:'🔋',label:'Battery',color:'#ffe566'},
+  {key:'copper',icon:'〰️',label:'Copper Tape',color:'#ff9d44'},
+  {key:'buzzer',icon:'🔔',label:'Buzzer',color:'#ff6b6b'},
+];
+
+let act1State=[null,null,null];
+let act1Solved=0;
+
+function buildAct1(){
+  act1State=[null,null,null];act1Solved=0;
+  const row=document.getElementById('circuitRow1');
+  const tray=document.getElementById('tray1');
+  row.innerHTML='';tray.innerHTML='<div class="tray-label">🌿 Enchanted Components — Drag to the slots above!</div>';
+  document.getElementById('fb1').textContent='';
+  document.getElementById('btnRow1').style.display='none';
+
+  act1Schema.forEach((comp,i)=>{
+    /* Wire before each slot (except first) */
+    if(i>0){
+      const wire=document.createElement('div');
+      wire.className='wire-connector';wire.id='wire'+i;wire.style.minWidth='30px';wire.style.flex='1';
+      row.appendChild(wire);
+    }
+    const slot=document.createElement('div');
+    slot.className='slot';slot.id='act1slot'+i;slot.dataset.idx=i;
+    slot.innerHTML=`<div style="font-size:10px;color:#4caf7d;font-weight:700;">${i===0?'START':i===1?'MIDDLE':'END'}</div>`;
+    slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('hover-over');});
+    slot.addEventListener('dragleave',()=>slot.classList.remove('hover-over'));
+    slot.addEventListener('drop',e=>{e.preventDefault();slot.classList.remove('hover-over');handleAct1Drop(slot,i);});
+    row.appendChild(slot);
+  });
+
+  /* Shuffle choices */
+  const shuffled=[...act1Schema].sort(()=>Math.random()-0.5);
+  shuffled.forEach(comp=>{
+    const div=document.createElement('div');
+    div.className='comp';div.dataset.key=comp.key;div.draggable=true;
+    div.innerHTML=`<div class="icon">${comp.icon}</div><div class="label">${comp.label}</div>`;
+    div.style.border=`1.5px solid ${comp.color}44`;
+    div.addEventListener('dragstart',e=>{dragSrc=div;div.classList.add('dragging');e.dataTransfer.setData('text',comp.key);});
+    div.addEventListener('dragend',()=>div.classList.remove('dragging'));
+    tray.appendChild(div);
+  });
+}
+
+function handleAct1Drop(slot,idx){
+  if(!dragSrc)return;
+  if(slot.classList.contains('correct'))return;
+  const key=dragSrc.dataset.key;
+  const expected=act1Schema[idx].key;
+  const srcEl=dragSrc;dragSrc=null;
+  if(key===expected){
+    const comp=act1Schema[idx];
+    slot.innerHTML=`<div class="icon">${comp.icon}</div><div class="label" style="color:${comp.color};">${comp.label}</div>`;
+    slot.classList.remove('slot','hover-over');slot.classList.add('slot','correct','filled');
+    srcEl.classList.add('used');
+    act1State[idx]=key;act1Solved++;
+    addScore(5);
+    /* light up wire */
+    if(idx>0){const w=document.getElementById('wire'+idx);if(w)w.classList.add('live');}
+    if(act1Solved===3){
+      /* trigger buzzer */
+      const buzzerSlot=document.getElementById('act1slot2');
+      buzzerSlot.classList.add('buzzer-active');
+      document.getElementById('circuitStatus').textContent='🔊 BZZZZ! Circuit complete!';
+      document.getElementById('circuitStatus').style.color='#7fffa0';
+      showFeedback('fb1','Brilliant! The circuit is closed and the buzzer rings! 🔔','good');
+      spawnSparks(200,300);
+      setTimeout(()=>document.getElementById('btnRow1').style.display='flex',800);
+    } else {
+      showFeedback('fb1','Great placement! Keep going! ✨','good');
+    }
+  } else {
+    slot.classList.add('wrong');
+    showFeedback('fb1','Not quite! Check the circuit order: Battery → Copper Tape → Buzzer 🔍','bad');
+    setTimeout(()=>slot.classList.remove('wrong'),600);
+  }
+}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 2 — Door Alarm
+═══════════════════════════════════════ */
+let act2Filled=0;
+
+function buildAct2(){
+  act2Filled=0;
+  /* Reset slots */
+  [0,1,2,3].forEach(i=>{
+    const s=document.getElementById('ts'+i);
+    s.innerHTML='';s.className='tape-slot';
+    s.addEventListener('dragover',e=>{e.preventDefault();s.classList.add('hover-over');});
+    s.addEventListener('dragleave',()=>s.classList.remove('hover-over'));
+    s.addEventListener('drop',e=>{e.preventDefault();s.classList.remove('hover-over');handleAct2Drop(s,i);});
+  });
+  /* Reset SVG paths */
+  [0,1,2,3].forEach(i=>{
+    const p=document.getElementById('cp'+i);
+    if(p){p.setAttribute('stroke','rgba(184,115,51,0.15)');p.classList.remove('live');}
+  });
+  document.getElementById('bzStatus2').textContent='Waiting...';
+  document.getElementById('buzzer2').style.boxShadow='';
+  document.getElementById('fb2').textContent='';
+  document.getElementById('btnRow2').style.display='none';
+
+  const tray=document.getElementById('tray2');
+  tray.innerHTML='<div class="tray-label">🌿 Copper Tape Strips — Drag onto the door corners!</div>';
+  for(let i=0;i<4;i++){
+    const div=document.createElement('div');
+    div.className='comp';div.dataset.tapeIdx=i;div.draggable=true;
+    div.innerHTML=`<div class="icon">📏</div><div class="label">Copper Strip ${i+1}</div>`;
+    div.style.border='1.5px solid rgba(184,115,51,0.5)';
+    div.addEventListener('dragstart',e=>{dragSrc=div;div.classList.add('dragging');e.dataTransfer.setData('text','tape');});
+    div.addEventListener('dragend',()=>div.classList.remove('dragging'));
+    tray.appendChild(div);
+  }
+}
+
+function handleAct2Drop(slot,idx){
+  if(!dragSrc)return;
+  if(slot.classList.contains('filled'))return;
+  const srcEl=dragSrc;dragSrc=null;
+  /* Any tape goes anywhere — order doesn't matter, just need all 4 */
+  slot.innerHTML='<div style="font-size:14px;">📏</div>';
+  slot.classList.add('filled','correct');
+  srcEl.classList.add('used');
+  act2Filled++;
+  /* Light up the corresponding path */
+  const p=document.getElementById('cp'+idx);
+  if(p){p.classList.add('live');p.setAttribute('stroke','#ff9d44');}
+  addScore(5);
+  if(act2Filled===4){
+    /* Buzzer triggers */
+    document.getElementById('bzStatus2').textContent='BZZZ! 🔔';
+    document.getElementById('buzzer2').style.boxShadow='0 0 24px rgba(255,61,61,0.8),0 0 48px rgba(255,230,100,0.4)';
+    document.getElementById('buzzer2').classList.add('buzzer-active');
+    showFeedback('fb2','Amazing! The door alarm circuit is complete! BZZZ! 🔔','good');
+    spawnSparks(window.innerWidth/2,window.innerHeight/2);
+    setTimeout(()=>document.getElementById('btnRow2').style.display='flex',900);
+  } else {
+    showFeedback('fb2',`${4-act2Filled} more strip${4-act2Filled>1?'s':''} to go! ✨`,'good');
+  }
+}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 3 — Secret Alarm Design
+═══════════════════════════════════════ */
+const act3Slots=[
+  {id:'power',label:'Power Source',answer:'battery',icon:'🔋',hint:'Gives electricity'},
+  {id:'switch',label:'Trigger Switch',answer:'switch',icon:'🔌',hint:'Detects pressure'},
+  {id:'sound',label:'Sound Maker',answer:'buzzer',icon:'🔔',hint:'Makes the noise'},
+  {id:'path1',label:'Wire Path A',answer:'wire',icon:'⚡',hint:'Carries current'},
+  {id:'path2',label:'Wire Path B',answer:'wire',icon:'⚡',hint:'Carries current'},
+  {id:'ground',label:'Ground Line',answer:'ground',icon:'🔩',hint:'Completes the loop'},
+];
+const act3Choices=[
+  {key:'battery',icon:'🔋',label:'Battery'},
+  {key:'switch',icon:'🔌',label:'Pressure Switch'},
+  {key:'buzzer',icon:'🔔',label:'Buzzer'},
+  {key:'wire',icon:'⚡',label:'Copper Wire'},
+  {key:'wire',icon:'⚡',label:'Copper Wire'},
+  {key:'ground',icon:'🔩',label:'Ground Bolt'},
+];
+let act3Solved=0;
+
+function buildAct3(){
+  act3Solved=0;
+  const grid=document.getElementById('placementGrid');
+  grid.innerHTML='';
+  document.getElementById('fb3').textContent='';
+  document.getElementById('btnRow3').style.display='none';
+
+  act3Slots.forEach((slot,i)=>{
+    const card=document.createElement('div');
+    card.className='pcard';card.id='pcard'+i;card.dataset.answer=slot.answer;
+    card.innerHTML=`<div class="slot-label">${slot.label}</div><div style="font-size:10px;color:#4caf7d;opacity:0.7;margin-top:2px;">${slot.hint}</div>`;
+    card.addEventListener('dragover',e=>{e.preventDefault();card.classList.add('hover-over');});
+    card.addEventListener('dragleave',()=>card.classList.remove('hover-over'));
+    card.addEventListener('drop',e=>{e.preventDefault();card.classList.remove('hover-over');handleAct3Drop(card,slot,i);});
+    grid.appendChild(card);
+  });
+
+  const tray=document.getElementById('tray3');
+  tray.innerHTML='<div class="tray-label">🌿 Magic Components — Place them in the right spots!</div>';
+  const shuffled=[...act3Choices].sort(()=>Math.random()-0.5);
+  shuffled.forEach((ch,ci)=>{
+    const div=document.createElement('div');
+    div.className='comp';div.dataset.key=ch.key;div.dataset.ci=ci;div.draggable=true;
+    div.innerHTML=`<div class="icon">${ch.icon}</div><div class="label">${ch.label}</div>`;
+    div.addEventListener('dragstart',e=>{dragSrc=div;div.classList.add('dragging');e.dataTransfer.setData('text',ch.key);});
+    div.addEventListener('dragend',()=>div.classList.remove('dragging'));
+    tray.appendChild(div);
+  });
+}
+
+function handleAct3Drop(card,slotDef,idx){
+  if(!dragSrc)return;
+  if(card.classList.contains('correct'))return;
+  const key=dragSrc.dataset.key;
+  const srcEl=dragSrc;dragSrc=null;
+  if(key===slotDef.answer){
+    card.innerHTML=`<div class="slot-label">${slotDef.label}</div><div style="font-size:26px;margin:2px 0;">${slotDef.icon}</div><div style="font-size:10px;color:#7fffa0;font-weight:700;">${slotDef.label}</div>`;
+    card.classList.add('filled','correct');
+    srcEl.classList.add('used');
+    act3Solved++;addScore(5);
+    showFeedback('fb3','Perfect placement! The forest spirits cheer! ✨','good');
+    if(act3Solved>=act3Slots.length){
+      spawnSparks(window.innerWidth/2,window.innerHeight*0.5);
+      spawnSparks(window.innerWidth*0.3,window.innerHeight*0.4);
+      setTimeout(()=>document.getElementById('btnRow3').style.display='flex',700);
+    }
+  } else {
+    card.classList.add('wrong');
+    showFeedback('fb3','Hmm, that component goes somewhere else! Think about the circuit flow 🔍','bad');
+    setTimeout(()=>card.classList.remove('wrong'),600);
+  }
+}
+
+/* ═══════════════════════════════════════
+   POPUPS & PROGRESSION
+═══════════════════════════════════════ */
+const transData={
+  2:{emoji:'🍄',title:'Wonderful!',msg:'You built your first buzzer circuit! The forest glows with your magic!'},
+  3:{emoji:'🦋',title:'Spectacular!',msg:'The door alarm is alive! Every fairy in the forest heard the buzz!'},
+};
+
+function openTransPopup(nextAct){
+  const d=transData[nextAct]||{emoji:'🌟',title:'Brilliant!',msg:'Amazing work!'};
+  document.getElementById('transEmoji').textContent=d.emoji;
+  document.getElementById('transTitle').textContent=d.title;
+  document.getElementById('transMsg').textContent=d.msg;
+  document.getElementById('transPopup').classList.add('show');
+  spawnConfetti();
+  document.getElementById('transBtn').onclick=()=>{
+    document.getElementById('transPopup').classList.remove('show');
+    goToActivity(nextAct);
+  };
+}
+
+function goToActivity(n){
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.getElementById('act'+n).classList.add('active');
+  updateProgress(n-1);
+  if(n===2)buildAct2();
+  if(n===3)buildAct3();
+}
+
+function showFinalPopup(){
+  const stars=score>=40?'⭐⭐⭐':score>=25?'⭐⭐':'⭐';
+  document.getElementById('finalStars').textContent=stars;
+  document.getElementById('finalScore').textContent=score;
+  document.getElementById('finalPopup').classList.add('show');
+  spawnConfetti();spawnConfetti();
+}
+
+function restartAll(){
+  score=0;document.getElementById('scoreVal').textContent=0;
+  document.getElementById('finalPopup').classList.remove('show');
+  buildAct1();
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.getElementById('act1').classList.add('active');
+  updateProgress(0);
+}
+
+/* ═══════════════════════════════════════
+   PARTICLE FX
+═══════════════════════════════════════ */
+function spawnSparks(x,y){
+  const colors=['#7fffa0','#ffd700','#c084fc','#ff9d44','#7ec8f7'];
+  for(let i=0;i<30;i++){
+    const el=document.createElement('div');
+    el.className='spark';
+    const angle=Math.random()*Math.PI*2;
+    const dist=Math.random()*100+30;
+    el.style.cssText=`left:${x}px;top:${y}px;width:${Math.random()*6+3}px;height:${Math.random()*6+3}px;background:${colors[Math.floor(Math.random()*colors.length)]};--sx:${Math.cos(angle)*dist}px;--sy:${Math.sin(angle)*dist}px;animation-duration:${Math.random()*0.6+0.4}s;animation-delay:${Math.random()*0.2}s;`;
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),1200);
+  }
+}
+
+function spawnConfetti(){
+  const colors=['#7fffa0','#ffd700','#c084fc','#ff9d44','#ff6b9d','#7ec8f7'];
+  for(let i=0;i<55;i++){
+    const el=document.createElement('div');
+    el.style.cssText=`position:fixed;top:-12px;left:${Math.random()*100}vw;width:${Math.random()*8+5}px;height:${Math.random()*6+4}px;background:${colors[Math.floor(Math.random()*colors.length)]};border-radius:${Math.random()>0.5?'50%':'3px'};z-index:300;animation:confettiFall ${Math.random()*2+2}s linear ${Math.random()*0.8}s forwards;`;
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),3500);
+  }
+  if(!document.getElementById('confettiKF')){
+    const s=document.createElement('style');
+    s.id='confettiKF';
+    s.textContent='@keyframes confettiFall{to{transform:translateY(110vh) rotate(720deg);opacity:0;}}';
+    document.head.appendChild(s);
+  }
+}
+
+/* ═══════════════════════════════════════
+   INIT
+═══════════════════════════════════════ */
+buildAct1();
+</script>
+</body>
+</html>

@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pattern Recognition Challenge</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif;}
+
+:root{
+--pink:#ff85c2;--purple:#b57bee;--blue:#7ec8f7;--mint:#7efcd4;--yellow:#ffe066;--peach:#ffb347;
+--light-pink:#fff0f9;--light-purple:#f3eaff;--light-blue:#eaf7ff;
+}
+
+body{
+background:linear-gradient(135deg,#ffd6f0 0%,#e8d5ff 25%,#d0eaff 50%,#d6ffe8 75%,#fff5d6 100%);
+background-size:400% 400%;
+animation:bgShift 12s ease infinite;
+}
+
+@keyframes bgShift{
+0%{background-position:0% 50%;}
+50%{background-position:100% 50%;}
+100%{background-position:0% 50%;}
+}
+
+/* ── MAGICAL BG CANVAS ── */
+#bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;}
+
+/* ── RAINBOW SHIMMER WAVE ── */
+.rainbow-wave{
+position:fixed;bottom:0;left:0;width:200%;height:6px;
+background:linear-gradient(90deg,#ff6b9d,#ffb347,#ffe066,#7efcd4,#7ec8f7,#b57bee,#ff6b9d);
+background-size:50% 100%;
+animation:waveSlide 3s linear infinite;
+z-index:1;opacity:0.8;border-radius:3px;
+}
+.rainbow-wave:nth-child(2){bottom:8px;opacity:0.5;animation-duration:4s;animation-direction:reverse;}
+
+@keyframes waveSlide{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+
+/* ── MAIN LAYOUT ── */
+#app{
+position:fixed;top:0;left:0;width:100%;height:100%;
+display:flex;flex-direction:column;align-items:center;justify-content:center;
+z-index:10;padding:12px;
+}
+
+/* ── TITLE BAR ── */
+.title-bar{
+text-align:center;margin-bottom:10px;
+}
+.title-bar h1{
+font-family:'Fredoka One',cursive;
+font-size:clamp(20px,3.5vw,36px);
+background:linear-gradient(135deg,#ff6bbd,#b57bee,#5bc0f5,#5cf5c0);
+-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+filter:drop-shadow(0 2px 8px rgba(181,123,238,0.3));
+letter-spacing:1px;
+}
+.title-bar .subtitle{
+font-size:clamp(11px,1.5vw,14px);color:#9b72cf;font-weight:700;margin-top:2px;letter-spacing:2px;text-transform:uppercase;
+}
+
+/* ── ACTIVITY CARD ── */
+.card{
+background:rgba(255,255,255,0.85);
+backdrop-filter:blur(20px);
+border-radius:28px;
+border:2.5px solid rgba(181,123,238,0.25);
+padding:18px 24px;
+width:100%;max-width:700px;
+box-shadow:0 8px 40px rgba(181,123,238,0.18),0 2px 12px rgba(126,200,247,0.15);
+position:relative;overflow:hidden;
+}
+.card::before{
+content:'';position:absolute;top:-60px;right:-60px;width:180px;height:180px;
+border-radius:50%;background:radial-gradient(circle,rgba(255,133,194,0.12),transparent 70%);
+pointer-events:none;
+}
+
+/* ── PROGRESS DOTS ── */
+.progress{display:flex;justify-content:center;gap:10px;margin-bottom:12px;}
+.dot{
+width:32px;height:10px;border-radius:5px;
+background:rgba(181,123,238,0.2);transition:all 0.4s ease;
+}
+.dot.active{background:linear-gradient(90deg,#ff85c2,#b57bee);width:48px;}
+.dot.done{background:linear-gradient(90deg,#7efcd4,#5bc0f5);}
+
+/* ── ACTIVITY HEADER ── */
+.act-header{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.act-badge{
+background:linear-gradient(135deg,#b57bee,#7ec8f7);
+color:white;font-family:'Fredoka One',cursive;
+font-size:13px;padding:4px 14px;border-radius:20px;
+box-shadow:0 3px 12px rgba(181,123,238,0.35);white-space:nowrap;
+}
+.act-title{font-family:'Fredoka One',cursive;font-size:clamp(16px,2.5vw,22px);color:#6b3fa0;}
+.act-desc{font-size:clamp(12px,1.6vw,14px);color:#8a6ab0;margin-bottom:12px;line-height:1.5;font-weight:600;}
+
+/* ── SEQUENCE ROW ── */
+.sequence-row{
+display:flex;align-items:center;justify-content:center;
+flex-wrap:wrap;gap:8px;margin:10px 0;
+}
+
+/* ── ITEMS / EMOJI BOXES ── */
+.item-box{
+width:clamp(52px,8vw,72px);height:clamp(52px,8vw,72px);
+border-radius:18px;
+display:flex;align-items:center;justify-content:center;
+font-size:clamp(26px,4vw,38px);
+border:2.5px solid rgba(181,123,238,0.2);
+background:rgba(255,255,255,0.9);
+cursor:grab;transition:transform 0.15s,box-shadow 0.15s,border-color 0.2s;
+box-shadow:0 4px 14px rgba(181,123,238,0.1);
+position:relative;
+}
+.item-box:hover{transform:scale(1.08);box-shadow:0 6px 20px rgba(181,123,238,0.25);}
+.item-box.dragging{opacity:0.5;transform:scale(0.95);}
+.item-box.correct{border-color:#5cf5c0;background:rgba(126,252,212,0.2);animation:popIn 0.4s ease;}
+.item-box.wrong{border-color:#ff7eb3;background:rgba(255,126,179,0.15);animation:shake 0.4s ease;}
+.item-box.target{
+border:2.5px dashed #b57bee;background:rgba(181,123,238,0.08);
+animation:pulse 1.5s ease infinite;cursor:default;
+}
+.item-box.target.hover-over{
+background:rgba(181,123,238,0.2);border-color:#ff85c2;
+box-shadow:0 0 0 4px rgba(255,133,194,0.3);
+}
+
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(181,123,238,0.4);}50%{box-shadow:0 0 0 8px rgba(181,123,238,0.0);}}
+@keyframes popIn{0%{transform:scale(0.5);}60%{transform:scale(1.15);}100%{transform:scale(1);}}
+@keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
+
+/* ── CHOICES ROW ── */
+.choices-row{
+display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin-top:14px;
+}
+.choice-item{
+width:clamp(52px,8vw,72px);height:clamp(52px,8vw,72px);
+border-radius:18px;font-size:clamp(26px,4vw,38px);
+display:flex;align-items:center;justify-content:center;cursor:grab;
+background:linear-gradient(135deg,rgba(255,240,249,0.95),rgba(240,234,255,0.95));
+border:2.5px solid rgba(181,123,238,0.3);
+box-shadow:0 4px 16px rgba(181,123,238,0.15);
+transition:transform 0.15s,box-shadow 0.15s;
+}
+.choice-item:hover{transform:scale(1.1);box-shadow:0 6px 22px rgba(181,123,238,0.3);}
+.choice-item.dragging{opacity:0.4;transform:scale(0.9);}
+.choice-item.used{opacity:0.3;pointer-events:none;filter:grayscale(0.5);}
+
+/* ── TIMER ── */
+.timer-ring{
+display:flex;align-items:center;justify-content:center;gap:6px;
+font-family:'Fredoka One',cursive;font-size:22px;color:#b57bee;margin-bottom:8px;
+}
+.timer-circle{
+width:44px;height:44px;border-radius:50%;
+border:3px solid #e8d5ff;
+display:flex;align-items:center;justify-content:center;
+font-size:20px;font-weight:900;color:#6b3fa0;
+background:white;
+position:relative;overflow:hidden;
+transition:border-color 0.3s;
+}
+.timer-circle.urgent{border-color:#ff85c2;color:#ff4d8f;animation:timerPulse 0.5s ease infinite;}
+@keyframes timerPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.1);}}
+
+/* ── FEEDBACK MSG ── */
+.feedback{
+text-align:center;font-family:'Fredoka One',cursive;
+font-size:clamp(15px,2.2vw,20px);
+min-height:28px;margin-top:8px;
+transition:all 0.3s;
+}
+.feedback.good{color:#2ec97f;}
+.feedback.bad{color:#ff4d8f;}
+
+/* ── BTN ── */
+.btn{
+font-family:'Fredoka One',cursive;
+font-size:clamp(14px,2vw,17px);
+padding:10px 28px;border:none;border-radius:50px;cursor:pointer;
+transition:transform 0.15s,box-shadow 0.15s;
+box-shadow:0 4px 18px rgba(181,123,238,0.3);
+}
+.btn:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(181,123,238,0.4);}
+.btn:active{transform:translateY(0);}
+.btn-primary{background:linear-gradient(135deg,#ff85c2,#b57bee);color:white;}
+.btn-skip{background:rgba(255,255,255,0.7);color:#9b72cf;border:2px solid rgba(181,123,238,0.3);}
+
+.btn-row{display:flex;justify-content:center;gap:12px;margin-top:12px;}
+
+/* ── POPUP OVERLAY ── */
+.popup-overlay{
+position:fixed;top:0;left:0;width:100%;height:100%;
+background:rgba(80,40,120,0.45);backdrop-filter:blur(8px);
+z-index:100;display:flex;align-items:center;justify-content:center;
+opacity:0;pointer-events:none;transition:opacity 0.35s;
+}
+.popup-overlay.show{opacity:1;pointer-events:all;}
+
+.popup{
+background:rgba(255,255,255,0.97);
+border-radius:32px;padding:32px 36px;
+max-width:440px;width:90%;text-align:center;
+border:3px solid rgba(181,123,238,0.3);
+box-shadow:0 20px 60px rgba(181,123,238,0.35);
+transform:scale(0.85);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+}
+.popup-overlay.show .popup{transform:scale(1);}
+
+.popup-emoji{font-size:64px;margin-bottom:12px;display:block;animation:float 3s ease infinite;}
+@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-10px);}}
+.popup h2{font-family:'Fredoka One',cursive;font-size:26px;color:#6b3fa0;margin-bottom:8px;}
+.popup p{color:#8a6ab0;font-size:15px;font-weight:600;line-height:1.6;margin-bottom:16px;}
+.star-row{font-size:32px;margin:8px 0 16px;letter-spacing:4px;}
+
+/* ── CONFETTI ── */
+.confetti-piece{
+position:fixed;top:-20px;border-radius:4px;
+pointer-events:none;z-index:200;
+animation:confettiFall linear forwards;
+}
+@keyframes confettiFall{
+to{transform:translateY(110vh) rotate(720deg);opacity:0;}
+}
+
+/* ── ACTIVITY HIDDEN/SHOWN ── */
+.activity{display:none;}
+.activity.active{display:block;}
+
+/* ── ODD-ONE-OUT ZONE ── */
+.odd-zone{
+min-height:80px;border-radius:20px;
+border:2.5px dashed rgba(181,123,238,0.4);
+background:rgba(181,123,238,0.04);
+display:flex;align-items:center;justify-content:center;
+padding:10px;margin-top:12px;
+transition:border-color 0.2s,background 0.2s;
+font-family:'Fredoka One',cursive;
+color:#c4a0e8;font-size:15px;
+}
+.odd-zone.hover-over{border-color:#ff85c2;background:rgba(255,133,194,0.1);}
+.odd-zone .dropped-item{animation:popIn 0.4s ease;}
+
+/* ── SCORE BAR ── */
+.score-bar{
+display:flex;justify-content:flex-end;align-items:center;gap:6px;
+font-family:'Fredoka One',cursive;color:#b57bee;font-size:14px;
+margin-bottom:6px;
+}
+.score-val{font-size:18px;color:#6b3fa0;}
+
+.act3-grid{
+display:grid;grid-template-columns:repeat(auto-fit,minmax(54px,1fr));
+gap:8px;margin:10px 0;
+}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+<div class="rainbow-wave"></div>
+<div class="rainbow-wave"></div>
+
+<div id="app">
+  <div class="title-bar">
+    <h1>✨ Pattern Recognition Challenge ✨</h1>
+    <div class="subtitle">🦄 Spot the Magic in Every Sequence 🌈</div>
+  </div>
+
+  <div class="progress" id="progressDots">
+    <div class="dot active" id="dot0"></div>
+    <div class="dot" id="dot1"></div>
+    <div class="dot" id="dot2"></div>
+  </div>
+
+  <div class="card">
+    <div class="score-bar">⭐ Stars: <span class="score-val" id="scoreVal">0</span></div>
+
+    <!-- ACTIVITY 1 -->
+    <div class="activity active" id="act1">
+      <div class="act-header">
+        <div class="act-badge">Activity 1</div>
+        <div class="act-title">What Comes Next?</div>
+      </div>
+      <div class="act-desc">Drag the correct item from below into the empty box to complete the pattern!</div>
+      <div class="sequence-row" id="seqRow1"></div>
+      <div class="choices-row" id="choicesRow1"></div>
+      <div class="feedback" id="fb1"></div>
+      <div class="btn-row" id="btnRow1" style="display:none;">
+        <button class="btn btn-primary" onclick="nextActivity(2)">Next Activity →</button>
+      </div>
+    </div>
+
+    <!-- ACTIVITY 2 -->
+    <div class="activity" id="act2">
+      <div class="act-header">
+        <div class="act-badge">Activity 2</div>
+        <div class="act-title">Odd One Out!</div>
+      </div>
+      <div class="act-desc">One item breaks the pattern! Drag it into the trash zone before time runs out!</div>
+      <div class="timer-ring">⏱ <div class="timer-circle" id="timerCircle"><span id="timerVal">5</span></div></div>
+      <div class="sequence-row" id="seqRow2"></div>
+      <div class="odd-zone" id="oddZone">👇 Drop the odd one here!</div>
+      <div class="feedback" id="fb2"></div>
+      <div class="btn-row" id="btnRow2" style="display:none;">
+        <button class="btn btn-primary" onclick="nextActivity(3)">Next Activity →</button>
+      </div>
+    </div>
+
+    <!-- ACTIVITY 3 -->
+    <div class="activity" id="act3">
+      <div class="act-header">
+        <div class="act-badge">Activity 3</div>
+        <div class="act-title">Build the Pattern!</div>
+      </div>
+      <div class="act-desc">Drag the missing pieces into their correct spots to complete the repeating pattern!</div>
+      <div class="sequence-row" id="seqRow3"></div>
+      <div class="choices-row" id="choicesRow3"></div>
+      <div class="feedback" id="fb3"></div>
+      <div class="btn-row" id="btnRow3" style="display:none;">
+        <button class="btn btn-primary" onclick="showFinalPopup()">See My Results! 🎉</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- POPUP: Activity Transition -->
+<div class="popup-overlay" id="transitionPopup">
+  <div class="popup">
+    <span class="popup-emoji" id="transEmoji">🌟</span>
+    <h2 id="transTitle">Fantastic!</h2>
+    <p id="transMsg">You cracked the code!</p>
+    <div class="star-row" id="transStars">⭐⭐⭐</div>
+    <button class="btn btn-primary" id="transBtn" onclick="closeTransitionPopup()">Keep Going! →</button>
+  </div>
+</div>
+
+<!-- POPUP: Final Success -->
+<div class="popup-overlay" id="finalPopup">
+  <div class="popup">
+    <span class="popup-emoji">🦄</span>
+    <h2>You're a Pattern Star!</h2>
+    <p>Amazing work! You found the magic in every sequence. You spotted repeats, caught the odd one out, and built perfect patterns!</p>
+    <div class="star-row" id="finalStars">⭐⭐⭐</div>
+    <div style="font-family:'Fredoka One',cursive;color:#6b3fa0;font-size:18px;margin-bottom:16px;">Score: <span id="finalScore">0</span> / 30 Stars</div>
+    <button class="btn btn-primary" onclick="restartAll()">Play Again! 🌈</button>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   MAGICAL BACKGROUND CANVAS
+   ========================================================= */
+(function(){
+const canvas=document.getElementById('bgCanvas');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;}
+resize();window.addEventListener('resize',resize);
+
+const clouds=[];const stars=[];const sparkles=[];const particles=[];
+
+/* Clouds */
+for(let i=0;i<7;i++){
+  clouds.push({x:Math.random()*W,y:Math.random()*H*0.6+20,r:Math.random()*50+30,speed:0.08+Math.random()*0.12,oy:Math.random()*H*0.6+20,alpha:0.18+Math.random()*0.18});
+}
+
+/* Floating stars */
+for(let i=0;i<28;i++){
+  stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*5+2,speed:0.2+Math.random()*0.4,phase:Math.random()*Math.PI*2,color:['#ffb7e5','#c4a0f7','#7ec8f7','#ffe066','#7efcd4'][Math.floor(Math.random()*5)]});
+}
+
+/* Sparkles */
+for(let i=0;i<18;i++){
+  sparkles.push({x:Math.random()*W,y:Math.random()*H,life:Math.random(),speed:0.005+Math.random()*0.008,size:Math.random()*8+4,color:['#ff85c2','#b57bee','#7ec8f7','#7efcd4','#ffe066'][Math.floor(Math.random()*5)]});
+}
+
+/* Magical particles */
+for(let i=0;i<40;i++){
+  particles.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-0.5)*0.3,vy:(Math.random()-0.5)*0.3,r:Math.random()*3+1,alpha:Math.random(),dalpha:0.005+Math.random()*0.01,color:['rgba(255,133,194,','rgba(181,123,238,','rgba(126,200,247,','rgba(126,252,212,'][Math.floor(Math.random()*4)]});
+}
+
+function drawCloud(x,y,r,alpha){
+  ctx.save();ctx.globalAlpha=alpha;
+  ctx.fillStyle='rgba(255,255,255,0.85)';
+  ctx.beginPath();
+  ctx.arc(x,y,r*0.8,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(x+r*0.6,y+r*0.2,r*0.6,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(x-r*0.5,y+r*0.25,r*0.55,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(x+r*0.1,y+r*0.5,r*0.7,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+function drawStar(x,y,r,color){
+  ctx.save();ctx.fillStyle=color;
+  ctx.beginPath();
+  for(let i=0;i<5;i++){
+    const a=Math.PI/2+i*Math.PI*2/5;
+    const ai=a+Math.PI/5;
+    if(i===0)ctx.moveTo(x+r*Math.cos(a),y-r*Math.sin(a));
+    else ctx.lineTo(x+r*Math.cos(a),y-r*Math.sin(a));
+    ctx.lineTo(x+(r*0.45)*Math.cos(ai),y-(r*0.45)*Math.sin(ai));
+  }
+  ctx.closePath();ctx.fill();ctx.restore();
+}
+
+function drawSparkle(x,y,size,color,alpha){
+  ctx.save();ctx.globalAlpha=alpha;ctx.strokeStyle=color;ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(x-size,y);ctx.lineTo(x+size,y);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x,y-size);ctx.lineTo(x,y+size);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x-size*0.7,y-size*0.7);ctx.lineTo(x+size*0.7,y+size*0.7);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x+size*0.7,y-size*0.7);ctx.lineTo(x-size*0.7,y+size*0.7);ctx.stroke();
+  ctx.restore();
+}
+
+let t=0;
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  t+=0.01;
+
+  /* clouds */
+  clouds.forEach(c=>{
+    c.x+=c.speed;if(c.x>W+120)c.x=-120;
+    c.y=c.oy+Math.sin(t*0.4+c.x*0.01)*8;
+    drawCloud(c.x,c.y,c.r,c.alpha);
+  });
+
+  /* stars */
+  stars.forEach(s=>{
+    s.y-=s.speed;if(s.y<-10)s.y=H+10;
+    const pulse=0.6+0.4*Math.sin(t*2+s.phase);
+    ctx.save();ctx.globalAlpha=pulse;
+    drawStar(s.x,s.y,s.r,s.color);
+    ctx.restore();
+  });
+
+  /* sparkles */
+  sparkles.forEach(s=>{
+    s.life+=s.speed;if(s.life>1){s.life=0;s.x=Math.random()*W;s.y=Math.random()*H;}
+    const a=Math.sin(s.life*Math.PI);
+    drawSparkle(s.x,s.y,s.size,s.color,a*0.7);
+  });
+
+  /* particles */
+  particles.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0)p.x=W;if(p.x>W)p.x=0;
+    if(p.y<0)p.y=H;if(p.y>H)p.y=0;
+    p.alpha+=p.dalpha;
+    if(p.alpha>1||p.alpha<0)p.dalpha*=-1;
+    p.alpha=Math.max(0,Math.min(1,p.alpha));
+    ctx.save();ctx.globalAlpha=p.alpha*0.6;
+    ctx.fillStyle=p.color+p.alpha+')';
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  });
+
+  requestAnimationFrame(draw);
+}
+draw();
+})();
+
+/* =========================================================
+   GAME STATE
+   ========================================================= */
+let score=0;
+let dragSrc=null;
+let act2Timer=null;
+let act2Done=false;
+let act1Solved=0;
+const act1Total=3;
+let act2Correct=false;
+let act3Solved=0;
+const act3Total=4;
+
+/* =========================================================
+   ACTIVITY 1 — What Comes Next?
+   ========================================================= */
+const act1Rounds=[
+  {seq:['🌸','🌟','🌸','🌟','🌸','?'],choices:['🌟','🌸','🌈','⭐'],answer:'🌟'},
+  {seq:['🦋','🌺','🦋','🌺','🦋','?'],choices:['🌺','🌸','🦋','🍀'],answer:'🌺'},
+  {seq:['🔵','🟡','🔴','🔵','🟡','?'],choices:['🟢','🔴','🟡','⚪'],answer:'🔴'},
+];
+let act1Round=0;
+
+function buildAct1(){
+  act1Round=0;act1Solved=0;
+  renderAct1Round();
+}
+
+function renderAct1Round(){
+  const data=act1Rounds[act1Round];
+  const seqRow=document.getElementById('seqRow1');
+  const choicesRow=document.getElementById('choicesRow1');
+  seqRow.innerHTML='';choicesRow.innerHTML='';
+  document.getElementById('fb1').textContent='';
+  document.getElementById('btnRow1').style.display='none';
+
+  data.seq.forEach((item,i)=>{
+    const box=document.createElement('div');
+    box.className='item-box'+(item==='?'?' target':'');
+    if(item!=='?'){box.textContent=item;}
+    if(item==='?'){
+      box.id='target1';
+      box.addEventListener('dragover',e=>{e.preventDefault();box.classList.add('hover-over');});
+      box.addEventListener('dragleave',()=>box.classList.remove('hover-over'));
+      box.addEventListener('drop',e=>{e.preventDefault();box.classList.remove('hover-over');handleDrop1(box,data.answer);});
+    }
+    seqRow.appendChild(box);
+  });
+
+  data.choices.forEach(ch=>{
+    const div=document.createElement('div');
+    div.className='choice-item';
+    div.textContent=ch;
+    div.draggable=true;
+    div.dataset.val=ch;
+    div.addEventListener('dragstart',e=>{dragSrc=div;div.classList.add('dragging');e.dataTransfer.setData('text',ch);});
+    div.addEventListener('dragend',()=>div.classList.remove('dragging'));
+    choicesRow.appendChild(div);
+  });
+}
+
+function handleDrop1(targetBox,answer){
+  if(!dragSrc)return;
+  const val=dragSrc.dataset.val;
+  if(val===answer){
+    targetBox.textContent=val;
+    targetBox.classList.remove('target');
+    targetBox.classList.add('correct');
+    dragSrc.classList.add('used');
+    dragSrc=null;
+    act1Solved++;
+    addScore(5);
+    showFeedback('fb1','⭐ Super Spotter! Well done!','good');
+    setTimeout(()=>{
+      act1Round++;
+      if(act1Round<act1Rounds.length){
+        renderAct1Round();
+      } else {
+        showTransitionPopup(1);
+      }
+    },1100);
+  } else {
+    targetBox.classList.add('wrong');
+    showFeedback('fb1','Hmm, look at the pattern again! 🔍','bad');
+    setTimeout(()=>targetBox.classList.remove('wrong'),600);
+  }
+}
+
+/* =========================================================
+   ACTIVITY 2 — Odd One Out (Timed 5s)
+   ========================================================= */
+const act2Data=[
+  {seq:['🌸','🌸','🌟','🌸','🌸'],oddIdx:2,pattern:'🌸'},
+  {seq:['🦋','🦋','🦋','🌺','🦋'],oddIdx:3,pattern:'🦋'},
+  {seq:['🔵','🔵','🟡','🔵','🔵'],oddIdx:2,pattern:'🔵'},
+];
+let act2Round=0;
+
+function buildAct2(){
+  act2Round=0;act2Done=false;act2Correct=false;
+  renderAct2Round();
+}
+
+function renderAct2Round(){
+  clearInterval(act2Timer);
+  act2Done=false;
+  const data=act2Data[act2Round];
+  const seqRow=document.getElementById('seqRow2');
+  const oddZone=document.getElementById('oddZone');
+  seqRow.innerHTML='';
+  oddZone.innerHTML='👇 Drop the odd one here!';
+  oddZone.style.opacity='1';
+  oddZone.className='odd-zone';
+  document.getElementById('fb2').textContent='';
+  document.getElementById('btnRow2').style.display='none';
+
+  const tc=document.getElementById('timerCircle');
+  const tv=document.getElementById('timerVal');
+  tc.classList.remove('urgent');
+  let timeLeft=5;tv.textContent=timeLeft;
+
+  data.seq.forEach((item,i)=>{
+    const box=document.createElement('div');
+    box.className='item-box';box.textContent=item;
+    box.draggable=true;box.dataset.idx=i;box.dataset.val=item;
+    box.addEventListener('dragstart',e=>{dragSrc=box;box.classList.add('dragging');e.dataTransfer.setData('text',item);});
+    box.addEventListener('dragend',()=>box.classList.remove('dragging'));
+    seqRow.appendChild(box);
+  });
+
+  oddZone.addEventListener('dragover',e=>{e.preventDefault();oddZone.classList.add('hover-over');});
+  oddZone.addEventListener('dragleave',()=>oddZone.classList.remove('hover-over'));
+  oddZone.addEventListener('drop',e=>{e.preventDefault();oddZone.classList.remove('hover-over');handleDrop2(data);});
+
+  act2Timer=setInterval(()=>{
+    timeLeft--;tv.textContent=timeLeft;
+    if(timeLeft<=2)tc.classList.add('urgent');
+    if(timeLeft<=0){
+      clearInterval(act2Timer);
+      if(!act2Done){
+        act2Done=true;
+        showFeedback('fb2','Time\'s up! Better luck next round! ⏱','bad');
+        setTimeout(()=>nextAct2Round(false),1200);
+      }
+    }
+  },1000);
+}
+
+function handleDrop2(data){
+  if(!dragSrc||act2Done)return;
+  const idx=parseInt(dragSrc.dataset.idx);
+  act2Done=true;
+  clearInterval(act2Timer);
+  if(idx===data.oddIdx){
+    const zone=document.getElementById('oddZone');
+    zone.innerHTML=`<div class="dropped-item" style="font-size:38px;">${dragSrc.dataset.val}</div>`;
+    dragSrc.classList.add('used');
+    dragSrc.style.opacity='0.3';
+    addScore(5);act2Correct=true;
+    showFeedback('fb2','Fantastic! You spotted it! 🌟','good');
+    setTimeout(()=>nextAct2Round(true),1100);
+  } else {
+    showFeedback('fb2','Not quite! That one belongs in the pattern! 🔍','bad');
+    setTimeout(()=>nextAct2Round(false),1100);
+  }
+  dragSrc=null;
+}
+
+function nextAct2Round(wasCorrect){
+  act2Round++;
+  if(act2Round<act2Data.length){
+    renderAct2Round();
+  } else {
+    showTransitionPopup(2);
+  }
+}
+
+/* =========================================================
+   ACTIVITY 3 — Build the Pattern
+   ========================================================= */
+const act3Data={
+  pattern:['🌈','🦄','🌸','🌈','🦄','🌸','🌈','🦄'],
+  hiddenIdxs:[1,3,5,7],
+};
+
+function buildAct3(){
+  act3Solved=0;
+  const seqRow=document.getElementById('seqRow3');
+  const choicesRow=document.getElementById('choicesRow3');
+  seqRow.innerHTML='';choicesRow.innerHTML='';
+  document.getElementById('fb3').textContent='';
+  document.getElementById('btnRow3').style.display='none';
+
+  const data=act3Data;
+
+  /* Build one choice tile per hidden slot (correct answer) plus 2 distractors,
+     then shuffle so the player can't trivially map position → slot. */
+  const correctAnswers=data.hiddenIdxs.map(i=>data.pattern[i]);
+  const distractors=['🦋','🌟'];
+  const choicePool=[...correctAnswers,...distractors];
+  /* Fisher-Yates shuffle */
+  for(let i=choicePool.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [choicePool[i],choicePool[j]]=[choicePool[j],choicePool[i]];
+  }
+
+  data.pattern.forEach((item,i)=>{
+    const box=document.createElement('div');
+    const isHidden=data.hiddenIdxs.includes(i);
+    box.className='item-box'+(isHidden?' target':'');
+    box.dataset.answer=item;
+    box.dataset.idx=i;
+    if(!isHidden)box.textContent=item;
+    else{
+      box.id='slot_'+i;
+      box.addEventListener('dragover',e=>{e.preventDefault();box.classList.add('hover-over');});
+      box.addEventListener('dragleave',()=>box.classList.remove('hover-over'));
+      box.addEventListener('drop',e=>{e.preventDefault();box.classList.remove('hover-over');handleDrop3(box);});
+    }
+    seqRow.appendChild(box);
+  });
+
+  choicePool.forEach((ch,ci)=>{
+    const div=document.createElement('div');
+    div.className='choice-item';div.textContent=ch;div.draggable=true;div.dataset.val=ch;div.id='ch3_'+ci;
+    div.addEventListener('dragstart',e=>{dragSrc=div;div.classList.add('dragging');e.dataTransfer.setData('text',ch);});
+    div.addEventListener('dragend',()=>div.classList.remove('dragging'));
+    choicesRow.appendChild(div);
+  });
+}
+
+function handleDrop3(targetBox){
+  if(!dragSrc)return;
+  if(targetBox.classList.contains('correct'))return;
+  const val=dragSrc.dataset.val;
+  const answer=targetBox.dataset.answer;
+  const srcEl=dragSrc;
+  dragSrc=null;
+  if(val===answer){
+    targetBox.textContent=val;
+    targetBox.classList.remove('target');targetBox.classList.add('correct');
+    srcEl.classList.add('used');
+    act3Solved++;
+    addScore(5);
+    showFeedback('fb3','You\'ve cracked the code! 🌟','good');
+    if(act3Solved>=act3Data.hiddenIdxs.length){
+      setTimeout(()=>document.getElementById('btnRow3').style.display='flex',600);
+    }
+  } else {
+    targetBox.classList.add('wrong');
+    showFeedback('fb3','Hmm, not quite! Check the repeating rule! 🔍','bad');
+    setTimeout(()=>targetBox.classList.remove('wrong'),600);
+  }
+}
+
+/* =========================================================
+   SCORE & FEEDBACK
+   ========================================================= */
+function addScore(n){
+  score+=n;
+  document.getElementById('scoreVal').textContent=score;
+}
+
+function showFeedback(id,msg,type){
+  const el=document.getElementById(id);
+  el.textContent=msg;el.className='feedback '+type;
+}
+
+/* =========================================================
+   ACTIVITY PROGRESSION
+   ========================================================= */
+function nextActivity(num){
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.getElementById('act'+num).classList.add('active');
+  updateProgress(num-1);
+  if(num===2)buildAct2();
+  if(num===3)buildAct3();
+}
+
+function updateProgress(active){
+  [0,1,2].forEach(i=>{
+    const d=document.getElementById('dot'+i);
+    d.className='dot';
+    if(i<active)d.classList.add('done');
+    if(i===active)d.classList.add('active');
+  });
+}
+
+/* =========================================================
+   TRANSITION POPUP
+   ========================================================= */
+const transitionData=[
+  {emoji:'🌟',title:'Super Spotter!',msg:'You completed all the pattern sequences! You\'re a pattern wizard!',stars:'⭐⭐⭐'},
+  {emoji:'🦋',title:'Fantastic!',msg:'You caught the odd one out! Your eyes are magical!',stars:'⭐⭐⭐'},
+];
+
+function showTransitionPopup(actNum){
+  const d=transitionData[actNum-1];
+  document.getElementById('transEmoji').textContent=d.emoji;
+  document.getElementById('transTitle').textContent=d.title;
+  document.getElementById('transMsg').textContent=d.msg;
+  document.getElementById('transStars').textContent=d.stars;
+  document.getElementById('transitionPopup').classList.add('show');
+  launchConfetti();
+  document.getElementById('transBtn').onclick=()=>{
+    closeTransitionPopup();
+    nextActivity(actNum+1);
+  };
+}
+
+function closeTransitionPopup(){
+  document.getElementById('transitionPopup').classList.remove('show');
+}
+
+/* =========================================================
+   FINAL POPUP
+   ========================================================= */
+function showFinalPopup(){
+  clearInterval(act2Timer);
+  const stars=score>=25?'⭐⭐⭐':score>=15?'⭐⭐':'⭐';
+  document.getElementById('finalStars').textContent=stars;
+  document.getElementById('finalScore').textContent=score;
+  document.getElementById('finalPopup').classList.add('show');
+  launchConfetti();launchConfetti();
+}
+
+function restartAll(){
+  score=0;document.getElementById('scoreVal').textContent=0;
+  document.getElementById('finalPopup').classList.remove('show');
+  clearInterval(act2Timer);
+  act2Round=0;act1Round=0;
+  buildAct1();
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.getElementById('act1').classList.add('active');
+  updateProgress(0);
+}
+
+/* =========================================================
+   CONFETTI
+   ========================================================= */
+function launchConfetti(){
+  const colors=['#ff85c2','#b57bee','#7ec8f7','#ffe066','#7efcd4','#ffb347','#ff6bbd'];
+  for(let i=0;i<60;i++){
+    const el=document.createElement('div');
+    el.className='confetti-piece';
+    el.style.left=Math.random()*100+'vw';
+    el.style.width=(Math.random()*8+6)+'px';
+    el.style.height=(Math.random()*6+4)+'px';
+    el.style.background=colors[Math.floor(Math.random()*colors.length)];
+    el.style.borderRadius=Math.random()>0.5?'50%':'3px';
+    el.style.animationDuration=(Math.random()*2+2)+'s';
+    el.style.animationDelay=Math.random()*0.8+'s';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),3500);
+  }
+}
+
+/* =========================================================
+   INIT
+   ========================================================= */
+buildAct1();
+</script>
+</body>
+</html>

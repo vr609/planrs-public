@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Rotting & Decomposition — Nature's Recyclers</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;600;700&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --parchment: #f4e4b8;
+    --parchment-dark: #d4b483;
+    --ink: #2c1a05;
+    --moss: #4a6741;
+    --soil: #6b3a1f;
+    --soil-light: #8b5a2b;
+    --gold: #c9943a;
+    --gold-glow: #f0c060;
+    --rust: #8b3a1a;
+    --teal-portal: #2a8a7a;
+    --portal-glow: #40e0c0;
+    --sand: #d4a843;
+    --stone: #7a6a5a;
+    --stone-light: #a0907a;
+    --accent-green: #5a8a3a;
+    --accent-red: #8a2a1a;
+    --shadow: rgba(20,10,0,0.7);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  html, body {
+    width:100%; height:100%;
+    overflow:hidden;
+    font-family:'IM Fell English', serif;
+    background:#1a0e04;
+  }
+
+  /* ─── WORLD STAGE ─── */
+  #world {
+    position:fixed; inset:0;
+    background: radial-gradient(ellipse at 50% 30%, #3a1e06 0%, #1a0a02 60%, #0a0500 100%);
+    overflow:hidden;
+  }
+
+  /* ─── BACKGROUND LAYERS ─── */
+  .bg-ruins {
+    position:absolute; inset:0;
+    background:
+      repeating-linear-gradient(90deg, transparent 0, transparent 80px, rgba(80,50,20,0.06) 80px, rgba(80,50,20,0.06) 82px),
+      repeating-linear-gradient(0deg,  transparent 0, transparent 80px, rgba(80,50,20,0.06) 80px, rgba(80,50,20,0.06) 82px);
+  }
+
+  .bg-fog {
+    position:absolute; inset:0;
+    background: radial-gradient(ellipse 120% 60% at 50% 100%, rgba(60,30,10,0.8) 0%, transparent 70%);
+    pointer-events:none;
+  }
+
+  /* Drifting sand particles */
+  .sand-layer {
+    position:absolute; inset:0; pointer-events:none; overflow:hidden;
+  }
+  .sand-particle {
+    position:absolute;
+    width:3px; height:3px;
+    border-radius:50%;
+    background: var(--sand);
+    opacity:0;
+    animation: drift linear infinite;
+  }
+  @keyframes drift {
+    0%   { transform:translateX(0) translateY(0); opacity:0; }
+    10%  { opacity:0.6; }
+    90%  { opacity:0.4; }
+    100% { transform:translateX(120px) translateY(-80px); opacity:0; }
+  }
+
+  /* Glowing portals */
+  .portal {
+    position:absolute;
+    border-radius:50%;
+    pointer-events:none;
+    animation: portalPulse ease-in-out infinite;
+  }
+  .portal-left {
+    width:90px; height:120px;
+    left:-20px; top:30%;
+    background: radial-gradient(ellipse, rgba(40,160,130,0.35) 0%, transparent 70%);
+    box-shadow: 0 0 30px rgba(64,224,192,0.3), inset 0 0 20px rgba(64,224,192,0.2);
+    border:2px solid rgba(64,224,192,0.25);
+    animation-duration:3.5s;
+  }
+  .portal-right {
+    width:70px; height:100px;
+    right:-15px; top:40%;
+    background: radial-gradient(ellipse, rgba(180,130,40,0.35) 0%, transparent 70%);
+    box-shadow: 0 0 25px rgba(240,192,96,0.3), inset 0 0 15px rgba(240,192,96,0.2);
+    border:2px solid rgba(240,192,96,0.2);
+    animation-duration:4.2s;
+  }
+  .portal-top {
+    width:160px; height:60px;
+    left:50%; top:-10px; transform:translateX(-50%);
+    background: radial-gradient(ellipse, rgba(64,224,192,0.2) 0%, transparent 70%);
+    box-shadow: 0 0 40px rgba(64,224,192,0.2);
+    animation-duration:5s;
+  }
+  @keyframes portalPulse {
+    0%,100% { opacity:0.6; transform:scale(1); }
+    50%      { opacity:1;   transform:scale(1.08); }
+  }
+  .portal-left  { animation-name:portalPulse; }
+  .portal-right { animation-name:portalPulse; }
+  .portal-top   { animation-name:portalPulse; transform-origin:center; }
+
+  /* Moving scroll decorations */
+  .scroll-deco {
+    position:absolute; pointer-events:none;
+    width:40px; height:60px;
+    border-radius:6px;
+    background: linear-gradient(180deg, var(--parchment-dark), var(--parchment));
+    border:2px solid var(--soil);
+    opacity:0;
+    animation: floatScroll ease-in-out infinite;
+  }
+  .scroll-deco::before, .scroll-deco::after {
+    content:''; position:absolute; left:50%; transform:translateX(-50%);
+    width:48px; height:12px;
+    background: var(--soil-light);
+    border-radius:4px;
+  }
+  .scroll-deco::before { top:-7px; }
+  .scroll-deco::after  { bottom:-7px; }
+
+  @keyframes floatScroll {
+    0%   { opacity:0; transform:translateY(20px) rotate(-5deg); }
+    20%  { opacity:0.7; }
+    80%  { opacity:0.5; }
+    100% { opacity:0; transform:translateY(-30px) rotate(8deg); }
+  }
+
+  /* Hourglass decorations */
+  .hourglass-deco {
+    position:absolute; pointer-events:none;
+    font-size:28px;
+    opacity:0;
+    animation: hourFloat ease-in-out infinite;
+    filter:drop-shadow(0 0 8px var(--gold));
+  }
+  @keyframes hourFloat {
+    0%   { opacity:0; transform:translateY(0) rotate(0deg); }
+    25%  { opacity:0.8; }
+    75%  { opacity:0.6; }
+    100% { opacity:0; transform:translateY(-50px) rotate(20deg); }
+  }
+
+  /* Stone columns */
+  .stone-col {
+    position:absolute; bottom:0;
+    width:28px;
+    background: linear-gradient(90deg, #5a4a3a, #7a6a5a, #5a4a3a);
+    border-radius:4px 4px 0 0;
+    opacity:0.5;
+  }
+  .stone-col::after {
+    content:''; display:block;
+    height:20px;
+    background: linear-gradient(90deg, #6a5a4a, #8a7a6a, #6a5a4a);
+    border-radius:4px 4px 0 0;
+  }
+
+  /* ─── MAIN PANEL ─── */
+  #panel {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center;
+    padding:8px 16px 8px;
+  }
+
+  /* Header */
+  #header {
+    text-align:center;
+    padding:6px 24px 4px;
+    background: linear-gradient(180deg, rgba(30,15,4,0.9) 0%, rgba(30,15,4,0.6) 100%);
+    border-bottom: 2px solid var(--gold);
+    width:100%;
+    position:relative;
+  }
+  #header::before {
+    content:'⚗ ❧ ⚗';
+    display:block;
+    font-size:14px; color:var(--gold);
+    letter-spacing:6px;
+    opacity:0.7;
+    margin-bottom:2px;
+  }
+
+  #header h1 {
+    font-family:'Cinzel Decorative', serif;
+    font-size:clamp(14px, 2.8vw, 22px);
+    color:var(--gold-glow);
+    text-shadow: 0 0 20px rgba(240,192,96,0.8), 0 2px 4px rgba(0,0,0,0.9);
+    letter-spacing:2px;
+    line-height:1.2;
+  }
+  #header p {
+    font-family:'Cinzel', serif;
+    font-size:clamp(9px, 1.5vw, 12px);
+    color:var(--parchment-dark);
+    letter-spacing:3px;
+    opacity:0.85;
+    margin-top:2px;
+  }
+
+  /* ─── ACTIVITY CONTAINER ─── */
+  #activity-area {
+    flex:1;
+    width:100%;
+    max-width:900px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    padding:8px 0 0;
+    position:relative;
+  }
+
+  /* Activity intro banner */
+  .act-banner {
+    display:flex; align-items:center; gap:10px;
+    background: linear-gradient(90deg, transparent, rgba(201,148,58,0.15), rgba(201,148,58,0.2), rgba(201,148,58,0.15), transparent);
+    border-top:1px solid rgba(201,148,58,0.5);
+    border-bottom:1px solid rgba(201,148,58,0.5);
+    padding:5px 20px;
+    width:100%;
+    margin-bottom:6px;
+  }
+  .act-num {
+    font-family:'Cinzel Decorative', serif;
+    font-size:clamp(10px, 1.8vw, 14px);
+    color:var(--gold);
+    text-shadow:0 0 10px rgba(240,192,96,0.6);
+    white-space:nowrap;
+  }
+  .act-title {
+    font-family:'Cinzel', serif;
+    font-size:clamp(11px, 2vw, 15px);
+    color:var(--parchment);
+    letter-spacing:1px;
+  }
+  .act-inst {
+    font-family:'IM Fell English', serif;
+    font-style:italic;
+    font-size:clamp(10px, 1.6vw, 13px);
+    color:var(--parchment-dark);
+    margin-left:auto;
+    text-align:right;
+  }
+
+  /* Progress dots */
+  #progress {
+    display:flex; gap:8px; margin-bottom:6px;
+  }
+  .prog-dot {
+    width:10px; height:10px; border-radius:50%;
+    background: rgba(201,148,58,0.3);
+    border:1px solid rgba(201,148,58,0.5);
+    transition:all 0.4s;
+  }
+  .prog-dot.active {
+    background:var(--gold);
+    box-shadow:0 0 8px var(--gold-glow);
+    transform:scale(1.3);
+  }
+  .prog-dot.done {
+    background:var(--moss);
+    box-shadow:0 0 6px rgba(90,138,58,0.6);
+  }
+
+  /* ─── SOIL STAGE ─── */
+  .soil-stage {
+    width:100%;
+    position:relative;
+    background: linear-gradient(180deg,
+      rgba(20,50,20,0.5) 0%,
+      rgba(30,60,20,0.3) 35%,
+      rgba(100,50,15,0.9) 35%,
+      rgba(80,40,10,1) 60%,
+      rgba(60,30,8,1) 100%
+    );
+    border:2px solid rgba(120,80,30,0.6);
+    border-radius:8px;
+    overflow:hidden;
+    flex:1;
+    min-height:0;
+  }
+
+  /* Ground label */
+  .soil-label {
+    position:absolute; bottom:6px; right:10px;
+    font-family:'Cinzel', serif;
+    font-size:10px; color:rgba(212,180,131,0.6);
+    letter-spacing:2px;
+  }
+
+  /* Drop zones in soil */
+  .soil-zone {
+    position:absolute;
+    bottom:15%;
+    border:2px dashed rgba(212,180,131,0.4);
+    border-radius:8px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    transition:all 0.3s;
+    cursor:pointer;
+  }
+  .soil-zone.hover-active {
+    border-color:var(--gold-glow);
+    background:rgba(240,192,96,0.15);
+    box-shadow:0 0 15px rgba(240,192,96,0.3);
+  }
+  .soil-zone.filled {
+    border-color:rgba(90,138,58,0.6);
+    border-style:solid;
+  }
+  .zone-hint {
+    font-family:'Cinzel', serif;
+    font-size:9px; color:rgba(212,180,131,0.5);
+    letter-spacing:1px; text-align:center;
+  }
+
+  /* ─── DRAG ITEMS ─── */
+  .item-tray {
+    display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+    padding:6px 10px;
+    background: rgba(20,10,4,0.5);
+    border-radius:8px;
+    border:1px solid rgba(120,80,30,0.4);
+    width:100%;
+    margin-bottom:6px;
+  }
+
+  .drag-item {
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    cursor:grab;
+    padding:6px 10px;
+    border-radius:8px;
+    background: linear-gradient(180deg, rgba(244,228,184,0.15), rgba(212,180,131,0.1));
+    border:1px solid rgba(201,148,58,0.4);
+    transition:all 0.25s;
+    user-select:none;
+    -webkit-user-select:none;
+    touch-action:none;
+    position:relative;
+    min-width:60px;
+  }
+  .drag-item:active { cursor:grabbing; }
+  .drag-item:hover {
+    transform:translateY(-3px) scale(1.05);
+    border-color:var(--gold);
+    box-shadow:0 4px 16px rgba(201,148,58,0.4);
+    background:rgba(244,228,184,0.2);
+  }
+  .drag-item.dragging {
+    opacity:0.4;
+    transform:scale(0.95);
+  }
+  .drag-item.used {
+    opacity:0.25;
+    pointer-events:none;
+    filter:grayscale(1);
+  }
+  .item-emoji { font-size:clamp(20px, 4vw, 30px); line-height:1; }
+  .item-label {
+    font-family:'Cinzel', serif;
+    font-size:clamp(8px, 1.4vw, 11px);
+    color:var(--parchment);
+    letter-spacing:0.5px;
+    text-align:center;
+  }
+
+  /* ─── GHOST DRAGGABLE ─── */
+  #drag-ghost {
+    position:fixed; pointer-events:none; z-index:9999;
+    display:none; flex-direction:column; align-items:center; gap:3px;
+    padding:6px 12px; border-radius:8px;
+    background:rgba(30,15,4,0.85);
+    border:2px solid var(--gold);
+    box-shadow:0 8px 32px rgba(201,148,58,0.5);
+    transform:translate(-50%, -50%);
+  }
+  #drag-ghost .item-emoji { font-size:28px; }
+  #drag-ghost .item-label { font-size:11px; color:var(--gold-glow); }
+
+  /* ─── ACTIVITY 1 SPECIFIC ─── */
+  #act1-stage { display:flex; flex-direction:column; width:100%; flex:1; gap:4px; }
+  #act1-soil {
+    flex:1;
+    position:relative;
+    background: linear-gradient(180deg, rgba(30,80,20,0.4) 0%, rgba(100,55,15,0.95) 45%, rgba(70,35,8,1) 100%);
+    border:2px solid rgba(120,80,30,0.7);
+    border-radius:8px;
+    overflow:hidden;
+    min-height:130px;
+  }
+  #act1-soil .soil-label { position:absolute; bottom:6px; right:10px; }
+  #act1-soil::before {
+    content:'🪱'; position:absolute; bottom:8px; left:10px; font-size:16px; opacity:0.5;
+    animation: wiggle 3s ease-in-out infinite;
+  }
+  @keyframes wiggle { 0%,100%{transform:rotate(-10deg)}50%{transform:rotate(10deg)} }
+
+  .soil-slots { position:absolute; bottom:12%; left:0; right:0; display:flex; justify-content:space-evenly; }
+
+  .soil-slot {
+    width:clamp(55px,10vw,80px);
+    height:clamp(55px,10vw,80px);
+    border:2px dashed rgba(212,180,131,0.4);
+    border-radius:8px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:2px; cursor:pointer;
+    transition:all 0.3s;
+    background:rgba(0,0,0,0.2);
+    position:relative;
+  }
+  .soil-slot:hover, .soil-slot.drag-over {
+    border-color:var(--gold-glow);
+    background:rgba(240,192,96,0.12);
+    box-shadow:0 0 16px rgba(240,192,96,0.35);
+  }
+  .soil-slot.filled {
+    border-color:rgba(90,138,58,0.7);
+    border-style:solid;
+    background:rgba(90,138,58,0.1);
+  }
+  .slot-inner { font-size:clamp(18px,3.5vw,26px); }
+  .slot-label {
+    font-family:'Cinzel', serif;
+    font-size:clamp(7px,1.2vw,10px);
+    color:rgba(212,180,131,0.6);
+    text-align:center;
+  }
+  .slot-tick {
+    position:absolute; top:-6px; right:-6px;
+    width:16px; height:16px; border-radius:50%;
+    background:var(--moss);
+    color:white; font-size:10px;
+    display:none; align-items:center; justify-content:center;
+    box-shadow:0 0 6px rgba(90,138,58,0.6);
+  }
+  .soil-slot.filled .slot-tick { display:flex; }
+
+  /* Sky and grass layers in act1 */
+  .sky-layer {
+    position:absolute; top:0; left:0; right:0; height:45%;
+    background: linear-gradient(180deg, rgba(20,40,60,0.6), rgba(30,60,30,0.4));
+    display:flex; align-items:center; justify-content:center;
+    gap:clamp(15px,3vw,30px);
+  }
+  .sky-tree { font-size:clamp(20px,4vw,32px); opacity:0.7; animation:sway 4s ease-in-out infinite; }
+  .sky-tree:nth-child(2) { animation-delay:1s; }
+  .sky-tree:nth-child(3) { animation-delay:2s; }
+  @keyframes sway { 0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)} }
+
+  /* ─── ACTIVITY 2 SPECIFIC ─── */
+  #act2-stage { display:flex; flex-direction:column; width:100%; flex:1; gap:6px; }
+
+  .timeline-row {
+    display:flex; gap:6px; align-items:stretch;
+    padding:0 4px;
+  }
+  .timeline-item {
+    flex:1; display:flex; flex-direction:column; align-items:center;
+    background:rgba(20,10,4,0.6);
+    border:1px solid rgba(120,80,30,0.5);
+    border-radius:8px; padding:6px 4px 4px;
+    position:relative; gap:3px;
+  }
+  .timeline-item .item-emoji { font-size:clamp(18px,3.5vw,26px); }
+  .time-arrow {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color:var(--gold); font-size:16px; opacity:0.6; flex-shrink:0; width:16px;
+    animation:arrowPulse 2s ease-in-out infinite;
+  }
+  @keyframes arrowPulse { 0%,100%{opacity:0.4}50%{opacity:1} }
+
+  .label-slot {
+    min-width:80px; min-height:26px;
+    border:2px dashed rgba(201,148,58,0.4);
+    border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Cinzel', serif; font-size:clamp(8px,1.4vw,11px);
+    color:rgba(212,180,131,0.5);
+    transition:all 0.3s; cursor:pointer;
+    padding:2px 6px;
+    text-align:center;
+  }
+  .label-slot.drag-over {
+    border-color:var(--gold-glow);
+    background:rgba(240,192,96,0.15);
+    box-shadow:0 0 12px rgba(240,192,96,0.3);
+  }
+  .label-slot.correct {
+    border-color:var(--accent-green); border-style:solid;
+    background:rgba(90,138,58,0.15);
+    color:var(--parchment);
+    box-shadow:0 0 8px rgba(90,138,58,0.4);
+  }
+  .label-slot.wrong {
+    border-color:var(--rust); border-style:solid;
+    background:rgba(139,58,26,0.15);
+    animation:shake 0.4s ease;
+  }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)}
+    25%{transform:translateX(-4px)}
+    75%{transform:translateX(4px)}
+  }
+
+  .act2-labels { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; padding:4px 0; }
+
+  /* ─── ACTIVITY 3 SPECIFIC ─── */
+  #act3-stage { display:flex; flex-direction:column; width:100%; flex:1; gap:6px; }
+
+  .sort-bins {
+    display:flex; gap:10px; flex:1; min-height:0;
+  }
+  .sort-bin {
+    flex:1; border-radius:10px; padding:6px;
+    border:2px solid rgba(120,80,30,0.5);
+    display:flex; flex-direction:column; gap:4px;
+    position:relative; overflow:hidden; min-height:100px;
+  }
+  .sort-bin.decomposes {
+    background:linear-gradient(180deg, rgba(40,80,20,0.5), rgba(60,100,30,0.3));
+    border-color:rgba(90,138,58,0.6);
+  }
+  .sort-bin.no-decompose {
+    background:linear-gradient(180deg, rgba(80,30,10,0.5), rgba(100,40,20,0.3));
+    border-color:rgba(139,58,26,0.6);
+  }
+  .sort-bin.drag-over {
+    box-shadow:0 0 20px rgba(240,192,96,0.4);
+    transform:scale(1.01);
+  }
+  .bin-title {
+    font-family:'Cinzel Decorative', serif;
+    font-size:clamp(9px,1.6vw,12px);
+    text-align:center; letter-spacing:1px;
+    padding:2px 0 4px;
+    border-bottom:1px solid rgba(120,80,30,0.4);
+  }
+  .sort-bin.decomposes .bin-title { color:#7dcc5a; text-shadow:0 0 8px rgba(90,200,60,0.5); }
+  .sort-bin.no-decompose .bin-title { color:#e07050; text-shadow:0 0 8px rgba(200,80,50,0.5); }
+  .bin-items {
+    display:flex; flex-wrap:wrap; gap:5px; justify-content:center; flex:1;
+    align-content:flex-start; padding:2px;
+  }
+  .bin-dropped {
+    display:flex; flex-direction:column; align-items:center; gap:1px;
+    padding:3px 6px; border-radius:6px;
+    background:rgba(0,0,0,0.2);
+    border:1px solid rgba(120,80,30,0.3);
+    animation:popIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes popIn {
+    0%{transform:scale(0) rotate(-10deg);opacity:0}
+    100%{transform:scale(1) rotate(0);opacity:1}
+  }
+  .bin-dropped .item-emoji { font-size:clamp(16px,3vw,22px); }
+  .bin-dropped .item-label { font-size:clamp(7px,1.2vw,10px); color:var(--parchment-dark); }
+  .bin-dropped.correct { border-color:rgba(90,138,58,0.6); }
+  .bin-dropped.wrong   { border-color:rgba(139,58,26,0.8); animation:popIn 0.3s, wrongFlash 0.5s 0.3s; }
+  @keyframes wrongFlash {
+    0%,100%{background:rgba(0,0,0,0.2)}
+    50%{background:rgba(139,58,26,0.3)}
+  }
+
+  /* ─── FACT BUBBLE ─── */
+  .fact-bubble {
+    background: linear-gradient(135deg, rgba(30,15,4,0.95), rgba(50,25,8,0.95));
+    border:1px solid rgba(201,148,58,0.5);
+    border-radius:10px;
+    padding:6px 12px;
+    display:flex; align-items:center; gap:8px;
+    width:100%;
+    box-shadow:0 0 20px rgba(201,148,58,0.15);
+  }
+  .fact-icon { font-size:18px; flex-shrink:0; }
+  .fact-text {
+    font-family:'IM Fell English', serif;
+    font-style:italic;
+    font-size:clamp(10px,1.8vw,13px);
+    color:var(--parchment-dark);
+    line-height:1.4;
+  }
+  .fact-text strong { color:var(--gold-glow); font-style:normal; font-family:'Cinzel', serif; font-size:0.9em; }
+
+  /* ─── POPUP OVERLAY ─── */
+  #popup-overlay {
+    position:fixed; inset:0; z-index:1000;
+    background:rgba(5,2,0,0.88);
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none;
+    transition:opacity 0.4s;
+    backdrop-filter:blur(3px);
+  }
+  #popup-overlay.visible {
+    opacity:1; pointer-events:all;
+  }
+  .popup-box {
+    width:min(520px,90vw);
+    background:linear-gradient(160deg, #2a1408, #1a0c04);
+    border:2px solid var(--gold);
+    border-radius:16px;
+    padding:28px 28px 24px;
+    position:relative;
+    text-align:center;
+    box-shadow: 0 0 60px rgba(201,148,58,0.4), inset 0 0 40px rgba(0,0,0,0.5);
+    transform:scale(0.85) translateY(20px);
+    transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  #popup-overlay.visible .popup-box {
+    transform:scale(1) translateY(0);
+  }
+  .popup-box::before {
+    content:''; position:absolute; inset:4px;
+    border:1px solid rgba(201,148,58,0.2);
+    border-radius:12px;
+    pointer-events:none;
+  }
+  .popup-ornament {
+    font-size:32px; display:block; margin-bottom:8px;
+    animation:spinSlow 8s linear infinite;
+  }
+  @keyframes spinSlow { 0%{transform:rotate(0)}100%{transform:rotate(360deg)} }
+  .popup-h {
+    font-family:'Cinzel Decorative', serif;
+    font-size:clamp(16px,3vw,22px);
+    color:var(--gold-glow);
+    text-shadow:0 0 20px rgba(240,192,96,0.7);
+    margin-bottom:6px;
+    letter-spacing:1px;
+  }
+  .popup-sub {
+    font-family:'Cinzel', serif;
+    font-size:clamp(11px,2vw,14px);
+    color:var(--parchment-dark);
+    margin-bottom:12px;
+    letter-spacing:1px;
+  }
+  .popup-body {
+    font-family:'IM Fell English', serif;
+    font-style:italic;
+    font-size:clamp(12px,2vw,15px);
+    color:var(--parchment);
+    line-height:1.6;
+    margin-bottom:16px;
+    padding:10px 12px;
+    background:rgba(0,0,0,0.3);
+    border-radius:8px;
+    border:1px solid rgba(120,80,30,0.3);
+  }
+  .popup-chant {
+    font-family:'Cinzel Decorative', serif;
+    font-size:clamp(11px,1.9vw,14px);
+    color:var(--gold);
+    letter-spacing:1px;
+    padding:8px 12px;
+    background:rgba(201,148,58,0.1);
+    border-radius:8px;
+    border:1px solid rgba(201,148,58,0.3);
+    margin-bottom:14px;
+  }
+  .popup-btn {
+    font-family:'Cinzel Decorative', serif;
+    font-size:clamp(12px,2.2vw,15px);
+    letter-spacing:1px;
+    padding:12px 32px;
+    background:linear-gradient(135deg, #c9943a, #8b6020);
+    color:var(--ink);
+    border:none; border-radius:8px;
+    cursor:pointer;
+    box-shadow:0 4px 20px rgba(201,148,58,0.5);
+    transition:all 0.25s;
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .popup-btn:hover {
+    transform:translateY(-2px) scale(1.05);
+    box-shadow:0 6px 28px rgba(201,148,58,0.7);
+    background:linear-gradient(135deg, #e0b050, #c9943a);
+  }
+  .popup-btn.success-btn {
+    background:linear-gradient(135deg, #5a8a3a, #3a6020);
+    color:white;
+    box-shadow:0 4px 20px rgba(90,138,58,0.5);
+  }
+  .popup-btn.success-btn:hover {
+    box-shadow:0 6px 28px rgba(90,138,58,0.7);
+    background:linear-gradient(135deg, #70a050, #5a8a3a);
+  }
+
+  /* Stars for success */
+  .popup-stars { font-size:28px; letter-spacing:8px; margin-bottom:8px; display:block; }
+
+  /* ─── CONTINUE BUTTON ─── */
+  #next-btn {
+    font-family:'Cinzel', serif;
+    font-size:clamp(10px,1.8vw,13px);
+    letter-spacing:1px;
+    padding:8px 24px;
+    background: linear-gradient(135deg, rgba(201,148,58,0.8), rgba(139,96,32,0.8));
+    color:var(--ink);
+    border:1px solid var(--gold);
+    border-radius:6px; cursor:pointer;
+    transition:all 0.25s;
+    display:none;
+    align-items:center; gap:6px;
+    align-self:center;
+    margin-top:4px;
+    box-shadow:0 0 14px rgba(201,148,58,0.3);
+  }
+  #next-btn:hover { transform:scale(1.05); box-shadow:0 0 22px rgba(201,148,58,0.6); }
+
+  /* ─── FEEDBACK TEXT ─── */
+  #feedback {
+    font-family:'IM Fell English', serif;
+    font-style:italic;
+    font-size:clamp(11px,1.8vw,13px);
+    min-height:18px;
+    text-align:center;
+    color:var(--gold-glow);
+    text-shadow:0 0 10px rgba(240,192,96,0.5);
+    padding:2px 0;
+    transition:all 0.3s;
+  }
+
+  /* Decomposer badges */
+  .decomposer-row {
+    display:flex; gap:8px; justify-content:center; flex-wrap:wrap;
+    padding:4px 0;
+  }
+  .decomposer-badge {
+    display:flex; align-items:center; gap:4px;
+    padding:4px 10px; border-radius:20px;
+    background:rgba(40,80,40,0.4);
+    border:1px solid rgba(90,138,58,0.5);
+    font-family:'Cinzel', serif;
+    font-size:clamp(9px,1.5vw,11px);
+    color:var(--parchment);
+    white-space:nowrap;
+  }
+
+  /* ─── ANIMATIONS ─── */
+  .fade-in { animation:fadeIn 0.5s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)} }
+
+  .hidden { display:none !important; }
+
+  /* Sparkle effect */
+  .sparkle {
+    position:absolute; pointer-events:none; z-index:500;
+    font-size:20px;
+    animation:sparkleAnim 0.8s ease forwards;
+  }
+  @keyframes sparkleAnim {
+    0%  { opacity:1; transform:scale(0) rotate(0deg); }
+    50% { opacity:1; transform:scale(1.5) rotate(180deg); }
+    100%{ opacity:0; transform:scale(0.5) rotate(360deg) translateY(-30px); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─── BACKGROUND WORLD ─── -->
+<div id="world">
+  <div class="bg-ruins"></div>
+  <div class="bg-fog"></div>
+  <div class="portal portal-left"></div>
+  <div class="portal portal-right"></div>
+  <div class="portal portal-top"></div>
+  <div class="sand-layer" id="sand-layer"></div>
+  <!-- Stone columns -->
+  <div class="stone-col" style="left:2%;height:35%"></div>
+  <div class="stone-col" style="right:2%;height:28%"></div>
+  <div class="stone-col" style="left:5%;height:20%"></div>
+  <div class="stone-col" style="right:6%;height:42%"></div>
+</div>
+
+<!-- ─── DRAG GHOST ─── -->
+<div id="drag-ghost">
+  <span class="item-emoji" id="ghost-emoji"></span>
+  <span class="item-label" id="ghost-label"></span>
+</div>
+
+<!-- ─── POPUP OVERLAY ─── -->
+<div id="popup-overlay">
+  <div class="popup-box" id="popup-box">
+    <!-- content injected by JS -->
+  </div>
+</div>
+
+<!-- ─── MAIN PANEL ─── -->
+<div id="panel">
+
+  <div id="header">
+    <h1>🌿 ROTTING &amp; DECOMPOSITION 🌿</h1>
+    <p>NATURE'S RECYCLERS — TIME PORTAL EXPEDITION</p>
+  </div>
+
+  <div id="activity-area">
+
+    <!-- Progress -->
+    <div id="progress">
+      <div class="prog-dot active" id="dot-1"></div>
+      <div class="prog-dot" id="dot-2"></div>
+      <div class="prog-dot" id="dot-3"></div>
+    </div>
+
+    <!-- Activity Banner -->
+    <div class="act-banner">
+      <span class="act-num" id="act-num-label">⚗ ACTIVITY I</span>
+      <span class="act-title" id="act-title-label">Set Up the Experiment</span>
+      <span class="act-inst" id="act-inst-label">Drag each item into the soil</span>
+    </div>
+
+    <!-- Feedback -->
+    <div id="feedback">✦ The ancient scrolls await your knowledge… ✦</div>
+
+    <!-- ─── ACTIVITY 1 ─── -->
+    <div id="act1-stage" class="fade-in">
+      <!-- Item tray -->
+      <div class="item-tray" id="act1-tray">
+        <div class="drag-item" data-id="apple"   data-emoji="🍎" data-name="Apple"   draggable="true"><span class="item-emoji">🍎</span><span class="item-label">Apple</span></div>
+        <div class="drag-item" data-id="plastic"  data-emoji="🧴" data-name="Plastic"  draggable="true"><span class="item-emoji">🧴</span><span class="item-label">Plastic</span></div>
+        <div class="drag-item" data-id="paper"    data-emoji="📄" data-name="Paper"    draggable="true"><span class="item-emoji">📄</span><span class="item-label">Paper</span></div>
+        <div class="drag-item" data-id="cloth"    data-emoji="👕" data-name="Cloth"    draggable="true"><span class="item-emoji">👕</span><span class="item-label">Cloth</span></div>
+      </div>
+      <!-- Soil stage -->
+      <div id="act1-soil">
+        <div class="sky-layer">
+          <span class="sky-tree">🌳</span>
+          <span class="sky-tree">🌿</span>
+          <span class="sky-tree">🌳</span>
+        </div>
+        <div class="soil-slots" id="soil-slots">
+          <div class="soil-slot" data-slot="0"><span class="slot-inner">?</span><span class="slot-label">Slot 1</span><span class="slot-tick">✓</span></div>
+          <div class="soil-slot" data-slot="1"><span class="slot-inner">?</span><span class="slot-label">Slot 2</span><span class="slot-tick">✓</span></div>
+          <div class="soil-slot" data-slot="2"><span class="slot-inner">?</span><span class="slot-label">Slot 3</span><span class="slot-tick">✓</span></div>
+          <div class="soil-slot" data-slot="3"><span class="slot-inner">?</span><span class="slot-label">Slot 4</span><span class="slot-tick">✓</span></div>
+        </div>
+        <div class="soil-label">SOIL — MITTI</div>
+      </div>
+      <!-- Fact -->
+      <div class="fact-bubble">
+        <span class="fact-icon">🔬</span>
+        <span class="fact-text">Scientists bury items in soil to watch what happens! <strong>Decomposition</strong> is when living things break down into tiny pieces and go back into the ground.</span>
+      </div>
+    </div>
+
+    <!-- ─── ACTIVITY 2 (hidden) ─── -->
+    <div id="act2-stage" class="hidden fade-in">
+      <div class="timeline-row" id="timeline-row">
+        <!-- injected by JS -->
+      </div>
+      <div class="act2-labels item-tray" id="act2-tray">
+        <!-- injected by JS -->
+      </div>
+      <div class="fact-bubble">
+        <span class="fact-icon">⏳</span>
+        <span class="fact-text">Decomposers include tiny <strong>Bacteria</strong>, fuzzy <strong>Fungi (Moulds)</strong>, and helpful <strong>Worms &amp; Insects</strong> — they are nature's recyclers!</span>
+      </div>
+    </div>
+
+    <!-- ─── ACTIVITY 3 (hidden) ─── -->
+    <div id="act3-stage" class="hidden fade-in">
+      <div class="item-tray" id="act3-tray">
+        <!-- injected by JS -->
+      </div>
+      <div class="sort-bins" id="sort-bins">
+        <div class="sort-bin decomposes" id="bin-yes">
+          <div class="bin-title">🌱 DECOMPOSES</div>
+          <div class="bin-items" id="bin-yes-items"></div>
+        </div>
+        <div class="sort-bin no-decompose" id="bin-no">
+          <div class="bin-title">🚫 DOES NOT DECOMPOSE</div>
+          <div class="bin-items" id="bin-no-items"></div>
+        </div>
+      </div>
+      <div class="fact-bubble">
+        <span class="fact-icon">♻️</span>
+        <span class="fact-text"><strong>Plastic</strong> takes 400–1000+ years to break down. But a <strong>mango</strong> or <strong>banana peel</strong> in a compost pit becomes rich soil in weeks!</span>
+      </div>
+    </div>
+
+    <!-- Next button -->
+    <button id="next-btn">NEXT CHALLENGE &nbsp;⟶</button>
+
+  </div>
+</div>
+
+<script>
+// ─── BACKGROUND ANIMATIONS ───
+(function(){
+  const sandLayer = document.getElementById('sand-layer');
+  for(let i=0;i<40;i++){
+    const p = document.createElement('div');
+    p.className = 'sand-particle';
+    p.style.left = Math.random()*100+'%';
+    p.style.top  = Math.random()*100+'%';
+    p.style.width = (1+Math.random()*3)+'px';
+    p.style.height = p.style.width;
+    p.style.animationDuration = (4+Math.random()*10)+'s';
+    p.style.animationDelay    = (Math.random()*8)+'s';
+    p.style.opacity = Math.random()*0.5;
+    sandLayer.appendChild(p);
+  }
+  // scrolls
+  const scrollPositions = [{left:'8%',top:'20%'},{right:'10%',top:'60%'},{left:'15%',top:'70%'}];
+  scrollPositions.forEach((pos,i)=>{
+    const s = document.createElement('div');
+    s.className = 'scroll-deco';
+    Object.assign(s.style, pos);
+    s.style.animationDuration = (6+i*2)+'s';
+    s.style.animationDelay    = (i*3)+'s';
+    document.getElementById('world').appendChild(s);
+  });
+  // hourglasses
+  [{left:'88%',top:'15%'},{left:'3%',top:'55%'}].forEach((pos,i)=>{
+    const h = document.createElement('div');
+    h.className = 'hourglass-deco';
+    h.textContent = '⏳';
+    Object.assign(h.style, pos);
+    h.style.animationDuration = (7+i*3)+'s';
+    h.style.animationDelay    = (i*4)+'s';
+    document.getElementById('world').appendChild(h);
+  });
+})();
+
+// ─── DRAG STATE ───
+let dragData = null;
+let ghost = document.getElementById('drag-ghost');
+let ghostEmoji = document.getElementById('ghost-emoji');
+let ghostLabel = document.getElementById('ghost-label');
+
+function startDrag(item){
+  dragData = {
+    id:    item.dataset.id,
+    emoji: item.dataset.emoji,
+    name:  item.dataset.name,
+    el:    item
+  };
+  item.classList.add('dragging');
+  ghost.style.display='flex';
+  ghostEmoji.textContent = dragData.emoji;
+  ghostLabel.textContent = dragData.name;
+}
+function moveDrag(x,y){
+  if(!dragData) return;
+  ghost.style.left = x+'px';
+  ghost.style.top  = y+'px';
+}
+function endDrag(){
+  if(!dragData) return;
+  dragData.el.classList.remove('dragging');
+  ghost.style.display='none';
+  dragData = null;
+  document.querySelectorAll('.drag-over').forEach(e=>e.classList.remove('drag-over'));
+}
+
+// Mouse events
+document.addEventListener('mousemove',e=>{
+  moveDrag(e.clientX,e.clientY);
+  if(dragData){
+    document.querySelectorAll('.drag-over').forEach(e=>e.classList.remove('drag-over'));
+    const el = document.elementFromPoint(e.clientX,e.clientY);
+    if(el){
+      const slot = el.closest('.soil-slot');
+      const ls   = el.closest('.label-slot');
+      const bin  = el.closest('.sort-bin');
+      if(slot) slot.classList.add('drag-over');
+      if(ls)   ls.classList.add('drag-over');
+      if(bin)  bin.classList.add('drag-over');
+    }
+  }
+});
+document.addEventListener('mouseup',e=>{
+  if(!dragData) return;
+  const el = document.elementFromPoint(e.clientX,e.clientY);
+  if(el){
+    const slot = el.closest('.soil-slot');
+    const ls   = el.closest('.label-slot');
+    const bin  = el.closest('.sort-bin');
+    if(slot && currentAct===1) handleSlotDrop(slot);
+    if(ls   && currentAct===2) handleLabelDrop(ls);
+    if(bin  && currentAct===3) handleBinDrop(bin);
+  }
+  endDrag();
+});
+
+// Touch events
+document.addEventListener('touchmove',e=>{
+  if(!dragData) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  moveDrag(t.clientX,t.clientY);
+  document.querySelectorAll('.drag-over').forEach(e=>e.classList.remove('drag-over'));
+  const el = document.elementFromPoint(t.clientX,t.clientY);
+  if(el){
+    const slot = el.closest('.soil-slot');
+    const ls   = el.closest('.label-slot');
+    const bin  = el.closest('.sort-bin');
+    if(slot) slot.classList.add('drag-over');
+    if(ls)   ls.classList.add('drag-over');
+    if(bin)  bin.classList.add('drag-over');
+  }
+},{passive:false});
+
+document.addEventListener('touchend',e=>{
+  if(!dragData) return;
+  const t = e.changedTouches[0];
+  const el = document.elementFromPoint(t.clientX,t.clientY);
+  if(el){
+    const slot = el.closest('.soil-slot');
+    const ls   = el.closest('.label-slot');
+    const bin  = el.closest('.sort-bin');
+    if(slot && currentAct===1) handleSlotDrop(slot);
+    if(ls   && currentAct===2) handleLabelDrop(ls);
+    if(bin  && currentAct===3) handleBinDrop(bin);
+  }
+  endDrag();
+});
+
+function attachDragListeners(el){
+  el.addEventListener('mousedown',e=>{e.preventDefault();startDrag(el);moveDrag(e.clientX,e.clientY);});
+  el.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches[0];startDrag(el);moveDrag(t.clientX,t.clientY);},{passive:false});
+}
+
+// ─── ACTIVITY STATE ───
+let currentAct = 1;
+let act1Filled = 0;
+let act2Correct = 0;
+let act3Count = 0;
+let act3Total = 0;
+
+// ─── ACTIVITY 1 ───
+const slots = document.querySelectorAll('.soil-slot');
+slots.forEach(slot=>{
+  slot.dataset.filled='0';
+});
+
+// Attach drag to act1 items
+document.querySelectorAll('#act1-tray .drag-item').forEach(item=>{
+  attachDragListeners(item);
+});
+
+function handleSlotDrop(slot){
+  if(!dragData || slot.dataset.filled==='1') return;
+  slot.dataset.filled='1';
+  slot.classList.add('filled');
+  slot.querySelector('.slot-inner').textContent = dragData.emoji;
+  slot.querySelector('.slot-label').textContent = dragData.name;
+  dragData.el.classList.add('used');
+  act1Filled++;
+  spawnSparkle(slot);
+  setFeedback(['🌱 Well done! Into the soil it goes!','⚗ Excellent! The experiment grows!','🔬 Brilliant! Keep going, scientist!','✦ All items buried — nature takes over now!'][act1Filled-1]||'✦ Great!');
+  if(act1Filled===4){
+    setTimeout(()=>showPopup(1),600);
+  }
+}
+
+// ─── ACTIVITY 2 SETUP ───
+const act2Items = [
+  {id:'mango',  emoji:'🥭', name:'Mango',  state:'Soft & Brown', answer:'Decomposes Quickly'},
+  {id:'leaf',   emoji:'🍂', name:'Leaf',   state:'Dark & Crumbly',answer:'Decomposes Slowly'},
+  {id:'roti',   emoji:'🫓', name:'Roti',   state:'Mouldy',        answer:'Mould is Growing!'},
+  {id:'glass',  emoji:'🪟', name:'Glass',  state:'Unchanged',     answer:'Does NOT Change'},
+];
+const act2Labels = ['Decomposes Quickly','Decomposes Slowly','Mould is Growing!','Does NOT Change'];
+
+function buildAct2(){
+  const row = document.getElementById('timeline-row');
+  row.innerHTML='';
+  act2Items.forEach((item,i)=>{
+    // before cell
+    const before = document.createElement('div');
+    before.className='timeline-item';
+    before.innerHTML=`<div style="font-family:'Cinzel',serif;font-size:9px;color:var(--gold-glow);letter-spacing:1px;">BEFORE</div>
+      <div class="item-emoji">${item.emoji}</div>
+      <div class="item-label" style="font-family:'Cinzel',serif;font-size:10px;color:var(--parchment)">${item.name}</div>`;
+    row.appendChild(before);
+    // arrow
+    const arrow=document.createElement('div');
+    arrow.className='time-arrow'; arrow.innerHTML='→<br><span style="font-size:8px">TIME</span>';
+    row.appendChild(arrow);
+    // after cell
+    const after = document.createElement('div');
+    after.className='timeline-item';
+    after.innerHTML=`<div style="font-family:'Cinzel',serif;font-size:9px;color:var(--gold-glow);letter-spacing:1px;">AFTER</div>
+      <div class="item-emoji">${item.emoji}</div>
+      <div class="label-slot" data-answer="${item.answer}" data-id="${item.id}">Drop label here</div>`;
+    row.appendChild(after);
+    if(i<act2Items.length-1){
+      const sep=document.createElement('div');
+      sep.style.cssText='width:1px;background:rgba(120,80,30,0.3);align-self:stretch;flex-shrink:0;';
+      row.appendChild(sep);
+    }
+  });
+  // labels tray
+  const tray = document.getElementById('act2-tray');
+  tray.innerHTML='';
+  // shuffle
+  const shuffled = [...act2Labels].sort(()=>Math.random()-0.5);
+  shuffled.forEach(label=>{
+    const el = document.createElement('div');
+    el.className='drag-item';
+    el.dataset.id = label;
+    el.dataset.emoji = '🏷️';
+    el.dataset.name  = label;
+    el.innerHTML=`<span class="item-label" style="font-size:clamp(9px,1.5vw,12px)">${label}</span>`;
+    tray.appendChild(el);
+    attachDragListeners(el);
+  });
+  act2Correct=0;
+}
+
+function handleLabelDrop(slot){
+  if(!dragData || slot.classList.contains('correct')) return;
+  const answer = slot.dataset.answer;
+  const isCorrect = dragData.id === answer;
+  if(isCorrect){
+    slot.classList.add('correct');
+    slot.textContent = dragData.name;
+    dragData.el.classList.add('used');
+    act2Correct++;
+    spawnSparkle(slot);
+    setFeedback(['🌟 Correct! Decomposition at work!','✨ Right! Time changes everything!','🍄 Yes! Moulds are decomposers!','🔬 Exactly! Some materials never change!'][act2Correct-1]||'✦ Correct!');
+    if(act2Correct===4) setTimeout(()=>showPopup(2),600);
+  } else {
+    slot.classList.add('wrong');
+    setFeedback('❌ Not quite — try a different label!');
+    setTimeout(()=>slot.classList.remove('wrong'),500);
+  }
+}
+
+// ─── ACTIVITY 3 SETUP ───
+const act3Items = [
+  {id:'banana', emoji:'🍌', name:'Banana Peel', decompose:true},
+  {id:'metal',  emoji:'🔩', name:'Metal',        decompose:false},
+  {id:'paper2', emoji:'📰', name:'Newspaper',    decompose:true},
+  {id:'plastic2',emoji:'🛍️',name:'Plastic Bag',  decompose:false},
+  {id:'veg',    emoji:'🥬', name:'Vegetables',   decompose:true},
+  {id:'glass2', emoji:'🍶', name:'Glass Bottle', decompose:false},
+];
+
+function buildAct3(){
+  const tray = document.getElementById('act3-tray');
+  tray.innerHTML='';
+  const shuffled=[...act3Items].sort(()=>Math.random()-0.5);
+  act3Total=shuffled.length;
+  act3Count=0;
+  shuffled.forEach(item=>{
+    const el=document.createElement('div');
+    el.className='drag-item';
+    el.dataset.id=item.id;
+    el.dataset.emoji=item.emoji;
+    el.dataset.name=item.name;
+    el.dataset.decompose=item.decompose?'1':'0';
+    el.innerHTML=`<span class="item-emoji">${item.emoji}</span><span class="item-label">${item.name}</span>`;
+    tray.appendChild(el);
+    attachDragListeners(el);
+  });
+  document.getElementById('bin-yes-items').innerHTML='';
+  document.getElementById('bin-no-items').innerHTML='';
+}
+
+function handleBinDrop(bin){
+  if(!dragData) return;
+  const isYes  = bin.id==='bin-yes';
+  const decomp = dragData.el.dataset.decompose==='1';
+  const correct = (isYes && decomp)||(!isYes && !decomp);
+  // create dropped item
+  const dropped=document.createElement('div');
+  dropped.className='bin-dropped '+(correct?'correct':'wrong');
+  dropped.innerHTML=`<span class="item-emoji">${dragData.emoji}</span><span class="item-label">${dragData.name}</span>`;
+  bin.querySelector('.bin-items').appendChild(dropped);
+  dragData.el.classList.add('used');
+  if(correct){
+    act3Count++;
+    spawnSparkle(bin);
+    setFeedback(decomp?`✅ Yes! ${dragData.name} decomposes!`:`✅ Right! ${dragData.name} does not decompose!`);
+  } else {
+    setFeedback(`❌ Hmm, ${dragData.name} goes in the other bin!`);
+    setTimeout(()=>{
+      dropped.style.opacity='0.4';
+      dropped.style.textDecoration='line-through';
+    },400);
+  }
+  act3Count++;
+  if(act3Count>=act3Total) setTimeout(()=>showPopup(3),700);
+}
+
+// ─── POPUP SYSTEM ───
+const popupOverlay = document.getElementById('popup-overlay');
+const popupBox     = document.getElementById('popup-box');
+
+function showPopup(act){
+  let html='';
+  if(act===1){
+    html=`
+      <span class="popup-ornament">⚗</span>
+      <div class="popup-h">EXPERIMENT SET UP!</div>
+      <div class="popup-sub">~ The Soil Awaits ~</div>
+      <div class="popup-body">
+        You buried an <strong>apple</strong>, <strong>plastic bottle</strong>, <strong>paper</strong>, and <strong>cloth</strong> in the soil — just like real scientists do!<br><br>
+        Now the decomposers get to work: tiny <strong>bacteria</strong>, fuzzy <strong>fungi (moulds)</strong>, and busy <strong>worms</strong>.
+      </div>
+      <div class="popup-chant">🌿 "Decomposers break it down —<br>and put it back in the ground!" 🌿</div>
+      <button class="popup-btn" onclick="nextActivity(2)">OBSERVE CHANGES ⟶</button>
+    `;
+  } else if(act===2){
+    html=`
+      <span class="popup-ornament">⏳</span>
+      <div class="popup-h">TIME REVEALS ALL!</div>
+      <div class="popup-sub">~ The Ancient Truth ~</div>
+      <div class="popup-body">
+        A <strong>mango</strong> turns soft and brown. A <strong>roti</strong> grows white mould. A <strong>leaf</strong> crumbles dark. But <strong>glass</strong>? It stays the same — forever!<br><br>
+        Things made from living things <strong>decompose</strong>. Things made from plastic or glass do <strong>not</strong>.
+      </div>
+      <div class="popup-chant">♻️ Decomposition is NATURE'S recycling! ♻️</div>
+      <button class="popup-btn" onclick="nextActivity(3)">SORT & CONCLUDE ⟶</button>
+    `;
+  } else {
+    html=`
+      <span class="popup-stars">⭐⭐⭐</span>
+      <div class="popup-h">EXPEDITION COMPLETE!</div>
+      <div class="popup-sub">~ Master Nature's Recycler ~</div>
+      <div class="popup-body">
+        Amazing work, young scientist! You now know:<br>
+        🍂 <strong>Decomposition</strong> breaks dead things into soil<br>
+        🦠 <strong>Bacteria, Fungi &amp; Worms</strong> are decomposers<br>
+        ♻️ Decomposition is <strong>nature's recycling system</strong><br>
+        🚫 Plastic &amp; glass <strong>do not decompose</strong> easily
+      </div>
+      <div class="popup-chant">🌿 "Decomposers break it down —<br>and put it back in the ground!" 🌿</div>
+      <button class="popup-btn success-btn" onclick="restartAll()">🌱 START AGAIN</button>
+    `;
+  }
+  popupBox.innerHTML=html;
+  popupOverlay.classList.add('visible');
+}
+
+function nextActivity(num){
+  popupOverlay.classList.remove('visible');
+  setTimeout(()=>{
+    currentAct=num;
+    showActivity(num);
+  },350);
+}
+
+function showActivity(num){
+  document.getElementById('act1-stage').classList.add('hidden');
+  document.getElementById('act2-stage').classList.add('hidden');
+  document.getElementById('act3-stage').classList.add('hidden');
+  // update progress dots
+  for(let i=1;i<=3;i++){
+    const dot=document.getElementById('dot-'+i);
+    dot.classList.remove('active','done');
+    if(i<num) dot.classList.add('done');
+    else if(i===num) dot.classList.add('active');
+  }
+  const configs=[null,
+    {num:'⚗ ACTIVITY I',  title:'Set Up the Experiment',    inst:'Drag each item into the soil'},
+    {num:'⚗ ACTIVITY II', title:'Observe Changes Over Time', inst:'Drag the label to each item'},
+    {num:'⚗ ACTIVITY III',title:'Compare &amp; Conclude',     inst:'Sort each item into the right bin'},
+  ];
+  const c=configs[num];
+  document.getElementById('act-num-label').textContent=c.num;
+  document.getElementById('act-title-label').innerHTML=c.title;
+  document.getElementById('act-inst-label').innerHTML=c.inst;
+
+  if(num===1){
+    document.getElementById('act1-stage').classList.remove('hidden');
+    setFeedback('✦ Drag each item into the soil to begin the experiment! ✦');
+  } else if(num===2){
+    document.getElementById('act2-stage').classList.remove('hidden');
+    buildAct2();
+    setFeedback('✦ Drag the correct label to each item after time has passed ✦');
+  } else if(num===3){
+    document.getElementById('act3-stage').classList.remove('hidden');
+    buildAct3();
+    setFeedback('✦ Sort each item — does it decompose or not? ✦');
+  }
+  document.getElementById('act'+num+'-stage').classList.add('fade-in');
+}
+
+function restartAll(){
+  popupOverlay.classList.remove('visible');
+  act1Filled=0;
+  // reset act1
+  document.querySelectorAll('#act1-tray .drag-item').forEach(el=>{el.classList.remove('used','dragging');});
+  document.querySelectorAll('.soil-slot').forEach(slot=>{
+    slot.dataset.filled='0'; slot.classList.remove('filled');
+    slot.querySelector('.slot-inner').textContent='?';
+    slot.querySelector('.slot-label').textContent='Slot '+(parseInt(slot.dataset.slot)+1);
+  });
+  setTimeout(()=>showActivity(1),350);
+}
+
+function setFeedback(msg){
+  const fb=document.getElementById('feedback');
+  fb.style.opacity=0;
+  setTimeout(()=>{fb.innerHTML=msg;fb.style.opacity=1;},150);
+}
+
+function spawnSparkle(el){
+  const rect=el.getBoundingClientRect();
+  const s=document.createElement('div');
+  s.className='sparkle';
+  s.textContent=['✨','⭐','🌟','💫'][Math.floor(Math.random()*4)];
+  s.style.left=(rect.left+rect.width/2-10)+'px';
+  s.style.top =(rect.top+rect.height/2-10)+'px';
+  document.body.appendChild(s);
+  setTimeout(()=>s.remove(),900);
+}
+
+// Init
+showActivity(1);
+</script>
+</body>
+</html>

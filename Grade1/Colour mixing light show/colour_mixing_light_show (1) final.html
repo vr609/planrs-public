@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Colour Mixing Light Show</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --red:#FF3B3B;--green:#00D46A;--blue:#2979FF;
+    --yellow:#FFE600;--magenta:#FF2DCA;--cyan:#00EDFF;--white:#FFFFFF;
+    --bg:#0d0820;--surface:rgba(255,255,255,0.06);--glow:rgba(255,255,255,0.12);
+  }
+  html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif}
+  body{background:var(--bg);color:#fff;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center}
+
+  /* ===== ANIMATED BG ===== */
+  .bg-canvas{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+  .paint-blob{position:absolute;border-radius:50%;filter:blur(60px);opacity:0.18;animation:blobFloat 8s ease-in-out infinite alternate}
+  .paint-blob:nth-child(1){width:420px;height:420px;background:var(--red);left:-100px;top:-80px;animation-delay:0s}
+  .paint-blob:nth-child(2){width:360px;height:360px;background:var(--blue);right:-80px;top:10%;animation-delay:-2s}
+  .paint-blob:nth-child(3){width:300px;height:300px;background:var(--green);left:30%;bottom:-60px;animation-delay:-4s}
+  .paint-blob:nth-child(4){width:280px;height:280px;background:var(--magenta);right:15%;bottom:5%;animation-delay:-1s}
+  .paint-blob:nth-child(5){width:200px;height:200px;background:var(--yellow);left:10%;top:50%;animation-delay:-3s}
+  @keyframes blobFloat{from{transform:translate(0,0) scale(1)}to{transform:translate(30px,25px) scale(1.12)}}
+
+  .sparkle{position:absolute;width:6px;height:6px;border-radius:50%;animation:sparkleAnim 3s ease-in-out infinite}
+  @keyframes sparkleAnim{0%,100%{opacity:0;transform:scale(0)}50%{opacity:1;transform:scale(1)}}
+
+  .brush{position:absolute;font-size:2rem;opacity:0.1;animation:brushSpin 12s linear infinite}
+  @keyframes brushSpin{from{transform:rotate(0deg) translateY(-10px)}to{transform:rotate(360deg) translateY(-10px)}}
+
+  /* paint drips */
+  .drip{position:absolute;top:0;width:14px;border-radius:0 0 50% 50%;animation:dripDown linear infinite;opacity:0.35}
+  @keyframes dripDown{0%{transform:translateY(-40px);opacity:0}10%{opacity:0.4}90%{opacity:0.35}100%{transform:translateY(100vh);opacity:0}}
+
+  /* colour wheel spin */
+  .colour-wheel{position:absolute;width:120px;height:120px;border-radius:50%;background:conic-gradient(red,yellow,green,cyan,blue,magenta,red);opacity:0.08;animation:wheelSpin 20s linear infinite}
+  @keyframes wheelSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+  /* ===== MAIN WRAPPER ===== */
+  .wrapper{position:relative;z-index:10;width:min(900px,96vw);height:min(600px,95vh);display:flex;flex-direction:column}
+
+  /* ===== HEADER ===== */
+  .header{text-align:center;padding:12px 0 8px;flex-shrink:0}
+  .header h1{font-family:'Fredoka One',cursive;font-size:clamp(1.6rem,3.5vw,2.4rem);letter-spacing:2px;background:linear-gradient(135deg,#FF3B3B,#FF2DCA,#2979FF,#00D46A);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 20px rgba(255,80,200,0.4))}
+  .step-dots{display:flex;justify-content:center;gap:10px;margin-top:6px}
+  .dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.2);transition:all 0.4s;border:1.5px solid rgba(255,255,255,0.3)}
+  .dot.active{background:#FF2DCA;border-color:#FF2DCA;box-shadow:0 0 10px #FF2DCA}
+  .dot.done{background:#00D46A;border-color:#00D46A}
+
+  /* ===== ACTIVITY AREA ===== */
+  .activity-area{flex:1;display:flex;align-items:stretch;gap:14px;padding:6px 0;min-height:0}
+  .activity-panel{flex:1;background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.12);border-radius:20px;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;backdrop-filter:blur(12px)}
+  .activity-panel::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(255,255,255,0.06),transparent 60%);pointer-events:none}
+
+  /* activity title */
+  .act-title{font-family:'Fredoka One',cursive;font-size:1.05rem;color:rgba(255,255,255,0.75);position:absolute;top:12px;left:50%;transform:translateX(-50%);white-space:nowrap;letter-spacing:1px}
+  .act-subtitle{font-size:0.7rem;color:rgba(255,255,255,0.45);position:absolute;top:34px;left:50%;transform:translateX(-50%);white-space:nowrap;text-align:center}
+
+  /* ===== ACTIVITY 1: TORCH ===== */
+  #act1{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:14px}
+  .torch-scene{display:flex;flex-direction:column;align-items:center;position:relative;margin-top:55px}
+  .torch-body{width:38px;height:88px;background:linear-gradient(180deg,#b0b0b0,#606060);border-radius:8px 8px 4px 4px;position:relative;z-index:3;box-shadow:0 4px 20px rgba(0,0,0,0.5)}
+  .torch-head{width:50px;height:20px;background:linear-gradient(180deg,#888,#444);border-radius:6px;margin-bottom:-2px;position:relative;z-index:3}
+  .torch-light{width:0;height:0;border-left:60px solid transparent;border-right:60px solid transparent;border-top:0px solid transparent;position:absolute;top:-2px;left:50%;transform:translateX(-50%);filter:blur(1px);z-index:2;transition:border-bottom 0.5s,border-bottom-color 0.5s,opacity 0.5s;border-bottom:0px solid transparent}
+  .torch-glow{width:130px;height:130px;border-radius:50%;position:absolute;top:-140px;left:50%;transform:translateX(-50%);opacity:0;transition:all 0.5s;filter:blur(18px);z-index:1}
+  .torch-beam{width:120px;height:90px;position:absolute;top:-100px;left:50%;transform:translateX(-50%);opacity:0;clip-path:polygon(50% 100%, 0% 0%, 100% 0%);transition:all 0.5s;z-index:2;border-radius:4px}
+  .colour-result{font-family:'Fredoka One',cursive;font-size:1.1rem;position:absolute;top:-170px;left:50%;transform:translateX(-50%);white-space:nowrap;opacity:0;transition:all 0.5s;text-shadow:0 0 20px currentColor}
+
+  .filters-row{display:flex;gap:10px;margin-top:12px;justify-content:center}
+  .filter-chip{width:52px;height:52px;border-radius:50%;cursor:grab;border:3px solid rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-family:'Fredoka One',cursive;font-size:0.75rem;font-weight:900;color:rgba(0,0,0,0.7);user-select:none;transition:transform 0.2s,box-shadow 0.3s;position:relative;z-index:20;touch-action:none}
+  .filter-chip:hover{transform:scale(1.15)}
+  .filter-chip.active{border-color:#fff;box-shadow:0 0 20px currentColor;transform:scale(1.1)}
+  .filter-chip[data-c="red"]{background:var(--red);color:#fff}
+  .filter-chip[data-c="green"]{background:var(--green);color:#000}
+  .filter-chip[data-c="blue"]{background:var(--blue);color:#fff}
+
+  .torch-drop{width:70px;height:70px;border-radius:50%;border:2.5px dashed rgba(255,255,255,0.25);position:absolute;top:-20px;left:50%;transform:translateX(-50%);z-index:5;transition:border-color 0.3s,background 0.3s}
+  .torch-drop.drag-over{border-color:rgba(255,255,255,0.7);background:rgba(255,255,255,0.1)}
+
+  /* ===== ACTIVITY 2: SORT ===== */
+  #act2{padding:50px 14px 14px;display:flex;flex-direction:column;gap:8px}
+  .sort-chips-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .sort-chip{padding:6px 14px;border-radius:20px;font-family:'Fredoka One',cursive;font-size:0.8rem;cursor:grab;border:2px solid rgba(255,255,255,0.3);user-select:none;touch-action:none;transition:transform 0.2s,opacity 0.3s;white-space:nowrap}
+  .sort-chip:hover{transform:scale(1.08)}
+  .sort-chip.placed{opacity:0.3;pointer-events:none}
+  .sort-areas{display:flex;gap:10px;flex:1}
+  .sort-zone{flex:1;border:2px dashed rgba(255,255,255,0.2);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;min-height:0;transition:border-color 0.3s,background 0.3s;position:relative}
+  .sort-zone.drag-over{border-color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.08)}
+  .sort-zone-label{font-family:'Fredoka One',cursive;font-size:0.75rem;color:rgba(255,255,255,0.55);text-align:center;margin-bottom:4px}
+  .zone-icon{font-size:1.6rem;text-align:center;margin-bottom:2px}
+  .placed-chip{padding:4px 10px;border-radius:14px;font-size:0.72rem;font-family:'Fredoka One',cursive;text-align:center;animation:popIn 0.3s}
+  @keyframes popIn{from{transform:scale(0.5);opacity:0}to{transform:scale(1);opacity:1}}
+  .wrong-shake{animation:shake 0.4s}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+  .sort-score{font-family:'Fredoka One',cursive;font-size:0.9rem;text-align:center;color:#FFE600;min-height:20px}
+
+  /* ===== ACTIVITY 3: MIXER ===== */
+  #act3{padding:50px 10px 10px;display:flex;flex-direction:column;align-items:center;gap:6px}
+  .target-display{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+  .target-circle{width:54px;height:54px;border-radius:50%;border:3px solid rgba(255,255,255,0.4);box-shadow:0 0 20px currentColor;transition:all 0.4s;display:flex;align-items:center;justify-content:center;font-family:'Fredoka One',cursive;font-size:0.65rem;color:rgba(0,0,0,0.7)}
+  .target-label{font-family:'Fredoka One',cursive;font-size:0.9rem;color:rgba(255,255,255,0.7)}
+  .mix-palette{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .palette-chip{width:50px;height:50px;border-radius:50%;cursor:grab;border:2.5px solid rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-family:'Fredoka One',cursive;user-select:none;touch-action:none;transition:transform 0.2s,box-shadow 0.3s;color:rgba(0,0,0,0.7)}
+  .palette-chip:hover{transform:scale(1.15)}
+  .palette-chip.used{opacity:0.3;pointer-events:none}
+  .mix-bowl-row{display:flex;align-items:center;gap:8px;justify-content:center;margin-top:4px}
+  .mix-bowl{width:100px;height:60px;border-radius:50% 50% 46% 46% / 30% 30% 60% 60%;border:2.5px dashed rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;position:relative;transition:all 0.4s;overflow:hidden}
+  .mix-bowl.drag-over{border-color:rgba(255,255,255,0.7);background:rgba(255,255,255,0.1)}
+  .bowl-colour{position:absolute;inset:0;border-radius:inherit;opacity:0;transition:opacity 0.4s,background 0.4s}
+  .bowl-colour.showing{opacity:1}
+  .mix-slots{display:flex;gap:4px;z-index:2}
+  .mix-slot{width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,0.4);transition:all 0.3s}
+  .mix-result-label{font-family:'Fredoka One',cursive;font-size:0.85rem;color:#fff;opacity:0;transition:opacity 0.4s;text-align:center;min-height:24px}
+  .mix-result-label.showing{opacity:1}
+  .mix-feedback{font-size:0.8rem;font-family:'Fredoka One',cursive;min-height:22px;text-align:center;transition:opacity 0.4s}
+  .mix-targets-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:2px}
+  .mix-target-item{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.07);border-radius:20px;padding:4px 10px;font-family:'Fredoka One',cursive;font-size:0.72rem}
+  .mix-target-item .tc{width:16px;height:16px;border-radius:50%;flex-shrink:0}
+  .mix-target-item.solved{background:rgba(0,212,106,0.2);border:1.5px solid #00D46A}
+
+  /* ===== CONTROLS ===== */
+  .controls{display:flex;justify-content:center;align-items:center;gap:12px;padding:8px 0;flex-shrink:0}
+  .btn{font-family:'Fredoka One',cursive;font-size:0.95rem;padding:10px 26px;border-radius:30px;border:none;cursor:pointer;transition:all 0.25s;letter-spacing:0.5px}
+  .btn-primary{background:linear-gradient(135deg,#FF2DCA,#2979FF);color:#fff;box-shadow:0 4px 18px rgba(255,45,202,0.4)}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(255,45,202,0.5)}
+  .btn-primary:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+  .btn-reset{background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border:1.5px solid rgba(255,255,255,0.2)}
+  .btn-reset:hover{background:rgba(255,255,255,0.18)}
+  .progress-text{font-size:0.75rem;color:rgba(255,255,255,0.4);font-family:'Nunito',sans-serif}
+
+  /* ===== POPUP ===== */
+  .popup-overlay{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity 0.4s}
+  .popup-overlay.show{opacity:1;pointer-events:all}
+  .popup{background:linear-gradient(135deg,#1a0a30,#0d1a40);border:2px solid rgba(255,255,255,0.2);border-radius:24px;padding:36px 44px;text-align:center;max-width:440px;width:90%;position:relative;transform:scale(0.85);transition:transform 0.4s;box-shadow:0 20px 60px rgba(0,0,0,0.6)}
+  .popup-overlay.show .popup{transform:scale(1)}
+  .popup h2{font-family:'Fredoka One',cursive;font-size:1.8rem;margin-bottom:10px;background:linear-gradient(135deg,#FF2DCA,#FFE600,#00D46A);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .popup p{color:rgba(255,255,255,0.75);font-size:0.95rem;line-height:1.6;margin-bottom:20px}
+  .popup .emoji{font-size:3rem;margin-bottom:10px;display:block;animation:bounce 0.8s ease infinite alternate}
+  @keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-8px)}}
+  .popup .fact-box{background:rgba(255,255,255,0.08);border-radius:14px;padding:12px 16px;margin-bottom:20px;font-size:0.85rem;color:rgba(255,255,255,0.85);border-left:3px solid #FF2DCA;text-align:left}
+  .popup .stars{font-size:1.5rem;margin-bottom:10px;display:block}
+  .confetti-piece{position:fixed;width:10px;height:10px;border-radius:2px;animation:confettiFall linear forwards;z-index:200}
+  @keyframes confettiFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+
+  /* ===== HIDDEN ===== */
+  .hidden{display:none!important}
+
+  /* helper badge */
+  .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:0.65rem;font-family:'Fredoka One',cursive;margin-left:6px;vertical-align:middle}
+
+  /* torch instruction */
+  .torch-instruction{font-size:0.7rem;color:rgba(255,255,255,0.45);margin-top:6px;text-align:center}
+  .active-filters-display{font-family:'Fredoka One',cursive;font-size:0.75rem;min-height:18px;margin-top:4px;text-align:center;color:rgba(255,255,255,0.6)}
+</style>
+</head>
+<body>
+
+<!-- Animated background -->
+<div class="bg-canvas">
+  <div class="paint-blob"></div>
+  <div class="paint-blob"></div>
+  <div class="paint-blob"></div>
+  <div class="paint-blob"></div>
+  <div class="paint-blob"></div>
+  <!-- Colour wheels -->
+  <div class="colour-wheel" style="left:5%;top:20%"></div>
+  <div class="colour-wheel" style="right:8%;bottom:15%;animation-direction:reverse;width:80px;height:80px"></div>
+  <!-- Sparkles injected by JS -->
+  <!-- Drips -->
+  <div class="drip" style="left:8%;animation-duration:7s;animation-delay:-2s;background:rgba(255,59,59,0.5);height:60px"></div>
+  <div class="drip" style="left:22%;animation-duration:9s;animation-delay:-5s;background:rgba(41,121,255,0.5);height:80px"></div>
+  <div class="drip" style="left:50%;animation-duration:6s;animation-delay:-1s;background:rgba(0,212,106,0.5);height:50px"></div>
+  <div class="drip" style="left:70%;animation-duration:11s;animation-delay:-3s;background:rgba(255,45,202,0.5);height:70px"></div>
+  <div class="drip" style="left:88%;animation-duration:8s;animation-delay:-6s;background:rgba(255,230,0,0.5);height:55px"></div>
+  <!-- Brush icons -->
+  <span class="brush" style="left:3%;top:8%;animation-duration:15s">🎨</span>
+  <span class="brush" style="right:4%;top:12%;animation-duration:18s;animation-delay:-4s">🖌️</span>
+  <span class="brush" style="left:48%;bottom:6%;animation-duration:20s;animation-delay:-8s">✨</span>
+</div>
+
+<div class="wrapper">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>✦ COLOUR MIXING LIGHT SHOW ✦</h1>
+    <div class="step-dots">
+      <div class="dot active" id="dot1"></div>
+      <div class="dot" id="dot2"></div>
+      <div class="dot" id="dot3"></div>
+    </div>
+  </div>
+
+  <!-- Activities -->
+  <div class="activity-area">
+
+    <!-- ACTIVITY 1 -->
+    <div class="activity-panel" id="act1">
+      <div class="act-title">🔦 The Magic Torch</div>
+      <div class="act-subtitle">Drag colour filters onto the torch!</div>
+      <div class="torch-scene">
+        <div class="colour-result" id="colourResult">White Light! ☀️</div>
+        <div class="torch-glow" id="torchGlow"></div>
+        <div class="torch-beam" id="torchBeam"></div>
+        <div class="torch-drop" id="torchDrop" aria-label="Torch drop zone"></div>
+        <div class="torch-head"></div>
+        <div class="torch-body"></div>
+      </div>
+      <div class="active-filters-display" id="activeFiltersDisplay">No filters active</div>
+      <div class="filters-row">
+        <div class="filter-chip" data-c="red" draggable="true" id="fc-red">RED</div>
+        <div class="filter-chip" data-c="green" draggable="true" id="fc-green">GREEN</div>
+        <div class="filter-chip" data-c="blue" draggable="true" id="fc-blue">BLUE</div>
+      </div>
+      <div class="torch-instruction">Click a filter or drag it to the torch circle</div>
+    </div>
+
+    <!-- ACTIVITY 2 -->
+    <div class="activity-panel hidden" id="act2">
+      <div class="act-title">⚗️ Sort the Colours!</div>
+      <div class="act-subtitle">Drag each colour to the correct mixing type</div>
+      <div class="sort-chips-row" id="sortChips"></div>
+      <div class="sort-areas">
+        <div class="sort-zone" id="zone-light" data-zone="light">
+          <div class="zone-icon">💡</div>
+          <div class="sort-zone-label">LIGHT Mixing<br><span style="font-size:0.6rem;color:rgba(255,255,255,0.35)">(gets BRIGHTER)</span></div>
+        </div>
+        <div class="sort-zone" id="zone-paint" data-zone="paint">
+          <div class="zone-icon">🎨</div>
+          <div class="sort-zone-label">PAINT Mixing<br><span style="font-size:0.6rem;color:rgba(255,255,255,0.35)">(gets DARKER)</span></div>
+        </div>
+      </div>
+      <div class="sort-score" id="sortScore">Place all the colours correctly! 🎯</div>
+    </div>
+
+    <!-- ACTIVITY 3 -->
+    <div class="activity-panel hidden" id="act3">
+      <div class="act-title">🌈 The Mix Master!</div>
+      <div class="act-subtitle">Drag the right lights into the bowl to make the target colour</div>
+      <div class="mix-targets-row" id="mixTargetsRow"></div>
+      <div class="target-display">
+        <div class="target-label">Make:</div>
+        <div class="target-circle" id="targetCircle"></div>
+        <div class="target-label" id="targetName" style="font-size:1rem"></div>
+      </div>
+      <div class="mix-palette" id="mixPalette"></div>
+      <div class="mix-bowl-row">
+        <div style="text-align:center">
+          <div class="mix-bowl" id="mixBowl">
+            <div class="bowl-colour" id="bowlColour"></div>
+            <div class="mix-slots" id="mixSlots"></div>
+          </div>
+          <div class="mix-result-label" id="mixResultLabel"></div>
+        </div>
+      </div>
+      <div class="mix-feedback" id="mixFeedback"></div>
+    </div>
+
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="btn btn-reset" id="btnReset">↺ Reset</button>
+    <span class="progress-text" id="progressText">Activity 1 of 3</span>
+    <button class="btn btn-primary" id="btnNext" disabled>Next Activity →</button>
+  </div>
+
+</div>
+
+<!-- Popup -->
+<div class="popup-overlay" id="popupOverlay">
+  <div class="popup" id="popup">
+    <span class="emoji" id="popupEmoji">🎉</span>
+    <span class="stars" id="popupStars">⭐⭐⭐</span>
+    <h2 id="popupTitle">Amazing!</h2>
+    <p id="popupText"></p>
+    <div class="fact-box" id="popupFact"></div>
+    <button class="btn btn-primary" id="btnPopupNext" style="width:100%">Let's Go! ✨</button>
+  </div>
+</div>
+
+<script>
+// ===== SPARKLES =====
+const bgCanvas = document.querySelector('.bg-canvas');
+for(let i=0;i<20;i++){
+  const s=document.createElement('div');
+  s.className='sparkle';
+  const colors=['#FF3B3B','#00D46A','#2979FF','#FF2DCA','#FFE600','#00EDFF','#fff'];
+  s.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;background:${colors[i%colors.length]};width:${4+Math.random()*6}px;height:${4+Math.random()*6}px;animation-delay:${Math.random()*3}s;animation-duration:${2+Math.random()*3}s`;
+  bgCanvas.appendChild(s);
+}
+
+// ===== STATE =====
+let currentActivity=1;
+const act1Solved={r:false,g:false,b:false};// tracks which filters on torch
+
+// ===== ACTIVITY 1: TORCH =====
+const filterState={red:false,green:false,blue:false};
+
+const colorMixMap={
+  '000':'off',
+  '100':'red_only',
+  '010':'green_only',
+  '001':'blue_only',
+  '110':'yellow',
+  '101':'magenta',
+  '011':'cyan',
+  '111':'white'
+};
+
+const colourInfo={
+  'off':{color:'transparent',name:'No light',text:'Turn on a filter!',glow:'transparent'},
+  'red_only':{color:'#FF3B3B',name:'Red Light',text:'Red light active 🔴',glow:'rgba(255,59,59,0.5)'},
+  'green_only':{color:'#00D46A',name:'Green Light',text:'Green light active 🟢',glow:'rgba(0,212,106,0.5)'},
+  'blue_only':{color:'#2979FF',name:'Blue Light',text:'Blue light active 🔵',glow:'rgba(41,121,255,0.5)'},
+  'yellow':{color:'#FFE600',name:'Yellow! 💛',text:'Red + Green = Yellow ✨',glow:'rgba(255,230,0,0.5)'},
+  'magenta':{color:'#FF2DCA',name:'Magenta! 💜',text:'Red + Blue = Magenta 🌸',glow:'rgba(255,45,202,0.5)'},
+  'cyan':{color:'#00EDFF',name:'Cyan! 🩵',text:'Green + Blue = Cyan 💎',glow:'rgba(0,237,255,0.5)'},
+  'white':{color:'#FFFFFF',name:'White Light! ☀️',text:'All three = Pure White Light! 🌟',glow:'rgba(255,255,255,0.6)'}
+};
+
+function getTorchKey(){
+  return (filterState.red?'1':'0')+(filterState.green?'1':'0')+(filterState.blue?'1':'0');
+}
+
+function updateTorch(){
+  const key=getTorchMap();
+  const info=colourInfo[key];
+  const glow=document.getElementById('torchGlow');
+  const beam=document.getElementById('torchBeam');
+  const result=document.getElementById('colourResult');
+  const disp=document.getElementById('activeFiltersDisplay');
+
+  glow.style.background=info.glow;
+  glow.style.opacity=(key==='off')?'0':'0.6';
+  glow.style.boxShadow=key!=='off'?`0 0 40px 20px ${info.glow}`:'none';
+  beam.style.background=info.color;
+  beam.style.opacity=key==='off'?'0':'0.7';
+  result.style.color=key==='white'?'#ffe600':info.color;
+  result.style.opacity=key==='off'?'0':'1';
+  result.style.top='-175px';
+  result.textContent=info.name;
+
+  const active=[];
+  if(filterState.red)active.push('🔴 Red');
+  if(filterState.green)active.push('🟢 Green');
+  if(filterState.blue)active.push('🔵 Blue');
+  disp.textContent=active.length?active.join(' + '):' No filters active';
+
+  // update chip states
+  ['red','green','blue'].forEach(c=>{
+    const chip=document.getElementById('fc-'+c);
+    if(filterState[c]){chip.classList.add('active');chip.style.boxShadow=`0 0 15px ${colourInfo[c+'_only'].glow}`}
+    else{chip.classList.remove('active');chip.style.boxShadow=''}
+  });
+
+  // check if explored enough - unlock next when 3+ combos seen
+  checkAct1Unlock();
+}
+
+function getTorchMap(){
+  return colorMixMap[getTorchKey()];
+}
+
+const act1Explored=new Set();
+function checkAct1Unlock(){
+  act1Explored.add(getTorchKey());
+  // unlock after exploring at least 4 combos (including at least one mix)
+  const mixes=['110','101','011','111'];
+  const hasMix=mixes.some(m=>act1Explored.has(m));
+  if(act1Explored.size>=3&&hasMix){
+    document.getElementById('btnNext').disabled=false;
+  }
+}
+
+// Filter chip click toggle
+document.querySelectorAll('.filter-chip').forEach(chip=>{
+  chip.addEventListener('click',()=>{
+    const c=chip.dataset.c;
+    filterState[c]=!filterState[c];
+    updateTorch();
+  });
+  chip.addEventListener('dragstart',e=>{
+    e.dataTransfer.setData('text/plain',chip.dataset.c);
+  });
+});
+
+// Torch drop zone
+const torchDrop=document.getElementById('torchDrop');
+torchDrop.addEventListener('dragover',e=>{e.preventDefault();torchDrop.classList.add('drag-over')});
+torchDrop.addEventListener('dragleave',()=>torchDrop.classList.remove('drag-over'));
+torchDrop.addEventListener('drop',e=>{
+  e.preventDefault();
+  torchDrop.classList.remove('drag-over');
+  const c=e.dataTransfer.getData('text/plain');
+  if(c) filterState[c]=!filterState[c];
+  updateTorch();
+});
+
+// ===== ACTIVITY 2: SORT =====
+const sortData=[
+  {label:'Red + Green = Yellow',zone:'light',color:'#FFE600',bg:'rgba(255,230,0,0.2)'},
+  {label:'Red + Blue = Magenta',zone:'light',color:'#FF2DCA',bg:'rgba(255,45,202,0.2)'},
+  {label:'Green + Blue = Cyan',zone:'light',color:'#00EDFF',bg:'rgba(0,237,255,0.2)'},
+  {label:'Blue + Yellow = Green',zone:'paint',color:'#00D46A',bg:'rgba(0,212,106,0.2)'},
+  {label:'Red + Blue = Purple',zone:'paint',color:'#9B59B6',bg:'rgba(155,89,182,0.2)'},
+  {label:'All 3 lights = White',zone:'light',color:'#FFFFFF',bg:'rgba(255,255,255,0.2)'},
+];
+let sortScore=0,sortTotal=sortData.length;
+let draggingChip=null;
+
+function initAct2(){
+  sortScore=0;
+  document.getElementById('sortScore').textContent='Place all the colours correctly! 🎯';
+  document.getElementById('btnNext').disabled=true;
+
+  const chipsRow=document.getElementById('sortChips');
+  chipsRow.innerHTML='';
+  // clear zones
+  ['zone-light','zone-paint'].forEach(id=>{
+    const z=document.getElementById(id);
+    while(z.children.length>2) z.removeChild(z.lastChild);
+  });
+
+  sortData.sort(()=>Math.random()-0.5).forEach((item,i)=>{
+    const chip=document.createElement('div');
+    chip.className='sort-chip';
+    chip.dataset.zone=item.zone;
+    chip.dataset.idx=i;
+    chip.textContent=item.label;
+    chip.style.background=item.bg;
+    chip.style.borderColor=item.color;
+    chip.style.color=item.color;
+    chip.draggable=true;
+    chip.addEventListener('dragstart',e=>{
+      draggingChip=chip;
+      e.dataTransfer.setData('text/plain',i);
+    });
+    chipsRow.appendChild(chip);
+  });
+
+  document.querySelectorAll('.sort-zone').forEach(zone=>{
+    zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over')});
+    zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));
+    zone.addEventListener('drop',e=>{
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      const idx=parseInt(e.dataTransfer.getData('text/plain'));
+      const item=sortData[idx];
+      const chip=document.querySelector(`.sort-chip[data-idx="${idx}"]`);
+      if(!chip||chip.classList.contains('placed'))return;
+      if(item.zone===zone.dataset.zone){
+        // correct
+        chip.classList.add('placed');
+        const placed=document.createElement('div');
+        placed.className='placed-chip';
+        placed.style.background=item.bg;
+        placed.style.color=item.color;
+        placed.style.border=`1.5px solid ${item.color}`;
+        placed.textContent=item.label;
+        zone.appendChild(placed);
+        sortScore++;
+        document.getElementById('sortScore').textContent=`✅ ${sortScore}/${sortTotal} correct! ${sortScore===sortTotal?'🎉 Amazing!':'Keep going!'}`;
+        if(sortScore===sortTotal){
+          setTimeout(()=>document.getElementById('btnNext').disabled=false,300);
+        }
+      } else {
+        // wrong
+        chip.classList.add('wrong-shake');
+        setTimeout(()=>chip.classList.remove('wrong-shake'),400);
+        document.getElementById('sortScore').textContent='❌ Oops! Try the other zone!';
+      }
+    });
+  });
+}
+
+// ===== ACTIVITY 3: MIX MASTER =====
+const mixTargets=[
+  {name:'Yellow',color:'#FFE600',combo:['red','green'],emoji:'💛'},
+  {name:'Magenta',color:'#FF2DCA',combo:['red','blue'],emoji:'💜'},
+  {name:'Cyan',color:'#00EDFF',combo:['green','blue'],emoji:'🩵'},
+  {name:'White',color:'#FFFFFF',combo:['red','green','blue'],emoji:'☀️'},
+];
+let mixCurrentTarget=0;
+let mixBowlColors=[];
+let mixSolved=[];
+let mixDragging=null;
+
+function initAct3(){
+  mixCurrentTarget=0;
+  mixSolved=[];
+  mixBowlColors=[];
+  document.getElementById('btnNext').disabled=true;
+  renderMixTargetsRow();
+  renderMixTarget();
+}
+
+function renderMixTargetsRow(){
+  const row=document.getElementById('mixTargetsRow');
+  row.innerHTML='';
+  mixTargets.forEach((t,i)=>{
+    const item=document.createElement('div');
+    item.className='mix-target-item'+(mixSolved.includes(i)?' solved':'');
+    item.id='mti'+i;
+    item.innerHTML=`<div class="tc" style="background:${t.color};box-shadow:0 0 8px ${t.color}"></div>${t.name} ${t.emoji}`;
+    row.appendChild(item);
+  });
+}
+
+function renderMixTarget(){
+  if(mixCurrentTarget>=mixTargets.length){
+    // all done
+    document.getElementById('btnNext').disabled=false;
+    document.getElementById('mixFeedback').textContent='🎉 You mixed all the colours! AMAZING!';
+    document.getElementById('mixFeedback').style.color='#FFE600';
+    return;
+  }
+  const t=mixTargets[mixCurrentTarget];
+  const tc=document.getElementById('targetCircle');
+  tc.style.background=t.color;
+  tc.style.boxShadow=`0 0 20px ${t.color}`;
+  tc.style.color=t.color==='#FFFFFF'?'#333':'rgba(0,0,0,0.7)';
+  tc.textContent='';
+  document.getElementById('targetName').textContent=`${t.name} ${t.emoji}`;
+
+  mixBowlColors=[];
+  resetBowl();
+
+  const palette=document.getElementById('mixPalette');
+  palette.innerHTML='';
+  const lights=[
+    {c:'red',color:'#FF3B3B',label:'Red'},
+    {c:'green',color:'#00D46A',label:'Green'},
+    {c:'blue',color:'#2979FF',label:'Blue'},
+  ];
+  lights.forEach(l=>{
+    const chip=document.createElement('div');
+    chip.className='palette-chip';
+    chip.dataset.c=l.c;
+    chip.style.background=l.color;
+    chip.style.color=l.color==='#00D46A'?'#000':'#fff';
+    chip.textContent=l.label;
+    chip.draggable=true;
+    chip.addEventListener('dragstart',e=>{
+      mixDragging=l.c;
+      e.dataTransfer.setData('text/plain',l.c);
+    });
+    chip.addEventListener('click',()=>addToBowl(l.c));
+    palette.appendChild(chip);
+  });
+
+  document.getElementById('mixFeedback').textContent='Drag or click the right lights into the bowl below!';
+  document.getElementById('mixFeedback').style.color='rgba(255,255,255,0.6)';
+}
+
+function resetBowl(){
+  mixBowlColors=[];
+  const bowl=document.getElementById('mixBowl');
+  bowl.classList.remove('drag-over');
+  const bc=document.getElementById('bowlColour');
+  bc.classList.remove('showing');
+  bc.style.background='transparent';
+  const slots=document.getElementById('mixSlots');
+  slots.innerHTML='';
+  document.getElementById('mixResultLabel').classList.remove('showing');
+  document.getElementById('mixResultLabel').textContent='';
+  document.querySelectorAll('.palette-chip').forEach(c=>c.classList.remove('used'));
+}
+
+function addToBowl(c){
+  if(mixBowlColors.includes(c))return;
+  mixBowlColors.push(c);
+  // update slots display
+  const slots=document.getElementById('mixSlots');
+  const slot=document.createElement('div');
+  slot.className='mix-slot';
+  const cmap={red:'#FF3B3B',green:'#00D46A',blue:'#2979FF'};
+  slot.style.background=cmap[c];
+  slot.style.boxShadow=`0 0 8px ${cmap[c]}`;
+  slots.appendChild(slot);
+  document.querySelector(`.palette-chip[data-c="${c}"]`).classList.add('used');
+  checkMixResult();
+}
+
+function checkMixResult(){
+  const t=mixTargets[mixCurrentTarget];
+  const bowl=mixBowlColors.slice().sort().join(',');
+  const target=t.combo.slice().sort().join(',');
+  const bc=document.getElementById('bowlColour');
+  // set bowl colour based on current mix
+  const mixColorMap={
+    'red':'#FF3B3B','green':'#00D46A','blue':'#2979FF',
+    'green,red':'#FFE600','blue,red':'#FF2DCA','blue,green':'#00EDFF',
+    'blue,green,red':'#FFFFFF'
+  };
+  const bowlKey=mixBowlColors.slice().sort().join(',');
+  const bowlColor=mixColorMap[bowlKey]||'#888';
+  bc.style.background=bowlColor;
+  bc.classList.add('showing');
+
+  if(bowl===target){
+    // correct!
+    document.getElementById('mixResultLabel').textContent=`✅ ${t.name}!`;
+    document.getElementById('mixResultLabel').style.color=t.color;
+    document.getElementById('mixResultLabel').classList.add('showing');
+    document.getElementById('mixFeedback').textContent=`Brilliant! ${t.name} = ${t.combo.map(c=>c[0].toUpperCase()+c.slice(1)).join(' + ')} 🎉`;
+    document.getElementById('mixFeedback').style.color='#00D46A';
+    mixSolved.push(mixCurrentTarget);
+    renderMixTargetsRow();
+    setTimeout(()=>{
+      mixCurrentTarget++;
+      renderMixTarget();
+      renderMixTargetsRow();
+    },1600);
+  } else if(mixBowlColors.length>=3&&bowl!==target){
+    document.getElementById('mixFeedback').textContent='❌ Not quite! Click Reset Bowl and try again!';
+    document.getElementById('mixFeedback').style.color='#FF3B3B';
+  }
+}
+
+// Bowl drop
+const mixBowlEl=document.getElementById('mixBowl');
+mixBowlEl.addEventListener('dragover',e=>{e.preventDefault();mixBowlEl.classList.add('drag-over')});
+mixBowlEl.addEventListener('dragleave',()=>mixBowlEl.classList.remove('drag-over'));
+mixBowlEl.addEventListener('drop',e=>{
+  e.preventDefault();
+  mixBowlEl.classList.remove('drag-over');
+  const c=e.dataTransfer.getData('text/plain');
+  if(c)addToBowl(c);
+});
+
+// ===== ACTIVITY NAVIGATION =====
+function showActivity(n){
+  [1,2,3].forEach(i=>{
+    document.getElementById('act'+i).classList.toggle('hidden',i!==n);
+    const dot=document.getElementById('dot'+i);
+    dot.classList.remove('active','done');
+    if(i<n)dot.classList.add('done');
+    else if(i===n)dot.classList.add('active');
+  });
+  document.getElementById('progressText').textContent=`Activity ${n} of 3`;
+  currentActivity=n;
+  if(n===2) initAct2();
+  if(n===3) initAct3();
+}
+
+const popups=[
+  {
+    emoji:'🔦',stars:'⭐⭐',
+    title:'Light Magic Unlocked!',
+    text:'You discovered how light colours mix! Unlike paint, mixing light makes colours BRIGHTER!',
+    fact:'💡 Fun Fact: The giant LED screens at IPL cricket matches use only Red, Green and Blue tiny lights to show ALL the colours you see!'
+  },
+  {
+    emoji:'🎨',stars:'⭐⭐⭐',
+    title:'Sort Master!',
+    text:'You know the difference between light mixing and paint mixing now. They are complete opposites!',
+    fact:'🌈 Diwali lights and Holi colours are opposites! Light mixing gets brighter; mixing Holi powder colours gets darker!'
+  },
+  {
+    emoji:'🏆',stars:'⭐⭐⭐⭐⭐',
+    title:'Mix Master Champion!',
+    text:'You mixed all the light colours perfectly! You are now a true Colour Mixing scientist!',
+    fact:'📱 Your smartphone screen at home has millions of tiny Red, Green and Blue dots — they team up to make every colour you see on the display!'
+  }
+];
+
+let popupStep=0;
+
+function showPopup(step){
+  const p=popups[step];
+  document.getElementById('popupEmoji').textContent=p.emoji;
+  document.getElementById('popupStars').textContent=p.stars;
+  document.getElementById('popupTitle').textContent=p.title;
+  document.getElementById('popupText').textContent=p.text;
+  document.getElementById('popupFact').textContent=p.fact;
+  const nextBtn=document.getElementById('btnPopupNext');
+  if(step<2) nextBtn.textContent='Next Activity ✨';
+  else nextBtn.textContent='Play Again! 🎉';
+  document.getElementById('popupOverlay').classList.add('show');
+  if(step===2) launchConfetti();
+}
+
+document.getElementById('btnNext').addEventListener('click',()=>{
+  popupStep=currentActivity-1;
+  showPopup(popupStep);
+});
+
+document.getElementById('btnPopupNext').addEventListener('click',()=>{
+  document.getElementById('popupOverlay').classList.remove('show');
+  if(popupStep<2){
+    showActivity(popupStep+2);
+    document.getElementById('btnNext').disabled=true;
+  } else {
+    // restart
+    showActivity(1);
+    filterState.red=false;filterState.green=false;filterState.blue=false;
+    act1Explored.clear();
+    updateTorch();
+    document.getElementById('btnNext').disabled=true;
+  }
+});
+
+document.getElementById('btnReset').addEventListener('click',()=>{
+  if(currentActivity===1){
+    filterState.red=false;filterState.green=false;filterState.blue=false;
+    updateTorch();
+  } else if(currentActivity===2){
+    initAct2();
+  } else if(currentActivity===3){
+    resetBowl();
+  }
+});
+
+// ===== CONFETTI =====
+function launchConfetti(){
+  const colors=['#FF3B3B','#00D46A','#2979FF','#FFE600','#FF2DCA','#00EDFF'];
+  for(let i=0;i<60;i++){
+    const c=document.createElement('div');
+    c.className='confetti-piece';
+    c.style.cssText=`left:${Math.random()*100}%;background:${colors[i%colors.length]};animation-duration:${1.5+Math.random()*2}s;animation-delay:${Math.random()*0.8}s;width:${6+Math.random()*8}px;height:${6+Math.random()*8}px;border-radius:${Math.random()>0.5?'50%':'2px'}`;
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(),(3+Math.random()*2)*1000);
+  }
+}
+
+// ===== INIT =====
+updateTorch();
+</script>
+</body>
+</html>

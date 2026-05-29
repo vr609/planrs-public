@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOLCANO ERUPTION!</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --lava: #FF4500;
+  --lava2: #FF6A00;
+  --lava3: #FFB347;
+  --magma: #8B0000;
+  --magma2: #CC2200;
+  --ember: #FFD700;
+  --rock: #4A3728;
+  --rock2: #6B4F3A;
+  --sky: #1A0A00;
+  --smoke: rgba(80,60,50,0.4);
+  --success: #39FF14;
+  --safe: #00C896;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; user-select:none; }
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background: #1A0A00;
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+/* ============ BACKGROUND WORLD ============ */
+#bg-canvas { position:fixed; inset:0; z-index:0; pointer-events:none; }
+
+.bg-layer {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+}
+
+.lava-ground {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 18vh;
+  background: linear-gradient(180deg, #8B0000 0%, #CC2200 40%, #FF4500 70%, #FF6A00 100%);
+  z-index: 1;
+  animation: lavaFlowGround 3s ease-in-out infinite alternate;
+}
+.lava-ground::before {
+  content:''; position:absolute; inset:0;
+  background: repeating-linear-gradient(90deg, transparent 0px, transparent 40px, rgba(255,180,0,0.15) 40px, rgba(255,180,0,0.15) 80px);
+  animation: lavaCracks 2s linear infinite;
+}
+@keyframes lavaFlowGround {
+  from { transform: scaleY(1); }
+  to { transform: scaleY(1.05); }
+}
+@keyframes lavaCracks { from{background-position:0 0} to{background-position:80px 0} }
+
+/* Lava rivers */
+.lava-river {
+  position: fixed; bottom: 14vh; height: 4px; border-radius: 4px;
+  background: linear-gradient(90deg, transparent, #FF4500, #FFB347, #FF4500, transparent);
+  z-index: 2; pointer-events: none;
+  animation: lavaRiverFlow 4s ease-in-out infinite;
+}
+.lava-river:nth-child(1) { left: 5%; width: 20%; bottom: 17vh; animation-delay: 0s; }
+.lava-river:nth-child(2) { left: 55%; width: 30%; bottom: 15vh; animation-delay: 1.2s; }
+.lava-river:nth-child(3) { left: 75%; width: 15%; bottom: 18vh; animation-delay: 0.6s; }
+@keyframes lavaRiverFlow {
+  0%,100%{ opacity:0.6; transform:scaleX(1); }
+  50%{ opacity:1; transform:scaleX(1.08); }
+}
+
+/* Rock formations */
+.rock-formation {
+  position: fixed; bottom: 14vh; z-index: 3; pointer-events: none;
+}
+.rock-formation svg { display:block; }
+
+/* Floating ash particles */
+.ash-particle {
+  position: fixed; border-radius: 50%; pointer-events: none; z-index: 5;
+  background: rgba(120,80,50,0.6);
+  animation: ashFloat linear infinite;
+}
+@keyframes ashFloat {
+  0%{ transform: translateY(0) translateX(0) rotate(0deg); opacity:0.7; }
+  25%{ transform: translateY(-25vh) translateX(15px) rotate(90deg); opacity:0.5; }
+  50%{ transform: translateY(-50vh) translateX(-10px) rotate(180deg); opacity:0.3; }
+  75%{ transform: translateY(-75vh) translateX(20px) rotate(270deg); opacity:0.15; }
+  100%{ transform: translateY(-100vh) translateX(5px) rotate(360deg); opacity:0; }
+}
+
+/* Smoke puffs */
+.smoke-puff {
+  position: fixed; border-radius: 50%; pointer-events: none; z-index: 4;
+  background: radial-gradient(circle, rgba(100,70,50,0.5) 0%, transparent 70%);
+  animation: smokeDrift ease-out infinite;
+}
+@keyframes smokeDrift {
+  0%{ transform: translateY(0) scale(1); opacity:0.6; }
+  100%{ transform: translateY(-60vh) scale(3); opacity:0; }
+}
+
+/* Glowing embers */
+.ember {
+  position: fixed; border-radius: 50%; pointer-events: none; z-index: 6;
+  background: radial-gradient(circle, #FFD700 0%, #FF4500 60%, transparent 100%);
+  animation: emberFloat ease-in-out infinite;
+  box-shadow: 0 0 6px #FFD700;
+}
+@keyframes emberFloat {
+  0%{ transform: translateY(0) translateX(0); opacity:1; }
+  50%{ transform: translateY(-40vh) translateX(var(--dx, 30px)); opacity:0.8; }
+  100%{ transform: translateY(-80vh) translateX(var(--dx2, -20px)); opacity:0; }
+}
+
+/* Ground shake */
+@keyframes groundShake {
+  0%,100%{ transform: translateX(0); }
+  20%{ transform: translateX(-3px); }
+  40%{ transform: translateX(3px); }
+  60%{ transform: translateX(-2px); }
+  80%{ transform: translateX(2px); }
+}
+.shaking { animation: groundShake 0.4s ease infinite; }
+
+/* Lava drips */
+.lava-drip {
+  position: fixed; width: 10px; border-radius: 0 0 50% 50%;
+  background: linear-gradient(180deg, #FF4500, #FFB347);
+  pointer-events: none; z-index: 3;
+  animation: lavaDrip ease-in infinite;
+  box-shadow: 0 0 8px #FF6A00;
+}
+@keyframes lavaDrip {
+  0%{ transform: scaleY(0); opacity:1; }
+  60%{ transform: scaleY(1); opacity:1; }
+  100%{ transform: scaleY(1) translateY(80px); opacity:0; }
+}
+
+/* ============ MAIN LAYOUT ============ */
+#app {
+  position: relative; z-index: 10;
+  width: 100vw; height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-start;
+  padding: 12px 16px 8px;
+}
+
+/* ============ HEADER ============ */
+#header {
+  text-align: center; margin-bottom: 8px;
+  animation: headerPulse 2s ease-in-out infinite;
+}
+@keyframes headerPulse {
+  0%,100%{ text-shadow: 0 0 20px #FF4500, 0 0 40px #FF6A00; }
+  50%{ text-shadow: 0 0 30px #FFB347, 0 0 60px #FF4500, 0 0 80px #FFD700; }
+}
+#header h1 {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  color: #FFB347;
+  letter-spacing: 3px;
+  text-shadow: 0 0 20px #FF4500, 0 0 40px #FF6A00, 3px 3px 0 #8B0000;
+}
+#header .subtitle {
+  font-size: clamp(0.65rem, 1.5vw, 0.85rem);
+  color: #FFD700; font-weight: 700; letter-spacing: 2px;
+  text-shadow: 0 0 10px #FF6A00;
+}
+
+/* ============ PROGRESS BAR ============ */
+#progress-bar {
+  display: flex; gap: 10px; margin-bottom: 10px; align-items: center;
+}
+.prog-step {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.72rem; font-weight: 800; color: rgba(255,180,80,0.4);
+  transition: all 0.4s;
+}
+.prog-step.active { color: #FFD700; }
+.prog-step.done { color: #39FF14; }
+.prog-dot {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid rgba(255,100,0,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Fredoka One', cursive; font-size: 0.85rem;
+  background: rgba(0,0,0,0.4);
+  transition: all 0.4s;
+}
+.prog-step.active .prog-dot {
+  border-color: #FFD700; background: rgba(255,180,0,0.2);
+  color: #FFD700; box-shadow: 0 0 12px #FFD700;
+}
+.prog-step.done .prog-dot {
+  border-color: #39FF14; background: rgba(57,255,20,0.2);
+  color: #39FF14; box-shadow: 0 0 12px #39FF14;
+}
+.prog-line {
+  width: 30px; height: 2px;
+  background: linear-gradient(90deg, rgba(255,100,0,0.3), rgba(255,180,0,0.3));
+}
+
+/* ============ ACTIVITY CARD ============ */
+#activity-card {
+  background: rgba(10,5,0,0.85);
+  border: 2px solid rgba(255,100,0,0.5);
+  border-radius: 20px;
+  box-shadow: 0 0 30px rgba(255,69,0,0.3), inset 0 0 40px rgba(139,0,0,0.2);
+  padding: 14px 18px 12px;
+  width: 100%; max-width: 860px;
+  flex: 1;
+  display: flex; flex-direction: column;
+  position: relative; overflow: hidden;
+  backdrop-filter: blur(4px);
+}
+#activity-card::before {
+  content:''; position:absolute; inset:0; border-radius:18px;
+  background: linear-gradient(135deg, rgba(255,100,0,0.05) 0%, transparent 50%, rgba(139,0,0,0.1) 100%);
+  pointer-events: none;
+}
+
+.activity-header {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+}
+.activity-badge {
+  background: linear-gradient(135deg, #FF4500, #CC2200);
+  color: #FFD700; font-family: 'Fredoka One', cursive;
+  font-size: 0.75rem; padding: 4px 12px; border-radius: 20px;
+  box-shadow: 0 0 12px rgba(255,69,0,0.5);
+  white-space: nowrap;
+}
+.activity-title {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(1rem, 2.5vw, 1.4rem);
+  color: #FFD700;
+  text-shadow: 0 0 10px #FF6A00;
+}
+.activity-instruction {
+  font-size: clamp(0.7rem, 1.5vw, 0.85rem);
+  color: rgba(255,200,100,0.85); font-weight: 600;
+  margin-bottom: 10px; line-height: 1.4;
+}
+
+/* ============ ACTIVITY 1 LAYOUT ============ */
+#act1-layout {
+  display: flex; gap: 14px; flex: 1;
+}
+#act1-parts {
+  display: flex; flex-direction: column; gap: 8px; width: 140px;
+  justify-content: center;
+}
+.part-label {
+  font-size: 0.68rem; color: rgba(255,200,100,0.7);
+  font-weight: 700; text-align: center; margin-bottom: 2px;
+}
+.draggable-part {
+  background: linear-gradient(135deg, rgba(139,0,0,0.6), rgba(80,30,0,0.8));
+  border: 2px solid rgba(255,100,0,0.5);
+  border-radius: 12px; padding: 8px 10px;
+  cursor: grab; transition: all 0.2s;
+  text-align: center; position: relative;
+  touch-action: none;
+}
+.draggable-part:hover {
+  border-color: #FFD700; transform: scale(1.05);
+  box-shadow: 0 0 16px rgba(255,200,0,0.4);
+}
+.draggable-part.dragging {
+  opacity: 0.5; cursor: grabbing; transform: scale(0.95);
+}
+.draggable-part .part-icon { font-size: 1.6rem; display:block; }
+.draggable-part .part-name {
+  font-size: 0.65rem; color: #FFD700; font-weight: 800;
+  display: block; margin-top: 2px;
+}
+.draggable-part.placed {
+  opacity: 0.3; pointer-events: none;
+  border-color: rgba(57,255,20,0.4);
+}
+
+#act1-volcano {
+  flex: 1; position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.volcano-svg-container {
+  position: relative; width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+.volcano-svg-container svg { max-height: 100%; max-width: 100%; }
+
+.drop-zone {
+  position: absolute; border: 2px dashed rgba(255,180,0,0.5);
+  border-radius: 10px; background: rgba(255,100,0,0.1);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.3s; font-size: 0.6rem; color: rgba(255,200,100,0.6);
+  font-weight: 800; text-align: center; cursor: pointer;
+}
+.drop-zone.over {
+  border-color: #FFD700; background: rgba(255,200,0,0.2);
+  box-shadow: 0 0 20px rgba(255,200,0,0.5);
+}
+.drop-zone.filled {
+  border-color: #39FF14; background: rgba(57,255,20,0.1);
+  animation: filledPulse 1s ease-in-out;
+}
+@keyframes filledPulse {
+  0%{ box-shadow: 0 0 0 rgba(57,255,20,0.8); }
+  100%{ box-shadow: 0 0 30px rgba(57,255,20,0); }
+}
+.drop-label {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(0.55rem, 1vw, 0.75rem);
+  color: rgba(255,200,100,0.7); text-align: center;
+  padding: 2px;
+}
+.drop-zone.filled .drop-label { color: #39FF14; }
+
+/* ============ ACTIVITY 2 LAYOUT ============ */
+#act2-layout { display: flex; gap: 14px; flex: 1; }
+#act2-items {
+  display: flex; flex-direction: column; gap: 8px; width: 150px;
+  justify-content: center;
+}
+#act2-volcano-zone {
+  flex: 1; position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.exp-item {
+  background: linear-gradient(135deg, rgba(0,50,80,0.7), rgba(0,30,60,0.9));
+  border: 2px solid rgba(100,200,255,0.4);
+  border-radius: 12px; padding: 8px 10px;
+  cursor: grab; text-align: center; transition: all 0.2s;
+  position: relative;
+}
+.exp-item:hover {
+  border-color: #00BFFF; transform: scale(1.05);
+  box-shadow: 0 0 14px rgba(0,191,255,0.4);
+}
+.exp-item.placed { opacity: 0.3; pointer-events: none; }
+.exp-item .item-icon { font-size: 1.8rem; display:block; }
+.exp-item .item-name {
+  font-size: 0.65rem; color: #87CEEB; font-weight: 800;
+  display: block; margin-top: 2px;
+}
+
+#act2-funnel {
+  position: absolute;
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  border: 3px dashed rgba(255,200,0,0.6);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -80%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem; color: rgba(255,200,100,0.7);
+  font-weight: 800; text-align: center;
+  transition: all 0.3s; cursor: pointer;
+  z-index: 20;
+  background: rgba(0,0,0,0.3);
+}
+#act2-funnel.over {
+  border-color: #FFD700; background: rgba(255,200,0,0.15);
+  box-shadow: 0 0 20px rgba(255,200,0,0.5);
+}
+.act2-sequence {
+  position: absolute; right: 0; top: 0;
+  display: flex; flex-direction: column; gap: 4px;
+  z-index: 20;
+}
+.seq-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.65rem; color: rgba(255,200,100,0.5); font-weight: 700;
+}
+.seq-dot {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 1px solid rgba(255,100,0,0.4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem;
+}
+.seq-item.done .seq-dot { border-color: #39FF14; color: #39FF14; background: rgba(57,255,20,0.2); }
+.seq-item.done { color: #39FF14; }
+
+/* Eruption animation */
+@keyframes erupt {
+  0%{ transform: scaleY(0) scaleX(0.3); opacity:1; }
+  50%{ transform: scaleY(1) scaleX(1.2); opacity:0.8; }
+  100%{ transform: scaleY(2) scaleX(0.8); opacity:0; }
+}
+.eruption-effect {
+  position: absolute; bottom: 45%; left: 50%;
+  transform: translateX(-50%);
+  width: 30px; border-radius: 50% 50% 0 0;
+  background: linear-gradient(180deg, #FFD700, #FF4500);
+  pointer-events: none; z-index: 25;
+  transform-origin: bottom center;
+  animation: erupt 0.8s ease-out forwards;
+}
+
+/* ============ ACTIVITY 3 LAYOUT ============ */
+#act3-layout { display: flex; gap: 10px; flex: 1; flex-direction: column; }
+#act3-items-row {
+  display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+}
+#act3-bins {
+  display: flex; gap: 14px; flex: 1;
+}
+.sort-bin {
+  flex: 1; border-radius: 16px; padding: 10px;
+  display: flex; flex-direction: column; gap: 6px;
+  min-height: 0;
+  transition: all 0.3s;
+}
+#bin-safe {
+  background: rgba(0,80,60,0.3);
+  border: 2px dashed rgba(0,200,150,0.5);
+}
+#bin-reaction {
+  background: rgba(80,0,0,0.3);
+  border: 2px dashed rgba(255,69,0,0.5);
+}
+.sort-bin.over-correct {
+  border-color: #39FF14;
+  box-shadow: 0 0 20px rgba(57,255,20,0.4);
+  background: rgba(57,255,20,0.1);
+}
+.sort-bin.over-wrong {
+  border-color: #FF0000;
+  box-shadow: 0 0 20px rgba(255,0,0,0.4);
+}
+.bin-title {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(0.75rem, 1.5vw, 0.95rem);
+  text-align: center; padding: 4px 8px; border-radius: 8px;
+}
+#bin-safe .bin-title { color: #00C896; background: rgba(0,200,150,0.15); }
+#bin-reaction .bin-title { color: #FF6A00; background: rgba(255,100,0,0.15); }
+.bin-icon { font-size: 1.5rem; text-align: center; }
+.bin-items { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; align-content: flex-start; }
+
+.sort-item {
+  background: rgba(40,20,10,0.8);
+  border: 2px solid rgba(255,150,50,0.4);
+  border-radius: 10px; padding: 6px 8px;
+  cursor: grab; text-align: center;
+  transition: all 0.2s; font-size: 0.65rem;
+  color: #FFD700; font-weight: 700;
+}
+.sort-item:hover {
+  transform: scale(1.08); border-color: #FFD700;
+  box-shadow: 0 0 10px rgba(255,200,0,0.4);
+}
+.sort-item.placed { display: none; }
+.sort-item .si-icon { font-size: 1.3rem; display: block; }
+
+/* ============ POPUP / MODAL ============ */
+#popup-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.75);
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.4s;
+}
+#popup-overlay.visible { opacity: 1; pointer-events: all; }
+
+#popup-box {
+  background: linear-gradient(135deg, #1A0500, #2D0A00);
+  border: 2px solid #FF4500;
+  border-radius: 24px; padding: 32px 40px;
+  max-width: 480px; width: 90%;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(255,69,0,0.5), 0 0 100px rgba(139,0,0,0.3);
+  animation: popIn 0.5s cubic-bezier(0.175,0.885,0.32,1.275);
+  position: relative; overflow: hidden;
+}
+@keyframes popIn {
+  from{ transform: scale(0.5) rotate(-5deg); opacity:0; }
+  to{ transform: scale(1) rotate(0deg); opacity:1; }
+}
+#popup-box::before {
+  content:''; position:absolute; inset:0;
+  background: radial-gradient(circle at 50% 0%, rgba(255,100,0,0.1) 0%, transparent 60%);
+  pointer-events: none;
+}
+.popup-icon { font-size: 3.5rem; display:block; margin-bottom: 12px;
+  animation: bounce 0.6s ease infinite alternate; }
+@keyframes bounce { from{ transform: translateY(0); } to{ transform: translateY(-8px); } }
+.popup-title {
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.8rem; color: #FFD700;
+  text-shadow: 0 0 20px #FF6A00, 3px 3px 0 #8B0000;
+  margin-bottom: 8px;
+}
+.popup-msg {
+  font-size: 0.95rem; color: rgba(255,200,100,0.9);
+  line-height: 1.6; margin-bottom: 20px; font-weight: 600;
+}
+.popup-btn {
+  background: linear-gradient(135deg, #FF4500, #CC2200);
+  color: #FFD700; font-family: 'Fredoka One', cursive;
+  font-size: 1.1rem; border: none; border-radius: 50px;
+  padding: 12px 36px; cursor: pointer; transition: all 0.2s;
+  box-shadow: 0 4px 20px rgba(255,69,0,0.5);
+  letter-spacing: 1px;
+}
+.popup-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 28px rgba(255,100,0,0.7);
+}
+
+/* ============ LAVA BURST EFFECT ============ */
+.lava-burst-particle {
+  position: fixed; width: 10px; height: 10px;
+  border-radius: 50%; pointer-events: none; z-index: 200;
+  background: radial-gradient(circle, #FFD700 0%, #FF4500 100%);
+  box-shadow: 0 0 8px #FF6A00;
+}
+
+/* ============ CONFETTI-STYLE FINAL ============ */
+.final-spark {
+  position: fixed; width: 8px; height: 8px;
+  border-radius: 2px; pointer-events: none; z-index: 200;
+  animation: finalSpark linear forwards;
+}
+@keyframes finalSpark {
+  0%{ transform: translateY(0) rotate(0deg); opacity:1; }
+  100%{ transform: translateY(var(--ty)) translateX(var(--tx)) rotate(720deg); opacity:0; }
+}
+
+/* ============ NEXT BUTTON ============ */
+#next-btn {
+  position: absolute; bottom: 14px; right: 18px;
+  background: linear-gradient(135deg, #FF4500, #CC2200);
+  color: #FFD700; font-family: 'Fredoka One', cursive;
+  font-size: 0.9rem; border: none; border-radius: 50px;
+  padding: 8px 22px; cursor: pointer;
+  box-shadow: 0 0 16px rgba(255,69,0,0.5);
+  display: none; transition: all 0.2s;
+  z-index: 30;
+}
+#next-btn.show { display:block; animation: nextBtnPulse 1s ease-in-out infinite; }
+#next-btn:hover { transform: scale(1.07); }
+@keyframes nextBtnPulse {
+  0%,100%{ box-shadow: 0 0 16px rgba(255,69,0,0.5); }
+  50%{ box-shadow: 0 0 30px rgba(255,150,0,0.8); }
+}
+
+/* ============ CHECK BTN ============ */
+.check-btn {
+  position: absolute; bottom: 14px; right: 18px;
+  background: linear-gradient(135deg, #0D9488, #065F46);
+  color: #FFD700; font-family: 'Fredoka One', cursive;
+  font-size: 0.9rem; border: none; border-radius: 50px;
+  padding: 8px 22px; cursor: pointer;
+  box-shadow: 0 0 14px rgba(13,148,136,0.5);
+  z-index: 30; transition: all 0.2s;
+}
+.check-btn:hover { transform: scale(1.06); }
+
+/* ============ ACTIVITY VISIBILITY ============ */
+#act1, #act2, #act3 { display: none; flex-direction: column; flex: 1; }
+#act1.active, #act2.active, #act3.active { display: flex; }
+
+/* Ghost drag element */
+#drag-ghost {
+  position: fixed; pointer-events: none; z-index: 999;
+  opacity: 0.85; transform: scale(1.1);
+  display: none;
+}
+</style>
+</head>
+<body>
+
+<!-- BACKGROUND LAYERS -->
+<canvas id="bg-canvas"></canvas>
+
+<div class="lava-ground"></div>
+<div class="lava-river"></div>
+<div class="lava-river"></div>
+<div class="lava-river"></div>
+
+<!-- DRAG GHOST -->
+<div id="drag-ghost"></div>
+
+<!-- MAIN APP -->
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <h1>🌋 VOLCANO ERUPTION! 🌋</h1>
+    <div class="subtitle">EARTH SCIENCE EXPLORER MISSION</div>
+  </div>
+
+  <!-- PROGRESS -->
+  <div id="progress-bar">
+    <div class="prog-step active" id="step1">
+      <div class="prog-dot">1</div>
+      <span>BUILD IT</span>
+    </div>
+    <div class="prog-line"></div>
+    <div class="prog-step" id="step2">
+      <div class="prog-dot">2</div>
+      <span>ERUPT IT</span>
+    </div>
+    <div class="prog-line"></div>
+    <div class="prog-step" id="step3">
+      <div class="prog-dot">3</div>
+      <span>SORT IT</span>
+    </div>
+  </div>
+
+  <!-- ACTIVITY CARD -->
+  <div id="activity-card">
+
+    <!-- ACTIVITY 1: BUILD THE VOLCANO -->
+    <div id="act1" class="active">
+      <div class="activity-header">
+        <div class="activity-badge">🏔️ ACTIVITY 1</div>
+        <div class="activity-title">Build the Volcano!</div>
+      </div>
+      <div class="activity-instruction">Drag each volcano part to its correct spot on the diagram to build your volcanic mountain!</div>
+      <div id="act1-layout">
+        <div id="act1-parts">
+          <div class="part-label">VOLCANO PARTS</div>
+          <div class="draggable-part" id="part-crater" data-part="crater">
+            <span class="part-icon">🔴</span>
+            <span class="part-name">CRATER</span>
+          </div>
+          <div class="draggable-part" id="part-vent" data-part="vent">
+            <span class="part-icon">⬇️</span>
+            <span class="part-name">VENT</span>
+          </div>
+          <div class="draggable-part" id="part-lava" data-part="lava">
+            <span class="part-icon">🌊</span>
+            <span class="part-name">LAVA</span>
+          </div>
+          <div class="draggable-part" id="part-magma" data-part="magma">
+            <span class="part-icon">🔥</span>
+            <span class="part-name">MAGMA</span>
+          </div>
+        </div>
+        <div id="act1-volcano">
+          <div class="volcano-svg-container">
+            <!-- Volcano SVG -->
+            <svg viewBox="0 0 340 280" xmlns="http://www.w3.org/2000/svg" style="max-height:220px">
+              <!-- Ground -->
+              <ellipse cx="170" cy="260" rx="160" ry="18" fill="#4A2800" opacity="0.7"/>
+              <!-- Volcano body -->
+              <polygon points="170,30 60,260 280,260" fill="url(#volc-grad)"/>
+              <!-- Side lava flows -->
+              <path d="M140,120 Q120,160 100,200 Q90,220 80,260" fill="none" stroke="url(#lava-grad)" stroke-width="8" stroke-linecap="round" opacity="0.7"/>
+              <path d="M200,130 Q220,170 240,210 Q250,230 260,260" fill="none" stroke="url(#lava-grad)" stroke-width="6" stroke-linecap="round" opacity="0.6"/>
+              <!-- Mountain texture -->
+              <polygon points="170,30 100,180 240,180" fill="url(#shadow-grad)" opacity="0.3"/>
+              <!-- Crater opening -->
+              <ellipse cx="170" cy="38" rx="32" ry="10" fill="#CC2200"/>
+              <ellipse cx="170" cy="36" rx="28" ry="8" fill="#FF4500" opacity="0.8"/>
+              <!-- Lava glow inside crater -->
+              <ellipse cx="170" cy="36" rx="18" ry="5" fill="#FFD700" opacity="0.6">
+                <animate attributeName="rx" values="18;22;18" dur="1.5s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite"/>
+              </ellipse>
+              <!-- Central vent line -->
+              <line x1="170" y1="38" x2="170" y2="230" stroke="#8B0000" stroke-width="6" stroke-dasharray="8,6" opacity="0.8"/>
+              <!-- Magma pool at bottom -->
+              <ellipse cx="170" cy="240" rx="55" ry="14" fill="url(#magma-grad)"/>
+              <ellipse cx="170" cy="238" rx="40" ry="8" fill="#FF4500" opacity="0.6">
+                <animate attributeName="rx" values="40;48;40" dur="2s" repeatCount="indefinite"/>
+              </ellipse>
+              <!-- Smoke puffs from top -->
+              <circle cx="165" cy="20" r="8" fill="rgba(120,80,50,0.4)">
+                <animate attributeName="cy" values="20;5;20" dur="2s" repeatCount="indefinite"/>
+                <animate attributeName="r" values="8;14;8" dur="2s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.4;0;0.4" dur="2s" repeatCount="indefinite"/>
+              </circle>
+              <circle cx="175" cy="18" r="6" fill="rgba(120,80,50,0.3)">
+                <animate attributeName="cy" values="18;0;18" dur="2.5s" repeatCount="indefinite"/>
+                <animate attributeName="r" values="6;12;6" dur="2.5s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.3;0;0.3" dur="2.5s" repeatCount="indefinite"/>
+              </circle>
+              <!-- Gradients -->
+              <defs>
+                <linearGradient id="volc-grad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#6B3A1F"/>
+                  <stop offset="40%" stop-color="#8B5A2B"/>
+                  <stop offset="100%" stop-color="#5A2D0C"/>
+                </linearGradient>
+                <linearGradient id="lava-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#FF4500"/>
+                  <stop offset="100%" stop-color="#FFB347"/>
+                </linearGradient>
+                <linearGradient id="shadow-grad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#000" stop-opacity="0.3"/>
+                  <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+                </linearGradient>
+                <radialGradient id="magma-grad" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#FFD700"/>
+                  <stop offset="50%" stop-color="#FF4500"/>
+                  <stop offset="100%" stop-color="#8B0000"/>
+                </radialGradient>
+              </defs>
+            </svg>
+
+            <!-- Drop Zones (positioned absolutely over SVG) -->
+            <div class="drop-zone" id="dz-crater" data-accepts="crater"
+              style="top:4%; left:37%; width:26%; height:13%;">
+              <span class="drop-label">Drop<br>CRATER</span>
+            </div>
+            <div class="drop-zone" id="dz-vent" data-accepts="vent"
+              style="top:40%; left:44%; width:12%; height:22%;">
+              <span class="drop-label">VENT</span>
+            </div>
+            <div class="drop-zone" id="dz-lava" data-accepts="lava"
+              style="top:35%; left:5%; width:22%; height:28%;">
+              <span class="drop-label">LAVA<br>FLOW</span>
+            </div>
+            <div class="drop-zone" id="dz-magma" data-accepts="magma"
+              style="top:76%; left:30%; width:40%; height:16%;">
+              <span class="drop-label">MAGMA</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIVITY 2: ERUPTION EXPERIMENT -->
+    <div id="act2">
+      <div class="activity-header">
+        <div class="activity-badge">⚗️ ACTIVITY 2</div>
+        <div class="activity-title">Eruption Experiment!</div>
+      </div>
+      <div class="activity-instruction">Add the ingredients in the correct order: Baking Soda first, then Red Food Colour, then Vinegar. Drop each into the volcano top!</div>
+      <div id="act2-layout">
+        <div id="act2-items">
+          <div class="part-label">INGREDIENTS</div>
+          <div class="exp-item" id="exp-soda" data-item="soda" data-order="1">
+            <span class="item-icon">🥄</span>
+            <span class="item-name">BAKING SODA</span>
+          </div>
+          <div class="exp-item" id="exp-color" data-item="color" data-order="2">
+            <span class="item-icon">🔴</span>
+            <span class="item-name">FOOD COLOUR</span>
+          </div>
+          <div class="exp-item" id="exp-vinegar" data-item="vinegar" data-order="3">
+            <span class="item-icon">🧪</span>
+            <span class="item-name">VINEGAR</span>
+          </div>
+        </div>
+        <div id="act2-volcano-zone">
+          <!-- Sequence tracker -->
+          <div class="act2-sequence">
+            <div class="seq-item" id="seq-1"><div class="seq-dot">1</div>Baking Soda</div>
+            <div class="seq-item" id="seq-2"><div class="seq-dot">2</div>Food Colour</div>
+            <div class="seq-item" id="seq-3"><div class="seq-dot">3</div>Vinegar</div>
+          </div>
+          <!-- Volcano for act2 -->
+          <div class="volcano-svg-container" style="position:relative">
+            <svg viewBox="0 0 300 240" xmlns="http://www.w3.org/2000/svg" style="max-height:200px">
+              <ellipse cx="150" cy="228" rx="140" ry="14" fill="#4A2800" opacity="0.7"/>
+              <polygon points="150,25 50,228 250,228" fill="url(#volc-grad2)"/>
+              <ellipse cx="150" cy="33" rx="28" ry="9" fill="#CC2200"/>
+              <ellipse cx="150" cy="31" rx="22" ry="7" fill="#FF4500" id="act2-crater-glow">
+                <animate attributeName="opacity" values="0.8;1;0.8" dur="1.5s" repeatCount="indefinite"/>
+              </ellipse>
+              <line x1="150" y1="33" x2="150" y2="200" stroke="#8B0000" stroke-width="5" stroke-dasharray="7,5" opacity="0.7"/>
+              <ellipse cx="150" cy="210" rx="48" ry="12" fill="url(#magma-grad2)">
+                <animate attributeName="rx" values="48;55;48" dur="2s" repeatCount="indefinite"/>
+              </ellipse>
+              <defs>
+                <linearGradient id="volc-grad2" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#6B3A1F"/>
+                  <stop offset="50%" stop-color="#8B5A2B"/>
+                  <stop offset="100%" stop-color="#5A2D0C"/>
+                </linearGradient>
+                <radialGradient id="magma-grad2" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#FFD700"/>
+                  <stop offset="60%" stop-color="#FF4500"/>
+                  <stop offset="100%" stop-color="#8B0000"/>
+                </radialGradient>
+              </defs>
+            </svg>
+            <!-- Drop into crater -->
+            <div id="act2-funnel" class="drop-zone" style="position:absolute;top:2%;left:38%;width:24%;height:18%;border-radius:50%;z-index:20;border:2px dashed rgba(255,200,0,0.6);display:flex;align-items:center;justify-content:center;font-size:0.58rem;color:rgba(255,200,100,0.7);font-weight:800;text-align:center;cursor:pointer;">
+              DROP<br>HERE
+            </div>
+            <!-- Eruption display area -->
+            <div id="act2-eruption-display" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:hidden;border-radius:12px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIVITY 3: SORTING -->
+    <div id="act3">
+      <div class="activity-header">
+        <div class="activity-badge">🧲 ACTIVITY 3</div>
+        <div class="activity-title">Sort the Items!</div>
+      </div>
+      <div class="activity-instruction">Drag each item into the correct bin — Safe Materials or Eruption Reaction Materials!</div>
+      <div id="act3-layout">
+        <div id="act3-items-row">
+          <div class="sort-item" id="si-water" data-category="safe"><span class="si-icon">💧</span>Water</div>
+          <div class="sort-item" id="si-soda2" data-category="reaction"><span class="si-icon">🥄</span>Baking Soda</div>
+          <div class="sort-item" id="si-sand" data-category="safe"><span class="si-icon">🪨</span>Sand</div>
+          <div class="sort-item" id="si-vinegar2" data-category="reaction"><span class="si-icon">🧪</span>Vinegar</div>
+          <div class="sort-item" id="si-clay" data-category="safe"><span class="si-icon">🟤</span>Clay</div>
+          <div class="sort-item" id="si-color2" data-category="reaction"><span class="si-icon">🔴</span>Food Colour</div>
+        </div>
+        <div id="act3-bins">
+          <div class="sort-bin" id="bin-safe" data-bin="safe">
+            <div class="bin-icon">🛡️</div>
+            <div class="bin-title">SAFE MATERIALS</div>
+            <div class="bin-items" id="bin-safe-items"></div>
+          </div>
+          <div class="sort-bin" id="bin-reaction" data-bin="reaction">
+            <div class="bin-icon">💥</div>
+            <div class="bin-title">ERUPTION REACTION</div>
+            <div class="bin-items" id="bin-reaction-items"></div>
+          </div>
+        </div>
+      </div>
+      <button class="check-btn" id="act3-check">CHECK MY ANSWERS! 🌋</button>
+    </div>
+
+  </div><!-- /activity-card -->
+</div><!-- /app -->
+
+<!-- POPUP -->
+<div id="popup-overlay">
+  <div id="popup-box">
+    <span class="popup-icon" id="popup-icon">🌋</span>
+    <div class="popup-title" id="popup-title">Amazing!</div>
+    <div class="popup-msg" id="popup-msg">You did it!</div>
+    <button class="popup-btn" id="popup-btn" onclick="nextActivity()">NEXT MISSION! 🔥</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// BACKGROUND PARTICLE SYSTEM
+// ============================================================
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const particles = [];
+
+function createParticle(type) {
+  const x = Math.random() * canvas.width;
+  return {
+    type,
+    x,
+    y: type === 'ember' ? canvas.height * 0.8 + Math.random() * (canvas.height * 0.2) : canvas.height - Math.random() * 80,
+    size: type === 'ash' ? Math.random() * 4 + 2 : type === 'ember' ? Math.random() * 5 + 3 : Math.random() * 20 + 10,
+    vx: (Math.random() - 0.5) * 1.2,
+    vy: -(Math.random() * 1.5 + 0.5),
+    alpha: Math.random() * 0.6 + 0.3,
+    life: 1,
+    decay: Math.random() * 0.005 + 0.003,
+    color: type === 'ember'
+      ? `hsl(${Math.random() * 30 + 15}, 100%, ${Math.random() * 30 + 50}%)`
+      : type === 'ash'
+      ? `rgba(${100 + Math.random()*50},${60 + Math.random()*30},${30 + Math.random()*20},`
+      : `rgba(80,50,30,`
+  };
+}
+
+// Init particles
+for (let i = 0; i < 25; i++) particles.push(createParticle('ash'));
+for (let i = 0; i < 18; i++) particles.push(createParticle('ember'));
+for (let i = 0; i < 10; i++) particles.push(createParticle('smoke'));
+
+let lavaOffset = 0;
+function animateBG() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Sky gradient
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  skyGrad.addColorStop(0, '#0D0500');
+  skyGrad.addColorStop(0.6, '#1A0800');
+  skyGrad.addColorStop(1, '#3D1200');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Lava glow on ground
+  lavaOffset += 0.02;
+  const glowY = canvas.height - canvas.height * 0.15;
+  const grd = ctx.createRadialGradient(canvas.width/2, canvas.height, 0, canvas.width/2, canvas.height, canvas.width * 0.7);
+  grd.addColorStop(0, `rgba(255,${60 + Math.sin(lavaOffset)*20},0,0.4)`);
+  grd.addColorStop(0.5, 'rgba(180,0,0,0.2)');
+  grd.addColorStop(1, 'transparent');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Lava cracks on ground
+  for (let i = 0; i < 5; i++) {
+    const crackX = (canvas.width / 5) * i + Math.sin(lavaOffset + i) * 10;
+    const crackGrad = ctx.createLinearGradient(crackX, canvas.height, crackX, canvas.height * 0.85);
+    crackGrad.addColorStop(0, `rgba(255,100,0,${0.3 + Math.sin(lavaOffset + i) * 0.2})`);
+    crackGrad.addColorStop(1, 'transparent');
+    ctx.strokeStyle = crackGrad;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(crackX, canvas.height);
+    ctx.lineTo(crackX + Math.sin(lavaOffset) * 20, canvas.height * 0.87);
+    ctx.stroke();
+  }
+
+  // Particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx + Math.sin(lavaOffset + i) * 0.3;
+    p.y += p.vy;
+    p.life -= p.decay;
+
+    if (p.life <= 0) {
+      particles.splice(i, 1);
+      particles.push(createParticle(['ash','ember','smoke'][Math.floor(Math.random()*3)]));
+      continue;
+    }
+
+    ctx.save();
+    ctx.globalAlpha = p.life * p.alpha;
+    if (p.type === 'ember') {
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI*2);
+      ctx.fill();
+    } else if (p.type === 'ash') {
+      ctx.fillStyle = p.color + (p.life * p.alpha) + ')';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * 0.5, 0, Math.PI*2);
+      ctx.fill();
+    } else {
+      const sg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+      sg.addColorStop(0, `rgba(100,60,40,${p.life * p.alpha})`);
+      sg.addColorStop(1, 'transparent');
+      ctx.fillStyle = sg;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * (2 - p.life), 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  requestAnimationFrame(animateBG);
+}
+animateBG();
+
+window.addEventListener('resize', () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+
+// ============================================================
+// DRAG AND DROP SYSTEM
+// ============================================================
+let dragging = null;
+let dragData = null;
+let ghostEl = document.getElementById('drag-ghost');
+let offsetX = 0, offsetY = 0;
+
+function initDrag(el, data) {
+  el.addEventListener('pointerdown', (e) => {
+    if (el.classList.contains('placed') || el.classList.contains('dragging')) return;
+    e.preventDefault();
+    dragging = el;
+    dragData = data;
+    el.classList.add('dragging');
+    ghostEl.innerHTML = el.innerHTML;
+    ghostEl.style.display = 'block';
+    ghostEl.style.width = el.offsetWidth + 'px';
+    ghostEl.style.background = window.getComputedStyle(el).background;
+    ghostEl.style.border = window.getComputedStyle(el).border;
+    ghostEl.style.borderRadius = window.getComputedStyle(el).borderRadius;
+    ghostEl.style.padding = window.getComputedStyle(el).padding;
+    ghostEl.style.color = window.getComputedStyle(el).color;
+    const rect = el.getBoundingClientRect();
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+    ghostEl.style.left = (e.clientX - offsetX) + 'px';
+    ghostEl.style.top = (e.clientY - offsetY) + 'px';
+    el.setPointerCapture(e.pointerId);
+  });
+
+  el.addEventListener('pointermove', (e) => {
+    if (!dragging || dragging !== el) return;
+    e.preventDefault();
+    ghostEl.style.left = (e.clientX - offsetX) + 'px';
+    ghostEl.style.top = (e.clientY - offsetY) + 'px';
+    // highlight drop zones
+    document.querySelectorAll('.drop-zone, .sort-bin').forEach(dz => {
+      const r = dz.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+        dz.classList.add('over');
+      } else { dz.classList.remove('over'); }
+    });
+    document.querySelectorAll('#act2-funnel').forEach(dz => {
+      const r = dz.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+        dz.classList.add('over');
+      } else { dz.classList.remove('over'); }
+    });
+  });
+
+  el.addEventListener('pointerup', (e) => {
+    if (!dragging || dragging !== el) return;
+    ghostEl.style.display = 'none';
+    el.classList.remove('dragging');
+    // find drop target
+    const targets = [...document.querySelectorAll('.drop-zone, .sort-bin')];
+    let dropped = false;
+    targets.forEach(dz => {
+      dz.classList.remove('over');
+      const r = dz.getBoundingClientRect();
+      if (!dropped && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+        handleDrop(el, dz, dragData);
+        dropped = true;
+      }
+    });
+    dragging = null; dragData = null;
+  });
+}
+
+// ============================================================
+// ACTIVITY 1 LOGIC
+// ============================================================
+const act1Correct = { crater: 'dz-crater', vent: 'dz-vent', lava: 'dz-lava', magma: 'dz-magma' };
+let act1Done = {};
+
+document.querySelectorAll('.draggable-part').forEach(el => {
+  initDrag(el, { type: 'act1', part: el.dataset.part });
+});
+
+function handleDrop(el, target, data) {
+  if (data.type === 'act1') {
+    const accepts = target.dataset.accepts;
+    if (accepts && accepts === data.part) {
+      // Correct!
+      el.classList.add('placed');
+      target.classList.add('filled');
+      target.querySelector('.drop-label').textContent = el.querySelector('.part-name').textContent + ' ✓';
+      act1Done[data.part] = true;
+      lavaBurst(target.getBoundingClientRect());
+      if (Object.keys(act1Done).length === 4) {
+        setTimeout(() => showPopup(1), 600);
+      }
+    } else {
+      shakeEl(el);
+    }
+    target.classList.remove('over');
+  }
+
+  if (data.type === 'act2') {
+    if (target.id === 'act2-funnel' || target.dataset.accepts === 'funnel') {
+      handleAct2Drop(el, data);
+    }
+    target.classList.remove('over');
+  }
+
+  if (data.type === 'act3') {
+    if (target.classList.contains('sort-bin')) {
+      handleAct3Drop(el, target, data);
+    }
+    target.classList.remove('over');
+  }
+}
+
+function shakeEl(el) {
+  el.style.animation = 'groundShake 0.4s ease';
+  setTimeout(() => el.style.animation = '', 400);
+}
+
+// ============================================================
+// ACTIVITY 2 LOGIC
+// ============================================================
+let act2Step = 1;
+const act2Order = ['soda','color','vinegar'];
+
+document.querySelectorAll('.exp-item').forEach(el => {
+  initDrag(el, { type: 'act2', item: el.dataset.item, order: parseInt(el.dataset.order) });
+});
+
+// Also support dropping on the funnel
+document.getElementById('act2-funnel').addEventListener('pointerup', () => {});
+
+function handleAct2Drop(el, data) {
+  if (data.order === act2Step) {
+    // Correct order
+    el.classList.add('placed');
+    document.getElementById('seq-' + act2Step).classList.add('done');
+    triggerEruptionEffect(act2Step);
+    act2Step++;
+    if (act2Step > 3) {
+      setTimeout(() => showPopup(2), 1000);
+    }
+  } else {
+    shakeEl(el);
+    // Show hint
+    const funnel = document.getElementById('act2-funnel');
+    funnel.style.borderColor = '#FF0000';
+    funnel.style.boxShadow = '0 0 20px rgba(255,0,0,0.5)';
+    setTimeout(() => {
+      funnel.style.borderColor = '';
+      funnel.style.boxShadow = '';
+    }, 600);
+  }
+}
+
+function triggerEruptionEffect(step) {
+  const display = document.getElementById('act2-eruption-display');
+  const colors = ['rgba(255,255,255,0.8)', 'rgba(255,50,50,0.9)', 'rgba(255,100,0,1)'];
+  const col = colors[step-1];
+  const height = step === 3 ? '70%' : step === 2 ? '40%' : '20%';
+
+  // Lava stream
+  const stream = document.createElement('div');
+  stream.style.cssText = `
+    position:absolute; bottom:30%; left:50%; transform:translateX(-50%);
+    width:${10 + step*8}px; height:${height}; border-radius:50% 50% 0 0;
+    background:linear-gradient(180deg, ${col}, rgba(255,69,0,0.8));
+    animation: erupt 0.8s ease-out forwards;
+    transform-origin: bottom center;
+  `;
+  display.appendChild(stream);
+
+  if (step === 3) {
+    // Full eruption — lava splashes
+    for (let i = 0; i < 20; i++) {
+      const sp = document.createElement('div');
+      const angle = (Math.PI * 2 / 20) * i;
+      const dist = 60 + Math.random() * 80;
+      sp.style.cssText = `
+        position:absolute; width:8px; height:8px; border-radius:50%;
+        background:${['#FF4500','#FFD700','#FF6A00'][Math.floor(Math.random()*3)]};
+        bottom:30%; left:50%; transform:translateX(-50%);
+        box-shadow: 0 0 6px #FF4500;
+        animation: none;
+        transition: all 0.8s cubic-bezier(.17,.67,.69,1.6);
+      `;
+      display.appendChild(sp);
+      requestAnimationFrame(() => {
+        sp.style.transform = `translateX(${Math.cos(angle)*dist}px) translateY(${-Math.abs(Math.sin(angle)*dist)}px)`;
+        sp.style.opacity = '0';
+      });
+    }
+    // Ground shake
+    document.getElementById('activity-card').classList.add('shaking');
+    setTimeout(() => document.getElementById('activity-card').classList.remove('shaking'), 800);
+  }
+
+  setTimeout(() => { if(stream.parentNode) stream.parentNode.removeChild(stream); }, 1200);
+}
+
+// ============================================================
+// ACTIVITY 3 LOGIC
+// ============================================================
+document.querySelectorAll('.sort-item').forEach(el => {
+  initDrag(el, { type: 'act3', item: el.id, category: el.dataset.category });
+});
+
+let act3Placed = {};
+
+function handleAct3Drop(el, bin, data) {
+  const binType = bin.dataset.bin;
+  const itemsContainer = bin.querySelector('.bin-items');
+  // Move a copy into the bin
+  const mini = document.createElement('div');
+  mini.style.cssText = `
+    background:rgba(40,20,10,0.8); border:1.5px solid rgba(255,150,50,0.4);
+    border-radius:8px; padding:4px 6px; font-size:0.6rem; color:#FFD700; font-weight:700;
+    text-align:center;
+  `;
+  mini.innerHTML = el.querySelector('.si-icon').outerHTML + '<br>' + el.textContent.trim().replace(el.querySelector('.si-icon').textContent,'');
+  itemsContainer.appendChild(mini);
+  el.classList.add('placed');
+  act3Placed[data.item] = binType;
+  lavaBurst(bin.getBoundingClientRect());
+}
+
+document.getElementById('act3-check').addEventListener('click', () => {
+  const answers = {
+    'si-water': 'safe', 'si-soda2': 'reaction', 'si-sand': 'safe',
+    'si-vinegar2': 'reaction', 'si-clay': 'safe', 'si-color2': 'reaction'
+  };
+  let correct = 0; let total = Object.keys(answers).length;
+  Object.entries(act3Placed).forEach(([k, v]) => {
+    if (answers[k] === v) correct++;
+  });
+  if (Object.keys(act3Placed).length < total) {
+    // Not all placed
+    const btn = document.getElementById('act3-check');
+    btn.textContent = 'Sort ALL items first!';
+    btn.style.background = 'linear-gradient(135deg, #8B0000, #500000)';
+    setTimeout(() => {
+      btn.textContent = 'CHECK MY ANSWERS! 🌋';
+      btn.style.background = '';
+    }, 1500);
+    return;
+  }
+  if (correct === total) {
+    showPopup(3);
+  } else {
+    // Wrong answers — reset
+    document.querySelectorAll('.sort-item').forEach(el => el.classList.remove('placed'));
+    document.getElementById('bin-safe-items').innerHTML = '';
+    document.getElementById('bin-reaction-items').innerHTML = '';
+    act3Placed = {};
+    const btn = document.getElementById('act3-check');
+    btn.textContent = `${correct}/${total} correct — try again!`;
+    btn.style.background = 'linear-gradient(135deg, #8B0000, #500000)';
+    setTimeout(() => {
+      btn.textContent = 'CHECK MY ANSWERS! 🌋';
+      btn.style.background = '';
+    }, 2000);
+  }
+});
+
+// ============================================================
+// POPUP SYSTEM
+// ============================================================
+let currentActivity = 1;
+
+const popupMessages = {
+  1: {
+    icon: '🏔️',
+    title: 'Volcano Built!',
+    msg: 'Incredible! You correctly labelled the Crater, Vent, Lava, and Magma! You are a true Volcano Explorer!',
+    btn: 'DO THE EXPERIMENT! ⚗️'
+  },
+  2: {
+    icon: '💥',
+    title: 'ERUPTION!',
+    msg: 'BOOM! You added the ingredients in the perfect order! The volcanic eruption was spectacular! Now let\'s sort our materials!',
+    btn: 'SORT MATERIALS! 🧲'
+  },
+  3: {
+    icon: '🏆',
+    title: 'MISSION COMPLETE!',
+    msg: 'YOU ARE AN EARTH SCIENCE CHAMPION! You built a volcano, triggered an eruption, and sorted all the materials correctly! Amazing Explorer!',
+    btn: 'PLAY AGAIN! 🌋'
+  }
+};
+
+function showPopup(act) {
+  currentActivity = act;
+  const data = popupMessages[act];
+  document.getElementById('popup-icon').textContent = data.icon;
+  document.getElementById('popup-title').textContent = data.title;
+  document.getElementById('popup-msg').textContent = data.msg;
+  document.getElementById('popup-btn').textContent = data.btn;
+  document.getElementById('popup-overlay').classList.add('visible');
+  // Celebration sparks
+  setTimeout(fireSparks, 200);
+}
+
+function nextActivity() {
+  document.getElementById('popup-overlay').classList.remove('visible');
+  if (currentActivity === 1) {
+    switchActivity(2);
+  } else if (currentActivity === 2) {
+    switchActivity(3);
+  } else {
+    // Restart
+    location.reload();
+  }
+}
+
+function switchActivity(n) {
+  document.querySelectorAll('#act1,#act2,#act3').forEach(el => el.classList.remove('active'));
+  document.getElementById('act' + n).classList.add('active');
+  // Progress
+  for (let i = 1; i <= 3; i++) {
+    const s = document.getElementById('step' + i);
+    s.classList.remove('active','done');
+    if (i < n) s.classList.add('done');
+    else if (i === n) s.classList.add('active');
+  }
+}
+
+// ============================================================
+// EFFECTS
+// ============================================================
+function lavaBurst(rect) {
+  for (let i = 0; i < 12; i++) {
+    const p = document.createElement('div');
+    p.className = 'lava-burst-particle';
+    const angle = (Math.PI * 2 / 12) * i;
+    const dist = 40 + Math.random() * 60;
+    const cx = rect.left + rect.width/2;
+    const cy = rect.top + rect.height/2;
+    p.style.cssText = `left:${cx}px;top:${cy}px;width:${6+Math.random()*6}px;height:${6+Math.random()*6}px;`;
+    document.body.appendChild(p);
+    const tx = Math.cos(angle) * dist;
+    const ty = Math.sin(angle) * dist;
+    requestAnimationFrame(() => {
+      p.style.transition = 'all 0.7s cubic-bezier(.17,.67,.69,1.2)';
+      p.style.transform = `translate(${tx}px, ${ty}px) scale(0)`;
+      p.style.opacity = '0';
+    });
+    setTimeout(() => p.remove(), 800);
+  }
+}
+
+function fireSparks() {
+  const colors = ['#FF4500','#FFD700','#FF6A00','#FF0000','#FFB347','#39FF14'];
+  for (let i = 0; i < 60; i++) {
+    const sp = document.createElement('div');
+    sp.className = 'final-spark';
+    sp.style.cssText = `
+      left:${Math.random()*100}vw; top:${Math.random()*30 + 30}vh;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      --ty:${(Math.random()-0.5)*300}px;
+      --tx:${(Math.random()-0.5)*300}px;
+      animation-duration:${0.8 + Math.random()*1.2}s;
+      animation-delay:${Math.random()*0.5}s;
+      border-radius:${Math.random() > 0.5 ? '50%' : '2px'};
+    `;
+    document.body.appendChild(sp);
+    setTimeout(() => sp.remove(), 2000);
+  }
+}
+
+// Act2 funnel pointer events
+const funnel = document.getElementById('act2-funnel');
+funnel.addEventListener('pointerup', (e) => {
+  if (!dragging) return;
+  handleDrop(dragging, funnel, dragData);
+  dragging.classList.remove('dragging');
+  ghostEl.style.display = 'none';
+  dragging = null; dragData = null;
+});
+
+// Prevent context menu during drag
+document.addEventListener('contextmenu', e => e.preventDefault());
+</script>
+</body>
+</html>

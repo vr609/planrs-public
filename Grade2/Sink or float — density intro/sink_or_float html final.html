@@ -774,17 +774,33 @@ const state = {
 };
 
 // ===== OBJECTS DATA =====
+const CORK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 48" width="34" height="40">
+  <!-- Cork body -->
+  <rect x="8" y="10" width="24" height="32" rx="5" fill="#c8955a"/>
+  <!-- Cork top cap -->
+  <rect x="10" y="6" width="20" height="8" rx="3" fill="#b07d44"/>
+  <!-- Wood grain lines -->
+  <line x1="10" y1="18" x2="30" y2="18" stroke="#a06830" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+  <line x1="10" y1="24" x2="30" y2="24" stroke="#a06830" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+  <line x1="10" y1="30" x2="30" y2="30" stroke="#a06830" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+  <line x1="10" y1="36" x2="30" y2="36" stroke="#a06830" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+  <!-- Highlight sheen -->
+  <rect x="11" y="12" width="5" height="26" rx="2.5" fill="white" opacity="0.18"/>
+  <!-- Top shine -->
+  <ellipse cx="20" cy="7" rx="7" ry="2.5" fill="white" opacity="0.22"/>
+</svg>`;
+
 const objects = [
-  { id:'coin',  emoji:'🪙', name:'Coin',    sinks:true,  reason:'heavy-for-size' },
-  { id:'cork',  emoji:'🍾', name:'Cork',    sinks:false, reason:'light-for-size' },
-  { id:'clay',  emoji:'🏺', name:'Clay',    sinks:true,  reason:'heavy-for-size' },
-  { id:'plastic',emoji:'🧴',name:'Plastic', sinks:false, reason:'light-for-size' },
+  { id:'coin',    emoji:'🪙',    name:'Coin',    sinks:true,  reason:'heavy-for-size', svg: null },
+  { id:'cork',    emoji:null,    name:'Cork',    sinks:false, reason:'light-for-size', svg: CORK_SVG },
+  { id:'clay',    emoji:'🏺',    name:'Clay',    sinks:true,  reason:'heavy-for-size', svg: null },
+  { id:'plastic', emoji:'🧴',    name:'Plastic', sinks:false, reason:'light-for-size', svg: null },
 ];
 
 const reasons = [
   { id:'heavy-for-size-1', text:'⚖️ Heavy for its size', forSink:true },
-  { id:'heavy-for-size-2', text:'⚖️ Heavy for its size', forSink:true },
   { id:'light-for-size-1', text:'🍃 Light for its size', forSink:false },
+  { id:'heavy-for-size-2', text:'⚖️ Heavy for its size', forSink:true },
   { id:'light-for-size-2', text:'🍃 Light for its size', forSink:false },
 ];
 
@@ -947,8 +963,16 @@ function buildAct1(content) {
 function makeItemEl(obj) {
   const el = document.createElement('div');
   el.className = 'drag-item';
-  el.innerHTML = `<span class="item-emoji">${obj.emoji}</span><span class="item-name">${obj.name}</span>`;
+  const visual = obj.svg
+    ? `<span class="item-emoji" style="line-height:1;display:flex;align-items:center;justify-content:center;">${obj.svg}</span>`
+    : `<span class="item-emoji">${obj.emoji}</span>`;
+  el.innerHTML = `${visual}<span class="item-name">${obj.name}</span>`;
   return el;
+}
+
+function getItemVisual(obj) {
+  if (obj.svg) return obj.svg;
+  return obj.emoji;
 }
 
 function handleDrop(zone, data) {
@@ -988,7 +1012,10 @@ function handleDrop(zone, data) {
     // Animate into water
     const placed = document.createElement('div');
     placed.className = 'placed-in-water';
-    placed.innerHTML = `${obj.emoji}<span class="item-name">${obj.name}</span>
+    const placedVisual = obj.svg
+      ? `<span style="display:flex;align-items:center;justify-content:center;">${obj.svg}</span>`
+      : `<span style="font-size:clamp(18px,3.5vw,30px)">${obj.emoji}</span>`;
+    placed.innerHTML = `${placedVisual}<span class="item-name">${obj.name}</span>
       <div class="result-badge ${obj.sinks?'sink':'float'}">${obj.sinks?'⬇':'⬆'}</div>`;
     const leftPct = 15 + (objects.indexOf(obj)) * 20;
     placed.style.cssText = `left:${leftPct}%;top:10%;transform:translateX(-50%);`;
@@ -1094,23 +1121,33 @@ function checkAct2() {
 }
 
 // ===== ACTIVITY 3: CONCLUDE =====
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 function buildAct3(content) {
   state.act3Correct = 0;
   let sinkers = objects.filter(o=>o.sinks);
   let floaters = objects.filter(o=>!o.sinks);
+  const shuffledReasons = shuffleArray(reasons);
 
   content.innerHTML = `
     <div id="activity-title">🔬 QUEST 3 OF 3 — THE CONCLUSION CHAMBER 🔬</div>
     <div id="activity-subtitle">💡 Drag the correct REASON to explain why each object sinks or floats!</div>
     <div id="labels-tray">
-      ${reasons.map(r=>`<div class="reason-label" data-label-id="${r.id}">${r.text}</div>`).join('')}
+      ${shuffledReasons.map(r=>`<div class="reason-label" data-label-id="${r.id}">${r.text}</div>`).join('')}
     </div>
     <div id="conclude-area">
       <div class="conclude-card sink-card">
         <div class="conclude-card-title">⬇️ SINKERS</div>
         ${sinkers.map(obj=>`
           <div class="conclude-obj">
-            <span>${obj.emoji}</span> ${obj.name}
+            ${obj.svg ? `<span style="display:inline-flex;align-items:center;">${obj.svg}</span>` : `<span>${obj.emoji}</span>`} ${obj.name}
           </div>
           <div class="label-drop-zone" data-drop-zone="${obj.id}_reason">Drop a reason here...</div>
         `).join('')}
@@ -1119,7 +1156,7 @@ function buildAct3(content) {
         <div class="conclude-card-title">⬆️ FLOATERS</div>
         ${floaters.map(obj=>`
           <div class="conclude-obj">
-            <span>${obj.emoji}</span> ${obj.name}
+            ${obj.svg ? `<span style="display:inline-flex;align-items:center;">${obj.svg}</span>` : `<span>${obj.emoji}</span>`} ${obj.name}
           </div>
           <div class="label-drop-zone" data-drop-zone="${obj.id}_reason">Drop a reason here...</div>
         `).join('')}

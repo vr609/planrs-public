@@ -536,6 +536,94 @@
   .a3-opt.correct-ans { border-color:var(--correct); color:var(--correct); background:rgba(0,230,118,.1); }
   .a3-opt.wrong-ans   { border-color:var(--wrong); color:var(--wrong); background:rgba(255,82,82,.1); }
 
+  /* ── NEXT ACTIVITY BUTTON ── */
+  .btn-next-activity {
+    display:none;
+    background:linear-gradient(135deg, var(--teal), #00c4a7);
+    color:#001a15; border:none; border-radius:14px;
+    padding:12px 32px;
+    font-family:'Baloo 2',cursive; font-size:1rem; font-weight:800;
+    cursor:pointer; transition:all .2s;
+    box-shadow:0 4px 16px rgba(0,245,212,.4);
+    margin-top:4px;
+  }
+  .btn-next-activity.show { display:block; }
+  .btn-next-activity:hover { transform:translateY(-2px); box-shadow:0 6px 22px rgba(0,245,212,.6); }
+
+  /* ── CONGRATS OVERLAY ── */
+  #congratsOverlay {
+    display:none;
+    position:fixed; inset:0; z-index:10000;
+    background:rgba(0,0,0,.75);
+    backdrop-filter:blur(8px);
+    align-items:center; justify-content:center;
+  }
+  #congratsOverlay.show { display:flex; }
+
+  .congrats-box {
+    background:linear-gradient(135deg,#0d1b3e 0%,#1a1a6e 60%,#0a0a1a 100%);
+    border:2px solid var(--sun);
+    border-radius:28px;
+    padding:44px 40px 36px;
+    max-width:500px; width:90%;
+    text-align:center;
+    box-shadow:0 0 80px rgba(255,217,61,.35), 0 20px 60px rgba(0,0,0,.6);
+    animation:popIn .5s cubic-bezier(.34,1.56,.64,1) forwards;
+    position:relative; overflow:hidden;
+  }
+  @keyframes popIn {
+    0%   { opacity:0; transform:scale(.5) translateY(40px); }
+    100% { opacity:1; transform:scale(1) translateY(0); }
+  }
+  .congrats-box::before {
+    content:'';
+    position:absolute; inset:-2px;
+    background:linear-gradient(135deg,var(--sun),var(--teal),var(--pink),var(--sun));
+    border-radius:28px; z-index:-1; opacity:.35;
+    animation:borderSpin 4s linear infinite;
+    background-size:300% 300%;
+  }
+  @keyframes borderSpin { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+
+  .congrats-trophy { font-size:5rem; margin-bottom:10px; animation:bounce 1s ease infinite alternate; }
+  @keyframes bounce { from{transform:translateY(0)} to{transform:translateY(-12px)} }
+
+  .congrats-title {
+    font-family:'Baloo 2',cursive; font-size:2.2rem; font-weight:800;
+    background:linear-gradient(135deg,#fff 0%,var(--sun) 45%,var(--orange) 100%);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    margin-bottom:8px;
+  }
+  .congrats-sub {
+    font-size:1rem; color:rgba(255,255,255,.75); line-height:1.6; margin-bottom:20px;
+  }
+  .congrats-stars {
+    font-size:2.2rem; letter-spacing:6px; margin-bottom:24px;
+    animation:starGlow 1.5s ease-in-out infinite alternate;
+  }
+  @keyframes starGlow { from{filter:drop-shadow(0 0 4px var(--sun))} to{filter:drop-shadow(0 0 18px var(--sun))} }
+
+  .btn-play-again {
+    background:linear-gradient(135deg, var(--sun), var(--orange));
+    color:#1a0a00; border:none; border-radius:14px;
+    padding:14px 44px;
+    font-family:'Baloo 2',cursive; font-size:1.1rem; font-weight:800;
+    cursor:pointer; transition:all .2s;
+    box-shadow:0 4px 20px rgba(255,217,61,.5);
+    display:block; margin:0 auto;
+  }
+  .btn-play-again:hover { transform:translateY(-3px) scale(1.04); box-shadow:0 8px 28px rgba(255,217,61,.7); }
+
+  .confetti-piece {
+    position:fixed; pointer-events:none; z-index:10001;
+    width:10px; height:10px; border-radius:2px;
+    animation:confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0%   { opacity:1; transform:translateY(-20px) rotate(0deg); }
+    100% { opacity:0; transform:translateY(100vh) rotate(720deg); }
+  }
+
   /* ── responsive ── */
   @media(max-width:560px){
     .projection-board { flex-direction:column; align-items:center; }
@@ -628,6 +716,17 @@
 
 </div><!-- end .page -->
 
+<!-- ── CONGRATULATIONS OVERLAY ── -->
+<div id="congratsOverlay">
+  <div class="congrats-box">
+    <div class="congrats-trophy">🏆</div>
+    <div class="congrats-title">You're a Shadow Scientist!</div>
+    <div class="congrats-sub">Amazing work completing all 3 activities! You've mastered sun angles, shadow shapes, and the puppet scene. Keep exploring the science of light!</div>
+    <div class="congrats-stars" id="congratsStarDisplay">⭐⭐⭐</div>
+    <button class="btn-play-again" onclick="playAgain()">🔄 Play Again!</button>
+  </div>
+</div>
+
 <script>
 // ════════════════════════════════════════════════════════════
 // BACKGROUND GENERATOR
@@ -675,6 +774,8 @@
 // SCORE
 // ════════════════════════════════════════════════════════════
 let stars=0; const MAX=9;
+let activitiesCompleted=0;
+
 function addStar(refEl){
   stars=Math.min(stars+1,MAX);
   document.getElementById('scoreFill').style.width=(stars/MAX*100)+'%';
@@ -687,6 +788,48 @@ function addStar(refEl){
     document.body.appendChild(p);
     setTimeout(()=>p.remove(),1300);
   }
+}
+
+function markActivityComplete(actIndex){
+  // Only show congrats when activity 3 (index 2) is completed
+  if(actIndex===2 && !congratsShown){
+    congratsShown=true;
+    setTimeout(showCongrats, 700);
+  }
+}
+
+let congratsShown=false;
+
+function showCongrats(){
+  // Build star display based on score
+  const pct = stars / MAX;
+  let starStr = pct >= 0.85 ? '⭐⭐⭐' : pct >= 0.5 ? '⭐⭐' : '⭐';
+  document.getElementById('congratsStarDisplay').textContent = starStr + '  ' + stars + ' / ' + MAX + ' stars';
+  document.getElementById('congratsOverlay').classList.add('show');
+  launchConfetti();
+}
+
+function launchConfetti(){
+  const colors=['#FFD93D','#FF6B35','#00f5d4','#ff4da6','#ffffff','#a78bfa'];
+  for(let i=0;i<80;i++){
+    const el=document.createElement('div');
+    el.className='confetti-piece';
+    el.style.cssText=`left:${Math.random()*100}vw;top:-20px;background:${colors[Math.floor(Math.random()*colors.length)]};width:${6+Math.random()*10}px;height:${6+Math.random()*10}px;animation-duration:${1.5+Math.random()*2.5}s;animation-delay:${Math.random()*.8}s;border-radius:${Math.random()>0.5?'50%':'2px'};`;
+    document.body.appendChild(el);
+    const dur = parseFloat(el.style.animationDuration) + parseFloat(el.style.animationDelay);
+    setTimeout(()=>el.remove(),(dur+0.5)*1000);
+  }
+}
+
+function playAgain(){
+  document.getElementById('congratsOverlay').classList.remove('show');
+  stars=0; activitiesCompleted=0;
+  document.getElementById('scoreFill').style.width='0%';
+  document.getElementById('scoreTxt').textContent='⭐ 0 / 9';
+  // Reset to activity 1
+  switchTab(0);
+  // Reload all activities by refreshing the page
+  window.location.reload();
 }
 
 // ════════════════════════════════════════════════════════════
@@ -808,11 +951,34 @@ function switchTab(i){
   const answered=[false,false,false];
   const container=document.getElementById('a1Questions');
   let currentQ=0;
+  let a1Done=false;
 
   function renderQ(){
     container.innerHTML='';
     if(currentQ>=questions.length){
       container.innerHTML=`<div style="text-align:center;font-family:'Baloo 2',cursive;font-size:1.3rem;color:var(--sun);padding:20px;">🌟 Amazing! You've mastered sun angles!</div>`;
+      if(!a1Done){
+        a1Done=true;
+        // Show next activity button
+        const nextActBtn=document.createElement('button');
+        nextActBtn.className='btn-next-activity show';
+        nextActBtn.textContent='🔦 Go to Activity 2 →';
+        nextActBtn.style.margin='0 auto 10px';
+        container.appendChild(nextActBtn);
+        nextActBtn.onclick=()=>{ switchTab(1); markActivityComplete(0); };
+        // Auto-advance after 3 seconds
+        let countdown=3;
+        const countEl=document.createElement('div');
+        countEl.style.cssText='text-align:center;font-family:"Baloo 2",cursive;font-size:.85rem;color:rgba(255,255,255,.45);margin-top:4px;';
+        countEl.textContent=`Auto-advancing in ${countdown}s…`;
+        container.appendChild(countEl);
+        const timer=setInterval(()=>{
+          countdown--;
+          if(countdown<=0){ clearInterval(timer); nextActBtn.click(); }
+          else countEl.textContent=`Auto-advancing in ${countdown}s…`;
+        },1000);
+        nextActBtn.addEventListener('click',()=>clearInterval(timer),{once:true});
+      }
       return;
     }
     const q=questions[currentQ];
@@ -861,6 +1027,17 @@ function switchTab(i){
       fb.className='feedback show '+(ok?'ok':'err');
       if(ok && !answered[currentQ]){ answered[currentQ]=true; addStar(checkBtn); }
       nextBtn.classList.add('show');
+      checkBtn.disabled=true; checkBtn.style.opacity='.5';
+      // Auto-advance after correct answer
+      if(ok){
+        let cd=2;
+        const cdEl=document.createElement('div');
+        cdEl.style.cssText='font-family:"Baloo 2",cursive;font-size:.8rem;color:rgba(255,255,255,.4);text-align:center;margin-top:2px;';
+        cdEl.textContent=`Next question in ${cd}s…`;
+        btnRow.appendChild(cdEl);
+        const t=setInterval(()=>{ cd--; if(cd<=0){clearInterval(t);nextBtn.click();}else cdEl.textContent=`Next question in ${cd}s…`; },1000);
+        nextBtn.addEventListener('click',()=>clearInterval(t),{once:true});
+      }
     };
 
     const nextBtn=document.createElement('button');
@@ -880,6 +1057,7 @@ function switchTab(i){
 // ════════════════════════════════════════════════════════════
 // ACTIVITY 2 — SHADOW SHAPE PREDICTION (DRAG & DROP)
 // ════════════════════════════════════════════════════════════
+function buildActivity2(){
 (function(){
   const lab = document.getElementById('shadowLab');
 
@@ -897,6 +1075,17 @@ function switchTab(i){
     { key:'triangle',  label:'▲ Triangle shadow',          shapeClass:'sh-triangle' },
     { key:'long',      label:'— Long flat shadow',         shapeClass:'sh-long' },
   ];
+
+  // Shuffle the shadow shapes array so slots appear in random order
+  for(let i=shadowShapes.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [shadowShapes[i],shadowShapes[j]]=[shadowShapes[j],shadowShapes[i]];
+  }
+  // Also shuffle the objects on the shelf
+  for(let i=objects.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [objects[i],objects[j]]=[objects[j],objects[i]];
+  }
 
   const slotContents={}; // key→emoji
   let answered2=false;
@@ -1020,20 +1209,44 @@ function switchTab(i){
     fb.className='feedback show '+(ok?'ok':'err');
     if(ok && !answered2){ answered2=true; addStar(checkBtn); addStar(checkBtn); addStar(checkBtn); }
     nextBtn.classList.toggle('show',ok);
+    if(ok && !answered2Done){
+      answered2Done=true;
+      // Show next activity button
+      const nextActBtn=document.createElement('button');
+      nextActBtn.className='btn-next-activity show';
+      nextActBtn.textContent='🎭 Go to Activity 3 →';
+      nextActBtn.style.margin='0 auto 4px';
+      btnRow.appendChild(nextActBtn);
+      let countdown=4;
+      const countEl=document.createElement('div');
+      countEl.style.cssText='font-family:"Baloo 2",cursive;font-size:.8rem;color:rgba(255,255,255,.4);text-align:center;';
+      countEl.textContent=`Auto-advancing in ${countdown}s…`;
+      btnRow.appendChild(countEl);
+      const timer=setInterval(()=>{
+        countdown--;
+        if(countdown<=0){ clearInterval(timer); nextActBtn.click(); }
+        else countEl.textContent=`Auto-advancing in ${countdown}s…`;
+      },1000);
+      nextActBtn.onclick=()=>{ clearInterval(timer); switchTab(2); markActivityComplete(1); };
+    }
   };
+
+  let answered2Done=false;
 
   const nextBtn=document.createElement('button');
   nextBtn.className='btn-next'; nextBtn.textContent='Reset & Try Again 🔄';
-  nextBtn.onclick=()=>{ lab.innerHTML=''; slotContents={}; answered2=false; buildA2call(); };
+  nextBtn.onclick=()=>{ lab.innerHTML=''; slotContents={}; answered2=false; answered2Done=false; buildA2call(); };
 
   btnRow.appendChild(checkBtn);
   btnRow.appendChild(fb);
   btnRow.appendChild(nextBtn);
   lab.appendChild(btnRow);
 
-  // Hint: expose rebuild
-  window.buildA2call=function(){ (arguments.callee.caller||function(){})(); };
+  // Expose rebuild
+  window.buildA2call=function(){ buildActivity2(); };
 })();
+}
+buildActivity2();
 
 
 // ════════════════════════════════════════════════════════════
@@ -1199,6 +1412,7 @@ function switchTab(i){
   ];
 
   const qAnswered=[false,false,false];
+  let a3CompleteDone=false;
   const qContainer=document.createElement('div');
   qContainer.className='a3-questions';
   lab.appendChild(qContainer);
@@ -1230,6 +1444,11 @@ function switchTab(i){
           if(ok&&!qAnswered[qi]){ qAnswered[qi]=true; addStar(btn); }
           const fb=qEl.querySelector('.a3-fb');
           if(fb){ fb.textContent=(ok?'✅ ':'❌ ')+q.hint; fb.className='a3-fb feedback show '+(ok?'ok':'err'); }
+          // Check if all 3 questions answered correctly
+          if(!a3CompleteDone && qAnswered.every(v=>v)){
+            a3CompleteDone=true;
+            markActivityComplete(2);
+          }
         },300);
       };
       optsEl.appendChild(btn);
@@ -1240,6 +1459,16 @@ function switchTab(i){
     qEl.appendChild(fb);
     qContainer.appendChild(qEl);
   });
+
+  // "Finish" button for Activity 3 — available even if not all answered
+  const finishRow=document.createElement('div');
+  finishRow.style.cssText='display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:12px;';
+  const finishBtn=document.createElement('button');
+  finishBtn.className='btn-next-activity show';
+  finishBtn.textContent='🏆 Finish & See Results!';
+  finishBtn.onclick=()=>{ markActivityComplete(2); };
+  finishRow.appendChild(finishBtn);
+  lab.appendChild(finishRow);
 })();
 </script>
 </body>

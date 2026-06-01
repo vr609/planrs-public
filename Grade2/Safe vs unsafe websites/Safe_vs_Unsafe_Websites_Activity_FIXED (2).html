@@ -85,6 +85,13 @@ body {
   100% { transform: translateY(0) rotate(-5deg) scale(1); }
 }
 
+/* ===== JELLYFISH CANVAS ===== */
+#jellyCanvas {
+  position: fixed; top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none; z-index: 0;
+}
+
 /* ===== SCORE BADGE ===== */
 .score-badge {
   position: fixed; top: 14px; right: 14px;
@@ -242,6 +249,15 @@ body {
   border-radius: 16px; padding: 14px 10px;
   cursor: pointer; text-align: center;
   transition: all 0.22s ease; user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(255,215,0,0.2);
+  position: relative; z-index: 2;
+}
+button.tool-btn {
+  background: linear-gradient(135deg, rgba(155,89,182,0.2), rgba(0,206,201,0.1));
+  border: 1.5px solid rgba(155,89,182,0.5);
+  width: 100%; font-family: 'Baloo 2', cursive; color: #fff;
+  outline: none;
 }
 .tool-btn:hover {
   border-color: var(--gold);
@@ -500,6 +516,7 @@ body {
 
 <!-- Animated bg -->
 <div id="starCanvas"></div>
+<canvas id="jellyCanvas"></canvas>
 
 <!-- Score -->
 <div class="score-badge">⭐ <span id="scoreBadge">0</span> / 5</div>
@@ -539,26 +556,26 @@ body {
     </div>
     <div class="section-label">🧰 Pick the RIGHT Detective Tool:</div>
     <div class="tools-grid" id="tools1">
-      <div class="tool-btn" onclick="pickTool(1,'A')" id="t1-A">
+      <button class="tool-btn" onclick="pickTool(1,'A')" id="t1-A" type="button">
         <span class="t-icon">🔒</span>
         <div class="t-name">Padlock Checker</div>
         <div class="t-desc">Is there a security padlock on this site?</div>
-      </div>
-      <div class="tool-btn" onclick="pickTool(1,'B')" id="t1-B">
+      </button>
+      <button class="tool-btn" onclick="pickTool(1,'B')" id="t1-B" type="button">
         <span class="t-icon">📍</span>
         <div class="t-name">Address Spotter</div>
         <div class="t-desc">Does the website address look strange?</div>
-      </div>
-      <div class="tool-btn" onclick="pickTool(1,'C')" id="t1-C">
+      </button>
+      <button class="tool-btn" onclick="pickTool(1,'C')" id="t1-C" type="button">
         <span class="t-icon">🍭</span>
         <div class="t-name">Free Prize Detector</div>
         <div class="t-desc">Real websites NEVER give free phones!</div>
-      </div>
-      <div class="tool-btn" onclick="pickTool(1,'D')" id="t1-D">
+      </button>
+      <button class="tool-btn" onclick="pickTool(1,'D')" id="t1-D" type="button">
         <span class="t-icon">🎨</span>
         <div class="t-name">Colour Analyser</div>
         <div class="t-desc">Check what colours the website uses</div>
-      </div>
+      </button>
     </div>
     <button class="btn-check" id="chk1" disabled
       onclick="checkTool(1,'C','danger','No real website gives a free phone just for visiting! This is a TRICK to steal your personal information. The missing padlock and strange web address are extra red flags! Always tell a trusted adult! 🚨')">
@@ -647,26 +664,26 @@ body {
     </div>
     <div class="section-label">🧪 Choose the correct POTION from your kit:</div>
     <div class="tools-grid" id="tools3">
-      <div class="tool-btn" onclick="pickTool(3,'A')" id="t3-A">
+      <button class="tool-btn" onclick="pickTool(3,'A')" id="t3-A" type="button">
         <span class="t-icon">🌈</span>
         <div class="t-name">Colour Potion</div>
         <div class="t-desc">Makes all blue colours glow on the page</div>
-      </div>
-      <div class="tool-btn" onclick="pickTool(3,'B')" id="t3-B">
+      </button>
+      <button class="tool-btn" onclick="pickTool(3,'B')" id="t3-B" type="button">
         <span class="t-icon">🔐</span>
         <div class="t-name">Private Info Revealer</div>
         <div class="t-desc">Highlights any personal info being asked</div>
-      </div>
-      <div class="tool-btn" onclick="pickTool(3,'C')" id="t3-C">
+      </button>
+      <button class="tool-btn" onclick="pickTool(3,'C')" id="t3-C" type="button">
         <span class="t-icon">🎵</span>
         <div class="t-name">Sound Analyser</div>
         <div class="t-desc">Checks if the website plays safe music</div>
-      </div>
-      <div class="tool-btn" onclick="pickTool(3,'D')" id="t3-D">
+      </button>
+      <button class="tool-btn" onclick="pickTool(3,'D')" id="t3-D" type="button">
         <span class="t-icon">🌐</span>
         <div class="t-name">Language Checker</div>
         <div class="t-desc">Checks what language the website uses</div>
-      </div>
+      </button>
     </div>
     <button class="btn-check" id="chk3" disabled
       onclick="checkTool(3,'B','danger','The Private Info Revealer lights up all the dangerous fields! Aadhaar number, photos, and school name are PRIVATE — never share these on unknown websites. Trusted sites (like your school's own portal) will never surprise you with forms like this! 🔐')">
@@ -870,6 +887,155 @@ body {
   }
 })();
 
+// ======== JELLYFISH CANVAS ANIMATION ========
+(function initJellies() {
+  const cv = document.getElementById('jellyCanvas');
+  const ctx = cv.getContext('2d');
+
+  function resize() {
+    cv.width  = window.innerWidth;
+    cv.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Each jellyfish: x, y, r (bell radius), hue, speed, phase, driftAmp, driftFreq, tentPhase
+  const jellies = [];
+  const CONFIGS = [
+    { xFrac:0.08, r:42, hue:280, speed:0.55, drift:38, driftF:0.7 },
+    { xFrac:0.18, r:28, hue:320, speed:0.70, drift:28, driftF:0.9 },
+    { xFrac:0.32, r:50, hue:190, speed:0.45, drift:44, driftF:0.6 },
+    { xFrac:0.50, r:33, hue:260, speed:0.62, drift:32, driftF:0.8 },
+    { xFrac:0.65, r:46, hue:300, speed:0.50, drift:40, driftF:0.65},
+    { xFrac:0.80, r:25, hue:180, speed:0.78, drift:22, driftF:1.0 },
+    { xFrac:0.13, r:36, hue:240, speed:0.58, drift:35, driftF:0.75},
+    { xFrac:0.57, r:30, hue:350, speed:0.68, drift:26, driftF:0.85},
+    { xFrac:0.88, r:48, hue:210, speed:0.42, drift:42, driftF:0.55},
+    { xFrac:0.43, r:22, hue:330, speed:0.82, drift:20, driftF:1.1 },
+  ];
+
+  CONFIGS.forEach((c, i) => {
+    jellies.push({
+      baseX: 0,         // set in resize-aware draw
+      xFrac: c.xFrac,
+      y: Math.random() * window.innerHeight * 1.4 + window.innerHeight, // start below screen
+      r: c.r,
+      hue: c.hue,
+      speed: c.speed,
+      drift: c.drift,
+      driftF: c.driftF,
+      phase: Math.random() * Math.PI * 2,  // phase offset for drift
+      tentPhase: Math.random() * Math.PI * 2,
+      pulsePhase: Math.random() * Math.PI * 2,
+      numTent: Math.round(c.r / 9) + 3,
+      tentLens: Array.from({length: Math.round(c.r / 9) + 3}, () => c.r * (0.8 + Math.random() * 0.9)),
+    });
+  });
+
+  function drawJelly(j, t) {
+    const W = cv.width;
+    const H = cv.height;
+    j.baseX = j.xFrac * W;
+
+    // Drift side to side using sine
+    const x = j.baseX + Math.sin(t * j.driftF * 0.001 + j.phase) * j.drift;
+    const y = j.y;
+
+    const pulse = Math.sin(t * 0.0025 + j.pulsePhase); // -1 to 1
+    const scaleX = 1 + pulse * 0.07;
+    const scaleY = 1 - pulse * 0.09;
+    const r = j.r;
+
+    // Opacity: fade in/out near top and bottom edges
+    const margin = H * 0.12;
+    let alpha = 0.82;
+    if (y > H - margin) alpha = Math.max(0, alpha * (1 - (y - (H - margin)) / margin));
+    if (y < margin)     alpha = Math.max(0, alpha * (y / margin));
+    if (alpha <= 0) return;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(scaleX, scaleY);
+    ctx.globalAlpha = alpha;
+
+    // --- Tentacles (drawn below bell) ---
+    const nT = j.numTent;
+    const spread = r * 0.9;
+    for (let i = 0; i < nT; i++) {
+      const tx = -spread/2 + (spread / (nT - 1)) * i;
+      const wave = Math.sin(t * 0.003 + j.tentPhase + i * 0.7) * (r * 0.28);
+      const tLen = j.tentLens[i];
+
+      ctx.beginPath();
+      ctx.moveTo(tx, r * 0.45);
+      ctx.bezierCurveTo(
+        tx + wave,       r * 0.45 + tLen * 0.35,
+        tx - wave * 0.6, r * 0.45 + tLen * 0.7,
+        tx + wave * 0.4, r * 0.45 + tLen
+      );
+      const tGrad = ctx.createLinearGradient(0, r * 0.45, 0, r * 0.45 + tLen);
+      tGrad.addColorStop(0, `hsla(${j.hue}, 85%, 75%, 0.75)`);
+      tGrad.addColorStop(1, `hsla(${j.hue}, 85%, 75%, 0)`);
+      ctx.strokeStyle = tGrad;
+      ctx.lineWidth = Math.max(1.2, r / 18);
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+
+    // --- Bell body ---
+    ctx.beginPath();
+    ctx.moveTo(0, -r);
+    ctx.bezierCurveTo( r * 1.1, -r,  r * 1.15, r * 0.3,  r * 0.55, r * 0.5);
+    ctx.bezierCurveTo( r * 0.2,  r * 0.65,  -r * 0.2, r * 0.65,  -r * 0.55, r * 0.5);
+    ctx.bezierCurveTo(-r * 1.15, r * 0.3, -r * 1.1, -r, 0, -r);
+    ctx.closePath();
+
+    const bellGrad = ctx.createRadialGradient(0, -r * 0.2, r * 0.1, 0, 0, r * 1.2);
+    bellGrad.addColorStop(0,   `hsla(${j.hue + 30}, 90%, 88%, 0.9)`);
+    bellGrad.addColorStop(0.4, `hsla(${j.hue},      80%, 68%, 0.8)`);
+    bellGrad.addColorStop(1,   `hsla(${j.hue - 20}, 70%, 42%, 0.6)`);
+    ctx.fillStyle = bellGrad;
+    ctx.fill();
+
+    // Bell rim glow
+    ctx.beginPath();
+    ctx.ellipse(0, r * 0.5, r * 0.95, r * 0.18, 0, 0, Math.PI * 2);
+    const rimGrad = ctx.createLinearGradient(-r, 0, r, 0);
+    rimGrad.addColorStop(0,   `hsla(${j.hue}, 85%, 85%, 0)`);
+    rimGrad.addColorStop(0.5, `hsla(${j.hue}, 85%, 90%, 0.55)`);
+    rimGrad.addColorStop(1,   `hsla(${j.hue}, 85%, 85%, 0)`);
+    ctx.fillStyle = rimGrad;
+    ctx.fill();
+
+    // Inner highlight dome
+    ctx.beginPath();
+    ctx.ellipse(r * 0.1, -r * 0.35, r * 0.38, r * 0.28, -0.3, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${j.hue + 40}, 100%, 95%, 0.3)`;
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function loop(t) {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+
+    jellies.forEach(j => {
+      // Move upward
+      j.y -= j.speed;
+      // Reset below screen when gone off top
+      if (j.y < -j.r * 2.5) {
+        j.y = cv.height + j.r * 2 + Math.random() * cv.height * 0.5;
+        j.phase = Math.random() * Math.PI * 2;
+      }
+      drawJelly(j, t);
+    });
+
+    requestAnimationFrame(loop);
+  }
+
+  requestAnimationFrame(loop);
+})();
+
 // ======== GAME STATE ========
 let score = 0;
 let currentCase = 0;
@@ -931,7 +1097,9 @@ function replayGame() {
 
   // Reset tool buttons
   [1,3].forEach(n => {
-    document.querySelectorAll(`#tools${n} .tool-btn`).forEach(b => b.className = 'tool-btn');
+    document.querySelectorAll(`#tools${n} .tool-btn`).forEach(b => {
+      b.classList.remove('selected','correct','wrong');
+    });
     const chk = document.getElementById('chk'+n);
     if (chk) chk.disabled = true;
     const h = document.getElementById('hint'+n);

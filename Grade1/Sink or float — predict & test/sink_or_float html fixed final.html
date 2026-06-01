@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SINK OR FLOAT — PREDICT &amp; TEST</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+--c1:#00c8ff;--c2:#0af;--c3:#0066cc;
+--c-green:#00e676;--c-amber:#ffab00;--c-red:#ff5252;
+--lab-bg:#04122a;--lab-mid:#071e3d;--lab-glow:rgba(0,200,255,0.15);
+--flask1:#00ffc8;--flask2:#c800ff;--flask3:#ffab00;--flask4:#ff3d7f;
+}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif;background:var(--lab-bg);}
+canvas#bg{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;}
+
+/* HEADER */
+#header{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:center;gap:16px;padding:10px 24px;background:rgba(4,18,42,0.92);border-bottom:1px solid rgba(0,200,255,0.2);backdrop-filter:blur(8px);}
+#header h1{font-family:'Orbitron',sans-serif;font-size:clamp(14px,2vw,22px);color:#fff;letter-spacing:2px;text-shadow:0 0 20px var(--c1);}
+#header h1 span{color:var(--c1);}
+.badge-step{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:rgba(255,255,255,0.5);transition:.3s;}
+.badge-step.active{color:var(--c1);}
+.badge-step.done{color:var(--c-green);}
+.step-dot{width:28px;height:28px;border-radius:50%;border:2px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;transition:.3s;}
+.badge-step.active .step-dot{background:var(--c1);border-color:var(--c1);color:#000;box-shadow:0 0 12px var(--c1);}
+.badge-step.done .step-dot{background:var(--c-green);border-color:var(--c-green);color:#000;}
+.step-sep{width:30px;height:2px;background:rgba(255,255,255,0.15);border-radius:1px;}
+.step-sep.done{background:var(--c-green);}
+
+/* MAIN */
+#main{position:fixed;top:62px;left:0;right:0;bottom:0;z-index:10;display:flex;align-items:center;justify-content:center;}
+
+/* ACTIVITY PANELS */
+.activity{display:none;width:100%;height:100%;padding:12px 20px;flex-direction:column;gap:10px;}
+.activity.active{display:flex;}
+.act-title{font-family:'Orbitron',sans-serif;font-size:clamp(11px,1.4vw,17px);color:var(--c1);text-transform:uppercase;letter-spacing:1.5px;text-shadow:0 0 12px var(--c1);text-align:center;}
+.act-sub{font-size:clamp(11px,1.2vw,14px);color:rgba(255,255,255,0.7);text-align:center;margin-top:-4px;}
+
+/* DRAG ZONES */
+.drag-area{display:flex;gap:12px;flex:1;min-height:0;}
+.object-shelf{background:rgba(255,255,255,0.04);border:1.5px dashed rgba(0,200,255,0.25);border-radius:16px;padding:10px;display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start;overflow:hidden;}
+.drop-zone{border-radius:16px;padding:10px;display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;transition:.3s;position:relative;overflow:hidden;}
+.drop-zone.float-zone{background:linear-gradient(180deg,rgba(0,200,255,0.08) 0%,rgba(0,80,150,0.2) 100%);border:2px solid rgba(0,200,255,0.35);}
+.drop-zone.sink-zone{background:linear-gradient(180deg,rgba(10,30,60,0.5) 0%,rgba(100,60,10,0.2) 100%);border:2px solid rgba(255,171,0,0.35);}
+.drop-zone.over{border-style:solid;filter:brightness(1.3);}
+.zone-label{font-family:'Orbitron',sans-serif;font-size:clamp(10px,1.3vw,15px);font-weight:700;letter-spacing:1px;}
+.float-zone .zone-label{color:var(--c1);}
+.sink-zone .zone-label{color:var(--c-amber);}
+.zone-items{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;width:100%;}
+
+/* DRAGGABLE OBJECTS */
+.obj{width:72px;height:72px;border-radius:12px;background:rgba(255,255,255,0.07);border:1.5px solid rgba(255,255,255,0.15);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:grab;user-select:none;transition:transform .15s,box-shadow .15s;position:relative;font-size:28px;font-weight:700;}
+.obj:active{cursor:grabbing;transform:scale(1.08);box-shadow:0 8px 24px rgba(0,200,255,0.4);}
+.obj.dragging{opacity:.5;}
+.obj-label{font-size:8.5px;font-weight:700;color:rgba(255,255,255,0.7);text-align:center;line-height:1.1;}
+.obj.correct{border-color:var(--c-green);box-shadow:0 0 12px rgba(0,230,118,0.5);}
+.obj.wrong{border-color:var(--c-red);box-shadow:0 0 12px rgba(255,82,82,0.5);}
+.obj.sinking-anim{animation:sinkDown .8s forwards;}
+.obj.floating-anim{animation:floatUp .8s forwards;}
+@keyframes sinkDown{to{transform:translateY(40px);opacity:0;}}
+@keyframes floatUp{0%{transform:translateY(0);}50%{transform:translateY(-12px);}to{transform:translateY(-4px);}}
+
+/* WATER TANK */
+.water-tank{position:relative;border-radius:12px;overflow:hidden;background:rgba(0,30,60,0.6);border:2px solid rgba(0,200,255,0.4);flex:1;min-height:0;}
+.water-body{position:absolute;bottom:0;left:0;right:0;height:65%;background:linear-gradient(180deg,rgba(0,170,255,0.35) 0%,rgba(0,80,180,0.6) 100%);}
+.water-surface{position:absolute;bottom:65%;left:0;right:0;height:16px;background:rgba(0,200,255,0.4);border-radius:50% 50% 0 0/8px 8px 0 0;animation:waveSurface 2s ease-in-out infinite;}
+@keyframes waveSurface{0%,100%{transform:scaleX(1);}50%{transform:scaleX(1.02) translateX(-1px);}}
+.tank-label{position:absolute;top:8px;left:0;right:0;text-align:center;font-family:'Orbitron',sans-serif;font-size:11px;color:rgba(0,200,255,0.8);letter-spacing:1px;}
+.tank-objects{position:absolute;bottom:0;left:0;right:0;height:100%;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px;padding:8px;}
+
+/* RESULT BADGE */
+.result-badge{position:absolute;top:8px;right:8px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;text-transform:uppercase;}
+.result-badge.float-badge{background:rgba(0,200,255,0.2);color:var(--c1);border:1px solid var(--c1);}
+.result-badge.sink-badge{background:rgba(255,171,0,0.2);color:var(--c-amber);border:1px solid var(--c-amber);}
+
+/* BUTTONS */
+.btn{font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;padding:9px 22px;border-radius:30px;border:2px solid;cursor:pointer;letter-spacing:.5px;transition:all .2s;display:flex;align-items:center;gap:6px;}
+.btn-primary{background:var(--c1);border-color:var(--c1);color:#000;box-shadow:0 0 20px rgba(0,200,255,0.4);}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 4px 24px rgba(0,200,255,0.6);}
+.btn-outline{background:transparent;border-color:rgba(0,200,255,0.5);color:var(--c1);}
+.btn-outline:hover{background:rgba(0,200,255,0.1);}
+.btn-green{background:var(--c-green);border-color:var(--c-green);color:#000;box-shadow:0 0 20px rgba(0,230,118,0.4);}
+.btn-row{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;}
+
+/* SCORE BAR */
+.score-bar{display:flex;align-items:center;gap:10px;justify-content:center;}
+.score-pill{background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);border-radius:20px;padding:4px 14px;font-size:12px;font-weight:700;color:rgba(255,255,255,0.8);}
+.score-pill span{color:var(--c1);}
+
+/* POPUP OVERLAY */
+#popup{position:fixed;inset:0;z-index:500;background:rgba(4,18,42,0.88);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;}
+#popup.show{display:flex;}
+.popup-card{background:linear-gradient(135deg,#071e3d,#0a1628);border:2px solid var(--c1);border-radius:24px;padding:32px 40px;text-align:center;max-width:480px;width:90%;position:relative;box-shadow:0 0 60px rgba(0,200,255,0.25),0 0 120px rgba(0,200,255,0.1);}
+.popup-icon{font-size:64px;margin-bottom:12px;display:block;}
+.popup-title{font-family:'Orbitron',sans-serif;font-size:20px;color:#fff;margin-bottom:8px;text-shadow:0 0 20px var(--c1);}
+.popup-body{font-size:14px;color:rgba(255,255,255,0.75);line-height:1.7;margin-bottom:20px;}
+.popup-stars{font-size:28px;letter-spacing:4px;margin-bottom:16px;}
+
+/* ACTIVITY 1 SPECIFICS */
+#act1 .drag-area{flex-direction:row;}
+#act1 .object-shelf{width:200px;flex-direction:column;flex-shrink:0;}
+#act1 .zones-col{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0;}
+#act1 .float-zone,#act1 .sink-zone{flex:1;}
+.shelf-title{font-size:10px;font-weight:700;color:rgba(0,200,255,0.7);text-transform:uppercase;letter-spacing:1px;width:100%;}
+
+/* ACTIVITY 2 SPECIFICS */
+#act2 .drag-area{flex-direction:row;gap:12px;}
+#act2 .obj-grid{width:230px;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;background:rgba(255,255,255,0.03);border:1.5px dashed rgba(0,200,255,0.2);border-radius:14px;padding:8px;overflow-y:auto;}
+#act2 .tanks-area{flex:1;display:flex;gap:10px;}
+.tank-wrapper{flex:1;display:flex;flex-direction:column;gap:6px;}
+.tank-title-row{display:flex;align-items:center;justify-content:space-between;font-size:11px;}
+.results-log{flex:1;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:8px;overflow-y:auto;max-height:100px;}
+.log-item{font-size:11px;color:rgba(255,255,255,0.75);display:flex;align-items:center;gap:6px;padding:2px 0;}
+.log-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.float-dot{background:var(--c1);}
+.sink-dot{background:var(--c-amber);}
+
+/* ACTIVITY 3 - BOAT BUILDER */
+#act3 .drag-area{flex-direction:row;gap:12px;}
+#act3 .parts-shelf{width:190px;background:rgba(255,255,255,0.03);border:1.5px dashed rgba(0,200,255,0.2);border-radius:14px;padding:8px;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;overflow:hidden;}
+#act3 .build-area{flex:1;display:flex;flex-direction:column;gap:8px;}
+.boat-stage{flex:1;border-radius:14px;background:rgba(0,30,80,0.5);border:2px solid rgba(0,200,255,0.3);position:relative;overflow:hidden;min-height:0;}
+.boat-water{position:absolute;bottom:0;left:0;right:0;height:55%;background:linear-gradient(0deg,rgba(0,80,180,0.7),rgba(0,170,255,0.3));animation:none;}
+.boat-surface-line{position:absolute;height:3px;background:rgba(0,220,255,0.5);left:0;right:0;bottom:55%;border-radius:2px;}
+.boat-platform{position:absolute;bottom:52%;left:50%;transform:translateX(-50%);width:160px;height:28px;background:linear-gradient(90deg,rgba(100,200,255,0.3),rgba(0,150,255,0.5),rgba(100,200,255,0.3));border-radius:6px 6px 0 0;border:1.5px solid rgba(0,200,255,0.6);display:flex;align-items:center;justify-content:center;font-size:9px;color:rgba(0,200,255,0.8);font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.boat-cargo{position:absolute;bottom:70%;left:50%;transform:translateX(-50%);display:flex;gap:3px;flex-wrap:wrap;max-width:160px;justify-content:center;min-height:20px;}
+.capacity-meter{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:10px;}
+.cap-bar-track{flex:1;height:10px;background:rgba(255,255,255,0.1);border-radius:5px;overflow:hidden;}
+.cap-bar-fill{height:100%;border-radius:5px;transition:width .4s,background .4s;}
+.cap-label{font-size:11px;font-weight:700;white-space:nowrap;}
+.boat-stat{font-size:11px;color:rgba(255,255,255,0.6);}
+.boat-stat b{color:var(--c1);}
+.sink-warning{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Orbitron',sans-serif;font-size:16px;color:var(--c-red);text-shadow:0 0 20px var(--c-red);display:none;text-align:center;z-index:10;}
+.float-success{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Orbitron',sans-serif;font-size:13px;color:var(--c-green);text-shadow:0 0 20px var(--c-green);display:none;text-align:center;z-index:10;animation:pulseGlow 1s ease-in-out infinite;}
+@keyframes pulseGlow{0%,100%{opacity:1;}50%{opacity:.6;}}
+
+/* OBJ MINI for act3 */
+.obj-mini{width:56px;height:56px;border-radius:10px;background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:grab;user-select:none;transition:transform .15s;font-size:22px;}
+.obj-mini .obj-label{font-size:7.5px;}
+.obj-mini:active{cursor:grabbing;transform:scale(1.1);}
+.cargo-item{font-size:18px;animation:dropIn .3s ease;}
+@keyframes dropIn{from{transform:translateY(-10px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+
+/* FINAL SUCCESS */
+.confetti-container{position:fixed;inset:0;pointer-events:none;z-index:600;}
+.confetti-piece{position:absolute;width:8px;height:8px;border-radius:2px;animation:confettiFall linear forwards;}
+@keyframes confettiFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1;}100%{transform:translateY(100vh) rotate(720deg);opacity:0;}}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:rgba(255,255,255,0.03);}::-webkit-scrollbar-thumb{background:rgba(0,200,255,0.3);border-radius:2px;}
+
+/* RIPPLE */
+.ripple{position:absolute;border-radius:50%;background:rgba(0,200,255,0.3);animation:rippleAnim .6s ease-out forwards;pointer-events:none;}
+@keyframes rippleAnim{to{transform:scale(4);opacity:0;}}
+
+/* FEEDBACK TOAST */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(4,18,42,0.95);border:1.5px solid var(--c1);border-radius:30px;padding:8px 20px;font-size:13px;font-weight:700;color:#fff;z-index:400;opacity:0;transition:opacity .3s;pointer-events:none;}
+#toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+
+<div id="header">
+  <h1>⚗️ SINK OR FLOAT — <span>PREDICT &amp; TEST</span></h1>
+  <div style="display:flex;align-items:center;gap:6px;margin-left:12px;">
+    <div class="badge-step active" id="step1"><div class="step-dot">1</div><span style="font-size:11px;">Predict</span></div>
+    <div class="step-sep" id="sep1"></div>
+    <div class="badge-step" id="step2"><div class="step-dot">2</div><span style="font-size:11px;">Test</span></div>
+    <div class="step-sep" id="sep2"></div>
+    <div class="badge-step" id="step3"><div class="step-dot">3</div><span style="font-size:11px;">Build</span></div>
+  </div>
+</div>
+
+<div id="main">
+
+<!-- ACTIVITY 1: Predict -->
+<div class="activity active" id="act1">
+  <div class="act-title">⚗️ Activity 1 — Make Your Predictions!</div>
+  <div class="act-sub">Drag each object to where you THINK it will go — float on top or sink to the bottom?</div>
+  <div class="drag-area">
+    <div class="object-shelf" id="shelf1">
+      <div class="shelf-title">🔬 Objects to Test</div>
+    </div>
+    <div class="zones-col">
+      <div class="drop-zone float-zone" id="float-zone" data-accept="any">
+        <div class="zone-label">🌊 FLOAT</div>
+        <div style="font-size:10px;color:rgba(0,200,255,0.6);">Stays on top</div>
+        <div class="zone-items" id="float-items"></div>
+      </div>
+      <div class="drop-zone sink-zone" id="sink-zone" data-accept="any">
+        <div class="zone-label">⚡ SINK</div>
+        <div style="font-size:10px;color:rgba(255,171,0,0.6);">Goes to bottom</div>
+        <div class="zone-items" id="sink-items"></div>
+      </div>
+    </div>
+  </div>
+  <div class="score-bar">
+    <div class="score-pill">Predicted: <span id="a1-count">0</span> / 10</div>
+    <div class="btn-row">
+      <button class="btn btn-outline" onclick="resetAct1()">↺ Reset</button>
+      <button class="btn btn-primary" id="a1-check" onclick="checkAct1()" disabled>Check Predictions ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACTIVITY 2: Test -->
+<div class="activity" id="act2">
+  <div class="act-title">🧪 Activity 2 — Test All 15 Objects!</div>
+  <div class="act-sub">Drag each object into the water tank and watch what happens!</div>
+  <div class="drag-area">
+    <div class="obj-grid" id="shelf2"><div class="shelf-title" style="width:100%;font-size:10px;font-weight:700;color:rgba(0,200,255,0.7);text-transform:uppercase;letter-spacing:1px;">Drag to tank →</div></div>
+    <div class="tanks-area">
+      <div class="tank-wrapper">
+        <div style="font-size:11px;font-weight:700;color:var(--c1);text-align:center;font-family:'Orbitron',sans-serif;letter-spacing:1px;">WATER TANK</div>
+        <div class="water-tank" id="water-tank-drop" style="flex:1;min-height:0;">
+          <div class="tank-label">Drop objects here!</div>
+          <div class="water-body"></div>
+          <div class="water-surface"></div>
+          <div id="float-objects" style="position:absolute;top:0;left:0;right:0;bottom:36%;display:flex;flex-wrap:wrap;gap:3px;padding:4px;align-content:flex-end;justify-content:center;"></div>
+          <div id="sink-objects" style="position:absolute;bottom:0;left:0;right:0;height:36%;display:flex;flex-wrap:wrap;gap:3px;padding:4px;align-content:flex-start;justify-content:center;"></div>
+        </div>
+      </div>
+      <div class="tank-wrapper" style="max-width:200px;">
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.7);text-align:center;">Results Log</div>
+        <div class="results-log" id="results-log"></div>
+        <div class="score-pill" style="text-align:center;">Tested: <span id="a2-count" style="color:var(--c1);">0</span>/15</div>
+        <div class="btn-row">
+          <button class="btn btn-outline" onclick="resetAct2()" style="font-size:11px;padding:6px 14px;">↺ Reset</button>
+          <button class="btn btn-primary" id="a2-next" onclick="showAct3()" disabled style="font-size:11px;padding:6px 14px;">Next →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ACTIVITY 3: Boat Builder -->
+<div class="activity" id="act3">
+  <div class="act-title">🚢 Activity 3 — Build a Floating Boat!</div>
+  <div class="act-sub">Drag foil pieces to build your boat, then load it with cargo. Hold as much as possible before it sinks!</div>
+  <div class="drag-area">
+    <div class="parts-shelf" id="parts-shelf">
+      <div class="shelf-title" style="width:100%;font-size:10px;font-weight:700;color:rgba(0,200,255,0.7);text-transform:uppercase;letter-spacing:1px;">🔩 Parts &amp; Cargo</div>
+    </div>
+    <div class="build-area">
+      <div class="boat-stage" id="boat-stage">
+        <div class="boat-water"></div>
+        <div class="boat-surface-line"></div>
+        <div class="boat-platform" id="boat-platform">YOUR BOAT</div>
+        <div class="boat-cargo" id="boat-cargo"></div>
+        <div class="sink-warning" id="sink-warning">⚠️<br>TOO HEAVY!<br>SINKING!</div>
+        <div class="float-success" id="float-success">✅ FLOATING!<br>Great Design!</div>
+      </div>
+      <div class="capacity-meter">
+        <span class="boat-stat">Load: <b id="load-val">0</b> / <b id="cap-val">0</b> units</span>
+        <div class="cap-bar-track"><div class="cap-bar-fill" id="cap-fill" style="width:0%;background:var(--c-green);"></div></div>
+        <span class="cap-label" id="cap-status" style="color:var(--c-green);">Empty</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="resetAct3()">↺ Reset Boat</button>
+        <button class="btn btn-green" id="a3-finish" onclick="showFinalSuccess()" disabled>🏆 Complete!</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- POPUP -->
+<div id="popup">
+  <div class="popup-card">
+    <span class="popup-icon" id="popup-icon">🎉</span>
+    <div class="popup-title" id="popup-title">Excellent Work!</div>
+    <div class="popup-stars" id="popup-stars">⭐⭐⭐</div>
+    <div class="popup-body" id="popup-body">You've completed the activity!</div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="popup-btn" onclick="closePopup()">Continue →</button>
+      <button class="btn btn-outline" id="popup-replay" onclick="playAgain()" style="display:none;">↺ Play Again</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- CONFETTI -->
+<div class="confetti-container" id="confetti"></div>
+
+<script>
+// ============================================================
+// BACKGROUND CANVAS — Chemistry Lab Atmosphere
+// ============================================================
+const cvs=document.getElementById('bg'),ctx=cvs.getContext('2d');
+let W,H,particles=[],bubbles=[],molecules=[];
+function resize(){W=cvs.width=window.innerWidth;H=cvs.height=window.innerHeight;}
+resize();window.addEventListener('resize',resize);
+
+const COLORS=['rgba(0,200,255,','rgba(0,150,255,','rgba(0,240,200,','rgba(200,0,255,','rgba(255,171,0,'];
+
+function initParticles(){
+  particles=[];
+  for(let i=0;i<40;i++){
+    particles.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*2+0.5,
+      vx:(Math.random()-.5)*.4,vy:(Math.random()-.5)*.4,
+      color:COLORS[Math.floor(Math.random()*COLORS.length)],opacity:Math.random()*.5+.1});
+  }
+  bubbles=[];
+  for(let i=0;i<18;i++){
+    bubbles.push({x:Math.random()*W,y:H+Math.random()*H,r:Math.random()*8+3,
+      speed:Math.random()*.8+.3,opacity:Math.random()*.3+.05,wobble:Math.random()*Math.PI*2});
+  }
+  molecules=[];
+  for(let i=0;i<12;i++){
+    molecules.push({x:Math.random()*W,y:Math.random()*H,
+      angle:Math.random()*Math.PI*2,speed:Math.random()*.003+.001,
+      r:Math.random()*18+10,color:COLORS[Math.floor(Math.random()*COLORS.length)]});
+  }
+}
+initParticles();
+
+function drawFlask(x,y,w,h,color,fill){
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.strokeStyle=color+'.5)';ctx.lineWidth=1.5;
+  ctx.beginPath();
+  ctx.moveTo(w*.3,0);ctx.lineTo(w*.7,0);ctx.lineTo(w*.85,h*.4);
+  ctx.lineTo(w,h);ctx.lineTo(0,h);ctx.lineTo(w*.15,h*.4);ctx.closePath();
+  ctx.stroke();
+  ctx.fillStyle=color+'.12)';ctx.fill();
+  const gy=ctx.createLinearGradient(0,h*.5,0,h);
+  gy.addColorStop(0,color+'.25)');gy.addColorStop(1,color+'.4)');
+  ctx.fillStyle=gy;
+  ctx.beginPath();ctx.moveTo(w*.15+(w*.7-w*.15)*(fill),h*.4+(h*.6-h*.4)*(1-fill));
+  if(fill>.5){ctx.moveTo(w*.1+(w*.8-w*.1)*.2,h*.5);ctx.lineTo(w*.9-(w*.9-w*.1)*.2,h*.5);}
+  ctx.rect(w*.02,h*(1-fill*.7),w*.96,h*fill*.68);
+  ctx.fill();
+  ctx.restore();
+}
+
+const flasks=[
+  {x:.04,y:.15,w:50,h:70,color:'rgba(0,255,200,',fill:.65},
+  {x:.88,y:.2,w:40,h:60,color:'rgba(200,0,255,',fill:.5},
+  {x:.92,y:.55,w:36,h:55,color:'rgba(255,171,0,',fill:.4},
+  {x:.05,y:.6,w:44,h:65,color:'rgba(0,150,255,',fill:.7},
+];
+
+let t=0;
+function animBG(){
+  ctx.clearRect(0,0,W,H);
+  // Grid
+  ctx.strokeStyle='rgba(0,200,255,0.04)';ctx.lineWidth=.5;
+  const gs=60;
+  for(let x=0;x<W;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  // Vignette
+  const vg=ctx.createRadialGradient(W/2,H/2,H*.2,W/2,H/2,H*.85);
+  vg.addColorStop(0,'rgba(4,18,42,0)');vg.addColorStop(1,'rgba(2,8,20,0.8)');
+  ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+  // Flasks
+  flasks.forEach(f=>drawFlask(f.x*W,f.y*H,f.w,f.h,f.color,f.fill+Math.sin(t*.5)*.05));
+  // Particles
+  particles.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle=p.color+p.opacity+')';ctx.fill();
+  });
+  // Bubbles
+  bubbles.forEach(b=>{
+    b.y-=b.speed;b.wobble+=.02;b.x+=Math.sin(b.wobble)*.4;
+    if(b.y<-b.r){b.y=H+b.r;b.x=Math.random()*W;}
+    ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+    ctx.strokeStyle='rgba(0,200,255,'+b.opacity+')';ctx.lineWidth=1;ctx.stroke();
+  });
+  // Molecules
+  molecules.forEach(m=>{
+    m.angle+=m.speed;
+    ctx.save();ctx.translate(m.x,m.y);ctx.rotate(m.angle);
+    ctx.beginPath();ctx.arc(0,0,4,0,Math.PI*2);ctx.fillStyle=m.color+'.35)';ctx.fill();
+    for(let i=0;i<3;i++){
+      const a=i*Math.PI*2/3,bx=Math.cos(a)*m.r,by=Math.sin(a)*m.r;
+      ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(bx,by);
+      ctx.strokeStyle=m.color+'.2)';ctx.lineWidth=1;ctx.stroke();
+      ctx.beginPath();ctx.arc(bx,by,3,0,Math.PI*2);
+      ctx.fillStyle=m.color+'.25)';ctx.fill();
+    }
+    ctx.restore();
+  });
+  t+=.016;
+  requestAnimationFrame(animBG);
+}
+animBG();
+
+// ============================================================
+// SHARED DATA
+// ============================================================
+const objects=[
+  {id:'coin',emoji:'🪙',label:'Metal Coin',floats:false,weight:3},
+  {id:'leaf',emoji:'🍃',label:'Dry Leaf',floats:true,weight:1},
+  {id:'ball',emoji:'🎾',label:'Plastic Ball',floats:true,weight:1},
+  {id:'stone',emoji:'🪨',label:'Stone',floats:false,weight:4},
+  {id:'wood',emoji:'🪵',label:'Wood Stick',floats:true,weight:2},
+  {id:'nail',emoji:'🔩',label:'Metal Nail',floats:false,weight:3},
+  {id:'sponge',emoji:'🧽',label:'Sponge',floats:true,weight:1},
+  {id:'marble',emoji:'🔵',label:'Glass Marble',floats:false,weight:3},
+  {id:'bottle',emoji:'🧴',label:'Plastic Cap',floats:true,weight:1},
+  {id:'spoon',emoji:'🥄',label:'Metal Spoon',floats:false,weight:3},
+];
+const objects15=[...objects,
+  {id:'orange',emoji:'🍊',label:'Orange',floats:true,weight:2},
+  {id:'key',emoji:'🗝️',label:'Metal Key',floats:false,weight:3},
+  {id:'balloon',emoji:'🎈',label:'Balloon',floats:true,weight:1},
+  {id:'button',emoji:'🔘',label:'Plastic Button',floats:true,weight:1},
+  {id:'nut',emoji:'🔧',label:'Iron Bolt',floats:false,weight:4},
+];
+const boatParts=[
+  {id:'foil-s',emoji:'🟦',label:'Small Foil',capacity:3,weight:1},
+  {id:'foil-m',emoji:'🟩',label:'Medium Foil',capacity:6,weight:2},
+  {id:'foil-l',emoji:'🟪',label:'Large Foil',capacity:10,weight:3},
+  {id:'tape',emoji:'📎',label:'Tape Strip',capacity:1,weight:0},
+];
+const cargoItems=[
+  {id:'cbolt',emoji:'⚙️',label:'Bolt',weight:3},
+  {id:'cpenny',emoji:'🔶',label:'Penny',weight:2},
+  {id:'csand',emoji:'🪨',label:'Pebble',weight:4},
+  {id:'cmarble',emoji:'🔵',label:'Marble',weight:3},
+  {id:'cleaf',emoji:'🍃',label:'Leaf',weight:1},
+  {id:'cplastic',emoji:'🧩',label:'Plastic Bit',weight:1},
+];
+
+// ============================================================
+// DRAG STATE
+// ============================================================
+let dragEl=null,dragOffX=0,dragOffY=0,ghostEl=null;
+
+function makeDraggable(el){
+  el.addEventListener('mousedown',startDrag);
+  el.addEventListener('touchstart',startDragT,{passive:false});
+}
+function startDrag(e){
+  if(e.button!==0)return;
+  e.preventDefault();
+  initDrag(e.currentTarget,e.clientX,e.clientY);
+  document.addEventListener('mousemove',onDrag);
+  document.addEventListener('mouseup',endDrag);
+}
+function startDragT(e){
+  e.preventDefault();
+  const t=e.touches[0];
+  initDrag(e.currentTarget,t.clientX,t.clientY);
+  document.addEventListener('touchmove',onDragT,{passive:false});
+  document.addEventListener('touchend',endDragT);
+}
+function onDragT(e){e.preventDefault();const t=e.touches[0];onDragMove(t.clientX,t.clientY);}
+function endDragT(e){endDrag();}
+function onDrag(e){onDragMove(e.clientX,e.clientY);}
+
+function initDrag(el,cx,cy){
+  dragEl=el;
+  const r=el.getBoundingClientRect();
+  dragOffX=cx-r.left;dragOffY=cy-r.top;
+  ghostEl=el.cloneNode(true);
+  ghostEl.style.cssText=`position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;z-index:999;pointer-events:none;opacity:.85;transform:rotate(-4deg) scale(1.05);transition:none;`;
+  document.body.appendChild(ghostEl);
+  el.classList.add('dragging');
+}
+function onDragMove(cx,cy){
+  if(!ghostEl)return;
+  ghostEl.style.left=(cx-dragOffX)+'px';
+  ghostEl.style.top=(cy-dragOffY)+'px';
+  document.querySelectorAll('.drop-zone,.water-tank,.boat-stage').forEach(z=>{
+    const r=z.getBoundingClientRect();
+    if(cx>=r.left&&cx<=r.right&&cy>=r.top&&cy<=r.bottom) z.classList.add('over');
+    else z.classList.remove('over');
+  });
+}
+function endDrag(){
+  if(!ghostEl||!dragEl){cleanup();return;}
+  const r=ghostEl.getBoundingClientRect();
+  const cx=r.left+r.width/2,cy=r.top+r.height/2;
+  let handled=false;
+  document.querySelectorAll('.drop-zone,.water-tank,.boat-stage').forEach(z=>{
+    const zr=z.getBoundingClientRect();
+    if(cx>=zr.left&&cx<=zr.right&&cy>=zr.top&&cy<=zr.bottom){
+      handled=dropOn(z,dragEl);
+    }
+  });
+  cleanup();
+}
+function cleanup(){
+  if(ghostEl){ghostEl.remove();ghostEl=null;}
+  if(dragEl){dragEl.classList.remove('dragging');dragEl=null;}
+  document.querySelectorAll('.drop-zone,.water-tank,.boat-stage').forEach(z=>z.classList.remove('over'));
+  document.removeEventListener('mousemove',onDrag);
+  document.removeEventListener('mouseup',endDrag);
+  document.removeEventListener('touchmove',onDragT);
+  document.removeEventListener('touchend',endDragT);
+}
+
+// ============================================================
+// ACTIVITY 1 — Predict
+// ============================================================
+let a1Data={float:[],sink:[]};
+
+function buildAct1(){
+  const shelf=document.getElementById('shelf1');
+  const old=shelf.querySelectorAll('.obj');old.forEach(o=>o.remove());
+  a1Data={float:[],sink:[]};
+  document.getElementById('float-items').innerHTML='';
+  document.getElementById('sink-items').innerHTML='';
+  objects.forEach(o=>{
+    const el=createObj(o,72);
+    shelf.appendChild(el);
+    makeDraggable(el);
+  });
+  updateA1Count();
+}
+
+function createObj(o,size=72){
+  const el=document.createElement('div');
+  el.className='obj';el.dataset.id=o.id;el.dataset.floats=o.floats;
+  el.style.cssText=`width:${size}px;height:${size}px;`;
+  el.innerHTML=`<span style="font-size:${size*.38}px;">${o.emoji}</span><span class="obj-label">${o.label}</span>`;
+  return el;
+}
+
+function dropOn(zone,el){
+  const id=zone.id;
+  // Act 1
+  if(id==='float-zone'||id==='sink-zone'){
+    const objId=el.dataset.id;
+    const container=id==='float-zone'?document.getElementById('float-items'):document.getElementById('sink-items');
+    const otherContainer=id==='float-zone'?document.getElementById('sink-items'):document.getElementById('float-items');
+    // Remove from other if there
+    const existing=otherContainer.querySelector(`[data-id="${objId}"]`);
+    if(existing)existing.remove();
+    // Remove from shelf
+    const shelfEl=document.getElementById('shelf1').querySelector(`[data-id="${objId}"]`);
+    if(shelfEl)shelfEl.remove();
+    // Add ripple
+    addRipple(zone);
+    // Add to zone
+    const clone=el.cloneNode(true);
+    clone.classList.remove('dragging');
+    makeDraggable(clone);
+    // Remove existing in same zone
+    const sameZone=container.querySelector(`[data-id="${objId}"]`);
+    if(sameZone)sameZone.remove();
+    container.appendChild(clone);
+    // Update data
+    if(id==='float-zone'){
+      a1Data.float=a1Data.float.filter(x=>x!==objId);a1Data.float.push(objId);
+      a1Data.sink=a1Data.sink.filter(x=>x!==objId);
+    } else {
+      a1Data.sink=a1Data.sink.filter(x=>x!==objId);a1Data.sink.push(objId);
+      a1Data.float=a1Data.float.filter(x=>x!==objId);
+    }
+    updateA1Count();
+    return true;
+  }
+  // Act 2
+  if(id==='water-tank-drop'){
+    const objId=el.dataset.id;
+    const obj=objects15.find(o=>o.id===objId);
+    if(!obj)return false;
+    const shelfEl=document.getElementById('shelf2').querySelector(`[data-id="${objId}"]`);
+    if(!shelfEl)return false;
+    shelfEl.remove();
+    addRipple(zone);
+    const mini=document.createElement('div');
+    mini.style.cssText=`font-size:20px;padding:2px;animation:dropIn .4s ease;`;
+    mini.textContent=obj.emoji;
+    mini.title=obj.label+(obj.floats?' (Floats)':' (Sinks)');
+    if(obj.floats){
+      document.getElementById('float-objects').appendChild(mini);
+      mini.style.animation='floatUp .8s ease-in-out infinite alternate';
+    } else {
+      mini.style.opacity='.7';
+      document.getElementById('sink-objects').appendChild(mini);
+    }
+    // Log
+    const log=document.getElementById('results-log');
+    const item=document.createElement('div');item.className='log-item';
+    item.innerHTML=`<div class="log-dot ${obj.floats?'float-dot':'sink-dot'}"></div><span>${obj.emoji} ${obj.label}: <b style="color:${obj.floats?'var(--c1)':'var(--c-amber)'}">${obj.floats?'FLOATS':'SINKS'}</b></span>`;
+    log.appendChild(item);log.scrollTop=log.scrollHeight;
+    a2Count++;
+    document.getElementById('a2-count').textContent=a2Count;
+    if(a2Count>=15)document.getElementById('a2-next').disabled=false;
+    showToast(obj.floats?`${obj.emoji} Floats! It's light enough.`:`${obj.emoji} Sinks! It's too heavy.`);
+    return true;
+  }
+  // Act 3
+  if(id==='boat-stage'){
+    if(el.dataset.partid){
+      const shelfEl=document.getElementById('parts-shelf').querySelector(`[data-partid="${el.dataset.partid}"]`);
+      if(shelfEl)shelfEl.remove();
+      addBoatPart(el.dataset.partid);
+    } else if(el.dataset.cargoid){
+      const shelfEl=document.getElementById('parts-shelf').querySelector(`[data-cargoid="${el.dataset.cargoid}"]`);
+      if(shelfEl)shelfEl.remove();
+      addCargo(el.dataset.cargoid);
+    }
+    addRipple(zone);
+    return true;
+  }
+  return false;
+}
+
+function updateA1Count(){
+  const total=a1Data.float.length+a1Data.sink.length;
+  document.getElementById('a1-count').textContent=total;
+  document.getElementById('a1-check').disabled=total<10;
+}
+
+function resetAct1(){buildAct1();}
+
+function checkAct1(){
+  let correct=0;
+  [...a1Data.float].forEach(id=>{
+    const obj=objects.find(o=>o.id===id);
+    const el=document.getElementById('float-items').querySelector(`[data-id="${id}"]`);
+    if(obj&&el){
+      if(obj.floats){el.classList.add('correct');correct++;}
+      else el.classList.add('wrong');
+    }
+  });
+  [...a1Data.sink].forEach(id=>{
+    const obj=objects.find(o=>o.id===id);
+    const el=document.getElementById('sink-items').querySelector(`[data-id="${id}"]`);
+    if(obj&&el){
+      if(!obj.floats){el.classList.add('correct');correct++;}
+      else el.classList.add('wrong');
+    }
+  });
+  const pct=Math.round(correct/10*100);
+  showPopup('🔬',`You got ${correct}/10 correct! (${pct}%)`,
+    correct>=8?'⭐⭐⭐':correct>=5?'⭐⭐':'⭐',
+    correct>=8?`Amazing prediction skills! Your scientific brain is working hard. Let's now actually TEST these objects!`:
+    `Good effort! Science is about testing. Some results might surprise you! Let's test them all now.`,
+    'Start Testing! →',()=>showAct2());
+}
+
+// ============================================================
+// ACTIVITY 2 — Test 15 Objects
+// ============================================================
+let a2Count=0;
+
+function buildAct2(){
+  const shelf=document.getElementById('shelf2');
+  const old=shelf.querySelectorAll('.obj-mini');old.forEach(o=>o.remove());
+  a2Count=0;document.getElementById('a2-count').textContent=0;
+  document.getElementById('results-log').innerHTML='';
+  document.getElementById('float-objects').innerHTML='';
+  document.getElementById('sink-objects').innerHTML='';
+  document.getElementById('a2-next').disabled=true;
+  objects15.forEach(o=>{
+    const el=document.createElement('div');
+    el.className='obj-mini';el.dataset.id=o.id;
+    el.innerHTML=`<span style="font-size:22px;">${o.emoji}</span><span class="obj-label">${o.label}</span>`;
+    shelf.appendChild(el);
+    makeDraggable(el);
+  });
+}
+function resetAct2(){buildAct2();}
+function showAct2(){
+  buildAct2();
+  switchActivity('act2');
+  document.getElementById('step2').className='badge-step active';
+  document.getElementById('sep1').className='step-sep done';
+  document.getElementById('step1').className='badge-step done';
+}
+function showAct3(){
+  showPopup('🧪','All 15 objects tested!','⭐⭐⭐',
+    'You discovered which objects float and which sink. Now comes the BIG challenge — can you engineer a boat from foil that holds maximum cargo?',
+    'Build the Boat! 🚢',()=>{buildAct3();switchActivity('act3');
+    document.getElementById('step3').className='badge-step active';
+    document.getElementById('sep2').className='step-sep done';
+    document.getElementById('step2').className='badge-step done';
+  });
+}
+
+// ============================================================
+// ACTIVITY 3 — Boat Builder
+// ============================================================
+let boatCapacity=0,boatLoad=0,boatPiecesAdded=[];
+
+function buildAct3(){
+  const shelf=document.getElementById('parts-shelf');
+  const old=shelf.querySelectorAll('.obj-mini');old.forEach(o=>o.remove());
+  boatCapacity=0;boatLoad=0;boatPiecesAdded=[];
+  document.getElementById('boat-cargo').innerHTML='';
+  document.getElementById('cap-fill').style.width='0%';
+  document.getElementById('load-val').textContent='0';
+  document.getElementById('cap-val').textContent='0';
+  document.getElementById('boat-platform').textContent='YOUR BOAT';
+  document.getElementById('sink-warning').style.display='none';
+  document.getElementById('float-success').style.display='none';
+  document.getElementById('a3-finish').disabled=true;
+
+  boatParts.forEach(p=>{
+    for(let i=0;i<3;i++){
+      const el=document.createElement('div');
+      el.className='obj-mini';el.dataset.partid=p.id;
+      el.innerHTML=`<span style="font-size:20px;">${p.emoji}</span><span class="obj-label">${p.label}</span>`;
+      shelf.appendChild(el);
+      makeDraggable(el);
+    }
+  });
+  cargoItems.forEach(c=>{
+    const el=document.createElement('div');
+    el.className='obj-mini';el.dataset.cargoid=c.id;
+    el.innerHTML=`<span style="font-size:20px;">${c.emoji}</span><span class="obj-label">${c.label} (${c.weight})</span>`;
+    shelf.appendChild(el);
+    makeDraggable(el);
+  });
+
+}
+
+function addBoatPart(partId){
+  const part=boatParts.find(p=>p.id===partId);
+  if(!part)return;
+  boatPiecesAdded.push(partId);
+  boatCapacity+=part.capacity;
+  document.getElementById('cap-val').textContent=boatCapacity;
+  document.getElementById('boat-platform').textContent=`BOAT (${boatCapacity} capacity)`;
+  updateBoatStatus();
+  addRipple(document.getElementById('boat-stage'));
+  showToast(`${part.emoji} Added! Capacity +${part.capacity}`);
+}
+
+function addCargo(cargoId){
+  if(boatCapacity===0){showToast('⚠️ Add foil pieces to build the boat first!');return;}
+  const cargo=cargoItems.find(c=>c.id===cargoId);
+  if(!cargo)return;
+  boatLoad+=cargo.weight;
+  document.getElementById('load-val').textContent=boatLoad;
+  const span=document.createElement('span');
+  span.className='cargo-item';span.textContent=cargo.emoji;span.title=cargo.label;
+  document.getElementById('boat-cargo').appendChild(span);
+  updateBoatStatus();
+  showToast(`${cargo.emoji} Loaded! +${cargo.weight} weight`);
+}
+
+function updateBoatStatus(){
+  const pct=boatCapacity>0?Math.min(100,Math.round(boatLoad/boatCapacity*100)):100;
+  const fill=document.getElementById('cap-fill');
+  fill.style.width=pct+'%';
+  fill.style.background=pct<60?'var(--c-green)':pct<85?'var(--c-amber)':'var(--c-red)';
+  const status=document.getElementById('cap-status');
+  const warn=document.getElementById('sink-warning');
+  const succ=document.getElementById('float-success');
+  if(boatCapacity===0){status.textContent='No boat yet';status.style.color='rgba(255,255,255,0.4)';return;}
+  if(boatLoad>boatCapacity){
+    warn.style.display='block';succ.style.display='none';
+    status.textContent='SINKING!';status.style.color='var(--c-red)';
+    document.getElementById('a3-finish').disabled=true;
+  } else if(boatLoad>0&&boatLoad<=boatCapacity){
+    warn.style.display='none';succ.style.display='block';
+    status.textContent=`${pct}% loaded`;status.style.color=pct<60?'var(--c-green)':'var(--c-amber)';
+    document.getElementById('a3-finish').disabled=false;
+  } else {
+    warn.style.display='none';succ.style.display='none';
+    status.textContent='Empty';status.style.color='var(--c-green)';
+    document.getElementById('a3-finish').disabled=true;
+  }
+}
+
+function resetAct3(){buildAct3();}
+
+// ============================================================
+// POPUP & SUCCESS
+// ============================================================
+let popupCallback=null;
+
+function showPopup(icon,title,stars,body,btnText,cb){
+  document.getElementById('popup-icon').textContent=icon;
+  document.getElementById('popup-title').textContent=title;
+  document.getElementById('popup-stars').textContent=stars;
+  document.getElementById('popup-body').textContent=body;
+  document.getElementById('popup-btn').textContent=btnText;
+  popupCallback=cb;
+  document.getElementById('popup').classList.add('show');
+}
+function closePopup(){
+  document.getElementById('popup').classList.remove('show');
+  if(popupCallback){popupCallback();popupCallback=null;}
+}
+
+function showFinalSuccess(){
+  launchConfetti();
+  document.getElementById('popup-icon').textContent='🏆';
+  document.getElementById('popup-title').textContent='Brilliant Scientist!';
+  document.getElementById('popup-stars').textContent='🌟🌟🌟🌟🌟';
+  document.getElementById('popup-body').textContent="You predicted, tested, and engineered! You now understand why some things float and others sink. You're a real Water Scientist!";
+  document.getElementById('popup-btn').textContent='🎉 Celebrate!';
+  document.getElementById('popup-replay').style.display='flex';
+  popupCallback=()=>{launchConfetti();setTimeout(()=>document.getElementById('popup-replay').style.display='flex',100);document.getElementById('popup').classList.add('show');};
+  document.getElementById('popup').classList.add('show');
+  document.getElementById('step1').className='badge-step done';
+  document.getElementById('step2').className='badge-step done';
+  document.getElementById('step3').className='badge-step done';
+  document.getElementById('sep1').className='step-sep done';
+  document.getElementById('sep2').className='step-sep done';
+}
+
+function playAgain(){
+  document.getElementById('popup').classList.remove('show');
+  document.getElementById('popup-replay').style.display='none';
+  popupCallback=null;
+  // Reset step indicators
+  document.getElementById('step1').className='badge-step active';
+  document.getElementById('step2').className='badge-step';
+  document.getElementById('step3').className='badge-step';
+  document.getElementById('sep1').className='step-sep';
+  document.getElementById('sep2').className='step-sep';
+  // Rebuild and go back to Activity 1
+  buildAct1();
+  switchActivity('act1');
+  showToast('🔬 Starting fresh — good luck, Scientist!');
+}
+
+function launchConfetti(){
+  const cont=document.getElementById('confetti');
+  cont.innerHTML='';
+  const cols=['#00c8ff','#00ffc8','#c800ff','#ffab00','#ff3d7f','#00e676','#ffffff'];
+  for(let i=0;i<80;i++){
+    const p=document.createElement('div');
+    p.className='confetti-piece';
+    p.style.cssText=`left:${Math.random()*100}%;top:-10px;background:${cols[i%cols.length]};
+      animation-duration:${1.5+Math.random()*2}s;animation-delay:${Math.random()*.8}s;
+      transform:rotate(${Math.random()*360}deg);width:${6+Math.random()*8}px;height:${6+Math.random()*8}px;border-radius:${Math.random()>0.5?'50%':'2px'};`;
+    cont.appendChild(p);
+  }
+  setTimeout(()=>cont.innerHTML='',4000);
+}
+
+// ============================================================
+// RIPPLE & TOAST
+// ============================================================
+function addRipple(zone){
+  const r=document.createElement('div');r.className='ripple';
+  r.style.cssText=`width:40px;height:40px;left:50%;top:50%;margin:-20px;`;
+  zone.appendChild(r);setTimeout(()=>r.remove(),700);
+}
+
+let toastTimer;
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;
+  t.classList.add('show');clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ============================================================
+// SWITCH ACTIVITY
+// ============================================================
+function switchActivity(id){
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ============================================================
+// INIT
+// ============================================================
+buildAct1();
+// Override dropOn for boat-stage touchpoint
+const boatStage=document.getElementById('boat-stage');
+boatStage.addEventListener('mousedown',(e)=>{});
+
+</script>
+</body>
+</html>

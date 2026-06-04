@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generative AI — What Can It Create?</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --v1: #1a0033;
+    --v2: #2d0057;
+    --v3: #5b00a8;
+    --v4: #8b00ff;
+    --v5: #b94fff;
+    --v6: #d98cff;
+    --v7: #ecc6ff;
+    --v8: #f9f0ff;
+    --gold: #ffd700;
+    --pink: #ff6eb4;
+    --cyan: #00e5ff;
+    --green: #39ff7a;
+    --orange: #ff9030;
+    --white: #ffffff;
+    --radius: 18px;
+    --shadow: 0 8px 32px rgba(139,0,255,0.35);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--v1);
+    color: var(--white);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── ANIMATED BACKGROUND ── */
+  #bg-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .page-wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 30px 20px 60px;
+  }
+
+  /* ── HEADER ── */
+  .main-header {
+    text-align: center;
+    margin-bottom: 40px;
+    animation: floatIn .8s ease both;
+  }
+  .main-header .badge {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--v4), var(--pink));
+    color: #fff;
+    font-family: 'Fredoka One', cursive;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 6px 18px;
+    border-radius: 50px;
+    margin-bottom: 14px;
+    box-shadow: 0 0 20px rgba(255,110,180,.5);
+  }
+  .main-header h1 {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(2rem, 5vw, 3.4rem);
+    background: linear-gradient(90deg, var(--v6), var(--cyan), var(--pink), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.1;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 0 18px rgba(185,79,255,.6));
+  }
+  .main-header p {
+    color: var(--v6);
+    font-size: 1.05rem;
+    font-weight: 600;
+  }
+
+  /* ── ACTIVITY TABS ── */
+  .tabs {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 30px;
+  }
+  .tab-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    padding: 10px 22px;
+    border: 2px solid var(--v4);
+    border-radius: 50px;
+    background: transparent;
+    color: var(--v6);
+    cursor: pointer;
+    transition: all .3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .tab-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--v4), var(--pink));
+    opacity: 0;
+    transition: opacity .3s;
+    z-index: -1;
+  }
+  .tab-btn.active, .tab-btn:hover {
+    color: #fff;
+    border-color: var(--v5);
+    box-shadow: 0 0 20px rgba(139,0,255,.5), 0 0 40px rgba(255,110,180,.2);
+    transform: translateY(-2px);
+  }
+  .tab-btn.active::after, .tab-btn:hover::after { opacity: 1; }
+  .tab-btn .tab-num {
+    display: inline-block;
+    background: rgba(255,255,255,.2);
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 22px;
+    font-size: .8rem;
+    margin-right: 6px;
+  }
+
+  /* ── ACTIVITY PANELS ── */
+  .activity-panel {
+    display: none;
+    animation: slideUp .5s ease both;
+  }
+  .activity-panel.active { display: block; }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes floatIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .activity-card {
+    background: linear-gradient(145deg, rgba(45,0,87,.85), rgba(26,0,51,.9));
+    border: 1.5px solid rgba(185,79,255,.3);
+    border-radius: 24px;
+    padding: 30px;
+    box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.06);
+    backdrop-filter: blur(12px);
+  }
+
+  .activity-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.6rem;
+    color: var(--v6);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .activity-title .icon { font-size: 1.8rem; }
+  .activity-desc {
+    color: var(--v7);
+    font-size: .95rem;
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  /* ── SCORE BAR ── */
+  .score-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+    background: rgba(139,0,255,.15);
+    border-radius: 50px;
+    padding: 8px 18px;
+    border: 1px solid rgba(185,79,255,.2);
+  }
+  .score-label { font-weight: 700; font-size: .9rem; color: var(--v6); }
+  .score-val { font-family: 'Fredoka One', cursive; font-size: 1.3rem; color: var(--gold); }
+  .score-star { font-size: 1.2rem; }
+
+  /* ── RESET BTN ── */
+  .reset-btn {
+    margin-left: auto;
+    font-family: 'Fredoka One', cursive;
+    background: linear-gradient(135deg, rgba(139,0,255,.4), rgba(255,110,180,.3));
+    border: 1.5px solid var(--v5);
+    color: var(--v7);
+    padding: 6px 18px;
+    border-radius: 50px;
+    cursor: pointer;
+    font-size: .9rem;
+    transition: all .25s;
+  }
+  .reset-btn:hover {
+    background: linear-gradient(135deg, var(--v4), var(--pink));
+    color: #fff;
+    transform: scale(1.04);
+  }
+
+  /* ── FEEDBACK TOAST ── */
+  .feedback-toast {
+    position: fixed;
+    bottom: 30px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: linear-gradient(135deg, var(--v3), var(--pink));
+    color: #fff;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+    padding: 12px 32px;
+    border-radius: 50px;
+    box-shadow: 0 8px 40px rgba(139,0,255,.6);
+    z-index: 9999;
+    transition: transform .4s cubic-bezier(.34,1.56,.64,1);
+    pointer-events: none;
+  }
+  .feedback-toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ════════════════════════════════
+     ACTIVITY 1 — Sort the Outputs
+  ════════════════════════════════ */
+  .sort-layout {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .drag-pool {
+    flex: 1;
+    min-width: 200px;
+  }
+  .drag-pool-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: .95rem;
+    color: var(--v6);
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  .drag-pool-items {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    min-height: 60px;
+  }
+  .drag-chip {
+    background: linear-gradient(135deg, var(--v3), rgba(185,79,255,.6));
+    border: 1.5px solid var(--v5);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-weight: 700;
+    font-size: .88rem;
+    cursor: grab;
+    user-select: none;
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 14px rgba(139,0,255,.25);
+    position: relative;
+  }
+  .drag-chip:active { cursor: grabbing; transform: scale(1.04) rotate(-1deg); }
+  .drag-chip.dragging {
+    opacity: .5;
+    transform: scale(1.06) rotate(2deg);
+    box-shadow: 0 12px 40px rgba(139,0,255,.6);
+  }
+  .drag-chip.correct {
+    background: linear-gradient(135deg, #1a6b3b, #39ff7a44);
+    border-color: var(--green);
+    cursor: default;
+  }
+  .drag-chip.wrong {
+    background: linear-gradient(135deg, #6b1a1a, #ff444444);
+    border-color: #ff4444;
+    animation: shake .4s;
+  }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)}
+    20%{transform:translateX(-6px)}
+    40%{transform:translateX(6px)}
+    60%{transform:translateX(-4px)}
+    80%{transform:translateX(4px)}
+  }
+
+  .sort-categories {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+    gap: 14px;
+    flex: 2;
+  }
+  .category-zone {
+    border: 2px dashed rgba(185,79,255,.4);
+    border-radius: 16px;
+    padding: 14px;
+    min-height: 130px;
+    transition: all .25s;
+    background: rgba(91,0,168,.1);
+    position: relative;
+  }
+  .category-zone.drag-over {
+    border-color: var(--cyan);
+    background: rgba(0,229,255,.08);
+    box-shadow: 0 0 20px rgba(0,229,255,.2);
+  }
+  .category-zone-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: .9rem;
+    color: var(--v5);
+    margin-bottom: 10px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  .category-zone .drop-items {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .drop-placeholder {
+    text-align: center;
+    color: rgba(185,79,255,.4);
+    font-size: .82rem;
+    margin-top: 10px;
+  }
+
+  /* ════════════════════════════════
+     ACTIVITY 2 — Build a Prompt
+  ════════════════════════════════ */
+  .prompt-builder {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .prompt-display {
+    background: rgba(26,0,51,.8);
+    border: 2px solid rgba(185,79,255,.4);
+    border-radius: 16px;
+    padding: 16px 20px;
+    min-height: 70px;
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--v7);
+    line-height: 1.7;
+    position: relative;
+    transition: all .3s;
+  }
+  .prompt-display.has-content {
+    border-color: var(--v5);
+    box-shadow: 0 0 20px rgba(139,0,255,.3);
+    color: #fff;
+  }
+  .prompt-cursor {
+    display: inline-block;
+    width: 2px; height: 1.1em;
+    background: var(--v5);
+    animation: blink 1s step-end infinite;
+    vertical-align: text-bottom;
+    margin-left: 2px;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .prompt-slots {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .prompt-slot {
+    flex: 1;
+    min-width: 140px;
+    border: 2px dashed rgba(185,79,255,.35);
+    border-radius: 14px;
+    padding: 12px;
+    min-height: 90px;
+    background: rgba(91,0,168,.1);
+    transition: all .25s;
+  }
+  .prompt-slot.drag-over {
+    border-color: var(--gold);
+    background: rgba(255,215,0,.07);
+    box-shadow: 0 0 20px rgba(255,215,0,.2);
+  }
+  .prompt-slot-label {
+    font-size: .78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--v5);
+    margin-bottom: 8px;
+  }
+  .prompt-slot-label span { margin-right: 4px; }
+  .prompt-slot .drop-items { display: flex; flex-direction: column; gap: 5px; }
+
+  .prompt-word-bank {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .prompt-chip {
+    background: linear-gradient(135deg, rgba(185,79,255,.3), rgba(91,0,168,.4));
+    border: 1.5px solid var(--v5);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-weight: 700;
+    font-size: .85rem;
+    cursor: grab;
+    user-select: none;
+    transition: all .2s;
+    box-shadow: 0 3px 12px rgba(139,0,255,.2);
+  }
+  .prompt-chip:hover { background: linear-gradient(135deg, var(--v4), var(--pink)); color: #fff; transform: translateY(-2px); }
+  .prompt-chip:active { cursor: grabbing; }
+  .prompt-chip.correct { background: linear-gradient(135deg, #1a6b3b, #39ff7a33); border-color: var(--green); }
+
+  .generate-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+    background: linear-gradient(135deg, var(--v4), var(--pink));
+    color: #fff;
+    border: none;
+    padding: 14px 32px;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 6px 24px rgba(139,0,255,.45);
+    transition: all .25s;
+    align-self: center;
+  }
+  .generate-btn:hover { transform: translateY(-3px) scale(1.04); box-shadow: 0 10px 35px rgba(139,0,255,.6); }
+  .generate-btn:active { transform: scale(.97); }
+
+  .ai-output-preview {
+    background: linear-gradient(145deg, rgba(45,0,87,.7), rgba(91,0,168,.2));
+    border: 1.5px solid var(--v5);
+    border-radius: 16px;
+    padding: 18px;
+    font-style: italic;
+    color: var(--v7);
+    font-size: .92rem;
+    line-height: 1.6;
+    display: none;
+    animation: fadeIn .5s ease;
+  }
+  .ai-output-preview.visible { display: block; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  .ai-output-preview .ai-tag {
+    font-family: 'Fredoka One', cursive;
+    font-size: .8rem;
+    background: linear-gradient(135deg, var(--v4), var(--pink));
+    color: #fff;
+    padding: 3px 10px;
+    border-radius: 50px;
+    display: inline-block;
+    margin-bottom: 8px;
+    font-style: normal;
+  }
+
+  /* ════════════════════════════════
+     ACTIVITY 3 — True / False Sort
+  ════════════════════════════════ */
+  .tf-layout {
+    display: flex;
+    gap: 16px;
+    flex-direction: column;
+  }
+  .tf-cards-pool {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    min-height: 60px;
+    padding: 8px;
+  }
+  .tf-chip {
+    background: linear-gradient(135deg, rgba(91,0,168,.5), rgba(45,0,87,.8));
+    border: 1.5px solid var(--v5);
+    border-radius: 14px;
+    padding: 12px 18px;
+    font-weight: 700;
+    font-size: .88rem;
+    cursor: grab;
+    user-select: none;
+    transition: all .2s;
+    max-width: 240px;
+    text-align: center;
+    line-height: 1.4;
+    box-shadow: 0 4px 14px rgba(139,0,255,.2);
+  }
+  .tf-chip:active { cursor: grabbing; transform: scale(1.04) rotate(1deg); }
+  .tf-chip.dragging { opacity: .5; }
+  .tf-chip.correct-true { background: linear-gradient(135deg, #1a6b3b, #39ff7a22); border-color: var(--green); cursor: default; }
+  .tf-chip.correct-false { background: linear-gradient(135deg, #6b3b1a, #ff9030aa); border-color: var(--orange); cursor: default; }
+  .tf-chip.wrong-place { animation: shake .4s; border-color: #ff4444; background: linear-gradient(135deg, #6b1a1a, #ff444422); }
+
+  .tf-zones {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .tf-zone {
+    border: 2.5px dashed rgba(185,79,255,.4);
+    border-radius: 20px;
+    padding: 18px;
+    min-height: 160px;
+    transition: all .25s;
+    background: rgba(91,0,168,.08);
+    position: relative;
+    overflow: hidden;
+  }
+  .tf-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity .3s;
+  }
+  .tf-zone.true-zone::before { background: radial-gradient(circle at 50% 50%, rgba(57,255,122,.06) 0%, transparent 70%); }
+  .tf-zone.false-zone::before { background: radial-gradient(circle at 50% 50%, rgba(255,144,48,.06) 0%, transparent 70%); }
+  .tf-zone.drag-over { border-color: var(--cyan); }
+  .tf-zone.drag-over::before { opacity: 1; }
+  .tf-zone-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+  }
+  .tf-zone.true-zone .tf-zone-header { color: var(--green); }
+  .tf-zone.false-zone .tf-zone-header { color: var(--orange); }
+  .tf-zone .drop-items { display: flex; flex-direction: column; gap: 7px; }
+
+  /* ── PROGRESS INDICATOR ── */
+  .progress-wrap {
+    margin-top: 20px;
+    background: rgba(139,0,255,.15);
+    border-radius: 50px;
+    height: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(185,79,255,.2);
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--v4), var(--pink), var(--gold));
+    border-radius: 50px;
+    transition: width .5s cubic-bezier(.34,1.56,.64,1);
+    box-shadow: 0 0 10px rgba(255,215,0,.5);
+  }
+  .progress-label { text-align: center; margin-top: 6px; font-size: .8rem; color: var(--v6); }
+
+  /* ── COMPLETION BANNER ── */
+  .completion-banner {
+    display: none;
+    text-align: center;
+    margin-top: 22px;
+    padding: 18px;
+    background: linear-gradient(135deg, rgba(57,255,122,.15), rgba(255,215,0,.1));
+    border: 2px solid var(--green);
+    border-radius: 18px;
+    animation: fadeIn .6s ease;
+  }
+  .completion-banner.show { display: block; }
+  .completion-banner h3 {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.4rem;
+    color: var(--green);
+    margin-bottom: 4px;
+  }
+  .completion-banner p { color: var(--v7); font-size: .9rem; }
+
+  /* MOBILE */
+  @media (max-width: 600px) {
+    .sort-layout { flex-direction: column; }
+    .tf-zones { grid-template-columns: 1fr; }
+    .prompt-slots { flex-direction: column; }
+    .sort-categories { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ANIMATED BACKGROUND -->
+<canvas id="bg-canvas"></canvas>
+
+<div class="page-wrap">
+
+  <!-- HEADER -->
+  <header class="main-header">
+    <div class="badge">✦ Interactive Learning ✦</div>
+    <h1>Generative AI<br>— What Can It Create? —</h1>
+
+  </header>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab(0)">
+      <span class="tab-num">1</span>Sort the Outputs
+    </button>
+    <button class="tab-btn" onclick="switchTab(1)">
+      <span class="tab-num">2</span>Build a Prompt
+    </button>
+    <button class="tab-btn" onclick="switchTab(2)">
+      <span class="tab-num">3</span>Fact or Fiction?
+    </button>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       ACTIVITY 1 — Sort the AI Outputs
+  ══════════════════════════════════════ -->
+  <div class="activity-panel active" id="panel-0">
+    <div class="activity-card">
+      <div class="activity-title"><span class="icon">🎨</span> Activity 1: Sort the AI Outputs</div>
+      <p class="activity-desc">
+        Drag each item from the pool into the correct AI output category. Generative AI can create text, images, music, code, and more!
+      </p>
+
+      <div class="score-bar">
+        <span class="score-star">⭐</span>
+        <span class="score-label">Score:</span>
+        <span class="score-val" id="a1-score">0</span>
+        <span class="score-label">/ 10</span>
+        <button class="reset-btn" onclick="resetActivity1()">↺ Reset</button>
+      </div>
+
+      <div class="sort-layout">
+        <!-- Drag pool -->
+        <div class="drag-pool">
+          <div class="drag-pool-title">📦 Drag From Here</div>
+          <div class="drag-pool-items" id="a1-pool">
+            <div class="drag-chip" draggable="true" data-id="c1" data-cat="text">📝 A short story</div>
+            <div class="drag-chip" draggable="true" data-id="c2" data-cat="image">🖼️ A cartoon portrait</div>
+            <div class="drag-chip" draggable="true" data-id="c3" data-cat="music">🎵 A pop song melody</div>
+            <div class="drag-chip" draggable="true" data-id="c4" data-cat="code">💻 A Python script</div>
+            <div class="drag-chip" draggable="true" data-id="c5" data-cat="text">📧 An email reply</div>
+            <div class="drag-chip" draggable="true" data-id="c6" data-cat="image">🌄 A fantasy landscape</div>
+            <div class="drag-chip" draggable="true" data-id="c7" data-cat="video">🎬 A short animation</div>
+            <div class="drag-chip" draggable="true" data-id="c8" data-cat="music">🥁 A drum beat</div>
+            <div class="drag-chip" draggable="true" data-id="c9" data-cat="code">🌐 An HTML webpage</div>
+            <div class="drag-chip" draggable="true" data-id="c10" data-cat="video">🎞️ A movie trailer</div>
+          </div>
+        </div>
+
+        <!-- Categories -->
+        <div class="sort-categories">
+          <div class="category-zone" data-cat="text" ondragover="onDragOver(event,this)" ondragleave="onDragLeave(event,this)" ondrop="onDrop1(event,this)">
+            <div class="category-zone-title">📝 Text</div>
+            <div class="drop-items"></div>
+            <div class="drop-placeholder">Drop here</div>
+          </div>
+          <div class="category-zone" data-cat="image" ondragover="onDragOver(event,this)" ondragleave="onDragLeave(event,this)" ondrop="onDrop1(event,this)">
+            <div class="category-zone-title">🖼️ Images</div>
+            <div class="drop-items"></div>
+            <div class="drop-placeholder">Drop here</div>
+          </div>
+          <div class="category-zone" data-cat="music" ondragover="onDragOver(event,this)" ondragleave="onDragLeave(event,this)" ondrop="onDrop1(event,this)">
+            <div class="category-zone-title">🎵 Music</div>
+            <div class="drop-items"></div>
+            <div class="drop-placeholder">Drop here</div>
+          </div>
+          <div class="category-zone" data-cat="code" ondragover="onDragOver(event,this)" ondragleave="onDragLeave(event,this)" ondrop="onDrop1(event,this)">
+            <div class="category-zone-title">💻 Code</div>
+            <div class="drop-items"></div>
+            <div class="drop-placeholder">Drop here</div>
+          </div>
+          <div class="category-zone" data-cat="video" ondragover="onDragOver(event,this)" ondragleave="onDragLeave(event,this)" ondrop="onDrop1(event,this)">
+            <div class="category-zone-title">🎬 Video</div>
+            <div class="drop-items"></div>
+            <div class="drop-placeholder">Drop here</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="progress-wrap" style="margin-top:16px">
+        <div class="progress-bar" id="a1-prog" style="width:0%"></div>
+      </div>
+      <div class="progress-label" id="a1-prog-label">0 of 10 sorted</div>
+
+      <div class="completion-banner" id="a1-complete">
+        <h3>🎉 Brilliant! All sorted!</h3>
+        <p>You know exactly what Generative AI can create. Try Activity 2!</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       ACTIVITY 2 — Build a Prompt
+  ══════════════════════════════════════ -->
+  <div class="activity-panel" id="panel-1">
+    <div class="activity-card">
+      <div class="activity-title"><span class="icon">✍️</span> Activity 2: Build a Prompt</div>
+      <p class="activity-desc">
+        A great AI output starts with a great prompt! Drag the right word tiles into each slot to build a complete, descriptive prompt. Then hit Generate!
+      </p>
+
+      <div class="score-bar">
+        <span class="score-star">⭐</span>
+        <span class="score-label">Score:</span>
+        <span class="score-val" id="a2-score">0</span>
+        <span class="score-label">/ 5</span>
+        <button class="reset-btn" onclick="resetActivity2()">↺ Reset</button>
+      </div>
+
+      <div class="prompt-builder">
+        <!-- Live prompt display -->
+        <div class="prompt-display" id="prompt-display">
+          <span style="color:rgba(185,79,255,.4)">Your prompt will appear here as you build it...</span>
+          <span class="prompt-cursor"></span>
+        </div>
+
+        <!-- Slots -->
+        <div class="prompt-slots">
+          <div class="prompt-slot" data-slot="action" ondragover="onDragOver(event,this)" ondragleave="onDragLeave(event,this)" ondrop="onDrop2(event,this)">
+            <div class="prompt-slot-label"><span>⚡</span> Action (verb)</div>
+            <div class="drop-items"></div>
+            <div class="drop-placeholder" style="font-size:.75rem">What to create?</div>
+          </div>
+          <div class="prompt-slot" data-slot="subject" ondragover="onDragOver(event,this)" ondragleave="onDragLeave(event,this)" ondrop="onDrop2(event,this)">
+            <div class="prompt-slot-label"><span>🎯</span> Subject</div>
+            <div class="drop-items"></div>
+            <div class="drop-placeholder" style="font-size:.75rem">What or who?</div>
+          </div>
+          <div class="prompt-slot" data-slot="style" ondragover="onDragOver(event,this)" ondragleave="onDragLeave(event,this)" ondrop="onDrop2(event,this)">
+            <div class="prompt-slot-label"><span>🎨</span> Style</div>
+            <div class="drop-items"></div>
+            <div class="drop-placeholder" style="font-size:.75rem">What style?</div>
+          </div>
+          <div class="prompt-slot" data-slot="detail" ondragover="onDragOver(event,this)" ondragleave="onDragLeave(event,this)" ondrop="onDrop2(event,this)">
+            <div class="prompt-slot-label"><span>✨</span> Extra detail</div>
+            <div class="drop-items"></div>
+            <div class="drop-placeholder" style="font-size:.75rem">Add detail</div>
+          </div>
+          <div class="prompt-slot" data-slot="mood" ondragover="onDragOver(event,this)" ondragleave="onDragLeave(event,this)" ondrop="onDrop2(event,this)">
+            <div class="prompt-slot-label"><span>🌙</span> Mood/Tone</div>
+            <div class="drop-items"></div>
+            <div class="drop-placeholder" style="font-size:.75rem">What feeling?</div>
+          </div>
+        </div>
+
+        <!-- Word bank -->
+        <div>
+          <div class="drag-pool-title" style="text-align:left;margin-bottom:8px">🃏 Word Bank — drag tiles into slots above:</div>
+          <div class="prompt-word-bank" id="a2-bank">
+            <div class="prompt-chip" draggable="true" data-id="p1" data-slot="action">Generate</div>
+            <div class="prompt-chip" draggable="true" data-id="p2" data-slot="subject">a dragon</div>
+            <div class="prompt-chip" draggable="true" data-id="p3" data-slot="style">in watercolour style</div>
+            <div class="prompt-chip" draggable="true" data-id="p4" data-slot="detail">with glowing eyes</div>
+            <div class="prompt-chip" draggable="true" data-id="p5" data-slot="mood">mysterious atmosphere</div>
+            <div class="prompt-chip" draggable="true" data-id="px1" data-slot="action">Write</div>
+            <div class="prompt-chip" draggable="true" data-id="px2" data-slot="subject">a robot</div>
+            <div class="prompt-chip" draggable="true" data-id="px3" data-slot="style">in pixel art style</div>
+            <div class="prompt-chip" draggable="true" data-id="px4" data-slot="detail">in outer space</div>
+            <div class="prompt-chip" draggable="true" data-id="px5" data-slot="mood">epic and bold</div>
+          </div>
+        </div>
+
+        <button class="generate-btn" onclick="generatePrompt()">🚀 Generate AI Output Preview!</button>
+
+        <div class="ai-output-preview" id="ai-preview">
+          <div class="ai-tag">🤖 AI Output Preview</div>
+          <div id="ai-preview-text"></div>
+        </div>
+      </div>
+
+      <div class="completion-banner" id="a2-complete">
+        <h3>🌟 Prompt Master!</h3>
+        <p>You've learned how to craft powerful AI prompts. Try Activity 3!</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       ACTIVITY 3 — Fact or Fiction?
+  ══════════════════════════════════════ -->
+  <div class="activity-panel" id="panel-2">
+    <div class="activity-card">
+      <div class="activity-title"><span class="icon">🔍</span> Activity 3: Fact or Fiction?</div>
+      <p class="activity-desc">
+        Drag each statement about Generative AI to the correct zone — <b style="color:var(--green)">TRUE</b> or <b style="color:var(--orange)">FALSE</b>. Test your AI knowledge!
+      </p>
+
+      <div class="score-bar">
+        <span class="score-star">⭐</span>
+        <span class="score-label">Score:</span>
+        <span class="score-val" id="a3-score">0</span>
+        <span class="score-label">/ 8</span>
+        <button class="reset-btn" onclick="resetActivity3()">↺ Reset</button>
+      </div>
+
+      <div class="tf-layout">
+        <!-- Card pool -->
+        <div class="tf-cards-pool" id="a3-pool">
+          <div class="tf-chip" draggable="true" data-id="t1" data-answer="true">AI can generate realistic images from text descriptions</div>
+          <div class="tf-chip" draggable="true" data-id="t2" data-answer="false">AI always understands every question perfectly</div>
+          <div class="tf-chip" draggable="true" data-id="t3" data-answer="true">AI can compose original music and sound effects</div>
+          <div class="tf-chip" draggable="true" data-id="t4" data-answer="false">AI-generated content is always 100% accurate</div>
+          <div class="tf-chip" draggable="true" data-id="t5" data-answer="true">AI can write and debug computer code</div>
+          <div class="tf-chip" draggable="true" data-id="t6" data-answer="false">AI creates art completely on its own without human input</div>
+          <div class="tf-chip" draggable="true" data-id="t7" data-answer="true">AI learns patterns from large amounts of training data</div>
+          <div class="tf-chip" draggable="true" data-id="t8" data-answer="false">AI has real feelings and consciousness</div>
+        </div>
+
+        <!-- Drop zones -->
+        <div class="tf-zones">
+          <div class="tf-zone true-zone" ondragover="onDragOver(event,this)" ondragleave="onDragLeave(event,this)" ondrop="onDrop3(event,this,'true')">
+            <div class="tf-zone-header">✅ TRUE — Generative AI CAN do this</div>
+            <div class="drop-items"></div>
+          </div>
+          <div class="tf-zone false-zone" ondragover="onDragOver(event,this)" ondragleave="onDragLeave(event,this)" ondrop="onDrop3(event,this,'false')">
+            <div class="tf-zone-header">❌ FALSE — This is a myth!</div>
+            <div class="drop-items"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-bar" id="a3-prog" style="width:0%"></div>
+      </div>
+      <div class="progress-label" id="a3-prog-label">0 of 8 sorted</div>
+
+      <div class="completion-banner" id="a3-complete">
+        <h3>🏆 AI Expert Unlocked!</h3>
+        <p>You can separate AI facts from fiction — you're a Generative AI pro!</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end .page-wrap -->
+
+<!-- FEEDBACK TOAST -->
+<div class="feedback-toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════
+   ANIMATED CANVAS BACKGROUND
+══════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H;
+  const particles = [];
+  const COLORS = ['#8b00ff','#b94fff','#d98cff','#ff6eb4','#00e5ff','#ffd700'];
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // Floating orbs
+  for (let i = 0; i < 28; i++) {
+    particles.push({
+      x: Math.random() * 1000,
+      y: Math.random() * 1000,
+      r: 1 + Math.random() * 3,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      alpha: 0.3 + Math.random() * 0.6,
+      pulse: Math.random() * Math.PI * 2,
+      glow: 4 + Math.random() * 10
+    });
+  }
+
+  // Twinkle stars
+  const stars = [];
+  for (let i = 0; i < 80; i++) {
+    stars.push({
+      x: Math.random() * 1400, y: Math.random() * 900,
+      r: 0.5 + Math.random() * 1.5,
+      alpha: Math.random(),
+      speed: 0.004 + Math.random() * 0.012,
+      phase: Math.random() * Math.PI * 2
+    });
+  }
+
+  function drawHexGrid() {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(139,0,255,0.04)';
+    ctx.lineWidth = 1;
+    const s = 50;
+    for (let row = 0; row < H / s + 2; row++) {
+      for (let col = 0; col < W / (s * 1.73) + 2; col++) {
+        const cx = col * s * 1.73 + (row % 2 === 0 ? 0 : s * 0.865);
+        const cy = row * s * 0.75;
+        ctx.beginPath();
+        for (let a = 0; a < 6; a++) {
+          const angle = (Math.PI / 3) * a - Math.PI / 6;
+          const px = cx + s * 0.46 * Math.cos(angle);
+          const py = cy + s * 0.46 * Math.sin(angle);
+          a === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  let t = 0;
+  function animate() {
+    requestAnimationFrame(animate);
+    t += 0.012;
+
+    // Background gradient
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, '#1a0033');
+    grad.addColorStop(0.5, '#0d001a');
+    grad.addColorStop(1, '#2d0057');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    drawHexGrid();
+
+    // Stars
+    stars.forEach(s => {
+      s.phase += s.speed;
+      const a = (Math.sin(s.phase) + 1) / 2 * 0.8;
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.fillStyle = '#d98cff';
+      ctx.shadowBlur = 4;
+      ctx.shadowColor = '#b94fff';
+      ctx.beginPath();
+      ctx.arc(s.x % W, s.y % H, s.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // Floating orbs
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.pulse += 0.025;
+      if (p.x < 0) p.x = W;
+      if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H;
+      if (p.y > H) p.y = 0;
+
+      const glowSize = p.glow + Math.sin(p.pulse) * 4;
+      ctx.save();
+      ctx.globalAlpha = p.alpha * (0.7 + Math.sin(p.pulse) * 0.3);
+      ctx.shadowBlur = glowSize * 3;
+      ctx.shadowColor = p.color;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r + Math.sin(p.pulse) * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // Flowing waves
+    for (let w = 0; w < 3; w++) {
+      ctx.save();
+      ctx.globalAlpha = 0.03 + w * 0.01;
+      ctx.strokeStyle = w === 0 ? '#8b00ff' : w === 1 ? '#ff6eb4' : '#00e5ff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += 4) {
+        const y = H * (0.3 + w * 0.2) + Math.sin(x * 0.008 + t + w * 1.5) * 30 + Math.sin(x * 0.015 - t * 0.7) * 18;
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+  animate();
+})();
+
+/* ══════════════════════════════════════
+   TAB SWITCHING
+══════════════════════════════════════ */
+function switchTab(idx) {
+  document.querySelectorAll('.activity-panel').forEach((p, i) => {
+    p.classList.toggle('active', i === idx);
+  });
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', i === idx);
+  });
+}
+
+/* ══════════════════════════════════════
+   TOAST NOTIFICATION
+══════════════════════════════════════ */
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ══════════════════════════════════════
+   DRAG HELPERS
+══════════════════════════════════════ */
+let dragEl = null;
+document.addEventListener('dragstart', e => {
+  dragEl = e.target.closest('[draggable="true"]');
+  if (dragEl) {
+    dragEl.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', dragEl.dataset.id);
+  }
+});
+document.addEventListener('dragend', e => {
+  document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  dragEl = null;
+});
+
+function onDragOver(e, zone) {
+  e.preventDefault();
+  zone.classList.add('drag-over');
+}
+function onDragLeave(e, zone) {
+  if (!zone.contains(e.relatedTarget)) zone.classList.remove('drag-over');
+}
+
+/* ══════════════════════════════════════
+   ACTIVITY 1 — Sort the Outputs
+══════════════════════════════════════ */
+let a1Score = 0;
+const a1Correct = new Set();
+
+function onDrop1(e, zone) {
+  e.preventDefault();
+  zone.classList.remove('drag-over');
+  if (!dragEl) return;
+  const chip = dragEl;
+  const chipCat = chip.dataset.cat;
+  const zoneCat = zone.dataset.cat;
+  const id = chip.dataset.id;
+  if (a1Correct.has(id)) return;
+
+  if (chipCat === zoneCat) {
+    chip.classList.add('correct');
+    chip.draggable = false;
+    zone.querySelector('.drop-items').appendChild(chip);
+    a1Correct.add(id);
+    a1Score++;
+    document.getElementById('a1-score').textContent = a1Score;
+    updateProgress('a1-prog', 'a1-prog-label', a1Score, 10);
+    showToast('✅ Correct! +1 point');
+    if (a1Score === 10) {
+      document.getElementById('a1-complete').classList.add('show');
+      showToast('🎉 All sorted! Activity complete!');
+    }
+  } else {
+    chip.classList.add('wrong');
+    setTimeout(() => chip.classList.remove('wrong'), 600);
+    showToast('❌ Try another category!');
+  }
+}
+
+function updateProgress(barId, labelId, val, total) {
+  document.getElementById(barId).style.width = (val / total * 100) + '%';
+  document.getElementById(labelId).textContent = `${val} of ${total} sorted`;
+}
+
+function resetActivity1() {
+  a1Score = 0;
+  a1Correct.clear();
+  document.getElementById('a1-score').textContent = '0';
+  updateProgress('a1-prog', 'a1-prog-label', 0, 10);
+  document.getElementById('a1-complete').classList.remove('show');
+  document.querySelectorAll('#panel-0 .category-zone .drop-items').forEach(d => d.innerHTML = '');
+  document.querySelectorAll('#panel-0 [data-id]').forEach(el => {
+    el.classList.remove('correct', 'wrong');
+    el.draggable = true;
+    document.getElementById('a1-pool').appendChild(el);
+  });
+}
+
+/* ══════════════════════════════════════
+   ACTIVITY 2 — Build a Prompt
+══════════════════════════════════════ */
+let a2Score = 0;
+const a2Filled = {};
+
+function onDrop2(e, slot) {
+  e.preventDefault();
+  slot.classList.remove('drag-over');
+  if (!dragEl) return;
+  const chip = dragEl;
+  const chipSlot = chip.dataset.slot;
+  const zoneSlot = slot.dataset.slot;
+
+  if (chipSlot === zoneSlot) {
+    // Remove existing chip in slot
+    const existing = slot.querySelector('.drop-items .prompt-chip');
+    if (existing) {
+      document.getElementById('a2-bank').appendChild(existing);
+      existing.classList.remove('correct');
+      existing.draggable = true;
+    }
+    chip.classList.add('correct');
+    chip.draggable = false;
+    slot.querySelector('.drop-items').appendChild(chip);
+    a2Filled[zoneSlot] = chip.textContent;
+    updatePromptDisplay();
+    const filled = Object.keys(a2Filled).length;
+    a2Score = filled;
+    document.getElementById('a2-score').textContent = a2Score;
+    showToast('✅ Great choice! Prompt building...');
+    if (filled === 5) {
+      document.getElementById('a2-complete').classList.add('show');
+    }
+  } else {
+    chip.classList.add('wrong');
+    setTimeout(() => chip.classList.remove('wrong'), 600);
+    showToast('🤔 That tile goes in a different slot!');
+  }
+}
+
+function updatePromptDisplay() {
+  const slots = ['action','subject','style','detail','mood'];
+  const parts = slots.map(s => a2Filled[s]).filter(Boolean);
+  const disp = document.getElementById('prompt-display');
+  if (parts.length === 0) {
+    disp.innerHTML = '<span style="color:rgba(185,79,255,.4)">Your prompt will appear here as you build it...</span><span class="prompt-cursor"></span>';
+    disp.classList.remove('has-content');
+  } else {
+    disp.innerHTML = '🎯 <strong>' + parts.join(' ') + '</strong> <span class="prompt-cursor"></span>';
+    disp.classList.add('has-content');
+  }
+}
+
+function generatePrompt() {
+  const slots = ['action','subject','style','detail','mood'];
+  const parts = slots.map(s => a2Filled[s]).filter(Boolean);
+  if (parts.length < 3) { showToast('💡 Fill at least 3 slots first!'); return; }
+
+  const previews = {
+    'dragon': `🐉 Here's an AI image prompt result: A magnificent dragon emerges from swirling mist, scales shimmering with an iridescent violet glow. Watercolour washes blend seamlessly into the background. The dragon's luminous eyes pierce through the mysterious atmosphere, conveying ancient wisdom and power.`,
+    'robot': `🤖 Here's an AI image prompt result: A retro-futuristic robot floats among neon-lit pixel asteroids in outer space. Each movement is rendered in crisp 8-bit style. The bold colours and geometric forms create an epic, iconic composition perfect for a game poster.`
+  };
+
+  const prompt = parts.join(' ').toLowerCase();
+  let preview = previews.dragon;
+  if (prompt.includes('robot') || prompt.includes('pixel')) preview = previews.robot;
+
+  const previewEl = document.getElementById('ai-preview');
+  document.getElementById('ai-preview-text').textContent = preview;
+  previewEl.classList.add('visible');
+  showToast('🚀 AI output generated!');
+}
+
+function resetActivity2() {
+  a2Score = 0;
+  Object.keys(a2Filled).forEach(k => delete a2Filled[k]);
+  document.getElementById('a2-score').textContent = '0';
+  document.getElementById('a2-complete').classList.remove('show');
+  document.getElementById('ai-preview').classList.remove('visible');
+  document.querySelectorAll('#panel-1 .prompt-slot .drop-items').forEach(d => {
+    d.querySelectorAll('.prompt-chip').forEach(c => {
+      c.classList.remove('correct','wrong');
+      c.draggable = true;
+      document.getElementById('a2-bank').appendChild(c);
+    });
+  });
+  updatePromptDisplay();
+}
+
+/* ══════════════════════════════════════
+   ACTIVITY 3 — Fact or Fiction?
+══════════════════════════════════════ */
+let a3Score = 0;
+const a3Done = new Set();
+
+function onDrop3(e, zone, zoneAnswer) {
+  e.preventDefault();
+  zone.classList.remove('drag-over');
+  if (!dragEl) return;
+  const chip = dragEl;
+  const id = chip.dataset.id;
+  if (a3Done.has(id)) return;
+  const chipAnswer = chip.dataset.answer;
+
+  if (chipAnswer === zoneAnswer) {
+    chip.classList.add(zoneAnswer === 'true' ? 'correct-true' : 'correct-false');
+    chip.draggable = false;
+    zone.querySelector('.drop-items').appendChild(chip);
+    a3Done.add(id);
+    a3Score++;
+    document.getElementById('a3-score').textContent = a3Score;
+    updateProgress('a3-prog', 'a3-prog-label', a3Score, 8);
+    showToast(zoneAnswer === 'true' ? '✅ That\'s TRUE! Well done!' : '✅ That\'s FALSE! Great thinking!');
+    if (a3Score === 8) {
+      document.getElementById('a3-complete').classList.add('show');
+      showToast('🏆 All done! You\'re an AI expert!');
+    }
+  } else {
+    chip.classList.add('wrong-place');
+    setTimeout(() => chip.classList.remove('wrong-place'), 600);
+    showToast('🤔 Not quite — think again!');
+  }
+}
+
+function resetActivity3() {
+  a3Score = 0;
+  a3Done.clear();
+  document.getElementById('a3-score').textContent = '0';
+  updateProgress('a3-prog', 'a3-prog-label', 0, 8);
+  document.getElementById('a3-complete').classList.remove('show');
+  const pool = document.getElementById('a3-pool');
+  document.querySelectorAll('#panel-2 [data-id]').forEach(el => {
+    el.classList.remove('correct-true','correct-false','wrong-place');
+    el.draggable = true;
+    pool.appendChild(el);
+  });
+}
+
+/* ══════════════════════════════════════
+   MOBILE TOUCH SUPPORT (simple)
+══════════════════════════════════════ */
+(function() {
+  let touchChip = null, clone = null, offsetX = 0, offsetY = 0;
+
+  function getDropTarget(x, y) {
+    const els = document.elementsFromPoint(x, y);
+    return els.find(el =>
+      el.classList.contains('category-zone') ||
+      el.classList.contains('prompt-slot') ||
+      el.classList.contains('tf-zone')
+    );
+  }
+
+  document.addEventListener('touchstart', e => {
+    const target = e.target.closest('[draggable="true"]');
+    if (!target) return;
+    touchChip = target;
+    const rect = touchChip.getBoundingClientRect();
+    const touch = e.touches[0];
+    offsetX = touch.clientX - rect.left;
+    offsetY = touch.clientY - rect.top;
+
+    clone = touchChip.cloneNode(true);
+    clone.style.cssText = `position:fixed;z-index:9998;opacity:.85;pointer-events:none;width:${rect.width}px;transform:scale(1.05) rotate(2deg);left:${rect.left}px;top:${rect.top}px;`;
+    document.body.appendChild(clone);
+    e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener('touchmove', e => {
+    if (!clone) return;
+    const touch = e.touches[0];
+    clone.style.left = (touch.clientX - offsetX) + 'px';
+    clone.style.top  = (touch.clientY - offsetY) + 'px';
+    e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener('touchend', e => {
+    if (!clone || !touchChip) return;
+    const touch = e.changedTouches[0];
+    clone.remove(); clone = null;
+
+    const dropTarget = getDropTarget(touch.clientX, touch.clientY);
+    if (!dropTarget) { touchChip = null; return; }
+
+    dragEl = touchChip;
+    if (dropTarget.classList.contains('category-zone')) onDrop1({ preventDefault:()=>{} }, dropTarget);
+    else if (dropTarget.classList.contains('prompt-slot')) onDrop2({ preventDefault:()=>{} }, dropTarget);
+    else if (dropTarget.classList.contains('tf-zone')) {
+      const answer = dropTarget.classList.contains('true-zone') ? 'true' : 'false';
+      onDrop3({ preventDefault:()=>{} }, dropTarget, answer);
+    }
+    touchChip = null; dragEl = null;
+  }, { passive: false });
+})();
+</script>
+</body>
+</html>

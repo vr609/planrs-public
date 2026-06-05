@@ -485,6 +485,23 @@ html,body{
   </div>
 </div>
 
+<!-- CONGRATULATIONS OVERLAY -->
+<div id="congrOverlay" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.88);backdrop-filter:blur(14px);flex-direction:column;align-items:center;justify-content:center;">
+  <canvas id="congrCanvas" style="position:absolute;inset:0;pointer-events:none;"></canvas>
+  <div id="congrBox" style="position:relative;background:linear-gradient(135deg,rgba(18,30,50,0.99),rgba(10,20,38,0.99));border:2px solid var(--amber);border-radius:8px;padding:40px 48px;max-width:460px;width:92%;text-align:center;box-shadow:0 0 80px rgba(245,166,35,0.4),0 0 160px rgba(0,212,232,0.2);">
+    <div style="font-size:4rem;margin-bottom:12px;animation:popBounce 1s ease-in-out infinite;">🏆</div>
+    <h2 style="font-family:'Orbitron',monospace;font-size:1.4rem;font-weight:900;background:linear-gradient(90deg,var(--amber),#fff,var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:10px;letter-spacing:0.08em;">CONGRATULATIONS!</h2>
+    <p style="font-family:'Rajdhani',sans-serif;font-size:1rem;color:rgba(232,240,248,0.85);line-height:1.7;margin-bottom:16px;">🎉 Outstanding work, Engineer! You've completed all 3 modules and mastered the perimeter of irregular shapes — just like a real construction surveyor!</p>
+    <div style="background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.35);border-radius:4px;padding:12px 16px;margin-bottom:24px;font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--cyan);text-align:left;line-height:1.8;">
+      <span style="color:var(--amber);font-weight:700;">✓ MODULE 1:</span> Side Placement Drill — Complete!<br>
+      <span style="color:var(--amber);font-weight:700;">✓ MODULE 2:</span> Floor Measurement Sim — Complete!<br>
+      <span style="color:var(--amber);font-weight:700;">✓ MODULE 3:</span> Grid Perimeter Puzzle — Complete!<br>
+      <span style="color:var(--lime);font-weight:700;">⬡ ENGINEERING BADGE EARNED!</span>
+    </div>
+    <button class="eng-btn" id="playAgainBtn" style="font-size:0.75rem;padding:12px 36px;background:rgba(245,166,35,0.2);box-shadow:0 0 20px rgba(245,166,35,0.3);">▶ PLAY AGAIN</button>
+  </div>
+</div>
+
 <!-- POPUP -->
 <div id="popOverlay">
   <div id="popup">
@@ -956,42 +973,54 @@ function buildAct3(){
     </div>
   </div>`;
 
-  act3Placed={};
-  // Build shuffled step chips
+  act3Placed={};   // slotIndex -> chipId that was placed there
+  const act3UsedChips=new Set(); // chipIds already consumed
+
+  // Build shuffled step chips — each chip carries its unique id
   const chipArea=document.getElementById('stepChips');
-  [...gridShape.sidesList].sort(()=>Math.random()-0.5).forEach((s,ci)=>{
+  [...gridShape.sidesList].sort(()=>Math.random()-0.5).forEach((s)=>{
     const chip=document.createElement('div');chip.className='step-chip';chip.id='sc-'+s.id;
-    chip.dataset.id=s.id;chip.textContent=s.len;
+    chip.dataset.id=s.id;chip.dataset.val=s.val;chip.textContent=s.len;
     chip.draggable=true;
-    chip.addEventListener('dragstart',e=>{dragId=s.id+'|step';chip.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+    chip.addEventListener('dragstart',e=>{
+      // Don't allow dragging already-used chips
+      if(act3UsedChips.has(s.id)){e.preventDefault();return;}
+      dragId=s.id+'|step';chip.classList.add('dragging');e.dataTransfer.effectAllowed='move';
+    });
     chip.addEventListener('dragend',()=>chip.classList.remove('dragging'));
     chipArea.appendChild(chip);
   });
 
-  // Build slots
+  // Build slots — each slot accepts ANY unused chip whose value matches this slot's expected value
   const track=document.getElementById('stepsTrack');
   gridShape.sidesList.forEach((s,i)=>{
     const slot=document.createElement('div');slot.className='step-slot';slot.id='ss-'+i;slot.dataset.slot=i;
     slot.innerHTML=`<span class="step-slot-num">${i+1}</span><span class="step-slot-content" id="ssc-${i}">Drop here...</span>`;
     makeDropTarget(slot,(id)=>{
       if(!id)return;
+      if(act3Placed[i])return; // slot already filled
+
       const [sid]=id.split('|');
-      const expectedId=gridShape.sidesList[i].id;
-      const sData=gridShape.sidesList.find(x=>x.id===sid);
-      if(!sData)return;
-      if(sid===expectedId){
+      if(act3UsedChips.has(sid)){
+        flash('That chip is already placed!','var(--red-warn)');return;
+      }
+      const droppedChip=gridShape.sidesList.find(x=>x.id===sid);
+      if(!droppedChip)return;
+
+      // Accept if value matches — either chip with the same measurement is valid
+      if(droppedChip.val===s.val){
         slot.classList.add('ok');slot.classList.remove('err');
-        document.getElementById('ssc-'+i).textContent=sData.desc;
+        document.getElementById('ssc-'+i).textContent=s.desc;
         document.getElementById('ssc-'+i).classList.add('filled');
         const chip=document.getElementById('sc-'+sid);if(chip)chip.style.visibility='hidden';
         act3Placed[i]=sid;
-        // Highlight that side on SVG
+        act3UsedChips.add(sid);
         highlightGridSide(i);
         burstAt(slot.getBoundingClientRect().left+60,slot.getBoundingClientRect().top+17,10,35);
         updateAct3Total();
       } else {
         slot.classList.add('err');setTimeout(()=>slot.classList.remove('err'),400);
-        flash('Wrong position! Check the sequence.','var(--red-warn)');
+        flash('Wrong measurement! Check the sequence.','var(--red-warn)');
       }
     });
     track.appendChild(slot);
@@ -1027,20 +1056,59 @@ function updateAct3Total(){
   },0);
   document.getElementById('act3Total').textContent=filled===gridShape.sidesList.length?total+' m':'? m';
   document.getElementById('checkBtn3').disabled=filled!==gridShape.sidesList.length;
+  // Auto-trigger congratulations when all slots are filled
+  if(filled===gridShape.sidesList.length){
+    setTimeout(doAct3Check,600);
+  }
 }
 
 function doAct3Check(){
   burstAt(innerWidth/2,innerHeight/2,50,35);
   setTimeout(()=>{
-    showPopup({
-      icon:'🏆',title:'PROJECT COMPLETE!',
-      body:'Outstanding work, engineer! You sequenced every measurement step perfectly and calculated the full perimeter of the irregular site plan — just like a real construction surveyor!',
-      fact:`<span class="hl">PERIMETER SEQUENCE:</span><br>${gridShape.sidesList.map(s=>s.val).join(' + ')} = <span class="hl">${gridShape.total} m</span><br>Remember: Always walk every edge and add every side — no shortcut!`,
-      btn:'🏆 PLAY AGAIN',
-      final:true,
-      onCont:()=>startActivity(1)
-    });
+    // Show congratulations overlay
+    const overlay=document.getElementById('congrOverlay');
+    overlay.style.display='flex';
+    // Run confetti on the congr canvas
+    const cc=document.getElementById('congrCanvas');
+    cc.width=window.innerWidth;cc.height=window.innerHeight;
+    runCongrConfetti(cc);
+    // Extra bursts
+    for(let i=0;i<6;i++){
+      setTimeout(()=>burstAt(Math.random()*innerWidth,Math.random()*innerHeight,30,Math.random()<0.5?35:190),i*200);
+    }
+    // Play again button
+    document.getElementById('playAgainBtn').onclick=()=>{
+      overlay.style.display='none';
+      startActivity(1);
+    };
   },700);
+}
+
+function runCongrConfetti(c){
+  const ctx=c.getContext('2d');
+  const bits=Array.from({length:120},()=>({
+    x:Math.random()*c.width,y:Math.random()*c.height-c.height*0.5,
+    w:Math.random()*10+4,h:Math.random()*6+2,
+    col:`hsl(${Math.random()*360},90%,60%)`,
+    rot:Math.random()*360,vr:(Math.random()-0.5)*8,vy:Math.random()*3.5+1.5,
+    vx:(Math.random()-0.5)*2
+  }));
+  let running=true;
+  const cf=()=>{
+    if(!running)return;
+    ctx.clearRect(0,0,c.width,c.height);
+    bits.forEach(b=>{
+      b.y+=b.vy;b.x+=b.vx;b.rot+=b.vr;
+      if(b.y>c.height+20){b.y=-20;b.x=Math.random()*c.width;}
+      ctx.save();ctx.translate(b.x,b.y);ctx.rotate(b.rot*Math.PI/180);
+      ctx.fillStyle=b.col;ctx.globalAlpha=0.82;ctx.fillRect(-b.w/2,-b.h/2,b.w,b.h);ctx.restore();
+    });
+    requestAnimationFrame(cf);
+  };
+  cf();
+  // Stop confetti after overlay is hidden
+  const obs=new MutationObserver(()=>{if(document.getElementById('congrOverlay').style.display==='none'){running=false;obs.disconnect();}});
+  obs.observe(document.getElementById('congrOverlay'),{attributes:true,attributeFilter:['style']});
 }
 
 // ======================================================

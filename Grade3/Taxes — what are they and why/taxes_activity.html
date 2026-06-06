@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TAXES – WHAT ARE THEY AND WHY?</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --v1: #2D1B69; --v2: #4A2580; --v3: #6B35A8; --v4: #9B59D0;
+    --v5: #C084FC; --v6: #E9D5FF; --v7: #F5F0FF;
+    --acc: #FFD700; --acc2: #FF6B9D; --acc3: #00E5FF;
+    --white: #fff; --text: #1a0040;
+  }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--v1);
+    color: var(--white);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  canvas#bgCanvas {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none; z-index: 0;
+  }
+
+  .page-wrap {
+    position: relative; z-index: 1;
+    max-width: 960px; margin: 0 auto;
+    padding: 0 1.5rem 4rem;
+  }
+
+  /* HEADER */
+  .hero {
+    text-align: center;
+    padding: 2.5rem 1rem 1.5rem;
+  }
+  .hero h1 {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    background: linear-gradient(135deg, var(--acc), var(--v5), var(--acc3));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 2px 12px rgba(192,132,252,0.5));
+    line-height: 1.2;
+    letter-spacing: 1px;
+  }
+  .hero-coins {
+    display: flex; justify-content: center; gap: 0.5rem; margin-top: 0.8rem;
+    font-size: 1.6rem;
+    animation: coinBounce 2s ease-in-out infinite;
+  }
+  @keyframes coinBounce {
+    0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)}
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex; gap: 0.5rem; justify-content: center;
+    flex-wrap: wrap; margin: 1.5rem 0 2rem;
+  }
+  .tab-btn {
+    background: rgba(107,53,168,0.4);
+    border: 2px solid var(--v4);
+    color: var(--v6);
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.05rem;
+    padding: 0.55rem 1.4rem;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(6px);
+  }
+  .tab-btn:hover { background: var(--v3); transform: translateY(-2px); }
+  .tab-btn.active {
+    background: var(--v4);
+    border-color: var(--acc);
+    color: var(--acc);
+    box-shadow: 0 0 18px rgba(255,215,0,0.35);
+  }
+
+  /* ACTIVITY PANELS */
+  .activity { display: none; }
+  .activity.active { display: block; }
+
+  .panel {
+    background: rgba(45,27,105,0.6);
+    border: 1.5px solid rgba(155,89,208,0.4);
+    border-radius: 20px;
+    padding: 2rem;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+  }
+
+  .activity-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.6rem;
+    color: var(--acc);
+    margin-bottom: 0.3rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .activity-subtitle {
+    color: var(--v5); font-size: 1rem; margin-bottom: 1.5rem;
+  }
+
+  /* DRAG & DROP SHARED */
+  .drag-item {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--v3), var(--v2));
+    border: 2px solid var(--v5);
+    border-radius: 12px;
+    padding: 0.55rem 1.1rem;
+    cursor: grab;
+    font-weight: 700;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    user-select: none;
+    white-space: nowrap;
+    color: var(--white);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+  }
+  .drag-item:hover, .drag-item.dragging {
+    transform: scale(1.08) rotate(-2deg);
+    border-color: var(--acc);
+    box-shadow: 0 6px 20px rgba(255,215,0,0.3);
+    cursor: grabbing;
+  }
+
+  .drop-zone {
+    min-height: 60px;
+    border: 2.5px dashed var(--v4);
+    border-radius: 14px;
+    padding: 0.6rem 0.8rem;
+    display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+    transition: all 0.25s ease;
+    background: rgba(74,37,128,0.25);
+  }
+  .drop-zone.over {
+    border-color: var(--acc);
+    background: rgba(255,215,0,0.08);
+    box-shadow: inset 0 0 12px rgba(255,215,0,0.2);
+  }
+  .drop-zone .drop-hint {
+    color: var(--v4); font-size: 0.88rem; font-style: italic;
+    pointer-events: none;
+  }
+
+  /* ====== ACTIVITY 1: SORT TAX TYPES ====== */
+  .a1-sources {
+    display: flex; flex-wrap: wrap; gap: 0.6rem;
+    margin-bottom: 1.8rem;
+    min-height: 56px;
+    background: rgba(107,53,168,0.2);
+    border-radius: 14px;
+    padding: 0.8rem;
+  }
+  .a1-categories {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+  .category-box { }
+  .category-label {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.05rem;
+    margin-bottom: 0.5rem;
+    color: var(--acc3);
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+
+  /* ====== ACTIVITY 2: TAX FLOW ORDERING ====== */
+  .flow-container {
+    display: flex; flex-direction: column; gap: 0.6rem;
+    margin-bottom: 1.5rem;
+  }
+  .flow-slot {
+    display: flex; align-items: center; gap: 0.8rem;
+  }
+  .flow-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--v2); border: 2px solid var(--v4);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Fredoka One', cursive; color: var(--acc);
+    flex-shrink: 0;
+  }
+  .flow-drop {
+    flex: 1;
+    min-height: 52px;
+  }
+  .chain-arrow {
+    text-align: center; color: var(--v4); font-size: 1.4rem;
+    margin-left: 44px;
+    animation: chainPulse 1.5s ease-in-out infinite;
+  }
+  @keyframes chainPulse {
+    0%,100%{opacity:0.4;transform:translateY(0)} 50%{opacity:1;transform:translateY(3px)}
+  }
+
+  .a2-bank {
+    display: flex; flex-wrap: wrap; gap: 0.6rem;
+    background: rgba(107,53,168,0.2);
+    border-radius: 14px; padding: 0.8rem;
+    margin-bottom: 1.2rem;
+  }
+
+  /* ====== ACTIVITY 3: MATCH TAX TO PURPOSE ====== */
+  .a3-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  @media(max-width:600px){.a3-layout{grid-template-columns:1fr}}
+  .a3-left { }
+  .a3-right { }
+  .purpose-slot {
+    margin-bottom: 0.9rem;
+  }
+  .purpose-label {
+    font-size: 0.9rem; font-weight: 700;
+    color: var(--v6); margin-bottom: 0.4rem;
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+  .a3-bank {
+    display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .a3-bank-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem; color: var(--acc); margin-bottom: 0.5rem;
+  }
+
+  /* FEEDBACK */
+  .feedback-bar {
+    margin-top: 1.5rem;
+    padding: 1rem 1.2rem;
+    border-radius: 14px;
+    font-weight: 700; font-size: 1rem;
+    display: none;
+    align-items: center; gap: 0.7rem;
+    animation: feedIn 0.4s ease;
+  }
+  @keyframes feedIn {
+    from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)}
+  }
+  .feedback-bar.show { display: flex; }
+  .feedback-bar.correct { background: rgba(0,229,255,0.15); border: 1.5px solid var(--acc3); color: var(--acc3); }
+  .feedback-bar.wrong { background: rgba(255,107,157,0.15); border: 1.5px solid var(--acc2); color: var(--acc2); }
+  .feedback-bar.partial { background: rgba(255,215,0,0.12); border: 1.5px solid var(--acc); color: var(--acc); }
+
+  /* BUTTONS */
+  .check-btn {
+    margin-top: 1.2rem;
+    background: linear-gradient(135deg, var(--v3), var(--v2));
+    border: 2px solid var(--acc);
+    color: var(--acc);
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+    padding: 0.6rem 2rem;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+  .check-btn:hover { background: var(--v3); box-shadow: 0 4px 18px rgba(255,215,0,0.3); transform: translateY(-2px); }
+
+  .reset-btn {
+    background: transparent;
+    border: 1.5px solid var(--v4);
+    color: var(--v5);
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.9rem; font-weight: 700;
+    padding: 0.4rem 1.2rem;
+    border-radius: 50px;
+    cursor: pointer;
+    margin-left: 0.7rem;
+    transition: all 0.2s;
+  }
+  .reset-btn:hover { border-color: var(--acc2); color: var(--acc2); }
+
+  /* SCORE */
+  .score-badge {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    background: rgba(255,215,0,0.12);
+    border: 1.5px solid var(--acc);
+    border-radius: 50px;
+    padding: 0.25rem 0.9rem;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem; color: var(--acc);
+    float: right;
+  }
+
+  /* STAR BURST */
+  .star-burst {
+    position: fixed; pointer-events: none; z-index: 999;
+    font-size: 1.5rem;
+    animation: starFly 1s ease-out forwards;
+  }
+  @keyframes starFly {
+    0%{opacity:1;transform:translate(0,0) scale(1)}
+    100%{opacity:0;transform:translate(var(--tx),var(--ty)) scale(0.2)}
+  }
+
+  /* PROGRESS DOTS */
+  .progress-row {
+    display: flex; justify-content: center; gap: 0.5rem; margin: 0.5rem 0 1.5rem;
+  }
+  .prog-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--v3); border: 1.5px solid var(--v4);
+    transition: all 0.3s;
+  }
+  .prog-dot.done { background: var(--acc); border-color: var(--acc); box-shadow: 0 0 8px rgba(255,215,0,0.6); }
+
+  .info-card {
+    background: rgba(107,53,168,0.25);
+    border-left: 3px solid var(--acc3);
+    border-radius: 10px;
+    padding: 0.8rem 1rem;
+    margin-bottom: 1.2rem;
+    font-size: 0.92rem;
+    color: var(--v6);
+    line-height: 1.6;
+  }
+  .info-card strong { color: var(--acc3); }
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+
+<div class="page-wrap">
+  <div class="hero">
+    <h1>TAXES — WHAT ARE THEY AND WHY?</h1>
+    <div class="hero-coins">💰 🏛️ 💸 🌟 🏥</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab(0)">🗂️ Sort the Taxes</button>
+    <button class="tab-btn" onclick="switchTab(1)">🔗 Tax Flow Chain</button>
+    <button class="tab-btn" onclick="switchTab(2)">🎯 Match & Discover</button>
+  </div>
+
+  <div class="progress-row" id="progressRow">
+    <div class="prog-dot" id="pd0"></div>
+    <div class="prog-dot" id="pd1"></div>
+    <div class="prog-dot" id="pd2"></div>
+  </div>
+
+  <!-- ====== ACTIVITY 1 ====== -->
+  <div class="activity active" id="act0">
+    <div class="panel">
+      <div class="activity-title">🗂️ Activity 1 <span class="score-badge" id="s1">⭐ 0 / 6</span></div>
+      <div class="activity-subtitle">Drag each tax type into the correct category box below!</div>
+
+      <div class="info-card">
+        <strong>What is a tax?</strong> A tax is money collected by the government from people and businesses. There are different kinds — let's sort them!
+      </div>
+
+      <div class="a1-sources" id="a1Bank">
+        <div class="drag-item" draggable="true" data-tax="income" data-id="i1">💼 Income Tax</div>
+        <div class="drag-item" draggable="true" data-tax="sales" data-id="i2">🛒 Sales Tax</div>
+        <div class="drag-item" draggable="true" data-tax="property" data-id="i3">🏠 Property Tax</div>
+        <div class="drag-item" draggable="true" data-tax="corporate" data-id="i4">🏢 Corporate Tax</div>
+        <div class="drag-item" draggable="true" data-tax="sales" data-id="i5">🍕 Food Sales Tax</div>
+        <div class="drag-item" draggable="true" data-tax="income" data-id="i6">👩‍💻 Payroll Tax</div>
+      </div>
+
+      <div class="a1-categories">
+        <div class="category-box">
+          <div class="category-label">💼 Taxes on Earnings</div>
+          <div class="drop-zone" id="zone-income" data-accept="income">
+            <span class="drop-hint">Drop earning taxes here…</span>
+          </div>
+        </div>
+        <div class="category-box">
+          <div class="category-label">🛒 Taxes on Spending</div>
+          <div class="drop-zone" id="zone-sales" data-accept="sales">
+            <span class="drop-hint">Drop spending taxes here…</span>
+          </div>
+        </div>
+        <div class="category-box">
+          <div class="category-label">🏠 Taxes on Owning</div>
+          <div class="drop-zone" id="zone-property" data-accept="property">
+            <span class="drop-hint">Drop ownership taxes here…</span>
+          </div>
+        </div>
+        <div class="category-box">
+          <div class="category-label">🏢 Taxes on Business</div>
+          <div class="drop-zone" id="zone-corporate" data-accept="corporate">
+            <span class="drop-hint">Drop business taxes here…</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <button class="check-btn" onclick="checkA1()">✅ Check My Answers</button>
+        <button class="reset-btn" onclick="resetA1()">↺ Reset</button>
+      </div>
+      <div class="feedback-bar" id="fb1"></div>
+    </div>
+  </div>
+
+  <!-- ====== ACTIVITY 2 ====== -->
+  <div class="activity" id="act1">
+    <div class="panel">
+      <div class="activity-title">🔗 Activity 2 <span class="score-badge" id="s2">⭐ 0 / 5</span></div>
+      <div class="activity-subtitle">Put the steps in the correct order to show how taxes flow from you to services!</div>
+
+      <div class="info-card">
+        <strong>Why do we pay taxes?</strong> Tax money pays for things everyone uses — schools, hospitals, roads, and emergency services. Drag the steps below to build the chain!
+      </div>
+
+      <div class="a2-bank" id="a2Bank">
+        <div class="drag-item" draggable="true" data-step="3" data-id="s3">🏛️ Government Collects</div>
+        <div class="drag-item" draggable="true" data-step="1" data-id="s1">💰 You Earn / Spend</div>
+        <div class="drag-item" draggable="true" data-step="5" data-id="s5">🎉 You Benefit!</div>
+        <div class="drag-item" draggable="true" data-step="2" data-id="s2">📋 Tax is Calculated</div>
+        <div class="drag-item" draggable="true" data-step="4" data-id="s4">🏫 Funds Services</div>
+      </div>
+
+      <div class="flow-container" id="flowContainer">
+        <div class="flow-slot"><div class="flow-num">1</div><div class="drop-zone flow-drop" id="slot1" data-slot="1"><span class="drop-hint">Step 1…</span></div></div>
+        <div class="chain-arrow">⬇️</div>
+        <div class="flow-slot"><div class="flow-num">2</div><div class="drop-zone flow-drop" id="slot2" data-slot="2"><span class="drop-hint">Step 2…</span></div></div>
+        <div class="chain-arrow">⬇️</div>
+        <div class="flow-slot"><div class="flow-num">3</div><div class="drop-zone flow-drop" id="slot3" data-slot="3"><span class="drop-hint">Step 3…</span></div></div>
+        <div class="chain-arrow">⬇️</div>
+        <div class="flow-slot"><div class="flow-num">4</div><div class="drop-zone flow-drop" id="slot4" data-slot="4"><span class="drop-hint">Step 4…</span></div></div>
+        <div class="chain-arrow">⬇️</div>
+        <div class="flow-slot"><div class="flow-num">5</div><div class="drop-zone flow-drop" id="slot5" data-slot="5"><span class="drop-hint">Step 5…</span></div></div>
+      </div>
+
+      <div>
+        <button class="check-btn" onclick="checkA2()">✅ Check Order</button>
+        <button class="reset-btn" onclick="resetA2()">↺ Reset</button>
+      </div>
+      <div class="feedback-bar" id="fb2"></div>
+    </div>
+  </div>
+
+  <!-- ====== ACTIVITY 3 ====== -->
+  <div class="activity" id="act2">
+    <div class="panel">
+      <div class="activity-title">🎯 Activity 3 <span class="score-badge" id="s3">⭐ 0 / 5</span></div>
+      <div class="activity-subtitle">Match each tax to what it pays for by dragging from the bank on the right!</div>
+
+      <div class="info-card">
+        <strong>Taxes pay for services!</strong> Different taxes fund different things. Match each purpose to the correct tax type.
+      </div>
+
+      <div class="a3-layout">
+        <div class="a3-left">
+          <div class="purpose-slot">
+            <div class="purpose-label">🏫 Pays for public schools</div>
+            <div class="drop-zone" id="p1" data-answer="property"><span class="drop-hint">Drop tax here…</span></div>
+          </div>
+          <div class="purpose-slot">
+            <div class="purpose-label">🚑 Funds emergency services</div>
+            <div class="drop-zone" id="p2" data-answer="income"><span class="drop-hint">Drop tax here…</span></div>
+          </div>
+          <div class="purpose-slot">
+            <div class="purpose-label">🛣️ Builds and repairs roads</div>
+            <div class="drop-zone" id="p3" data-answer="fuel"><span class="drop-hint">Drop tax here…</span></div>
+          </div>
+          <div class="purpose-slot">
+            <div class="purpose-label">💊 Funds public health care</div>
+            <div class="drop-zone" id="p4" data-answer="corporate"><span class="drop-hint">Drop tax here…</span></div>
+          </div>
+          <div class="purpose-slot">
+            <div class="purpose-label">📚 Pays for public libraries</div>
+            <div class="drop-zone" id="p5" data-answer="sales"><span class="drop-hint">Drop tax here…</span></div>
+          </div>
+        </div>
+
+        <div class="a3-right">
+          <div class="a3-bank-title">🏦 Tax Bank</div>
+          <div class="a3-bank" id="a3Bank">
+            <div class="drag-item" draggable="true" data-type="property" data-id="t1">🏠 Property Tax</div>
+            <div class="drag-item" draggable="true" data-type="income" data-id="t2">💼 Income Tax</div>
+            <div class="drag-item" draggable="true" data-type="fuel" data-id="t3">⛽ Fuel Tax</div>
+            <div class="drag-item" draggable="true" data-type="corporate" data-id="t4">🏢 Corporate Tax</div>
+            <div class="drag-item" draggable="true" data-type="sales" data-id="t5">🛒 Sales Tax</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <button class="check-btn" onclick="checkA3()">✅ Check Matches</button>
+        <button class="reset-btn" onclick="resetA3()">↺ Reset</button>
+      </div>
+      <div class="feedback-bar" id="fb3"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== BACKGROUND CANVAS: STARS & BIRDS ===== */
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize(){ W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+resize(); window.addEventListener('resize', resize);
+
+const stars = Array.from({length:90}, ()=>({
+  x: Math.random()*window.innerWidth,
+  y: Math.random()*window.innerHeight,
+  r: Math.random()*2+0.5,
+  a: Math.random(),
+  speed: Math.random()*0.008+0.003,
+  drift: (Math.random()-0.5)*0.3,
+  twinkle: Math.random()*Math.PI*2
+}));
+
+const birds = Array.from({length:7}, ()=>({
+  x: -60+Math.random()*window.innerWidth*0.5,
+  y: 60+Math.random()*(window.innerHeight*0.55),
+  speed: 0.5+Math.random()*0.9,
+  wingAngle: Math.random()*Math.PI*2,
+  wingSpeed: 0.07+Math.random()*0.05,
+  size: 5+Math.random()*5,
+  color: `hsla(${260+Math.random()*50},70%,75%,0.55)`
+}));
+
+function drawBird(b){
+  const wa = Math.sin(b.wingAngle)*0.7;
+  ctx.save();
+  ctx.translate(b.x, b.y);
+  ctx.strokeStyle = b.color;
+  ctx.lineWidth = 1.5;
+  ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(-b.size,0);
+  ctx.quadraticCurveTo(-b.size/2,-b.size*wa,0,0);
+  ctx.quadraticCurveTo(b.size/2,-b.size*wa,b.size,0);
+  ctx.stroke();
+  ctx.restore();
+}
+
+let chainNodes = [];
+function spawnChain(){
+  if(chainNodes.length > 8) return;
+  const x = Math.random()*W, y = Math.random()*H;
+  const hue = 260+Math.random()*50;
+  chainNodes.push({x,y,r:2,maxR:30+Math.random()*30,speed:0.6+Math.random()*0.5,
+    alpha:0.6,color:`hsla(${hue},70%,70%,`,children:0, maxC:3+Math.floor(Math.random()*3)});
+}
+setInterval(spawnChain, 2800);
+
+function animate(){
+  requestAnimationFrame(animate);
+  ctx.clearRect(0,0,W,H);
+
+  const t = Date.now()*0.001;
+
+  /* chain reactions */
+  chainNodes = chainNodes.filter(n=>{
+    n.r += n.speed;
+    n.alpha -= 0.008;
+    if(n.alpha<=0) return false;
+    ctx.beginPath();
+    ctx.arc(n.x,n.y,n.r,0,Math.PI*2);
+    ctx.strokeStyle = n.color+n.alpha+')';
+    ctx.lineWidth=1.5; ctx.stroke();
+    if(n.r>n.maxR*0.4 && n.children<n.maxC && Math.random()<0.02){
+      const a=Math.random()*Math.PI*2, d=n.r;
+      chainNodes.push({x:n.x+Math.cos(a)*d,y:n.y+Math.sin(a)*d,
+        r:2,maxR:n.maxR*0.6,speed:n.speed*0.8,alpha:0.45,color:n.color,children:0,maxC:2});
+      n.children++;
+    }
+    return true;
+  });
+
+  /* stars */
+  stars.forEach(s=>{
+    s.x += s.drift; s.y -= 0.08;
+    s.twinkle += s.speed;
+    if(s.y < -5){ s.y=H+5; s.x=Math.random()*W; }
+    const glow = 0.4+Math.sin(s.twinkle)*0.4;
+    ctx.beginPath();
+    ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(220,200,255,${glow})`;
+    ctx.fill();
+  });
+
+  /* birds */
+  birds.forEach(b=>{
+    b.x += b.speed;
+    b.wingAngle += b.wingSpeed;
+    if(b.x > W+80){ b.x = -80; b.y = 60+Math.random()*(H*0.5); }
+    drawBird(b);
+  });
+}
+animate();
+
+
+/* ===== DRAG & DROP ENGINE ===== */
+let dragEl = null, dragOrigin = null;
+
+function initDrag(){
+  document.querySelectorAll('.drag-item').forEach(el=>{
+    el.addEventListener('dragstart', e=>{
+      dragEl = el;
+      dragOrigin = el.parentElement;
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed='move';
+    });
+    el.addEventListener('dragend', ()=>el.classList.remove('dragging'));
+  });
+
+  document.querySelectorAll('.drop-zone').forEach(zone=>{
+    zone.addEventListener('dragover', e=>{
+      e.preventDefault();
+      zone.classList.add('over');
+    });
+    zone.addEventListener('dragleave', ()=>zone.classList.remove('over'));
+    zone.addEventListener('drop', e=>{
+      e.preventDefault();
+      zone.classList.remove('over');
+      if(!dragEl) return;
+      const hint = zone.querySelector('.drop-hint');
+      if(hint) hint.remove();
+      zone.appendChild(dragEl);
+      dragEl = null;
+    });
+  });
+}
+initDrag();
+
+
+/* ===== TAB SWITCHING ===== */
+function switchTab(idx){
+  document.querySelectorAll('.activity').forEach((a,i)=>{
+    a.classList.toggle('active', i===idx);
+  });
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>{
+    b.classList.toggle('active', i===idx);
+  });
+}
+
+
+/* ===== STAR BURST ===== */
+function burstStars(x,y,count=10){
+  for(let i=0;i<count;i++){
+    const el = document.createElement('div');
+    el.className='star-burst';
+    const emojis=['⭐','✨','💫','🌟'];
+    el.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+    el.style.left=x+'px'; el.style.top=y+'px';
+    el.style.setProperty('--tx',(Math.random()-0.5)*140+'px');
+    el.style.setProperty('--ty',(Math.random()-1.2)*120+'px');
+    el.style.animationDelay=(Math.random()*0.3)+'s';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),1200);
+  }
+}
+
+function showFeedback(id, correct, partial, msg){
+  const fb = document.getElementById(id);
+  fb.className='feedback-bar show '+(correct?'correct':(partial?'partial':'wrong'));
+  fb.innerHTML = (correct?'🎉':'partial'?'🌟':'❌')+' '+msg;
+}
+
+/* ===== SCORE BADGES ===== */
+function setScore(id, score, total){
+  document.getElementById(id).innerHTML=`⭐ ${score} / ${total}`;
+}
+
+/* ===== PROGRESS DOTS ===== */
+const actDone = [false,false,false];
+function markDone(idx){ actDone[idx]=true; document.getElementById('pd'+idx).classList.add('done'); }
+
+
+/* ===== ACTIVITY 1 LOGIC ===== */
+const a1Correct = {income:['i1','i6'], sales:['i2','i5'], property:['i3'], corporate:['i4']};
+const a1Items = {
+  i1:{tax:'income',el:null}, i2:{tax:'sales',el:null}, i3:{tax:'property',el:null},
+  i4:{tax:'corporate',el:null}, i5:{tax:'sales',el:null}, i6:{tax:'income',el:null}
+};
+
+function checkA1(){
+  let correct=0, total=6;
+  const zones={income:document.getElementById('zone-income'),
+                sales:document.getElementById('zone-sales'),
+                property:document.getElementById('zone-property'),
+                corporate:document.getElementById('zone-corporate')};
+  Object.entries(zones).forEach(([cat,zone])=>{
+    zone.querySelectorAll('.drag-item').forEach(el=>{
+      if(el.dataset.tax===cat) correct++;
+    });
+  });
+  setScore('s1',correct,total);
+  if(correct===total){
+    showFeedback('fb1',true,false,'Perfect! You sorted all taxes correctly! 🎊');
+    burstStars(window.innerWidth/2,window.innerHeight/2,18);
+    markDone(0);
+  } else if(correct>=4){
+    showFeedback('fb1',false,true,`Almost there! ${correct}/${total} correct. Keep going!`);
+  } else {
+    showFeedback('fb1',false,false,`${correct}/${total} correct. Think about what each tax is based on!`);
+  }
+}
+
+function resetA1(){
+  const bank = document.getElementById('a1Bank');
+  document.querySelectorAll('#act0 .drag-item').forEach(el=>bank.appendChild(el));
+  document.querySelectorAll('#act0 .drop-zone').forEach(z=>{
+    if(!z.querySelector('.drop-hint')){
+      const h=document.createElement('span'); h.className='drop-hint';
+      h.textContent='Drop here…'; z.appendChild(h);
+    }
+  });
+  document.getElementById('fb1').className='feedback-bar';
+  setScore('s1',0,6);
+}
+
+
+/* ===== ACTIVITY 2 LOGIC ===== */
+function checkA2(){
+  let correct=0;
+  for(let i=1;i<=5;i++){
+    const slot=document.getElementById('slot'+i);
+    const item=slot.querySelector('.drag-item');
+    if(item && parseInt(item.dataset.step)===i) correct++;
+  }
+  setScore('s2',correct,5);
+  if(correct===5){
+    showFeedback('fb2',true,false,'Amazing! You built the tax flow chain perfectly! 🔗✨');
+    burstStars(window.innerWidth/2,window.innerHeight/2,18);
+    markDone(1);
+  } else if(correct>=3){
+    showFeedback('fb2',false,true,`${correct}/5 steps in the right order. Think about cause and effect!`);
+  } else {
+    showFeedback('fb2',false,false,`${correct}/5 correct. Think: what has to happen first before the next step?`);
+  }
+}
+
+function resetA2(){
+  const bank=document.getElementById('a2Bank');
+  document.querySelectorAll('#act1 .drag-item').forEach(el=>bank.appendChild(el));
+  document.querySelectorAll('#act1 .flow-drop').forEach(z=>{
+    if(!z.querySelector('.drop-hint')){
+      const h=document.createElement('span'); h.className='drop-hint';
+      h.textContent='Step here…'; z.appendChild(h);
+    }
+  });
+  document.getElementById('fb2').className='feedback-bar';
+  setScore('s2',0,5);
+}
+
+
+/* ===== ACTIVITY 3 LOGIC ===== */
+function checkA3(){
+  let correct=0;
+  for(let i=1;i<=5;i++){
+    const zone=document.getElementById('p'+i);
+    const item=zone.querySelector('.drag-item');
+    if(item && item.dataset.type===zone.dataset.answer) correct++;
+  }
+  setScore('s3',correct,5);
+  if(correct===5){
+    showFeedback('fb3',true,false,'Outstanding! Every tax matched to the right purpose! 🏆✨');
+    burstStars(window.innerWidth/2,window.innerHeight/2,18);
+    markDone(2);
+  } else if(correct>=3){
+    showFeedback('fb3',false,true,`${correct}/5 matched! Think about what each tax is connected to.`);
+  } else {
+    showFeedback('fb3',false,false,`${correct}/5 correct. Hint: property taxes relate to where you live!`);
+  }
+}
+
+function resetA3(){
+  const bank=document.getElementById('a3Bank');
+  document.querySelectorAll('#act2 .a3-left .drag-item').forEach(el=>bank.appendChild(el));
+  document.querySelectorAll('#act2 .a3-left .drop-zone').forEach(z=>{
+    if(!z.querySelector('.drop-hint')){
+      const h=document.createElement('span'); h.className='drop-hint';
+      h.textContent='Drop tax here…'; z.appendChild(h);
+    }
+  });
+  document.getElementById('fb3').className='feedback-bar';
+  setScore('s3',0,5);
+}
+</script>
+</body>
+</html>

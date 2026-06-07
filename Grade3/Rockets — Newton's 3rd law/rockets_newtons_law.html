@@ -453,6 +453,34 @@
     margin-bottom:6px;
   }
   #popup-msg { font-size:0.88rem; color:#5b21b6; font-weight:600; line-height:1.5; margin-bottom:16px; }
+
+  /* countdown ring around button */
+  #popup-btn-wrap {
+    position:relative; display:inline-block;
+  }
+  #popup-countdown-ring {
+    position:absolute; inset:-6px;
+    border-radius:99px; pointer-events:none;
+    overflow:visible;
+  }
+  #popup-countdown-ring circle {
+    fill:none;
+    stroke:rgba(255,255,255,0.5);
+    stroke-width:3;
+    stroke-linecap:round;
+    transform-origin:center;
+    transform:rotate(-90deg);
+    transition:stroke-dashoffset 1s linear;
+  }
+  #popup-countdown-num {
+    font-family:'Fredoka One',cursive;
+    font-size:0.72rem; color:rgba(255,255,255,0.85);
+    position:absolute; top:-20px; right:4px;
+    background:rgba(139,92,246,0.6);
+    padding:1px 6px; border-radius:99px;
+    pointer-events:none;
+  }
+
   #popup-btn {
     padding:14px 36px; border:none; border-radius:99px; cursor:pointer;
     font-family:'Fredoka One',cursive; font-size:1.05rem;
@@ -533,7 +561,11 @@
     <span id="popup-emoji">🎉</span>
     <div id="popup-title">Awesome!</div>
     <div id="popup-msg">You nailed it!</div>
-    <button id="popup-btn" onclick="handlePopupBtn()">Continue ✨</button>
+    <div id="popup-btn-wrap">
+      <button id="popup-btn" onclick="handlePopupBtn()">Continue ✨</button>
+      <span id="popup-countdown-num"></span>
+    </div>
+    <button id="popup-play-again" onclick="resetGame()" style="display:none;margin-top:10px;padding:10px 28px;border:none;border-radius:99px;cursor:pointer;font-family:'Fredoka One',cursive;font-size:0.95rem;background:linear-gradient(90deg,#86efac,#67e8f9);color:#1e3a5f;box-shadow:0 4px 16px rgba(103,232,249,0.4);transition:transform 0.2s;position:relative;z-index:502;pointer-events:all;touch-action:manipulation;" onmouseover="this.style.transform='scale(1.07)'" onmouseout="this.style.transform='scale(1)'">🔄 Play Again!</button>
   </div>
 </div>
 
@@ -836,6 +868,9 @@ let draggedLevel = null;
 //   POPUP
 // ═══════════════════════════════════════════
 let popupNext = null;
+let popupCountdownTimer = null;
+let popupCountdownSecs = 0;
+
 function showPopup(emoji,title,msg,btnText,cb){
   document.getElementById('popup-emoji').textContent=emoji;
   document.getElementById('popup-title').textContent=title;
@@ -843,8 +878,36 @@ function showPopup(emoji,title,msg,btnText,cb){
   document.getElementById('popup-btn').textContent=btnText;
   popupNext=cb;
   document.getElementById('popup-overlay').classList.add('show');
+
+  // Clear any previous countdown
+  if(popupCountdownTimer) clearInterval(popupCountdownTimer);
+
+  // Only auto-advance for activity transitions (cb is provided and not the final celebrate)
+  if(cb && btnText !== '🌟 Celebrate! 🌟'){
+    const TOTAL = 5;
+    popupCountdownSecs = TOTAL;
+    const numEl = document.getElementById('popup-countdown-num');
+    numEl.textContent = popupCountdownSecs + 's';
+
+    popupCountdownTimer = setInterval(()=>{
+      popupCountdownSecs--;
+      if(popupCountdownSecs <= 0){
+        clearInterval(popupCountdownTimer);
+        popupCountdownTimer = null;
+        numEl.textContent = '';
+        handlePopupBtn();
+      } else {
+        numEl.textContent = popupCountdownSecs + 's';
+      }
+    }, 1000);
+  } else {
+    document.getElementById('popup-countdown-num').textContent = '';
+  }
 }
+
 function handlePopupBtn(){
+  if(popupCountdownTimer){ clearInterval(popupCountdownTimer); popupCountdownTimer=null; }
+  document.getElementById('popup-countdown-num').textContent='';
   const overlay = document.getElementById('popup-overlay');
   overlay.classList.remove('show');
   const cb = popupNext;
@@ -1179,13 +1242,79 @@ function showFinalSuccess(){
   document.getElementById('popup-overlay').classList.remove('show');
   setTimeout(()=>{
     fireConfetti(80);
-    showPopup('🦄🚀🌈',
-      'Newton\'s 3rd Law Master!',
-      '🎉 You completed all 3 activities! You now know: For every Action, there is an EQUAL and OPPOSITE Reaction! This is why rockets fly, swimmers glide, and skaters roll. You\'re ready to build real rockets! 🚀✨',
-      '🌟 Celebrate! 🌟',
-      ()=>{fireConfetti(100);}
-    );
+
+    // Show final popup with play again button
+    document.getElementById('popup-emoji').textContent='🦄🚀🌈';
+    document.getElementById('popup-title').textContent="Newton's 3rd Law Master!";
+    document.getElementById('popup-msg').textContent='🎉 You completed all 3 activities! You now know: For every Action, there is an EQUAL and OPPOSITE Reaction! This is why rockets fly, swimmers glide, and skaters roll. You\'re ready to build real rockets! 🚀✨';
+    document.getElementById('popup-btn').textContent='🌟 Celebrate! 🌟';
+    document.getElementById('popup-play-again').style.display='block';
+    document.getElementById('popup-countdown-num').textContent='';
+    popupNext = ()=>{ fireConfetti(100); };
+    document.getElementById('popup-overlay').classList.add('show');
   },200);
+}
+
+function resetGame(){
+  // Stop any countdown
+  if(popupCountdownTimer){ clearInterval(popupCountdownTimer); popupCountdownTimer=null; }
+  document.getElementById('popup-countdown-num').textContent='';
+  document.getElementById('popup-play-again').style.display='none';
+  document.getElementById('popup-overlay').classList.remove('show');
+  popupNext = null;
+
+  // ── Reset Act 1 ──
+  act1Placed = {};
+  // Move all cards back to pool and restore them
+  const pool = document.getElementById('a1-pool');
+  document.querySelectorAll('.drag-card').forEach(c=>{
+    c.classList.remove('placed','correct-placed','wrong-placed');
+    pool.appendChild(c);
+  });
+  ['dz-action','dz-reaction'].forEach(id=>{
+    const dz = document.getElementById(id);
+    // Remove any cards that were dropped in
+    dz.querySelectorAll('.drag-card').forEach(c=>dz.removeChild(c));
+    dz.classList.remove('success','error','over');
+  });
+  document.getElementById('act1-next').classList.remove('show');
+
+  // ── Reset Act 2 ──
+  partsPlaced = { balloon:false, string:false, straw:false, tape:false };
+  balloonLaunched = false;
+  document.querySelectorAll('.a2-part').forEach(p=>p.classList.remove('used'));
+  // Restore each slot to original HTML
+  document.getElementById('slot-string').classList.remove('filled','over');
+  document.getElementById('slot-string').innerHTML='<span class="slot-emoji">❓</span>Tie across room';
+  document.getElementById('slot-straw').classList.remove('filled','over');
+  document.getElementById('slot-straw').innerHTML='<span class="slot-emoji">❓</span>Thread onto string';
+  document.getElementById('slot-balloon').classList.remove('filled','over');
+  document.getElementById('slot-balloon').innerHTML='<span class="slot-emoji">❓</span>Inflate & pinch';
+  document.getElementById('slot-tape').classList.remove('filled','over');
+  document.getElementById('slot-tape').innerHTML='<span class="slot-emoji">❓</span>Stick to straw';
+  document.getElementById('a2-launch-btn').style.display='none';
+  document.getElementById('string-track').style.display='none';
+  document.getElementById('balloon-rocket').style.display='none';
+  document.getElementById('arrow-action').style.display='none';
+  document.getElementById('arrow-reaction').style.display='none';
+  document.getElementById('track-placeholder').style.display='';
+  document.getElementById('a2-step-msg').textContent='👆 Drag all 4 parts to their correct slots to build the rocket!';
+  document.getElementById('act2-next').classList.remove('show');
+
+  // ── Reset Act 3 ──
+  a3Placed = { tiny:false, medium:false, full:false };
+  draggedLevel = null;
+  document.querySelectorAll('.a3-card').forEach(c=>c.classList.remove('used'));
+  ['tiny','medium','full'].forEach(lvl=>{
+    document.getElementById('fill-'+lvl).style.width='0%';
+    document.getElementById('blabel-'+lvl).style.opacity='0';
+    document.getElementById('bar-'+lvl).querySelectorAll('.bar-rocket').forEach(r=>r.remove());
+    document.getElementById('bar-'+lvl).classList.remove('drop-over');
+  });
+  document.getElementById('act3-next').classList.remove('show');
+
+  // ── Back to Activity 1 ──
+  showActivity(1);
 }
 
 // ═══════════════════════════════════════════

@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circle Spells Laboratory</title>
+<link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=Cinzel:wght@400;700;900&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #f5c842;
+    --deep-purple: #1a0a2e;
+    --mid-purple: #2d1557;
+    --light-purple: #4a2080;
+    --teal: #00d4aa;
+    --pink: #ff6eb4;
+    --orange: #ff8c42;
+    --white: #f0e8ff;
+    --star: #ffe566;
+    --correct: #4ade80;
+    --wrong: #f87171;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Crimson Pro', serif;
+    background: var(--deep-purple);
+    color: var(--white);
+    min-height: 100vh;
+    overflow-x: hidden;
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ctext y='20' font-size='20'%3E✨%3C/text%3E%3C/svg%3E"), auto;
+  }
+
+  /* ======= ANIMATED BACKGROUND ======= */
+  .bg-layer {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background: radial-gradient(ellipse at 20% 50%, #2d1557 0%, #1a0a2e 60%),
+                radial-gradient(ellipse at 80% 20%, #0d1f4e 0%, transparent 50%);
+  }
+
+  .stars-canvas {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  }
+
+  .floating-obj {
+    position: fixed; z-index: 1; pointer-events: none; font-size: 2rem;
+    animation: floatDrift linear infinite;
+    opacity: 0.55;
+    filter: drop-shadow(0 0 8px rgba(245,200,66,0.6));
+  }
+
+  @keyframes floatDrift {
+    0%   { transform: translateY(110vh) rotate(0deg); opacity: 0; }
+    5%   { opacity: 0.55; }
+    95%  { opacity: 0.55; }
+    100% { transform: translateY(-15vh) rotate(360deg); opacity: 0; }
+  }
+
+  /* ======= LAYOUT ======= */
+  .container {
+    position: relative; z-index: 10;
+    max-width: 960px; margin: 0 auto; padding: 20px;
+  }
+
+  header {
+    text-align: center; padding: 30px 0 20px;
+  }
+
+  header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(1.8rem, 5vw, 3.2rem);
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--gold) 0%, var(--orange) 40%, var(--pink) 80%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    letter-spacing: 2px;
+    animation: titlePulse 3s ease-in-out infinite;
+  }
+
+  @keyframes titlePulse {
+    0%,100% { filter: brightness(1); }
+    50%     { filter: brightness(1.2) drop-shadow(0 0 20px #f5c842aa); }
+  }
+
+  header p {
+    font-size: 1.2rem; color: #c9b8ff; margin-top: 8px; font-style: italic;
+  }
+
+  /* ======= TAB NAV ======= */
+  .tabs {
+    display: flex; gap: 12px; justify-content: center; margin: 20px 0;
+    flex-wrap: wrap;
+  }
+
+  .tab-btn {
+    font-family: 'Cinzel', serif;
+    background: linear-gradient(135deg, var(--mid-purple), var(--light-purple));
+    border: 2px solid var(--gold);
+    color: var(--gold);
+    padding: 10px 22px;
+    border-radius: 50px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    transition: all 0.3s;
+    box-shadow: 0 0 12px rgba(245,200,66,0.2);
+  }
+
+  .tab-btn:hover, .tab-btn.active {
+    background: linear-gradient(135deg, var(--gold), var(--orange));
+    color: var(--deep-purple);
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 6px 20px rgba(245,200,66,0.5);
+  }
+
+  /* ======= PANELS ======= */
+  .panel {
+    display: none;
+    background: linear-gradient(135deg, rgba(45,21,87,0.85) 0%, rgba(26,10,46,0.95) 100%);
+    border: 1px solid rgba(245,200,66,0.3);
+    border-radius: 24px;
+    padding: 30px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+    animation: panelAppear 0.4s ease;
+  }
+
+  .panel.active { display: block; }
+
+  @keyframes panelAppear {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .panel-title {
+    font-family: 'Cinzel', serif;
+    font-size: 1.6rem;
+    color: var(--gold);
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  /* ======= ACTIVITY 1: CAULDRON BUILDER ======= */
+  .cauldron-area {
+    display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start;
+  }
+
+  .cauldron-visual {
+    flex: 0 0 220px; text-align: center;
+  }
+
+  .cauldron-svg { width: 180px; height: 180px; }
+
+  .cauldron-info {
+    background: rgba(255,110,180,0.1);
+    border: 1px solid var(--pink);
+    border-radius: 12px;
+    padding: 12px; margin-top: 12px;
+    font-size: 1rem;
+    color: var(--pink);
+  }
+
+  .potion-controls { flex: 1; min-width: 260px; }
+
+  .slider-group { margin-bottom: 20px; }
+
+  .slider-label {
+    font-family: 'Cinzel', serif;
+    color: var(--gold); font-size: 1rem;
+    margin-bottom: 8px; display: flex; justify-content: space-between;
+  }
+
+  .magic-slider {
+    width: 100%; -webkit-appearance: none;
+    height: 8px;
+    border-radius: 8px;
+    background: linear-gradient(to right, var(--light-purple) 0%, var(--teal) 100%);
+    outline: none; cursor: pointer;
+  }
+
+  .magic-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--gold), var(--orange));
+    border: 3px solid white;
+    box-shadow: 0 0 12px var(--gold);
+    cursor: grab;
+  }
+
+  .result-orb {
+    background: radial-gradient(circle, rgba(0,212,170,0.2) 0%, rgba(0,212,170,0.05) 70%);
+    border: 1px solid var(--teal);
+    border-radius: 16px;
+    padding: 16px;
+    margin-top: 16px;
+    text-align: center;
+  }
+
+  .result-orb .big-num {
+    font-family: 'Cinzel', serif;
+    font-size: 2rem;
+    color: var(--teal);
+  }
+
+  /* ======= ACTIVITY 2: DRAG & DROP ======= */
+  .spell-board {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .spell-card {
+    background: rgba(74,32,128,0.5);
+    border: 2px dashed rgba(245,200,66,0.3);
+    border-radius: 16px;
+    padding: 18px;
+    min-height: 120px;
+  }
+
+  .drop-zone {
+    min-height: 54px;
+    background: rgba(245,200,66,0.06);
+    border: 2px dashed rgba(245,200,66,0.4);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(245,200,66,0.4);
+    font-style: italic;
+    font-size: 0.9rem;
+    margin-top: 10px;
+  }
+
+  .draggable-pool {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    background: rgba(26,10,46,0.6);
+    border: 1px solid rgba(255,110,180,0.3);
+    border-radius: 14px;
+    padding: 16px;
+    min-height: 70px;
+    margin-bottom: 20px;
+  }
+
+  .drag-chip {
+    background: linear-gradient(135deg, #4a2080, #2d1557);
+    border: 2px solid var(--pink);
+    color: var(--white);
+    padding: 8px 16px;
+    border-radius: 50px;
+    cursor: grab;
+    font-family: 'Cinzel', serif;
+  }
+
+  /* ======= ACTIVITY 3: CHALLENGE ======= */
+  .challenge-scene {
+    background: rgba(45,21,87,0.6);
+    border: 1px solid rgba(245,200,66,0.25);
+    border-radius: 18px;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .answer-input {
+    background: rgba(74,32,128,0.5);
+    border: 2px solid rgba(245,200,66,0.4);
+    color: var(--white);
+    padding: 10px 18px;
+    border-radius: 10px;
+    width: 140px;
+    text-align: center;
+  }
+
+  .btn {
+    font-family: 'Cinzel', serif;
+    padding: 10px 24px;
+    border-radius: 50px;
+    cursor: pointer;
+    border: 2px solid;
+    transition: 0.3s;
+  }
+
+  .btn-gold {
+    background: linear-gradient(135deg, var(--gold), var(--orange));
+    color: var(--deep-purple);
+    border-color: var(--gold);
+  }
+
+  .celebrate {
+    position: fixed; inset: 0; z-index: 999;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(26,10,46,0.88);
+    backdrop-filter: blur(6px);
+  }
+
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.5) rotate(-8deg); }
+    to   { opacity: 1; transform: scale(1) rotate(0deg); }
+  }
+
+  @keyframes spinBounce {
+    0%   { transform: scale(0) rotate(-180deg); }
+    70%  { transform: scale(1.3) rotate(15deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+
+  @keyframes confettiFly {
+    0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(-120%) rotate(720deg); opacity: 0; }
+  }
+
+  .drop-zone.drag-over {
+    border-color: var(--gold) !important;
+    background: rgba(245,200,66,0.12) !important;
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-layer"></div>
+<canvas class="stars-canvas" id="starsCanvas"></canvas>
+
+<div class="floating-obj" style="left:5%;animation-duration:14s;">📚</div>
+<div class="floating-obj" style="left:18%;animation-duration:18s;">🦉</div>
+<div class="floating-obj" style="left:50%;animation-duration:16s;">🪄</div>
+<div class="floating-obj" style="left:80%;animation-duration:20s;">⚗️</div>
+
+<div class="container">
+  <header>
+    <h1>✨ Circle Spells Laboratory ✨</h1>
+    <p>Master the secrets of circles: radius, diameter & circumference!</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('a1')">🧪 Cauldron Circle</button>
+    <button class="tab-btn" onclick="switchTab('a2')">🪄 Spell Sorting</button>
+    <button class="tab-btn" onclick="switchTab('a3')">⭐ Wizard Challenge</button>
+  </div>
+
+  <div class="panel active" id="a1">
+    <div class="panel-title">🧪 Cauldron Circle Builder</div>
+    <div class="cauldron-area">
+      <div class="cauldron-visual">
+        <svg class="cauldron-svg" viewBox="0 0 200 200" id="cauldronSVG">
+          <ellipse cx="100" cy="170" rx="70" ry="14" fill="#2a1060" stroke="#f5c842" stroke-width="2"/>
+          <path d="M40,110 Q35,170 100,184 Q165,170 160,110 Z" fill="#1a0a40" stroke="#f5c842" stroke-width="2"/>
+          <g transform="translate(100,90)">
+            <circle id="dynCircle" cx="0" cy="0" r="30" fill="none" stroke="#00d4aa" stroke-width="3" stroke-dasharray="5,3"/>
+            <line id="radiusLine" x1="0" y1="0" x2="30" y2="0" stroke="#ff6eb4" stroke-width="2"/>
+          </g>
+        </svg>
+        <div class="cauldron-info" id="cauldronMsg">Move the slider to brew your circle! 🔮</div>
+      </div>
+
+      <div class="potion-controls">
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>🔴 Radius (r)</span>
+            <span id="rVal" style="color:var(--pink);font-weight:700;">5 units</span>
+          </div>
+          <input type="range" class="magic-slider" id="radiusSlider" min="1" max="8" value="5" step="0.5" oninput="updateCircle()">
+        </div>
+        <div class="result-orb">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <div class="big-num" id="outR">5</div>
+              <div style="font-size:0.8rem;">Radius</div>
+            </div>
+            <div>
+              <div class="big-num" id="outD" style="color:var(--gold);">10</div>
+              <div style="font-size:0.8rem;">Diameter</div>
+            </div>
+            <div style="grid-column: 1 / span 2">
+              <div class="big-num" id="outC" style="color:var(--orange);">31.42</div>
+              <div style="font-size:0.8rem;">Circumference</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="a2">
+    <div class="panel-title">🪄 Spell Sorting Challenge</div>
+    <p style="color:#c9b8ff; font-style:italic; margin-bottom:14px;">Drag each formula scroll to its matching spell slot!</p>
+    <div class="draggable-pool" id="chipPool">
+      <div class="drag-chip" draggable="true" data-formula="C = π × d" id="chip1" ondragstart="dragStart(event)">C = π × d</div>
+      <div class="drag-chip" draggable="true" data-formula="d = 2r" id="chip2" ondragstart="dragStart(event)">d = 2r</div>
+      <div class="drag-chip" draggable="true" data-formula="r = d ÷ 2" id="chip3" ondragstart="dragStart(event)">r = d ÷ 2</div>
+    </div>
+    <div class="spell-board">
+      <div class="spell-card">
+        <p>Spell to find <strong>Circumference</strong> using Diameter:</p>
+        <div class="drop-zone" data-accepts="C = π × d" ondragover="dragOver(event)" ondrop="dropChip(event)" ondragleave="dragLeave(event)">Drop here…</div>
+      </div>
+      <div class="spell-card">
+        <p>Spell to find <strong>Diameter</strong> from Radius:</p>
+        <div class="drop-zone" data-accepts="d = 2r" ondragover="dragOver(event)" ondrop="dropChip(event)" ondragleave="dragLeave(event)">Drop here…</div>
+      </div>
+      <div class="spell-card">
+        <p>Spell to find <strong>Radius</strong> from Diameter:</p>
+        <div class="drop-zone" data-accepts="r = d ÷ 2" ondragover="dragOver(event)" ondrop="dropChip(event)" ondragleave="dragLeave(event)">Drop here…</div>
+      </div>
+    </div>
+    <div id="a2FeedbackMsg" style="text-align:center; font-size:1.1rem; margin-top:8px;"></div>
+  </div>
+
+  <div class="panel" id="a3">
+    <div class="panel-title">⭐ Wizard Challenge</div>
+    <div class="challenge-scene">
+      <div style="color:#c9b8ff; font-size:0.95rem; margin-bottom:12px;">
+        Question <span id="qNum">1</span> of <span id="qTotal">8</span>
+      </div>
+      <div style="background:rgba(245,200,66,0.08); border-radius:12px; padding:12px; margin-bottom:16px;">
+        <div id="qText" style="font-size:1.2rem; margin-bottom:4px;"></div>
+        <div id="qHint" style="font-size:0.9rem; color:#c9b8ff; font-style:italic;"></div>
+      </div>
+      <div style="display:flex; gap:12px; justify-content:center; align-items:center; flex-wrap:wrap;">
+        <input type="number" class="answer-input" id="answerInput" placeholder="?" step="any">
+        <button class="btn btn-gold" onclick="checkAnswer()">🪄 Cast Spell!</button>
+      </div>
+      <div id="feedbackMsg" style="margin-top:20px; font-size:1.2rem;"></div>
+      <div style="margin-top:16px;">
+        <button class="btn" id="nextBtn" onclick="nextQuestion()" style="display:none; border-color:var(--teal); color:var(--teal); background:rgba(0,212,170,0.1);">Next Question ➡️</button>
+      </div>
+      <div style="margin-top:16px; font-size:0.95rem; color:#c9b8ff;">
+        ⭐ Score: <span id="scoreDisplay" style="color:var(--gold); font-weight:700;">0</span> / <span id="scoreTotal">0</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Congratulations Popup -->
+<div class="celebrate" id="celebrateModal">
+  <div style="
+    background: linear-gradient(135deg, #2d1557 0%, #1a0a2e 100%);
+    border: 3px solid var(--gold);
+    border-radius: 32px;
+    padding: 48px 40px;
+    text-align: center;
+    max-width: 480px;
+    width: 90%;
+    box-shadow: 0 0 80px rgba(245,200,66,0.4), inset 0 0 40px rgba(245,200,66,0.05);
+    animation: popIn 0.5s cubic-bezier(0.34,1.56,0.64,1);
+    position: relative;
+  ">
+    <div style="font-size:4rem; margin-bottom:16px; animation: spinBounce 1s ease-out;">🏆</div>
+    <h2 style="
+      font-family: 'Cinzel', serif;
+      font-size: 2rem;
+      background: linear-gradient(135deg, var(--gold), var(--orange), var(--pink));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+    ">Congratulations, Wizard!</h2>
+    <p style="font-size:1.15rem; color:#c9b8ff; margin-bottom:8px;">You have mastered the secrets of circles! ✨</p>
+    <p id="finalScore" style="font-size:1.35rem; color:var(--gold); font-family:'Cinzel',serif; margin: 16px 0;"></p>
+    <p style="font-size:1rem; color:#c9b8ff; margin-bottom:24px; font-style:italic;">
+      Radius, Diameter &amp; Circumference — all spells cast perfectly! 🔮
+    </p>
+    <button class="btn btn-gold" onclick="restartChallenge()" style="font-size:1rem;">🔄 Try Again!</button>
+    <button class="btn" onclick="closeCelebration()" style="margin-left:12px; border-color:var(--teal); color:var(--teal); background:rgba(0,212,170,0.1); font-size:1rem;">✨ Close</button>
+    <div id="confettiContainer" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:32px;"></div>
+  </div>
+</div>
+
+<script>
+// ======= TAB SWITCHING =======
+function switchTab(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ======= ACTIVITY 1: CAULDRON =======
+function updateCircle() {
+  const r = parseFloat(document.getElementById('radiusSlider').value);
+  const d = r * 2;
+  const c = (Math.PI * d).toFixed(2);
+  document.getElementById('rVal').textContent = r + ' units';
+  document.getElementById('outR').textContent = r;
+  document.getElementById('outD').textContent = d;
+  document.getElementById('outC').textContent = c;
+  const svgR = 10 + (r / 8) * 50;
+  document.getElementById('dynCircle').setAttribute('r', svgR);
+  document.getElementById('radiusLine').setAttribute('x2', svgR);
+}
+
+// ======= ACTIVITY 2: DRAG & DROP =======
+let draggingChip = null;
+let dragOriginZone = null; // track if chip came from a zone (not pool)
+
+function dragStart(e) {
+  draggingChip = e.target;
+  // Check if this chip is sitting inside a drop-zone
+  dragOriginZone = draggingChip.closest('.drop-zone') || null;
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function dragOver(e) {
+  e.preventDefault();
+  e.currentTarget.style.borderColor = 'var(--gold)';
+  e.currentTarget.style.background = 'rgba(245,200,66,0.12)';
+}
+
+function dragLeave(e) {
+  e.currentTarget.style.borderColor = 'rgba(245,200,66,0.4)';
+  e.currentTarget.style.background = 'rgba(245,200,66,0.06)';
+}
+
+function dropChip(e) {
+  e.preventDefault();
+  const zone = e.currentTarget;
+  zone.style.borderColor = 'rgba(245,200,66,0.4)';
+  zone.style.background = 'rgba(245,200,66,0.06)';
+
+  if (!draggingChip) return;
+
+  const formula = draggingChip.dataset.formula;
+  const accepted = zone.dataset.accepts;
+
+  // If the zone already has a correctly-placed chip, ignore the drop
+  if (zone.dataset.solved === 'true') return;
+
+  // If another chip is already in this zone, send it back to the pool first
+  const existingChip = zone.querySelector('.drag-chip');
+  if (existingChip) {
+    document.getElementById('chipPool').appendChild(existingChip);
+    existingChip.style.display = '';
+  }
+
+  if (formula === accepted) {
+    // Correct — place in zone, style it, make it non-draggable
+    zone.innerHTML = '';
+    draggingChip.draggable = false;
+    draggingChip.style.cursor = 'default';
+    draggingChip.style.borderColor = 'var(--correct)';
+    draggingChip.style.background = 'linear-gradient(135deg,rgba(74,222,128,0.25),rgba(74,222,128,0.1))';
+    draggingChip.style.color = 'var(--correct)';
+    draggingChip.style.display = '';
+    zone.appendChild(draggingChip);
+    zone.dataset.solved = 'true';
+    checkA2Complete();
+  } else {
+    // Wrong — flash error, return chip to pool
+    zone.innerHTML = `<span style="color:var(--wrong);font-style:italic;">✗ Not quite — try again!</span>`;
+    draggingChip.style.display = '';
+    document.getElementById('chipPool').appendChild(draggingChip);
+    setTimeout(() => {
+      if (!zone.dataset.solved) {
+        zone.innerHTML = 'Drop here…';
+      }
+    }, 1500);
+  }
+
+  draggingChip = null;
+  dragOriginZone = null;
+}
+
+function checkA2Complete() {
+  const zones = document.querySelectorAll('#a2 .drop-zone');
+  const allSolved = Array.from(zones).every(z => z.dataset.solved === 'true');
+  if (allSolved) {
+    document.getElementById('a2FeedbackMsg').innerHTML =
+      '<span style="color:var(--correct);font-family:\'Cinzel\',serif;">🎉 All spells sorted correctly! You\'re a true Formula Wizard!</span>';
+  }
+}
+
+// ======= ACTIVITY 3: QUESTION BANK =======
+const questions = [
+  { q: "A circle has a radius of 4. What is the diameter?",     answer: 8,      hint: "Diameter = Radius × 2",                 type: "diameter" },
+  { q: "A circle has a diameter of 14. What is the radius?",    answer: 7,      hint: "Radius = Diameter ÷ 2",                 type: "radius" },
+  { q: "A circle has a radius of 7. What is the diameter?",     answer: 14,     hint: "Diameter = Radius × 2",                 type: "diameter" },
+  { q: "A circle has a diameter of 20. What is the radius?",    answer: 10,     hint: "Radius = Diameter ÷ 2",                 type: "radius" },
+  { q: "A circle has a diameter of 10. What is the circumference? (Use π ≈ 3.14, round to 2 decimal places)", answer: 31.40, hint: "Circumference = π × diameter", type: "circumference" },
+  { q: "A circle has a radius of 5. What is the circumference? (Use π ≈ 3.14, round to 2 decimal places)",   answer: 31.40, hint: "First find diameter (r×2), then C = π × d", type: "circumference" },
+  { q: "A circle has a radius of 3. What is the circumference? (Use π ≈ 3.14, round to 2 decimal places)",   answer: 18.84, hint: "Circumference = π × (2 × radius)",         type: "circumference" },
+  { q: "A circle has a diameter of 6. What is the circumference? (Use π ≈ 3.14, round to 2 decimal places)", answer: 18.84, hint: "Circumference = π × diameter",             type: "circumference" },
+];
+
+let currentQ = 0;
+let score = 0;
+let answered = false;
+
+function loadQuestion(idx) {
+  const q = questions[idx];
+  document.getElementById('qText').textContent = q.q;
+  document.getElementById('qHint').textContent = '';
+  document.getElementById('qNum').textContent = idx + 1;
+  document.getElementById('qTotal').textContent = questions.length;
+  document.getElementById('answerInput').value = '';
+  document.getElementById('answerInput').disabled = false;
+  document.getElementById('feedbackMsg').textContent = '';
+  document.getElementById('nextBtn').style.display = 'none';
+  answered = false;
+}
+
+function checkAnswer() {
+  if (answered) return;
+
+  const raw = document.getElementById('answerInput').value;
+  if (raw === '') return;
+
+  const input = parseFloat(parseFloat(raw).toFixed(2));
+  const correct = parseFloat(parseFloat(questions[currentQ].answer).toFixed(2));
+  const fbEl = document.getElementById('feedbackMsg');
+
+  answered = true;
+  document.getElementById('answerInput').disabled = true;
+
+  const isLast = currentQ === questions.length - 1;
+
+  if (Math.abs(input - correct) < 0.05) {
+    score++;
+    fbEl.innerHTML = `✅ Brilliant! The answer is <strong>${correct}</strong>`;
+    fbEl.style.color = 'var(--correct)';
+  } else {
+    fbEl.innerHTML = `❌ Not quite! The answer is <strong>${correct}</strong>. ${questions[currentQ].hint}.`;
+    fbEl.style.color = 'var(--wrong)';
+  }
+
+  document.getElementById('scoreDisplay').textContent = score;
+  document.getElementById('scoreTotal').textContent = currentQ + 1;
+
+  if (isLast) {
+    setTimeout(showCelebration, 1200);
+  } else {
+    document.getElementById('nextBtn').style.display = 'inline-block';
+  }
+}
+
+function nextQuestion() {
+  currentQ++;
+  loadQuestion(currentQ);
+}
+
+function restartChallenge() {
+  currentQ = 0;
+  score = 0;
+  document.getElementById('scoreDisplay').textContent = 0;
+  document.getElementById('scoreTotal').textContent = 0;
+  loadQuestion(0);
+  closeCelebration();
+}
+
+// ======= CELEBRATION MODAL =======
+function showCelebration() {
+  const modal = document.getElementById('celebrateModal');
+  const pct = Math.round((score / questions.length) * 100);
+  let emoji = pct === 100 ? '🌟 Perfect score!' : pct >= 75 ? '🔥 Great job!' : pct >= 50 ? '👍 Good effort!' : '📚 Keep practising!';
+  document.getElementById('finalScore').textContent = `You scored ${score} out of ${questions.length} — ${emoji}`;
+  modal.style.display = 'flex';
+  spawnConfetti();
+}
+
+function closeCelebration() {
+  document.getElementById('celebrateModal').style.display = 'none';
+  document.getElementById('confettiContainer').innerHTML = '';
+}
+
+function spawnConfetti() {
+  const container = document.getElementById('confettiContainer');
+  container.innerHTML = '';
+  const emojis = ['⭐','✨','🌟','🎉','🪄','🔮','💫','🏆'];
+  for (let i = 0; i < 28; i++) {
+    const el = document.createElement('div');
+    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    el.style.cssText = `
+      position:absolute;
+      left:${Math.random()*100}%;
+      top:${100 + Math.random()*20}%;
+      font-size:${1.2 + Math.random()*1.2}rem;
+      animation: confettiFly ${1.5 + Math.random()*2}s ease-out ${Math.random()*0.8}s forwards;
+      opacity:0;
+    `;
+    container.appendChild(el);
+  }
+}
+
+// ======= BACKGROUND STARS =======
+const canvas = document.getElementById('starsCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+function drawStars() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = 'white';
+  for(let i=0; i<120; i++) {
+    ctx.globalAlpha = 0.4 + Math.random()*0.6;
+    ctx.beginPath();
+    ctx.arc(Math.random()*canvas.width, Math.random()*canvas.height, 0.8 + Math.random()*1.2, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+drawStars();
+
+// Initialise Activity 3
+loadQuestion(0);
+</script>
+</body>
+</html>

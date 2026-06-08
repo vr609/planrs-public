@@ -861,12 +861,14 @@ html, body {
     </div>
 
     <div class="chips-area" id="chips2">
-      <div class="chip chip-blue" draggable="true" data-value="--bg-color">--bg-color</div>
-      <div class="chip chip-pink" draggable="true" data-value="--text-color">--text-color</div>
-      <div class="chip chip-orange" draggable="true" data-value="--font-size">--font-size</div>
-      <div class="chip chip-purple" draggable="true" data-value="background-color">background-color</div>
-      <div class="chip chip-yellow" draggable="true" data-value="--primary-color">--primary-color</div>
-      <div class="chip chip-green" draggable="true" data-value="color">color</div>
+      <div class="chip chip-blue" draggable="true" data-value="--bg-color" data-chip-id="a2-bg-1">--bg-color</div>
+      <div class="chip chip-blue" draggable="true" data-value="--bg-color" data-chip-id="a2-bg-2">--bg-color</div>
+      <div class="chip chip-pink" draggable="true" data-value="--text-color" data-chip-id="a2-txt-1">--text-color</div>
+      <div class="chip chip-pink" draggable="true" data-value="--text-color" data-chip-id="a2-txt-2">--text-color</div>
+      <div class="chip chip-orange" draggable="true" data-value="--font-size" data-chip-id="a2-fs">--font-size</div>
+      <div class="chip chip-purple" draggable="true" data-value="background-color" data-chip-id="a2-bgc">background-color</div>
+      <div class="chip chip-yellow" draggable="true" data-value="--primary-color" data-chip-id="a2-pc">--primary-color</div>
+      <div class="chip chip-green" draggable="true" data-value="color" data-chip-id="a2-col">color</div>
     </div>
 
     <div class="feedback" id="fb2"></div>
@@ -1087,22 +1089,29 @@ function buildCityscape(scene) {
 //  DRAG AND DROP ENGINE
 // ════════════════════════════════════════════════════════════
 
-let draggedValue = null;
-let draggedChip  = null;
-const slotValues = {}; // slot-id -> value
+let draggedValue  = null;
+let draggedChip   = null;
+let draggedChipId = null;
+const slotValues  = {}; // slot-id -> { value, chipId }
 
 function setupDragDrop() {
   // Chips: drag start
   document.querySelectorAll('.chip').forEach(chip => {
+    // Assign a unique ID if not already present
+    if (!chip.dataset.chipId) {
+      chip.dataset.chipId = 'chip-' + Math.random().toString(36).slice(2);
+    }
     chip.addEventListener('dragstart', e => {
-      draggedValue = chip.dataset.value;
-      draggedChip  = chip;
+      draggedValue  = chip.dataset.value;
+      draggedChip   = chip;
+      draggedChipId = chip.dataset.chipId;
       chip.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
     });
     chip.addEventListener('dragend', () => {
       chip.classList.remove('dragging');
-      draggedChip = null;
+      draggedChip   = null;
+      draggedChipId = null;
     });
   });
 
@@ -1120,30 +1129,26 @@ function setupDragDrop() {
 
       const slotId = slot.dataset.slot;
 
-      // If slot already had a value, return old chip
+      // If slot already had a chip, restore it
       if (slotValues[slotId]) {
-        const oldVal = slotValues[slotId];
-        restoreChip(oldVal);
+        restoreChip(slotValues[slotId].chipId);
       }
 
-      slotValues[slotId] = draggedValue;
-      slot.textContent = draggedValue.length > 30 ? draggedValue.substring(0,28)+'…' : draggedValue;
+      slotValues[slotId] = { value: draggedValue, chipId: draggedChipId };
+      const display = draggedValue.length > 30 ? draggedValue.substring(0,28)+'…' : draggedValue;
+      slot.textContent = display;
       slot.classList.add('filled');
       slot.classList.remove('wrong-flash');
 
-      // Hide used chip
+      // Hide the specific chip that was dragged
       if (draggedChip) draggedChip.style.display = 'none';
     });
   });
 }
 
-function restoreChip(value) {
-  const chips = document.querySelectorAll('.chip');
-  chips.forEach(c => {
-    if (c.dataset.value === value) {
-      c.style.display = '';
-    }
-  });
+function restoreChip(chipId) {
+  const chip = document.querySelector(`.chip[data-chip-id="${chipId}"]`);
+  if (chip) chip.style.display = '';
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1158,7 +1163,8 @@ function checkActivity(n) {
   slots.forEach(slot => {
     const id     = slot.dataset.slot;
     const answer = slot.dataset.answer;
-    const given  = slotValues[id];
+    const entry  = slotValues[id];
+    const given  = entry ? entry.value : null;
 
     if (!given) { allFilled = false; allCorrect = false; return; }
 
@@ -1231,14 +1237,18 @@ function nextActivity(n) {
 function restartAll() {
   document.querySelectorAll('.popup-overlay').forEach(p => p.classList.remove('show'));
 
-  // Reset slot values
+  // Reset slot values and restore all chips
+  Object.values(slotValues).forEach(entry => {
+    if (entry && entry.chipId) restoreChip(entry.chipId);
+  });
   Object.keys(slotValues).forEach(k => delete slotValues[k]);
-
-  // Reset all slots
+  // Reset all slot labels
   document.querySelectorAll('.drop-slot').forEach(slot => {
     slot.classList.remove('filled','wrong-flash','drag-over');
-    slot.textContent = slot.dataset.slot.startsWith('a3') ? 'DROP STEP' : 'DROP HERE';
-    if (slot.dataset.slot.startsWith('a3')) slot.textContent = 'DROP STEP';
+    const s = slot.dataset.slot;
+    if (s && s.startsWith('a3')) slot.textContent = 'DROP STEP';
+    else if (s && s.startsWith('a2')) slot.textContent = 'DROP VAR';
+    else slot.textContent = 'DROP HERE';
   });
   document.querySelectorAll('[data-slot="a3s1"]').forEach(s=>s.textContent='DROP STEP 1');
   document.querySelectorAll('[data-slot="a3s2"]').forEach(s=>s.textContent='DROP STEP 2');

@@ -86,16 +86,42 @@
 
         /* --- Interaction Elements --- */
         .drop-zone {
-            width: 100px;
-            height: 100px;
+            width: 180px;
+            height: 120px;
             border: 3px dashed var(--magic-gold);
             border-radius: 15px;
             display: inline-flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             margin: 10px;
             background: rgba(0,0,0,0.3);
-            font-size: 2.5rem;
+            font-size: 1.1rem;
+            transition: background 0.2s, border-color 0.2s;
+            vertical-align: top;
+        }
+
+        .drop-zone.drag-over {
+            background: rgba(255, 215, 0, 0.15);
+            border-color: #fff;
+        }
+
+        .dropped-items {
+            font-size: 0.85rem;
+            color: var(--magic-gold);
+            margin-top: 4px;
+            min-height: 18px;
+        }
+
+        .draggable.used {
+            opacity: 0.3;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .draggable.decoy {
+            border-color: #ff6b6b;
+            position: relative;
         }
 
         .draggable {
@@ -158,20 +184,27 @@
 
         <div class="activity-card" id="act1">
             <h3>Activity 1: The Ingredient Cost Cauldron</h3>
-            <p>Drag the <b>Perfect Square</b> ingredients into the cauldron to calculate total cost, then find the Cost Per Unit.</p>
+            <p>Three ingredients are on the shelf, but only <b>Perfect Squares</b> (numbers like 4, 9, 16, 25… that are a whole number times itself) are real ingredients. Drag <b>only the perfect squares</b> into the cauldron 🍯, then calculate the Cost Per Cup.</p>
             <p><i>Hint: We need to make 100 cups of lemonade!</i></p>
-            
-            <div id="ingredients">
-                <div class="draggable" draggable="true" data-val="16" id="drag1">🧪16</div>
-                <div class="draggable" draggable="true" data-val="25" id="drag2">📜25</div>
-                <div class="draggable" draggable="true" data-val="9" id="drag3">🦉9</div>
+
+            <div style="display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; margin: 15px 0;">
+                <div id="ingredients" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+                    <div class="draggable" draggable="true" data-val="16" data-square="true" id="drag1" title="Lemons — $16">🍋<br><span style="font-size:1.1rem;">$16</span></div>
+                    <div class="draggable draggable decoy" draggable="true" data-val="11" data-square="false" id="drag2" title="Mystery Herb — $11">🌿<br><span style="font-size:1.1rem;">$11</span></div>
+                    <div class="draggable" draggable="true" data-val="25" data-square="true" id="drag3" title="Sugar — $25">🍬<br><span style="font-size:1.1rem;">$25</span></div>
+                </div>
+
+                <div style="font-size: 2rem; margin: 0 10px;">→</div>
+
+                <div class="drop-zone" id="cauldron">
+                    🍯
+                    <div class="dropped-items" id="dropped-list">Drop here</div>
+                </div>
             </div>
 
-            <div class="drop-zone" id="cauldron">🍯</div>
-            
             <div style="margin-top: 20px;">
                 Total Ingredient Cost: $<span id="total-cost" style="color:var(--magic-gold); font-weight:bold;">0</span><br><br>
-                Cost Per Cup (100 units): $<input type="number" step="0.01" id="ans1" placeholder="0.00">
+                Cost Per Cup (100 cups): $<input type="number" step="0.01" id="ans1" placeholder="0.00">
                 <button onclick="checkAct1()">Cast Spell</button>
             </div>
             <div class="feedback" id="feed1"></div>
@@ -232,6 +265,7 @@
 
         // --- Activity 1 Logic ---
         let currentTotal = 0;
+        let droppedItems = [];
         const draggables = document.querySelectorAll('.draggable');
         const cauldron = document.getElementById('cauldron');
 
@@ -241,26 +275,66 @@
             });
         });
 
-        cauldron.addEventListener('dragover', (e) => e.preventDefault());
+        cauldron.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            cauldron.classList.add('drag-over');
+        });
+
+        cauldron.addEventListener('dragleave', () => {
+            cauldron.classList.remove('drag-over');
+        });
+
         cauldron.addEventListener('drop', (e) => {
             e.preventDefault();
+            cauldron.classList.remove('drag-over');
             const id = e.dataTransfer.getData('text');
             const el = document.getElementById(id);
+
+            // Prevent dropping the same item twice
+            if (el.classList.contains('used')) return;
+
+            const isSquare = el.getAttribute('data-square') === 'true';
             const val = parseInt(el.getAttribute('data-val'));
+            const label = el.querySelector('span') ? el.querySelector('span').innerText : '$' + val;
+            const icon = el.innerText.split('\n')[0] || '';
+
+            if (!isSquare) {
+                // Decoy ingredient — reject it with feedback
+                const feedback = document.getElementById('feed1');
+                feedback.innerHTML = `⚠️ $${val} is not a perfect square! It can't be added to the brew. Try again with a real ingredient.`;
+                feedback.className = "feedback error";
+                return;
+            }
+
+            // Valid ingredient — add to cauldron
+            el.classList.add('used');
             currentTotal += val;
+            droppedItems.push(icon + label);
             document.getElementById('total-cost').innerText = currentTotal;
-            el.style.visibility = 'hidden'; // Keeps layout but hides item
+            document.getElementById('dropped-list').innerText = droppedItems.join(' + ');
+
+            // Clear any decoy-rejection message on valid drop
+            const feedback = document.getElementById('feed1');
+            if (feedback.innerText.includes('not a perfect square')) {
+                feedback.innerHTML = '';
+            }
         });
 
         function checkAct1() {
             const ans = document.getElementById('ans1').value;
             const feedback = document.getElementById('feed1');
-            // Calculation: 16+25+9 = 50. 50 / 100 = 0.50
-            if(parseFloat(ans) === 0.5) {
-                feedback.innerHTML = "✨ Correct! Each potion costs $0.50 to brew.";
+            // Only the two perfect squares ($16 + $25 = $41) should be dropped.
+            // $41 / 100 cups = $0.41 per cup.
+            if (currentTotal !== 41) {
+                feedback.innerHTML = `❌ The cauldron isn't ready yet! Make sure you've dragged in both perfect square ingredients (and not the impostor). Current total: $${currentTotal}.`;
+                feedback.className = "feedback error";
+                return;
+            }
+            if (parseFloat(ans) === 0.41) {
+                feedback.innerHTML = "✨ Correct! $16 + $25 = $41. Divided by 100 cups = <b>$0.41 per cup</b>. 11 is not a perfect square (no whole number × itself = 11), so it was the decoy!";
                 feedback.className = "feedback success";
             } else {
-                feedback.innerHTML = "❌ The potion is unstable. Divide Total Cost ($" + currentTotal + ") by 100 units!";
+                feedback.innerHTML = `❌ Not quite. You have the right total ($${currentTotal}). Now divide by 100 cups to get the cost per cup!`;
                 feedback.className = "feedback error";
             }
         }

@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRADUATION SHOWCASE — DEMO DAY</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif;}
+
+  /* ── ANIMATED BACKGROUND ── */
+  #bg{
+    position:fixed;inset:0;z-index:0;
+    background:linear-gradient(135deg,#fce4ff 0%,#e8d5ff 15%,#d0e8ff 30%,#c5f5e8 45%,#fef9c3 60%,#ffe5d0 75%,#ffd6f0 90%,#f0d6ff 100%);
+    background-size:400% 400%;
+    animation:bgShimmer 12s ease-in-out infinite;
+  }
+  @keyframes bgShimmer{
+    0%{background-position:0% 50%}
+    50%{background-position:100% 50%}
+    100%{background-position:0% 50%}
+  }
+
+  /* rainbow wave overlay */
+  #rainbow-wave{
+    position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:linear-gradient(180deg,
+      rgba(255,182,193,0.08) 0%,
+      rgba(255,218,121,0.06) 20%,
+      rgba(144,238,144,0.07) 40%,
+      rgba(135,206,250,0.07) 60%,
+      rgba(216,191,216,0.08) 80%,
+      rgba(255,182,255,0.06) 100%);
+    animation:waveShift 8s ease-in-out infinite alternate;
+  }
+  @keyframes waveShift{
+    0%{opacity:0.5;transform:translateY(0);}
+    100%{opacity:1;transform:translateY(-6px);}
+  }
+
+  /* ── CANVAS FOR PARTICLES ── */
+  #particle-canvas{position:fixed;inset:0;z-index:2;pointer-events:none;}
+
+  /* ── MAIN LAYOUT ── */
+  #app{
+    position:relative;z-index:10;
+    width:100%;height:100vh;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    padding:8px;
+  }
+
+  /* ── HEADER ── */
+  .header{
+    text-align:center;margin-bottom:6px;
+  }
+  .header h1{
+    font-size:clamp(18px,3.2vw,34px);font-weight:900;
+    background:linear-gradient(90deg,#c026d3,#7c3aed,#2563eb,#059669,#d97706,#dc2626,#c026d3);
+    background-size:200%;
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    animation:rainbowText 4s linear infinite;
+    text-shadow:none;letter-spacing:1px;
+  }
+  @keyframes rainbowText{0%{background-position:0%}100%{background-position:200%}}
+  .header p{font-size:clamp(10px,1.4vw,14px);color:#7c3aed;font-weight:700;margin-top:2px;}
+
+  /* ── SCREEN CONTAINER ── */
+  .screen{
+    width:100%;max-width:960px;
+    background:rgba(255,255,255,0.72);
+    backdrop-filter:blur(14px);
+    border-radius:24px;
+    border:2.5px solid rgba(180,130,255,0.35);
+    box-shadow:0 8px 40px rgba(160,80,255,0.18),0 2px 8px rgba(0,0,0,0.06);
+    padding:12px 16px 10px;
+    display:none;flex-direction:column;
+    align-items:center;
+  }
+  .screen.active{display:flex;}
+
+  /* ── ACTIVITY TITLE ── */
+  .act-title{
+    font-size:clamp(13px,2vw,20px);font-weight:900;
+    color:#7c3aed;text-align:center;margin-bottom:4px;
+  }
+  .act-subtitle{
+    font-size:clamp(10px,1.3vw,13px);color:#a855f7;font-weight:600;
+    text-align:center;margin-bottom:8px;
+  }
+
+  /* ── DRAG CARDS ── */
+  .drag-card{
+    background:linear-gradient(135deg,#fff0ff,#f0f0ff);
+    border:2px solid #d8b4fe;border-radius:14px;
+    padding:6px 10px;cursor:grab;user-select:none;
+    font-size:clamp(9px,1.1vw,12px);font-weight:700;color:#5b21b6;
+    text-align:center;transition:transform 0.15s,box-shadow 0.15s,opacity 0.2s;
+    box-shadow:0 2px 8px rgba(168,85,247,0.15);
+    display:flex;align-items:center;gap:5px;justify-content:center;
+    min-width:80px;
+  }
+  .drag-card:hover{transform:scale(1.07);box-shadow:0 5px 18px rgba(168,85,247,0.35);}
+  .drag-card.dragging{opacity:0.45;transform:scale(0.95);}
+  .drag-card.placed{opacity:0.35;pointer-events:none;cursor:default;}
+
+  /* ── DROP ZONES ── */
+  .drop-zone{
+    border:2.5px dashed #c4b5fd;border-radius:16px;
+    min-height:70px;padding:6px;
+    transition:all 0.2s;
+    display:flex;flex-wrap:wrap;gap:5px;
+    align-items:flex-start;align-content:flex-start;
+    justify-content:center;
+    background:rgba(237,233,254,0.4);
+  }
+  .drop-zone.over{
+    background:rgba(196,181,253,0.5);
+    border-color:#7c3aed;
+    box-shadow:0 0 14px rgba(124,58,237,0.3);
+  }
+  .drop-zone.correct{background:rgba(187,247,208,0.55);border-color:#22c55e;}
+  .drop-zone.wrong{background:rgba(254,202,202,0.55);border-color:#ef4444;
+    animation:shake 0.35s ease;}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+  /* ── SECTION LABELS ── */
+  .section-label{
+    font-size:clamp(10px,1.2vw,12px);font-weight:800;color:#6d28d9;
+    text-align:center;margin-bottom:3px;
+  }
+  .section-emoji{font-size:clamp(16px,2vw,22px);display:block;text-align:center;}
+
+  /* ── BUTTON ── */
+  .btn{
+    background:linear-gradient(135deg,#a855f7,#7c3aed);
+    color:#fff;border:none;border-radius:50px;
+    padding:8px 26px;font-size:clamp(11px,1.4vw,14px);
+    font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;
+    box-shadow:0 4px 14px rgba(124,58,237,0.4);
+    transition:transform 0.15s,box-shadow 0.15s;
+    margin-top:8px;
+  }
+  .btn:hover{transform:scale(1.05);box-shadow:0 6px 20px rgba(124,58,237,0.5);}
+  .btn:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+
+  .btn-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+
+  /* ── SOURCE TRAY ── */
+  .source-tray{
+    display:flex;flex-wrap:wrap;gap:6px;
+    justify-content:center;margin-bottom:8px;
+    padding:8px 12px;
+    background:rgba(255,255,255,0.55);
+    border-radius:14px;border:1.5px solid rgba(196,181,253,0.5);
+    width:100%;
+  }
+
+  /* ── ACTIVITY 1 LAYOUT ── */
+  #act1-zones{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;
+  }
+  .zone-box{display:flex;flex-direction:column;}
+
+  /* ── ACTIVITY 2 LAYOUT ── */
+  #act2-zones{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;
+  }
+
+  /* ── ACTIVITY 3 LAYOUT ── */
+  #act3-zones{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;
+  }
+
+  /* ── PROGRESS BAR ── */
+  .progress{
+    display:flex;gap:6px;justify-content:center;margin-bottom:6px;
+  }
+  .prog-dot{
+    width:10px;height:10px;border-radius:50%;
+    background:#e9d5ff;transition:background 0.3s;
+  }
+  .prog-dot.done{background:#a855f7;}
+  .prog-dot.active{background:#7c3aed;box-shadow:0 0 8px rgba(124,58,237,0.5);}
+
+  /* ── POPUP ── */
+  #popup-overlay{
+    position:fixed;inset:0;z-index:100;
+    background:rgba(88,28,135,0.35);
+    backdrop-filter:blur(6px);
+    display:none;align-items:center;justify-content:center;
+  }
+  #popup-overlay.visible{display:flex;}
+  .popup-box{
+    background:linear-gradient(135deg,#fff0ff,#f5f0ff,#e8f4ff);
+    border-radius:28px;
+    border:3px solid rgba(168,85,247,0.5);
+    box-shadow:0 20px 60px rgba(124,58,237,0.35);
+    padding:28px 32px;
+    max-width:440px;width:90%;
+    text-align:center;
+    animation:popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes popIn{
+    0%{transform:scale(0.5);opacity:0;}
+    100%{transform:scale(1);opacity:1;}
+  }
+  .popup-emoji{font-size:54px;display:block;margin-bottom:10px;animation:bounceEmoji 1s ease-in-out infinite alternate;}
+  @keyframes bounceEmoji{0%{transform:translateY(0) scale(1)}100%{transform:translateY(-8px) scale(1.1)}}
+  .popup-title{font-size:24px;font-weight:900;color:#7c3aed;margin-bottom:6px;}
+  .popup-msg{font-size:14px;color:#5b21b6;font-weight:600;line-height:1.5;margin-bottom:16px;}
+
+  /* ── FINAL CELEBRATION ── */
+  #celebrate{
+    display:none;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:16px;
+  }
+  #celebrate.active{display:flex;}
+  .celebrate-title{
+    font-size:clamp(22px,4vw,42px);font-weight:900;
+    background:linear-gradient(90deg,#c026d3,#7c3aed,#2563eb,#059669,#d97706,#dc2626);
+    background-size:200%;
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    animation:rainbowText 3s linear infinite;
+    margin-bottom:6px;
+  }
+  .celebrate-sub{font-size:clamp(12px,1.8vw,18px);color:#7c3aed;font-weight:700;margin-bottom:10px;}
+  .star-grid{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:10px;}
+  .star-name{
+    background:linear-gradient(135deg,#fef3c7,#fde68a);
+    border:2px solid #f59e0b;border-radius:50px;
+    padding:5px 14px;font-size:clamp(10px,1.3vw,13px);
+    font-weight:700;color:#92400e;
+  }
+  .confetti-row{font-size:24px;letter-spacing:4px;margin:6px 0;animation:confettiFloat 1.5s ease-in-out infinite alternate;}
+  @keyframes confettiFloat{0%{transform:translateY(0)}100%{transform:translateY(-6px)}}
+
+  /* ── SCORE INDICATOR ── */
+  .score-row{
+    display:flex;gap:6px;align-items:center;justify-content:center;
+    margin-bottom:6px;font-size:13px;color:#7c3aed;font-weight:700;
+  }
+  .score-star{color:#f59e0b;font-size:16px;}
+
+  /* ── INSTRUCTION CHIP ── */
+  .instruction{
+    background:rgba(237,233,254,0.7);border:1.5px solid #c4b5fd;
+    border-radius:50px;padding:4px 14px;
+    font-size:clamp(9px,1.1vw,11px);color:#6d28d9;font-weight:700;
+    margin-bottom:6px;text-align:center;
+  }
+
+  /* ── PLACED CARD INSIDE ZONE ── */
+  .placed-in-zone{
+    background:linear-gradient(135deg,#d1fae5,#a7f3d0);
+    border:2px solid #34d399;border-radius:10px;
+    padding:4px 8px;font-size:clamp(8px,1vw,11px);
+    font-weight:700;color:#065f46;text-align:center;
+    animation:placeIn 0.25s ease;
+  }
+  @keyframes placeIn{0%{transform:scale(0.7);opacity:0}100%{transform:scale(1);opacity:1}}
+  .wrong-in-zone{
+    background:linear-gradient(135deg,#fee2e2,#fca5a5);
+    border:2px solid #f87171;border-radius:10px;
+    padding:4px 8px;font-size:clamp(8px,1vw,11px);
+    font-weight:700;color:#7f1d1d;text-align:center;
+  }
+</style>
+</head>
+<body>
+
+<div id="bg"></div>
+<div id="rainbow-wave"></div>
+<canvas id="particle-canvas"></canvas>
+
+<div id="app">
+  <!-- HEADER -->
+  <div class="header">
+    <h1>🦄 GRADUATION SHOWCASE — DEMO DAY ✨</h1>
+    <p>Planrs Academy · Celebrate · Demonstrate · Shine!</p>
+  </div>
+
+  <!-- PROGRESS DOTS -->
+  <div class="progress" id="progress-dots">
+    <div class="prog-dot active" id="dot0"></div>
+    <div class="prog-dot" id="dot1"></div>
+    <div class="prog-dot" id="dot2"></div>
+    <div class="prog-dot" id="dot3"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       ACTIVITY 1 — Sort Project Cards
+  ══════════════════════════════════════════ -->
+  <div class="screen active" id="screen1">
+    <div class="act-title">🌈 Activity 1 — Sort the Showcase Projects!</div>
+    <div class="act-subtitle">Drag each project card into the right showcase section below.</div>
+    <div class="instruction">✨ Drag and drop each card into the correct section!</div>
+
+    <div class="source-tray" id="tray1">
+      <div class="drag-card" draggable="true" data-id="c1" data-target="web">🌐 Weather Website</div>
+      <div class="drag-card" draggable="true" data-id="c2" data-target="hardware">🤖 Solar Robot</div>
+      <div class="drag-card" draggable="true" data-id="c3" data-target="finance">💰 Savings Tracker</div>
+      <div class="drag-card" draggable="true" data-id="c4" data-target="web">📱 Quiz App</div>
+      <div class="drag-card" draggable="true" data-id="c5" data-target="hardware">🔦 Smart Lantern</div>
+      <div class="drag-card" draggable="true" data-id="c6" data-target="finance">📊 Budget Planner</div>
+    </div>
+
+    <div id="act1-zones">
+      <div class="zone-box">
+        <span class="section-emoji">🌐</span>
+        <div class="section-label">Web App Projects</div>
+        <div class="drop-zone" data-zone="web" id="zone-web"></div>
+      </div>
+      <div class="zone-box">
+        <span class="section-emoji">🔧</span>
+        <div class="section-label">Hardware Gadgets</div>
+        <div class="drop-zone" data-zone="hardware" id="zone-hardware"></div>
+      </div>
+      <div class="zone-box">
+        <span class="section-emoji">💸</span>
+        <div class="section-label">Finance Projects</div>
+        <div class="drop-zone" data-zone="finance" id="zone-finance"></div>
+      </div>
+    </div>
+
+    <div class="score-row" id="score1">
+      <span class="score-star">⭐</span><span id="score1-text">0 / 6 placed correctly</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="next1-btn" disabled onclick="showPopup('act1')">Check & Continue 🌟</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       ACTIVITY 2 — Match Presentation Cards
+  ══════════════════════════════════════════ -->
+  <div class="screen" id="screen2">
+    <div class="act-title">🎤 Activity 2 — Match the Presentations!</div>
+    <div class="act-subtitle">Drag each description card to the right demo booth.</div>
+    <div class="instruction">🌟 Each booth needs the right explanation and feature!</div>
+
+    <div class="source-tray" id="tray2">
+      <div class="drag-card" draggable="true" data-id="p1" data-target="booth-web">🗣 "I built a quiz app for my class!"</div>
+      <div class="drag-card" draggable="true" data-id="p2" data-target="booth-hardware">⚙️ "My robot runs on sunlight!"</div>
+      <div class="drag-card" draggable="true" data-id="p3" data-target="booth-finance">📈 "I tracked my pocket money for a month!"</div>
+      <div class="drag-card" draggable="true" data-id="p4" data-target="booth-web">🔗 "It works on any phone or tablet!"</div>
+      <div class="drag-card" draggable="true" data-id="p5" data-target="booth-hardware">🔋 "It uses solar panels and sensors!"</div>
+      <div class="drag-card" draggable="true" data-id="p6" data-target="booth-finance">💡 "It shows charts of spending habits!"</div>
+    </div>
+
+    <div id="act2-zones">
+      <div class="zone-box">
+        <span class="section-emoji">💻</span>
+        <div class="section-label">Web App Booth</div>
+        <div class="drop-zone" data-zone="booth-web" id="zone-booth-web"></div>
+      </div>
+      <div class="zone-box">
+        <span class="section-emoji">⚡</span>
+        <div class="section-label">Hardware Booth</div>
+        <div class="drop-zone" data-zone="booth-hardware" id="zone-booth-hardware"></div>
+      </div>
+      <div class="zone-box">
+        <span class="section-emoji">🏦</span>
+        <div class="section-label">Finance Booth</div>
+        <div class="drop-zone" data-zone="booth-finance" id="zone-booth-finance"></div>
+      </div>
+    </div>
+
+    <div class="score-row" id="score2">
+      <span class="score-star">⭐</span><span id="score2-text">0 / 6 placed correctly</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="next2-btn" disabled onclick="showPopup('act2')">Check & Continue 🦄</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       ACTIVITY 3 — Organise the Final Event
+  ══════════════════════════════════════════ -->
+  <div class="screen" id="screen3">
+    <div class="act-title">🏆 Activity 3 — Set Up the Final Showcase!</div>
+    <div class="act-subtitle">Drag projects, visitors, and award badges to the right spots!</div>
+    <div class="instruction">🎉 Organise everything to open the Demo Day!</div>
+
+    <div class="source-tray" id="tray3">
+      <div class="drag-card" draggable="true" data-id="e1" data-target="stage">🎙 Aanya's Weather App</div>
+      <div class="drag-card" draggable="true" data-id="e2" data-target="stage">🤖 Ishaan's Solar Robot</div>
+      <div class="drag-card" draggable="true" data-id="e3" data-target="guests">👨‍👩‍👧 Parents & Families</div>
+      <div class="drag-card" draggable="true" data-id="e4" data-target="guests">👩‍🏫 Teachers & Faculty</div>
+      <div class="drag-card" draggable="true" data-id="e5" data-target="awards">🥇 Best Innovation</div>
+      <div class="drag-card" draggable="true" data-id="e6" data-target="awards">🌟 Superstar Effort</div>
+    </div>
+
+    <div id="act3-zones">
+      <div class="zone-box">
+        <span class="section-emoji">🎪</span>
+        <div class="section-label">Main Stage (Projects)</div>
+        <div class="drop-zone" data-zone="stage" id="zone-stage"></div>
+      </div>
+      <div class="zone-box">
+        <span class="section-emoji">🪑</span>
+        <div class="section-label">Visitor Seating</div>
+        <div class="drop-zone" data-zone="guests" id="zone-guests"></div>
+      </div>
+      <div class="zone-box">
+        <span class="section-emoji">🏅</span>
+        <div class="section-label">Awards Corner</div>
+        <div class="drop-zone" data-zone="awards" id="zone-awards"></div>
+      </div>
+    </div>
+
+    <div class="score-row" id="score3">
+      <span class="score-star">⭐</span><span id="score3-text">0 / 6 placed correctly</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="next3-btn" disabled onclick="showCelebration()">Launch the Showcase! 🚀</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       FINAL CELEBRATION
+  ══════════════════════════════════════════ -->
+  <div class="screen" id="screen-celebrate">
+    <div id="celebrate" class="active">
+      <div class="confetti-row">🎊🎉🌈🦄✨🌟🎊🎉🌈</div>
+      <div class="celebrate-title">You are AMAZING!</div>
+      <div class="celebrate-sub">🎓 Demo Day is officially open! You set up everything perfectly!</div>
+      <div class="star-grid">
+        <span class="star-name">🌟 Aanya</span>
+        <span class="star-name">⭐ Rohan</span>
+        <span class="star-name">🌈 Kavya</span>
+        <span class="star-name">✨ Ishaan</span>
+        <span class="star-name">🦄 Diya</span>
+        <span class="star-name">🎉 Arnav</span>
+        <span class="star-name">🌸 Fatima</span>
+        <span class="star-name">🚀 Sanvi</span>
+        <span class="star-name">💫 Gurpreet</span>
+        <span class="star-name">🎊 Ananya</span>
+      </div>
+      <div style="font-size:clamp(11px,1.5vw,15px);color:#7c3aed;font-weight:700;margin-bottom:8px;max-width:480px;text-align:center;">
+        "Every one of you showed us something wonderful today. You communicated, you demonstrated, and you shone! The next adventure is waiting — and you are all ready for it!" 🌟
+      </div>
+      <div class="confetti-row">🏆🥇🎪🎭🌺🎨🎵🏆🥇</div>
+      <div class="btn-row">
+        <button class="btn" onclick="restartAll()">🔄 Play Again!</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end #app -->
+
+<!-- POPUP OVERLAY -->
+<div id="popup-overlay">
+  <div class="popup-box" id="popup-box">
+    <span class="popup-emoji" id="popup-emoji">🎉</span>
+    <div class="popup-title" id="popup-title">Wonderful!</div>
+    <div class="popup-msg" id="popup-msg">Great job!</div>
+    <div class="btn-row">
+      <button class="btn" id="popup-btn" onclick="closePopup()">Next Activity ➡</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ────────────────────────────────────────────
+   PARTICLE CANVAS — stars, sparkles, clouds
+──────────────────────────────────────────── */
+const canvas = document.getElementById('particle-canvas');
+const ctx = canvas.getContext('2d');
+
+function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
+resize();
+window.addEventListener('resize',resize);
+
+const STARS=[], SPARKLES=[], CLOUDS=[], UNIS=[];
+
+/* Stars */
+for(let i=0;i<55;i++){
+  STARS.push({
+    x:Math.random()*window.innerWidth,
+    y:Math.random()*window.innerHeight,
+    r:Math.random()*2+0.6,
+    speed:Math.random()*0.4+0.1,
+    angle:Math.random()*Math.PI*2,
+    twinkle:Math.random()*Math.PI*2,
+    color:`hsl(${270+Math.random()*90},80%,75%)`
+  });
+}
+/* Sparkles */
+for(let i=0;i<30;i++){
+  SPARKLES.push({
+    x:Math.random()*window.innerWidth,
+    y:Math.random()*window.innerHeight,
+    size:Math.random()*10+4,
+    phase:Math.random()*Math.PI*2,
+    speed:Math.random()*0.03+0.015,
+    color:`hsl(${Math.random()*360},85%,72%)`
+  });
+}
+/* Clouds */
+const cloudColors=['rgba(255,230,255,0.55)','rgba(220,240,255,0.5)','rgba(255,255,210,0.45)'];
+for(let i=0;i<7;i++){
+  CLOUDS.push({
+    x:Math.random()*window.innerWidth,
+    y:Math.random()*(window.innerHeight*0.55),
+    w:Math.random()*110+60,
+    h:Math.random()*40+24,
+    speed:Math.random()*0.35+0.12,
+    color:cloudColors[i%3],
+    bob:Math.random()*Math.PI*2
+  });
+}
+/* Unicorn emoji positions */
+for(let i=0;i<3;i++){
+  UNIS.push({
+    x:Math.random()*window.innerWidth*0.8+window.innerWidth*0.05,
+    y:Math.random()*window.innerHeight*0.6+window.innerHeight*0.05,
+    phase:Math.random()*Math.PI*2,
+    speed:Math.random()*0.02+0.01,
+    scale:Math.random()*0.5+0.7
+  });
+}
+
+function drawCloud(c){
+  const b=Math.sin(c.bob)*4;
+  ctx.save();
+  ctx.translate(c.x,c.y+b);
+  ctx.fillStyle=c.color;
+  ctx.beginPath();
+  ctx.ellipse(0,0,c.w/2,c.h/2,0,0,Math.PI*2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(-c.w*0.22,-c.h*0.15,c.w*0.3,c.h*0.6,0,0,Math.PI*2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(c.w*0.2,-c.h*0.1,c.w*0.28,c.h*0.55,0,0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawSparkle(s,t){
+  const alpha=0.55+0.45*Math.sin(s.phase+t*s.speed*60);
+  const sz=s.size*(0.8+0.2*Math.sin(s.phase+t*s.speed*60));
+  ctx.save();
+  ctx.globalAlpha=alpha;
+  ctx.translate(s.x,s.y);
+  ctx.fillStyle=s.color;
+  for(let i=0;i<4;i++){
+    ctx.save();
+    ctx.rotate((i*Math.PI/2)+t*s.speed*20);
+    ctx.beginPath();
+    ctx.moveTo(0,-sz);ctx.lineTo(sz*0.12,-sz*0.12);
+    ctx.lineTo(0,sz);ctx.lineTo(-sz*0.12,-sz*0.12);
+    ctx.closePath();ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawStar(s,t){
+  const tw=0.5+0.5*Math.sin(s.twinkle+t*1.2);
+  ctx.save();
+  ctx.globalAlpha=0.3+tw*0.55;
+  ctx.fillStyle=s.color;
+  ctx.beginPath();
+  ctx.arc(s.x,s.y,s.r*(0.7+tw*0.5),0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+let last=0;
+function animate(ts){
+  const t=ts/1000;
+  const dt=(t-last);last=t;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  /* clouds */
+  CLOUDS.forEach(c=>{
+    c.x+=c.speed;
+    c.bob+=0.012;
+    if(c.x>canvas.width+120)c.x=-130;
+    drawCloud(c);
+  });
+
+  /* stars */
+  STARS.forEach(s=>{
+    s.x+=Math.cos(s.angle)*s.speed*0.7;
+    s.y+=Math.sin(s.angle)*s.speed*0.4;
+    s.twinkle+=0.04;
+    if(s.x>canvas.width+5)s.x=-5;
+    if(s.x<-5)s.x=canvas.width+5;
+    if(s.y>canvas.height+5)s.y=-5;
+    if(s.y<-5)s.y=canvas.height+5;
+    drawStar(s,t);
+  });
+
+  /* sparkles */
+  SPARKLES.forEach(s=>{
+    drawSparkle(s,t);
+  });
+
+  /* unicorns */
+  UNIS.forEach(u=>{
+    u.phase+=u.speed;
+    const py=Math.sin(u.phase)*18;
+    ctx.save();
+    ctx.globalAlpha=0.25+0.1*Math.sin(u.phase);
+    ctx.font=`${Math.round(32*u.scale)}px serif`;
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText('🦄',u.x,u.y+py);
+    ctx.restore();
+  });
+
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+/* ────────────────────────────────────────────
+   DRAG AND DROP ENGINE
+──────────────────────────────────────────── */
+let draggedCard=null;
+let scores={act1:0,act2:0,act3:0};
+let totals={act1:6,act2:6,act3:6};
+
+function initDrag(){
+  document.querySelectorAll('.drag-card').forEach(card=>{
+    card.addEventListener('dragstart',e=>{
+      draggedCard=card;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed='move';
+    });
+    card.addEventListener('dragend',()=>{
+      if(draggedCard)draggedCard.classList.remove('dragging');
+      draggedCard=null;
+    });
+    /* Touch support */
+    card.addEventListener('touchstart',e=>{
+      draggedCard=card;
+      card.classList.add('dragging');
+    },{passive:true});
+    card.addEventListener('touchend',e=>{
+      const touch=e.changedTouches[0];
+      const el=document.elementFromPoint(touch.clientX,touch.clientY);
+      const zone=el?el.closest('.drop-zone'):null;
+      if(zone&&draggedCard)handleDrop(zone,draggedCard);
+      if(draggedCard)draggedCard.classList.remove('dragging');
+      draggedCard=null;
+    });
+  });
+
+  document.querySelectorAll('.drop-zone').forEach(zone=>{
+    zone.addEventListener('dragover',e=>{
+      e.preventDefault();
+      zone.classList.add('over');
+    });
+    zone.addEventListener('dragleave',()=>{
+      zone.classList.remove('over');
+    });
+    zone.addEventListener('drop',e=>{
+      e.preventDefault();
+      zone.classList.remove('over');
+      if(draggedCard)handleDrop(zone,draggedCard);
+    });
+  });
+}
+
+function handleDrop(zone,card){
+  const target=card.dataset.target;
+  const zoneName=zone.dataset.zone;
+  const act=getAct(zone.id);
+
+  const chip=document.createElement('div');
+  chip.textContent=card.textContent;
+
+  if(target===zoneName){
+    chip.className='placed-in-zone';
+    zone.classList.add('correct');
+    setTimeout(()=>zone.classList.remove('correct'),600);
+    scores[act]++;
+    card.classList.add('placed');
+    zone.appendChild(chip);
+    updateScore(act);
+    checkComplete(act);
+  } else {
+    chip.className='wrong-in-zone';
+    zone.classList.add('wrong');
+    setTimeout(()=>{
+      zone.classList.remove('wrong');
+      chip.remove();
+    },700);
+    zone.appendChild(chip);
+  }
+}
+
+function getAct(zoneId){
+  if(['zone-web','zone-hardware','zone-finance'].includes(zoneId))return 'act1';
+  if(['zone-booth-web','zone-booth-hardware','zone-booth-finance'].includes(zoneId))return 'act2';
+  return 'act3';
+}
+
+function updateScore(act){
+  const s=scores[act], t=totals[act];
+  document.getElementById(`score${act.slice(-1)}-text`).textContent=`${s} / ${t} placed correctly`;
+}
+
+function checkComplete(act){
+  const n=act.slice(-1);
+  if(scores[act]===totals[act]){
+    document.getElementById(`next${n}-btn`).disabled=false;
+  }
+}
+
+/* ────────────────────────────────────────────
+   POPUP LOGIC
+──────────────────────────────────────────── */
+const popupData={
+  act1:{
+    emoji:'🌈',
+    title:'Brilliant Sorting!',
+    msg:'You matched all the projects perfectly! Web apps, gadgets, and finance projects — you know your stuff! Ready for the next challenge?',
+    next:()=>showActivity(2)
+  },
+  act2:{
+    emoji:'🎤',
+    title:'Superstar Presenter!',
+    msg:'You matched every description to the right demo booth! Your listening skills are incredible. One more activity — let\'s open the showcase!',
+    next:()=>showActivity(3)
+  },
+  act3:{
+    emoji:'🚀',
+    title:'Showcase is LIVE!',
+    msg:'You organised everything perfectly — the stage, the visitors, and the awards! The Demo Day is open! You are absolutely amazing!',
+    next:()=>showCelebration()
+  }
+};
+
+let currentPopupNext=null;
+
+function showPopup(act){
+  const d=popupData[act];
+  document.getElementById('popup-emoji').textContent=d.emoji;
+  document.getElementById('popup-title').textContent=d.title;
+  document.getElementById('popup-msg').textContent=d.msg;
+  currentPopupNext=d.next;
+  document.getElementById('popup-overlay').classList.add('visible');
+}
+
+function closePopup(){
+  document.getElementById('popup-overlay').classList.remove('visible');
+  if(currentPopupNext)currentPopupNext();
+  currentPopupNext=null;
+}
+
+/* ────────────────────────────────────────────
+   NAVIGATION
+──────────────────────────────────────────── */
+function showActivity(n){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(`screen${n}`).classList.add('active');
+  updateDots(n-1);
+}
+
+function showCelebration(){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-celebrate').classList.add('active');
+  updateDots(3);
+  launchConfetti();
+}
+
+function updateDots(active){
+  for(let i=0;i<4;i++){
+    const d=document.getElementById(`dot${i}`);
+    d.classList.remove('active','done');
+    if(i<active)d.classList.add('done');
+    else if(i===active)d.classList.add('active');
+  }
+}
+
+/* ────────────────────────────────────────────
+   CONFETTI BURST (canvas layer)
+──────────────────────────────────────────── */
+const confettiPieces=[];
+function launchConfetti(){
+  for(let i=0;i<120;i++){
+    confettiPieces.push({
+      x:Math.random()*canvas.width,
+      y:-10-Math.random()*200,
+      vx:(Math.random()-0.5)*4,
+      vy:Math.random()*4+2,
+      r:Math.random()*6+3,
+      color:`hsl(${Math.random()*360},85%,65%)`,
+      rot:Math.random()*Math.PI*2,
+      rv:(Math.random()-0.5)*0.15,
+      life:1
+    });
+  }
+}
+
+/* Enhance animation loop to draw confetti */
+const origAnimate=animate;
+function animate(ts){
+  const t=ts/1000;
+  const dt=(t-last);last=t;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  CLOUDS.forEach(c=>{c.x+=c.speed;c.bob+=0.012;if(c.x>canvas.width+120)c.x=-130;drawCloud(c);});
+  STARS.forEach(s=>{
+    s.x+=Math.cos(s.angle)*s.speed*0.7;s.y+=Math.sin(s.angle)*s.speed*0.4;s.twinkle+=0.04;
+    if(s.x>canvas.width+5)s.x=-5;if(s.x<-5)s.x=canvas.width+5;
+    if(s.y>canvas.height+5)s.y=-5;if(s.y<-5)s.y=canvas.height+5;
+    drawStar(s,t);
+  });
+  SPARKLES.forEach(s=>drawSparkle(s,t));
+  UNIS.forEach(u=>{
+    u.phase+=u.speed;const py=Math.sin(u.phase)*18;
+    ctx.save();ctx.globalAlpha=0.25+0.1*Math.sin(u.phase);
+    ctx.font=`${Math.round(32*u.scale)}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('🦄',u.x,u.y+py);ctx.restore();
+  });
+
+  /* Confetti */
+  for(let i=confettiPieces.length-1;i>=0;i--){
+    const p=confettiPieces[i];
+    p.x+=p.vx;p.y+=p.vy;p.rot+=p.rv;p.life-=0.004;
+    if(p.y>canvas.height+20||p.life<=0){confettiPieces.splice(i,1);continue;}
+    ctx.save();
+    ctx.globalAlpha=Math.min(1,p.life*3);
+    ctx.translate(p.x,p.y);ctx.rotate(p.rot);
+    ctx.fillStyle=p.color;
+    ctx.fillRect(-p.r/2,-p.r/2,p.r,p.r*2);
+    ctx.restore();
+  }
+
+  requestAnimationFrame(animate);
+}
+
+function restartAll(){
+  scores={act1:0,act2:0,act3:0};
+  document.querySelectorAll('.drag-card').forEach(c=>{c.classList.remove('placed','dragging');});
+  document.querySelectorAll('.drop-zone').forEach(z=>{
+    z.innerHTML='';z.classList.remove('correct','wrong','over');
+  });
+  ['score1-text','score2-text','score3-text'].forEach((id,i)=>{
+    document.getElementById(id).textContent=`0 / 6 placed correctly`;
+  });
+  ['next1-btn','next2-btn','next3-btn'].forEach(id=>{
+    document.getElementById(id).disabled=true;
+  });
+  showActivity(1);
+}
+
+/* INIT */
+initDrag();
+</script>
+</body>
+</html>

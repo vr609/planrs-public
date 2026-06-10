@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rainbow in a Glass</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --v1:#1a0030;--v2:#2d0057;--v3:#4a0080;--v4:#6b00b3;
+    --v5:#9b30ff;--v6:#c278ff;--v7:#e0b0ff;--glow:#bf5fff;
+  }
+  body{
+    min-height:100vh;
+    background:radial-gradient(ellipse at 20% 20%,#2d0057 0%,#1a0030 50%,#0d0020 100%);
+    font-family:'Nunito',sans-serif;overflow-x:hidden;position:relative;
+  }
+  #bg-canvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0}
+  #confetti-canvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:100}
+
+  /* TITLE */
+  .main-title{
+    position:relative;z-index:10;text-align:center;
+    padding:32px 20px 8px;
+    font-family:'Fredoka One',cursive;
+    font-size:clamp(2rem,6vw,3.8rem);
+    background:linear-gradient(90deg,#ff6ec7,#ffdd00,#44ffaa,#4db8ff,#c278ff,#ff6ec7);
+    background-size:300% 100%;
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    animation:titleShimmer 4s linear infinite;
+    filter:drop-shadow(0 0 18px rgba(191,95,255,0.7));letter-spacing:2px;
+  }
+  @keyframes titleShimmer{0%{background-position:0% 50%}100%{background-position:300% 50%}}
+
+  /* TABS */
+  .tab-nav{position:relative;z-index:10;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;padding:16px 20px 6px}
+  .tab-btn{
+    font-family:'Fredoka One',cursive;font-size:0.95rem;padding:9px 22px;
+    border:2px solid var(--v5);border-radius:50px;
+    background:rgba(75,0,130,0.3);color:var(--v7);cursor:pointer;
+    transition:all .3s;backdrop-filter:blur(6px);
+  }
+  .tab-btn:hover{background:rgba(155,48,255,0.4);color:#fff;transform:translateY(-2px);box-shadow:0 6px 20px rgba(155,48,255,0.4)}
+  .tab-btn.active{background:linear-gradient(135deg,#6b00b3,#9b30ff);color:#fff;box-shadow:0 6px 24px rgba(155,48,255,0.6);border-color:var(--v6)}
+
+  /* PANELS */
+  .panel{display:none;position:relative;z-index:10;max-width:960px;margin:0 auto;padding:16px 16px 60px}
+  .panel.active{display:block;animation:fadeSlide .4s ease}
+  @keyframes fadeSlide{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+  .activity-card{
+    background:rgba(45,0,87,0.6);border:1.5px solid rgba(155,48,255,0.35);
+    border-radius:24px;padding:24px;backdrop-filter:blur(12px);
+    box-shadow:0 8px 40px rgba(107,0,179,0.4),inset 0 0 60px rgba(155,48,255,0.05);
+  }
+  .activity-title{font-family:'Fredoka One',cursive;font-size:1.45rem;color:var(--v6);margin-bottom:6px;text-align:center;letter-spacing:1px}
+  .activity-desc{color:var(--v7);font-size:0.92rem;text-align:center;margin-bottom:20px;line-height:1.55;opacity:.9}
+
+  /* ── ACTIVITY 1 LAYOUT ── */
+  .act1-layout{display:flex;gap:24px;align-items:flex-start;justify-content:center;flex-wrap:wrap}
+
+  /* Liquid shelf */
+  .liquid-shelf{display:flex;flex-direction:column;gap:9px;min-width:150px}
+  .shelf-label{font-family:'Fredoka One',cursive;color:var(--v6);font-size:.88rem;text-align:center;opacity:.85;margin-bottom:2px}
+  .draggable-layer{
+    padding:9px 16px;border-radius:40px;color:#fff;font-weight:800;font-size:.84rem;
+    cursor:grab;text-align:center;border:2px solid rgba(255,255,255,.25);
+    transition:transform .2s,box-shadow .2s;user-select:none;
+    text-shadow:0 1px 4px rgba(0,0,0,.55);position:relative;
+  }
+  .draggable-layer:hover{transform:scale(1.06);box-shadow:0 6px 22px rgba(0,0,0,.4)}
+  .draggable-layer.dragging{opacity:.35;transform:scale(.93);cursor:grabbing}
+  .draggable-layer.used{opacity:.25;pointer-events:none;filter:grayscale(.7)}
+
+  /* Glass area */
+  .glass-section{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .glass-section-label{font-family:'Fredoka One',cursive;color:var(--v7);font-size:.82rem;opacity:.7}
+
+  /* The actual glass — big canvas */
+  #glass-canvas{
+    border-radius:12px;
+    filter:drop-shadow(0 0 22px rgba(155,48,255,.55));
+    cursor:default;
+  }
+
+  /* Drop-zone buttons beside glass */
+  .drop-slots{display:flex;flex-direction:column;gap:7px;justify-content:flex-end}
+  .drop-slot{
+    width:148px;min-height:44px;
+    border:2.5px dashed rgba(155,48,255,.55);
+    border-radius:14px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Fredoka One',cursive;font-size:.78rem;
+    color:rgba(224,176,255,.45);
+    transition:background .25s,border-color .25s,transform .15s;
+    cursor:pointer;position:relative;padding:6px 10px;text-align:center;
+  }
+  .drop-slot .slot-layer-label{
+    position:absolute;right:-3px;top:-11px;
+    font-size:.65rem;color:var(--v6);
+    background:var(--v2);padding:1px 7px;border-radius:20px;border:1px solid var(--v4);
+    white-space:nowrap;
+  }
+  .drop-slot.drag-over{border-color:#fff;background:rgba(155,48,255,.28);transform:scale(1.03)}
+  .drop-slot.filled{border-style:solid;color:#fff;font-size:.8rem;font-weight:800;text-shadow:0 1px 3px rgba(0,0,0,.5);animation:slotPop .35s ease}
+  .drop-slot.wrong-flash{animation:wrongFlash .45s ease}
+  @keyframes slotPop{from{transform:scale(.88);opacity:.4}to{transform:scale(1);opacity:1}}
+  @keyframes wrongFlash{0%{background:rgba(255,60,60,.35)}50%{background:rgba(255,60,60,.55)}100%{background:transparent}}
+
+  /* feedback */
+  .feedback-row{display:flex;align-items:center;gap:10px;margin-top:12px;justify-content:center;flex-wrap:wrap}
+  .success-msg{
+    padding:9px 22px;border-radius:40px;
+    background:linear-gradient(135deg,#44cc44,#00ffaa);
+    color:#002a18;font-weight:800;font-size:.92rem;text-align:center;
+    display:none;animation:popIn .4s ease;
+  }
+  .success-msg.show{display:block}
+  @keyframes popIn{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+
+  .hint-msg{
+    padding:7px 18px;border-radius:40px;
+    background:rgba(255,180,0,.18);border:1.5px solid rgba(255,200,0,.4);
+    color:#ffe066;font-size:.82rem;text-align:center;display:none;font-weight:700;
+  }
+  .hint-msg.show{display:block;animation:popIn .3s ease}
+
+  .reset-btn{
+    display:block;margin:14px auto 0;padding:9px 28px;border:none;border-radius:40px;
+    background:linear-gradient(135deg,#6b00b3,#9b30ff);color:#fff;
+    font-family:'Fredoka One',cursive;font-size:.95rem;cursor:pointer;
+    transition:transform .2s,box-shadow .2s;
+  }
+  .reset-btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(155,48,255,.5)}
+
+  /* ── ACTIVITY 2 ── */
+  .sort-zone{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:18px}
+  .density-item{
+    padding:11px 16px;border-radius:14px;color:#fff;font-weight:800;font-size:.82rem;
+    cursor:grab;text-align:center;border:2px solid rgba(255,255,255,.2);
+    transition:transform .2s,box-shadow .2s;user-select:none;min-width:105px;
+    text-shadow:0 1px 4px rgba(0,0,0,.5);
+  }
+  .density-item.dragging{opacity:.3}
+  .density-item:hover{transform:scale(1.05);box-shadow:0 6px 16px rgba(0,0,0,.4)}
+  .order-track{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+  .order-slot{
+    width:105px;min-height:58px;border:2.5px dashed rgba(155,48,255,.5);
+    border-radius:14px;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;transition:background .3s,border-color .3s;position:relative;
+  }
+  .order-slot .slot-num{
+    position:absolute;top:-12px;left:50%;transform:translateX(-50%);
+    font-family:'Fredoka One',cursive;font-size:.68rem;color:var(--v6);
+    background:var(--v2);padding:1px 7px;border-radius:20px;border:1px solid var(--v4);white-space:nowrap;
+  }
+  .order-slot.drag-over{border-color:var(--glow);background:rgba(155,48,255,.18)}
+  .order-slot.correct{border-color:#44cc44;background:rgba(68,204,68,.1)}
+  .order-slot.incorrect{border-color:#ff4444;background:rgba(255,68,68,.1);animation:shake .4s ease}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+  .score-badge{
+    display:block;width:fit-content;margin:12px auto 0;
+    background:linear-gradient(135deg,#6b00b3,#c278ff);color:#fff;
+    font-family:'Fredoka One',cursive;font-size:.95rem;
+    padding:6px 22px;border-radius:40px;text-align:center;
+    box-shadow:0 4px 16px rgba(107,0,179,.4);
+  }
+
+  /* ── ACTIVITY 3 ── */
+  .match-area{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;align-items:flex-start}
+  .match-col{display:flex;flex-direction:column;gap:9px;align-items:center}
+  .match-col-title{font-family:'Fredoka One',cursive;color:var(--v6);font-size:.88rem;margin-bottom:3px}
+  .match-item{
+    padding:9px 15px;border-radius:40px;color:#fff;font-weight:800;font-size:.82rem;
+    cursor:grab;text-align:center;border:2px solid rgba(255,255,255,.2);
+    min-width:135px;transition:transform .2s,box-shadow .2s;user-select:none;
+    text-shadow:0 1px 3px rgba(0,0,0,.4);
+  }
+  .match-item:hover{transform:scale(1.04);box-shadow:0 5px 15px rgba(0,0,0,.4)}
+  .match-item.dragging{opacity:.3}
+  .match-target{
+    min-width:135px;min-height:44px;border:2.5px dashed rgba(155,48,255,.5);
+    border-radius:40px;display:flex;align-items:center;justify-content:center;
+    font-family:'Fredoka One',cursive;font-size:.78rem;color:rgba(224,176,255,.45);
+    transition:background .3s,border-color .3s;position:relative;
+  }
+  .match-target .target-label{
+    position:absolute;top:-12px;left:50%;transform:translateX(-50%);
+    font-family:'Fredoka One',cursive;font-size:.7rem;color:var(--v7);
+    background:var(--v2);padding:1px 8px;border-radius:20px;border:1px solid var(--v4);white-space:nowrap;
+  }
+  .match-target.drag-over{border-color:var(--glow);background:rgba(155,48,255,.2)}
+  .match-target.correct{border-color:#44cc44;background:rgba(68,204,68,.12)}
+  .match-target.incorrect{border-color:#ff4444;background:rgba(255,68,68,.12);animation:shake .4s ease}
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<canvas id="confetti-canvas"></canvas>
+
+<h1 class="main-title">🌈 Rainbow in a Glass 🌈</h1>
+
+<nav class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab(0)">🧪 Activity 1: Fill the Glass</button>
+  <button class="tab-btn" onclick="switchTab(1)">⚖️ Activity 2: Sort by Density</button>
+  <button class="tab-btn" onclick="switchTab(2)">🎨 Activity 3: Match Colours</button>
+</nav>
+
+<!-- ══════════════ ACTIVITY 1 ══════════════ -->
+<div class="panel active" id="panel-0">
+  <div class="activity-card">
+    <div class="activity-title">🧪 Fill the Rainbow Glass!</div>
+    <div class="activity-desc">
+      Drag each coloured liquid and drop it into the correct layer slot on the right.<br>
+      Densest liquid goes at the <strong style="color:#c278ff">bottom</strong>, lightest at the <strong style="color:#c278ff">top</strong>!
+    </div>
+
+    <div class="act1-layout">
+
+      <!-- LEFT: draggable liquids -->
+      <div class="liquid-shelf">
+        <div class="shelf-label">🫙 Drag These Liquids</div>
+        <div class="draggable-layer" id="dl-violet" draggable="true" data-id="violet"
+             style="background:linear-gradient(135deg,#5500cc,#9922ff)">🍇 Violet Syrup</div>
+        <div class="draggable-layer" id="dl-blue" draggable="true" data-id="blue"
+             style="background:linear-gradient(135deg,#1155cc,#3399ff)">💧 Blue Juice</div>
+        <div class="draggable-layer" id="dl-green" draggable="true" data-id="green"
+             style="background:linear-gradient(135deg,#116622,#33cc55)">🍏 Green Juice</div>
+        <div class="draggable-layer" id="dl-yellow" draggable="true" data-id="yellow"
+             style="background:linear-gradient(135deg,#aa8800,#ffdd00)">🍋 Yellow Juice</div>
+        <div class="draggable-layer" id="dl-orange" draggable="true" data-id="orange"
+             style="background:linear-gradient(135deg,#aa4400,#ff8800)">🍊 Orange Juice</div>
+        <div class="draggable-layer" id="dl-red" draggable="true" data-id="red"
+             style="background:linear-gradient(135deg,#aa0000,#ff3344)">🍓 Red Juice</div>
+      </div>
+
+      <!-- CENTRE: glass canvas -->
+      <div class="glass-section">
+        <div class="glass-section-label">Your Glass 🥂</div>
+        <canvas id="glass-canvas" width="160" height="300"></canvas>
+        <div class="glass-section-label" style="font-size:.72rem;opacity:.5">Layers fill bottom → top</div>
+      </div>
+
+      <!-- RIGHT: drop slots -->
+      <div class="drop-slots" id="drop-slots">
+        <!-- built by JS -->
+      </div>
+    </div>
+
+    <div class="feedback-row">
+      <div class="hint-msg" id="act1-hint"></div>
+      <div class="success-msg" id="act1-success">🎉 Perfect Rainbow! You nailed it!</div>
+    </div>
+    <button class="reset-btn" onclick="resetActivity1()">🔄 Reset</button>
+  </div>
+</div>
+
+<!-- ══════════════ ACTIVITY 2 ══════════════ -->
+<div class="panel" id="panel-1">
+  <div class="activity-card">
+    <div class="activity-title">⚖️ Sort Liquids by Density!</div>
+    <div class="activity-desc">
+      Drag each liquid to its correct position — from <strong style="color:#ff8888">MOST dense</strong> (bottom) to <strong style="color:#aaffcc">LEAST dense</strong> (top).
+    </div>
+    <div class="sort-zone" id="sort-pool">
+      <div class="density-item" draggable="true" data-id="a" style="background:linear-gradient(135deg,#aa8800,#ffdd00)">🍋 Yellow Juice<br><small style="font-size:.7rem;opacity:.7">Medium density</small></div>
+      <div class="density-item" draggable="true" data-id="b" style="background:linear-gradient(135deg,#5500cc,#9922ff)">🍇 Violet Syrup<br><small style="font-size:.7rem;opacity:.7">Very dense</small></div>
+      <div class="density-item" draggable="true" data-id="c" style="background:linear-gradient(135deg,#aa4400,#ff8800)">🍊 Orange Juice<br><small style="font-size:.7rem;opacity:.7">Dense</small></div>
+      <div class="density-item" draggable="true" data-id="d" style="background:linear-gradient(135deg,#1155cc,#3399ff)">💧 Blue Juice<br><small style="font-size:.7rem;opacity:.7">Light-medium</small></div>
+      <div class="density-item" draggable="true" data-id="e" style="background:linear-gradient(135deg,#aa0000,#ff3344)">🍓 Red Juice<br><small style="font-size:.7rem;opacity:.7">Densest</small></div>
+      <div class="density-item" draggable="true" data-id="f" style="background:linear-gradient(135deg,#116622,#33cc55)">🍏 Green Juice<br><small style="font-size:.7rem;opacity:.7">Lightest</small></div>
+    </div>
+    <div class="order-track" id="order-track">
+      <div class="order-slot" id="os-1" data-pos="1" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropSort(event,1)">
+        <span class="slot-num">🥇 Most Dense</span>
+        <span style="color:rgba(224,176,255,.4);font-size:.72rem">drop here</span>
+      </div>
+      <div class="order-slot" id="os-2" data-pos="2" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropSort(event,2)">
+        <span class="slot-num">Layer 2</span>
+        <span style="color:rgba(224,176,255,.4);font-size:.72rem">drop here</span>
+      </div>
+      <div class="order-slot" id="os-3" data-pos="3" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropSort(event,3)">
+        <span class="slot-num">Layer 3</span>
+        <span style="color:rgba(224,176,255,.4);font-size:.72rem">drop here</span>
+      </div>
+      <div class="order-slot" id="os-4" data-pos="4" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropSort(event,4)">
+        <span class="slot-num">Layer 4</span>
+        <span style="color:rgba(224,176,255,.4);font-size:.72rem">drop here</span>
+      </div>
+      <div class="order-slot" id="os-5" data-pos="5" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropSort(event,5)">
+        <span class="slot-num">Layer 5</span>
+        <span style="color:rgba(224,176,255,.4);font-size:.72rem">drop here</span>
+      </div>
+      <div class="order-slot" id="os-6" data-pos="6" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropSort(event,6)">
+        <span class="slot-num">🪶 Least Dense</span>
+        <span style="color:rgba(224,176,255,.4);font-size:.72rem">drop here</span>
+      </div>
+    </div>
+    <div class="score-badge" id="act2-score">Score: 0 / 6</div>
+    <div class="success-msg" id="act2-success" style="margin:12px auto 0;display:none">🌈 Perfect order! You know your densities!</div>
+    <button class="reset-btn" onclick="resetActivity2()">🔄 Reset</button>
+  </div>
+</div>
+
+<!-- ══════════════ ACTIVITY 3 ══════════════ -->
+<div class="panel" id="panel-2">
+  <div class="activity-card">
+    <div class="activity-title">🎨 Match Liquid to Its Colour!</div>
+    <div class="activity-desc">
+      Drag each liquid name and drop it onto the matching colour swatch.<br>
+      Match all 7 rainbow liquids correctly!
+    </div>
+    <div class="match-area">
+      <div class="match-col">
+        <div class="match-col-title">🫙 Liquids</div>
+        <div class="match-item" draggable="true" data-id="m-red" style="background:linear-gradient(135deg,#aa0000,#ff3344)">🍓 Strawberry Juice</div>
+        <div class="match-item" draggable="true" data-id="m-orange" style="background:linear-gradient(135deg,#aa4400,#ff8800)">🍊 Orange Juice</div>
+        <div class="match-item" draggable="true" data-id="m-yellow" style="background:linear-gradient(135deg,#aa8800,#ffdd00)">🍋 Lemon Juice</div>
+        <div class="match-item" draggable="true" data-id="m-green" style="background:linear-gradient(135deg,#116622,#33cc55)">🍏 Lime Juice</div>
+        <div class="match-item" draggable="true" data-id="m-blue" style="background:linear-gradient(135deg,#1155cc,#3399ff)">💧 Blue Curacao</div>
+        <div class="match-item" draggable="true" data-id="m-indigo" style="background:linear-gradient(135deg,#2233aa,#5544ee)">🫐 Blueberry Juice</div>
+        <div class="match-item" draggable="true" data-id="m-violet" style="background:linear-gradient(135deg,#5500cc,#9922ff)">🍇 Grape Syrup</div>
+      </div>
+      <div class="match-col">
+        <div class="match-col-title">🎨 Colour Targets</div>
+        <div class="match-target" id="mt-red" data-accepts="m-red" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropMatch(event,'mt-red')">
+          <span class="target-label">🔴 Red</span><span style="color:rgba(224,176,255,.4);font-size:.76rem">drop here</span>
+        </div>
+        <div class="match-target" id="mt-orange" data-accepts="m-orange" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropMatch(event,'mt-orange')">
+          <span class="target-label">🟠 Orange</span><span style="color:rgba(224,176,255,.4);font-size:.76rem">drop here</span>
+        </div>
+        <div class="match-target" id="mt-yellow" data-accepts="m-yellow" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropMatch(event,'mt-yellow')">
+          <span class="target-label">🟡 Yellow</span><span style="color:rgba(224,176,255,.4);font-size:.76rem">drop here</span>
+        </div>
+        <div class="match-target" id="mt-green" data-accepts="m-green" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropMatch(event,'mt-green')">
+          <span class="target-label">🟢 Green</span><span style="color:rgba(224,176,255,.4);font-size:.76rem">drop here</span>
+        </div>
+        <div class="match-target" id="mt-blue" data-accepts="m-blue" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropMatch(event,'mt-blue')">
+          <span class="target-label">🔵 Blue</span><span style="color:rgba(224,176,255,.4);font-size:.76rem">drop here</span>
+        </div>
+        <div class="match-target" id="mt-indigo" data-accepts="m-indigo" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropMatch(event,'mt-indigo')">
+          <span class="target-label">🟣 Indigo</span><span style="color:rgba(224,176,255,.4);font-size:.76rem">drop here</span>
+        </div>
+        <div class="match-target" id="mt-violet" data-accepts="m-violet" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropMatch(event,'mt-violet')">
+          <span class="target-label">💜 Violet</span><span style="color:rgba(224,176,255,.4);font-size:.76rem">drop here</span>
+        </div>
+      </div>
+    </div>
+    <div class="score-badge" id="act3-score">Score: 0 / 7</div>
+    <div class="success-msg" id="act3-success" style="margin:12px auto 0;display:none">🌈 Incredible! All 7 matched perfectly!</div>
+    <button class="reset-btn" onclick="resetActivity3()">🔄 Reset</button>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   ANIMATED BACKGROUND
+══════════════════════════════════════════ */
+const bgC=document.getElementById('bg-canvas'),bgX=bgC.getContext('2d');
+const confC=document.getElementById('confetti-canvas'),confX=confC.getContext('2d');
+function resizeAll(){bgC.width=confC.width=innerWidth;bgC.height=confC.height=innerHeight}
+resizeAll();addEventListener('resize',resizeAll);
+
+const BCOLORS=['#ff6ec7','#ff9933','#ffdd00','#44ff88','#44bbff','#9966ff','#ff4488','#c278ff','#ff6644','#aaffcc'];
+class Ball{
+  constructor(){this.reset(true)}
+  reset(init){
+    this.x=Math.random()*bgC.width;
+    this.y=init?Math.random()*bgC.height:(Math.random()<.5?-40:bgC.height+40);
+    this.r=8+Math.random()*20;this.color=BCOLORS[Math.random()*BCOLORS.length|0];
+    this.vx=(Math.random()-.5)*1.3;this.vy=(Math.random()-.5)*1.3;
+    this.alpha=.15+Math.random()*.4;this.phase=Math.random()*Math.PI*2;
+    this.trail=[];
+  }
+  tick(){
+    this.trail.push({x:this.x,y:this.y});if(this.trail.length>10)this.trail.shift();
+    this.x+=this.vx;this.y+=this.vy;this.phase+=.025;
+    if(this.x<-70||this.x>bgC.width+70||this.y<-70||this.y>bgC.height+70)this.reset(false);
+    return this.r*(1+.13*Math.sin(this.phase));
+  }
+  draw(ctx){
+    const pr=this.tick();
+    this.trail.forEach((t,i)=>{
+      const ta=(i/this.trail.length)*this.alpha*.35;
+      ctx.beginPath();ctx.arc(t.x,t.y,pr*(i/this.trail.length)*.6,0,Math.PI*2);
+      ctx.fillStyle=this.color+Math.min(255,ta*255|0).toString(16).padStart(2,'0');ctx.fill();
+    });
+    const g=ctx.createRadialGradient(this.x,this.y,0,this.x,this.y,pr*2.5);
+    g.addColorStop(0,this.color+'99');g.addColorStop(.5,this.color+'33');g.addColorStop(1,this.color+'00');
+    ctx.beginPath();ctx.arc(this.x,this.y,pr*2.5,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+    ctx.beginPath();ctx.arc(this.x,this.y,pr,0,Math.PI*2);
+    ctx.fillStyle=this.color+Math.min(255,this.alpha*255|0).toString(16).padStart(2,'0');ctx.fill();
+  }
+}
+const balls=Array.from({length:26},()=>new Ball());
+function animBg(){
+  bgX.clearRect(0,0,bgC.width,bgC.height);
+  for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
+    const dx=balls[i].x-balls[j].x,dy=balls[i].y-balls[j].y,d=Math.sqrt(dx*dx+dy*dy);
+    if(d<155){const a=(1-d/155)*.16;bgX.beginPath();bgX.moveTo(balls[i].x,balls[i].y);
+    bgX.lineTo(balls[j].x,balls[j].y);bgX.strokeStyle=balls[i].color+(a*255|0).toString(16).padStart(2,'0');
+    bgX.lineWidth=1.1;bgX.stroke();}
+  }
+  balls.forEach(b=>b.draw(bgX));requestAnimationFrame(animBg);
+}
+animBg();
+
+/* confetti */
+let cParts=[],cRun=false;
+function launchConfetti(){
+  cParts=Array.from({length:140},()=>({
+    x:Math.random()*confC.width,y:-20,vx:(Math.random()-.5)*6,vy:2+Math.random()*5,
+    color:BCOLORS[Math.random()*BCOLORS.length|0],r:5+Math.random()*8,
+    rot:Math.random()*Math.PI*2,rotV:(Math.random()-.5)*.2,life:1
+  }));
+  if(!cRun)animConf();
+}
+function animConf(){
+  cRun=true;confX.clearRect(0,0,confC.width,confC.height);
+  cParts=cParts.filter(p=>p.life>.01);
+  cParts.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;p.vy+=.13;p.rot+=p.rotV;p.life-=.013;
+    confX.save();confX.globalAlpha=p.life;confX.translate(p.x,p.y);confX.rotate(p.rot);
+    confX.fillStyle=p.color;confX.beginPath();confX.ellipse(0,0,p.r,p.r*.5,0,0,Math.PI*2);confX.fill();
+    confX.restore();
+  });
+  if(cParts.length)requestAnimationFrame(animConf);else cRun=false;
+}
+
+/* tab switch */
+function switchTab(i){
+  document.querySelectorAll('.panel').forEach((p,j)=>p.classList.toggle('active',j===i));
+  document.querySelectorAll('.tab-btn').forEach((b,j)=>b.classList.toggle('active',j===i));
+}
+
+/* ══════════════════════════════════════════
+   ACTIVITY 1 — GLASS + DRAG & DROP
+══════════════════════════════════════════ */
+const LAYERS=[
+  {id:'violet', label:'🍇 Violet Syrup',  color1:'#5500cc', color2:'#9922ff', slotLabel:'Layer 1 — Bottom (Densest)'},
+  {id:'blue',   label:'💧 Blue Juice',    color1:'#1155cc', color2:'#3399ff', slotLabel:'Layer 2'},
+  {id:'green',  label:'🍏 Green Juice',   color1:'#116622', color2:'#33cc55', slotLabel:'Layer 3'},
+  {id:'yellow', label:'🍋 Yellow Juice',  color1:'#aa8800', color2:'#ffdd00', slotLabel:'Layer 4'},
+  {id:'orange', label:'🍊 Orange Juice',  color1:'#aa4400', color2:'#ff8800', slotLabel:'Layer 5'},
+  {id:'red',    label:'🍓 Red Juice',     color1:'#aa0000', color2:'#ff3344', slotLabel:'Layer 6 — Top (Lightest)'},
+];
+// Slot 1 = bottom = violet, slot 6 = top = red
+// Display slots top-to-bottom in DOM, so we reverse for display
+const SLOT_ORDER = [5,4,3,2,1,0]; // indices into LAYERS, top-slot first
+
+let act1Placed = {}; // slotIndex(0..5) → layerId
+let act1DragId = null;
+
+/* build drop slots */
+(function buildSlots(){
+  const container = document.getElementById('drop-slots');
+  SLOT_ORDER.forEach((layerIdx, i) => {
+    const slotPos = 5 - i; // 5=top slot visually (red), 0=bottom (violet)
+    const layer = LAYERS[layerIdx];
+    const div = document.createElement('div');
+    div.className = 'drop-slot';
+    div.id = 'dslot-' + slotPos;
+    div.dataset.pos = slotPos;
+    div.dataset.expects = layer.id;
+    div.innerHTML = `<span class="slot-layer-label">${layer.slotLabel}</span><span class="slot-placeholder">Drop here ↓</span>`;
+    div.addEventListener('dragover', e=>{ e.preventDefault(); div.classList.add('drag-over'); });
+    div.addEventListener('dragleave', ()=> div.classList.remove('drag-over'));
+    div.addEventListener('drop', e=>{ e.preventDefault(); handleGlassDrop(div, slotPos); });
+    container.appendChild(div);
+  });
+})();
+
+/* draggable liquid events */
+document.querySelectorAll('.draggable-layer').forEach(el=>{
+  el.addEventListener('dragstart', e=>{
+    act1DragId = el.dataset.id;
+    e.dataTransfer.effectAllowed='move';
+    setTimeout(()=>el.classList.add('dragging'),0);
+  });
+  el.addEventListener('dragend', ()=>el.classList.remove('dragging'));
+});
+
+function handleGlassDrop(slotEl, slotPos){
+  slotEl.classList.remove('drag-over');
+  if(!act1DragId) return;
+  if(act1Placed[slotPos] !== undefined) return; // already filled
+
+  const expects = slotEl.dataset.expects;
+  const placed  = act1DragId;
+  act1DragId = null;
+
+  const hint = document.getElementById('act1-hint');
+
+  if(placed !== expects){
+    // Wrong layer — flash hint
+    hint.textContent = `❌ "${LAYERS.find(l=>l.id===placed).label}" doesn't belong here! Try another slot.`;
+    hint.classList.add('show');
+    slotEl.classList.add('wrong-flash');
+    setTimeout(()=>{ slotEl.classList.remove('wrong-flash'); hint.classList.remove('show'); }, 1800);
+    return;
+  }
+
+  // Correct!
+  act1Placed[slotPos] = placed;
+  const layer = LAYERS.find(l=>l.id===placed);
+  slotEl.classList.add('filled');
+  slotEl.style.background = `linear-gradient(135deg,${layer.color1},${layer.color2})`;
+  slotEl.innerHTML = `<span class="slot-layer-label">${layer.slotLabel}</span>${layer.label}`;
+  hint.classList.remove('show');
+
+  // Mark liquid as used
+  const sourceEl = document.getElementById('dl-' + placed);
+  if(sourceEl){ sourceEl.classList.add('used'); sourceEl.draggable = false; }
+
+  drawGlass();
+  if(Object.keys(act1Placed).length === 6) winAct1();
+}
+
+/* draw glass on canvas */
+const gc = document.getElementById('glass-canvas');
+const gx = gc.getContext('2d');
+const GW=160, GH=300;
+const GLASS_TOP_W=120, GLASS_BOT_W=90, GLASS_X=(GW-GLASS_TOP_W)/2;
+const GLASS_Y=20, GLASS_H=255, LIP=8;
+
+function glassClipPath(ctx){
+  ctx.beginPath();
+  ctx.moveTo(GLASS_X, GLASS_Y+LIP);
+  ctx.lineTo(GLASS_X+(GLASS_TOP_W-GLASS_BOT_W)/2, GLASS_Y+GLASS_H);
+  ctx.lineTo(GLASS_X+(GLASS_TOP_W-GLASS_BOT_W)/2+GLASS_BOT_W, GLASS_Y+GLASS_H);
+  ctx.lineTo(GLASS_X+GLASS_TOP_W, GLASS_Y+LIP);
+  ctx.closePath();
+}
+
+function widthAtY(y){ // pixel width of glass interior at y pixels from top of liquid zone
+  const t = y / GLASS_H;
+  return GLASS_BOT_W + (GLASS_TOP_W - GLASS_BOT_W) * t;
+}
+function xAtY(y){ return GLASS_X + (GLASS_TOP_W - widthAtY(y)) / 2; }
+
+function drawGlass(){
+  gx.clearRect(0,0,GW,GH);
+
+  // Liquid layers (placed.length 0–6)
+  const placed = Object.keys(act1Placed).map(Number).sort((a,b)=>a-b); // 0=violet bottom
+  const totalSlots = 6;
+  const layerH = GLASS_H / totalSlots;
+
+  // draw from bottom (slot 0) to top (slot 5)
+  placed.forEach(slotPos => {
+    const layer = LAYERS.find(l=>l.id===act1Placed[slotPos]);
+    const yFromBottom = slotPos * layerH; // distance from bottom of glass
+    const yFromTop = GLASS_H - yFromBottom - layerH; // from glass top
+    const yCanvas = GLASS_Y + yFromTop;
+    const w1 = widthAtY(yFromTop);
+    const w2 = widthAtY(yFromTop + layerH);
+    const x1 = xAtY(yFromTop);
+    const x2 = xAtY(yFromTop + layerH);
+
+    // clip to glass shape
+    gx.save();
+    glassClipPath(gx);
+    gx.clip();
+
+    // trapezoid liquid layer
+    const grad = gx.createLinearGradient(x1, yCanvas, x2, yCanvas+layerH);
+    grad.addColorStop(0, layer.color2+'ee');
+    grad.addColorStop(1, layer.color1+'ee');
+    gx.beginPath();
+    gx.moveTo(x1, yCanvas);
+    gx.lineTo(x1+w1, yCanvas);
+    gx.lineTo(x2+w2, yCanvas+layerH);
+    gx.lineTo(x2, yCanvas+layerH);
+    gx.closePath();
+    gx.fillStyle = grad;
+    gx.fill();
+
+    // shimmer line
+    gx.beginPath();
+    gx.moveTo(x1+6, yCanvas+4);
+    gx.lineTo(x1+w1*0.45, yCanvas+4);
+    gx.strokeStyle='rgba(255,255,255,0.3)';gx.lineWidth=2;gx.stroke();
+    gx.restore();
+  });
+
+  // Glass outline
+  gx.save();
+  // Body
+  gx.beginPath();
+  gx.moveTo(GLASS_X, GLASS_Y+LIP);
+  gx.lineTo(GLASS_X+(GLASS_TOP_W-GLASS_BOT_W)/2, GLASS_Y+GLASS_H);
+  gx.lineTo(GLASS_X+(GLASS_TOP_W-GLASS_BOT_W)/2+GLASS_BOT_W, GLASS_Y+GLASS_H);
+  gx.lineTo(GLASS_X+GLASS_TOP_W, GLASS_Y+LIP);
+  gx.strokeStyle='rgba(200,150,255,0.7)';gx.lineWidth=3;gx.stroke();
+  // Rim
+  gx.beginPath();
+  gx.ellipse(GLASS_X+GLASS_TOP_W/2, GLASS_Y+LIP, GLASS_TOP_W/2, 7, 0, 0, Math.PI*2);
+  gx.strokeStyle='rgba(220,180,255,0.6)';gx.lineWidth=2.5;gx.stroke();
+  // Base
+  gx.beginPath();
+  const bx=GLASS_X+(GLASS_TOP_W-GLASS_BOT_W)/2;
+  gx.ellipse(bx+GLASS_BOT_W/2, GLASS_Y+GLASS_H, GLASS_BOT_W/2, 5, 0, 0, Math.PI*2);
+  gx.strokeStyle='rgba(200,150,255,0.5)';gx.lineWidth=2;gx.stroke();
+  // Shine
+  gx.beginPath();
+  gx.moveTo(GLASS_X+8, GLASS_Y+LIP+10);
+  gx.lineTo(GLASS_X+(GLASS_TOP_W-GLASS_BOT_W)/2+8, GLASS_Y+GLASS_H-10);
+  gx.strokeStyle='rgba(255,255,255,0.18)';gx.lineWidth=3;gx.stroke();
+  gx.restore();
+
+  // Empty zone hint dashes when nothing placed
+  if(placed.length===0){
+    gx.save();
+    glassClipPath(gx); gx.clip();
+    gx.fillStyle='rgba(155,48,255,0.06)';gx.fillRect(0,0,GW,GH);
+    gx.font='bold 11px Nunito,sans-serif';gx.fillStyle='rgba(194,120,255,0.4)';
+    gx.textAlign='center';
+    gx.fillText('← Drop layers →', GW/2, GH/2+GLASS_Y);
+    gx.restore();
+  }
+}
+drawGlass(); // initial empty glass
+
+function winAct1(){
+  document.getElementById('act1-success').classList.add('show');
+  launchConfetti();
+  // animate glass glow
+  gc.style.filter='drop-shadow(0 0 30px rgba(155,255,155,0.7)) drop-shadow(0 0 50px rgba(255,220,0,0.4))';
+  setTimeout(()=> gc.style.filter='drop-shadow(0 0 22px rgba(155,48,255,.55))', 3000);
+}
+
+function resetActivity1(){
+  act1Placed={};act1DragId=null;
+  document.querySelectorAll('.draggable-layer').forEach(el=>{el.classList.remove('used');el.draggable=true;el.style.display='';});
+  for(let i=0;i<6;i++){
+    const layer=LAYERS[5-i]; // SLOT_ORDER reverse
+    const slotPos=i;
+    const slotEl=document.getElementById('dslot-'+slotPos);
+    if(!slotEl) continue;
+    slotEl.classList.remove('filled','wrong-flash');
+    slotEl.style.background='';
+    slotEl.innerHTML=`<span class="slot-layer-label">${LAYERS[slotPos].slotLabel}</span><span class="slot-placeholder">Drop here ↓</span>`;
+  }
+  document.getElementById('act1-success').classList.remove('show');
+  document.getElementById('act1-hint').classList.remove('show');
+  gc.style.filter='drop-shadow(0 0 22px rgba(155,48,255,.55))';
+  drawGlass();
+}
+
+/* ══════════════════════════════════════════
+   ACTIVITY 2
+══════════════════════════════════════════ */
+const act2Correct={1:'e',2:'b',3:'c',4:'a',5:'d',6:'f'};
+let act2DragId=null,act2State={};
+document.querySelectorAll('.density-item').forEach(el=>{
+  el.addEventListener('dragstart',()=>{act2DragId=el.dataset.id;el.classList.add('dragging')});
+  el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+});
+function dropSort(event,pos){
+  event.preventDefault();
+  const slot=document.getElementById('os-'+pos);
+  slot.classList.remove('drag-over');
+  if(!act2DragId)return;
+  if(slot.querySelector('.density-item'))return;
+  const el=document.querySelector(`.density-item[data-id="${act2DragId}"]`);
+  if(!el)return;
+  const correct=act2Correct[pos]===act2DragId;
+  el.classList.remove('dragging');
+  slot.innerHTML='';slot.appendChild(el);
+  el.draggable=false;el.style.cursor='default';
+  act2State[pos]=act2DragId;act2DragId=null;
+  slot.classList.add(correct?'correct':'incorrect');
+  if(!correct)setTimeout(()=>slot.classList.remove('incorrect'),600);
+  let s=0;for(let i=1;i<=6;i++)if(act2State[i]&&act2State[i]===act2Correct[i])s++;
+  document.getElementById('act2-score').textContent=`Score: ${s} / 6`;
+  if(s===6){document.getElementById('act2-success').classList.add('show');launchConfetti();}
+}
+function resetActivity2(){
+  act2State={};
+  const labels={1:'🥇 Most Dense',2:'Layer 2',3:'Layer 3',4:'Layer 4',5:'Layer 5',6:'🪶 Least Dense'};
+  for(let i=1;i<=6;i++){
+    const s=document.getElementById('os-'+i);
+    s.classList.remove('correct','incorrect');
+    s.innerHTML=`<span class="slot-num">${labels[i]}</span><span style="color:rgba(224,176,255,.4);font-size:.72rem">drop here</span>`;
+  }
+  document.querySelectorAll('.density-item').forEach(el=>{el.draggable=true;el.style.cursor='grab';document.getElementById('sort-pool').appendChild(el);});
+  document.getElementById('act2-success').classList.remove('show');
+  document.getElementById('act2-score').textContent='Score: 0 / 6';
+}
+
+/* ══════════════════════════════════════════
+   ACTIVITY 3
+══════════════════════════════════════════ */
+const tgtLabels={'mt-red':'🔴 Red','mt-orange':'🟠 Orange','mt-yellow':'🟡 Yellow','mt-green':'🟢 Green','mt-blue':'🔵 Blue','mt-indigo':'🟣 Indigo','mt-violet':'💜 Violet'};
+let act3DragId=null;
+document.querySelectorAll('.match-item').forEach(el=>{
+  el.addEventListener('dragstart',()=>{act3DragId=el.dataset.id;el.classList.add('dragging')});
+  el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+});
+function dropMatch(event,tId){
+  event.preventDefault();
+  const t=document.getElementById(tId);t.classList.remove('drag-over');
+  if(!act3DragId)return;if(t.querySelector('.match-item'))return;
+  const correct=t.dataset.accepts===act3DragId;
+  const el=document.querySelector(`.match-item[data-id="${act3DragId}"]`);
+  if(!el)return;el.classList.remove('dragging');t.innerHTML='';t.appendChild(el);
+  el.draggable=false;el.style.cursor='default';act3DragId=null;
+  t.classList.add(correct?'correct':'incorrect');
+  if(!correct)setTimeout(()=>t.classList.remove('incorrect'),600);
+  let s=0;document.querySelectorAll('.match-target').forEach(x=>{if(x.classList.contains('correct'))s++;});
+  document.getElementById('act3-score').textContent=`Score: ${s} / 7`;
+  if(s===7){document.getElementById('act3-success').classList.add('show');launchConfetti();}
+}
+function resetActivity3(){
+  document.querySelectorAll('.match-target').forEach(t=>{
+    t.classList.remove('correct','incorrect');
+    t.innerHTML=`<span class="target-label">${tgtLabels[t.id]}</span><span style="color:rgba(224,176,255,.4);font-size:.76rem">drop here</span>`;
+  });
+  document.querySelectorAll('.match-item').forEach(el=>{
+    el.draggable=true;el.style.cursor='grab';
+    document.querySelector('.match-col').appendChild(el);
+  });
+  document.getElementById('act3-success').classList.remove('show');
+  document.getElementById('act3-score').textContent='Score: 0 / 7';
+}
+</script>
+</body>
+</html>

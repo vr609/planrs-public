@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ice Cream in a Bag!</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Fredoka+One&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+:root{
+  --sky:#b8e4f7;--sky2:#d4eef9;--grass:#5cb85c;--grass2:#4cae4c;
+  --rain:#7ec8e3;--puddle:#a8d8ea;--rainbow1:#ff6b6b;--rainbow2:#ffa756;
+  --rainbow3:#ffe156;--rainbow4:#6bcb77;--rainbow5:#4d96ff;--rainbow6:#9b5de5;
+  --cloud:#fff;--frog:#4caf50;
+  --cream:#fff8e7;--yellow:#ffd600;--pink:#ff7eb3;--teal:#00bfa5;
+  --text:#2d3a4a;--dim:#7a8fa0;
+  --head:'Fredoka One',cursive;--body:'Baloo 2',sans-serif;
+}
+html,body{width:100%;height:100%;overflow:hidden;font-family:var(--body);}
+body{background:var(--sky);color:var(--text);}
+
+/* ── BG CANVAS ── */
+#bg{position:fixed;inset:0;z-index:0;pointer-events:none;}
+
+/* ── APP ── */
+#app{position:relative;z-index:2;width:100vw;height:100vh;display:flex;flex-direction:column;}
+
+/* ── HEADER ── */
+header{
+  flex-shrink:0;padding:6px 22px;display:flex;align-items:center;justify-content:space-between;
+  background:rgba(184,228,247,0.82);backdrop-filter:blur(8px);
+  border-bottom:3px solid rgba(126,200,227,0.4);
+}
+.brand{font-family:var(--head);font-size:11px;letter-spacing:2px;color:#3a6fa0;opacity:.75;}
+h1{font-family:var(--head);font-size:clamp(14px,2vw,22px);color:#2d3a4a;
+  text-shadow:2px 2px 0 rgba(255,255,255,.6);}
+.step-pills{display:flex;gap:7px;}
+.pill{padding:3px 14px;border-radius:20px;font-family:var(--head);font-size:11px;
+  border:2px solid;transition:all .4s;}
+.pill.idle{border-color:rgba(0,0,0,.12);color:rgba(0,0,0,.3);background:rgba(255,255,255,.3);}
+.pill.active{border-color:var(--teal);color:var(--teal);background:rgba(0,191,165,.1);
+  box-shadow:0 0 10px rgba(0,191,165,.3);}
+.pill.done{border-color:var(--yellow);color:#b38600;background:rgba(255,214,0,.15);}
+
+/* ── STAGE ── */
+#stage{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+
+/* ── ACTIVITIES ── */
+.act{display:none;flex-direction:column;align-items:center;justify-content:center;
+  width:100%;height:100%;gap:10px;padding:8px 16px;}
+.act.on{display:flex;}
+.act-title{font-family:var(--head);font-size:clamp(15px,1.8vw,20px);color:#2d3a4a;
+  text-align:center;text-shadow:1px 1px 0 rgba(255,255,255,.7);}
+.act-desc{font-size:clamp(12px,1.25vw,14px);color:#4a6070;text-align:center;
+  max-width:640px;line-height:1.5;}
+.act-desc strong{color:#2d3a4a;}
+
+/* ── CARDS & PANELS ── */
+.card{background:rgba(255,255,255,0.72);border-radius:18px;padding:12px 16px;
+  border:2.5px solid rgba(255,255,255,.9);box-shadow:0 4px 20px rgba(0,0,0,.08);}
+
+/* ── DRAG BLOCKS ── */
+.dblock{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:8px 16px;border-radius:30px;cursor:grab;font-family:var(--head);font-size:14px;
+  border:2.5px solid;transition:transform .15s,box-shadow .15s;white-space:nowrap;
+  background:rgba(255,255,255,.85);box-shadow:0 3px 10px rgba(0,0,0,.1);
+}
+.dblock:hover{transform:scale(1.07);box-shadow:0 6px 18px rgba(0,0,0,.15);}
+.dblock.dragging{opacity:.35;cursor:grabbing;}
+.dblock.ingr{border-color:#ffb347;color:#c06000;}
+.dblock.ice-item{border-color:#7ec8e3;color:#1a6a8a;}
+.dblock.step{border-color:#b39ddb;color:#5c35a0;font-size:12px;}
+
+/* ── DROP ZONES ── */
+.dzone{
+  border:3px dashed;border-radius:16px;padding:8px;min-height:54px;
+  display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;
+  transition:background .2s,border-color .2s;font-family:var(--head);font-size:12px;
+  color:rgba(0,0,0,.3);
+}
+.dzone.over{background:rgba(0,191,165,.08);border-color:var(--teal);}
+.dzone.correct-flash{animation:cPop .65s ease;}
+.dzone.wrong-flash{animation:wShake .45s ease;}
+@keyframes cPop{0%,100%{box-shadow:none;}50%{box-shadow:0 0 0 6px rgba(0,191,165,.3),0 0 20px rgba(0,191,165,.2);}}
+@keyframes wShake{0%,100%{transform:none;}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
+
+/* ── FEEDBACK ── */
+.fb{min-height:20px;font-family:var(--head);font-size:13px;text-align:center;transition:all .3s;}
+
+/* ── BUTTONS ── */
+.btn{padding:10px 28px;border-radius:30px;font-family:var(--head);font-size:14px;
+  cursor:pointer;border:3px solid;transition:all .25s;background:rgba(255,255,255,.8);}
+.btn:disabled{opacity:.3;cursor:not-allowed;}
+.btn-teal{border-color:var(--teal);color:var(--teal);}
+.btn-teal:not(:disabled):hover{background:rgba(0,191,165,.12);box-shadow:0 4px 14px rgba(0,191,165,.3);}
+.btn-yellow{border-color:#e6a000;color:#c07000;}
+.btn-yellow:not(:disabled):hover{background:rgba(255,214,0,.15);box-shadow:0 4px 14px rgba(255,214,0,.35);}
+
+/* ── POPUP ── */
+#pop{position:fixed;inset:0;z-index:200;background:rgba(180,220,250,.75);
+  display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px);}
+#pop.on{display:flex;}
+#pbox{
+  background:linear-gradient(135deg,rgba(255,255,255,.97),rgba(240,252,255,.97));
+  border:3px solid var(--teal);border-radius:24px;padding:32px 38px;max-width:480px;
+  text-align:center;box-shadow:0 8px 40px rgba(0,150,120,.2);
+  animation:pIn .45s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes pIn{from{transform:scale(.6);opacity:0;}to{transform:scale(1);opacity:1;}}
+.p-icon{font-size:46px;margin-bottom:8px;}
+.p-title{font-family:var(--head);font-size:22px;color:#2d3a4a;margin-bottom:8px;}
+.p-body{font-size:14px;color:#4a6070;line-height:1.65;margin-bottom:22px;}
+.p-body strong{color:#2d3a4a;}
+
+/* ── CONFETTI ── */
+@keyframes cfFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1;}100%{transform:translateY(120px) rotate(600deg);opacity:0;}}
+.cf{position:fixed;border-radius:3px;animation:cfFall 2.4s ease-in forwards;z-index:300;}
+
+/* ════ ACT 1 — INGREDIENT SORT ════ */
+#act1 .supply-row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:640px;}
+#act1 .bags-row{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;}
+.bag-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;}
+.bag-label{font-family:var(--head);font-size:12px;color:#4a6070;}
+.bag-visual{
+  position:relative;width:140px;
+  background:rgba(200,240,255,.35);border:2.5px solid rgba(126,200,227,.6);
+  border-radius:6px 6px 16px 16px;padding:8px;
+  display:flex;flex-direction:column;gap:6px;
+}
+.bag-top{
+  height:12px;background:rgba(126,200,227,.5);border-radius:4px 4px 0 0;
+  margin:-8px -8px 4px -8px;display:flex;align-items:center;justify-content:center;
+  font-size:8px;font-family:var(--head);color:#1a6a8a;letter-spacing:1px;
+}
+.bag-ingr-zone{min-height:54px;}
+.bag-emoji{font-size:32px;text-align:center;}
+.correct-tick{
+  position:absolute;top:-10px;right:-10px;width:22px;height:22px;
+  background:var(--teal);border-radius:50%;display:none;
+  align-items:center;justify-content:center;font-size:13px;color:#fff;
+  box-shadow:0 2px 8px rgba(0,150,120,.4);
+}
+
+/* ════ ACT 2 — COOLING SETUP ════ */
+#act2 .setup-area{display:flex;gap:18px;align-items:flex-start;justify-content:center;flex-wrap:wrap;}
+.big-bag{
+  position:relative;width:200px;min-height:180px;
+  background:rgba(200,240,255,.3);border:3px solid rgba(91,190,220,.5);
+  border-radius:8px 8px 22px 22px;padding:10px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+}
+.big-bag-top{
+  width:calc(100% + 20px);margin:-10px -10px 4px -10px;height:16px;
+  background:rgba(91,190,220,.45);border-radius:6px 6px 0 0;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--head);font-size:9px;letter-spacing:1.5px;color:#1a6a8a;
+}
+.ice-contents{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;}
+.ice-cube{
+  width:28px;height:28px;background:rgba(180,230,250,.7);border:1.5px solid rgba(126,200,227,.8);
+  border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:14px;
+  box-shadow:inset 0 1px 3px rgba(255,255,255,.8);
+}
+.salt-pile{font-size:22px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.1));}
+#small-bag-zone{
+  width:120px;min-height:72px;border:2.5px dashed rgba(255,179,71,.5);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;background:rgba(255,248,230,.3);
+  transition:all .2s;margin-top:4px;
+}
+#small-bag-zone.over{background:rgba(255,214,0,.12);border-color:var(--yellow);}
+#small-bag-zone.placed{border-style:solid;border-color:rgba(255,179,71,.8);}
+.small-bag-icon{font-size:36px;animation:wiggle 2s ease-in-out infinite;}
+@keyframes wiggle{0%,100%{transform:rotate(-4deg);}50%{transform:rotate(4deg);}}
+
+.shake-btn{
+  padding:10px 22px;border-radius:30px;font-family:var(--head);font-size:14px;
+  background:linear-gradient(135deg,#ff9a56,#ffb347);border:3px solid #e07000;
+  color:#fff;cursor:pointer;box-shadow:0 4px 14px rgba(255,140,0,.3);
+  transition:transform .15s;display:none;
+}
+.shake-btn:hover{transform:scale(1.06);}
+.shake-active{animation:shakeAnim .3s ease infinite;}
+@keyframes shakeAnim{0%,100%{transform:rotate(0deg);}25%{transform:rotate(-8deg);}75%{transform:rotate(8deg);}}
+
+.mix-visual{display:flex;flex-direction:column;align-items:center;gap:5px;}
+.mix-label{font-family:var(--head);font-size:11px;color:#4a6070;}
+#mix-canvas{border-radius:10px;border:2px solid rgba(126,200,227,.5);}
+
+/* ════ ACT 3 — STEPS ORDER ════ */
+#act3 .steps-supply{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:680px;}
+#act3 .order-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.order-slot{
+  min-width:115px;min-height:56px;border:2.5px dashed rgba(179,157,219,.5);
+  border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.35);transition:all .2s;gap:2px;padding:4px;
+}
+.order-slot.over{border-color:#9b5de5;background:rgba(155,93,229,.07);}
+.order-slot.filled{border-style:solid;border-color:rgba(155,93,229,.5);}
+.order-slot.correct{animation:cPop .65s ease;}
+.order-slot.wrong{animation:wShake .45s ease;}
+.slot-num{font-family:var(--head);font-size:18px;color:rgba(0,0,0,.18);line-height:1;}
+.slot-hint{font-family:var(--head);font-size:9px;color:rgba(0,0,0,.22);}
+.ice-cream-reveal{
+  display:none;flex-direction:column;align-items:center;gap:4px;
+  animation:scoopIn .6s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes scoopIn{from{transform:scale(0) translateY(20px);opacity:0;}to{transform:scale(1) translateY(0);opacity:1;}}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div id="app">
+  <header>
+    <div class="brand">PLANRS ACADEMY</div>
+    <h1>🍦 ICE CREAM IN A BAG!</h1>
+    <div class="step-pills">
+      <div class="pill active" id="p1">STEP 1</div>
+      <div class="pill idle"   id="p2">STEP 2</div>
+      <div class="pill idle"   id="p3">STEP 3</div>
+    </div>
+  </header>
+
+  <div id="stage">
+
+    <!-- ═══════ ACTIVITY 1 — INGREDIENTS ═══════ -->
+    <div class="act on" id="act1">
+      <div class="act-title">🥛 ACTIVITY 1 — FILL THE SMALL BAG!</div>
+      <div class="act-desc">Drag the <strong>ingredients</strong> into the small bag. The ice cream bag needs milk, sugar, and vanilla — but keep the ice and salt out for later!</div>
+
+      <!-- SUPPLY ROW -->
+      <div class="supply-row" id="supply1">
+        <div class="dblock ingr" draggable="true" data-id="milk" data-good="yes">🥛 Milk</div>
+        <div class="dblock ingr" draggable="true" data-id="sugar" data-good="yes">🍬 Sugar</div>
+        <div class="dblock ingr" draggable="true" data-id="vanilla" data-good="yes">🌿 Vanilla</div>
+        <div class="dblock ice-item" draggable="true" data-id="ice" data-good="no">🧊 Ice Cubes</div>
+        <div class="dblock ice-item" draggable="true" data-id="salt" data-good="no">🧂 Salt</div>
+      </div>
+
+      <!-- BAGS ROW -->
+      <div class="bags-row">
+        <!-- SMALL BAG -->
+        <div class="bag-wrap">
+          <div class="bag-label">📦 Small Bag <span style="color:#00bfa5;">(ice cream mix)</span></div>
+          <div class="bag-visual" id="small-bag-v">
+            <div class="bag-top">SEAL TIGHT</div>
+            <div class="bag-emoji">🤏</div>
+            <div class="dzone bag-ingr-zone" id="zone-small" data-accepts="good"
+              style="border-color:rgba(255,179,71,.5);">Drop ingredients here</div>
+            <div class="correct-tick" id="tick-small">✓</div>
+          </div>
+        </div>
+
+        <!-- BIG BAG -->
+        <div class="bag-wrap">
+          <div class="bag-label">📦 Big Bag <span style="color:#7ec8e3;">(cooling bag)</span></div>
+          <div class="bag-visual" id="big-bag-v">
+            <div class="bag-top">FOR LATER</div>
+            <div class="bag-emoji">❄️</div>
+            <div class="dzone bag-ingr-zone" id="zone-big" data-accepts="bad"
+              style="border-color:rgba(126,200,227,.5);">Ice &amp; salt go here</div>
+            <div class="correct-tick" id="tick-big" style="background:#7ec8e3;">✓</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fb" id="fb1" style="color:var(--teal);"></div>
+      <button class="btn btn-teal" id="next1" disabled>NEXT STEP →</button>
+    </div>
+
+    <!-- ═══════ ACTIVITY 2 — COOLING SETUP ═══════ -->
+    <div class="act" id="act2">
+      <div class="act-title">🧊 ACTIVITY 2 — BUILD THE COOLING BAG!</div>
+      <div class="act-desc">The big bag already has <strong>ice and salt</strong>. Now drag the <strong>small milk bag</strong> inside — then shake it to make ice cream!</div>
+
+      <div class="setup-area">
+
+        <!-- SMALL BAG SOURCE -->
+        <div class="card" style="display:flex;flex-direction:column;align-items:center;gap:8px;min-width:130px;">
+          <div style="font-family:var(--head);font-size:12px;color:#4a6070;">YOUR SMALL BAG</div>
+          <div class="dblock ingr" id="small-bag-drag" draggable="true" data-id="smallbag"
+            style="font-size:22px;padding:10px 18px;border-color:#ffb347;flex-direction:column;gap:2px;">
+            <span>🥛🍬🌿</span>
+            <span style="font-size:11px;color:#c06000;">milk mix</span>
+          </div>
+          <div style="font-size:10px;font-family:var(--head);color:var(--dim);">drag into the big bag ↓</div>
+        </div>
+
+        <!-- BIG BAG -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+          <div class="big-bag" id="big-bag-main">
+            <div class="big-bag-top">BIG COOLING BAG</div>
+            <div class="ice-contents" id="ice-contents">
+              <div class="ice-cube">🧊</div><div class="ice-cube">🧊</div><div class="ice-cube">🧊</div>
+              <div class="ice-cube">🧊</div><div class="ice-cube">🧊</div><div class="ice-cube">🧊</div>
+              <div class="salt-pile">🧂</div><div class="salt-pile">🧂</div>
+            </div>
+            <div id="small-bag-zone">
+              <div style="font-family:var(--head);font-size:11px;color:rgba(0,0,0,.3);text-align:center;padding:4px;">
+                Drop milk<br>bag here
+              </div>
+            </div>
+          </div>
+          <button class="shake-btn" id="shake-btn" onclick="startShake()">🙌 SHAKE SHAKE SHAKE!</button>
+        </div>
+
+        <!-- MIX VISUAL -->
+        <div class="mix-visual">
+          <div class="mix-label">TEMPERATURE MAGIC</div>
+          <canvas id="mix-canvas" width="130" height="130"></canvas>
+          <div style="font-family:var(--head);font-size:11px;color:#4a6070;text-align:center;max-width:130px;" id="mix-msg">
+            Add the bag to start!
+          </div>
+        </div>
+
+      </div>
+
+      <div class="fb" id="fb2" style="color:var(--teal);"></div>
+      <button class="btn btn-teal" id="next2" disabled>FINAL STEP →</button>
+    </div>
+
+    <!-- ═══════ ACTIVITY 3 — STEPS ORDER ═══════ -->
+    <div class="act" id="act3">
+      <div class="act-title">📋 ACTIVITY 3 — PUT THE STEPS IN ORDER!</div>
+      <div class="act-desc">Can you arrange all <strong>5 steps</strong> to make ice cream in a bag? Drag each step card to the right numbered slot!</div>
+
+      <!-- STEPS SUPPLY -->
+      <div class="steps-supply" id="supply3">
+        <div class="dblock step" draggable="true" data-sid="shake" data-order="4">🙌 Shake the bag for 5 minutes</div>
+        <div class="dblock step" draggable="true" data-sid="pour" data-order="1">🥛 Pour milk, sugar &amp; vanilla</div>
+        <div class="dblock step" draggable="true" data-sid="open" data-order="5">🍦 Open &amp; scoop your ice cream!</div>
+        <div class="dblock step" draggable="true" data-sid="icebag" data-order="3">📦 Place small bag inside big bag</div>
+        <div class="dblock step" draggable="true" data-sid="icesalt" data-order="2">🧊 Fill big bag with ice &amp; salt</div>
+      </div>
+
+      <!-- ORDER SLOTS -->
+      <div class="order-row" id="order-row">
+        <div class="order-slot" data-opos="1" data-expect="pour"><div class="slot-num">1</div><div class="slot-hint">first step</div></div>
+        <div class="order-slot" data-opos="2" data-expect="icesalt"><div class="slot-num">2</div><div class="slot-hint">big bag setup</div></div>
+        <div class="order-slot" data-opos="3" data-expect="icebag"><div class="slot-num">3</div><div class="slot-hint">nest the bags</div></div>
+        <div class="order-slot" data-opos="4" data-expect="shake"><div class="slot-num">4</div><div class="slot-hint">the fun part!</div></div>
+        <div class="order-slot" data-opos="5" data-expect="open"><div class="slot-num">5</div><div class="slot-hint">the reward!</div></div>
+      </div>
+
+      <!-- ICE CREAM REVEAL -->
+      <div class="ice-cream-reveal" id="ice-reveal">
+        <div style="font-size:52px;line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,.15));">
+          🍦🍦🍦
+        </div>
+        <div style="font-family:var(--head);font-size:18px;color:#2d3a4a;">
+          YOUR ICE CREAM IS READY! 🎉
+        </div>
+      </div>
+
+      <div class="fb" id="fb3" style="color:#7b1fa2;"></div>
+      <button class="btn btn-yellow" id="finish3" disabled>🍦 CELEBRATE!</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- POPUP -->
+<div id="pop">
+  <div id="pbox">
+    <div class="p-icon" id="p-icon"></div>
+    <div class="p-title" id="p-title"></div>
+    <div class="p-body" id="p-body"></div>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+      <button class="btn btn-teal" id="p-btn"></button>
+      <button class="btn" id="p-replay" style="display:none;border-color:#e05090;color:#c0306a;background:rgba(255,120,180,.08);" onclick="resetGame()">🔄 Play Again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════ BACKGROUND ════════════════ */
+const bgC=document.getElementById('bg'),bgX=bgC.getContext('2d');
+function rBg(){bgC.width=window.innerWidth;bgC.height=window.innerHeight;}
+rBg();window.addEventListener('resize',rBg);
+
+// Raindrops
+const drops=[];
+for(let i=0;i<90;i++){
+  drops.push({x:Math.random()*window.innerWidth,y:Math.random()*window.innerHeight,
+    len:6+Math.random()*12,spd:3+Math.random()*4,alpha:.18+Math.random()*.22,w:.8+Math.random()*.8});
+}
+// Clouds
+const clouds=[
+  {x:0.1,y:0.08,w:120,h:50,spd:.0003},
+  {x:0.45,y:0.05,w:160,h:55,spd:.00025},
+  {x:0.75,y:0.1,w:100,h:42,spd:.00035},
+  {x:0.28,y:0.15,w:90,h:38,spd:.0002}
+];
+let cT=0;
+// Puddles
+const puddles=[
+  {x:0.15,y:0.88,rx:38,ry:8,pulse:0,ps:.03},
+  {x:0.5,y:0.92,rx:28,ry:6,pulse:1,ps:.025},
+  {x:0.78,y:0.87,rx:32,ry:7,pulse:2,ps:.035}
+];
+// Frogs
+const frogs=[
+  {x:0.12,y:0.84,hop:0,hopSpd:.025,dir:1},
+  {x:0.72,y:0.86,hop:Math.PI,hopSpd:.02,dir:-1}
+];
+// Umbrellas
+const umbrellas=[
+  {x:0.22,y:0.72,sway:0,swaySpd:.02},
+  {x:0.65,y:0.68,sway:Math.PI,swaySpd:.018}
+];
+let rTime=0;
+
+function drawCloud(cx,cy,w,h){
+  bgX.save();
+  bgX.beginPath();
+  bgX.ellipse(cx,cy,w*.5,h*.5,0,0,Math.PI*2);
+  bgX.ellipse(cx-w*.2,cy+h*.1,w*.35,h*.4,0,0,Math.PI*2);
+  bgX.ellipse(cx+w*.2,cy+h*.1,w*.35,h*.4,0,0,Math.PI*2);
+  bgX.fillStyle='rgba(255,255,255,0.72)';bgX.fill();
+  bgX.restore();
+}
+function drawFrog(x,y,hopY){
+  bgX.save();bgX.translate(x,y+hopY);
+  // body
+  bgX.fillStyle='#4caf50';
+  bgX.beginPath();bgX.ellipse(0,0,10,8,0,0,Math.PI*2);bgX.fill();
+  // eyes
+  bgX.fillStyle='#fff';
+  bgX.beginPath();bgX.arc(-4,-6,4,0,Math.PI*2);bgX.arc(4,-6,4,0,Math.PI*2);bgX.fill();
+  bgX.fillStyle='#333';
+  bgX.beginPath();bgX.arc(-4,-6,2,0,Math.PI*2);bgX.arc(4,-6,2,0,Math.PI*2);bgX.fill();
+  // legs
+  bgX.strokeStyle='#388e3c';bgX.lineWidth=2;
+  bgX.beginPath();bgX.moveTo(-8,4);bgX.lineTo(-14,10);bgX.stroke();
+  bgX.beginPath();bgX.moveTo(8,4);bgX.lineTo(14,10);bgX.stroke();
+  bgX.restore();
+}
+function drawUmbrella(x,y,sway){
+  bgX.save();bgX.translate(x,y);bgX.rotate(Math.sin(sway)*0.06);
+  // canopy
+  const grad=bgX.createRadialGradient(0,-5,2,0,-5,28);
+  grad.addColorStop(0,'#ff9a56');grad.addColorStop(1,'#ff6b6b');
+  bgX.beginPath();bgX.moveTo(-28,0);bgX.arc(0,0,28,Math.PI,0,false);bgX.closePath();
+  bgX.fillStyle=grad;bgX.fill();
+  bgX.strokeStyle='rgba(255,255,255,.5)';bgX.lineWidth=1;bgX.stroke();
+  // handle
+  bgX.strokeStyle='#a0522d';bgX.lineWidth=2.5;
+  bgX.beginPath();bgX.moveTo(0,0);bgX.lineTo(0,32);bgX.stroke();
+  bgX.beginPath();bgX.arc(6,36,6,Math.PI,Math.PI*1.5,false);bgX.stroke();
+  bgX.restore();
+}
+function drawRainbow(alpha){
+  const cx=bgC.width*.5,cy=bgC.height*.95;
+  const rs=[200,175,150,125,100,75];
+  const cols=['rgba(255,107,107,','rgba(255,167,86,','rgba(255,225,86,','rgba(107,203,119,','rgba(77,150,255,','rgba(155,93,229,'];
+  rs.forEach((r,i)=>{
+    bgX.beginPath();bgX.arc(cx,cy,r,Math.PI,0,false);
+    bgX.strokeStyle=cols[i]+alpha+')';bgX.lineWidth=14;bgX.stroke();
+  });
+}
+
+function animBg(){
+  bgX.clearRect(0,0,bgC.width,bgC.height);
+  rTime+=.016;cT+=.001;
+
+  // sky gradient
+  const skyG=bgX.createLinearGradient(0,0,0,bgC.height);
+  skyG.addColorStop(0,'#b8e4f7');skyG.addColorStop(.65,'#d4eef9');skyG.addColorStop(1,'#c8e8a0');
+  bgX.fillStyle=skyG;bgX.fillRect(0,0,bgC.width,bgC.height);
+
+  // rainbow (faint always)
+  drawRainbow(0.12+0.05*Math.sin(rTime*.3));
+
+  // clouds
+  clouds.forEach(c=>{
+    const cx=(((c.x+cT*c.spd)%1.2)-0.1)*bgC.width;
+    drawCloud(cx,c.y*bgC.height,c.w,c.h);
+  });
+
+  // raindrops
+  drops.forEach(d=>{
+    d.y+=d.spd;if(d.y>bgC.height+20){d.y=-20;d.x=Math.random()*bgC.width;}
+    bgX.strokeStyle=`rgba(100,180,220,${d.alpha})`;bgX.lineWidth=d.w;
+    bgX.beginPath();bgX.moveTo(d.x,d.y);bgX.lineTo(d.x-1,d.y+d.len);bgX.stroke();
+  });
+
+  // grass strip
+  const gx=bgC.height*.83;
+  bgX.fillStyle='#5cb85c';bgX.fillRect(0,gx,bgC.width,bgC.height-gx);
+  bgX.fillStyle='#4cae4c';bgX.fillRect(0,gx,bgC.width,6);
+
+  // puddles
+  puddles.forEach(p=>{
+    p.pulse+=p.ps;
+    const a=0.18+0.06*Math.sin(p.pulse);
+    bgX.beginPath();bgX.ellipse(p.x*bgC.width,p.y*bgC.height,p.rx,p.ry*(1+.12*Math.sin(p.pulse)),0,0,Math.PI*2);
+    bgX.fillStyle=`rgba(120,180,220,${a})`;bgX.fill();
+    bgX.strokeStyle=`rgba(91,160,200,${a*.7})`;bgX.lineWidth=1;bgX.stroke();
+  });
+
+  // frogs
+  frogs.forEach(f=>{
+    f.hop+=f.hopSpd;
+    const hopY=Math.abs(Math.sin(f.hop))*-10;
+    f.x+=f.dir*.0002;
+    if(f.x>0.92||f.x<0.08)f.dir*=-1;
+    drawFrog(f.x*bgC.width,f.y*bgC.height,hopY);
+  });
+
+  // umbrellas
+  umbrellas.forEach(u=>{
+    u.sway+=u.swaySpd;
+    drawUmbrella(u.x*bgC.width,u.y*bgC.height,u.sway);
+  });
+
+  bgX.globalAlpha=1;
+  requestAnimationFrame(animBg);
+}
+animBg();
+
+/* ════════════════ DRAG HELPERS ════════════════ */
+let dD={};
+function mkDrag(el,data){
+  el.addEventListener('dragstart',e=>{Object.assign(dD,data);el.classList.add('dragging');e.dataTransfer.effectAllowed='copy';});
+  el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+}
+function mkDrop(el,fn){
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('over'));
+  el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('over');fn(el,dD);});
+}
+function flash(el,type){el.classList.add(type);setTimeout(()=>el.classList.remove(type),700);}
+function putBlock(slot,srcEl){
+  const c=srcEl.cloneNode(true);
+  c.style.cursor='default';c.removeAttribute('draggable');
+  c.style.fontSize='11px';c.style.padding='5px 10px';c.style.width='100%';c.style.justifyContent='center';
+  slot.innerHTML='';slot.appendChild(c);slot.classList.add('filled');
+}
+
+/* ════════════════ ACTIVITY 1 ════════════════ */
+let smallCount=0,bigCount=0;
+const smallNeeds=3,bigNeeds=2;
+const smallNames=['milk','sugar','vanilla'],bigNames=['ice','salt'];
+
+document.querySelectorAll('#supply1 .dblock').forEach(b=>{
+  mkDrag(b,{id:b.dataset.id,good:b.dataset.good,el:b});
+});
+
+function setupZone(zoneId,accepts,onCorrect,onWrong){
+  const zone=document.getElementById(zoneId);
+  mkDrop(zone,(s,d)=>{
+    const isGood=d.good==='yes';
+    const wantGood=accepts==='good';
+    if(isGood===wantGood){
+      const chip=d.el.cloneNode(true);
+      chip.style.cursor='default';chip.removeAttribute('draggable');
+      chip.style.fontSize='11px';chip.style.padding='4px 10px';
+      zone.appendChild(chip);
+      flash(zone,'correct-flash');
+      onCorrect(d.id);
+    } else {
+      flash(zone,'wrong-flash');
+      onWrong();
+    }
+  });
+}
+
+setupZone('zone-small','good',(id)=>{
+  smallCount++;
+  document.getElementById('fb1').textContent=`✓ ${id} added! (${smallCount}/${smallNeeds})`;
+  document.getElementById('fb1').style.color='var(--teal)';
+  if(smallCount===smallNeeds){
+    document.getElementById('tick-small').style.display='flex';
+    checkA1();
+  }
+},()=>{
+  document.getElementById('fb1').textContent='⚠ Ice and salt go in the big cooling bag!';
+  document.getElementById('fb1').style.color='#e05000';
+  setTimeout(()=>{document.getElementById('fb1').textContent='';},2000);
+});
+
+setupZone('zone-big','bad',(id)=>{
+  bigCount++;
+  document.getElementById('fb1').textContent=`✓ ${id} added to the cooling bag! (${bigCount}/${bigNeeds})`;
+  document.getElementById('fb1').style.color='#1a6a8a';
+  if(bigCount===bigNeeds){
+    document.getElementById('tick-big').style.display='flex';
+    checkA1();
+  }
+},()=>{
+  document.getElementById('fb1').textContent='⚠ Milk, sugar and vanilla go in the small bag!';
+  document.getElementById('fb1').style.color='#e05000';
+  setTimeout(()=>{document.getElementById('fb1').textContent='';},2000);
+});
+
+function checkA1(){
+  if(smallCount===smallNeeds&&bigCount===bigNeeds){
+    document.getElementById('fb1').textContent='🎉 Both bags are ready! Great job!';
+    document.getElementById('fb1').style.color='#2e7d32';
+    document.getElementById('next1').disabled=false;
+  }
+}
+document.getElementById('next1').addEventListener('click',()=>{
+  showPopup({icon:'🧊',title:'Bags are packed!',
+    body:`Amazing! The <strong>small bag</strong> has your milk mix. The <strong>big bag</strong> has ice and salt. The salt makes the ice go <strong>SUPER cold</strong> — cold enough to freeze your milk mix into ice cream! Now let's put them together!`,
+    btn:'BUILD THE COOLING BAG →',cb:()=>switchAct(1,2)});
+});
+
+/* ════════════════ ACTIVITY 2 ════════════════ */
+let bagPlaced=false,shaking=false,shakeCount=0;
+
+const sbDrag=document.getElementById('small-bag-drag');
+mkDrag(sbDrag,{id:'smallbag',el:sbDrag});
+
+const sbZone=document.getElementById('small-bag-zone');
+mkDrop(sbZone,(s,d)=>{
+  if(d.id!=='smallbag')return;
+  if(bagPlaced)return;
+  bagPlaced=true;
+  sbZone.classList.add('placed');
+  sbZone.innerHTML='<div class="small-bag-icon">🥛🍬🌿</div>';
+  sbDrag.style.opacity='.3';sbDrag.removeAttribute('draggable');
+  document.getElementById('shake-btn').style.display='block';
+  document.getElementById('fb2').textContent='Milk bag is inside! Now shake the bag!';
+  document.getElementById('fb2').style.color='var(--teal)';
+  initMixCanvas('waiting');
+});
+
+let shakeInterval=null,shakeBar=0;
+function startShake(){
+  if(shaking||!bagPlaced)return;
+  shaking=true;
+  const btn=document.getElementById('shake-btn');
+  btn.classList.add('shake-active');
+  shakeBar=0;
+  document.getElementById('fb2').textContent='Shaking… keep going! ❄️';
+
+  shakeInterval=setInterval(()=>{
+    shakeBar++;
+    drawMixCanvas(shakeBar/30);
+    if(shakeBar>=30){
+      clearInterval(shakeInterval);
+      btn.classList.remove('shake-active');
+      btn.textContent='✅ Done shaking!';btn.disabled=true;
+      document.getElementById('fb2').textContent='🍦 The milk turned SOLID — it\'s ice cream!';
+      document.getElementById('fb2').style.color='#2e7d32';
+      drawMixCanvas(1,true);
+      document.getElementById('next2').disabled=false;
+    }
+  },80);
+}
+
+const mxC=document.getElementById('mix-canvas'),mxX=mxC.getContext('2d');
+function initMixCanvas(state){
+  mxX.clearRect(0,0,130,130);
+  mxX.fillStyle='rgba(200,240,255,.3)';mxX.fillRect(0,0,130,130);
+  mxX.font='40px serif';mxX.textAlign='center';mxX.fillText('❄️',65,80);
+  document.getElementById('mix-msg').textContent='Shake to cool down!';
+}
+function drawMixCanvas(prog,done){
+  mxX.clearRect(0,0,130,130);
+  // background
+  const bg2=mxX.createLinearGradient(0,0,0,130);
+  const cold=Math.round(200-prog*130);
+  bg2.addColorStop(0,`rgba(${cold},${200+Math.round(prog*20)},255,0.4)`);
+  bg2.addColorStop(1,`rgba(${cold-30},${180+Math.round(prog*30)},240,0.3)`);
+  mxX.fillStyle=bg2;mxX.fillRect(0,0,130,130);
+
+  // thermometer bg
+  mxX.fillStyle='rgba(255,255,255,.5)';
+  mxX.beginPath();mxX.roundRect(52,10,26,90,13);mxX.fill();
+  mxX.strokeStyle='rgba(126,200,227,.7)';mxX.lineWidth=2;
+  mxX.beginPath();mxX.roundRect(52,10,26,90,13);mxX.stroke();
+  // mercury
+  const mH=Math.max(4,80*(1-prog));
+  const mY=10+4+80-mH;
+  const mercG=mxX.createLinearGradient(0,mY,0,mY+mH);
+  mercG.addColorStop(0,done?'#4dff91':'#ff6b6b');
+  mercG.addColorStop(1,done?'#00bfa5':'#ff3344');
+  mxX.fillStyle=mercG;
+  mxX.beginPath();mxX.roundRect(57,mY,16,mH,3);mxX.fill();
+  // bulb
+  mxX.beginPath();mxX.arc(65,104,10,0,Math.PI*2);
+  mxX.fillStyle=done?'#4dff91':'#ff4444';mxX.fill();
+  // temp label
+  const tempC=Math.round(25-prog*30);
+  mxX.font='bold 11px "Baloo 2"';mxX.fillStyle='#2d3a4a';mxX.textAlign='center';
+  mxX.fillText(tempC+'°C',65,124);
+  // icon
+  mxX.font='20px serif';mxX.fillText(done?'🍦':'🧊',65,50);
+  if(done)document.getElementById('mix-msg').textContent='Ice cream! 🍦';
+  else document.getElementById('mix-msg').textContent=`Cooling… ${Math.round(prog*100)}%`;
+}
+
+document.getElementById('next2').addEventListener('click',()=>{
+  showPopup({icon:'🌡',title:'The freezing magic worked!',
+    body:`Salt made the ice go <strong>super cold</strong>! The cold temperature turned the <strong>liquid milk mix into solid ice cream</strong>! That's the science of <strong>freezing</strong> — cooling changes a liquid into a solid. Amazing, right?`,
+    btn:'ARRANGE THE STEPS →',cb:()=>switchAct(2,3)});
+});
+
+/* ════════════════ ACTIVITY 3 ════════════════ */
+let a3count=0;
+const CORRECT_ORDER={pour:1,icesalt:2,icebag:3,shake:4,open:5};
+const STEP_ICONS={pour:'🥛',icesalt:'🧊',icebag:'📦',shake:'🙌',open:'🍦'};
+
+document.querySelectorAll('#supply3 .dblock').forEach(b=>{
+  mkDrag(b,{sid:b.dataset.sid,el:b});
+});
+
+document.querySelectorAll('.order-slot').forEach(slot=>{
+  mkDrop(slot,(s,d)=>{
+    if(s.classList.contains('filled'))return;
+    const pos=parseInt(s.dataset.opos);
+    if(CORRECT_ORDER[d.sid]===pos){
+      putBlock(s,d.el);
+      flash(s,'correct');
+      a3count++;
+      document.getElementById('fb3').textContent=`✓ Step ${pos} is correct! (${a3count}/5)`;
+      document.getElementById('fb3').style.color='#7b1fa2';
+      if(a3count===5){
+        document.getElementById('ice-reveal').style.display='flex';
+        document.getElementById('fb3').textContent='🍦 All steps in order — your ice cream is ready!';
+        document.getElementById('finish3').disabled=false;
+      }
+    } else {
+      flash(s,'wrong');
+      document.getElementById('fb3').textContent='⚠ That step doesn\'t belong here — think about the order!';
+      document.getElementById('fb3').style.color='#c62828';
+      setTimeout(()=>{document.getElementById('fb3').textContent='';},2000);
+    }
+  });
+});
+
+document.getElementById('finish3').addEventListener('click',showFinal);
+
+/* ════════════════ POPUP ════════════════ */
+function showPopup({icon,title,body,btn,cb}){
+  document.getElementById('p-icon').textContent=icon;
+  document.getElementById('p-title').textContent=title;
+  document.getElementById('p-body').innerHTML=body;
+  const b=document.getElementById('p-btn');b.textContent=btn;
+  b.onclick=()=>{document.getElementById('pop').classList.remove('on');cb&&cb();};
+  document.getElementById('pop').classList.add('on');
+}
+
+function showFinal(){
+  document.getElementById('p-icon').textContent='🎉';
+  document.getElementById('p-title').textContent='You Made Ice Cream!';
+  document.getElementById('p-body').innerHTML=`
+    <strong>What a brilliant scientist!</strong> You discovered:<br><br>
+    🥛 <strong>Liquids can turn into solids</strong> when cooled<br>
+    🧂 <strong>Salt makes ice SUPER cold</strong> — colder than plain ice<br>
+    🍦 <strong>Shaking helps</strong> the mix freeze evenly<br><br>
+    <span style="color:var(--teal);font-size:13px;">Next time, try adding mango or rose syrup for a new flavour!</span>
+  `;
+  document.getElementById('p-btn').textContent='🌈 YAY!';
+  document.getElementById('p-btn').onclick=()=>{document.getElementById('pop').classList.remove('on');launchCelebration();};
+  document.getElementById('p-replay').style.display='inline-flex';
+  document.getElementById('pop').classList.add('on');
+  document.getElementById('pbox').style.borderColor='#ffd600';
+}
+
+function resetGame(){
+  document.getElementById('pop').classList.remove('on');
+  // Reset popup styling
+  document.getElementById('pbox').style.borderColor='var(--teal)';
+  document.getElementById('p-replay').style.display='none';
+
+  // ── Reset Activity 1 ──
+  smallCount=0;bigCount=0;
+  document.getElementById('zone-small').innerHTML='Drop ingredients here';
+  document.getElementById('zone-big').innerHTML='Ice &amp; salt go here';
+  document.getElementById('tick-small').style.display='none';
+  document.getElementById('tick-big').style.display='none';
+  document.getElementById('fb1').textContent='';
+  document.getElementById('next1').disabled=true;
+  // restore supply blocks
+  document.querySelectorAll('#supply1 .dblock').forEach(b=>{
+    b.style.opacity='1';b.setAttribute('draggable','true');b.classList.remove('dragging');
+  });
+
+  // ── Reset Activity 2 ──
+  bagPlaced=false;shaking=false;shakeCount=0;shakeBar=0;
+  if(shakeInterval){clearInterval(shakeInterval);shakeInterval=null;}
+  document.getElementById('small-bag-zone').classList.remove('placed');
+  document.getElementById('small-bag-zone').innerHTML='<div style="font-family:var(--head);font-size:11px;color:rgba(0,0,0,.3);text-align:center;padding:4px;">Drop milk<br>bag here</div>';
+  const sbDragEl=document.getElementById('small-bag-drag');
+  sbDragEl.style.opacity='1';sbDragEl.setAttribute('draggable','true');
+  const shBtn=document.getElementById('shake-btn');
+  shBtn.style.display='none';shBtn.disabled=false;shBtn.textContent='🙌 SHAKE SHAKE SHAKE!';shBtn.classList.remove('shake-active');
+  document.getElementById('fb2').textContent='';
+  document.getElementById('next2').disabled=true;
+  initMixCanvas('waiting');
+  document.getElementById('mix-msg').textContent='Add the bag to start!';
+
+  // ── Reset Activity 3 ──
+  a3count=0;
+  document.querySelectorAll('.order-slot').forEach(slot=>{
+    const pos=slot.dataset.opos;
+    const hints={1:'first step',2:'big bag setup',3:'nest the bags',4:'the fun part!',5:'the reward!'};
+    slot.innerHTML=`<div class="slot-num">${pos}</div><div class="slot-hint">${hints[pos]}</div>`;
+    slot.classList.remove('filled','correct','wrong');
+  });
+  document.querySelectorAll('#supply3 .dblock').forEach(b=>{
+    b.style.opacity='1';b.setAttribute('draggable','true');b.classList.remove('dragging');
+  });
+  document.getElementById('ice-reveal').style.display='none';
+  document.getElementById('fb3').textContent='';
+  document.getElementById('finish3').disabled=true;
+
+  // ── Go back to Activity 1 ──
+  switchAct(3,1);
+}
+
+function launchCelebration(){
+  // big rainbow flash on background
+  const celebCanvas=document.createElement('canvas');
+  celebCanvas.style.cssText='position:fixed;inset:0;z-index:150;pointer-events:none;';
+  celebCanvas.width=window.innerWidth;celebCanvas.height=window.innerHeight;
+  document.body.appendChild(celebCanvas);
+  const cX=celebCanvas.getContext('2d');
+  let alpha=0,dir=1,frames=0;
+  function rainbowPulse(){
+    cX.clearRect(0,0,celebCanvas.width,celebCanvas.height);
+    alpha+=dir*.03;if(alpha>0.5){dir=-1;}
+    drawRainbow(alpha);
+    frames++;
+    if(frames<80)requestAnimationFrame(rainbowPulse);
+    else celebCanvas.remove();
+  }
+  function drawRainbow(a){
+    const cx=celebCanvas.width*.5,cy=celebCanvas.height*.95;
+    const rs=[250,215,180,145,110,75];
+    const cols=['rgba(255,107,107,','rgba(255,167,86,','rgba(255,225,86,','rgba(107,203,119,','rgba(77,150,255,','rgba(155,93,229,'];
+    rs.forEach((r,i)=>{
+      cX.beginPath();cX.arc(cx,cy,r,Math.PI,0,false);
+      cX.strokeStyle=cols[i]+a+')';cX.lineWidth=18;cX.stroke();
+    });
+  }
+  rainbowPulse();
+
+  // confetti
+  const cols=['#ff6b6b','#ffa756','#ffe156','#6bcb77','#4d96ff','#9b5de5','#ffd600','#ff7eb3'];
+  for(let i=0;i<80;i++){
+    setTimeout(()=>{
+      const c=document.createElement('div');c.className='cf';
+      c.style.left=Math.random()*100+'%';c.style.top='-12px';
+      c.style.width=(6+Math.random()*8)+'px';c.style.height=(6+Math.random()*8)+'px';
+      c.style.borderRadius=Math.random()>.5?'50%':'3px';
+      c.style.background=cols[Math.floor(Math.random()*cols.length)];
+      c.style.animationDuration=(1.6+Math.random()*1.8)+'s';
+      c.style.animationDelay=Math.random()*.7+'s';
+      document.body.appendChild(c);setTimeout(()=>c.remove(),3500);
+    },i*24);
+  }
+
+  // ice cream emojis float up
+  for(let i=0;i<10;i++){
+    setTimeout(()=>{
+      const e=document.createElement('div');
+      e.textContent='🍦';e.style.cssText=`position:fixed;font-size:${24+Math.random()*20}px;left:${Math.random()*90+5}%;bottom:-20px;z-index:250;animation:cfFall ${1.8+Math.random()*1.2}s ease-in forwards;`;
+      document.body.appendChild(e);setTimeout(()=>e.remove(),3200);
+    },i*120);
+  }
+}
+
+/* ════════════════ NAVIGATION ════════════════ */
+function switchAct(from,to){
+  document.querySelectorAll('.act').forEach(a=>a.classList.remove('on'));
+  document.getElementById('act'+to).classList.add('on');
+  ['p1','p2','p3'].forEach((id,i)=>{
+    document.getElementById(id).className='pill '+(i+1<to?'done':i+1===to?'active':'idle');
+  });
+}
+</script>
+</body>
+</html>

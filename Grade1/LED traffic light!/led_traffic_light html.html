@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LED TRAFFIC LIGHT!</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap');
+
+  * { margin:0; padding:0; box-sizing:border-box; user-select:none; }
+
+  :root {
+    --neon-red: #ff2244;
+    --neon-yellow: #ffdd00;
+    --neon-green: #00ff88;
+    --neon-blue: #00cfff;
+    --neon-purple: #b044ff;
+    --neon-pink: #ff44cc;
+    --dark-bg: #050a18;
+    --panel-bg: rgba(8,16,40,0.85);
+    --grid-color: rgba(0,200,255,0.07);
+    --circuit-color: rgba(0,200,255,0.18);
+  }
+
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    font-family: 'Rajdhani', sans-serif;
+    background: var(--dark-bg);
+    color: #cceeff;
+  }
+
+  #bg-canvas {
+    position: fixed; top:0; left:0; width:100%; height:100%; z-index:0;
+    pointer-events: none;
+  }
+
+  #app {
+    position: relative; z-index:1;
+    width:100%; height:100vh;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:flex-start;
+    padding: 10px 16px 8px;
+    overflow: hidden;
+  }
+
+  .top-bar {
+    width:100%; display:flex; align-items:center; justify-content:space-between;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+  }
+
+  .title-text {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(14px, 2.2vw, 22px);
+    font-weight: 900;
+    letter-spacing: 3px;
+    color: var(--neon-blue);
+    text-shadow: 0 0 12px var(--neon-blue), 0 0 30px rgba(0,200,255,0.4);
+    animation: titlePulse 2.5s ease-in-out infinite;
+  }
+
+  @keyframes titlePulse {
+    0%,100% { text-shadow: 0 0 12px var(--neon-blue), 0 0 30px rgba(0,200,255,0.4); }
+    50% { text-shadow: 0 0 20px var(--neon-blue), 0 0 50px rgba(0,200,255,0.7), 0 0 80px rgba(0,200,255,0.2); }
+  }
+
+  .progress-bar-wrap {
+    display:flex; gap:6px; align-items:center;
+  }
+
+  .prog-dot {
+    width:28px; height:6px; border-radius:3px;
+    background: rgba(0,200,255,0.15);
+    border: 1px solid rgba(0,200,255,0.3);
+    transition: all 0.4s;
+  }
+
+  .prog-dot.active {
+    background: var(--neon-blue);
+    box-shadow: 0 0 8px var(--neon-blue);
+  }
+
+  .prog-dot.done {
+    background: var(--neon-green);
+    box-shadow: 0 0 8px var(--neon-green);
+  }
+
+  .activity-panel {
+    width:100%; max-width:1050px;
+    background: var(--panel-bg);
+    border: 1px solid rgba(0,200,255,0.25);
+    border-radius: 16px;
+    padding: 14px 20px 12px;
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 0 40px rgba(0,200,255,0.08), inset 0 0 60px rgba(0,10,30,0.5);
+  }
+
+  .activity-panel::before {
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:2px;
+    background: linear-gradient(90deg, transparent, var(--neon-blue), var(--neon-purple), transparent);
+    animation: scanLine 3s linear infinite;
+  }
+
+  @keyframes scanLine {
+    0% { opacity:0.4; } 50% { opacity:1; } 100% { opacity:0.4; }
+  }
+
+  .act-header {
+    display:flex; align-items:center; gap:12px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+  }
+
+  .act-badge {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--neon-purple);
+    color: var(--neon-purple);
+    background: rgba(176,68,255,0.1);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    white-space: nowrap;
+  }
+
+  .act-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(11px, 1.5vw, 15px);
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 1px;
+  }
+
+  .act-instruction {
+    font-size: clamp(12px, 1.4vw, 14px);
+    color: rgba(150,220,255,0.85);
+    line-height: 1.4;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+    text-align: center;
+  }
+
+  .game-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .btn-next {
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 10px 28px;
+    background: transparent;
+    border: 2px solid var(--neon-blue);
+    color: var(--neon-blue);
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    margin-top: 10px;
+    display: none;
+    align-self: center;
+    flex-shrink: 0;
+    box-shadow: 0 0 12px rgba(0,200,255,0.2);
+  }
+
+  .btn-next:hover {
+    background: rgba(0,200,255,0.12);
+    box-shadow: 0 0 20px var(--neon-blue);
+    transform: scale(1.04);
+  }
+
+  .btn-next.visible { display: block; animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+
+  @keyframes popIn {
+    0% { transform: scale(0.5); opacity:0; }
+    100% { transform: scale(1); opacity:1; }
+  }
+
+  /* ========== POPUP OVERLAY ========== */
+  .popup-overlay {
+    position: fixed; inset:0; z-index:100;
+    background: rgba(5,10,24,0.9);
+    display:flex; align-items:center; justify-content:center;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+
+  .popup-box {
+    background: linear-gradient(135deg, rgba(8,18,50,0.98), rgba(5,12,35,0.98));
+    border: 2px solid var(--neon-blue);
+    border-radius: 20px;
+    padding: 32px 40px;
+    max-width: 480px;
+    text-align:center;
+    box-shadow: 0 0 60px rgba(0,200,255,0.25), 0 0 120px rgba(0,200,255,0.08);
+    animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .popup-box::after {
+    content:'';
+    position:absolute; bottom:0; left:0; right:0; height:2px;
+    background: linear-gradient(90deg, transparent, var(--neon-green), transparent);
+  }
+
+  .popup-icon { font-size: 48px; margin-bottom:12px; }
+  .popup-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 20px; font-weight:900;
+    color: var(--neon-green);
+    text-shadow: 0 0 20px var(--neon-green);
+    margin-bottom:8px;
+    letter-spacing: 2px;
+  }
+
+  .popup-msg {
+    font-size: 16px; color: rgba(200,240,255,0.9);
+    line-height:1.5; margin-bottom:20px;
+  }
+
+  .popup-btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px; font-weight:700;
+    letter-spacing:2px;
+    padding: 12px 32px;
+    background: linear-gradient(135deg, rgba(0,200,255,0.2), rgba(176,68,255,0.2));
+    border: 2px solid var(--neon-blue);
+    color: var(--neon-blue);
+    border-radius:30px;
+    cursor:pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+  }
+
+  .popup-btn:hover {
+    background: rgba(0,200,255,0.2);
+    box-shadow: 0 0 24px var(--neon-blue);
+    transform: scale(1.05);
+  }
+
+  /* ========== ACTIVITY 1: LED TRAFFIC LIGHT ========== */
+  .act1-wrap {
+    display:flex; gap:30px; align-items:center; justify-content:center;
+    width:100%; height:100%;
+  }
+
+  .led-source-box {
+    display:flex; flex-direction:column; gap:14px;
+    background: rgba(0,10,30,0.6);
+    border: 1px solid rgba(0,200,255,0.2);
+    border-radius:12px;
+    padding: 16px 20px;
+    align-items:center;
+  }
+
+  .led-source-label {
+    font-family:'Orbitron',monospace;
+    font-size:10px; color:rgba(0,200,255,0.7);
+    letter-spacing:2px; text-transform:uppercase;
+    margin-bottom:4px;
+  }
+
+  .led-chip {
+    width:52px; height:52px;
+    border-radius:50%;
+    cursor:grab;
+    display:flex; align-items:center; justify-content:center;
+    font-size:9px; font-weight:700;
+    font-family:'Orbitron',monospace;
+    letter-spacing:1px;
+    border: 2px solid transparent;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position:relative;
+    touch-action:none;
+    flex-shrink:0;
+  }
+
+  .led-chip:hover { transform: scale(1.12); }
+
+  .led-chip.red-led {
+    background: radial-gradient(circle at 40% 35%, #ff6677, #cc0022);
+    border-color: #ff2244;
+    color: #ffcccc;
+    box-shadow: 0 0 12px rgba(255,34,68,0.5);
+  }
+
+  .led-chip.yellow-led {
+    background: radial-gradient(circle at 40% 35%, #ffee55, #cc9900);
+    border-color: #ffdd00;
+    color: #443300;
+    box-shadow: 0 0 12px rgba(255,221,0,0.5);
+  }
+
+  .led-chip.green-led {
+    background: radial-gradient(circle at 40% 35%, #44ff99, #008844);
+    border-color: #00ff88;
+    color: #004422;
+    box-shadow: 0 0 12px rgba(0,255,136,0.5);
+  }
+
+  .led-chip.dragging { opacity: 0.5; cursor: grabbing; transform: scale(1.15); }
+
+  .traffic-light-housing {
+    width: 90px;
+    background: linear-gradient(180deg, #1a1a2e, #0f0f23);
+    border: 3px solid rgba(100,100,140,0.5);
+    border-radius: 16px;
+    padding: 12px 10px;
+    display:flex; flex-direction:column; gap:10px;
+    align-items:center;
+    box-shadow: 0 0 20px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
+    position:relative;
+  }
+
+  .traffic-light-housing::before {
+    content:'';
+    position:absolute; top:-20px; left:50%; transform:translateX(-50%);
+    width:6px; height:20px;
+    background: #2a2a3e;
+    border-radius: 3px 3px 0 0;
+  }
+
+  .tl-slot {
+    width:64px; height:64px;
+    border-radius:50%;
+    background: rgba(0,0,0,0.7);
+    border: 2px dashed rgba(100,100,140,0.4);
+    display:flex; align-items:center; justify-content:center;
+    font-size:9px; color:rgba(100,120,160,0.6);
+    font-family:'Orbitron',monospace;
+    transition: all 0.3s;
+    position:relative;
+    flex-shrink:0;
+  }
+
+  .tl-slot.drag-over {
+    border-color: rgba(0,200,255,0.8);
+    background: rgba(0,200,255,0.08);
+    box-shadow: 0 0 16px rgba(0,200,255,0.3);
+  }
+
+  .tl-slot.correct {
+    border: none;
+  }
+
+  .tl-slot.wrong-flash {
+    border-color: var(--neon-red) !important;
+    box-shadow: 0 0 20px var(--neon-red) !important;
+    animation: wrongFlash 0.4s ease;
+  }
+
+  @keyframes wrongFlash {
+    0%,100% { background: rgba(0,0,0,0.7); }
+    50% { background: rgba(255,34,68,0.2); }
+  }
+
+  .tl-slot .led-chip { cursor: default; }
+
+  .act1-info {
+    display:flex; flex-direction:column; gap:8px;
+    background: rgba(0,10,30,0.6);
+    border: 1px solid rgba(0,200,255,0.2);
+    border-radius:12px;
+    padding: 14px 16px;
+    min-width: 140px;
+    max-width:160px;
+  }
+
+  .info-row {
+    display:flex; align-items:center; gap:8px;
+    font-size: 13px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.2);
+    opacity: 0.5;
+    transition: opacity 0.5s, background 0.5s;
+  }
+
+  .info-row.lit {
+    opacity:1;
+    background: rgba(0,200,255,0.07);
+  }
+
+  .info-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+
+  /* ========== ACTIVITY 2: CIRCUIT ========== */
+  .act2-wrap {
+    display:flex; gap:20px; align-items:center; justify-content:center;
+    width:100%; height:100%;
+  }
+
+  .circuit-board {
+    position:relative;
+    width: 340px;
+    height: 240px;
+    background: rgba(0,20,10,0.6);
+    border: 1px solid rgba(0,200,100,0.3);
+    border-radius:12px;
+    flex-shrink:0;
+  }
+
+  .circuit-slot {
+    position:absolute;
+    border: 2px dashed rgba(0,200,100,0.35);
+    border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:9px; color:rgba(0,200,100,0.5);
+    font-family:'Orbitron',monospace;
+    letter-spacing:1px;
+    transition: all 0.3s;
+    cursor: default;
+    overflow: hidden;
+  }
+
+  .circuit-slot.drag-over {
+    border-color: var(--neon-green);
+    background: rgba(0,255,136,0.08);
+    box-shadow: 0 0 12px rgba(0,255,136,0.3);
+  }
+
+  .circuit-slot.filled { border-style: solid; border-color: rgba(0,200,100,0.5); }
+
+  .circuit-slot.wrong-flash {
+    border-color: var(--neon-red) !important;
+    animation: wrongFlash 0.4s ease;
+  }
+
+  .parts-shelf {
+    display:flex; flex-direction:column; gap:10px;
+    background: rgba(0,10,30,0.6);
+    border: 1px solid rgba(0,200,255,0.2);
+    border-radius:12px;
+    padding: 14px 16px;
+    align-items:center;
+  }
+
+  .part-shelf-label {
+    font-family:'Orbitron',monospace;
+    font-size:9px; color:rgba(0,200,255,0.7);
+    letter-spacing:2px; text-transform:uppercase;
+    margin-bottom:2px;
+  }
+
+  .part-chip {
+    cursor:grab;
+    border-radius:8px;
+    border: 1.5px solid rgba(0,200,255,0.4);
+    background: rgba(0,20,50,0.8);
+    padding: 6px 10px;
+    font-size:11px; font-weight:600;
+    color: rgba(0,200,255,0.9);
+    display:flex; align-items:center; gap:6px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    white-space: nowrap;
+    touch-action: none;
+  }
+
+  .part-chip:hover { transform: scale(1.06); box-shadow: 0 0 10px rgba(0,200,255,0.3); }
+  .part-chip.dragging { opacity:0.5; }
+
+  .part-icon { font-size:16px; }
+
+  /* ========== ACTIVITY 3: ROAD SCENE ========== */
+  .act3-wrap {
+    display:flex; gap:16px; align-items:center; justify-content:center;
+    width:100%; height:100%;
+  }
+
+  .scene-board {
+    position:relative;
+    width: 380px;
+    height: 240px;
+    background: rgba(10,18,10,0.7);
+    border: 1px solid rgba(0,200,100,0.25);
+    border-radius:12px;
+    overflow:hidden;
+    flex-shrink:0;
+  }
+
+  .scene-slot {
+    position:absolute;
+    border: 2px dashed rgba(0,200,100,0.35);
+    border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:8px; color:rgba(0,200,100,0.5);
+    font-family:'Orbitron',monospace;
+    letter-spacing:1px;
+    transition:all 0.3s;
+  }
+
+  .scene-slot.drag-over {
+    border-color: var(--neon-green);
+    background: rgba(0,255,136,0.08);
+    box-shadow: 0 0 12px rgba(0,255,136,0.25);
+  }
+
+  .scene-slot.filled { border: none; }
+
+  .scene-slot.wrong-flash {
+    border-color: var(--neon-red) !important;
+    animation: wrongFlash 0.4s ease;
+  }
+
+  .scene-items-box {
+    display:grid; grid-template-columns:1fr 1fr;
+    gap:8px;
+    background: rgba(0,10,30,0.6);
+    border: 1px solid rgba(0,200,255,0.2);
+    border-radius:12px;
+    padding: 12px 14px;
+    align-content: start;
+  }
+
+  .scene-chip {
+    cursor:grab;
+    border-radius:8px;
+    border: 1.5px solid rgba(0,200,255,0.3);
+    background: rgba(0,20,50,0.8);
+    padding: 7px 10px;
+    font-size:18px;
+    display:flex; align-items:center; justify-content:center;
+    transition:transform 0.2s, box-shadow 0.2s;
+    touch-action:none;
+    aspect-ratio:1;
+    width:52px; height:52px;
+  }
+
+  .scene-chip:hover { transform: scale(1.1); box-shadow: 0 0 10px rgba(0,200,255,0.3); }
+  .scene-chip.dragging { opacity: 0.5; }
+
+  /* ========== CELEBRATION ========== */
+  #celebration {
+    position:fixed; inset:0; z-index:200;
+    background: rgba(5,10,24,0.95);
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    gap:16px;
+    animation: fadeIn 0.5s ease;
+  }
+
+  .cel-title {
+    font-family:'Orbitron',monospace;
+    font-size: clamp(22px, 4vw, 40px);
+    font-weight:900;
+    color: var(--neon-green);
+    text-shadow: 0 0 30px var(--neon-green), 0 0 60px rgba(0,255,136,0.4);
+    letter-spacing:4px;
+    animation: celebPulse 1s ease-in-out infinite;
+    text-align:center;
+  }
+
+  @keyframes celebPulse {
+    0%,100% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+  }
+
+  .cel-subtitle {
+    font-size:18px; color:rgba(200,240,255,0.9);
+    letter-spacing:1px; text-align:center;
+    max-width:500px;
+  }
+
+  .cel-badges {
+    display:flex; gap:16px; flex-wrap:wrap; justify-content:center;
+    margin: 8px 0;
+  }
+
+  .cel-badge {
+    padding: 10px 20px;
+    border-radius: 30px;
+    font-family:'Orbitron',monospace;
+    font-size:11px; letter-spacing:2px;
+    font-weight:700; text-transform:uppercase;
+  }
+
+  .cel-badge.r { border:2px solid var(--neon-red); color:var(--neon-red); background:rgba(255,34,68,0.1); box-shadow:0 0 12px rgba(255,34,68,0.3); }
+  .cel-badge.y { border:2px solid var(--neon-yellow); color:var(--neon-yellow); background:rgba(255,221,0,0.1); box-shadow:0 0 12px rgba(255,221,0,0.3); }
+  .cel-badge.g { border:2px solid var(--neon-green); color:var(--neon-green); background:rgba(0,255,136,0.1); box-shadow:0 0 12px rgba(0,255,136,0.3); }
+
+  .cel-city { font-size:56px; animation: float 2s ease-in-out infinite; }
+  @keyframes float { 0%,100%{ transform:translateY(0);} 50%{transform:translateY(-8px);} }
+
+  #cel-canvas { position:absolute; inset:0; z-index:-1; pointer-events:none; }
+
+  .btn-restart {
+    font-family:'Orbitron',monospace;
+    font-size:12px; font-weight:700;
+    letter-spacing:2px; text-transform:uppercase;
+    padding:12px 32px;
+    border:2px solid var(--neon-purple);
+    color:var(--neon-purple);
+    background: rgba(176,68,255,0.1);
+    border-radius:30px;
+    cursor:pointer;
+    transition:all 0.3s;
+    box-shadow: 0 0 12px rgba(176,68,255,0.2);
+    margin-top:8px;
+  }
+  .btn-restart:hover { background:rgba(176,68,255,0.2); box-shadow:0 0 24px var(--neon-purple); transform:scale(1.05); }
+
+  /* Drag ghost */
+  .drag-ghost {
+    position:fixed; pointer-events:none; z-index:999;
+    opacity:0.85; transform:translate(-50%,-50%) scale(1.1);
+    transition: none;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<div id="app">
+  <div class="top-bar">
+    <div class="title-text">⚡ LED TRAFFIC LIGHT!</div>
+    <div class="progress-bar-wrap">
+      <div class="prog-dot active" id="pd1"></div>
+      <div class="prog-dot" id="pd2"></div>
+      <div class="prog-dot" id="pd3"></div>
+    </div>
+  </div>
+
+  <div class="activity-panel" id="activity-panel">
+    <!-- injected by JS -->
+  </div>
+</div>
+
+<!-- Popup overlay -->
+<div class="popup-overlay" id="popup" style="display:none;">
+  <div class="popup-box">
+    <div class="popup-icon" id="popup-icon">🎉</div>
+    <div class="popup-title" id="popup-title">LEVEL COMPLETE!</div>
+    <div class="popup-msg" id="popup-msg">Great job!</div>
+    <button class="popup-btn" id="popup-btn">NEXT ACTIVITY ▶</button>
+  </div>
+</div>
+
+<!-- Celebration screen -->
+<div id="celebration" style="display:none;">
+  <canvas id="cel-canvas"></canvas>
+  <div class="cel-city">🏙️</div>
+  <div class="cel-title">CITY POWERED UP!</div>
+  <div class="cel-subtitle">You built a working LED traffic light system.<br>The city roads are safe again!</div>
+  <div class="cel-badges">
+    <div class="cel-badge r">RED ✓</div>
+    <div class="cel-badge y">YELLOW ✓</div>
+    <div class="cel-badge g">GREEN ✓</div>
+  </div>
+  <button class="btn-restart" onclick="restartGame()">▶ PLAY AGAIN</button>
+</div>
+
+<!-- Drag ghost element -->
+<div class="drag-ghost" id="drag-ghost" style="display:none;"></div>
+
+<script>
+/* ============================================================
+   BACKGROUND CANVAS: neon city animations
+============================================================ */
+const bgCanvas = document.getElementById('bg-canvas');
+const bgCtx = bgCanvas.getContext('2d');
+
+function resizeBg() {
+  bgCanvas.width = window.innerWidth;
+  bgCanvas.height = window.innerHeight;
+}
+resizeBg();
+window.addEventListener('resize', resizeBg);
+
+let bgT = 0;
+const particles = Array.from({length:40}, () => ({
+  x: Math.random()*window.innerWidth,
+  y: Math.random()*window.innerHeight,
+  vx: (Math.random()-0.5)*0.4,
+  vy: (Math.random()-0.5)*0.4,
+  r: Math.random()*2+0.5,
+  hue: Math.random()*60+180,
+  alpha: Math.random()*0.5+0.2
+}));
+
+function drawBg() {
+  const W = bgCanvas.width, H = bgCanvas.height;
+  bgCtx.clearRect(0,0,W,H);
+
+  // Grid lines
+  const gridSize = 50;
+  const offset = (bgT * 0.3) % gridSize;
+  bgCtx.strokeStyle = 'rgba(0,180,255,0.06)';
+  bgCtx.lineWidth = 0.5;
+  for(let x = -gridSize+offset%gridSize; x < W+gridSize; x+=gridSize) {
+    bgCtx.beginPath(); bgCtx.moveTo(x,0); bgCtx.lineTo(x,H); bgCtx.stroke();
+  }
+  for(let y = -gridSize+(bgT*0.15)%gridSize; y < H+gridSize; y+=gridSize) {
+    bgCtx.beginPath(); bgCtx.moveTo(0,y); bgCtx.lineTo(W,y); bgCtx.stroke();
+  }
+
+  // Circuit traces
+  const traces = [
+    {x1:0.05,y1:0.2,x2:0.2,y2:0.2,x3:0.2,y3:0.5,x4:0.4,y4:0.5},
+    {x1:0.8,y1:0.1,x2:0.95,y2:0.1,x3:0.95,y3:0.4,x4:0.7,y4:0.4},
+    {x1:0.1,y1:0.8,x2:0.35,y2:0.8,x3:0.35,y3:0.65,x4:0.6,y4:0.65},
+    {x1:0.6,y1:0.9,x2:0.9,y2:0.9,x3:0.9,y3:0.7,x4:0.75,y4:0.7},
+  ];
+  traces.forEach((t,i) => {
+    const phase = (bgT*0.015 + i*0.7) % 1;
+    const alpha = 0.12 + Math.sin(bgT*0.04+i)*0.05;
+    bgCtx.strokeStyle = `rgba(0,200,255,${alpha})`;
+    bgCtx.lineWidth = 1;
+    bgCtx.setLineDash([]);
+    bgCtx.beginPath();
+    bgCtx.moveTo(t.x1*W,t.y1*H);
+    bgCtx.lineTo(t.x2*W,t.y2*H);
+    bgCtx.lineTo(t.x3*W,t.y3*H);
+    bgCtx.lineTo(t.x4*W,t.y4*H);
+    bgCtx.stroke();
+    // Moving dot on trace
+    const pts = [[t.x1*W,t.y1*H],[t.x2*W,t.y2*H],[t.x3*W,t.y3*H],[t.x4*W,t.y4*H]];
+    const totalSegs = pts.length-1;
+    const pos = phase * totalSegs;
+    const seg = Math.floor(pos);
+    const f = pos - seg;
+    if(seg < totalSegs) {
+      const px = pts[seg][0] + (pts[seg+1][0]-pts[seg][0])*f;
+      const py = pts[seg][1] + (pts[seg+1][1]-pts[seg][1])*f;
+      bgCtx.fillStyle = `rgba(0,255,200,0.8)`;
+      bgCtx.beginPath(); bgCtx.arc(px,py,2.5,0,Math.PI*2); bgCtx.fill();
+    }
+  });
+
+  // Neon nodes (corner dots)
+  const nodes = [[0.05,0.2],[0.2,0.2],[0.2,0.5],[0.4,0.5],[0.8,0.1],[0.95,0.4],[0.35,0.65],[0.6,0.65],[0.9,0.7]];
+  nodes.forEach((n,i) => {
+    const pulse = 0.4+Math.sin(bgT*0.06+i*1.2)*0.3;
+    bgCtx.fillStyle = `rgba(0,200,255,${pulse*0.6})`;
+    bgCtx.beginPath(); bgCtx.arc(n[0]*W,n[1]*H,3,0,Math.PI*2); bgCtx.fill();
+    bgCtx.strokeStyle = `rgba(0,200,255,${pulse*0.3})`;
+    bgCtx.lineWidth=0.5; bgCtx.setLineDash([]);
+    bgCtx.beginPath(); bgCtx.arc(n[0]*W,n[1]*H,6,0,Math.PI*2); bgCtx.stroke();
+  });
+
+  // Floating particles
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    if(p.x<0) p.x=W; if(p.x>W) p.x=0;
+    if(p.y<0) p.y=H; if(p.y>H) p.y=0;
+    const a = p.alpha*(0.7+Math.sin(bgT*0.05+p.x*0.01)*0.3);
+    bgCtx.fillStyle = `hsla(${p.hue},100%,70%,${a})`;
+    bgCtx.beginPath(); bgCtx.arc(p.x,p.y,p.r,0,Math.PI*2); bgCtx.fill();
+  });
+
+  // Horizontal scan beam
+  const scanY = ((bgT * 0.8) % H);
+  const scanGrad = bgCtx.createLinearGradient(0,scanY-15,0,scanY+15);
+  scanGrad.addColorStop(0,'transparent');
+  scanGrad.addColorStop(0.5,'rgba(0,200,255,0.04)');
+  scanGrad.addColorStop(1,'transparent');
+  bgCtx.fillStyle = scanGrad;
+  bgCtx.fillRect(0,scanY-15,W,30);
+
+  bgT++;
+  requestAnimationFrame(drawBg);
+}
+drawBg();
+
+/* ============================================================
+   GAME STATE
+============================================================ */
+let currentActivity = 1;
+let completedActs = 0;
+let dragItem = null;
+let dragData = null;
+let ghostEl = document.getElementById('drag-ghost');
+
+/* ============================================================
+   UTILITY
+============================================================ */
+function updateProgress() {
+  [1,2,3].forEach(i => {
+    const d = document.getElementById('pd'+i);
+    if(i < currentActivity) { d.className='prog-dot done'; }
+    else if(i === currentActivity) { d.className='prog-dot active'; }
+    else { d.className='prog-dot'; }
+  });
+}
+
+function showPopup(icon, title, msg, btnText, onNext) {
+  const p = document.getElementById('popup');
+  document.getElementById('popup-icon').textContent = icon;
+  document.getElementById('popup-title').textContent = title;
+  document.getElementById('popup-msg').textContent = msg;
+  const btn = document.getElementById('popup-btn');
+  btn.textContent = btnText;
+  btn.onclick = () => { p.style.display='none'; onNext(); };
+  p.style.display='flex';
+}
+
+function flashWrong(el) {
+  el.classList.add('wrong-flash');
+  setTimeout(() => el.classList.remove('wrong-flash'), 500);
+}
+
+/* ============================================================
+   DRAG ENGINE (pointer events for smooth drag)
+============================================================ */
+function initDrag(chipEl, data, ghostHTML) {
+  chipEl.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    dragData = { ...data };
+    dragItem = chipEl;
+
+    ghostEl.innerHTML = ghostHTML || chipEl.outerHTML;
+    ghostEl.style.display = 'block';
+    ghostEl.style.left = e.clientX+'px';
+    ghostEl.style.top = e.clientY+'px';
+    chipEl.classList.add('dragging');
+
+    const onMove = ev => {
+      ghostEl.style.left = ev.clientX+'px';
+      ghostEl.style.top = ev.clientY+'px';
+      // Highlight drop zones
+      document.querySelectorAll('.tl-slot,.circuit-slot,.scene-slot').forEach(s => {
+        const r = s.getBoundingClientRect();
+        if(ev.clientX>r.left&&ev.clientX<r.right&&ev.clientY>r.top&&ev.clientY<r.bottom) {
+          s.classList.add('drag-over');
+        } else {
+          s.classList.remove('drag-over');
+        }
+      });
+    };
+
+    const onUp = ev => {
+      ghostEl.style.display='none';
+      chipEl.classList.remove('dragging');
+      document.querySelectorAll('.tl-slot,.circuit-slot,.scene-slot').forEach(s=>s.classList.remove('drag-over'));
+
+      // Find drop target
+      const els = document.elementsFromPoint(ev.clientX, ev.clientY);
+      const slot = els.find(el => el.classList.contains('tl-slot')||el.classList.contains('circuit-slot')||el.classList.contains('scene-slot'));
+      if(slot) {
+        slot.dispatchEvent(new CustomEvent('chip-drop', { bubbles:true, detail: { ...dragData } }));
+      }
+      dragData = null; dragItem = null;
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+    };
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  });
+}
+
+/* ============================================================
+   ACTIVITY 1: Place LEDs on Traffic Light
+============================================================ */
+function renderActivity1() {
+  updateProgress();
+  const panel = document.getElementById('activity-panel');
+  const a1State = { red: false, yellow: false, green: false };
+
+  panel.innerHTML = `
+    <div class="act-header">
+      <div class="act-badge">Activity 1 of 3</div>
+      <div class="act-title">BUILD THE TRAFFIC LIGHT</div>
+    </div>
+    <div class="act-instruction">Drag each colored LED to its correct position on the traffic light!</div>
+    <div class="game-area">
+      <div class="act1-wrap">
+        <div class="led-source-box">
+          <div class="led-source-label">LED Parts</div>
+          <div class="led-chip red-led" id="src-red" data-color="red">RED</div>
+          <div class="led-chip yellow-led" id="src-yellow" data-color="yellow">YLW</div>
+          <div class="led-chip green-led" id="src-green" data-color="green">GRN</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+          <div style="font-family:'Orbitron',monospace;font-size:9px;color:rgba(0,200,255,0.6);letter-spacing:2px;margin-bottom:4px;">SIGNAL TOWER</div>
+          <div class="traffic-light-housing">
+            <div class="tl-slot" id="slot-red" data-expects="red"><span style="font-size:8px">RED</span></div>
+            <div class="tl-slot" id="slot-yellow" data-expects="yellow"><span style="font-size:8px">YLW</span></div>
+            <div class="tl-slot" id="slot-green" data-expects="green"><span style="font-size:8px">GRN</span></div>
+          </div>
+          <div style="width:6px;height:30px;background:#2a2a3e;border-radius:0 0 3px 3px;"></div>
+          <div style="width:60px;height:8px;background:#1a1a2e;border-radius:4px;border:1px solid rgba(100,100,140,0.4);"></div>
+        </div>
+
+        <div class="act1-info">
+          <div style="font-family:'Orbitron',monospace;font-size:9px;color:rgba(0,200,255,0.7);letter-spacing:2px;margin-bottom:6px;text-align:center;">SIGNAL RULES</div>
+          <div class="info-row" id="info-red">
+            <div class="info-dot" style="background:#ff2244;box-shadow:0 0 6px #ff2244;"></div>
+            <span><b>RED</b> = STOP</span>
+          </div>
+          <div class="info-row" id="info-yellow">
+            <div class="info-dot" style="background:#ffdd00;box-shadow:0 0 6px #ffdd00;"></div>
+            <span><b>YELLOW</b> = GET READY</span>
+          </div>
+          <div class="info-row" id="info-green">
+            <div class="info-dot" style="background:#00ff88;box-shadow:0 0 6px #00ff88;"></div>
+            <span><b>GREEN</b> = GO!</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="btn-next" id="btn-next-1">NEXT ACTIVITY ▶</button>
+  `;
+
+  function checkDone() {
+    if(a1State.red && a1State.yellow && a1State.green) {
+      setTimeout(() => {
+        document.getElementById('btn-next-1').classList.add('visible');
+        showPopup('🚦','TRAFFIC LIGHT BUILT!','You placed all 3 LEDs correctly! The signal tower is live!','NEXT: BUILD THE CIRCUIT →', () => {
+          currentActivity = 2;
+          renderActivity2();
+        });
+      }, 400);
+    }
+  }
+
+  ['red','yellow','green'].forEach(color => {
+    const src = document.getElementById('src-'+color);
+    initDrag(src, { color }, `<div class="drag-ghost led-chip ${color}-led">${color.substring(0,3).toUpperCase()}</div>`);
+  });
+
+  ['red','yellow','green'].forEach(color => {
+    const slot = document.getElementById('slot-'+color);
+    slot.addEventListener('chip-drop', e => {
+      const { color: droppedColor } = e.detail;
+      if(droppedColor === color) {
+        // Correct!
+        a1State[color] = true;
+        slot.classList.add('correct');
+        const colorHex = {red:'#ff2244',yellow:'#ffdd00',green:'#00ff88'}[color];
+        const glowShadow = `0 0 16px ${colorHex}, 0 0 32px ${colorHex}44`;
+        const chipCopy = document.getElementById('src-'+color).cloneNode(true);
+        chipCopy.style.cursor='default';
+        chipCopy.style.width='58px'; chipCopy.style.height='58px';
+        chipCopy.style.boxShadow = glowShadow;
+        chipCopy.style.animation = 'none';
+        slot.innerHTML=''; slot.appendChild(chipCopy);
+        slot.style.boxShadow = glowShadow;
+        document.getElementById('src-'+color).style.opacity='0.3';
+        document.getElementById('src-'+color).style.pointerEvents='none';
+        document.getElementById('info-'+color).classList.add('lit');
+        checkDone();
+      } else {
+        flashWrong(slot);
+      }
+    });
+  });
+
+  document.getElementById('btn-next-1').addEventListener('click', () => {
+    currentActivity=2; renderActivity2();
+  });
+}
+
+/* ============================================================
+   ACTIVITY 2: Build Circuit
+============================================================ */
+function renderActivity2() {
+  updateProgress();
+  const panel = document.getElementById('activity-panel');
+  const slots2 = {
+    battery: false,
+    wire1: false,
+    red_led: false,
+    yellow_led: false,
+    green_led: false,
+    wire2: false,
+  };
+
+  panel.innerHTML = `
+    <div class="act-header">
+      <div class="act-badge">Activity 2 of 3</div>
+      <div class="act-title">BUILD THE CIRCUIT</div>
+    </div>
+    <div class="act-instruction">Drag each part to its correct spot on the circuit board to light up the traffic signal!</div>
+    <div class="game-area">
+      <div class="act2-wrap">
+        <div class="parts-shelf">
+          <div class="part-shelf-label">Components</div>
+          <div class="part-chip" id="p-battery" data-type="battery"><span class="part-icon">🔋</span> Battery</div>
+          <div class="part-chip" id="p-wire1" data-type="wire1"><span class="part-icon">〰️</span> Power Wire</div>
+          <div class="part-chip" id="p-red_led" data-type="red_led"><span class="part-icon" style="color:#ff2244">●</span> Red LED</div>
+          <div class="part-chip" id="p-yellow_led" data-type="yellow_led"><span class="part-icon" style="color:#ffdd00">●</span> Yellow LED</div>
+          <div class="part-chip" id="p-green_led" data-type="green_led"><span class="part-icon" style="color:#00ff88">●</span> Green LED</div>
+          <div class="part-chip" id="p-wire2" data-type="wire2"><span class="part-icon">〰️</span> Ground Wire</div>
+        </div>
+
+        <div class="circuit-board" id="cboard">
+          <!-- Board label -->
+          <div style="position:absolute;top:6px;left:50%;transform:translateX(-50%);font-family:'Orbitron',monospace;font-size:8px;color:rgba(0,200,100,0.5);letter-spacing:2px;">CIRCUIT BOARD</div>
+          <!-- Slots positioned on board -->
+          <div class="circuit-slot" id="cs-battery" data-expects="battery" style="left:12px;top:80px;width:62px;height:36px;">BATTERY</div>
+          <div class="circuit-slot" id="cs-wire1" data-expects="wire1" style="left:82px;top:90px;width:56px;height:18px;">PWR WIRE</div>
+          <div class="circuit-slot" id="cs-red_led" data-expects="red_led" style="left:146px;top:40px;width:50px;height:38px;border-color:rgba(255,34,68,0.4);color:rgba(255,34,68,0.6);">RED LED</div>
+          <div class="circuit-slot" id="cs-yellow_led" data-expects="yellow_led" style="left:146px;top:96px;width:50px;height:38px;border-color:rgba(255,221,0,0.4);color:rgba(255,221,0,0.6);">YLW LED</div>
+          <div class="circuit-slot" id="cs-green_led" data-expects="green_led" style="left:146px;top:152px;width:50px;height:38px;border-color:rgba(0,255,136,0.4);color:rgba(0,255,136,0.6);">GRN LED</div>
+          <div class="circuit-slot" id="cs-wire2" data-expects="wire2" style="left:204px;top:175px;width:56px;height:18px;">GND WIRE</div>
+          <!-- Breadboard holes decoration -->
+          <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;" viewBox="0 0 340 240">
+            ${Array.from({length:8},(_,r)=>Array.from({length:18},(_,c)=>`<circle cx="${275+c*3.5}" cy="${30+r*3.5}" r="1" fill="rgba(0,180,80,0.2)"/>`).join('')).join('')}
+            <line x1="270" y1="25" x2="270" y2="200" stroke="rgba(0,180,80,0.15)" stroke-width="1"/>
+            <line x1="210" y1="25" x2="210" y2="200" stroke="rgba(0,180,80,0.1)" stroke-width="0.5" stroke-dasharray="4,4"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <button class="btn-next" id="btn-next-2">NEXT ACTIVITY ▶</button>
+  `;
+
+  const partDefs = {
+    battery: { label:'Battery', icon:'🔋' },
+    wire1: { label:'Power Wire', icon:'〰️' },
+    red_led: { label:'Red LED', icon:'🔴' },
+    yellow_led: { label:'Yellow LED', icon:'🟡' },
+    green_led: { label:'Green LED', icon:'🟢' },
+    wire2: { label:'Ground Wire', icon:'〰️' },
+  };
+
+  function checkDone2() {
+    if(Object.values(slots2).every(Boolean)) {
+      setTimeout(() => {
+        document.getElementById('btn-next-2').classList.add('visible');
+        // Light up board effect
+        document.getElementById('cboard').style.boxShadow='0 0 30px rgba(0,255,136,0.3)';
+        showPopup('⚡','CIRCUIT CONNECTED!','All components placed correctly! The traffic light circuit is live!','NEXT: BUILD THE ROAD SCENE →', () => {
+          currentActivity = 3;
+          renderActivity3();
+        });
+      }, 400);
+    }
+  }
+
+  Object.entries(partDefs).forEach(([type, def]) => {
+    const src = document.getElementById('p-'+type);
+    initDrag(src, { type }, `<div class="part-chip drag-ghost"><span class="part-icon">${def.icon}</span>${def.label}</div>`);
+  });
+
+  Object.keys(slots2).forEach(type => {
+    const slot = document.getElementById('cs-'+type);
+    slot.addEventListener('chip-drop', e => {
+      const { type: dropped } = e.detail;
+      if(dropped === type) {
+        slots2[type] = true;
+        slot.classList.add('filled');
+        const def = partDefs[type];
+        const colorMap = { red_led:'rgba(255,34,68,0.6)', yellow_led:'rgba(255,221,0,0.7)', green_led:'rgba(0,255,136,0.7)' };
+        const col = colorMap[type] || 'rgba(0,200,255,0.8)';
+        slot.style.borderColor = col;
+        slot.innerHTML = `<span style="font-size:16px">${def.icon}</span>`;
+        if(type.includes('led')) {
+          const glowColor = colorMap[type].replace('0.6','0.4').replace('0.7','0.3');
+          slot.style.boxShadow = `0 0 14px ${glowColor}`;
+          slot.style.background = glowColor;
+        }
+        const src = document.getElementById('p-'+type);
+        if(src) { src.style.opacity='0.3'; src.style.pointerEvents='none'; }
+        checkDone2();
+      } else {
+        flashWrong(slot);
+      }
+    });
+  });
+
+  document.getElementById('btn-next-2').addEventListener('click', () => {
+    currentActivity=3; renderActivity3();
+  });
+}
+
+/* ============================================================
+   ACTIVITY 3: Build Road Scene
+============================================================ */
+function renderActivity3() {
+  updateProgress();
+  const panel = document.getElementById('activity-panel');
+
+  const sceneItems = {
+    road_h: { emoji:'🛣️', label:'Road' },
+    car: { emoji:'🚗', label:'Car' },
+    bus: { emoji:'🚌', label:'Bus' },
+    traffic_light: { emoji:'🚦', label:'Traffic Light' },
+    sign: { emoji:'🪧', label:'Road Sign' },
+    building: { emoji:'🏢', label:'Building' },
+  };
+
+  const sceneSlots = [
+    { id:'ss-road', expects:'road_h', label:'ROAD', style:'left:60px;bottom:20px;width:260px;height:36px;' },
+    { id:'ss-building', expects:'building', label:'BLDG', style:'right:14px;top:20px;width:52px;height:60px;' },
+    { id:'ss-tl', expects:'traffic_light', label:'SIGNAL', style:'left:14px;top:20px;width:52px;height:60px;border-color:rgba(0,255,136,0.5);color:rgba(0,255,136,0.6);' },
+    { id:'ss-car', expects:'car', label:'CAR', style:'left:90px;bottom:60px;width:50px;height:40px;' },
+    { id:'ss-bus', expects:'bus', label:'BUS', style:'left:160px;bottom:60px;width:56px;height:44px;' },
+    { id:'ss-sign', expects:'sign', label:'SIGN', style:'right:80px;top:30px;width:44px;height:44px;' },
+  ];
+
+  const slotsFilled = {};
+  sceneSlots.forEach(s => slotsFilled[s.expects] = false);
+
+  const slotsHTML = sceneSlots.map(s =>
+    `<div class="scene-slot" id="${s.id}" data-expects="${s.expects}" style="${s.style}">${s.label}</div>`
+  ).join('');
+
+  const itemsHTML = Object.entries(sceneItems).map(([k,v]) =>
+    `<div class="scene-chip" id="si-${k}" data-type="${k}" title="${v.label}">${v.emoji}</div>`
+  ).join('');
+
+  panel.innerHTML = `
+    <div class="act-header">
+      <div class="act-badge">Activity 3 of 3</div>
+      <div class="act-title">BUILD THE CITY ROAD SCENE</div>
+    </div>
+    <div class="act-instruction">Drag roads, vehicles, signs, and the traffic light to build a working city scene!</div>
+    <div class="game-area">
+      <div class="act3-wrap">
+        <div class="scene-items-box">
+          <div style="grid-column:1/-1;font-family:'Orbitron',monospace;font-size:9px;color:rgba(0,200,255,0.7);letter-spacing:2px;text-align:center;margin-bottom:4px;">CITY PARTS</div>
+          ${itemsHTML}
+        </div>
+
+        <div class="scene-board" id="scene-board">
+          <div style="position:absolute;top:6px;left:50%;transform:translateX(-50%);font-family:'Orbitron',monospace;font-size:8px;color:rgba(0,200,80,0.5);letter-spacing:2px;white-space:nowrap;">CITY INTERSECTION</div>
+          <!-- Sky gradient -->
+          <div style="position:absolute;top:0;left:0;right:0;height:55%;background:linear-gradient(180deg,rgba(0,10,30,0.6),rgba(0,20,40,0.3));pointer-events:none;border-radius:12px 12px 0 0;"></div>
+          <!-- Ground -->
+          <div style="position:absolute;bottom:0;left:0;right:0;height:45%;background:rgba(20,30,15,0.4);pointer-events:none;border-radius:0 0 12px 12px;"></div>
+          ${slotsHTML}
+        </div>
+      </div>
+    </div>
+    <button class="btn-next" id="btn-next-3">FINISH ▶</button>
+  `;
+
+  function checkDone3() {
+    if(Object.values(slotsFilled).every(Boolean)) {
+      // Animate scene
+      document.getElementById('scene-board').style.boxShadow='0 0 40px rgba(0,255,136,0.3)';
+      setTimeout(() => {
+        document.getElementById('btn-next-3').classList.add('visible');
+        showPopup('🏙️','CITY SCENE COMPLETE!','Amazing! Your city road scene is live with a working traffic light!','🎉 SEE THE CELEBRATION!', () => {
+          showCelebration();
+        });
+      }, 500);
+    }
+  }
+
+  Object.entries(sceneItems).forEach(([k,v]) => {
+    const src = document.getElementById('si-'+k);
+    if(src) initDrag(src, { type:k }, `<div class="scene-chip drag-ghost">${v.emoji}</div>`);
+  });
+
+  sceneSlots.forEach(s => {
+    const slot = document.getElementById(s.id);
+    if(!slot) return;
+    slot.addEventListener('chip-drop', e => {
+      const { type: dropped } = e.detail;
+      if(dropped === s.expects) {
+        slotsFilled[s.expects] = true;
+        slot.classList.add('filled');
+        slot.innerHTML = `<span style="font-size:${s.id==='ss-road'?'22':'26'}px">${sceneItems[s.expects].emoji}</span>`;
+        if(s.expects==='traffic_light') {
+          slot.style.filter='drop-shadow(0 0 10px rgba(0,255,136,0.6))';
+        }
+        const src = document.getElementById('si-'+s.expects);
+        if(src) { src.style.opacity='0.3'; src.style.pointerEvents='none'; }
+        checkDone3();
+      } else {
+        flashWrong(slot);
+      }
+    });
+  });
+
+  document.getElementById('btn-next-3').addEventListener('click', showCelebration);
+}
+
+/* ============================================================
+   CELEBRATION
+============================================================ */
+function showCelebration() {
+  document.getElementById('celebration').style.display='flex';
+
+  const canvas = document.getElementById('cel-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+
+  const confetti = Array.from({length:80}, () => ({
+    x: Math.random()*canvas.width,
+    y: Math.random()*canvas.height - canvas.height,
+    vx: (Math.random()-0.5)*3,
+    vy: Math.random()*3+1,
+    size: Math.random()*8+4,
+    hue: Math.random()*360,
+    rot: Math.random()*360,
+    rotV: (Math.random()-0.5)*4,
+  }));
+
+  function drawCelAnimation() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    confetti.forEach(c => {
+      c.x += c.vx; c.y += c.vy; c.rot += c.rotV;
+      if(c.y > canvas.height) { c.y = -20; c.x = Math.random()*canvas.width; }
+      ctx.save();
+      ctx.translate(c.x,c.y); ctx.rotate(c.rot*Math.PI/180);
+      ctx.fillStyle = `hsla(${c.hue},100%,65%,0.85)`;
+      ctx.fillRect(-c.size/2,-c.size/4,c.size,c.size/2);
+      ctx.restore();
+    });
+
+    // Neon rings
+    const rings = [
+      {x:0.2,y:0.3,r:80,hue:180},{x:0.8,y:0.7,r:60,hue:280},{x:0.5,y:0.15,r:50,hue:120}
+    ];
+    const t = Date.now()/1000;
+    rings.forEach(rn => {
+      const alpha = 0.15+Math.sin(t*2+rn.hue)*0.08;
+      ctx.strokeStyle=`hsla(${rn.hue},100%,65%,${alpha})`;
+      ctx.lineWidth=2; ctx.setLineDash([10,6]);
+      ctx.beginPath(); ctx.arc(rn.x*canvas.width,rn.y*canvas.height,rn.r+Math.sin(t+rn.hue)*10,0,Math.PI*2); ctx.stroke();
+    });
+
+    requestAnimationFrame(drawCelAnimation);
+  }
+  drawCelAnimation();
+}
+
+function restartGame() {
+  document.getElementById('celebration').style.display='none';
+  currentActivity=1;
+  renderActivity1();
+}
+
+/* ============================================================
+   INIT
+============================================================ */
+renderActivity1();
+</script>
+</body>
+</html>

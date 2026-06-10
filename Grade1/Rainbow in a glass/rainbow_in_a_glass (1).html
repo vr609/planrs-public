@@ -193,12 +193,54 @@
   .match-target.drag-over{border-color:var(--glow);background:rgba(155,48,255,.2)}
   .match-target.correct{border-color:#44cc44;background:rgba(68,204,68,.12)}
   .match-target.incorrect{border-color:#ff4444;background:rgba(255,68,68,.12);animation:shake .4s ease}
+
+  /* ── CONGRATS POPUP ── */
+  #congrats-overlay{
+    display:none;position:fixed;inset:0;z-index:200;
+    background:rgba(10,0,25,0.75);backdrop-filter:blur(6px);
+    align-items:center;justify-content:center;
+  }
+  #congrats-overlay.show{display:flex;animation:fadeIn .4s ease}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  #congrats-box{
+    background:linear-gradient(135deg,#2d0057,#4a0080);
+    border:2px solid var(--v5);border-radius:28px;
+    padding:44px 48px;max-width:420px;width:90%;text-align:center;
+    box-shadow:0 0 60px rgba(155,48,255,.7),0 20px 60px rgba(0,0,0,.6);
+    animation:popIn .5s cubic-bezier(.175,.885,.32,1.275);
+  }
+  #congrats-box .c-emoji{font-size:3.5rem;margin-bottom:12px;display:block;animation:spin 1s ease}
+  @keyframes spin{from{transform:rotate(-20deg) scale(.5)}to{transform:rotate(0deg) scale(1)}}
+  #congrats-box h2{
+    font-family:'Fredoka One',cursive;font-size:2rem;
+    background:linear-gradient(90deg,#ff6ec7,#ffdd00,#44ffaa,#4db8ff,#c278ff);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    margin-bottom:10px;
+  }
+  #congrats-box p{color:var(--v7);font-size:.95rem;line-height:1.6;margin-bottom:22px}
+  #congrats-close{
+    padding:11px 36px;border:none;border-radius:40px;
+    background:linear-gradient(135deg,#9b30ff,#c278ff);
+    color:#fff;font-family:'Fredoka One',cursive;font-size:1.05rem;
+    cursor:pointer;transition:transform .2s,box-shadow .2s;
+  }
+  #congrats-close:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(155,48,255,.6)}
 </style>
 </head>
 <body>
 
 <canvas id="bg-canvas"></canvas>
 <canvas id="confetti-canvas"></canvas>
+
+<!-- CONGRATULATIONS POPUP -->
+<div id="congrats-overlay">
+  <div id="congrats-box">
+    <span class="c-emoji">🏆</span>
+    <h2>Congratulations!</h2>
+    <p id="congrats-msg">You completed the activity perfectly!<br>You're a rainbow scientist! 🌈✨</p>
+    <button id="congrats-close" onclick="document.getElementById('congrats-overlay').classList.remove('show')">🎉 Awesome!</button>
+  </div>
+</div>
 
 <h1 class="main-title">🌈 Rainbow in a Glass 🌈</h1>
 
@@ -623,26 +665,34 @@ function drawGlass(){
 }
 drawGlass(); // initial empty glass
 
+function showCongrats(msg){
+  document.getElementById('congrats-msg').innerHTML = msg;
+  document.getElementById('congrats-overlay').classList.add('show');
+}
+
 function winAct1(){
   document.getElementById('act1-success').classList.add('show');
   launchConfetti();
   // animate glass glow
   gc.style.filter='drop-shadow(0 0 30px rgba(155,255,155,0.7)) drop-shadow(0 0 50px rgba(255,220,0,0.4))';
   setTimeout(()=> gc.style.filter='drop-shadow(0 0 22px rgba(155,48,255,.55))', 3000);
+  setTimeout(()=>showCongrats('You filled the rainbow glass perfectly!<br>You\'re a rainbow scientist! 🌈🧪'), 800);
 }
 
 function resetActivity1(){
   act1Placed={};act1DragId=null;
   document.querySelectorAll('.draggable-layer').forEach(el=>{el.classList.remove('used');el.draggable=true;el.style.display='';});
-  for(let i=0;i<6;i++){
-    const layer=LAYERS[5-i]; // SLOT_ORDER reverse
-    const slotPos=i;
-    const slotEl=document.getElementById('dslot-'+slotPos);
-    if(!slotEl) continue;
+  // SLOT_ORDER[i] gives the LAYERS index for the i-th DOM slot
+  // slotPos = 5 - i  (same mapping as buildSlots)
+  SLOT_ORDER.forEach((layerIdx, i) => {
+    const slotPos = 5 - i;
+    const layer = LAYERS[layerIdx];
+    const slotEl = document.getElementById('dslot-' + slotPos);
+    if(!slotEl) return;
     slotEl.classList.remove('filled','wrong-flash');
     slotEl.style.background='';
-    slotEl.innerHTML=`<span class="slot-layer-label">${LAYERS[slotPos].slotLabel}</span><span class="slot-placeholder">Drop here ↓</span>`;
-  }
+    slotEl.innerHTML=`<span class="slot-layer-label">${layer.slotLabel}</span><span class="slot-placeholder">Drop here ↓</span>`;
+  });
   document.getElementById('act1-success').classList.remove('show');
   document.getElementById('act1-hint').classList.remove('show');
   gc.style.filter='drop-shadow(0 0 22px rgba(155,48,255,.55))';
@@ -652,12 +702,15 @@ function resetActivity1(){
 /* ══════════════════════════════════════════
    ACTIVITY 2
 ══════════════════════════════════════════ */
-const act2Correct={1:'e',2:'b',3:'c',4:'a',5:'d',6:'f'};
-let act2DragId=null,act2State={};
+// Store original density item HTML for reset
+const densityItemsData = {};
 document.querySelectorAll('.density-item').forEach(el=>{
+  densityItemsData[el.dataset.id] = el.outerHTML;
   el.addEventListener('dragstart',()=>{act2DragId=el.dataset.id;el.classList.add('dragging')});
   el.addEventListener('dragend',()=>el.classList.remove('dragging'));
 });
+const act2Correct={1:'e',2:'b',3:'c',4:'a',5:'d',6:'f'};
+let act2DragId=null,act2State={};
 function dropSort(event,pos){
   event.preventDefault();
   const slot=document.getElementById('os-'+pos);
@@ -675,7 +728,7 @@ function dropSort(event,pos){
   if(!correct)setTimeout(()=>slot.classList.remove('incorrect'),600);
   let s=0;for(let i=1;i<=6;i++)if(act2State[i]&&act2State[i]===act2Correct[i])s++;
   document.getElementById('act2-score').textContent=`Score: ${s} / 6`;
-  if(s===6){document.getElementById('act2-success').classList.add('show');launchConfetti();}
+  if(s===6){document.getElementById('act2-success').classList.add('show');launchConfetti();setTimeout(()=>showCongrats('You sorted all 6 liquids by density correctly!<br>You\'re a density expert! ⚖️🌈'), 800);}
 }
 function resetActivity2(){
   act2State={};
@@ -685,7 +738,20 @@ function resetActivity2(){
     s.classList.remove('correct','incorrect');
     s.innerHTML=`<span class="slot-num">${labels[i]}</span><span style="color:rgba(224,176,255,.4);font-size:.72rem">drop here</span>`;
   }
-  document.querySelectorAll('.density-item').forEach(el=>{el.draggable=true;el.style.cursor='grab';document.getElementById('sort-pool').appendChild(el);});
+  const pool = document.getElementById('sort-pool');
+  pool.innerHTML = '';
+  // Rebuild items from original HTML and shuffle
+  const ids = Object.keys(densityItemsData);
+  ids.sort(()=>Math.random()-.5);
+  ids.forEach(id=>{
+    const tmp = document.createElement('div');
+    tmp.innerHTML = densityItemsData[id];
+    const el = tmp.firstElementChild;
+    el.draggable=true; el.style.cursor='grab';
+    el.addEventListener('dragstart',()=>{act2DragId=el.dataset.id;el.classList.add('dragging')});
+    el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+    pool.appendChild(el);
+  });
   document.getElementById('act2-success').classList.remove('show');
   document.getElementById('act2-score').textContent='Score: 0 / 6';
 }
@@ -694,11 +760,30 @@ function resetActivity2(){
    ACTIVITY 3
 ══════════════════════════════════════════ */
 const tgtLabels={'mt-red':'🔴 Red','mt-orange':'🟠 Orange','mt-yellow':'🟡 Yellow','mt-green':'🟢 Green','mt-blue':'🔵 Blue','mt-indigo':'🟣 Indigo','mt-violet':'💜 Violet'};
-let act3DragId=null;
+// Store original match item data for reset
+const matchItemsData = {};
 document.querySelectorAll('.match-item').forEach(el=>{
+  matchItemsData[el.dataset.id] = el.outerHTML;
+});
+
+function attachMatchDragEvents(el){
   el.addEventListener('dragstart',()=>{act3DragId=el.dataset.id;el.classList.add('dragging')});
   el.addEventListener('dragend',()=>el.classList.remove('dragging'));
-});
+}
+
+// Shuffle match items on initial load
+(function shuffleMatchItems(){
+  const col = document.querySelector('.match-col');
+  const title = col.querySelector('.match-col-title');
+  const items = Array.from(col.querySelectorAll('.match-item'));
+  items.sort(()=>Math.random()-.5);
+  // Remove all items, keep title
+  col.querySelectorAll('.match-item').forEach(el=>el.remove());
+  items.forEach(el=>{ attachMatchDragEvents(el); col.appendChild(el); });
+})();
+
+let act3DragId=null;
+document.querySelectorAll('.match-item').forEach(attachMatchDragEvents);
 function dropMatch(event,tId){
   event.preventDefault();
   const t=document.getElementById(tId);t.classList.remove('drag-over');
@@ -711,16 +796,25 @@ function dropMatch(event,tId){
   if(!correct)setTimeout(()=>t.classList.remove('incorrect'),600);
   let s=0;document.querySelectorAll('.match-target').forEach(x=>{if(x.classList.contains('correct'))s++;});
   document.getElementById('act3-score').textContent=`Score: ${s} / 7`;
-  if(s===7){document.getElementById('act3-success').classList.add('show');launchConfetti();}
+  if(s===7){document.getElementById('act3-success').classList.add('show');launchConfetti();setTimeout(()=>showCongrats('You matched all 7 rainbow colours perfectly!<br>What a colour genius! 🎨🌈✨'), 800);}
 }
 function resetActivity3(){
   document.querySelectorAll('.match-target').forEach(t=>{
     t.classList.remove('correct','incorrect');
     t.innerHTML=`<span class="target-label">${tgtLabels[t.id]}</span><span style="color:rgba(224,176,255,.4);font-size:.76rem">drop here</span>`;
   });
-  document.querySelectorAll('.match-item').forEach(el=>{
-    el.draggable=true;el.style.cursor='grab';
-    document.querySelector('.match-col').appendChild(el);
+  // Rebuild items from stored HTML, shuffle, and append to the liquids column
+  const liquidCol = document.querySelectorAll('.match-col')[0];
+  liquidCol.querySelectorAll('.match-item').forEach(el=>el.remove());
+  const ids = Object.keys(matchItemsData);
+  ids.sort(()=>Math.random()-.5);
+  ids.forEach(id=>{
+    const tmp = document.createElement('div');
+    tmp.innerHTML = matchItemsData[id];
+    const el = tmp.firstElementChild;
+    el.draggable=true; el.style.cursor='grab';
+    attachMatchDragEvents(el);
+    liquidCol.appendChild(el);
   });
   document.getElementById('act3-success').classList.remove('show');
   document.getElementById('act3-score').textContent='Score: 0 / 7';

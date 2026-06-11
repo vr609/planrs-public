@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TOUCH SWITCH PROJECT</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+
+:root{
+  --void:#020814;
+  --void2:#060f1e;
+  --cyan:#00f5ff;
+  --cyan2:#00bcd4;
+  --magenta:#ff00c8;
+  --mag2:#c800a0;
+  --green:#39ff14;
+  --orange:#ff6b00;
+  --yellow:#ffe600;
+  --slate:#0d1f35;
+  --panel:rgba(6,15,30,0.88);
+  --border-c:rgba(0,245,255,0.25);
+  --text:#c8e8ff;
+  --dim:rgba(0,245,255,0.45);
+}
+
+html,body{
+  width:100%;height:100vh;overflow:hidden;
+  font-family:'Rajdhani',sans-serif;
+  background:var(--void);
+  color:var(--text);
+  user-select:none;
+}
+
+/* ═══════════════════ BACKGROUND ═══════════════════ */
+#bg{position:fixed;inset:0;z-index:0;overflow:hidden;background:var(--void);}
+
+/* Matrix canvas */
+#matrix-canvas{
+  position:absolute;inset:0;
+  opacity:0.18;
+}
+
+/* Circuit grid */
+#bg::before{
+  content:'';position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(0,245,255,0.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,245,255,0.04) 1px,transparent 1px);
+  background-size:40px 40px;
+  animation:grid-scroll 30s linear infinite;
+  pointer-events:none;
+}
+@keyframes grid-scroll{to{background-position:40px 40px;}}
+
+/* Portal rings */
+.portal{
+  position:absolute;border-radius:50%;
+  border:1px solid;
+  animation:portal-breathe var(--pd,8s) ease-in-out infinite var(--pdd,0s);
+  pointer-events:none;
+}
+@keyframes portal-breathe{
+  0%,100%{transform:translate(-50%,-50%) scale(1);opacity:var(--po,0.2);}
+  50%{transform:translate(-50%,-50%) scale(1.06);opacity:calc(var(--po,0.2)*2.5);}
+}
+
+/* Energy particles */
+.eparticle{
+  position:absolute;border-radius:50%;
+  animation:ep-float var(--ef,9s) ease-in-out infinite var(--ed,0s);
+  pointer-events:none;
+  opacity:0;
+}
+@keyframes ep-float{
+  0%{opacity:0;transform:translateY(0) scale(0);}
+  15%{opacity:0.8;transform:translateY(-20px) scale(1);}
+  85%{opacity:0.4;transform:translateY(-100px) scale(0.7);}
+  100%{opacity:0;transform:translateY(-160px) scale(0);}
+}
+
+/* Scanline sweep */
+#bg::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.04) 2px,rgba(0,0,0,0.04) 4px);
+  animation:scanline 0.1s steps(1) infinite;
+}
+@keyframes scanline{to{background-position:0 4px;}}
+
+/* Flowing energy wave */
+.ewave{
+  position:absolute;height:1px;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+  opacity:0;
+  animation:wave-travel var(--wt,6s) ease-in-out infinite var(--wd,0s);
+  pointer-events:none;
+}
+@keyframes wave-travel{
+  0%{transform:translateY(0);opacity:0;left:-10%;}
+  10%{opacity:0.6;}
+  90%{opacity:0.3;}
+  100%{transform:translateY(0);opacity:0;left:110%;}
+}
+
+/* ═══════════════════ APP LAYOUT ═══════════════════ */
+#app{
+  position:relative;z-index:10;
+  width:100vw;height:100vh;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+
+/* HEADER */
+#hdr{
+  flex-shrink:0;
+  padding:8px 20px 6px;
+  text-align:center;
+  background:linear-gradient(180deg,rgba(2,8,20,0.97) 0%,transparent 100%);
+  border-bottom:1px solid rgba(0,245,255,0.12);
+  position:relative;
+}
+#hdr::after{
+  content:'';position:absolute;bottom:0;left:5%;right:5%;height:1px;
+  background:linear-gradient(90deg,transparent,var(--cyan),var(--magenta),var(--cyan),transparent);
+  animation:hdr-line 3s linear infinite;
+}
+@keyframes hdr-line{
+  0%{background-position:0% 50%;}100%{background-position:200% 50%;}
+}
+#hdr h1{
+  font-family:'Orbitron',sans-serif;
+  font-size:clamp(14px,2.2vw,22px);
+  font-weight:900;letter-spacing:0.12em;
+  background:linear-gradient(90deg,var(--cyan),var(--magenta),var(--cyan));
+  background-size:200% auto;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  animation:text-flow 4s linear infinite;
+  filter:drop-shadow(0 0 8px rgba(0,245,255,0.6));
+}
+@keyframes text-flow{to{background-position:200% center;}}
+#hdr p{
+  font-size:clamp(9px,1.2vw,11px);
+  color:var(--dim);letter-spacing:0.2em;
+  text-transform:uppercase;margin-top:1px;
+  font-family:'Share Tech Mono',monospace;
+}
+
+/* PROGRESS */
+#prog{
+  flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  gap:6px;padding:5px 20px 4px;
+}
+.ps{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);font-family:'Orbitron',sans-serif;transition:0.4s;}
+.pd{
+  width:24px;height:24px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;
+  background:rgba(0,245,255,0.06);
+  border:1px solid rgba(0,245,255,0.2);
+  transition:0.4s;font-family:'Share Tech Mono',monospace;
+}
+.ps.active{color:var(--cyan);}
+.ps.active .pd{
+  background:rgba(0,245,255,0.15);border-color:var(--cyan);color:var(--cyan);
+  box-shadow:0 0 12px rgba(0,245,255,0.7);
+  animation:prog-ping 1.4s ease-in-out infinite;
+}
+@keyframes prog-ping{0%,100%{box-shadow:0 0 8px rgba(0,245,255,0.6);}50%{box-shadow:0 0 22px rgba(0,245,255,1),0 0 40px rgba(0,245,255,0.3);}}
+.ps.done .pd{background:rgba(57,255,20,0.15);border-color:var(--green);color:var(--green);box-shadow:0 0 10px rgba(57,255,20,0.5);}
+.ps.done{color:var(--green);}
+.pl{width:32px;height:1px;background:rgba(0,245,255,0.12);border-radius:1px;overflow:hidden;position:relative;}
+.pl.done::after{content:'';position:absolute;inset:0;background:var(--green);animation:fill 0.5s ease forwards;}
+@keyframes fill{from{transform:scaleX(0);transform-origin:left;}to{transform:scaleX(1);}}
+
+/* SCREENS */
+#screens{flex:1;overflow:hidden;position:relative;min-height:0;}
+.screen{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:6px 14px;
+  opacity:0;pointer-events:none;
+  transition:opacity 0.45s,transform 0.45s;
+  transform:translateX(50px);
+}
+.screen.active{opacity:1;pointer-events:all;transform:translateX(0);}
+.screen.exit{opacity:0;transform:translateX(-50px);pointer-events:none;}
+
+/* PANEL */
+.panel{
+  width:100%;max-width:1000px;
+  background:var(--panel);
+  border:1px solid var(--border-c);
+  border-radius:16px;
+  padding:12px 18px;
+  backdrop-filter:blur(20px);
+  box-shadow:0 0 40px rgba(0,245,255,0.06),inset 0 0 30px rgba(255,0,200,0.02);
+  position:relative;
+}
+.panel::before{
+  content:'';position:absolute;
+  top:-1px;left:20%;right:20%;height:2px;
+  background:linear-gradient(90deg,transparent,var(--cyan),var(--magenta),var(--cyan),transparent);
+  border-radius:2px;
+  animation:top-line 3s ease-in-out infinite;
+}
+@keyframes top-line{0%,100%{opacity:0.5;}50%{opacity:1;}}
+
+.act-title{
+  font-family:'Orbitron',sans-serif;
+  font-size:clamp(11px,1.7vw,15px);font-weight:700;
+  color:var(--cyan);
+  margin-bottom:2px;
+  text-shadow:0 0 10px rgba(0,245,255,0.5);
+  display:flex;align-items:center;gap:8px;
+}
+.act-sub{
+  font-size:clamp(10px,1.2vw,12px);
+  color:var(--dim);margin-bottom:8px;
+  font-family:'Rajdhani',sans-serif;font-weight:500;
+  letter-spacing:0.04em;
+}
+.score-row{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:6px;
+}
+.score-val{
+  font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--yellow);
+  display:flex;align-items:center;gap:6px;
+}
+.pulse-dot{width:7px;height:7px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 8px var(--green);animation:prog-ping 1s ease-in-out infinite;}
+
+/* RESET BUTTON */
+.btn-reset{
+  font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+  letter-spacing:0.08em;
+  padding:5px 12px;
+  background:rgba(255,0,200,0.1);
+  border:1px solid rgba(255,0,200,0.35);
+  border-radius:30px;color:var(--magenta);cursor:pointer;
+  transition:0.25s;
+}
+.btn-reset:hover{background:rgba(255,0,200,0.22);box-shadow:0 0 14px rgba(255,0,200,0.5);}
+
+/* NEXT BUTTON */
+.btn-next{
+  margin-top:8px;padding:8px 22px;
+  background:linear-gradient(135deg,rgba(0,245,255,0.15),rgba(255,0,200,0.15));
+  border:1px solid var(--cyan);border-radius:30px;
+  color:var(--cyan);font-family:'Orbitron',sans-serif;
+  font-size:clamp(9px,1.2vw,11px);font-weight:700;letter-spacing:0.07em;
+  cursor:pointer;
+  box-shadow:0 0 18px rgba(0,245,255,0.3);
+  transition:0.3s;display:none;
+  align-items:center;gap:6px;
+}
+.btn-next.show{display:inline-flex;}
+.btn-next:hover{box-shadow:0 0 32px rgba(0,245,255,0.7);transform:scale(1.05);}
+
+/* DRAG ITEMS */
+.drag-pool{
+  display:flex;flex-wrap:wrap;gap:7px;
+  justify-content:center;margin-bottom:8px;
+}
+.draggable{
+  background:rgba(6,15,30,0.9);
+  border:1px solid rgba(0,245,255,0.3);
+  border-radius:8px;padding:6px 12px;
+  cursor:grab;
+  font-family:'Share Tech Mono',monospace;
+  font-size:clamp(9px,1.1vw,11px);font-weight:600;
+  transition:all 0.2s;
+  display:flex;align-items:center;gap:5px;
+  white-space:nowrap;
+  box-shadow:0 0 8px rgba(0,245,255,0.08);
+  animation:item-pulse 3.5s ease-in-out infinite;
+  position:relative;z-index:20;
+}
+.draggable:nth-child(2n){animation-delay:-1.4s;}
+.draggable:nth-child(3n){animation-delay:-2.8s;}
+@keyframes item-pulse{
+  0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}
+}
+.draggable:hover{
+  border-color:var(--cyan);
+  box-shadow:0 0 18px rgba(0,245,255,0.5);
+  transform:scale(1.06) translateY(-2px)!important;animation:none;
+}
+.draggable.dragging{opacity:0.3;animation:none;cursor:grabbing;}
+.draggable.placed{opacity:0.2;pointer-events:none;animation:none;cursor:default;}
+
+/* COLOR CLASSES */
+.c-battery{color:#ffe600;border-color:rgba(255,230,0,0.35);}
+.c-wire{color:#00f5ff;border-color:rgba(0,245,255,0.35);}
+.c-led{color:#ff6b00;border-color:rgba(255,107,0,0.35);}
+.c-foil{color:#39ff14;border-color:rgba(57,255,20,0.35);}
+.c-switch{color:#ff00c8;border-color:rgba(255,0,200,0.35);}
+.c-block{color:#c8e8ff;border-color:rgba(200,232,255,0.3);}
+
+/* DROP ZONES */
+.dz{
+  background:rgba(0,245,255,0.03);
+  border:1px dashed rgba(0,245,255,0.25);
+  border-radius:8px;
+  min-height:36px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:rgba(0,245,255,0.35);
+  transition:all 0.25s;padding:4px 6px;
+  font-family:'Share Tech Mono',monospace;
+  text-align:center;
+  position:relative;overflow:hidden;
+}
+.dz::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle at 50% 50%,rgba(0,245,255,0.04) 0%,transparent 70%);
+  animation:dz-breathe 3s ease-in-out infinite;
+}
+@keyframes dz-breathe{0%,100%{opacity:0.4;}50%{opacity:1;}}
+.dz.hover{
+  background:rgba(0,245,255,0.1);border-color:var(--cyan);
+  box-shadow:0 0 18px rgba(0,245,255,0.35);transform:scale(1.02);
+}
+.dz.correct{
+  background:rgba(57,255,20,0.1);border-color:var(--green);border-style:solid;
+  color:var(--green);box-shadow:0 0 16px rgba(57,255,20,0.4);
+  font-size:11px;font-weight:700;
+}
+.dz.wrong{
+  background:rgba(255,0,0,0.08);border-color:#ff3333;
+  animation:shake 0.4s ease;
+}
+@keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
+
+/* POP-IN */
+@keyframes pop-in{
+  from{transform:scale(0.5) rotate(-8deg);opacity:0;}
+  to{transform:scale(1) rotate(0);opacity:1;}
+}
+
+/* ═══════════════════ ACTIVITY 1 ═══════════════════
+   Circuit Order Sorter
+══════════════════════════════════════════════════ */
+.circuit-track{
+  display:flex;align-items:center;gap:0;
+  width:100%;
+  background:rgba(0,0,0,0.4);
+  border:1px solid rgba(0,245,255,0.15);
+  border-radius:12px;
+  padding:10px 14px;
+  position:relative;overflow:hidden;
+}
+.circuit-track::after{
+  content:'';
+  position:absolute;top:50%;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,rgba(0,245,255,0.15),transparent);
+  transform:translateY(-50%);
+  animation:trace-flow 2s linear infinite;
+  pointer-events:none;
+}
+@keyframes trace-flow{
+  0%{background-position:-100% 0;}100%{background-position:200% 0;}
+}
+.circ-slot{
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  flex:1;
+}
+.circ-connector{
+  height:3px;width:30px;flex-shrink:0;
+  background:linear-gradient(90deg,rgba(0,245,255,0.15),rgba(0,245,255,0.35),rgba(0,245,255,0.15));
+  border-radius:2px;position:relative;margin-bottom:16px;
+  animation:connector-pulse 2s ease-in-out infinite;
+}
+.circ-connector.lit{
+  background:linear-gradient(90deg,var(--green),var(--cyan),var(--green));
+  box-shadow:0 0 8px var(--cyan);
+  animation:connector-lit 0.8s ease-in-out infinite;
+}
+@keyframes connector-pulse{0%,100%{opacity:0.3;}50%{opacity:0.8;}}
+@keyframes connector-lit{0%,100%{opacity:0.7;}50%{opacity:1;box-shadow:0 0 14px var(--cyan);}}
+.slot-label{
+  font-size:9px;color:var(--dim);
+  font-family:'Orbitron',monospace;letter-spacing:0.05em;
+  text-transform:uppercase;text-align:center;
+}
+.circ-dz{
+  width:80px;height:56px;flex-shrink:0;
+}
+
+/* Info strip */
+.info-strip{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:6px;margin-top:8px;
+}
+.info-card{
+  background:rgba(0,0,0,0.4);
+  border:1px solid rgba(0,245,255,0.1);
+  border-radius:8px;
+  padding:6px 8px;
+  font-size:10px;
+  font-family:'Rajdhani',sans-serif;font-weight:500;
+  color:rgba(200,232,255,0.6);
+  line-height:1.4;text-align:center;
+}
+.info-card strong{font-weight:700;display:block;margin-bottom:2px;}
+
+/* ═══════════════════ ACTIVITY 2 ═══════════════════
+   Touch Switch Circuit Builder
+══════════════════════════════════════════════════ */
+.switch-builder{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:10px;width:100%;
+}
+.build-zone{
+  background:rgba(0,0,0,0.4);
+  border:1px solid rgba(0,245,255,0.15);
+  border-radius:12px;
+  padding:10px 12px;
+  display:flex;flex-direction:column;gap:6px;
+  position:relative;
+}
+.bz-title{
+  font-family:'Orbitron',sans-serif;font-size:10px;
+  color:var(--dim);letter-spacing:0.08em;text-transform:uppercase;
+  margin-bottom:2px;
+}
+.switch-row{
+  display:flex;align-items:center;gap:8px;
+}
+.sw-label{
+  font-size:10px;color:rgba(0,245,255,0.5);
+  font-family:'Share Tech Mono',monospace;
+  min-width:52px;text-align:right;
+}
+
+/* LED glow simulation */
+.led-sim{
+  width:100%;
+  background:rgba(0,0,0,0.5);
+  border:1px solid rgba(0,245,255,0.12);
+  border-radius:10px;
+  padding:12px;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+}
+.led-bulb{
+  width:50px;height:50px;border-radius:50%;
+  background:rgba(255,107,0,0.08);
+  border:2px solid rgba(255,107,0,0.25);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;
+  transition:all 0.5s;
+  position:relative;
+}
+.led-bulb::after{
+  content:'';position:absolute;inset:-6px;
+  border-radius:50%;border:2px solid rgba(255,107,0,0.1);
+  transition:all 0.5s;
+}
+.led-bulb.glowing{
+  background:rgba(255,230,0,0.25);
+  border-color:var(--yellow);
+  box-shadow:0 0 20px var(--yellow),0 0 40px rgba(255,230,0,0.4),0 0 60px rgba(255,107,0,0.2);
+  animation:led-glow 0.6s ease-in-out infinite;
+}
+.led-bulb.glowing::after{
+  border-color:rgba(255,230,0,0.3);
+  box-shadow:0 0 30px rgba(255,230,0,0.2);
+}
+@keyframes led-glow{
+  0%,100%{box-shadow:0 0 18px var(--yellow),0 0 36px rgba(255,230,0,0.4);}
+  50%{box-shadow:0 0 28px var(--yellow),0 0 56px rgba(255,230,0,0.5),0 0 80px rgba(255,107,0,0.25);}
+}
+.led-status{
+  font-family:'Share Tech Mono',monospace;font-size:11px;
+  color:rgba(255,107,0,0.4);transition:0.5s;text-align:center;
+}
+.led-status.on{color:var(--yellow);text-shadow:0 0 8px var(--yellow);}
+.circuit-path{
+  width:100%;height:3px;
+  background:rgba(0,245,255,0.1);border-radius:2px;
+  overflow:hidden;position:relative;
+  transition:0.5s;
+}
+.circuit-path.active::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,var(--green),var(--cyan),var(--green),transparent);
+  background-size:200% 100%;
+  animation:path-flow 0.8s linear infinite;
+}
+@keyframes path-flow{to{background-position:200% 0;}}
+
+/* Foil pad */
+.foil-area{
+  width:100%;
+  background:rgba(57,255,20,0.04);
+  border:2px dashed rgba(57,255,20,0.2);
+  border-radius:10px;
+  padding:8px;
+  display:flex;flex-direction:column;gap:5px;
+  transition:0.4s;
+  min-height:50px;
+}
+.foil-area.active-foil{
+  background:rgba(57,255,20,0.12);
+  border-color:var(--green);
+  box-shadow:0 0 14px rgba(57,255,20,0.3);
+}
+
+/* ═══════════════════ ACTIVITY 3 ═══════════════════
+   VR Control Panel Designer
+══════════════════════════════════════════════════ */
+.vr-builder{
+  display:grid;grid-template-columns:1fr 1.1fr;
+  gap:10px;width:100%;
+}
+.vr-slots{
+  background:rgba(0,0,0,0.4);
+  border:1px solid rgba(0,245,255,0.15);
+  border-radius:12px;
+  padding:10px 12px;
+  display:flex;flex-direction:column;gap:7px;
+}
+.vr-slots h3{
+  font-family:'Orbitron',sans-serif;font-size:10px;
+  color:var(--dim);letter-spacing:0.1em;text-transform:uppercase;
+  margin-bottom:2px;
+}
+.slot-row-vr{
+  display:flex;align-items:center;gap:8px;
+}
+.vr-slot-label{
+  font-size:9px;color:rgba(0,245,255,0.45);
+  font-family:'Orbitron',monospace;
+  min-width:64px;letter-spacing:0.05em;text-align:right;
+}
+
+/* VR panel preview */
+.vr-panel{
+  background:rgba(2,4,16,0.95);
+  border:1px solid rgba(255,0,200,0.3);
+  border-radius:12px;
+  padding:10px;
+  display:flex;flex-direction:column;gap:6px;
+  box-shadow:0 0 30px rgba(255,0,200,0.1),inset 0 0 20px rgba(0,0,0,0.5);
+  position:relative;overflow:hidden;
+}
+.vr-panel::before{
+  content:'VR CONTROL PANEL v2.4';
+  position:absolute;top:6px;left:50%;transform:translateX(-50%);
+  font-family:'Share Tech Mono',monospace;font-size:9px;
+  color:rgba(255,0,200,0.5);letter-spacing:0.1em;white-space:nowrap;
+}
+.vr-panel-row{
+  display:flex;gap:6px;align-items:center;
+  margin-top:14px;
+}
+.vp-slot{
+  flex:1;height:44px;
+  background:rgba(255,0,200,0.03);
+  border:1px dashed rgba(255,0,200,0.2);
+  border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:rgba(255,0,200,0.3);
+  font-family:'Share Tech Mono',monospace;
+  transition:0.4s;
+}
+.vp-slot.placed-in{
+  background:rgba(255,0,200,0.1);
+  border-color:var(--magenta);border-style:solid;
+  box-shadow:0 0 12px rgba(255,0,200,0.3);
+  animation:pop-in 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+.vp-slot.placed-in.c-green{
+  background:rgba(57,255,20,0.1);border-color:var(--green);
+  box-shadow:0 0 12px rgba(57,255,20,0.3);
+}
+.vp-slot.placed-in.c-cyan{
+  background:rgba(0,245,255,0.1);border-color:var(--cyan);
+  box-shadow:0 0 12px rgba(0,245,255,0.3);
+}
+.vp-slot.placed-in.c-yellow{
+  background:rgba(255,230,0,0.1);border-color:var(--yellow);
+  box-shadow:0 0 12px rgba(255,230,0,0.3);
+}
+.vr-divider{
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,0,200,0.2),transparent);
+}
+.vr-status-bar{
+  display:flex;gap:4px;justify-content:center;margin-top:2px;
+}
+.vr-status-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:rgba(255,255,255,0.1);
+  border:1px solid rgba(255,255,255,0.15);
+  transition:0.5s;
+}
+.vr-status-dot.on{
+  animation:status-on 1s ease-in-out infinite;
+}
+.vr-status-dot.on:nth-child(1){background:var(--green);border-color:var(--green);animation-delay:0s;}
+.vr-status-dot.on:nth-child(2){background:var(--cyan);border-color:var(--cyan);animation-delay:0.2s;}
+.vr-status-dot.on:nth-child(3){background:var(--magenta);border-color:var(--magenta);animation-delay:0.4s;}
+.vr-status-dot.on:nth-child(4){background:var(--yellow);border-color:var(--yellow);animation-delay:0.6s;}
+.vr-status-dot.on:nth-child(5){background:var(--orange);border-color:var(--orange);animation-delay:0.8s;}
+@keyframes status-on{0%,100%{opacity:0.6;}50%{opacity:1;box-shadow:0 0 8px currentColor;}}
+
+/* ═══════════════════ POPUP ═══════════════════ */
+#popup{
+  position:fixed;inset:0;z-index:100;
+  background:rgba(2,8,20,0.9);backdrop-filter:blur(12px);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:0.4s;
+}
+#popup.show{opacity:1;pointer-events:all;}
+.popup-box{
+  background:linear-gradient(135deg,rgba(6,15,30,0.98),rgba(10,5,25,0.98));
+  border:1px solid var(--border-c);
+  border-radius:20px;padding:26px 32px;
+  max-width:440px;width:90%;text-align:center;
+  box-shadow:0 0 60px rgba(0,245,255,0.12),0 0 100px rgba(255,0,200,0.06);
+  animation:popup-arrive 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  position:relative;overflow:hidden;
+}
+.popup-box::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--cyan),var(--magenta),var(--cyan));
+  background-size:200% auto;animation:text-flow 2s linear infinite;
+}
+@keyframes popup-arrive{from{transform:scale(0.6) translateY(30px);opacity:0;}to{transform:scale(1) translateY(0);opacity:1;}}
+.pop-icon{font-size:48px;animation:icon-bounce 0.9s ease-in-out infinite alternate;}
+@keyframes icon-bounce{from{transform:scale(1) rotate(-3deg);}to{transform:scale(1.1) rotate(3deg);}}
+.pop-title{
+  font-family:'Orbitron',sans-serif;
+  font-size:clamp(14px,2.2vw,19px);font-weight:900;
+  margin:8px 0 6px;
+  background:linear-gradient(90deg,var(--cyan),var(--magenta));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.pop-body{font-size:clamp(11px,1.3vw,13px);color:var(--dim);line-height:1.6;margin-bottom:14px;font-family:'Rajdhani',sans-serif;}
+.pop-btn{
+  padding:9px 26px;
+  background:linear-gradient(135deg,rgba(0,245,255,0.15),rgba(255,0,200,0.15));
+  border:1px solid var(--magenta);border-radius:30px;
+  color:var(--magenta);font-family:'Orbitron',sans-serif;
+  font-size:clamp(9px,1.2vw,11px);font-weight:700;letter-spacing:0.07em;
+  cursor:pointer;box-shadow:0 0 18px rgba(255,0,200,0.35);transition:0.3s;
+}
+.pop-btn:hover{box-shadow:0 0 32px rgba(255,0,200,0.7);transform:scale(1.06);}
+
+/* ═══════════════════ CELEBRATION ═══════════════════ */
+#celebration{
+  position:fixed;inset:0;z-index:200;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(2,8,20,0.97);
+  opacity:0;pointer-events:none;transition:0.5s;
+}
+#celebration.show{opacity:1;pointer-events:all;}
+.neon-confetti{
+  position:absolute;
+  animation:neon-fall var(--nc,3s) linear infinite var(--nd,0s);
+  pointer-events:none;font-family:'Share Tech Mono',monospace;
+  font-size:var(--nf,12px);
+}
+@keyframes neon-fall{
+  0%{transform:translateY(-40px) rotate(0);opacity:1;}
+  100%{transform:translateY(110vh) rotate(720deg) translateX(var(--nx,20px));opacity:0;}
+}
+.cel-box{text-align:center;z-index:10;padding:20px;}
+.cel-title{
+  font-family:'Orbitron',sans-serif;
+  font-size:clamp(22px,4.5vw,46px);font-weight:900;
+  background:linear-gradient(90deg,var(--cyan),var(--magenta),var(--green),var(--cyan));
+  background-size:300% auto;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  animation:text-flow 2s linear infinite;
+  filter:drop-shadow(0 0 20px rgba(0,245,255,0.6));
+  margin-bottom:6px;
+}
+.cel-sub{font-size:clamp(12px,1.7vw,16px);color:var(--dim);margin-bottom:14px;}
+.badge-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:14px;}
+.badge{
+  background:rgba(0,245,255,0.08);border:1px solid var(--cyan);
+  border-radius:30px;padding:5px 12px;
+  font-size:clamp(9px,1.2vw,12px);font-weight:700;color:var(--cyan);
+  box-shadow:0 0 12px rgba(0,245,255,0.3);font-family:'Orbitron',sans-serif;
+  animation:badge-flash 2s ease-in-out infinite;
+}
+@keyframes badge-flash{0%,100%{box-shadow:0 0 10px rgba(0,245,255,0.3);}50%{box-shadow:0 0 24px rgba(0,245,255,0.6);}}
+.replay-btn{
+  padding:10px 30px;
+  background:linear-gradient(135deg,rgba(0,245,255,0.2),rgba(255,0,200,0.2));
+  border:1px solid var(--cyan);border-radius:30px;
+  color:var(--cyan);font-family:'Orbitron',sans-serif;
+  font-size:clamp(10px,1.3vw,12px);font-weight:700;letter-spacing:0.07em;
+  cursor:pointer;box-shadow:0 0 22px rgba(0,245,255,0.4);transition:0.3s;
+}
+.replay-btn:hover{transform:scale(1.07);}
+
+/* TOAST */
+#toast{
+  position:fixed;bottom:14px;left:50%;
+  transform:translateX(-50%) translateY(60px);
+  background:rgba(2,8,20,0.95);
+  border:1px solid var(--cyan);border-radius:30px;
+  padding:6px 18px;font-size:12px;font-weight:700;
+  color:var(--cyan);box-shadow:0 0 16px rgba(0,245,255,0.4);
+  z-index:300;transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  white-space:nowrap;font-family:'Rajdhani',sans-serif;letter-spacing:0.04em;
+}
+#toast.show{transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<!-- ═══ BACKGROUND ═══ -->
+<div id="bg">
+  <canvas id="matrix-canvas"></canvas>
+
+  <!-- Portal rings -->
+  <div class="portal" style="width:400px;height:400px;top:50%;left:18%;border-color:rgba(0,245,255,0.12);--pd:9s;--po:0.18;"></div>
+  <div class="portal" style="width:260px;height:260px;top:50%;left:18%;border-color:rgba(255,0,200,0.1);--pd:6s;--pdd:-2s;--po:0.15;"></div>
+  <div class="portal" style="width:350px;height:350px;top:35%;right:10%;border-color:rgba(57,255,20,0.08);--pd:11s;--pdd:-4s;--po:0.12;"></div>
+  <div class="portal" style="width:180px;height:180px;top:35%;right:10%;border-color:rgba(0,245,255,0.1);--pd:7s;--pdd:-6s;--po:0.2;"></div>
+
+  <!-- Energy waves -->
+  <div class="ewave" style="top:22%;width:200px;--wt:7s;--wd:0s;"></div>
+  <div class="ewave" style="top:55%;width:300px;--wt:9s;--wd:-3s;background:linear-gradient(90deg,transparent,var(--magenta),transparent);"></div>
+  <div class="ewave" style="top:78%;width:150px;--wt:5s;--wd:-1.5s;background:linear-gradient(90deg,transparent,var(--green),transparent);"></div>
+</div>
+
+<!-- ═══ APP ═══ -->
+<div id="app">
+  <div id="hdr">
+    <h1>⚡ TOUCH SWITCH PROJECT ⚡</h1>
+    <p>Virtual Reality Circuit Lab · Build · Connect · Activate</p>
+  </div>
+
+  <div id="prog">
+    <div class="ps active" id="ps1"><div class="pd">1</div><span>Circuit</span></div>
+    <div class="pl" id="pl1"></div>
+    <div class="ps" id="ps2"><div class="pd">2</div><span>Switch</span></div>
+    <div class="pl" id="pl2"></div>
+    <div class="ps" id="ps3"><div class="pd">3</div><span>VR Panel</span></div>
+    <div class="pl" id="pl3"></div>
+    <div class="ps" id="ps4"><div class="pd">🏅</div><span>Activate!</span></div>
+  </div>
+
+  <div id="screens">
+
+    <!-- ╔══════════════════════════════════════╗
+         ║  ACTIVITY 1 — CIRCUIT ORDER SORTER  ║
+         ╚══════════════════════════════════════╝ -->
+    <div class="screen active" id="screen-1">
+      <div class="panel">
+        <div class="score-row">
+          <div class="score-val"><span class="pulse-dot"></span>Score: <span id="sc1">0</span>/4</div>
+          <button class="btn-reset" onclick="resetActivity(1)">↺ RESET</button>
+        </div>
+        <div class="act-title">⚡ Activity 1 · Build the Circuit Path</div>
+        <div class="act-sub">Drag each component into the correct slot to complete the touch switch circuit — electricity flows from Battery → Wire → Foil Pad → LED → back to Battery!</div>
+
+        <div class="drag-pool" id="pool1">
+          <div class="draggable c-battery" draggable="true" data-id="p1-bat" data-target="z1-bat">🔋 Battery (3V)</div>
+          <div class="draggable c-wire"    draggable="true" data-id="p1-wir" data-target="z1-wir">〰 Copper Wire</div>
+          <div class="draggable c-foil"   draggable="true" data-id="p1-foi" data-target="z1-foi">◼ Foil Touch Pad</div>
+          <div class="draggable c-led"    draggable="true" data-id="p1-led" data-target="z1-led">💡 LED Light</div>
+          <!-- distractors -->
+          <div class="draggable c-block"  draggable="true" data-id="p1-dx1" data-target="NONE">🔊 Speaker</div>
+          <div class="draggable c-block"  draggable="true" data-id="p1-dx2" data-target="NONE">📡 Antenna</div>
+        </div>
+
+        <!-- Circuit track -->
+        <div class="circuit-track" id="track1">
+          <div class="circ-slot">
+            <div class="dz circ-dz" id="z1-bat" data-accepts="z1-bat" style="border-color:rgba(255,230,0,0.3);">STEP 1<br>Power</div>
+            <div class="slot-label">POWER SOURCE</div>
+          </div>
+          <div class="circ-connector" id="con1-2"></div>
+          <div class="circ-slot">
+            <div class="dz circ-dz" id="z1-wir" data-accepts="z1-wir" style="border-color:rgba(0,245,255,0.3);">STEP 2<br>Carry</div>
+            <div class="slot-label">CONDUCTOR</div>
+          </div>
+          <div class="circ-connector" id="con2-3"></div>
+          <div class="circ-slot">
+            <div class="dz circ-dz" id="z1-foi" data-accepts="z1-foi" style="border-color:rgba(57,255,20,0.3);">STEP 3<br>Touch</div>
+            <div class="slot-label">TOUCH SWITCH</div>
+          </div>
+          <div class="circ-connector" id="con3-4"></div>
+          <div class="circ-slot">
+            <div class="dz circ-dz" id="z1-led" data-accepts="z1-led" style="border-color:rgba(255,107,0,0.3);">STEP 4<br>Glow</div>
+            <div class="slot-label">OUTPUT (LED)</div>
+          </div>
+        </div>
+
+        <div class="info-strip">
+          <div class="info-card"><strong style="color:var(--yellow);">🔋 Battery</strong>The power source. It pushes electricity around the circuit path.</div>
+          <div class="info-card"><strong style="color:var(--cyan);">〰 Wire</strong>Copper conductor. It carries the electricity where it needs to go.</div>
+          <div class="info-card"><strong style="color:var(--green);">◼ Foil Pad</strong>Your finger bridges two pads — your skin completes the path!</div>
+          <div class="info-card"><strong style="color:var(--orange);">💡 LED</strong>The output. When the path is complete, the LED glows bright!</div>
+        </div>
+
+        <div style="text-align:center;">
+          <button class="btn-next" id="next1" onclick="finishAct(1)">Activate Portal ⚡</button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ╔══════════════════════════════════════╗
+         ║  ACTIVITY 2 — TOUCH SWITCH BUILDER  ║
+         ╚══════════════════════════════════════╝ -->
+    <div class="screen" id="screen-2">
+      <div class="panel">
+        <div class="score-row">
+          <div class="score-val"><span class="pulse-dot"></span>Score: <span id="sc2">0</span>/4</div>
+          <button class="btn-reset" onclick="resetActivity(2)">↺ RESET</button>
+        </div>
+        <div class="act-title">🖐 Activity 2 · Wire the Touch Switch</div>
+        <div class="act-sub">Drag each part into the right slot. When all 4 parts are connected correctly, the LED will light up — just like a real touch switch!</div>
+
+        <div class="drag-pool" id="pool2">
+          <div class="draggable c-battery" draggable="true" data-id="p2-bat" data-target="z2-bat">🔋 3V Coin Cell</div>
+          <div class="draggable c-foil"    draggable="true" data-id="p2-foi" data-target="z2-foi">◼ Foil Touch Pads</div>
+          <div class="draggable c-wire"    draggable="true" data-id="p2-wir" data-target="z2-wir">〰 Connecting Wires</div>
+          <div class="draggable c-led"     draggable="true" data-id="p2-led" data-target="z2-led">💡 LED (Long leg +)</div>
+          <!-- distractors -->
+          <div class="draggable c-block"   draggable="true" data-id="p2-dx1" data-target="NONE">🪛 Screwdriver</div>
+          <div class="draggable c-block"   draggable="true" data-id="p2-dx2" data-target="NONE">📦 Cardboard</div>
+        </div>
+
+        <div class="switch-builder">
+          <!-- Left: wiring slots -->
+          <div class="build-zone">
+            <div class="bz-title">⚙ Circuit Wiring Board</div>
+            <div class="switch-row">
+              <div class="sw-label">POWER :</div>
+              <div class="dz" id="z2-bat" data-accepts="z2-bat" style="flex:1;min-height:34px;border-color:rgba(255,230,0,0.3);font-size:10px;">Drop battery here</div>
+            </div>
+            <div class="circuit-path" id="path2-1"></div>
+            <div class="switch-row">
+              <div class="sw-label">WIRES :</div>
+              <div class="dz" id="z2-wir" data-accepts="z2-wir" style="flex:1;min-height:34px;border-color:rgba(0,245,255,0.3);font-size:10px;">Drop wires here</div>
+            </div>
+            <div class="circuit-path" id="path2-2"></div>
+            <div class="foil-area" id="foil-area2">
+              <div class="sw-label" style="text-align:left;margin-bottom:2px;">TOUCH PAD :</div>
+              <div class="dz" id="z2-foi" data-accepts="z2-foi" style="width:100%;min-height:32px;border-color:rgba(57,255,20,0.3);font-size:10px;">Drop foil pads here</div>
+            </div>
+            <div class="circuit-path" id="path2-3"></div>
+            <div class="switch-row">
+              <div class="sw-label">OUTPUT :</div>
+              <div class="dz" id="z2-led" data-accepts="z2-led" style="flex:1;min-height:34px;border-color:rgba(255,107,0,0.3);font-size:10px;">Drop LED here</div>
+            </div>
+          </div>
+
+          <!-- Right: LED simulation -->
+          <div class="build-zone" style="align-items:center;justify-content:center;">
+            <div class="bz-title" style="align-self:flex-start;">⚡ Live Simulation</div>
+            <div class="led-sim">
+              <div class="led-bulb" id="led-bulb">💡</div>
+              <div class="led-status" id="led-status">CIRCUIT OPEN — Touch pad not connected</div>
+              <div style="font-size:10px;color:rgba(0,245,255,0.4);font-family:'Share Tech Mono',monospace;text-align:center;margin-top:2px;">
+                <span id="parts-count">0</span>/4 parts connected
+              </div>
+            </div>
+            <div style="margin-top:6px;padding:8px;background:rgba(0,0,0,0.3);border-radius:8px;font-size:10px;font-family:'Rajdhani',sans-serif;color:rgba(200,232,255,0.5);line-height:1.5;text-align:center;">
+              💡 Just like <strong style="color:var(--yellow);">Diwali fairy lights</strong> — electricity needs a<br>complete loop to make the LED glow!
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align:center;">
+          <button class="btn-next" id="next2" onclick="finishAct(2)">Enter VR Portal ⚡</button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ╔══════════════════════════════════════╗
+         ║  ACTIVITY 3 — VR CONTROL PANEL      ║
+         ╚══════════════════════════════════════╝ -->
+    <div class="screen" id="screen-3">
+      <div class="panel">
+        <div class="score-row">
+          <div class="score-val"><span class="pulse-dot"></span>Score: <span id="sc3">0</span>/5</div>
+          <button class="btn-reset" onclick="resetActivity(3)">↺ RESET</button>
+        </div>
+        <div class="act-title">🎮 Activity 3 · Design the VR Touch Panel</div>
+        <div class="act-sub">Drag each component into the correct slot on the VR control panel to build a fully working touch-activated system!</div>
+
+        <div class="drag-pool" id="pool3">
+          <div class="draggable c-foil"   draggable="true" data-id="p3-ts1" data-target="z3-ts1">◼ Touch Switch A</div>
+          <div class="draggable c-foil"   draggable="true" data-id="p3-ts2" data-target="z3-ts2">◼ Touch Switch B</div>
+          <div class="draggable c-led"    draggable="true" data-id="p3-led" data-target="z3-led">💡 LED Indicator</div>
+          <div class="draggable c-battery"draggable="true" data-id="p3-pwr" data-target="z3-pwr">🔋 Power Block</div>
+          <div class="draggable c-wire"   draggable="true" data-id="p3-bus" data-target="z3-bus">⬛ Circuit Bus</div>
+          <!-- distractors -->
+          <div class="draggable c-block"  draggable="true" data-id="p3-dx1" data-target="NONE">📻 Radio Module</div>
+          <div class="draggable c-block"  draggable="true" data-id="p3-dx2" data-target="NONE">🌡 Thermometer</div>
+        </div>
+
+        <div class="vr-builder">
+          <!-- Left: slot layout -->
+          <div class="vr-slots">
+            <h3>⚙ Panel Component Slots</h3>
+            <div class="slot-row-vr">
+              <div class="vr-slot-label">TOP ROW :</div>
+              <div class="dz" id="z3-ts1" data-accepts="z3-ts1" style="flex:1;min-height:34px;border-color:rgba(57,255,20,0.3);font-size:10px;">Touch Switch A</div>
+              <div class="dz" id="z3-ts2" data-accepts="z3-ts2" style="flex:1;min-height:34px;border-color:rgba(57,255,20,0.3);font-size:10px;">Touch Switch B</div>
+            </div>
+            <div class="slot-row-vr">
+              <div class="vr-slot-label">INDICATOR :</div>
+              <div class="dz" id="z3-led" data-accepts="z3-led" style="flex:1;min-height:34px;border-color:rgba(255,107,0,0.3);font-size:10px;">LED Output</div>
+            </div>
+            <div class="slot-row-vr">
+              <div class="vr-slot-label">POWER :</div>
+              <div class="dz" id="z3-pwr" data-accepts="z3-pwr" style="flex:1;min-height:34px;border-color:rgba(255,230,0,0.3);font-size:10px;">Power Block</div>
+            </div>
+            <div class="slot-row-vr">
+              <div class="vr-slot-label">DATA BUS :</div>
+              <div class="dz" id="z3-bus" data-accepts="z3-bus" style="flex:1;min-height:34px;border-color:rgba(0,245,255,0.3);font-size:10px;">Circuit Bus</div>
+            </div>
+          </div>
+
+          <!-- Right: VR panel preview -->
+          <div class="vr-panel">
+            <div class="vr-panel-row">
+              <div class="vp-slot" id="vp-ts1" style="font-size:9px;">◼ TS-A</div>
+              <div class="vp-slot" id="vp-ts2" style="font-size:9px;">◼ TS-B</div>
+            </div>
+            <div class="vr-divider"></div>
+            <div class="vr-panel-row" style="margin-top:0;">
+              <div class="vp-slot" id="vp-led" style="font-size:9px;">💡 LED</div>
+              <div class="vp-slot" id="vp-pwr" style="font-size:9px;">🔋 PWR</div>
+            </div>
+            <div class="vr-divider"></div>
+            <div class="vr-panel-row" style="margin-top:0;">
+              <div class="vp-slot" id="vp-bus" style="font-size:9px;flex:2;">⬛ DATA BUS</div>
+            </div>
+            <div class="vr-status-bar" id="vr-status-dots">
+              <div class="vr-status-dot"></div>
+              <div class="vr-status-dot"></div>
+              <div class="vr-status-dot"></div>
+              <div class="vr-status-dot"></div>
+              <div class="vr-status-dot"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align:center;">
+          <button class="btn-next" id="next3" onclick="launchCelebration()">🏅 Launch VR System!</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /screens -->
+</div><!-- /app -->
+
+<!-- POPUP -->
+<div id="popup">
+  <div class="popup-box">
+    <div class="pop-icon" id="pop-icon">⚡</div>
+    <div class="pop-title" id="pop-title">Circuit Complete!</div>
+    <div class="pop-body" id="pop-body">Well done!</div>
+    <button class="pop-btn" id="pop-btn">Continue →</button>
+  </div>
+</div>
+
+<!-- CELEBRATION -->
+<div id="celebration">
+  <div class="cel-box">
+    <div style="font-size:64px;margin-bottom:8px;animation:icon-bounce 0.9s ease-in-out infinite alternate;">⚡</div>
+    <div class="cel-title">CIRCUIT MASTER!</div>
+    <div class="cel-sub">You built a real touch switch system · VR Lab Complete!</div>
+    <div class="badge-row">
+      <div class="badge">⚡ Circuit Builder</div>
+      <div class="badge">🖐 Touch Expert</div>
+      <div class="badge">💡 LED Whiz</div>
+      <div class="badge">🎮 VR Designer</div>
+    </div>
+    <button class="replay-btn" onclick="location.reload()">↺ Try Again</button>
+  </div>
+</div>
+
+<div id="toast">✓</div>
+
+<script>
+/* ══════════════ MATRIX RAIN ══════════════ */
+(function(){
+  const canvas=document.getElementById('matrix-canvas');
+  const ctx=canvas.getContext('2d');
+  function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
+  resize();window.addEventListener('resize',resize);
+  const chars='01アイウエオ⚡◼〰⬛∇∈∉∑∏∫√∞≠≤≥±×÷'.split('');
+  const cols=Math.floor(window.innerWidth/18);
+  const drops=Array(cols).fill(1);
+  const colors=['\u0023\u003000f5ff','\u0023\u003039ff14','\u0023\u0030ff00c8'];
+  setInterval(()=>{
+    ctx.fillStyle='rgba(2,8,20,0.05)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    drops.forEach((y,i)=>{
+      const ch=chars[Math.floor(Math.random()*chars.length)];
+      ctx.fillStyle=colors[Math.floor(Math.random()*colors.length)];
+      ctx.font='12px Share Tech Mono,monospace';
+      ctx.fillText(ch,i*18,y*18);
+      if(y*18>canvas.height&&Math.random()>0.975)drops[i]=0;
+      else drops[i]++;
+    });
+  },60);
+})();
+
+/* ══════════════ ENERGY PARTICLES ══════════════ */
+(function(){
+  const bg=document.getElementById('bg');
+  const cols=['\u0023\u003000f5ff','\u0023\u003039ff14','\u0023\u0030ff00c8','\u0023\u0030ffe600','\u0023\u0030ff6b00'];
+  for(let i=0;i<24;i++){
+    const p=document.createElement('div');
+    p.className='eparticle';
+    const sz=2+Math.random()*4;
+    const col=cols[i%cols.length];
+    p.style.cssText=`
+      left:${Math.random()*100}%;bottom:${Math.random()*15}%;
+      width:${sz}px;height:${sz}px;background:${col};
+      box-shadow:0 0 6px ${col};
+      --ef:${5+Math.random()*7}s;--ed:-${Math.random()*7}s;
+    `;
+    bg.appendChild(p);
+  }
+})();
+
+/* ══════════════ STATE ══════════════ */
+let dragEl=null;
+const state={
+  1:{score:0,placed:0,total:4},
+  2:{score:0,placed:0,total:4},
+  3:{score:0,placed:0,total:5}
+};
+
+/* ══════════════ DRAG INFRASTRUCTURE ══════════════ */
+function bindPool(poolId,handler){
+  document.querySelectorAll(`#${poolId} .draggable`).forEach(el=>{
+    el.addEventListener('dragstart',e=>{dragEl=el;el.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+    el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+    el.addEventListener('touchstart',tStart,{passive:true});
+    el.addEventListener('touchmove',tMove,{passive:false});
+    el.addEventListener('touchend',e=>tEnd(e,handler));
+  });
+}
+function bindZones(zones,handler){
+  zones.forEach(z=>{
+    z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('hover');});
+    z.addEventListener('dragleave',()=>z.classList.remove('hover'));
+    z.addEventListener('drop',e=>{e.preventDefault();z.classList.remove('hover');if(dragEl)handler(dragEl,z);});
+  });
+}
+
+let tClone=null,tZone=null;
+function tStart(e){
+  dragEl=e.currentTarget;dragEl.classList.add('dragging');
+  const r=dragEl.getBoundingClientRect();
+  tClone=dragEl.cloneNode(true);
+  tClone.style.cssText=`position:fixed;z-index:9999;opacity:0.85;pointer-events:none;
+    width:${r.width}px;left:${r.left}px;top:${r.top}px;transform:scale(1.07);`;
+  document.body.appendChild(tClone);
+}
+function tMove(e){
+  e.preventDefault();if(!tClone)return;
+  const t=e.touches[0];
+  tClone.style.left=(t.clientX-tClone.offsetWidth/2)+'px';
+  tClone.style.top=(t.clientY-tClone.offsetHeight/2)+'px';
+  tClone.style.display='none';
+  const el=document.elementFromPoint(t.clientX,t.clientY);
+  tClone.style.display='';
+  const z=el?el.closest('.dz'):null;
+  document.querySelectorAll('.hover').forEach(x=>x.classList.remove('hover'));
+  if(z){z.classList.add('hover');tZone=z;}else tZone=null;
+}
+function tEnd(e,handler){
+  if(tClone){tClone.remove();tClone=null;}
+  if(dragEl)dragEl.classList.remove('dragging');
+  document.querySelectorAll('.hover').forEach(x=>x.classList.remove('hover'));
+  if(tZone&&dragEl)handler(dragEl,tZone);
+  dragEl=null;tZone=null;
+}
+
+/* ══════════════ ACTIVITY 1 ══════════════ */
+function initA1(){
+  const zones=document.querySelectorAll('#screen-1 .dz');
+  bindPool('pool1',drop1);bindZones(zones,drop1);
+}
+function drop1(item,zone){
+  if(item.classList.contains('placed'))return;
+  if(zone.classList.contains('correct'))return;
+  const tgt=item.dataset.target,acc=zone.dataset.accepts;
+  if(acc&&tgt===acc){
+    state[1].placed++;state[1].score++;
+    item.classList.add('placed');
+    zone.classList.add('correct');
+    zone.innerHTML=item.innerHTML;
+    document.getElementById('sc1').textContent=state[1].score;
+    // light connectors
+    lightConnector(state[1].placed);
+    toast('✓ Correct! Component placed!');burst(zone);
+    if(state[1].placed===state[1].total)setTimeout(()=>showBtn('next1'),400);
+  } else {
+    zone.classList.add('wrong');setTimeout(()=>zone.classList.remove('wrong'),500);
+    toast('Try the right slot! Check the order.');
+  }
+}
+function lightConnector(n){
+  const ids=['con1-2','con2-3','con3-4'];
+  if(n>=2)document.getElementById('con1-2')?.classList.add('lit');
+  if(n>=3)document.getElementById('con2-3')?.classList.add('lit');
+  if(n>=4)document.getElementById('con3-4')?.classList.add('lit');
+}
+function resetActivity(n){
+  if(n===1){
+    state[1]={score:0,placed:0,total:4};
+    document.getElementById('sc1').textContent=0;
+    document.querySelectorAll('#pool1 .draggable').forEach(el=>{el.classList.remove('placed');});
+    document.querySelectorAll('#screen-1 .dz').forEach(z=>{
+      z.classList.remove('correct','wrong');
+      const orig={
+        'z1-bat':'STEP 1<br>Power','z1-wir':'STEP 2<br>Carry',
+        'z1-foi':'STEP 3<br>Touch','z1-led':'STEP 4<br>Glow'
+      };
+      if(orig[z.id])z.innerHTML=orig[z.id];
+    });
+    ['con1-2','con2-3','con3-4'].forEach(id=>document.getElementById(id)?.classList.remove('lit'));
+    document.getElementById('next1').classList.remove('show');
+    toast('↺ Activity 1 reset!');
+  } else if(n===2){
+    state[2]={score:0,placed:0,total:4};
+    document.getElementById('sc2').textContent=0;
+    document.querySelectorAll('#pool2 .draggable').forEach(el=>el.classList.remove('placed'));
+    const defaults={
+      'z2-bat':'Drop battery here','z2-wir':'Drop wires here',
+      'z2-foi':'Drop foil pads here','z2-led':'Drop LED here'
+    };
+    document.querySelectorAll('#screen-2 .dz').forEach(z=>{
+      z.classList.remove('correct','wrong');
+      if(defaults[z.id])z.textContent=defaults[z.id];
+    });
+    document.getElementById('led-bulb').classList.remove('glowing');
+    document.getElementById('led-status').textContent='CIRCUIT OPEN — Touch pad not connected';
+    document.getElementById('led-status').classList.remove('on');
+    document.getElementById('parts-count').textContent='0';
+    document.getElementById('foil-area2').classList.remove('active-foil');
+    ['path2-1','path2-2','path2-3'].forEach(id=>document.getElementById(id)?.classList.remove('active'));
+    document.getElementById('next2').classList.remove('show');
+    toast('↺ Activity 2 reset!');
+  } else if(n===3){
+    state[3]={score:0,placed:0,total:5};
+    document.getElementById('sc3').textContent=0;
+    document.querySelectorAll('#pool3 .draggable').forEach(el=>el.classList.remove('placed'));
+    const vd={
+      'z3-ts1':'Touch Switch A','z3-ts2':'Touch Switch B',
+      'z3-led':'LED Output','z3-pwr':'Power Block','z3-bus':'Circuit Bus'
+    };
+    document.querySelectorAll('#screen-3 .dz').forEach(z=>{
+      z.classList.remove('correct','wrong');
+      if(vd[z.id])z.textContent=vd[z.id];
+    });
+    const vr={'vp-ts1':'◼ TS-A','vp-ts2':'◼ TS-B','vp-led':'💡 LED','vp-pwr':'🔋 PWR','vp-bus':'⬛ DATA BUS'};
+    Object.entries(vr).forEach(([id,txt])=>{
+      const el=document.getElementById(id);
+      if(el){el.textContent=txt;el.classList.remove('placed-in','c-green','c-cyan','c-yellow');}
+    });
+    document.querySelectorAll('#vr-status-dots .vr-status-dot').forEach(d=>d.classList.remove('on'));
+    document.getElementById('next3').classList.remove('show');
+    toast('↺ Activity 3 reset!');
+  }
+}
+
+/* ══════════════ ACTIVITY 2 ══════════════ */
+function initA2(){
+  const zones=document.querySelectorAll('#screen-2 .dz');
+  bindPool('pool2',drop2);bindZones(zones,drop2);
+}
+function drop2(item,zone){
+  if(item.classList.contains('placed'))return;
+  if(zone.classList.contains('correct'))return;
+  const tgt=item.dataset.target,acc=zone.dataset.accepts;
+  if(acc&&tgt===acc){
+    state[2].placed++;state[2].score++;
+    item.classList.add('placed');
+    zone.classList.add('correct');
+    zone.innerHTML=item.innerHTML;
+    document.getElementById('sc2').textContent=state[2].score;
+    document.getElementById('parts-count').textContent=state[2].placed;
+    // animate paths
+    if(state[2].placed>=1)document.getElementById('path2-1')?.classList.add('active');
+    if(state[2].placed>=2)document.getElementById('path2-2')?.classList.add('active');
+    if(state[2].placed>=3){
+      document.getElementById('path2-3')?.classList.add('active');
+      document.getElementById('foil-area2')?.classList.add('active-foil');
+    }
+    if(state[2].placed===state[2].total){
+      // LED GLOWS!
+      setTimeout(()=>{
+        document.getElementById('led-bulb').classList.add('glowing');
+        document.getElementById('led-status').textContent='⚡ CIRCUIT COMPLETE — LED GLOWING!';
+        document.getElementById('led-status').classList.add('on');
+        burstMany();
+        toast('🎉 The LED lights up! Circuit complete!');
+        setTimeout(()=>showBtn('next2'),600);
+      },300);
+    } else {
+      toast('✓ Part connected!');burst(zone);
+    }
+  } else {
+    zone.classList.add('wrong');setTimeout(()=>zone.classList.remove('wrong'),500);
+    toast('That doesn\'t fit here — check the circuit order!');
+  }
+}
+
+/* ══════════════ ACTIVITY 3 ══════════════ */
+const vrMap={
+  'z3-ts1':['vp-ts1','c-green'],
+  'z3-ts2':['vp-ts2','c-green'],
+  'z3-led':['vp-led','c-yellow'],
+  'z3-pwr':['vp-pwr','c-yellow'],
+  'z3-bus':['vp-bus','c-cyan']
+};
+function initA3(){
+  const zones=document.querySelectorAll('#screen-3 .dz');
+  bindPool('pool3',drop3);bindZones(zones,drop3);
+}
+function drop3(item,zone){
+  if(item.classList.contains('placed'))return;
+  if(zone.classList.contains('correct'))return;
+  const tgt=item.dataset.target,acc=zone.dataset.accepts;
+  if(acc&&tgt===acc){
+    state[3].placed++;state[3].score++;
+    item.classList.add('placed');
+    zone.classList.add('correct');
+    zone.innerHTML=item.innerHTML;
+    document.getElementById('sc3').textContent=state[3].score;
+    // update VR panel preview
+    if(vrMap[acc]){
+      const[vid,col]=vrMap[acc];
+      const vp=document.getElementById(vid);
+      if(vp){
+        vp.innerHTML=item.innerHTML;
+        vp.classList.add('placed-in',col);
+      }
+    }
+    // light status dots
+    const dots=document.querySelectorAll('#vr-status-dots .vr-status-dot');
+    for(let i=0;i<state[3].placed&&i<dots.length;i++)dots[i].classList.add('on');
+    toast('✓ Component installed!');burst(zone);
+    if(state[3].placed===state[3].total)setTimeout(()=>showBtn('next3'),400);
+  } else {
+    zone.classList.add('wrong');setTimeout(()=>zone.classList.remove('wrong'),500);
+    toast('Wrong slot! Check the panel layout.');
+  }
+}
+
+/* ══════════════ POPUP FLOW ══════════════ */
+const popData={
+  1:{icon:'⚡',title:'Circuit Path Complete!',body:'Amazing! You built the full touch switch circuit in the right order. Battery → Wire → Foil Pad → LED — electricity has a clear path to travel!'},
+  2:{icon:'💡',title:'LED Activated!',body:'Superb! All four parts are connected — the circuit loop is complete and your LED is glowing. You just built a real touch switch system!'}
+};
+function finishAct(n){
+  const d=popData[n];
+  document.getElementById('pop-icon').textContent=d.icon;
+  document.getElementById('pop-title').textContent=d.title;
+  document.getElementById('pop-body').textContent=d.body;
+  document.getElementById('pop-btn').onclick=()=>{closePopup();goToScreen(n+1);};
+  document.getElementById('popup').classList.add('show');
+}
+function closePopup(){document.getElementById('popup').classList.remove('show');}
+function goToScreen(n){
+  document.querySelectorAll('.screen').forEach(s=>{
+    if(s.classList.contains('active')){s.classList.remove('active');s.classList.add('exit');setTimeout(()=>s.classList.remove('exit'),500);}
+  });
+  setTimeout(()=>document.getElementById('screen-'+n).classList.add('active'),60);
+  updateProg(n);
+  if(n===2)initA2();
+  if(n===3)initA3();
+}
+function updateProg(active){
+  for(let i=1;i<=4;i++){
+    const el=document.getElementById('ps'+i);
+    el.classList.remove('active','done');
+    if(i<active)el.classList.add('done');
+    else if(i===active)el.classList.add('active');
+  }
+  for(let i=1;i<=3;i++){
+    const l=document.getElementById('pl'+i);
+    l.classList.remove('done');if(i<active)l.classList.add('done');
+  }
+}
+
+/* ══════════════ CELEBRATION ══════════════ */
+function launchCelebration(){
+  updateProg(4);
+  const cel=document.getElementById('celebration');
+  cel.classList.add('show');
+  const chars=['⚡','💡','◼','〰','🔋','⬛'];
+  const cols=['\u0023\u003000f5ff','\u0023\u003039ff14','\u0023\u0030ff00c8','\u0023\u0030ffe600','\u0023\u0030ff6b00'];
+  for(let i=0;i<60;i++){
+    const c=document.createElement('div');
+    c.className='neon-confetti';
+    const col=cols[i%cols.length];
+    c.style.cssText=`
+      left:${Math.random()*100}%;
+      color:${col};text-shadow:0 0 8px ${col};
+      --nc:${2+Math.random()*3}s;--nd:-${Math.random()*3}s;
+      --nx:${(Math.random()-0.5)*180}px;
+      --nf:${8+Math.random()*14}px;
+    `;
+    c.textContent=chars[i%chars.length];
+    cel.insertBefore(c,cel.firstChild);
+  }
+}
+
+/* ══════════════ HELPERS ══════════════ */
+function showBtn(id){document.getElementById(id).classList.add('show');}
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+function burst(el){
+  const r=el.getBoundingClientRect();
+  const cx=r.left+r.width/2,cy=r.top+r.height/2;
+  const cols=['\u0023\u003000f5ff','\u0023\u003039ff14','\u0023\u0030ff00c8','\u0023\u0030ffe600'];
+  for(let i=0;i<8;i++){
+    const p=document.createElement('div');
+    const ang=(i/8)*Math.PI*2;
+    const dist=35+Math.random()*30;
+    const col=cols[i%cols.length];
+    p.style.cssText=`
+      position:fixed;z-index:500;pointer-events:none;
+      left:${cx}px;top:${cy}px;width:5px;height:5px;border-radius:50%;
+      background:${col};box-shadow:0 0 8px ${col};
+      transition:all 0.55s ease-out;
+      transform:translate(-50%,-50%) scale(1);opacity:1;
+    `;
+    document.body.appendChild(p);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      p.style.transform=`translate(calc(-50% + ${Math.cos(ang)*dist}px),calc(-50% + ${Math.sin(ang)*dist}px)) scale(0)`;
+      p.style.opacity='0';
+    }));
+    setTimeout(()=>p.remove(),650);
+  }
+}
+function burstMany(){
+  for(let i=0;i<3;i++)setTimeout(()=>burst(document.getElementById('led-bulb')),i*200);
+}
+
+/* ══════════════ INIT ══════════════ */
+initA1();
+</script>
+</body>
+</html>

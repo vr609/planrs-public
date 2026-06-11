@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Training a Simple Classifier — Dragon Academy</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=MedievalSharp&family=Cinzel:wght@400;600;700&family=Nunito:wght@400;600;700;800&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif;}
+
+:root{
+  --fire1:#FF4500;--fire2:#FF8C00;--fire3:#FFD700;
+  --deep:#0D0A1A;--castle:#1A1230;--stone:#2A2040;
+  --gold:#FFD700;--gem-b:#00CFFF;--gem-p:#CF00FF;--gem-g:#00FF88;
+  --cream:#FFF8E7;--panel:rgba(20,14,40,0.97);
+  --border-gold:rgba(255,215,0,0.6);
+  --txt:#F5EDD5;--txt-dim:#B8A88A;
+}
+
+/* ─── SCENE ─────────────────────────────────────────────────── */
+#scene{position:fixed;inset:0;overflow:hidden;}
+
+/* Sky */
+#sky{
+  position:absolute;inset:0;
+  background:linear-gradient(180deg,#050210 0%,#0D0A1A 30%,#1A0A2E 60%,#2D1040 100%);
+}
+
+/* Stars */
+.star{position:absolute;border-radius:50%;background:#fff;animation:twinkle ease-in-out infinite;}
+@keyframes twinkle{0%,100%{opacity:.2;transform:scale(.8);}50%{opacity:1;transform:scale(1.2);}}
+
+/* Moon */
+#moon{
+  position:absolute;top:6%;right:12%;width:70px;height:70px;
+  background:radial-gradient(circle at 35% 35%,#FFFDE4,#FFD700 60%,rgba(255,165,0,0) 100%);
+  border-radius:50%;
+  box-shadow:0 0 40px 15px rgba(255,200,50,0.25);
+  animation:moonGlow 5s ease-in-out infinite;
+}
+@keyframes moonGlow{0%,100%{box-shadow:0 0 40px 15px rgba(255,200,50,0.25);}50%{box-shadow:0 0 60px 25px rgba(255,200,50,0.4);}}
+
+/* Castle silhouette */
+#castle{
+  position:absolute;bottom:0;left:0;right:0;
+  height:45%;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1400 320'%3E%3Cpath d='M0,320 L0,200 L60,200 L60,160 L80,160 L80,180 L100,180 L100,160 L120,160 L120,200 L180,200 L180,240 L220,240 L220,200 L260,200 L260,160 L280,160 L280,180 L300,180 L300,160 L320,160 L320,200 L380,200 L380,140 L400,140 L400,100 L420,100 L420,80 L440,80 L440,100 L460,100 L460,140 L480,140 L480,120 L500,120 L500,80 L520,80 L520,100 L540,100 L540,120 L560,120 L560,140 L600,140 L600,200 L640,200 L640,180 L660,180 L660,160 L680,160 L680,180 L700,180 L700,200 L750,200 L750,160 L770,160 L770,180 L790,180 L790,160 L810,160 L810,200 L860,200 L860,140 L890,140 L890,100 L910,100 L910,80 L930,80 L930,100 L950,100 L950,140 L980,140 L980,200 L1020,200 L1020,180 L1040,180 L1040,160 L1060,160 L1060,180 L1080,180 L1080,200 L1140,200 L1140,220 L1180,220 L1180,200 L1220,200 L1220,160 L1240,160 L1240,180 L1260,180 L1260,160 L1280,160 L1280,200 L1340,200 L1340,240 L1400,240 L1400,320Z' fill='%231A1230'/%3E%3Cpath d='M0,320 L0,260 L100,260 L100,280 L200,280 L200,260 L350,260 L350,300 L500,300 L500,260 L650,260 L650,280 L800,280 L800,260 L950,260 L950,300 L1100,300 L1100,260 L1250,260 L1250,280 L1400,280 L1400,320Z' fill='%230D0A1A'/%3E%3C/svg%3E") no-repeat bottom/cover;
+}
+
+/* Castle window glows */
+.castle-window{
+  position:absolute;border-radius:50% 50% 0 0;
+  background:radial-gradient(ellipse,rgba(255,200,50,0.8),rgba(255,100,0,0.3) 60%,transparent 100%);
+  animation:windowFlicker 3s ease-in-out infinite;
+}
+@keyframes windowFlicker{0%,100%{opacity:.6;}50%{opacity:1;}}
+
+/* Fire embers */
+.ember{
+  position:absolute;border-radius:50%;
+  background:radial-gradient(circle,#fff 0%,#FFD700 40%,#FF4500 80%,transparent 100%);
+  animation:emberFloat linear infinite;
+  pointer-events:none;
+}
+@keyframes emberFloat{
+  0%{transform:translateY(0) translateX(0) scale(1);opacity:.9;}
+  50%{opacity:.7;transform:translateY(-40vh) translateX(var(--dx)) scale(.6);}
+  100%{transform:translateY(-80vh) translateX(var(--dx2)) scale(.2);opacity:0;}
+}
+
+/* Floating gems */
+.gem{
+  position:absolute;
+  clip-path:polygon(50% 0%,100% 38%,82% 100%,18% 100%,0% 38%);
+  animation:gemFloat ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes gemFloat{
+  0%,100%{transform:translateY(0) rotate(0deg);}
+  50%{transform:translateY(-12px) rotate(10deg);}
+}
+
+/* Waving banners */
+.banner{
+  position:absolute;top:0;
+  width:24px;
+  transform-origin:top center;
+  animation:bannerWave ease-in-out infinite alternate;
+}
+@keyframes bannerWave{0%{transform:skewX(-8deg);}100%{transform:skewX(8deg);}}
+
+/* Flying dragons */
+.dragon{
+  position:absolute;
+  animation:dragonFly linear infinite;
+}
+@keyframes dragonFly{
+  0%{transform:translateX(110vw) scaleX(-1);}
+  100%{transform:translateX(-30vw) scaleX(-1);}
+}
+.dragon-svg{animation:dragonFlap ease-in-out infinite;}
+@keyframes dragonFlap{0%,100%{transform:scaleY(1);}50%{transform:scaleY(0.85);}}
+
+/* Cloud wisps */
+.cloud{
+  position:absolute;
+  background:rgba(180,140,220,0.12);
+  border-radius:50%;
+  animation:cloudDrift linear infinite;
+  filter:blur(8px);
+}
+@keyframes cloudDrift{0%{transform:translateX(-20%);} 100%{transform:translateX(120vw);}}
+
+/* ─── TITLE BAR ──────────────────────────────────────────────── */
+#titleBar{
+  position:absolute;top:0;left:0;right:0;z-index:30;
+  padding:8px 20px;
+  background:linear-gradient(90deg,rgba(13,10,26,0.97) 0%,rgba(42,32,64,0.97) 50%,rgba(13,10,26,0.97) 100%);
+  border-bottom:2px solid var(--border-gold);
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;
+}
+#titleBar h1{
+  font-family:'Cinzel',serif;
+  font-size:clamp(12px,1.8vw,18px);
+  color:var(--gold);
+  letter-spacing:2px;
+  text-shadow:0 0 12px rgba(255,215,0,0.5);
+  white-space:nowrap;
+}
+#questTrack{display:flex;align-items:center;gap:6px;}
+.q-dot{
+  width:11px;height:11px;border-radius:50%;
+  border:2px solid var(--gold);background:transparent;
+  transition:all .4s;
+}
+.q-dot.done{background:var(--gold);}
+.q-dot.active{background:#fff;box-shadow:0 0 8px var(--gold);transform:scale(1.3);}
+
+/* ─── SCORE BADGE ────────────────────────────────────────────── */
+#scoreBadge{
+  position:absolute;top:50px;right:14px;z-index:30;
+  display:flex;align-items:center;gap:5px;
+  background:rgba(13,10,26,0.9);
+  border:1.5px solid var(--gold);border-radius:20px;
+  padding:4px 12px;
+}
+#scoreBadge span{font-family:'Cinzel',serif;color:var(--gold);font-size:13px;}
+
+/* ─── MAIN PANEL ─────────────────────────────────────────────── */
+#actPanel{
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:min(94vw,880px);
+  max-height:calc(100vh - 110px);
+  background:var(--panel);
+  border-radius:18px;
+  border:2px solid var(--border-gold);
+  box-shadow:0 0 60px rgba(255,100,0,0.25),0 0 120px rgba(100,0,200,0.15);
+  z-index:20;
+  overflow:hidden;
+  display:flex;flex-direction:column;
+  animation:panelIn .5s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes panelIn{from{transform:translate(-50%,-50%) scale(.7);opacity:0;}to{transform:translate(-50%,-50%) scale(1);opacity:1;}}
+
+.p-header{
+  background:linear-gradient(90deg,#0D0A1A,#2A1850,#1A0A2E);
+  border-bottom:2px solid var(--border-gold);
+  padding:10px 18px;
+  display:flex;align-items:center;gap:12px;
+  flex-shrink:0;
+}
+.p-num{
+  font-family:'Cinzel',serif;font-size:26px;color:var(--gold);
+  background:rgba(255,215,0,0.1);border:1.5px solid var(--gold);
+  border-radius:50%;width:44px;height:44px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.p-title{font-family:'Cinzel',serif;font-size:clamp(14px,2vw,19px);color:var(--gold);text-shadow:0 0 8px rgba(255,215,0,0.4);}
+.p-sub{font-size:12px;color:var(--txt-dim);margin-top:2px;}
+
+.p-body{padding:14px 18px;overflow-y:auto;flex:1;}
+
+/* ─── DRAG CARDS ─────────────────────────────────────────────── */
+.card{
+  display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+  width:72px;height:72px;
+  border-radius:12px;
+  border:2px solid rgba(255,215,0,0.3);
+  background:rgba(42,32,64,0.8);
+  cursor:grab;user-select:none;
+  font-size:11px;color:var(--txt-dim);font-weight:700;
+  transition:transform .15s,box-shadow .15s,opacity .2s;
+  box-shadow:0 4px 14px rgba(0,0,0,0.4);
+  position:relative;
+  flex-shrink:0;
+}
+.card:hover{transform:scale(1.08);box-shadow:0 6px 20px rgba(255,165,0,0.3);}
+.card.dragging{opacity:.35;transform:scale(.92);}
+.card .card-icon{font-size:28px;line-height:1;margin-bottom:3px;}
+.card .card-lbl{font-size:10px;color:rgba(255,240,200,0.6);text-align:center;line-height:1.2;}
+
+/* card types */
+.card.typeA{border-color:rgba(0,207,255,0.5);background:rgba(0,30,60,0.85);}
+.card.typeA:hover{box-shadow:0 6px 20px rgba(0,207,255,0.4);}
+.card.typeB{border-color:rgba(207,0,255,0.5);background:rgba(40,0,60,0.85);}
+.card.typeB:hover{box-shadow:0 6px 20px rgba(207,0,255,0.4);}
+
+/* ─── POOLS ──────────────────────────────────────────────────── */
+.pool{
+  display:flex;flex-wrap:wrap;gap:8px;
+  padding:10px;
+  background:rgba(255,215,0,0.04);
+  border:2px dashed rgba(255,215,0,0.2);
+  border-radius:12px;
+  min-height:56px;
+  align-items:center;
+}
+.pool .empty-hint{font-size:11px;color:rgba(180,160,120,0.4);font-style:italic;pointer-events:none;}
+
+/* ─── DROP ZONES ─────────────────────────────────────────────── */
+.dz{
+  min-height:72px;
+  border:2px dashed rgba(255,215,0,0.25);
+  border-radius:12px;
+  padding:8px;
+  display:flex;flex-wrap:wrap;gap:6px;
+  align-items:flex-start;
+  transition:all .2s;
+  position:relative;
+}
+.dz.hover{border-color:var(--fire1);background:rgba(255,69,0,0.08);transform:scale(1.02);}
+.dz.correct{border-color:#00FF88;background:rgba(0,255,136,0.07);}
+.dz.wrong{border-color:#FF3333;background:rgba(255,51,51,0.08);}
+.dz .dz-hint{font-size:10px;color:rgba(180,160,120,0.35);font-style:italic;pointer-events:none;align-self:center;}
+
+/* Zone titles */
+.zone-title{
+  font-family:'Cinzel',serif;
+  font-size:12px;color:var(--gold);
+  margin-bottom:5px;
+  display:flex;align-items:center;gap:6px;
+}
+
+/* ─── SEQUENCE SLOTS ─────────────────────────────────────────── */
+.seq-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.seq-slot{
+  flex:1;min-width:90px;max-width:150px;
+  min-height:72px;
+  border:2px dashed rgba(255,215,0,0.3);
+  border-radius:12px;
+  background:rgba(255,215,0,0.03);
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;
+  position:relative;
+}
+.seq-slot .slot-n{
+  position:absolute;top:4px;left:7px;
+  font-family:'Cinzel',serif;font-size:10px;color:rgba(255,215,0,0.35);
+}
+.seq-slot.hover{border-color:var(--fire1);background:rgba(255,69,0,0.08);}
+.seq-slot.filled{border-color:rgba(255,215,0,0.5);background:rgba(255,215,0,0.06);}
+.seq-arrow{font-size:20px;color:var(--fire2);flex-shrink:0;}
+
+/* ─── BUTTONS ────────────────────────────────────────────────── */
+.act-btn{
+  padding:9px 26px;
+  background:linear-gradient(135deg,#8B0000,#FF4500,#FFD700);
+  border:none;border-radius:30px;
+  font-family:'Cinzel',serif;font-size:14px;color:#fff;
+  cursor:pointer;
+  box-shadow:0 4px 18px rgba(255,69,0,0.35);
+  transition:transform .15s,box-shadow .15s;
+  text-shadow:1px 1px 2px rgba(0,0,0,0.4);
+}
+.act-btn:hover{transform:scale(1.05);box-shadow:0 6px 24px rgba(255,69,0,0.5);}
+.act-btn:active{transform:scale(.97);}
+.act-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+
+.reset-btn{
+  padding:6px 16px;
+  background:transparent;
+  border:1.5px solid rgba(255,215,0,0.4);
+  border-radius:20px;
+  font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;color:var(--txt-dim);
+  cursor:pointer;transition:all .2s;
+}
+.reset-btn:hover{border-color:var(--gold);color:var(--gold);background:rgba(255,215,0,0.07);}
+
+.btn-row{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:12px;flex-wrap:wrap;}
+
+/* ─── FEEDBACK FLASH ─────────────────────────────────────────── */
+.fflash{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  padding:12px 28px;border-radius:30px;
+  font-family:'Cinzel',serif;font-size:20px;
+  z-index:500;pointer-events:none;
+  animation:flashAnim 1.4s ease forwards;
+}
+.fflash.ok{background:#006633;color:#00FF88;box-shadow:0 0 20px rgba(0,255,136,.5);}
+.fflash.no{background:#660000;color:#FF8888;box-shadow:0 0 20px rgba(255,80,80,.5);}
+@keyframes flashAnim{0%{opacity:0;transform:translate(-50%,-50%) scale(.6);}20%{opacity:1;transform:translate(-50%,-50%) scale(1.1);}70%{opacity:1;}100%{opacity:0;}}
+
+/* ─── POPUP ──────────────────────────────────────────────────── */
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:600;display:flex;align-items:center;justify-content:center;animation:fadeIn .3s ease;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+.popup{
+  background:linear-gradient(160deg,#0D0A1A,#1A1230);
+  border:2px solid var(--border-gold);
+  border-radius:22px;
+  padding:28px 32px;
+  max-width:440px;width:90%;
+  text-align:center;
+  box-shadow:0 0 60px rgba(255,100,0,.35),0 0 120px rgba(150,0,255,.2);
+  animation:panelIn .4s cubic-bezier(.34,1.56,.64,1);
+}
+.popup .pi{font-size:60px;display:block;margin-bottom:10px;animation:iconBounce .6s ease;}
+@keyframes iconBounce{0%{transform:scale(0);}60%{transform:scale(1.2);}100%{transform:scale(1);}}
+.popup h3{font-family:'Cinzel',serif;font-size:22px;color:var(--gold);margin-bottom:8px;}
+.popup p{font-size:13px;color:var(--txt-dim);line-height:1.65;margin-bottom:14px;}
+.popup .pts{font-family:'Cinzel',serif;font-size:28px;color:var(--fire2);margin:6px 0;}
+.popup-btn{
+  padding:10px 30px;
+  background:linear-gradient(135deg,#4B0082,#8B0000);
+  border:1.5px solid var(--gold);border-radius:30px;
+  font-family:'Cinzel',serif;font-size:15px;color:var(--gold);
+  cursor:pointer;transition:transform .15s;
+  box-shadow:0 4px 15px rgba(0,0,0,.4);
+}
+.popup-btn:hover{transform:scale(1.05);}
+
+/* ─── CONFETTI ───────────────────────────────────────────────── */
+.cpiece{
+  position:fixed;pointer-events:none;z-index:700;
+  animation:cFall linear forwards;
+}
+@keyframes cFall{0%{transform:translateY(-10px) rotate(0);opacity:1;}100%{transform:translateY(110vh) rotate(720deg);opacity:0;}}
+
+/* ─── DRAG GHOST ─────────────────────────────────────────────── */
+#ghost{position:fixed;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);display:none;}
+
+/* ─── MISC ───────────────────────────────────────────────────── */
+.label-row{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px;flex-wrap:wrap;}
+.col2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media(max-width:560px){.col2{grid-template-columns:1fr;} .seq-slot{min-width:70px;} }
+.info-box{
+  background:rgba(255,215,0,0.05);
+  border:1px solid rgba(255,215,0,0.15);
+  border-radius:10px;padding:8px 12px;
+  font-size:12px;color:var(--txt-dim);line-height:1.6;
+  margin-bottom:10px;
+}
+.info-box strong{color:var(--gold);}
+.progress-row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;}
+.prog-bar-wrap{flex:1;height:10px;background:rgba(255,255,255,.08);border-radius:5px;overflow:hidden;min-width:80px;}
+.prog-bar{height:100%;border-radius:5px;transition:width .7s cubic-bezier(.4,0,.2,1);}
+.prog-lbl{font-size:11px;color:var(--txt-dim);white-space:nowrap;}
+
+/* ─── ACT3 Brain viz ─────────────────────────────────────────── */
+#brainViz{
+  background:rgba(0,0,0,.5);border-radius:14px;
+  border:1.5px solid rgba(0,207,255,0.3);
+  padding:10px;margin-top:10px;
+  display:flex;align-items:center;gap:12px;
+  min-height:54px;
+}
+#brainViz .bv-icon{font-size:32px;animation:brainPulse 2s ease-in-out infinite;}
+@keyframes brainPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.1);}}
+#brainViz .bv-text{font-size:11px;color:var(--gem-b);font-family:'Cinzel',serif;flex:1;}
+</style>
+</head>
+<body>
+<div id="scene">
+  <div id="sky"></div>
+  <div id="moon"></div>
+  <div id="starsLayer"></div>
+  <div id="clouds"></div>
+  <div id="embers"></div>
+  <div id="gems"></div>
+  <div id="banners"></div>
+  <div id="dragons"></div>
+  <div id="castle">
+    <div class="castle-window" style="left:19%;bottom:62%;width:14px;height:20px;"></div>
+    <div class="castle-window" style="left:48%;bottom:52%;width:12px;height:18px;animation-delay:.8s;"></div>
+    <div class="castle-window" style="left:63%;bottom:58%;width:10px;height:16px;animation-delay:1.6s;"></div>
+    <div class="castle-window" style="left:28%;bottom:48%;width:8px;height:14px;animation-delay:2.2s;"></div>
+    <div class="castle-window" style="right:20%;bottom:55%;width:12px;height:18px;animation-delay:.4s;"></div>
+  </div>
+
+  <!-- Title -->
+  <div id="titleBar">
+    <h1>🐉 TRAINING A SIMPLE CLASSIFIER — PLANRS ACADEMY</h1>
+    <div id="questTrack">
+      <span style="font-family:'Cinzel',serif;font-size:11px;color:var(--txt-dim);margin-right:4px;">QUEST</span>
+      <div class="q-dot active" id="d1"></div>
+      <div class="q-dot" id="d2"></div>
+      <div class="q-dot" id="d3"></div>
+    </div>
+  </div>
+
+  <!-- Score -->
+  <div id="scoreBadge"><span>💎</span><span id="scoreVal">0</span><span style="font-size:11px;">pts</span></div>
+
+  <!-- Panel -->
+  <div id="actPanel"></div>
+
+  <!-- Popup -->
+  <div id="overlay" style="display:none;"></div>
+</div>
+<div id="ghost"></div>
+
+<script>
+// ══════════════════════════════════════════
+// BACKGROUND FX
+// ══════════════════════════════════════════
+(function buildStars(){
+  const c=document.getElementById('starsLayer');
+  for(let i=0;i<120;i++){
+    const s=document.createElement('div');
+    s.className='star';
+    const sz=Math.random()*2.5+.5;
+    s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*70}%;animation-duration:${2+Math.random()*4}s;animation-delay:${Math.random()*5}s;`;
+    c.appendChild(s);
+  }
+})();
+
+(function buildClouds(){
+  const c=document.getElementById('clouds');
+  for(let i=0;i<6;i++){
+    const d=document.createElement('div');
+    d.className='cloud';
+    const sz=80+Math.random()*120;
+    d.style.cssText=`width:${sz}px;height:${sz*.5}px;top:${5+Math.random()*25}%;left:${Math.random()*80}%;animation-duration:${60+Math.random()*60}s;animation-delay:${Math.random()*30}s;`;
+    c.appendChild(d);
+  }
+})();
+
+(function buildEmbers(){
+  const c=document.getElementById('embers');
+  for(let i=0;i<30;i++){
+    const e=document.createElement('div');
+    e.className='ember';
+    const sz=Math.random()*5+2;
+    const dx=(Math.random()-0.5)*120;
+    e.style.cssText=`
+      width:${sz}px;height:${sz}px;
+      left:${10+Math.random()*80}%;
+      bottom:${Math.random()*30}%;
+      --dx:${dx}px;--dx2:${dx+(Math.random()-0.5)*60}px;
+      animation-duration:${5+Math.random()*7}s;
+      animation-delay:${Math.random()*6}s;
+      opacity:${.5+Math.random()*.5};
+    `;
+    c.appendChild(e);
+  }
+})();
+
+(function buildGems(){
+  const c=document.getElementById('gems');
+  const cols=['#00CFFF','#CF00FF','#00FF88','#FFD700','#FF4500'];
+  for(let i=0;i<12;i++){
+    const g=document.createElement('div');
+    g.className='gem';
+    const sz=8+Math.random()*12;
+    const col=cols[Math.floor(Math.random()*cols.length)];
+    g.style.cssText=`
+      width:${sz}px;height:${sz}px;
+      background:${col};
+      left:${Math.random()*95}%;
+      top:${5+Math.random()*60}%;
+      opacity:${.4+Math.random()*.4};
+      animation-duration:${3+Math.random()*4}s;
+      animation-delay:${Math.random()*4}s;
+      filter:drop-shadow(0 0 4px ${col});
+    `;
+    c.appendChild(g);
+  }
+})();
+
+(function buildBanners(){
+  const c=document.getElementById('banners');
+  const bCols=[['#8B0000','#FFD700'],['#4B0082','#00CFFF'],['#006600','#FF4500']];
+  [8,15,82,88].forEach((l,i)=>{
+    const b=document.createElement('div');
+    b.className='banner';
+    const [bg,fg]=bCols[i%3];
+    b.style.cssText=`left:${l}%;height:60px;animation-duration:${2.5+Math.random()*1.5}s;animation-delay:${Math.random()*1}s;`;
+    b.innerHTML=`<svg width="24" height="60" viewBox="0 0 24 60" xmlns="http://www.w3.org/2000/svg">
+      <rect width="4" height="60" x="10" fill="#888"/>
+      <polygon points="0,4 24,4 24,36 12,44 0,36" fill="${bg}"/>
+      <polygon points="6,10 18,10 18,28 12,34 6,28" fill="${fg}" opacity=".5"/>
+    </svg>`;
+    c.appendChild(b);
+  });
+})();
+
+(function buildDragons(){
+  const c=document.getElementById('dragons');
+  [
+    {top:'12%',dur:'45s',delay:'0s',sz:.9},
+    {top:'20%',dur:'65s',delay:'22s',sz:.65},
+    {top:'8%', dur:'55s',delay:'38s',sz:.75},
+  ].forEach(cfg=>{
+    const d=document.createElement('div');
+    d.className='dragon';
+    d.style.cssText=`top:${cfg.top};right:-200px;animation-duration:${cfg.dur};animation-delay:${cfg.delay};`;
+    d.innerHTML=`<svg class="dragon-svg" width="${120*cfg.sz}" height="${60*cfg.sz}" viewBox="0 0 120 60" style="animation-duration:${.8+Math.random()*.4}s;">
+      <ellipse cx="60" cy="35" rx="36" ry="14" fill="#8B0000" opacity=".9"/>
+      <ellipse cx="90" cy="32" rx="16" ry="10" fill="#A00000"/>
+      <circle cx="103" cy="30" r="6" fill="#C00000"/>
+      <circle cx="107" cy="29" r="2" fill="#FFD700"/>
+      <circle cx="108" cy="28" r="1" fill="#111"/>
+      <path d="M95,30 Q88,20 80,28" fill="none" stroke="#FF4500" stroke-width="1.5"/>
+      <path d="M40,30 Q20,10 5,20 Q15,28 30,30Z" fill="#700000" opacity=".85"/>
+      <path d="M50,30 Q32,8 15,15 Q25,26 42,30Z" fill="#8B0000" opacity=".8"/>
+      <path d="M25,40 Q30,55 22,58 Q18,52 20,44Z" fill="#700000"/>
+      <path d="M35,40 Q40,55 32,58 Q28,52 30,44Z" fill="#700000"/>
+      <path d="M80,38 L95,52 L88,53 L82,42Z" fill="#700000"/>
+      <path d="M86,36 L105,48 L98,50 L88,40Z" fill="#8B0000"/>
+      <path d="M60,28 Q50,20 55,15 L58,22 Q62,14 65,18 L63,24 Q68,16 72,20 L67,26Z" fill="#FF4500" opacity=".7"/>
+    </svg>`;
+    c.appendChild(d);
+  });
+})();
+
+// ══════════════════════════════════════════
+// DRAG & DROP ENGINE
+// ══════════════════════════════════════════
+let dragItem=null,dragSrc=null;
+const ghost=document.getElementById('ghost');
+
+function makeDraggable(el){
+  el.addEventListener('mousedown',onMD);
+  el.addEventListener('touchstart',onTS,{passive:false});
+}
+
+function onMD(e){
+  if(e.button!==0)return;
+  startDrag(e.currentTarget,e.clientX,e.clientY);
+  document.addEventListener('mousemove',onMM);
+  document.addEventListener('mouseup',onMU);
+  e.preventDefault();
+}
+function onMM(e){moveGhost(e.clientX,e.clientY);}
+function onMU(e){endDrag(e.clientX,e.clientY);document.removeEventListener('mousemove',onMM);document.removeEventListener('mouseup',onMU);}
+
+let tid=null;
+function onTS(e){
+  const t=e.changedTouches[0];tid=t.identifier;
+  startDrag(e.currentTarget,t.clientX,t.clientY);
+  document.addEventListener('touchmove',onTM,{passive:false});
+  document.addEventListener('touchend',onTE);
+  e.preventDefault();
+}
+function onTM(e){const t=[...e.changedTouches].find(t=>t.identifier===tid);if(t)moveGhost(t.clientX,t.clientY);e.preventDefault();}
+function onTE(e){const t=[...e.changedTouches].find(t=>t.identifier===tid);if(t)endDrag(t.clientX,t.clientY);document.removeEventListener('touchmove',onTM);document.removeEventListener('touchend',onTE);}
+
+function startDrag(el,x,y){
+  dragItem=el;dragSrc=el.parentElement;
+  el.classList.add('dragging');
+  // Clone into ghost
+  const clone=el.cloneNode(true);
+  clone.style.cssText=`width:72px;height:72px;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;border-radius:12px;pointer-events:none;font-family:'Nunito',sans-serif;font-weight:700;font-size:11px;border:2px solid ${el.style.borderColor||'rgba(255,215,0,.4)'};background:${getComputedStyle(el).background};`;
+  ghost.innerHTML='';ghost.appendChild(clone);ghost.style.display='block';
+  moveGhost(x,y);
+  highlightDrops(true);
+}
+function moveGhost(x,y){ghost.style.left=x+'px';ghost.style.top=y+'px';}
+function endDrag(x,y){
+  if(!dragItem)return;
+  highlightDrops(false);
+  const el=document.elementFromPoint(x,y);
+  const target=el?el.closest('.dz,.seq-slot'):null;
+  if(target&&target!==dragSrc) onDrop(target,dragItem);
+  dragItem.classList.remove('dragging');
+  dragItem=null;dragSrc=null;
+  ghost.style.display='none';
+}
+function highlightDrops(on){
+  document.querySelectorAll('.dz,.seq-slot').forEach(z=>{
+    z.style.outline=on?'1.5px dashed rgba(255,140,0,.5)':'';
+  });
+}
+function onDrop(zone,item){
+  // If seq-slot, only allow one card
+  if(zone.classList.contains('seq-slot')){
+    if(zone.querySelector('.card')) return; // slot already filled
+  }
+  zone.appendChild(item);
+  zone.classList.add('filled');
+  const hint=zone.querySelector('.dz-hint');
+  if(hint)hint.style.display='none';
+  item.classList.remove('dragging');
+  if(actNum===3) updateAct3Viz();
+}
+
+// Hover events on all drop targets
+function attachDropHover(el){
+  el.addEventListener('mouseenter',()=>el.classList.add('hover'));
+  el.addEventListener('mouseleave',()=>el.classList.remove('hover'));
+}
+
+// ══════════════════════════════════════════
+// SCORE
+// ══════════════════════════════════════════
+let score=0;
+function addScore(n){
+  score+=n;
+  document.getElementById('scoreVal').textContent=score;
+  const el=document.createElement('div');
+  el.style.cssText=`position:fixed;top:56px;right:80px;font-family:'Cinzel',serif;font-size:18px;color:#FFD700;pointer-events:none;z-index:800;animation:flashAnim 1.2s ease forwards;text-shadow:0 0 8px rgba(255,215,0,.6);`;
+  el.textContent=`+${n} 💎`;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1200);
+}
+
+// ══════════════════════════════════════════
+// FEEDBACK / CONFETTI
+// ══════════════════════════════════════════
+function flash(ok,msg){
+  const el=document.createElement('div');
+  el.className='fflash '+(ok?'ok':'no');
+  el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1400);
+}
+function confetti(){
+  const cols=['#FFD700','#FF4500','#00CFFF','#CF00FF','#00FF88','#FF69B4'];
+  for(let i=0;i<70;i++){
+    const c=document.createElement('div');
+    c.className='cpiece';
+    const sz=6+Math.random()*10;
+    c.style.cssText=`left:${Math.random()*100}%;top:-10px;width:${sz}px;height:${sz}px;background:${cols[~~(Math.random()*cols.length)]};border-radius:${Math.random()>.5?'50%':'2px'};animation-duration:${1.5+Math.random()*2}s;animation-delay:${Math.random()*.6}s;`;
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(),3600);
+  }
+}
+
+// ══════════════════════════════════════════
+// POPUP
+// ══════════════════════════════════════════
+function showPopup(o){
+  const ov=document.getElementById('overlay');
+  ov.style.display='flex';
+  ov.innerHTML=`<div class="popup">
+    <span class="pi">${o.icon}</span>
+    <h3>${o.title}</h3>
+    <p>${o.body}</p>
+    ${o.pts?`<div class="pts">${o.pts}</div>`:''}
+    <button class="popup-btn" onclick="${o.action}">${o.btn}</button>
+  </div>`;
+}
+function closePopup(){document.getElementById('overlay').style.display='none';}
+
+// ══════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════
+let actNum=1;
+
+// Gesture cards
+const gestureA=[
+  {icon:'🤚',lbl:'Open Palm',id:'a1'},
+  {icon:'🤚',lbl:'Open Palm',id:'a2'},
+  {icon:'🤚',lbl:'Open Palm',id:'a3'},
+  {icon:'🤚',lbl:'Open Palm',id:'a4'},
+  {icon:'🤚',lbl:'Open Palm',id:'a5'},
+  {icon:'🤚',lbl:'Open Palm',id:'a6'},
+];
+const gestureB=[
+  {icon:'✊',lbl:'Closed Fist',id:'b1'},
+  {icon:'✊',lbl:'Closed Fist',id:'b2'},
+  {icon:'✊',lbl:'Closed Fist',id:'b3'},
+  {icon:'✊',lbl:'Closed Fist',id:'b4'},
+  {icon:'✊',lbl:'Closed Fist',id:'b5'},
+  {icon:'✊',lbl:'Closed Fist',id:'b6'},
+];
+
+// Act2: classification cards (unseen)
+const act2Cards=[
+  {icon:'🤚',lbl:'Unseen #1',type:'A',id:'t1'},
+  {icon:'✊',lbl:'Unseen #2',type:'B',id:'t2'},
+  {icon:'🤚',lbl:'Unseen #3',type:'A',id:'t3'},
+  {icon:'✊',lbl:'Unseen #4',type:'B',id:'t4'},
+  {icon:'🤚',lbl:'Unseen #5',type:'A',id:'t5'},
+  {icon:'✊',lbl:'Unseen #6',type:'B',id:'t6'},
+];
+
+// Act3: workflow steps
+const workflowSteps=[
+  {icon:'📸',lbl:'Collect Data',pos:0,id:'w0'},
+  {icon:'🧠',lbl:'Train Model',pos:1,id:'w1'},
+  {icon:'🧪',lbl:'Test Model',pos:2,id:'w2'},
+  {icon:'📊',lbl:'Check Results',pos:3,id:'w3'},
+  {icon:'🔁',lbl:'Improve & Repeat',pos:4,id:'w4'},
+];
+
+// ══════════════════════════════════════════
+// CARD FACTORY
+// ══════════════════════════════════════════
+function makeCard(item,type){
+  const el=document.createElement('div');
+  el.className='card type'+(type||'');
+  el.dataset.type=type||'';
+  el.dataset.pos=item.pos!==undefined?item.pos:'';
+  el.dataset.id=item.id;
+  el.innerHTML=`<div class="card-icon">${item.icon}</div><div class="card-lbl">${item.lbl}</div>`;
+  makeDraggable(el);
+  return el;
+}
+
+// ══════════════════════════════════════════
+// ACTIVITY 1 — Training Dataset Builder
+// ══════════════════════════════════════════
+function buildAct1(){
+  const panel=document.getElementById('actPanel');
+  panel.innerHTML=`
+    <div class="p-header">
+      <div class="p-num">I</div>
+      <div>
+        <div class="p-title">Build the Training Dataset</div>
+        <div class="p-sub">Sort gesture cards into the correct training bins so the AI learns the difference</div>
+      </div>
+    </div>
+    <div class="p-body">
+      <div class="info-box">
+        🐉 The Dragon Academy AI must learn two gestures: <strong>Open Palm (🤚)</strong> and <strong>Closed Fist (✊)</strong>.<br>
+        Drag <strong>at least 4 cards of each type</strong> into the correct training bin below. These examples teach the AI!
+      </div>
+      <div class="zone-title">📦 Unsorted Cards — drag them to the bins</div>
+      <div class="pool" id="a1pool"></div>
+      <div class="col2" style="margin-top:10px;">
+        <div>
+          <div class="zone-title" style="color:#00CFFF;">🫧 Training Bin A — Open Palm</div>
+          <div class="dz" id="binA" data-bin="A"><span class="dz-hint">Drop Open Palm cards here</span></div>
+          <div class="progress-row">
+            <span class="prog-lbl" id="cntA">0 / 6</span>
+            <div class="prog-bar-wrap"><div class="prog-bar" id="barA" style="width:0%;background:linear-gradient(90deg,#00CFFF,#0080FF);"></div></div>
+          </div>
+        </div>
+        <div>
+          <div class="zone-title" style="color:#CF00FF;">✊ Training Bin B — Closed Fist</div>
+          <div class="dz" id="binB" data-bin="B"><span class="dz-hint">Drop Closed Fist cards here</span></div>
+          <div class="progress-row">
+            <span class="prog-lbl" id="cntB">0 / 6</span>
+            <div class="prog-bar-wrap"><div class="prog-bar" id="barB" style="width:0%;background:linear-gradient(90deg,#CF00FF,#8000FF);"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="act-btn" onclick="checkAct1()">Lock In Training Data 🔥</button>
+        <button class="reset-btn" onclick="resetAct1()">↺ Reset</button>
+      </div>
+    </div>`;
+
+  const pool=document.getElementById('a1pool');
+  const all=[...gestureA,...gestureB].sort(()=>Math.random()-.5);
+  all.forEach(item=>{
+    const type=item.id.startsWith('a')?'A':'B';
+    pool.appendChild(makeCard(item,type));
+  });
+  ['binA','binB'].forEach(id=>{
+    const z=document.getElementById(id);
+    attachDropHover(z);
+    // watch drops
+    const obs=new MutationObserver(()=>updateBinCounts());
+    obs.observe(z,{childList:true});
+  });
+}
+
+function updateBinCounts(){
+  const a=document.getElementById('binA');
+  const b=document.getElementById('binB');
+  if(!a||!b)return;
+  const ca=a.querySelectorAll('.card').length;
+  const cb=b.querySelectorAll('.card').length;
+  const ea=document.getElementById('cntA');
+  const eb=document.getElementById('cntB');
+  const ba=document.getElementById('barA');
+  const bb=document.getElementById('barB');
+  if(ea)ea.textContent=`${ca} / 6`;
+  if(eb)eb.textContent=`${cb} / 6`;
+  if(ba)ba.style.width=Math.min(ca/6*100,100)+'%';
+  if(bb)bb.style.width=Math.min(cb/6*100,100)+'%';
+}
+
+function checkAct1(){
+  const binA=document.getElementById('binA');
+  const binB=document.getElementById('binB');
+  const cardsA=binA.querySelectorAll('.card');
+  const cardsB=binB.querySelectorAll('.card');
+  let wrongA=0,wrongB=0;
+  cardsA.forEach(c=>{if(c.dataset.type!=='A')wrongA++;});
+  cardsB.forEach(c=>{if(c.dataset.type!=='B')wrongB++;});
+  const ca=cardsA.length,cb=cardsB.length;
+  if(ca<4||cb<4){flash(false,`Need at least 4 cards in each bin!`);return;}
+  if(wrongA>0||wrongB>0){
+    flash(false,`${wrongA+wrongB} card(s) in the wrong bin!`);
+    if(wrongA>0){binA.classList.add('wrong');setTimeout(()=>binA.classList.remove('wrong'),1200);}
+    if(wrongB>0){binB.classList.add('wrong');setTimeout(()=>binB.classList.remove('wrong'),1200);}
+    if(ca+cb>4)addScore(5);
+    return;
+  }
+  binA.classList.add('correct');binB.classList.add('correct');
+  addScore(30);confetti();
+  showPopup({
+    icon:'🐲',title:'Training Data Locked!',
+    body:`Brilliant! You gave the Dragon AI ${ca} Open Palm examples and ${cb} Closed Fist examples. The more examples you feed it, the smarter it becomes at spotting patterns!`,
+    pts:`+30 💎 Points!`,
+    btn:'Onwards to Quest II →',action:'nextAct(2)'
+  });
+}
+
+function resetAct1(){buildAct1();}
+
+// ══════════════════════════════════════════
+// ACTIVITY 2 — Classify New Cards
+// ══════════════════════════════════════════
+function buildAct2(){
+  const panel=document.getElementById('actPanel');
+  panel.innerHTML=`
+    <div class="p-header">
+      <div class="p-num">II</div>
+      <div>
+        <div class="p-title">Test the Trained AI</div>
+        <div class="p-sub">The AI has learned — now classify new unseen gesture cards into the correct boxes</div>
+      </div>
+    </div>
+    <div class="p-body">
+      <div class="info-box">
+        🏰 The AI was trained on your examples. Now it sees <strong>brand new cards</strong> it has never seen before.<br>
+        Drag each card into <strong>Prediction Box A (Open Palm)</strong> or <strong>Prediction Box B (Closed Fist)</strong>.
+      </div>
+      <div class="zone-title">🃏 New Unseen Cards — classify them!</div>
+      <div class="pool" id="a2pool"></div>
+      <div class="col2" style="margin-top:10px;">
+        <div>
+          <div class="zone-title" style="color:#00CFFF;">🫧 Prediction Box A — Open Palm</div>
+          <div class="dz" id="predA" data-pred="A"><span class="dz-hint">Drop Open Palm cards here</span></div>
+        </div>
+        <div>
+          <div class="zone-title" style="color:#CF00FF;">✊ Prediction Box B — Closed Fist</div>
+          <div class="dz" id="predB" data-pred="B"><span class="dz-hint">Drop Closed Fist cards here</span></div>
+        </div>
+      </div>
+      <div id="a2feedback" style="margin-top:8px;min-height:28px;font-size:12px;color:var(--txt-dim);text-align:center;"></div>
+      <div class="btn-row">
+        <button class="act-btn" onclick="checkAct2()">Check Predictions 🐉</button>
+        <button class="reset-btn" onclick="resetAct2()">↺ Reset</button>
+      </div>
+    </div>`;
+
+  const pool=document.getElementById('a2pool');
+  [...act2Cards].sort(()=>Math.random()-.5).forEach(item=>{
+    pool.appendChild(makeCard(item,item.type));
+  });
+  ['predA','predB'].forEach(id=>{
+    attachDropHover(document.getElementById(id));
+    const obs=new MutationObserver(()=>updateAct2Feedback());
+    obs.observe(document.getElementById(id),{childList:true});
+  });
+}
+
+function updateAct2Feedback(){
+  const pa=document.getElementById('predA');
+  const pb=document.getElementById('predB');
+  if(!pa||!pb)return;
+  const total=(pa.querySelectorAll('.card').length)+(pb.querySelectorAll('.card').length);
+  const fb=document.getElementById('a2feedback');
+  if(fb)fb.textContent=`${total} / ${act2Cards.length} cards placed`;
+}
+
+function checkAct2(){
+  const pa=document.getElementById('predA');
+  const pb=document.getElementById('predB');
+  const all=[...pa.querySelectorAll('.card'),...pb.querySelectorAll('.card')];
+  if(all.length<act2Cards.length){flash(false,'Place all cards first!');return;}
+  let correct=0,wrong=0;
+  pa.querySelectorAll('.card').forEach(c=>{if(c.dataset.type==='A')correct++;else wrong++;});
+  pb.querySelectorAll('.card').forEach(c=>{if(c.dataset.type==='B')correct++;else wrong++;});
+  if(wrong===0){
+    pa.classList.add('correct');pb.classList.add('correct');
+    addScore(30);confetti();
+    showPopup({
+      icon:'🦅',title:'Perfect Classification!',
+      body:`The AI correctly identified all ${correct} gestures! Open Palms went to Box A and Closed Fists to Box B. The trained model is working perfectly!`,
+      pts:`+30 💎 Points!`,
+      btn:'Final Quest III →',action:'nextAct(3)'
+    });
+  } else {
+    // highlight wrong cards
+    pa.querySelectorAll('.card').forEach(c=>{if(c.dataset.type!=='A'){c.style.outline='2px solid #FF3333';}});
+    pb.querySelectorAll('.card').forEach(c=>{if(c.dataset.type!=='B'){c.style.outline='2px solid #FF3333';}});
+    flash(false,`${wrong} card(s) in the wrong box!`);
+    if(correct>2)addScore(8);
+  }
+}
+
+function resetAct2(){buildAct2();}
+
+// ══════════════════════════════════════════
+// ACTIVITY 3 — Workflow Sequencer
+// ══════════════════════════════════════════
+let act3Interval=null;
+let act3StepIdx=0;
+
+function buildAct3(){
+  const panel=document.getElementById('actPanel');
+  panel.innerHTML=`
+    <div class="p-header">
+      <div class="p-num">III</div>
+      <div>
+        <div class="p-title">Sequence the Dragon AI Workflow</div>
+        <div class="p-sub">Arrange all 5 steps of the Teachable Machine process in the correct order</div>
+      </div>
+    </div>
+    <div class="p-body">
+      <div class="info-box">
+        🔥 Every AI learning cycle follows a specific sequence. Drag each <strong>step card</strong> into the numbered slot where it belongs (1 = first, 5 = last).
+      </div>
+      <div class="zone-title">🃏 Workflow Steps — drag into numbered slots below</div>
+      <div class="pool" id="a3pool"></div>
+      <div style="margin-top:10px;">
+        <div class="seq-row">
+          ${[0,1,2,3,4].map(i=>`
+            <div class="seq-slot" id="slot${i}" data-pos="${i}">
+              <span class="slot-n">${i+1}</span>
+            </div>
+            ${i<4?'<div class="seq-arrow">→</div>':''}
+          `).join('')}
+        </div>
+      </div>
+      <div id="brainViz">
+        <div class="bv-icon">🐉</div>
+        <div class="bv-text" id="bvText">Arrange all 5 steps to activate the training simulation!</div>
+        <div style="display:flex;flex-direction:column;gap:4px;flex:1;max-width:120px;">
+          <div class="prog-bar-wrap"><div class="prog-bar" id="a3bar" style="width:0%;background:linear-gradient(90deg,#FFD700,#FF4500);"></div></div>
+          <div style="font-size:10px;color:var(--txt-dim);" id="epLbl">Episode 0</div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="act-btn" onclick="checkAct3()">Run the Dragon AI! 🚀</button>
+        <button class="reset-btn" onclick="resetAct3()">↺ Reset</button>
+      </div>
+    </div>`;
+
+  const pool=document.getElementById('a3pool');
+  [...workflowSteps].sort(()=>Math.random()-.5).forEach(item=>{
+    pool.appendChild(makeCard(item,''));
+  });
+  for(let i=0;i<5;i++){
+    const s=document.getElementById('slot'+i);
+    attachDropHover(s);
+    const obs=new MutationObserver(()=>updateAct3Viz());
+    obs.observe(s,{childList:true});
+  }
+}
+
+function updateAct3Viz(){
+  let placed=0;
+  for(let i=0;i<5;i++){
+    const s=document.getElementById('slot'+i);
+    if(s&&s.querySelector('.card'))placed++;
+  }
+  const pct=(placed/5)*100;
+  const bar=document.getElementById('a3bar');
+  if(bar)bar.style.width=pct+'%';
+  const bt=document.getElementById('bvText');
+  if(bt){
+    if(placed<5)bt.textContent=`${placed}/5 steps placed — keep going!`;
+    else bt.textContent='All 5 steps placed! Hit "Run the Dragon AI" to test the sequence!';
+  }
+}
+
+function checkAct3(){
+  let correct=0;
+  for(let i=0;i<5;i++){
+    const slot=document.getElementById('slot'+i);
+    const card=slot?slot.querySelector('.card'):null;
+    if(card&&parseInt(card.dataset.pos)===i)correct++;
+  }
+  const allPlaced=document.querySelectorAll('.seq-slot .card').length===5;
+  if(!allPlaced){flash(false,'Place all 5 steps in the slots first!');return;}
+  if(correct>=4){
+    // Animate AI training sequence
+    if(act3Interval)clearInterval(act3Interval);
+    const msgs=[
+      '📸 Collecting gesture images...',
+      '🧠 Learning patterns from examples...',
+      '🧪 Testing on unseen data...',
+      '📊 Checking accuracy of predictions...',
+      '🔁 Improving the model further...',
+      '🐉 Dragon AI fully trained! ROAR!',
+    ];
+    let idx=0,ep=0;
+    act3Interval=setInterval(()=>{
+      const bt=document.getElementById('bvText');
+      const lbl=document.getElementById('epLbl');
+      const bar=document.getElementById('a3bar');
+      if(!bt){clearInterval(act3Interval);return;}
+      if(bt)bt.textContent=msgs[idx%msgs.length];
+      if(idx%msgs.length===0&&idx>0){ep++;if(lbl)lbl.textContent=`Episode ${ep}`;}
+      if(bar)bar.style.width=Math.min(5+ep*18,100)+'%';
+      idx++;
+      if(ep>=5){clearInterval(act3Interval);}
+    },500);
+    // Highlight correct
+    for(let i=0;i<5;i++){
+      const slot=document.getElementById('slot'+i);
+      const card=slot?slot.querySelector('.card'):null;
+      if(card&&parseInt(card.dataset.pos)===i)slot.style.border='2px solid #00FF88';
+    }
+    addScore(40);
+    setTimeout(()=>{
+      confetti();setTimeout(confetti,700);
+      showPopup({
+        icon:'🏆',
+        title:'Dragon AI Master!',
+        body:`You completed the full AI learning cycle! Every real AI system — from image sorters to speech assistants — follows this same 5-step loop you just built. The Dragon Academy is proud!`,
+        pts:`+40 💎 — Total: ${score} pts`,
+        btn:'Claim Your Victory! 🐉',action:'showFinal()'
+      });
+    },3200);
+  } else {
+    for(let i=0;i<5;i++){
+      const slot=document.getElementById('slot'+i);
+      const card=slot?slot.querySelector('.card'):null;
+      if(card&&parseInt(card.dataset.pos)!==i){slot.style.border='2px solid #FF3333';setTimeout(()=>slot.style.border='',1200);}
+    }
+    flash(false,`${correct}/5 steps in correct order — rethink the cycle!`);
+    if(correct>=2)addScore(10);
+  }
+}
+
+function resetAct3(){if(act3Interval)clearInterval(act3Interval);buildAct3();}
+
+// ══════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════
+function nextAct(n){
+  closePopup();actNum=n;
+  if(n===2){
+    document.getElementById('d1').className='q-dot done';
+    document.getElementById('d2').className='q-dot active';
+    buildAct2();
+  } else if(n===3){
+    document.getElementById('d2').className='q-dot done';
+    document.getElementById('d3').className='q-dot active';
+    buildAct3();
+  }
+}
+
+function showFinal(){
+  closePopup();
+  document.getElementById('d3').className='q-dot done';
+  confetti();setTimeout(confetti,600);setTimeout(confetti,1200);
+  const ov=document.getElementById('overlay');
+  ov.style.display='flex';
+  ov.innerHTML=`<div class="popup" style="max-width:480px;">
+    <span class="pi" style="font-size:72px;">🐉</span>
+    <h3 style="font-size:24px;">Dragon AI Champion!</h3>
+    <p style="font-size:14px;line-height:1.7;">
+      You have mastered the art of teaching an AI!<br><br>
+      <span style="color:#00CFFF;">🃏 Classifier</span> — a smart sorter that groups things by their features<br>
+      <span style="color:#CF00FF;">📸 Training Data</span> — examples you provide to teach the AI<br>
+      <span style="color:#00FF88;">🔍 Features</span> — the clues the AI looks for (shape, size, colour)<br>
+      <span style="color:#FFD700;">🔁 The Cycle</span> — Collect → Train → Test → Check → Improve
+    </p>
+    <div class="pts">🏆 Final Score: ${score} 💎</div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:8px;">
+      <button class="popup-btn" onclick="restartAll()">🔄 Play Again</button>
+      <button class="popup-btn" style="background:linear-gradient(135deg,#006600,#00AA44);" onclick="closePopup()">✅ Done</button>
+    </div>
+  </div>`;
+}
+
+function restartAll(){
+  closePopup();score=0;actNum=1;
+  document.getElementById('scoreVal').textContent='0';
+  ['d1','d2','d3'].forEach((id,i)=>{document.getElementById(id).className='q-dot'+(i===0?' active':'');});
+  if(act3Interval)clearInterval(act3Interval);
+  buildAct1();
+}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+buildAct1();
+</script>
+</body>
+</html>

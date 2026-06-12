@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weather Journal</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Baloo+2:wght@700;800&display=swap');
+
+  :root {
+    --sky-top: #87CEEB;
+    --sky-mid: #B8E4F9;
+    --sky-bot: #D4F1FF;
+    --sun-gold: #FFD700;
+    --sun-orange: #FFA500;
+    --cloud-white: #FFFFFF;
+    --grass: #7EC850;
+    --accent-pink: #FF6B9D;
+    --accent-purple: #9B59B6;
+    --accent-teal: #1ABC9C;
+    --text-dark: #2C3E50;
+    --text-mid: #5D6D7E;
+    --card-bg: rgba(255,255,255,0.88);
+    --sunny-color: #FFB300;
+    --cloudy-color: #78909C;
+    --rainy-color: #1E88E5;
+    --windy-color: #26C6DA;
+    --warm-color: #FF7043;
+    --cool-color: #42A5F5;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 60%, var(--sky-bot) 100%);
+    user-select: none;
+  }
+
+  /* ─── SKY CANVAS ─── */
+  #sky-canvas {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    overflow: hidden;
+  }
+
+  /* Sun */
+  .sun {
+    position: absolute; top: 30px; right: 80px;
+    width: 90px; height: 90px;
+    background: radial-gradient(circle, #FFF176 30%, #FFD740 60%, #FFA000 100%);
+    border-radius: 50%;
+    box-shadow: 0 0 40px 20px rgba(255,215,0,0.45);
+    animation: sunPulse 4s ease-in-out infinite;
+  }
+  .sun-ray {
+    position: absolute; left: 50%; top: 50%;
+    width: 6px; height: 36px;
+    background: linear-gradient(#FFD740, transparent);
+    transform-origin: 3px 52px;
+    border-radius: 3px;
+  }
+  @keyframes sunPulse { 0%,100%{transform:scale(1);box-shadow:0 0 40px 20px rgba(255,215,0,0.45)} 50%{transform:scale(1.07);box-shadow:0 0 60px 28px rgba(255,215,0,0.6)} }
+
+  /* Clouds */
+  .cloud {
+    position: absolute;
+    animation: driftCloud linear infinite;
+  }
+  .cloud-body {
+    background: white;
+    border-radius: 50px;
+    position: relative;
+    filter: drop-shadow(2px 4px 8px rgba(0,0,0,0.12));
+  }
+  .cloud-body::before, .cloud-body::after {
+    content:''; position: absolute; background: white; border-radius: 50%;
+  }
+  @keyframes driftCloud { from{transform:translateX(0)} to{transform:translateX(calc(100vw + 300px))} }
+
+  /* Birds */
+  .bird {
+    position: absolute;
+    animation: flyBird linear infinite;
+  }
+  .bird svg { animation: flapWings 0.5s ease-in-out infinite alternate; }
+  @keyframes flyBird { from{transform:translateX(-80px) translateY(0)} to{transform:translateX(110vw) translateY(-30px)} }
+  @keyframes flapWings { from{transform:scaleY(1)} to{transform:scaleY(0.4)} }
+
+  /* Hot air balloons */
+  .balloon {
+    position: absolute;
+    animation: floatBalloon ease-in-out infinite;
+  }
+  @keyframes floatBalloon { 0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(-18px) rotate(2deg)} }
+
+  /* Rainbow */
+  .rainbow {
+    position: absolute;
+    animation: rainbowFade 8s ease-in-out infinite;
+  }
+  @keyframes rainbowFade { 0%,100%{opacity:0.25} 50%{opacity:0.55} }
+
+  /* Stars/sparkles */
+  .sparkle {
+    position: absolute;
+    animation: sparklePop ease-in-out infinite;
+  }
+  @keyframes sparklePop { 0%,100%{opacity:0;transform:scale(0.5) rotate(0deg)} 50%{opacity:1;transform:scale(1.2) rotate(20deg)} }
+
+  /* ─── ACTIVITY OVERLAY ─── */
+  #activity-overlay {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .activity-card {
+    background: rgba(255,255,255,0.93);
+    border-radius: 28px;
+    box-shadow: 0 12px 50px rgba(30,80,160,0.18), 0 2px 12px rgba(0,0,0,0.08);
+    padding: 22px 28px 20px;
+    width: 820px;
+    max-width: 96vw;
+    backdrop-filter: blur(8px);
+    border: 3px solid rgba(255,255,255,0.9);
+    position: relative;
+  }
+
+  .activity-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+  }
+  .activity-badge {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white; font-family: 'Baloo 2', cursive;
+    font-size: 13px; font-weight: 800;
+    padding: 4px 14px; border-radius: 20px; white-space: nowrap;
+  }
+  .activity-title {
+    font-family: 'Baloo 2', cursive;
+    font-size: 22px; font-weight: 800;
+    color: var(--text-dark);
+    line-height: 1.1;
+  }
+  .activity-sub {
+    font-size: 13px; color: var(--text-mid);
+    margin-bottom: 12px; font-weight: 600;
+  }
+
+  /* Reset btn */
+  .reset-btn {
+    position: absolute; top: 18px; right: 20px;
+    background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+    color: white; border: none; border-radius: 20px;
+    padding: 6px 16px; font-size: 12px; font-weight: 800;
+    cursor: pointer; font-family: 'Nunito', sans-serif;
+    box-shadow: 0 3px 10px rgba(238,90,36,0.35);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .reset-btn:hover { transform: scale(1.06); box-shadow: 0 5px 14px rgba(238,90,36,0.45); }
+
+  /* ─── DRAGGABLE ITEMS ─── */
+  .drag-palette {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .drag-item {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    background: white; border-radius: 16px;
+    padding: 8px 14px; cursor: grab;
+    border: 2.5px solid rgba(0,0,0,0.1);
+    font-size: 11px; font-weight: 800; color: var(--text-dark);
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    min-width: 70px;
+  }
+  .drag-item:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 6px 18px rgba(0,0,0,0.15); }
+  .drag-item.dragging { opacity: 0.4; transform: scale(0.95); }
+  .drag-item .icon { font-size: 26px; line-height: 1; }
+  .drag-item.used { opacity: 0.3; pointer-events: none; }
+
+  /* ─── DROP ZONES ─── */
+  .drop-zone {
+    border: 2.5px dashed rgba(100,130,200,0.4);
+    border-radius: 14px;
+    background: rgba(200,220,255,0.15);
+    transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 70px;
+    position: relative;
+  }
+  .drop-zone.drag-over {
+    background: rgba(102,126,234,0.18);
+    border-color: #667eea;
+    transform: scale(1.04);
+  }
+  .drop-zone.correct { background: rgba(39,174,96,0.18); border-color: #27ae60; border-style: solid; }
+  .drop-zone.incorrect { background: rgba(231,76,60,0.18); border-color: #e74c3c; border-style: solid; }
+  .drop-zone .dropped-icon { font-size: 28px; }
+  .drop-zone .feedback-tick { font-size: 18px; position: absolute; top: 4px; right: 6px; }
+
+  /* ─── ACTIVITY 1: Weekly Journal Grid ─── */
+  #act1 .week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+  }
+  .day-col { display: flex; flex-direction: column; gap: 6px; }
+  .day-label {
+    text-align: center; font-size: 12px; font-weight: 800; color: var(--text-mid);
+    background: rgba(100,130,200,0.12); border-radius: 8px; padding: 4px 2px;
+  }
+  .day-zone { min-height: 76px; }
+  .day-zone .placeholder { font-size: 22px; opacity: 0.25; }
+
+  /* ─── ACTIVITY 2: Temp Match ─── */
+  #act2 .match-layout {
+    display: flex; gap: 16px;
+  }
+  #act2 .day-summary {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; flex: 1;
+  }
+  .summary-col { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+  .summary-weather { font-size: 28px; line-height: 1; }
+  .summary-day-lbl { font-size: 11px; font-weight: 800; color: var(--text-mid); }
+  .temp-zone { min-height: 60px; width: 100%; }
+  .temp-card {
+    font-size: 13px; font-weight: 900; padding: 6px 10px;
+    border-radius: 12px; color: white; cursor: grab;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+    transition: transform 0.15s;
+    min-width: 64px; text-align: center;
+  }
+  .temp-card:hover { transform: translateY(-3px) scale(1.06); }
+  .temp-card.warm { background: linear-gradient(135deg, #FF7043, #FF8A65); }
+  .temp-card.cool { background: linear-gradient(135deg, #42A5F5, #64B5F6); }
+  .temp-card.hot  { background: linear-gradient(135deg, #E53935, #EF5350); }
+  .temp-card.mild { background: linear-gradient(135deg, #66BB6A, #81C784); }
+
+  /* Weather effect overlay on act2 */
+  #weather-fx {
+    position: fixed; inset: 0; pointer-events: none; z-index: 50;
+    overflow: hidden; display: none;
+  }
+  .raindrop {
+    position: absolute; width: 2px; border-radius: 2px;
+    background: linear-gradient(180deg, transparent, #64B5F6);
+    animation: fall linear infinite;
+  }
+  @keyframes fall { from{top:-20px} to{top:110vh} }
+  .sunny-fx { position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at top, rgba(255,235,59,0.18) 0%, transparent 70%);
+    animation: sunnyPulse 2s ease-in-out infinite; }
+  @keyframes sunnyPulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+  .cloud-fx { position: absolute; font-size: 60px;
+    animation: cloudDrift 3s ease-in-out infinite; }
+  @keyframes cloudDrift { 0%,100%{transform:translateX(0)} 50%{transform:translateX(20px)} }
+
+  /* ─── ACTIVITY 3: Bar Chart ─── */
+  #act3 .chart-layout {
+    display: flex; gap: 14px; align-items: flex-start;
+  }
+  #act3 .chart-area {
+    flex: 1; background: rgba(200,220,255,0.15);
+    border-radius: 16px; padding: 12px 10px 8px;
+    border: 2px solid rgba(100,130,200,0.2);
+  }
+  #act3 .chart-cols {
+    display: grid; grid-template-columns: repeat(4,1fr); gap: 10px;
+    align-items: flex-end; height: 160px; padding-bottom: 4px;
+  }
+  .chart-col-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .chart-bar-zone {
+    width: 100%; border-radius: 10px 10px 0 0;
+    border: 2.5px dashed rgba(100,130,200,0.4);
+    background: rgba(200,220,255,0.15);
+    display: flex; align-items: flex-end; justify-content: center;
+    overflow: hidden; position: relative;
+    transition: all 0.3s;
+  }
+  .chart-bar-zone.filled { border-style: solid; border-color: rgba(100,130,200,0.5); }
+  .bar-fill {
+    width: 100%; border-radius: 8px 8px 0 0;
+    transition: height 0.6s cubic-bezier(0.34,1.56,0.64,1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; position: relative;
+  }
+  .chart-label { font-size: 11px; font-weight: 800; color: var(--text-mid); text-align: center; }
+  .count-badge {
+    font-size: 11px; font-weight: 900; color: var(--text-dark);
+    background: white; border-radius: 10px; padding: 1px 7px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12); margin-top: 3px;
+  }
+
+  .data-cards { display: flex; flex-direction: column; gap: 6px; width: 110px; }
+  .data-card {
+    background: white; border-radius: 14px; padding: 8px 10px;
+    cursor: grab; display: flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 800; color: var(--text-dark);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    border: 2px solid rgba(0,0,0,0.06);
+    transition: transform 0.15s;
+  }
+  .data-card:hover { transform: translateY(-2px) scale(1.04); }
+  .data-card.used { opacity: 0.3; pointer-events: none; }
+  .data-card .dc-icon { font-size: 22px; }
+
+  /* Y-axis labels */
+  .chart-y { display: flex; flex-direction: column-reverse; justify-content: space-between;
+    height: 160px; padding: 2px 0; margin-right: 4px; }
+  .chart-y span { font-size: 10px; color: var(--text-mid); font-weight: 700; }
+
+  /* ─── PROGRESS BAR ─── */
+  .progress-strip {
+    display: flex; gap: 8px; margin-bottom: 14px; align-items: center;
+  }
+  .prog-dot {
+    width: 28px; height: 10px; border-radius: 6px;
+    background: rgba(100,130,200,0.2);
+    transition: background 0.4s;
+  }
+  .prog-dot.done { background: linear-gradient(90deg, #667eea, #764ba2); }
+  .prog-dot.active { background: linear-gradient(90deg, #f7971e, #ffd200); }
+  .prog-label { font-size: 11px; color: var(--text-mid); font-weight: 700; margin-left: 4px; }
+
+  /* ─── NEXT/ACTION BUTTONS ─── */
+  .btn-next {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white; border: none; border-radius: 24px;
+    padding: 10px 28px; font-size: 14px; font-weight: 900;
+    cursor: pointer; font-family: 'Nunito', sans-serif;
+    box-shadow: 0 4px 18px rgba(102,126,234,0.4);
+    transition: transform 0.15s, box-shadow 0.15s;
+    display: none; margin-top: 10px;
+  }
+  .btn-next:hover { transform: scale(1.06); box-shadow: 0 6px 24px rgba(102,126,234,0.55); }
+  .btn-next.visible { display: inline-block; }
+
+  /* ─── POPUP TRANSITION ─── */
+  .activity-card { animation: popIn 0.45s cubic-bezier(0.34,1.56,0.64,1); }
+  @keyframes popIn { from{opacity:0;transform:scale(0.85) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
+
+  /* ─── SUCCESS SCREEN ─── */
+  #success-screen {
+    display: none;
+    position: fixed; inset: 0; z-index: 200;
+    background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+    animation: popIn 0.5s ease;
+  }
+  #success-screen.show { display: flex; }
+  .success-title {
+    font-family: 'Baloo 2', cursive;
+    font-size: 48px; font-weight: 900; color: white;
+    text-align: center; line-height: 1.1;
+    text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  .success-sub { font-size: 20px; color: rgba(255,255,255,0.9); font-weight: 700; text-align: center; }
+  .confetti-piece {
+    position: fixed;
+    width: 12px; height: 12px;
+    border-radius: 2px;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0%{transform:translateY(-20px) rotate(0deg);opacity:1}
+    100%{transform:translateY(110vh) rotate(720deg);opacity:0}
+  }
+  .btn-restart {
+    background: white; color: #667eea;
+    border: none; border-radius: 24px;
+    padding: 12px 32px; font-size: 16px; font-weight: 900;
+    cursor: pointer; font-family: 'Nunito', sans-serif;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.2);
+    margin-top: 8px;
+    transition: transform 0.15s;
+  }
+  .btn-restart:hover { transform: scale(1.06); }
+
+  /* ─── TRANSITION OVERLAY ─── */
+  #transition-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    display: none; align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px;
+  }
+  #transition-overlay.show { display: flex; animation: fadeInOut 0.8s ease; }
+  @keyframes fadeInOut { 0%{opacity:0} 30%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
+  .transition-text { font-family: 'Baloo 2',cursive; font-size: 32px; color: white; font-weight: 900; }
+
+  /* Weather effect animations */
+  @keyframes windSway { 0%,100%{transform:rotate(-5deg)} 50%{transform:rotate(5deg)} }
+  .wind-fx { animation: windSway 0.8s ease-in-out infinite; font-size: 50px; position:absolute; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ SKY BACKGROUND ═══════════════ -->
+<div id="sky-canvas">
+  <!-- Sun with rays -->
+  <div class="sun" id="sun">
+    <div class="sun-ray" style="transform:rotate(0deg) translateY(-52px)"></div>
+    <div class="sun-ray" style="transform:rotate(45deg) translateY(-52px)"></div>
+    <div class="sun-ray" style="transform:rotate(90deg) translateY(-52px)"></div>
+    <div class="sun-ray" style="transform:rotate(135deg) translateY(-52px)"></div>
+    <div class="sun-ray" style="transform:rotate(180deg) translateY(-52px)"></div>
+    <div class="sun-ray" style="transform:rotate(225deg) translateY(-52px)"></div>
+    <div class="sun-ray" style="transform:rotate(270deg) translateY(-52px)"></div>
+    <div class="sun-ray" style="transform:rotate(315deg) translateY(-52px)"></div>
+  </div>
+  <!-- Clouds, birds, balloons, rainbow injected by JS -->
+</div>
+
+<!-- ═══════════════ WEATHER FX ═══════════════ -->
+<div id="weather-fx"></div>
+
+<!-- ═══════════════ ACTIVITIES ═══════════════ -->
+<div id="activity-overlay">
+
+  <!-- ── ACTIVITY 1 ── -->
+  <div class="activity-card" id="act1">
+    <div class="progress-strip">
+      <div class="prog-dot active" id="pd1"></div>
+      <div class="prog-dot" id="pd2"></div>
+      <div class="prog-dot" id="pd3"></div>
+      <span class="prog-label">Activity 1 of 3</span>
+    </div>
+    <div class="activity-header">
+      <span class="activity-badge">📋 Activity 1</span>
+      <div class="activity-title">Build Your Week!</div>
+    </div>
+    <p class="activity-sub">Drag the correct weather icon onto each day of the week.</p>
+    <button class="reset-btn" onclick="resetAct1()">↺ Reset</button>
+
+    <div class="drag-palette" id="palette1"></div>
+
+    <div class="week-grid" id="weekGrid1"></div>
+
+    <button class="btn-next" id="next1" onclick="goToAct2()">Next Activity →</button>
+  </div>
+
+  <!-- ── ACTIVITY 2 ── -->
+  <div class="activity-card" id="act2" style="display:none">
+    <div class="progress-strip">
+      <div class="prog-dot done"></div>
+      <div class="prog-dot active"></div>
+      <div class="prog-dot" id="pd3b"></div>
+      <span class="prog-label">Activity 2 of 3</span>
+    </div>
+    <div class="activity-header">
+      <span class="activity-badge" style="background:linear-gradient(135deg,#f7971e,#ffd200);color:#5D2D00">🌡️ Activity 2</span>
+      <div class="activity-title">Match the Temperature!</div>
+    </div>
+    <p class="activity-sub">Drag each temperature card to the matching day in your journal.</p>
+    <button class="reset-btn" onclick="resetAct2()">↺ Reset</button>
+
+    <div class="drag-palette" id="palette2"></div>
+
+    <div class="day-summary" id="daySummary2"></div>
+
+    <button class="btn-next" id="next2" onclick="goToAct3()">Next Activity →</button>
+  </div>
+
+  <!-- ── ACTIVITY 3 ── -->
+  <div class="activity-card" id="act3" style="display:none">
+    <div class="progress-strip">
+      <div class="prog-dot done"></div>
+      <div class="prog-dot done"></div>
+      <div class="prog-dot active"></div>
+      <span class="prog-label">Activity 3 of 3</span>
+    </div>
+    <div class="activity-header">
+      <span class="activity-badge" style="background:linear-gradient(135deg,#1ABC9C,#16A085)">📊 Activity 3</span>
+      <div class="activity-title">Build Your Weather Chart!</div>
+    </div>
+    <p class="activity-sub">Drag each weather count card to the right column to complete your chart.</p>
+    <button class="reset-btn" onclick="resetAct3()">↺ Reset</button>
+
+    <div class="chart-layout">
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <div style="font-size:11px;font-weight:800;color:var(--text-mid);margin-bottom:2px;">Days</div>
+        <div class="chart-y">
+          <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span>
+        </div>
+      </div>
+      <div class="chart-area">
+        <div class="chart-cols" id="chartCols"></div>
+        <div style="display:flex;justify-content:space-around;margin-top:6px;" id="chartLabels"></div>
+      </div>
+      <div class="data-cards" id="dataCards"></div>
+    </div>
+
+    <button class="btn-next" id="next3" onclick="showSuccess()">🎉 See Results!</button>
+  </div>
+
+</div>
+
+<!-- ═══════════════ SUCCESS SCREEN ═══════════════ -->
+<div id="success-screen">
+  <div style="font-size:80px">🌈☀️🌤️🌧️</div>
+  <div class="success-title">You're a Junior<br>Meteorologist! 🌟</div>
+  <div class="success-sub">Amazing work building your Weather Journal!</div>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin-top:8px;">
+    <div style="background:rgba(255,255,255,0.15);border-radius:20px;padding:14px 22px;color:white;font-weight:800;font-size:13px;text-align:center">
+      📋<br>Week Recorded
+    </div>
+    <div style="background:rgba(255,255,255,0.15);border-radius:20px;padding:14px 22px;color:white;font-weight:800;font-size:13px;text-align:center">
+      🌡️<br>Temps Matched
+    </div>
+    <div style="background:rgba(255,255,255,0.15);border-radius:20px;padding:14px 22px;color:white;font-weight:800;font-size:13px;text-align:center">
+      📊<br>Chart Built
+    </div>
+  </div>
+  <button class="btn-restart" onclick="restartAll()">🔄 Start Again</button>
+</div>
+
+<!-- ═══════════════ TRANSITION ═══════════════ -->
+<div id="transition-overlay">
+  <div style="font-size:60px" id="trans-icon">⭐</div>
+  <div class="transition-text" id="trans-text">Great work!</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════════════════════
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+// Predetermined answers for a fun week
+const WEEK_WEATHER = ['sunny','rainy','cloudy','sunny','windy','rainy','sunny'];
+
+const WEATHER_OPTS = [
+  { id:'sunny',  icon:'☀️',  label:'Sunny',  color:'#FFB300' },
+  { id:'rainy',  icon:'🌧️',  label:'Rainy',  color:'#1E88E5' },
+  { id:'cloudy', icon:'☁️',  label:'Cloudy', color:'#78909C' },
+  { id:'windy',  icon:'💨',  label:'Windy',  color:'#26C6DA' },
+];
+
+const TEMP_DATA = {
+  sunny: { label:'Hot 🔥', temp:'36°C', cls:'hot' },
+  rainy: { label:'Cool 🌧️', temp:'22°C', cls:'cool' },
+  cloudy:{ label:'Mild ⛅', temp:'28°C', cls:'mild' },
+  windy: { label:'Breezy 💨', temp:'25°C', cls:'cool' },
+};
+
+// Chart: count occurrences per weather type in WEEK_WEATHER
+const CHART_COUNTS = {};
+WEEK_WEATHER.forEach(w=>{ CHART_COUNTS[w] = (CHART_COUNTS[w]||0)+1; });
+
+const CHART_WEATHER_TYPES = ['sunny','rainy','cloudy','windy'];
+const CHART_COLORS = {
+  sunny:'#FFB300', rainy:'#1E88E5', cloudy:'#78909C', windy:'#26C6DA'
+};
+const MAX_BAR = 4; // max days shown
+
+// ═══════════════════════════════════════════════════════════
+//  SKY BACKGROUND
+// ═══════════════════════════════════════════════════════════
+function buildSky() {
+  const sky = document.getElementById('sky-canvas');
+
+  // Clouds
+  const cloudConfigs = [
+    {w:160,h:55,top:12,delay:0,dur:40,opacity:1},
+    {w:110,h:40,top:8,delay:15,dur:55,opacity:0.9},
+    {w:80,h:30,top:20,delay:28,dur:45,opacity:0.8},
+    {w:190,h:65,top:40,delay:6,dur:60,opacity:0.7},
+    {w:130,h:45,top:35,delay:35,dur:50,opacity:0.85},
+    {w:95,h:35,top:55,delay:20,dur:38,opacity:0.75},
+  ];
+  cloudConfigs.forEach(c=>{
+    const el = document.createElement('div');
+    el.className='cloud';
+    el.style.cssText=`top:${c.top}%;left:-${c.w+20}px;animation-duration:${c.dur}s;animation-delay:-${c.delay}s;opacity:${c.opacity}`;
+    el.innerHTML=`<svg width="${c.w}" height="${c.h}" viewBox="0 0 ${c.w} ${c.h}" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="${c.w*0.5}" cy="${c.h*0.72}" rx="${c.w*0.48}" ry="${c.h*0.32}" fill="white" opacity="0.95"/>
+      <circle cx="${c.w*0.33}" cy="${c.h*0.52}" r="${c.h*0.3}" fill="white"/>
+      <circle cx="${c.w*0.55}" cy="${c.h*0.4}" r="${c.h*0.34}" fill="white"/>
+      <circle cx="${c.w*0.72}" cy="${c.h*0.5}" r="${c.h*0.26}" fill="white"/>
+    </svg>`;
+    sky.appendChild(el);
+  });
+
+  // Birds (V shape)
+  for(let i=0;i<6;i++){
+    const el=document.createElement('div');
+    el.className='bird';
+    el.style.cssText=`top:${8+Math.random()*35}%;left:-60px;animation-duration:${18+Math.random()*14}s;animation-delay:-${Math.random()*20}s`;
+    const sz=14+Math.random()*10;
+    el.innerHTML=`<svg width="${sz*2.5}" height="${sz}" viewBox="0 0 50 20">
+      <path d="M25 10 Q15 2 5 8" stroke="#37474F" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <path d="M25 10 Q35 2 45 8" stroke="#37474F" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    </svg>`;
+    sky.appendChild(el);
+  }
+
+  // Hot air balloons
+  const balloonColors = [
+    ['#FF6B6B','#FFE66D','#4ECDC4'],
+    ['#A8EDEA','#FED6E3','#9B59B6'],
+    ['#f7971e','#ffd200','#1ABC9C'],
+  ];
+  balloonColors.forEach((cols,i)=>{
+    const el=document.createElement('div');
+    el.className='balloon';
+    el.style.cssText=`left:${10+i*28}%;top:${55+i*5}%;animation-duration:${5+i*1.5}s;animation-delay:-${i*2}s`;
+    el.innerHTML=`<svg width="52" height="72" viewBox="0 0 52 72">
+      <ellipse cx="26" cy="28" rx="22" ry="26" fill="${cols[0]}"/>
+      <path d="M4 28 Q26 50 48 28" fill="${cols[1]}" opacity="0.6"/>
+      <path d="M4 20 Q26 38 48 20" fill="${cols[2]}" opacity="0.4"/>
+      <rect x="20" y="52" width="12" height="2" fill="#795548" rx="1"/>
+      <line x1="22" y1="54" x2="20" y2="62" stroke="#795548" stroke-width="1.5"/>
+      <line x1="30" y1="54" x2="32" y2="62" stroke="#795548" stroke-width="1.5"/>
+      <rect x="18" y="62" width="16" height="9" rx="3" fill="#795548"/>
+    </svg>`;
+    sky.appendChild(el);
+  });
+
+  // Rainbow
+  const rb=document.createElement('div');
+  rb.className='rainbow';
+  rb.style.cssText='left:5%;top:8%;animation-duration:10s';
+  rb.innerHTML=`<svg width="220" height="110" viewBox="0 0 220 110">
+    <path d="M10 100 Q110 0 210 100" stroke="#FF0000" stroke-width="7" fill="none" opacity="0.7"/>
+    <path d="M20 100 Q110 12 200 100" stroke="#FF7F00" stroke-width="7" fill="none" opacity="0.7"/>
+    <path d="M30 100 Q110 24 190 100" stroke="#FFFF00" stroke-width="7" fill="none" opacity="0.7"/>
+    <path d="M40 100 Q110 36 180 100" stroke="#00CC00" stroke-width="7" fill="none" opacity="0.7"/>
+    <path d="M50 100 Q110 46 170 100" stroke="#0000FF" stroke-width="7" fill="none" opacity="0.7"/>
+    <path d="M60 100 Q110 56 160 100" stroke="#8B00FF" stroke-width="7" fill="none" opacity="0.7"/>
+  </svg>`;
+  sky.appendChild(rb);
+
+  // Sparkles
+  const sparklePositions=[[15,15],[85,25],[60,10],[40,50],[90,60],[25,70]];
+  sparklePositions.forEach(([x,y],i)=>{
+    const el=document.createElement('div');
+    el.className='sparkle';
+    el.style.cssText=`left:${x}%;top:${y}%;animation-duration:${2+i*0.7}s;animation-delay:-${i*0.5}s`;
+    el.innerHTML='✨';
+    el.style.fontSize='18px';
+    sky.appendChild(el);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DRAG & DROP CORE
+// ═══════════════════════════════════════════════════════════
+let dragging = null;
+let draggingData = null;
+
+function makeDraggable(el, data) {
+  el.addEventListener('dragstart', e => {
+    if(el.classList.contains('used')) { e.preventDefault(); return; }
+    dragging = el;
+    draggingData = data;
+    setTimeout(()=>el.classList.add('dragging'), 0);
+    e.dataTransfer.effectAllowed = 'copy';
+  });
+  el.addEventListener('dragend', () => {
+    el.classList.remove('dragging');
+  });
+}
+
+function makeDroppable(zone, onDrop) {
+  zone.addEventListener('dragover', e => {
+    e.preventDefault();
+    zone.classList.add('drag-over');
+  });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    if(dragging && draggingData !== null) {
+      onDrop(zone, draggingData, dragging);
+    }
+    dragging = null; draggingData = null;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ACTIVITY 1
+// ═══════════════════════════════════════════════════════════
+let act1State = {}; // dayIndex -> weatherId
+let act1Complete = false;
+
+function buildAct1() {
+  act1State = {};
+  act1Complete = false;
+  document.getElementById('next1').classList.remove('visible');
+
+  // Palette: 4 weather icons, each draggable multiple times (copies)
+  const palette = document.getElementById('palette1');
+  palette.innerHTML = '';
+  WEATHER_OPTS.forEach(w => {
+    [0,1].forEach(copy => {
+      const el = document.createElement('div');
+      el.className = 'drag-item';
+      el.draggable = true;
+      el.innerHTML = `<span class="icon">${w.icon}</span><span>${w.label}</span>`;
+      el.style.borderColor = w.color + '60';
+      makeDraggable(el, w.id);
+      palette.appendChild(el);
+    });
+  });
+
+  // Week grid
+  const grid = document.getElementById('weekGrid1');
+  grid.innerHTML = '';
+  DAYS.forEach((day, i) => {
+    const col = document.createElement('div');
+    col.className = 'day-col';
+    col.innerHTML = `<div class="day-label">${day}</div>`;
+    const zone = document.createElement('div');
+    zone.className = 'drop-zone day-zone';
+    zone.dataset.dayIndex = i;
+    zone.innerHTML = `<span class="placeholder">?</span>`;
+    makeDroppable(zone, (z, weatherId, srcEl) => {
+      const correct = WEEK_WEATHER[i];
+      const w = WEATHER_OPTS.find(x=>x.id===weatherId);
+      z.innerHTML = `<span class="dropped-icon">${w.icon}</span>`;
+      if(weatherId === correct) {
+        z.classList.add('correct');
+        z.innerHTML += `<span class="feedback-tick">✅</span>`;
+        act1State[i] = weatherId;
+        checkAct1Complete();
+      } else {
+        z.classList.add('incorrect');
+        z.innerHTML += `<span class="feedback-tick">❌</span>`;
+        setTimeout(()=>{
+          z.classList.remove('incorrect');
+          z.innerHTML = `<span class="placeholder">?</span>`;
+        }, 900);
+      }
+    });
+    col.appendChild(zone);
+    grid.appendChild(col);
+  });
+}
+
+function checkAct1Complete() {
+  if(Object.keys(act1State).length === 7) {
+    document.getElementById('next1').classList.add('visible');
+    act1Complete = true;
+  }
+}
+
+function resetAct1() {
+  act1State = {};
+  act1Complete = false;
+  buildAct1();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ACTIVITY 2
+// ═══════════════════════════════════════════════════════════
+let act2State = {};
+let act2Complete = false;
+
+function buildAct2() {
+  act2State = {};
+  act2Complete = false;
+  document.getElementById('next2').classList.remove('visible');
+  stopWeatherFx();
+
+  // Build palette of temp cards
+  const palette = document.getElementById('palette2');
+  palette.innerHTML = '';
+
+  // Create unique temp cards for each day
+  WEEK_WEATHER.forEach((w, i) => {
+    const td = TEMP_DATA[w];
+    const el = document.createElement('div');
+    el.className = `drag-item temp-card ${td.cls}`;
+    el.draggable = true;
+    el.dataset.dayIndex = i;
+    el.innerHTML = `${td.temp}<br><span style="font-size:10px;opacity:0.85">${DAYS[i]}</span>`;
+    makeDraggable(el, i); // data = dayIndex
+    palette.appendChild(el);
+  });
+
+  // Shuffle palette visually
+  const items = Array.from(palette.children);
+  items.sort(()=>Math.random()-0.5).forEach(el=>palette.appendChild(el));
+
+  // Day summary columns
+  const summary = document.getElementById('daySummary2');
+  summary.innerHTML = '';
+  WEEK_WEATHER.forEach((w, i) => {
+    const wo = WEATHER_OPTS.find(x=>x.id===w);
+    const col = document.createElement('div');
+    col.className = 'summary-col';
+    col.innerHTML = `<div class="summary-weather">${wo.icon}</div>
+      <div class="summary-day-lbl">${DAYS[i]}</div>`;
+    const zone = document.createElement('div');
+    zone.className = 'drop-zone temp-zone';
+    zone.dataset.dayIndex = i;
+    zone.innerHTML = `<span style="font-size:10px;color:#aaa;font-weight:700">drop</span>`;
+    makeDroppable(zone, (z, srcDayIdx, srcEl) => {
+      // correct if same day
+      if(srcDayIdx === i) {
+        const td = TEMP_DATA[w];
+        z.classList.add('correct');
+        z.innerHTML = `<div style="font-size:13px;font-weight:900;color:#27ae60">${td.temp}</div><span class="feedback-tick">✅</span>`;
+        srcEl.classList.add('used');
+        act2State[i] = true;
+        triggerWeatherFx(w);
+        checkAct2Complete();
+      } else {
+        z.classList.add('incorrect');
+        setTimeout(()=>{ z.classList.remove('incorrect'); }, 700);
+      }
+    });
+    col.appendChild(zone);
+    summary.appendChild(col);
+  });
+}
+
+function triggerWeatherFx(weatherType) {
+  const fx = document.getElementById('weather-fx');
+  fx.innerHTML = '';
+  fx.style.display = 'block';
+  if(weatherType === 'rainy') {
+    for(let i=0;i<25;i++){
+      const d=document.createElement('div');
+      d.className='raindrop';
+      d.style.cssText=`left:${Math.random()*100}%;height:${15+Math.random()*20}px;animation-duration:${0.6+Math.random()*0.6}s;animation-delay:${Math.random()*0.5}s;`;
+      fx.appendChild(d);
+    }
+  } else if(weatherType==='sunny') {
+    const s=document.createElement('div');
+    s.className='sunny-fx'; fx.appendChild(s);
+  } else if(weatherType==='cloudy') {
+    ['☁️','⛅','🌤️'].forEach((e,i)=>{
+      const c=document.createElement('div');
+      c.className='cloud-fx';
+      c.style.cssText=`left:${20+i*25}%;top:20%;font-size:50px;animation-delay:${i*0.3}s`;
+      c.textContent=e; fx.appendChild(c);
+    });
+  } else if(weatherType==='windy') {
+    const w=document.createElement('div');
+    w.className='wind-fx'; w.textContent='💨';
+    w.style.cssText='left:30%;top:30%;'; fx.appendChild(w);
+  }
+  setTimeout(stopWeatherFx, 1800);
+}
+
+function stopWeatherFx() {
+  const fx = document.getElementById('weather-fx');
+  fx.style.display='none'; fx.innerHTML='';
+}
+
+function checkAct2Complete() {
+  if(Object.keys(act2State).length === 7) {
+    document.getElementById('next2').classList.add('visible');
+    act2Complete = true;
+  }
+}
+
+function resetAct2() {
+  stopWeatherFx();
+  buildAct2();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ACTIVITY 3
+// ═══════════════════════════════════════════════════════════
+let act3State = {};
+let act3Complete = false;
+
+function buildAct3() {
+  act3State = {};
+  act3Complete = false;
+  document.getElementById('next3').classList.remove('visible');
+
+  const cols = document.getElementById('chartCols');
+  const lbls = document.getElementById('chartLabels');
+  cols.innerHTML = ''; lbls.innerHTML = '';
+
+  const barHeights = {sunny:4, rainy:2, cloudy:1, windy:1}; // bar heights per count
+
+  CHART_WEATHER_TYPES.forEach(type => {
+    const wo = WEATHER_OPTS.find(x=>x.id===type);
+    const count = CHART_COUNTS[type] || 0;
+    const pct = (count / MAX_BAR) * 100;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'chart-col-wrap';
+    wrap.style.height = '160px';
+    wrap.style.justifyContent = 'flex-end';
+    wrap.style.alignItems = 'center';
+    wrap.style.display = 'flex';
+    wrap.style.flexDirection = 'column';
+
+    const zone = document.createElement('div');
+    zone.className = 'chart-bar-zone';
+    zone.dataset.type = type;
+    zone.style.height = '140px';
+    zone.style.width = '100%';
+    zone.innerHTML = `<span style="font-size:11px;color:#aaa;font-weight:700">drop</span>`;
+
+    makeDroppable(zone, (z, draggedType, srcEl) => {
+      if(draggedType === type) {
+        const fill = document.createElement('div');
+        fill.className = 'bar-fill';
+        fill.style.background = `linear-gradient(180deg, ${CHART_COLORS[type]}, ${CHART_COLORS[type]}99)`;
+        fill.style.height = '0%';
+        fill.style.width = '100%';
+        fill.textContent = wo.icon;
+        z.innerHTML = '';
+        z.appendChild(fill);
+        z.classList.add('filled','correct');
+        srcEl.classList.add('used');
+        setTimeout(()=>{ fill.style.height = pct + '%'; }, 50);
+        // Add count badge
+        const badge = document.createElement('div');
+        badge.className = 'count-badge';
+        badge.textContent = count + (count===1?' day':' days');
+        wrap.appendChild(badge);
+        act3State[type] = true;
+        checkAct3Complete();
+      } else {
+        z.classList.add('incorrect');
+        setTimeout(()=>z.classList.remove('incorrect'), 700);
+      }
+    });
+
+    wrap.appendChild(zone);
+    cols.appendChild(wrap);
+
+    const lbl = document.createElement('div');
+    lbl.style.textAlign='center';
+    lbl.style.fontSize='11px';
+    lbl.style.fontWeight='800';
+    lbl.style.color='var(--text-mid)';
+    lbl.innerHTML = `${wo.icon}<br>${wo.label}`;
+    lbls.appendChild(lbl);
+  });
+
+  // Data cards
+  const dc = document.getElementById('dataCards');
+  dc.innerHTML = `<div style="font-size:11px;font-weight:800;color:var(--text-mid);margin-bottom:4px">Drag to chart:</div>`;
+  const shuffled = [...CHART_WEATHER_TYPES].sort(()=>Math.random()-0.5);
+  shuffled.forEach(type => {
+    const wo = WEATHER_OPTS.find(x=>x.id===type);
+    const count = CHART_COUNTS[type] || 0;
+    const el = document.createElement('div');
+    el.className = 'data-card';
+    el.draggable = true;
+    el.innerHTML = `<span class="dc-icon">${wo.icon}</span><span>${wo.label}<br><span style="color:var(--text-mid);font-size:11px">${count} days</span></span>`;
+    el.style.borderColor = CHART_COLORS[type] + '50';
+    makeDraggable(el, type);
+    dc.appendChild(el);
+  });
+}
+
+function checkAct3Complete() {
+  if(Object.keys(act3State).length === 4) {
+    document.getElementById('next3').classList.add('visible');
+    act3Complete = true;
+  }
+}
+
+function resetAct3() {
+  buildAct3();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════════════
+function showTransition(icon, text, cb) {
+  const ov = document.getElementById('transition-overlay');
+  document.getElementById('trans-icon').textContent = icon;
+  document.getElementById('trans-text').textContent = text;
+  ov.classList.add('show');
+  ov.style.display = 'flex';
+  setTimeout(()=>{
+    ov.style.display = 'none';
+    ov.classList.remove('show');
+    cb();
+  }, 900);
+}
+
+function goToAct2() {
+  showTransition('⭐', 'Activity 1 complete!', () => {
+    document.getElementById('act1').style.display = 'none';
+    document.getElementById('act2').style.display = 'block';
+    document.getElementById('act2').style.animation = 'none';
+    void document.getElementById('act2').offsetWidth;
+    document.getElementById('act2').style.animation = '';
+  });
+}
+
+function goToAct3() {
+  showTransition('🌟', 'Activity 2 complete!', () => {
+    document.getElementById('act2').style.display = 'none';
+    document.getElementById('act3').style.display = 'block';
+    document.getElementById('act3').style.animation = 'none';
+    void document.getElementById('act3').offsetWidth;
+    document.getElementById('act3').style.animation = '';
+  });
+}
+
+function showSuccess() {
+  showTransition('🎊', 'All done!', () => {
+    document.getElementById('act3').style.display = 'none';
+    launchConfetti();
+    const ss = document.getElementById('success-screen');
+    ss.classList.add('show');
+  });
+}
+
+function launchConfetti() {
+  const colors = ['#FF6B6B','#FFE66D','#4ECDC4','#667eea','#A8EDEA','#f7971e','#FF6B9D','#1ABC9C'];
+  for(let i=0;i<70;i++){
+    const el=document.createElement('div');
+    el.className='confetti-piece';
+    el.style.cssText=`left:${Math.random()*100}vw;top:-20px;background:${colors[i%colors.length]};
+      width:${8+Math.random()*10}px;height:${8+Math.random()*10}px;
+      animation-duration:${2+Math.random()*2}s;animation-delay:${Math.random()*1.5}s;
+      border-radius:${Math.random()>0.5?'50%':'3px'};`;
+    document.getElementById('success-screen').appendChild(el);
+  }
+}
+
+function restartAll() {
+  document.getElementById('success-screen').classList.remove('show');
+  document.getElementById('act2').style.display='none';
+  document.getElementById('act3').style.display='none';
+  document.getElementById('act1').style.display='block';
+  // Remove confetti
+  document.querySelectorAll('.confetti-piece').forEach(e=>e.remove());
+  buildAct1();
+  buildAct2();
+  buildAct3();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+buildSky();
+buildAct1();
+buildAct2();
+buildAct3();
+</script>
+</body>
+</html>

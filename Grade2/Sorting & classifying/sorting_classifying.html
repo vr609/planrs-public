@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sorting & Classifying</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+    background: linear-gradient(160deg, #2d1b4e, #4a2d7d, #6b3fa0, #8b5fbf);
+    background-size: 400% 400%;
+    animation: bgShift 18s ease infinite;
+    color: #fff;
+    min-height: 100vh;
+    overflow-x: hidden;
+    padding-bottom: 60px;
+  }
+  @keyframes bgShift {
+    0%,100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  /* Floating decorations */
+  .deco { position: fixed; pointer-events: none; z-index: 0; opacity: 0.85; }
+  .star { animation: floatStar linear infinite; }
+  @keyframes floatStar {
+    0% { transform: translateY(110vh) rotate(0deg); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+  }
+  .bird { animation: flyBird linear infinite; }
+  @keyframes flyBird {
+    0% { transform: translateX(-10vw) translateY(0px); }
+    50% { transform: translateX(55vw) translateY(-40px); }
+    100% { transform: translateX(110vw) translateY(10px); }
+  }
+  .flap { animation: flap 0.4s ease-in-out infinite alternate; transform-origin: center; }
+  @keyframes flap {
+    0% { transform: scaleY(1); }
+    100% { transform: scaleY(0.5); }
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 2.6rem;
+    margin: 1.2rem 0 0.3rem;
+    letter-spacing: 1px;
+    text-shadow: 0 0 12px rgba(255,255,255,0.5), 0 0 24px rgba(216,160,255,0.6);
+    color: #ffe6ff;
+    animation: glow 3s ease-in-out infinite alternate;
+    position: relative;
+    z-index: 2;
+  }
+  @keyframes glow {
+    from { text-shadow: 0 0 8px rgba(255,255,255,0.4), 0 0 18px rgba(216,160,255,0.5); }
+    to { text-shadow: 0 0 18px rgba(255,255,255,0.8), 0 0 36px rgba(216,160,255,0.9); }
+  }
+
+  .activity {
+    max-width: 900px;
+    margin: 2rem auto;
+    background: rgba(255,255,255,0.08);
+    border: 2px solid rgba(255,255,255,0.25);
+    border-radius: 20px;
+    padding: 1.5rem 1.5rem 2rem;
+    backdrop-filter: blur(6px);
+    position: relative;
+    z-index: 2;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  }
+  .activity h2 {
+    text-align: center;
+    font-size: 1.6rem;
+    color: #ffd9ff;
+    margin-top: 0;
+    text-shadow: 0 0 10px rgba(255,255,255,0.4);
+  }
+  .activity p.instr {
+    text-align: center;
+    color: #e6d9ff;
+    margin-top: -8px;
+    margin-bottom: 1.2rem;
+    font-size: 0.95rem;
+  }
+
+  /* Drag items pool */
+  .pool {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    min-height: 60px;
+    padding: 10px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.05);
+    border: 2px dashed rgba(255,255,255,0.3);
+  }
+  .item {
+    padding: 10px 16px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #b388ff, #7c4dff);
+    color: #2a0a4a;
+    font-weight: bold;
+    cursor: grab;
+    user-select: none;
+    box-shadow: 0 4px 10px rgba(124,77,255,0.5);
+    transition: transform 0.2s, box-shadow 0.2s;
+    font-size: 1.1rem;
+    border: 2px solid #fff;
+  }
+  .item:active { cursor: grabbing; }
+  .item:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 6px 16px rgba(255,255,255,0.6); }
+  .item.dragging { opacity: 0.4; }
+
+  /* Bins / zones */
+  .zones {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+  .zone {
+    min-height: 140px;
+    border-radius: 16px;
+    border: 3px dashed rgba(255,255,255,0.5);
+    background: rgba(255,255,255,0.07);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: background 0.3s, border-color 0.3s, transform 0.2s;
+  }
+  .zone h3 {
+    margin: 0 0 8px;
+    font-size: 1.1rem;
+    color: #fff0ff;
+    text-shadow: 0 0 6px rgba(255,255,255,0.4);
+  }
+  .zone .dropped {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+  .zone.over {
+    background: rgba(255,255,255,0.25);
+    border-color: #ffe082;
+    transform: scale(1.02);
+  }
+  .zone.correct-flash {
+    animation: correctPulse 0.6s ease;
+  }
+  @keyframes correctPulse {
+    0% { background: rgba(118, 255, 165, 0.5); }
+    100% { background: rgba(255,255,255,0.07); }
+  }
+  .zone.wrong-flash {
+    animation: wrongPulse 0.6s ease;
+  }
+  @keyframes wrongPulse {
+    0% { background: rgba(255, 99, 99, 0.5); }
+    100% { background: rgba(255,255,255,0.07); }
+  }
+
+  .placed-item {
+    padding: 8px 14px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #ffd180, #ff9e80);
+    color: #4a1500;
+    font-weight: bold;
+    font-size: 1rem;
+    border: 2px solid #fff;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+    animation: popIn 0.4s ease;
+  }
+  @keyframes popIn {
+    0% { transform: scale(0); opacity: 0; }
+    70% { transform: scale(1.15); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* Chain reaction effect for activity 3 */
+  .chain-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 1.5rem 0 0.5rem;
+    flex-wrap: wrap;
+  }
+  .gear {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #ffd54f 40%, #ff9800 100%);
+    border: 3px solid #fff3e0;
+    position: relative;
+    transition: transform 0.3s;
+  }
+  .gear.spin { animation: spin 1.2s linear infinite; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .gear::before, .gear::after {
+    content: '';
+    position: absolute;
+    background: #ffd54f;
+    border: 1px solid #fff3e0;
+  }
+  .gear::before { width: 10px; height: 10px; top: -5px; left: 13px; }
+  .gear::after { width: 10px; height: 10px; bottom: -5px; left: 13px; }
+
+  .feedback {
+    text-align: center;
+    margin-top: 1rem;
+    font-size: 1.1rem;
+    min-height: 28px;
+    font-weight: bold;
+    color: #fffde7;
+  }
+
+  .progress-wrap {
+    max-width: 900px;
+    margin: 1.5rem auto 0;
+    text-align: center;
+    position: relative;
+    z-index: 2;
+  }
+  .progress-bar-bg {
+    background: rgba(255,255,255,0.2);
+    border-radius: 20px;
+    height: 16px;
+    overflow: hidden;
+    border: 2px solid rgba(255,255,255,0.4);
+  }
+  .progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #ff80ab, #b388ff, #80d8ff);
+    transition: width 0.6s ease;
+    border-radius: 20px;
+  }
+  .progress-label { margin-top: 6px; font-size: 0.9rem; color: #f3e5f5; }
+
+  .reset-btn {
+    display: block;
+    margin: 1.5rem auto;
+    padding: 10px 28px;
+    font-size: 1rem;
+    font-weight: bold;
+    border-radius: 30px;
+    border: 2px solid #fff;
+    background: linear-gradient(135deg, #ff80ab, #7c4dff);
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+    transition: transform 0.2s;
+    position: relative;
+    z-index: 2;
+  }
+  .reset-btn:hover { transform: scale(1.06); }
+
+  .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.15);
+    font-size: 0.8rem;
+    margin-left: 6px;
+    border: 1px solid rgba(255,255,255,0.4);
+  }
+
+  /* Star burst for celebration */
+  .celebrate {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 4rem;
+    pointer-events: none;
+    z-index: 50;
+    opacity: 0;
+  }
+  .celebrate.show {
+    animation: burst 1.2s ease-out forwards;
+  }
+  @keyframes burst {
+    0% { opacity: 0; transform: translate(-50%,-50%) scale(0.3); }
+    30% { opacity: 1; transform: translate(-50%,-50%) scale(1.3); }
+    100% { opacity: 0; transform: translate(-50%,-50%) scale(2); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Decorative floating stars -->
+<svg class="deco star" style="left:5%; width:30px; height:30px; animation-duration:9s; animation-delay:0s;" viewBox="0 0 24 24" fill="#fff59d"><path d="M12 .587l3.668 7.431L24 9.748l-6 5.847L19.335 24 12 19.897 4.665 24 6 15.595 0 9.748l8.332-1.73z"/></svg>
+<svg class="deco star" style="left:20%; width:18px; height:18px; animation-duration:7s; animation-delay:2s;" viewBox="0 0 24 24" fill="#ffe082"><path d="M12 .587l3.668 7.431L24 9.748l-6 5.847L19.335 24 12 19.897 4.665 24 6 15.595 0 9.748l8.332-1.73z"/></svg>
+<svg class="deco star" style="left:80%; width:26px; height:26px; animation-duration:11s; animation-delay:1s;" viewBox="0 0 24 24" fill="#fff9c4"><path d="M12 .587l3.668 7.431L24 9.748l-6 5.847L19.335 24 12 19.897 4.665 24 6 15.595 0 9.748l8.332-1.73z"/></svg>
+<svg class="deco star" style="left:65%; width:14px; height:14px; animation-duration:6s; animation-delay:3s;" viewBox="0 0 24 24" fill="#fff59d"><path d="M12 .587l3.668 7.431L24 9.748l-6 5.847L19.335 24 12 19.897 4.665 24 6 15.595 0 9.748l8.332-1.73z"/></svg>
+<svg class="deco star" style="left:40%; width:22px; height:22px; animation-duration:10s; animation-delay:4s;" viewBox="0 0 24 24" fill="#ffecb3"><path d="M12 .587l3.668 7.431L24 9.748l-6 5.847L19.335 24 12 19.897 4.665 24 6 15.595 0 9.748l8.332-1.73z"/></svg>
+
+<!-- Flying bird -->
+<svg class="deco bird" style="top:8%; width:60px; height:40px; animation-duration:22s;" viewBox="0 0 100 60">
+  <g class="flap">
+    <path d="M50 30 Q30 0 5 20 Q30 25 50 30 Q70 25 95 20 Q70 0 50 30 Z" fill="#ffccff" opacity="0.9"/>
+  </g>
+</svg>
+<svg class="deco bird" style="top:25%; width:40px; height:28px; animation-duration:30s; animation-delay:5s;" viewBox="0 0 100 60">
+  <g class="flap">
+    <path d="M50 30 Q30 0 5 20 Q30 25 50 30 Q70 25 95 20 Q70 0 50 30 Z" fill="#e1bee7" opacity="0.85"/>
+  </g>
+</svg>
+
+<h1>Sorting & Classifying</h1>
+
+<!-- ACTIVITY 1: Sort by category -->
+<div class="activity" id="act1">
+  <h2>🪐 Activity 1 — Sort the items into the right group</h2>
+  <p class="instr">Drag each card into the matching category basket below.</p>
+
+  <div class="pool" id="pool1"></div>
+
+  <div class="zones" id="zones1">
+    <div class="zone" data-category="Animals">
+      <h3>🐾 Animals</h3>
+      <div class="dropped"></div>
+    </div>
+    <div class="zone" data-category="Fruits">
+      <h3>🍎 Fruits</h3>
+      <div class="dropped"></div>
+    </div>
+    <div class="zone" data-category="Shapes">
+      <h3>🔺 Shapes</h3>
+      <div class="dropped"></div>
+    </div>
+  </div>
+  <div class="feedback" id="feedback1"></div>
+</div>
+
+<!-- ACTIVITY 2: Order by size (smallest to largest) -->
+<div class="activity" id="act2">
+  <h2>⭐ Activity 2 — Arrange from smallest to largest</h2>
+  <p class="instr">Drag the items into the slots, ordering them from smallest to largest.</p>
+
+  <div class="pool" id="pool2"></div>
+
+  <div class="zones" id="zones2" style="grid-template-columns: repeat(5, 1fr);">
+    <div class="zone" data-order="0"><h3>1st (smallest)</h3><div class="dropped"></div></div>
+    <div class="zone" data-order="1"><h3>2nd</h3><div class="dropped"></div></div>
+    <div class="zone" data-order="2"><h3>3rd</h3><div class="dropped"></div></div>
+    <div class="zone" data-order="3"><h3>4th</h3><div class="dropped"></div></div>
+    <div class="zone" data-order="4"><h3>5th (largest)</h3><div class="dropped"></div></div>
+  </div>
+  <div class="feedback" id="feedback2"></div>
+</div>
+
+<!-- ACTIVITY 3: Living vs Non-living -> Chain reaction -->
+<div class="activity" id="act3">
+  <h2>⚙️ Activity 3 — Living or Non-Living? Power the chain reaction!</h2>
+  <p class="instr">Sort each item correctly to power up the gear chain. Every correct match starts a gear spinning!</p>
+
+  <div class="pool" id="pool3"></div>
+
+  <div class="zones" id="zones3" style="grid-template-columns: repeat(2, 1fr);">
+    <div class="zone" data-category="Living"><h3>🌱 Living</h3><div class="dropped"></div></div>
+    <div class="zone" data-category="Non-living"><h3>🪨 Non-living</h3><div class="dropped"></div></div>
+  </div>
+
+  <div class="chain-row" id="gearChain">
+    <div class="gear" id="gear0"></div>
+    <div class="gear" id="gear1"></div>
+    <div class="gear" id="gear2"></div>
+    <div class="gear" id="gear3"></div>
+    <div class="gear" id="gear4"></div>
+    <div class="gear" id="gear5"></div>
+  </div>
+  <div class="feedback" id="feedback3"></div>
+</div>
+
+<!-- Progress -->
+<div class="progress-wrap">
+  <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+  <div class="progress-label" id="progressLabel">0 / 14 placed correctly <span class="badge" id="scoreBadge">Score: 0</span></div>
+</div>
+
+<button class="reset-btn" onclick="resetAll()">🔄 Reset All Activities</button>
+
+<div class="celebrate" id="celebrate">🎉⭐🎉</div>
+
+<script>
+let totalCorrect = 0;
+const totalNeeded = 14; // 5 (act1) + 5 (act2) + 4 (act3)
+
+/* ============ ACTIVITY 1 DATA ============ */
+const act1Items = [
+  { label: "🐶 Dog", category: "Animals" },
+  { label: "🐱 Cat", category: "Animals" },
+  { label: "🍌 Banana", category: "Fruits" },
+  { label: "🍇 Grapes", category: "Fruits" },
+  { label: "⭐ Star shape", category: "Shapes" }
+];
+
+/* ============ ACTIVITY 2 DATA (order by size) ============ */
+const act2Items = [
+  { label: "🐜 Ant", order: 0 },
+  { label: "🐭 Mouse", order: 1 },
+  { label: "🐶 Dog", order: 2 },
+  { label: "🐴 Horse", order: 3 },
+  { label: "🐘 Elephant", order: 4 }
+];
+
+/* ============ ACTIVITY 3 DATA ============ */
+const act3Items = [
+  { label: "🌳 Tree", category: "Living" },
+  { label: "🐦 Bird", category: "Non-living" === "x" ? "" : "Living" },
+  { label: "🪑 Chair", category: "Non-living" },
+  { label: "🪨 Rock", category: "Non-living" }
+];
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function makeItem(label, dataAttrs) {
+  const div = document.createElement('div');
+  div.className = 'item';
+  div.draggable = true;
+  div.textContent = label;
+  Object.entries(dataAttrs).forEach(([k,v]) => div.dataset[k] = v);
+  div.addEventListener('dragstart', dragStart);
+  div.addEventListener('dragend', dragEnd);
+  return div;
+}
+
+function dragStart(e) {
+  e.dataTransfer.setData('text/plain', '');
+  e.target.classList.add('dragging');
+  window.__draggedEl = e.target;
+}
+function dragEnd(e) {
+  e.target.classList.remove('dragging');
+}
+
+function setupZones(zonesContainerId, matchFn, feedbackId, onCorrectExtra) {
+  const zones = document.querySelectorAll('#' + zonesContainerId + ' .zone');
+  zones.forEach(zone => {
+    zone.addEventListener('dragover', e => {
+      e.preventDefault();
+      zone.classList.add('over');
+    });
+    zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('over');
+      const el = window.__draggedEl;
+      if (!el) return;
+      const isCorrect = matchFn(zone, el);
+      const feedback = document.getElementById(feedbackId);
+      if (isCorrect) {
+        // move element
+        el.classList.remove('item');
+        el.classList.add('placed-item');
+        el.draggable = false;
+        zone.querySelector('.dropped').appendChild(el);
+        zone.classList.add('correct-flash');
+        setTimeout(() => zone.classList.remove('correct-flash'), 600);
+        feedback.textContent = "✅ Great job! That's correct!";
+        feedback.style.color = '#c8ffc8';
+        totalCorrect++;
+        updateProgress();
+        if (onCorrectExtra) onCorrectExtra();
+        if (totalCorrect === totalNeeded) celebrateAll();
+      } else {
+        zone.classList.add('wrong-flash');
+        setTimeout(() => zone.classList.remove('wrong-flash'), 600);
+        feedback.textContent = "❌ Not quite — try another basket!";
+        feedback.style.color = '#ffd0d0';
+      }
+    });
+  });
+}
+
+function updateProgress() {
+  const pct = Math.min(100, (totalCorrect / totalNeeded) * 100);
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').innerHTML =
+    totalCorrect + ' / ' + totalNeeded + ' placed correctly <span class="badge" id="scoreBadge">Score: ' + totalCorrect + '</span>';
+}
+
+function celebrateAll() {
+  const el = document.getElementById('celebrate');
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+}
+
+/* ---- Build Activity 1 ---- */
+function buildAct1() {
+  const pool = document.getElementById('pool1');
+  pool.innerHTML = '';
+  document.querySelectorAll('#zones1 .dropped').forEach(d => d.innerHTML = '');
+  shuffle(act1Items).forEach(it => {
+    pool.appendChild(makeItem(it.label, { category: it.category }));
+  });
+}
+setupZones('zones1', (zone, el) => zone.dataset.category === el.dataset.category, 'feedback1');
+
+/* ---- Build Activity 2 ---- */
+function buildAct2() {
+  const pool = document.getElementById('pool2');
+  pool.innerHTML = '';
+  document.querySelectorAll('#zones2 .dropped').forEach(d => d.innerHTML = '');
+  shuffle(act2Items).forEach(it => {
+    pool.appendChild(makeItem(it.label, { order: it.order }));
+  });
+}
+setupZones('zones2', (zone, el) => {
+  if (zone.querySelector('.dropped').children.length > 0) return false;
+  return zone.dataset.order === el.dataset.order;
+}, 'feedback2');
+
+/* ---- Build Activity 3 with chain reaction ---- */
+let gearsLit = 0;
+function buildAct3() {
+  gearsLit = 0;
+  document.querySelectorAll('#gearChain .gear').forEach(g => g.classList.remove('spin'));
+  const pool = document.getElementById('pool3');
+  pool.innerHTML = '';
+  document.querySelectorAll('#zones3 .dropped').forEach(d => d.innerHTML = '');
+  shuffle(act3Items).forEach(it => {
+    pool.appendChild(makeItem(it.label, { category: it.category }));
+  });
+}
+setupZones('zones3', (zone, el) => zone.dataset.category === el.dataset.category, 'feedback3', () => {
+  if (gearsLit < 6) {
+    document.getElementById('gear' + gearsLit).classList.add('spin');
+    gearsLit++;
+  }
+});
+
+function resetAll() {
+  totalCorrect = 0;
+  updateProgress();
+  document.getElementById('feedback1').textContent = '';
+  document.getElementById('feedback2').textContent = '';
+  document.getElementById('feedback3').textContent = '';
+  document.getElementById('celebrate').classList.remove('show');
+  buildAct1();
+  buildAct2();
+  buildAct3();
+}
+
+resetAll();
+</script>
+</body>
+</html>

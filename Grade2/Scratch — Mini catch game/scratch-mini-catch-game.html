@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scratch — Mini catch game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg1:#1e0a3c;
+    --bg2:#3a1772;
+    --bg3:#6d33e0;
+    --bg4:#9a5cf5;
+    --pale:#f3eaff;
+    --gold:#ffd966;
+    --pink:#ff8fd0;
+    --cyan:#5ce1e6;
+    --green:#6ee7b7;
+    --orange:#ffab40;
+    --red:#ff6b6b;
+
+    --c-events:#ffd966;
+    --c-motion:#7a93ff;
+    --c-control:#ffab40;
+    --c-sensing:#5ce1e6;
+    --c-variables:#ff8fa3;
+    --c-sound:#cf8bff;
+  }
+
+  *{ box-sizing:border-box; }
+
+  html,body{
+    margin:0;
+    min-height:100vh;
+    font-family:'Poppins', sans-serif;
+    color:#fff;
+  }
+
+  body{
+    background: linear-gradient(135deg, var(--bg1), var(--bg2), var(--bg3), var(--bg2), var(--bg1));
+    background-size:400% 400%;
+    animation: bgShift 28s ease infinite;
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  @keyframes bgShift{
+    0%,100%{ background-position:0% 50%; }
+    50%{ background-position:100% 50%; }
+  }
+
+  /* ---------- Decorative sky layers ---------- */
+  #starField, #birdField{
+    position:fixed; inset:0;
+    pointer-events:none;
+    z-index:0;
+    overflow:hidden;
+  }
+
+  .star{
+    position:absolute;
+    background:#fff;
+    border-radius:50%;
+    animation:twinkle ease-in-out infinite;
+  }
+  @keyframes twinkle{
+    0%,100%{ opacity:.15; transform:scale(.7); }
+    50%{ opacity:1; transform:scale(1.3); }
+  }
+
+  .shooting-star{
+    position:absolute;
+    width:4px; height:4px;
+    background:var(--gold);
+    border-radius:50%;
+    box-shadow:0 0 8px 2px rgba(255,217,102,.85);
+    animation:shoot linear infinite;
+  }
+  .shooting-star::after{
+    content:"";
+    position:absolute;
+    top:1px; left:1px;
+    width:90px; height:2px;
+    background:linear-gradient(90deg, rgba(255,217,102,.9), transparent);
+    transform:rotate(145deg);
+    transform-origin:left center;
+  }
+  @keyframes shoot{
+    0%{ transform:translate(0,0); opacity:1; }
+    75%{ opacity:1; }
+    100%{ transform:translate(-58vw, 60vh); opacity:0; }
+  }
+
+  .bird{
+    position:absolute;
+    left:-60px;
+    font-size:1.8rem;
+    animation:flyAcross linear infinite;
+    filter:drop-shadow(0 2px 5px rgba(0,0,0,.35));
+  }
+  @keyframes flyAcross{
+    0%{ left:-60px; transform:translateY(0); }
+    25%{ transform:translateY(-18px); }
+    50%{ transform:translateY(2px); }
+    75%{ transform:translateY(-14px); }
+    100%{ left:110%; transform:translateY(0); }
+  }
+
+  /* ---------- Header ---------- */
+  header{
+    text-align:center;
+    padding:38px 16px 14px;
+    position:relative;
+    z-index:2;
+  }
+  h1{
+    font-family:'Baloo 2', cursive;
+    font-weight:800;
+    font-size:clamp(1.9rem, 5.2vw, 3.1rem);
+    margin:0;
+    letter-spacing:1px;
+    display:inline-block;
+    background:linear-gradient(135deg, #fff, var(--pink) 45%, var(--gold) 100%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
+    animation:titleGlow 3.2s ease-in-out infinite;
+  }
+  @keyframes titleGlow{
+    0%,100%{ filter:drop-shadow(0 0 6px rgba(255,255,255,.35)); transform:scale(1); }
+    50%{ filter:drop-shadow(0 0 22px rgba(255,143,208,.65)); transform:scale(1.015); }
+  }
+
+  /* ---------- Tabs ---------- */
+  .tabs{
+    display:flex;
+    justify-content:center;
+    gap:12px;
+    flex-wrap:wrap;
+    padding:6px 16px 26px;
+    position:relative;
+    z-index:2;
+  }
+  .tab-btn{
+    font-family:'Baloo 2', cursive;
+    font-weight:700;
+    font-size:.98rem;
+    padding:12px 22px;
+    border:2px solid rgba(255,255,255,.25);
+    border-radius:50px;
+    background:rgba(255,255,255,.10);
+    color:#fff;
+    cursor:pointer;
+    position:relative;
+    transition:all .25s;
+    backdrop-filter:blur(4px);
+  }
+  .tab-btn:hover{ background:rgba(255,255,255,.2); transform:translateY(-2px); }
+  .tab-btn.active{
+    background:linear-gradient(135deg, var(--pink), var(--gold));
+    color:#3b1147;
+    border-color:transparent;
+    box-shadow:0 8px 20px rgba(0,0,0,.3);
+  }
+  .done-badge{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:20px; height:20px; border-radius:50%;
+    background:var(--green); color:#0d3b2a;
+    font-size:.72rem; font-weight:800;
+    margin-left:8px; vertical-align:middle;
+  }
+
+  /* ---------- Main / cards ---------- */
+  main{
+    max-width:1020px;
+    margin:0 auto;
+    padding:0 16px 70px;
+    position:relative;
+    z-index:2;
+  }
+  .activity{ display:none; }
+  .activity.active{ display:block; animation:fadeIn .45s ease; }
+  @keyframes fadeIn{
+    from{ opacity:0; transform:translateY(12px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  .card{
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.18);
+    backdrop-filter:blur(10px);
+    border-radius:26px;
+    padding:26px;
+    box-shadow:0 14px 45px rgba(0,0,0,.28);
+  }
+  .card h2{
+    font-family:'Baloo 2', cursive;
+    margin:0 0 6px;
+    font-size:1.5rem;
+    display:flex; align-items:center; gap:10px;
+  }
+  .card p.desc{ opacity:.92; margin:0 0 20px; line-height:1.5; }
+
+  .twinkle-icon{
+    display:inline-block;
+    animation:bobble 2.6s ease-in-out infinite;
+  }
+  @keyframes bobble{
+    0%,100%{ transform:translateY(0) rotate(0deg); }
+    50%{ transform:translateY(-6px) rotate(12deg); }
+  }
+
+  /* ---------- Generic block style ---------- */
+  .tray{
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    justify-content:center;
+    padding:18px;
+    border-radius:16px;
+    background:rgba(255,255,255,.05);
+    border:1px dashed rgba(255,255,255,.25);
+    margin-bottom:20px;
+    min-height:76px;
+  }
+
+  .block{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:11px 18px 11px 24px;
+    border-radius:10px;
+    font-weight:600;
+    font-size:.92rem;
+    color:#241147;
+    cursor:grab;
+    position:relative;
+    box-shadow:0 3px 0 rgba(0,0,0,.18), 0 6px 14px rgba(0,0,0,.22);
+    user-select:none;
+    touch-action:none;
+    transition:transform .15s ease, box-shadow .15s ease;
+    line-height:1.3;
+  }
+  .block::before{
+    content:"";
+    position:absolute;
+    left:-6px; top:50%;
+    transform:translateY(-50%);
+    width:13px; height:13px;
+    border-radius:50%;
+    background:inherit;
+    filter:brightness(0.9);
+  }
+  .block:hover{ transform:translateY(-2px) scale(1.02); }
+  .block.dragging{
+    transform:scale(1.08) rotate(-2deg);
+    box-shadow:0 14px 28px rgba(0,0,0,.4);
+    cursor:grabbing;
+  }
+  .block.locked{ cursor:default; opacity:.95; }
+  .block.locked:hover{ transform:none; }
+
+  .cat-events{ background:var(--c-events); }
+  .cat-motion{ background:var(--c-motion); color:#fff; }
+  .cat-control{ background:var(--c-control); }
+  .cat-sensing{ background:var(--c-sensing); }
+  .cat-variables{ background:var(--c-variables); }
+  .cat-sound{ background:var(--c-sound); color:#fff; }
+
+  /* ---------- Activity 1 : script slots ---------- */
+  .script-slots{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    max-width:560px;
+    margin:0 auto;
+    padding-left:36px;
+  }
+  .slot{
+    min-height:58px;
+    border:3px dashed rgba(255,255,255,.35);
+    border-radius:14px;
+    display:flex;
+    align-items:center;
+    padding:6px;
+    position:relative;
+    background:rgba(255,255,255,.05);
+    transition:border-color .2s, background .2s;
+  }
+  .slot .slot-number{
+    position:absolute; left:-40px; top:50%; transform:translateY(-50%);
+    width:28px; height:28px; border-radius:50%;
+    background:var(--gold); color:#3b1f6b;
+    font-weight:800; font-family:'Baloo 2',cursive;
+    display:flex; align-items:center; justify-content:center;
+    font-size:.9rem;
+    box-shadow:0 3px 8px rgba(0,0,0,.25);
+  }
+  .slot.over{ border-color:var(--gold); background:rgba(255,217,102,.15); }
+  .slot.correct{ border-color:var(--green); animation:correctPulse .6s ease; }
+  .slot.incorrect{ border-color:var(--red); animation:shake .4s ease; }
+
+  /* ---------- Activity 2 : matching ---------- */
+  .match-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:24px;
+  }
+  .match-col h3{
+    font-family:'Baloo 2',cursive;
+    font-size:1rem;
+    margin:0 0 10px;
+    text-align:center;
+    opacity:.9;
+  }
+  .match-col-inner{
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .job-zone{
+    border:2px dashed rgba(255,255,255,.35);
+    border-radius:14px;
+    padding:12px 14px;
+    min-height:58px;
+    display:flex; align-items:center; gap:10px;
+    font-size:.86rem;
+    background:rgba(255,255,255,.06);
+    transition:all .2s;
+    line-height:1.35;
+  }
+  .job-zone.over{ border-color:var(--gold); background:rgba(255,217,102,.12); }
+  .job-zone.matched{ border-color:var(--green); background:rgba(110,231,183,.12); animation:correctPulse .6s ease; }
+  .job-zone.shake{ animation:shake .4s ease; border-color:var(--red); }
+
+  /* ---------- Activity 3 : bins ---------- */
+  .bins{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:14px;
+    margin-top:6px;
+  }
+  .bin{
+    border:3px dashed rgba(255,255,255,.35);
+    border-radius:18px;
+    min-height:150px;
+    padding:12px;
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+    background:rgba(255,255,255,.05);
+    transition:all .2s;
+  }
+  .bin h3{
+    margin:0;
+    font-family:'Baloo 2',cursive;
+    font-size:.92rem;
+    text-align:center;
+    display:flex; align-items:center; gap:6px;
+  }
+  .bin .bin-items{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+  .bin .bin-items .block{ font-size:.78rem; padding:8px 12px 8px 18px; }
+  .bin.over{ border-color:var(--gold); background:rgba(255,217,102,.12); }
+  .bin.shake{ animation:shake .4s ease; border-color:var(--red); }
+
+  .bin-motion{ border-color:rgba(122,147,255,.55); }
+  .bin-events{ border-color:rgba(255,217,102,.55); }
+  .bin-control{ border-color:rgba(255,171,64,.55); }
+  .bin-sensing{ border-color:rgba(92,225,230,.55); }
+
+  /* ---------- Controls / feedback ---------- */
+  .controls{
+    display:flex;
+    gap:12px;
+    justify-content:center;
+    margin-top:22px;
+    flex-wrap:wrap;
+  }
+  .btn{
+    font-family:'Baloo 2',cursive;
+    font-weight:700;
+    border:none;
+    color:#2b0f54;
+    padding:11px 26px;
+    border-radius:30px;
+    cursor:pointer;
+    font-size:.95rem;
+    box-shadow:0 6px 16px rgba(0,0,0,.25);
+    transition:transform .15s;
+    background:linear-gradient(135deg, var(--pink), var(--gold));
+  }
+  .btn:hover{ transform:translateY(-2px) scale(1.03); }
+  .btn:active{ transform:translateY(1px) scale(.98); }
+  .btn.secondary{
+    background:rgba(255,255,255,.14);
+    color:#fff;
+    border:1px solid rgba(255,255,255,.3);
+  }
+
+  .feedback{
+    min-height:30px;
+    font-weight:700;
+    margin-top:16px;
+    text-align:center;
+    font-family:'Baloo 2',cursive;
+    font-size:1.05rem;
+  }
+  .feedback.success{ color:var(--green); }
+  .feedback.error{ color:#ffb3b8; }
+
+  /* ---------- Shared animations ---------- */
+  @keyframes shake{
+    0%,100%{ transform:translateX(0); }
+    20%{ transform:translateX(-8px); }
+    40%{ transform:translateX(8px); }
+    60%{ transform:translateX(-6px); }
+    80%{ transform:translateX(6px); }
+  }
+  @keyframes correctPulse{
+    0%{ box-shadow:0 0 0 0 rgba(110,231,183,.7); }
+    70%{ box-shadow:0 0 0 16px rgba(110,231,183,0); }
+    100%{ box-shadow:0 0 0 0 rgba(110,231,183,0); }
+  }
+
+  /* ---------- Chain reaction success overlay ---------- */
+  .chain-overlay{
+    position:fixed; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(30,10,60,.6);
+    backdrop-filter:blur(4px);
+    z-index:10000;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .3s ease;
+  }
+  .chain-overlay.show{ opacity:1; pointer-events:auto; }
+
+  .chain-row{
+    display:flex; gap:16px; margin-bottom:26px;
+  }
+  .chain-item{
+    font-size:2.6rem;
+    opacity:0;
+    transform:scale(0) rotate(0deg);
+  }
+  .chain-overlay.show .chain-item{
+    animation:chainPop .5s ease forwards;
+  }
+  .chain-overlay.show .chain-item:nth-child(1){ animation-delay:.05s; }
+  .chain-overlay.show .chain-item:nth-child(2){ animation-delay:.18s; }
+  .chain-overlay.show .chain-item:nth-child(3){ animation-delay:.31s; }
+  .chain-overlay.show .chain-item:nth-child(4){ animation-delay:.44s; }
+  .chain-overlay.show .chain-item:nth-child(5){ animation-delay:.57s; }
+  .chain-overlay.show .chain-item:nth-child(6){ animation-delay:.70s; }
+  .chain-overlay.show .chain-item:nth-child(7){ animation-delay:.83s; }
+  @keyframes chainPop{
+    0%{ transform:scale(0) rotate(0deg); opacity:0; }
+    55%{ transform:scale(1.4) rotate(200deg); opacity:1; }
+    100%{ transform:scale(1) rotate(360deg); opacity:1; }
+  }
+
+  .chain-banner{
+    font-family:'Baloo 2',cursive;
+    font-size:clamp(1.3rem, 4vw, 2rem);
+    font-weight:800;
+    color:#3b1147;
+    background:linear-gradient(135deg, var(--gold), var(--pink));
+    padding:16px 38px;
+    border-radius:32px;
+    box-shadow:0 14px 36px rgba(0,0,0,.4);
+    transform:translateY(-220px);
+    opacity:0;
+    text-align:center;
+  }
+  .chain-overlay.show .chain-banner{
+    animation:bannerBounce .8s ease forwards .45s;
+  }
+  @keyframes bannerBounce{
+    0%{ transform:translateY(-220px) scale(.5); opacity:0; }
+    60%{ transform:translateY(16px) scale(1.06); opacity:1; }
+    80%{ transform:translateY(-8px) scale(.98); }
+    100%{ transform:translateY(0) scale(1); opacity:1; }
+  }
+
+  .chain-close{
+    margin-top:24px;
+    opacity:0;
+  }
+  .chain-overlay.show .chain-close{
+    animation:fadeIn .5s ease forwards 1.1s;
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width:760px){
+    .match-grid{ grid-template-columns:1fr; }
+    .bins{ grid-template-columns:repeat(2, 1fr); }
+    .script-slots{ padding-left:30px; }
+    .slot .slot-number{ left:-32px; width:24px; height:24px; font-size:.8rem; }
+  }
+</style>
+</head>
+<body>
+
+  <div id="starField"></div>
+  <div id="birdField"></div>
+
+  <header>
+    <h1>Scratch — Mini catch game</h1>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="1">🧩 Build the Script</button>
+    <button class="tab-btn" data-tab="2">🔗 Match the Blocks</button>
+    <button class="tab-btn" data-tab="3">🧺 Sort the Blocks</button>
+  </nav>
+
+  <main>
+
+    <!-- ===================== ACTIVITY 1 ===================== -->
+    <section id="activity1" class="activity active">
+      <div class="card">
+        <h2><span class="twinkle-icon">🧩</span> Build the Catch-Game Script</h2>
+        <p class="desc">
+          A falling apple sprite needs its blocks put back in order! Drag each block from the
+          tray below into the correct slot (1 → 5) to build the script that drops the apple
+          and lets the basket catch it.
+        </p>
+
+        <div class="tray" id="tray1">
+          <div class="block cat-control" data-order="3" draggable="true">🔁 forever</div>
+          <div class="block cat-events" data-order="1" draggable="true">🏁 when green flag clicked</div>
+          <div class="block cat-sensing" data-order="5" draggable="true">❓ if touching Basket? → score +1, back to top</div>
+          <div class="block cat-motion" data-order="2" draggable="true">↻ go to x: random  y: 180</div>
+          <div class="block cat-motion" data-order="4" draggable="true">⬇ change y by −6</div>
+        </div>
+
+        <div class="script-slots">
+          <div class="slot" data-slot="1"><div class="slot-number">1</div></div>
+          <div class="slot" data-slot="2"><div class="slot-number">2</div></div>
+          <div class="slot" data-slot="3"><div class="slot-number">3</div></div>
+          <div class="slot" data-slot="4"><div class="slot-number">4</div></div>
+          <div class="slot" data-slot="5"><div class="slot-number">5</div></div>
+        </div>
+
+        <div class="controls">
+          <button class="btn" id="check1">Check order ✅</button>
+          <button class="btn secondary" id="reset1">Reset ↺</button>
+        </div>
+        <div class="feedback" id="feedback1"></div>
+      </div>
+    </section>
+
+    <!-- ===================== ACTIVITY 2 ===================== -->
+    <section id="activity2" class="activity">
+      <div class="card">
+        <h2><span class="twinkle-icon">🔗</span> Match the Block to its Job</h2>
+        <p class="desc">
+          Every Scratch block has a job to do. Drag each colourful block on the left onto the
+          description on the right that matches what it does.
+        </p>
+
+        <div class="match-grid">
+          <div class="match-col">
+            <h3>Blocks</h3>
+            <div class="match-col-inner" id="tray2">
+              <div class="block cat-sound" data-match="m6" draggable="true">🔊 play sound pop</div>
+              <div class="block cat-events" data-match="m1" draggable="true">🏁 when green flag clicked</div>
+              <div class="block cat-variables" data-match="m5" draggable="true">➕ change score by 1</div>
+              <div class="block cat-motion" data-match="m2" draggable="true">➡ move 10 steps</div>
+              <div class="block cat-control" data-match="m4" draggable="true">❓ if touching ...? then</div>
+              <div class="block cat-control" data-match="m3" draggable="true">🔁 forever</div>
+            </div>
+          </div>
+          <div class="match-col">
+            <h3>What it does</h3>
+            <div class="match-col-inner">
+              <div class="job-zone" data-match="m2">Slides the sprite forward across the stage</div>
+              <div class="job-zone" data-match="m4">Checks whether two sprites are touching each other</div>
+              <div class="job-zone" data-match="m6">Plays a short sound effect, like a "pop"</div>
+              <div class="job-zone" data-match="m1">Starts everything when the green flag is clicked</div>
+              <div class="job-zone" data-match="m3">Repeats the blocks inside it again and again, forever</div>
+              <div class="job-zone" data-match="m5">Adds one point to the score variable</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button class="btn secondary" id="reset2">Reset ↺</button>
+        </div>
+        <div class="feedback" id="feedback2"></div>
+      </div>
+    </section>
+
+    <!-- ===================== ACTIVITY 3 ===================== -->
+    <section id="activity3" class="activity">
+      <div class="card">
+        <h2><span class="twinkle-icon">🧺</span> Sort the Blocks into Bins</h2>
+        <p class="desc">
+          Scratch blocks come in different colour families. Drag each block from the tray into
+          the bin for the family it belongs to: Motion, Events, Control or Sensing.
+        </p>
+
+        <div class="tray" id="tray3">
+          <div class="block cat-sensing" data-category="sensing" draggable="true">📏 distance to Cat</div>
+          <div class="block cat-events" data-category="events" draggable="true">🏁 when green flag clicked</div>
+          <div class="block cat-motion" data-category="motion" draggable="true">↻ go to x: () y: ()</div>
+          <div class="block cat-control" data-category="control" draggable="true">🔁 forever</div>
+          <div class="block cat-sensing" data-category="sensing" draggable="true">👆 touching mouse-pointer?</div>
+          <div class="block cat-motion" data-category="motion" draggable="true">➡ move 10 steps</div>
+          <div class="block cat-control" data-category="control" draggable="true">❓ if ... then</div>
+          <div class="block cat-events" data-category="events" draggable="true">⌨ when space key pressed</div>
+        </div>
+
+        <div class="bins">
+          <div class="bin bin-motion" data-category="motion">
+            <h3>🏃 Motion</h3>
+            <div class="bin-items"></div>
+          </div>
+          <div class="bin bin-events" data-category="events">
+            <h3>🏁 Events</h3>
+            <div class="bin-items"></div>
+          </div>
+          <div class="bin bin-control" data-category="control">
+            <h3>🔁 Control</h3>
+            <div class="bin-items"></div>
+          </div>
+          <div class="bin bin-sensing" data-category="sensing">
+            <h3>👁 Sensing</h3>
+            <div class="bin-items"></div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button class="btn secondary" id="reset3">Reset ↺</button>
+        </div>
+        <div class="feedback" id="feedback3"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===================== CHAIN REACTION OVERLAY ===================== -->
+  <div class="chain-overlay" id="chainOverlay">
+    <div class="chain-row">
+      <span class="chain-item">⭐</span>
+      <span class="chain-item">🍎</span>
+      <span class="chain-item">⭐</span>
+      <span class="chain-item">🧺</span>
+      <span class="chain-item">⭐</span>
+      <span class="chain-item">🍎</span>
+      <span class="chain-item">⭐</span>
+    </div>
+    <div class="chain-banner">🎉 Great catch! 🎉</div>
+    <button class="btn chain-close" id="chainClose">Continue ▶</button>
+  </div>
+
+<script>
+  /* ============================================================
+     BACKGROUND DECORATIONS — stars, shooting stars, birds
+  ============================================================ */
+  const starField = document.getElementById('starField');
+  const birdField = document.getElementById('birdField');
+
+  function createStars(n){
+    for(let i=0;i<n;i++){
+      const s = document.createElement('div');
+      s.className = 'star';
+      s.style.left = Math.random()*100 + '%';
+      s.style.top = Math.random()*100 + '%';
+      const size = (Math.random()*3 + 1).toFixed(1);
+      s.style.width = size + 'px';
+      s.style.height = size + 'px';
+      s.style.animationDuration = (Math.random()*3 + 2).toFixed(2) + 's';
+      s.style.animationDelay = (Math.random()*4).toFixed(2) + 's';
+      starField.appendChild(s);
+    }
+  }
+
+  function createShootingStars(n){
+    for(let i=0;i<n;i++){
+      const s = document.createElement('div');
+      s.className = 'shooting-star';
+      s.style.top = (Math.random()*45) + '%';
+      s.style.left = (Math.random()*40 + 55) + '%';
+      s.style.animationDelay = (Math.random()*12) + 's';
+      s.style.animationDuration = (Math.random()*3 + 4) + 's';
+      starField.appendChild(s);
+    }
+  }
+
+  function createBirds(n){
+    const emojis = ['🐦','🕊️','🐤'];
+    for(let i=0;i<n;i++){
+      const b = document.createElement('div');
+      b.className = 'bird';
+      b.textContent = emojis[i % emojis.length];
+      b.style.top = (Math.random()*40 + 4) + '%';
+      b.style.animationDuration = (Math.random()*20 + 18) + 's';
+      b.style.animationDelay = (Math.random()*16) + 's';
+      birdField.appendChild(b);
+    }
+  }
+
+  createStars(70);
+  createShootingStars(4);
+  createBirds(4);
+
+  /* ============================================================
+     TAB SWITCHING
+  ============================================================ */
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('activity' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  function markComplete(n){
+    const tab = document.querySelector('.tab-btn[data-tab="'+n+'"]');
+    if(tab && !tab.querySelector('.done-badge')){
+      const badge = document.createElement('span');
+      badge.className = 'done-badge';
+      badge.textContent = '✓';
+      tab.appendChild(badge);
+    }
+  }
+
+  /* ============================================================
+     CHAIN REACTION SUCCESS OVERLAY
+  ============================================================ */
+  const chainOverlay = document.getElementById('chainOverlay');
+  function triggerChainReaction(){
+    chainOverlay.classList.remove('show');
+    // restart animation
+    void chainOverlay.offsetWidth;
+    chainOverlay.classList.add('show');
+  }
+  document.getElementById('chainClose').addEventListener('click', ()=>{
+    chainOverlay.classList.remove('show');
+  });
+  chainOverlay.addEventListener('click', (e)=>{
+    if(e.target === chainOverlay) chainOverlay.classList.remove('show');
+  });
+
+  /* ============================================================
+     GENERIC DRAG & DROP (pointer events — works on touch + mouse)
+  ============================================================ */
+  function enableDrag(item, dropSelector, onDrop){
+    item.addEventListener('pointerdown', function(e){
+      if(item.classList.contains('locked')) return;
+      e.preventDefault();
+
+      const rect = item.getBoundingClientRect();
+      const shiftX = e.clientX - rect.left;
+      const shiftY = e.clientY - rect.top;
+      const origParent = item.parentNode;
+      const origNext = item.nextElementSibling;
+      const origWidth = rect.width;
+
+      document.body.appendChild(item);
+      item.style.position = 'fixed';
+      item.style.width = origWidth + 'px';
+      item.style.left = rect.left + 'px';
+      item.style.top = rect.top + 'px';
+      item.style.margin = '0';
+      item.style.zIndex = '9999';
+      item.classList.add('dragging');
+
+      function moveAt(x,y){
+        item.style.left = (x - shiftX) + 'px';
+        item.style.top = (y - shiftY) + 'px';
+      }
+
+      function highlight(x,y){
+        item.style.visibility = 'hidden';
+        const el = document.elementFromPoint(x,y);
+        item.style.visibility = 'visible';
+        document.querySelectorAll(dropSelector).forEach(z=>z.classList.remove('over'));
+        const zone = el ? el.closest(dropSelector) : null;
+        if(zone) zone.classList.add('over');
+        return zone;
+      }
+
+      function onMove(ev){
+        moveAt(ev.clientX, ev.clientY);
+        highlight(ev.clientX, ev.clientY);
+      }
+
+      function onUp(ev){
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        item.classList.remove('dragging');
+        document.querySelectorAll(dropSelector).forEach(z=>z.classList.remove('over'));
+
+        item.style.visibility = 'hidden';
+        const el = document.elementFromPoint(ev.clientX, ev.clientY);
+        item.style.visibility = 'visible';
+        const zone = el ? el.closest(dropSelector) : null;
+
+        const handled = onDrop(item, zone, {origParent, origNext});
+
+        if(!handled){
+          item.style.position = '';
+          item.style.left = '';
+          item.style.top = '';
+          item.style.width = '';
+          item.style.margin = '';
+          item.style.zIndex = '';
+          if(origNext) origParent.insertBefore(item, origNext);
+          else origParent.appendChild(item);
+        }
+      }
+
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    });
+  }
+
+  function clearInlineStyles(el){
+    el.style.position = '';
+    el.style.left = '';
+    el.style.top = '';
+    el.style.width = '';
+    el.style.margin = '';
+    el.style.zIndex = '';
+  }
+
+  /* ============================================================
+     ACTIVITY 1 — Build the Script (ordering)
+  ============================================================ */
+  const tray1 = document.getElementById('tray1');
+
+  function activity1Drop(item, zone){
+    if(zone && zone.classList.contains('slot')){
+      const existing = zone.querySelector('.block');
+      if(existing && existing !== item){
+        clearInlineStyles(existing);
+        tray1.appendChild(existing);
+      }
+      clearInlineStyles(item);
+      zone.appendChild(item);
+      zone.classList.remove('correct','incorrect');
+      return true;
+    }
+    return false;
+  }
+
+  document.querySelectorAll('#activity1 .block').forEach(b=> enableDrag(b, '.slot', activity1Drop));
+
+  document.getElementById('check1').addEventListener('click', ()=>{
+    let allCorrect = true;
+    document.querySelectorAll('#activity1 .slot').forEach(slot=>{
+      const block = slot.querySelector('.block');
+      slot.classList.remove('correct','incorrect');
+      if(block && block.dataset.order === slot.dataset.slot){
+        slot.classList.add('correct');
+      } else {
+        slot.classList.add('incorrect');
+        allCorrect = false;
+      }
+    });
+    const fb = document.getElementById('feedback1');
+    if(allCorrect){
+      fb.textContent = '🎉 Perfect! Your catch-game script will run beautifully!';
+      fb.className = 'feedback success';
+      markComplete(1);
+      triggerChainReaction();
+    } else {
+      fb.textContent = '🤔 Not quite — the highlighted blocks need to move. Try again!';
+      fb.className = 'feedback error';
+    }
+  });
+
+  document.getElementById('reset1').addEventListener('click', ()=>{
+    document.querySelectorAll('#activity1 .slot .block').forEach(b=>{
+      clearInlineStyles(b);
+      tray1.appendChild(b);
+    });
+    document.querySelectorAll('#activity1 .slot').forEach(s=>s.classList.remove('correct','incorrect'));
+    const fb = document.getElementById('feedback1');
+    fb.textContent = '';
+    fb.className = 'feedback';
+  });
+
+  /* ============================================================
+     ACTIVITY 2 — Match the Blocks
+  ============================================================ */
+  const tray2 = document.getElementById('tray2');
+  const TOTAL2 = document.querySelectorAll('#activity2 .block').length;
+  let matched2 = 0;
+
+  function activity2Drop(item, zone){
+    if(zone && zone.classList.contains('job-zone') && !zone.classList.contains('matched')){
+      if(zone.dataset.match === item.dataset.match){
+        clearInlineStyles(item);
+        item.classList.add('locked');
+        zone.classList.add('matched');
+        zone.appendChild(item);
+        matched2++;
+        if(matched2 === TOTAL2){
+          const fb = document.getElementById('feedback2');
+          fb.textContent = '🎉 Great matching — you know your Scratch blocks!';
+          fb.className = 'feedback success';
+          markComplete(2);
+          triggerChainReaction();
+        }
+        return true;
+      } else {
+        zone.classList.add('shake');
+        setTimeout(()=>zone.classList.remove('shake'), 400);
+        return false;
+      }
+    }
+    return false;
+  }
+
+  document.querySelectorAll('#activity2 .block').forEach(b=> enableDrag(b, '.job-zone', activity2Drop));
+
+  document.getElementById('reset2').addEventListener('click', ()=>{
+    document.querySelectorAll('#activity2 .job-zone .block').forEach(b=>{
+      clearInlineStyles(b);
+      b.classList.remove('locked');
+      tray2.appendChild(b);
+    });
+    document.querySelectorAll('#activity2 .job-zone').forEach(z=>z.classList.remove('matched','shake'));
+    matched2 = 0;
+    const fb = document.getElementById('feedback2');
+    fb.textContent = '';
+    fb.className = 'feedback';
+  });
+
+  /* ============================================================
+     ACTIVITY 3 — Sort the Blocks
+  ============================================================ */
+  const tray3 = document.getElementById('tray3');
+  const TOTAL3 = document.querySelectorAll('#activity3 .block').length;
+  let sorted3 = 0;
+
+  function activity3Drop(item, zone){
+    if(zone && zone.classList.contains('bin')){
+      if(zone.dataset.category === item.dataset.category){
+        clearInlineStyles(item);
+        item.classList.add('locked');
+        zone.querySelector('.bin-items').appendChild(item);
+        sorted3++;
+        if(sorted3 === TOTAL3){
+          const fb = document.getElementById('feedback3');
+          fb.textContent = "🎉 All sorted — you're a Scratch block expert!";
+          fb.className = 'feedback success';
+          markComplete(3);
+          triggerChainReaction();
+        }
+        return true;
+      } else {
+        zone.classList.add('shake');
+        setTimeout(()=>zone.classList.remove('shake'), 400);
+        return false;
+      }
+    }
+    return false;
+  }
+
+  document.querySelectorAll('#activity3 .block').forEach(b=> enableDrag(b, '.bin', activity3Drop));
+
+  document.getElementById('reset3').addEventListener('click', ()=>{
+    document.querySelectorAll('#activity3 .bin .block').forEach(b=>{
+      clearInlineStyles(b);
+      b.classList.remove('locked');
+      tray3.appendChild(b);
+    });
+    sorted3 = 0;
+    const fb = document.getElementById('feedback3');
+    fb.textContent = '';
+    fb.className = 'feedback';
+  });
+</script>
+
+</body>
+</html>

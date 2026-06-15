@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PYTHON — READING & WRITING FILES</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sky-top:#4a9fe0;
+  --sky-mid:#7ec4f0;
+  --sky-low:#cdeeff;
+  --sun:#ffd93d;
+  --sun-glow:#fff3b0;
+  --cloud:#ffffff;
+  --coral:#ff6b6b;
+  --mint:#4ecdc4;
+  --lav:#b39ddb;
+  --balloon:#ff8c42;
+  --ink:#1f3a5f;
+  --ink-soft:#4a6b8a;
+  --panel:#ffffff;
+  --ok:#3bbf8a;
+  --err:#ff6b6b;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:var(--ink)}
+
+/* ── SKY BACKGROUND ── */
+#sky{position:fixed;inset:0;z-index:0;
+  background:linear-gradient(180deg,var(--sky-top) 0%,var(--sky-mid) 45%,var(--sky-low) 100%);
+}
+
+/* Sun with rays */
+#sun-wrap{position:absolute;top:5%;right:8%;width:90px;height:90px}
+#sun-core{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,var(--sun) 0%,var(--sun-glow) 70%,transparent 100%);box-shadow:0 0 40px 10px rgba(255,217,61,.6);animation:sun-pulse 4s ease-in-out infinite alternate}
+@keyframes sun-pulse{0%{transform:scale(1)}100%{transform:scale(1.08)}}
+.sun-ray{position:absolute;top:50%;left:50%;width:3px;height:46px;background:linear-gradient(180deg,var(--sun-glow),transparent);transform-origin:top center;animation:ray-spin 30s linear infinite}
+@keyframes ray-spin{from{transform:rotate(0deg) translateX(-50%)}to{transform:rotate(360deg) translateX(-50%)}}
+
+/* Drifting clouds */
+.cloud{position:absolute;background:var(--cloud);border-radius:50px;opacity:.92;animation:cloud-drift linear infinite}
+.cloud::before,.cloud::after{content:'';position:absolute;background:var(--cloud);border-radius:50%}
+@keyframes cloud-drift{from{transform:translateX(-160px)}to{transform:translateX(calc(100vw + 160px))}}
+
+/* Birds */
+.bird{position:absolute;animation:bird-fly linear infinite}
+@keyframes bird-fly{from{transform:translateX(-60px)}to{transform:translateX(calc(100vw + 60px))}}
+.bird-flap{animation:flap .5s ease-in-out infinite alternate}
+@keyframes flap{0%{transform:scaleY(1)}100%{transform:scaleY(.4)}}
+
+/* Hot air balloons */
+.balloon{position:absolute;animation:balloon-float ease-in-out infinite alternate}
+@keyframes balloon-float{0%{transform:translateY(0) translateX(0)}50%{transform:translateY(-22px) translateX(10px)}100%{transform:translateY(-6px) translateX(-8px)}}
+
+/* Rainbow */
+#rainbow{position:absolute;bottom:-90px;left:50%;transform:translateX(-50%);width:480px;height:240px;opacity:.55;animation:rainbow-shimmer 5s ease-in-out infinite alternate}
+@keyframes rainbow-shimmer{0%{opacity:.4}100%{opacity:.7}}
+.rb-arc{position:absolute;border-radius:50% 50% 0 0;border-style:solid;border-bottom:none;left:50%;transform:translateX(-50%)}
+
+/* Sparkles */
+.sparkle{position:absolute;border-radius:50%;background:#fff;animation:sparkle-twinkle ease-in-out infinite alternate}
+@keyframes sparkle-twinkle{0%{opacity:.2;transform:scale(.6)}100%{opacity:1;transform:scale(1.3)}}
+
+/* Distant hills / ground */
+#ground{position:absolute;bottom:0;left:0;width:100%;height:60px;background:linear-gradient(180deg,#9be29b 0%,#7dcf85 100%);border-radius:50% 50% 0 0 / 100% 100% 0 0;transform:scaleX(1.3)}
+
+/* ── MAIN APP ── */
+#app{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;padding:10px}
+
+#titlebar{background:rgba(255,255,255,.82);backdrop-filter:blur(8px);border:1.5px solid rgba(74,159,224,.35);border-radius:16px;padding:10px 28px;text-align:center;pointer-events:auto;margin-bottom:10px;box-shadow:0 4px 24px rgba(74,159,224,.18)}
+#titlebar h1{font-family:'Fredoka',sans-serif;font-size:20px;font-weight:700;color:var(--ink);letter-spacing:2px}
+#titlebar p{font-size:11px;color:var(--ink-soft);margin-top:3px;font-weight:500}
+
+#panel{background:rgba(255,255,255,.88);backdrop-filter:blur(10px);border:1.5px solid rgba(74,159,224,.25);border-radius:22px;width:920px;max-width:97vw;padding:20px 26px;pointer-events:auto;position:relative;box-shadow:0 8px 40px rgba(74,159,224,.18)}
+
+/* Step indicator — cloud markers */
+#steps{display:flex;gap:10px;justify-content:center;margin-bottom:14px;align-items:center}
+.step-dot{width:32px;height:32px;border-radius:50%;border:2px solid rgba(74,159,224,.3);display:flex;align-items:center;justify-content:center;font-family:'Fredoka',sans-serif;font-size:13px;font-weight:700;color:rgba(74,159,224,.55);transition:all .4s;background:rgba(74,159,224,.05)}
+.step-dot.active{border-color:var(--sun);color:#7a5400;background:var(--sun);box-shadow:0 0 14px rgba(255,217,61,.6)}
+.step-dot.done{border-color:var(--ok);color:#fff;background:var(--ok);box-shadow:0 0 10px rgba(59,191,138,.5)}
+.step-line{flex:1;height:2px;background:rgba(74,159,224,.2);align-self:center;max-width:70px;border-radius:2px;transition:background .4s}
+.step-line.done{background:var(--ok)}
+
+#act-title{font-family:'Fredoka',sans-serif;font-size:16px;font-weight:700;color:var(--ink);margin-bottom:4px;text-align:center}
+#act-desc{font-size:12px;color:var(--ink-soft);text-align:center;margin-bottom:14px;line-height:1.5;max-width:680px;margin-inline:auto}
+
+/* ── ACTIVITY 1: Diary Writing ── */
+#act1{display:flex;gap:22px;align-items:flex-start;justify-content:center}
+.bank{display:flex;flex-direction:column;gap:8px;align-items:center;min-width:170px}
+.bank h3{font-family:'Fredoka',sans-serif;font-size:11px;color:var(--ink-soft);margin-bottom:2px;text-align:center;letter-spacing:1px}
+.entry-card{padding:10px 14px;border-radius:12px;border:1.5px solid rgba(74,159,224,.4);display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;cursor:grab;color:var(--ink);transition:all .2s;user-select:none;background:rgba(74,159,224,.06);min-width:150px;text-align:center;line-height:1.4}
+.entry-card:hover{border-color:var(--sky-top);background:rgba(74,159,224,.16);transform:scale(1.04)}
+.entry-card.dragging{opacity:.35}
+
+.diary-area{display:flex;flex-direction:column;align-items:center;gap:10px}
+.diary-frame{font-family:'Space Mono',monospace;font-size:12px;color:var(--ink);background:linear-gradient(160deg,#fff8e1 0%,#ffeec2 100%);border:2px solid var(--sun);border-radius:14px;padding:14px 18px;min-width:320px;box-shadow:0 6px 18px rgba(255,217,61,.25)}
+.diary-frame .file-label{font-family:'Fredoka',sans-serif;font-size:12px;color:#7a5400;font-weight:700;text-align:center;margin-bottom:8px;letter-spacing:1px;border-bottom:1.5px dashed rgba(122,84,0,.25);padding-bottom:6px}
+.diary-slot{min-height:32px;border:1.5px dashed rgba(74,159,224,.35);border-radius:8px;display:flex;align-items:center;padding:0 10px;margin:6px 0;transition:all .25s;color:#9aa;font-size:11px}
+.diary-slot.filled{border-style:solid;border-color:var(--ok);background:rgba(59,191,138,.12);color:var(--ink);font-weight:700}
+.diary-slot.drag-over{border-color:var(--sky-top);background:rgba(74,159,224,.12);transform:scale(1.03)}
+
+.kite-preview{width:160px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.kite-preview h3{font-family:'Fredoka',sans-serif;font-size:11px;color:var(--ink-soft);letter-spacing:1px}
+#kite-canvas{width:140px;height:140px}
+
+/* ── ACTIVITY 2: Operation Sequence ── */
+#act2{display:flex;gap:18px;align-items:flex-start;justify-content:center;flex-wrap:wrap}
+.op-bank{display:flex;flex-direction:column;gap:8px;min-width:130px}
+.op-bank h3{font-family:'Fredoka',sans-serif;font-size:11px;color:var(--ink-soft);text-align:center;letter-spacing:1px;margin-bottom:2px}
+.op-card{padding:10px 8px;border-radius:12px;border:1.5px solid rgba(255,140,66,.5);color:#a85200;font-family:'Space Mono',monospace;font-size:12px;font-weight:700;cursor:grab;text-align:center;transition:all .2s;user-select:none;background:rgba(255,140,66,.1)}
+.op-card:hover{border-color:var(--balloon);background:rgba(255,140,66,.2);transform:scale(1.05)}
+.op-card.dragging{opacity:.35}
+
+.usecase-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;flex:1;max-width:560px}
+.usecase-card{border:1.5px dashed rgba(74,159,224,.35);border-radius:14px;padding:12px;min-height:90px;display:flex;flex-direction:column;gap:8px;transition:all .25s;background:rgba(255,255,255,.55)}
+.usecase-card .uc-desc{font-size:11px;color:var(--ink-soft);line-height:1.4}
+.usecase-card .uc-slot{min-height:34px;border:1.5px dashed rgba(255,140,66,.4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:12px;color:rgba(168,82,0,.4);transition:all .25s}
+.usecase-card .uc-slot.filled{border-style:solid;border-color:var(--ok);background:rgba(59,191,138,.14);color:#1f7a52;font-weight:700}
+.usecase-card.drag-over .uc-slot{border-color:var(--sky-top);background:rgba(74,159,224,.1)}
+.usecase-card.matched{border-color:var(--ok);border-style:solid;background:rgba(59,191,138,.07)}
+
+/* ── ACTIVITY 3: Diary App Workflow ── */
+#act3{display:flex;gap:18px;align-items:flex-start;justify-content:center}
+.seq-bank{display:flex;flex-direction:column;gap:7px;min-width:210px}
+.seq-bank h3{font-family:'Fredoka',sans-serif;font-size:11px;color:var(--ink-soft);text-align:center;letter-spacing:1px;margin-bottom:2px}
+.seq-card{padding:9px 12px;border-radius:10px;border:1.5px solid rgba(78,205,196,.5);color:#1f7a72;font-family:'Space Mono',monospace;font-size:11px;font-weight:600;cursor:grab;text-align:left;transition:all .2s;user-select:none;background:rgba(78,205,196,.1)}
+.seq-card:hover{border-color:var(--mint);background:rgba(78,205,196,.2);transform:translateX(3px)}
+.seq-card.dragging{opacity:.35}
+
+.workflow-frame{flex:1;max-width:480px;display:flex;flex-direction:column;gap:8px}
+.workflow-step{display:flex;align-items:center;gap:10px;border:1.5px dashed rgba(74,159,224,.3);border-radius:12px;padding:8px 12px;min-height:46px;transition:all .25s;background:rgba(255,255,255,.55)}
+.workflow-step .wf-num{font-family:'Fredoka',sans-serif;font-size:13px;font-weight:700;color:var(--balloon);min-width:20px}
+.workflow-step .wf-slot{flex:1;min-height:32px;border:1.5px dashed rgba(255,140,66,.4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:11px;color:rgba(168,82,0,.4);transition:all .25s;text-align:center;padding:0 6px}
+.workflow-step .wf-slot.filled{border-style:solid;border-color:var(--ok);background:rgba(59,191,138,.14);color:#1f7a52;font-weight:700}
+.workflow-step.drag-over .wf-slot{border-color:var(--sky-top);background:rgba(74,159,224,.1)}
+.workflow-step.matched{border-color:var(--ok);border-style:solid}
+
+/* Buttons */
+.btn{padding:10px 24px;border-radius:10px;border:1.5px solid var(--sky-top);background:rgba(74,159,224,.1);color:#1c5d96;font-family:'Fredoka',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.5px;display:block;margin:10px auto 0}
+.btn:hover{background:rgba(74,159,224,.22);transform:scale(1.04)}
+.btn:active{transform:scale(.97)}
+.btn.green{border-color:var(--ok);background:rgba(59,191,138,.15);color:#1f7a52}
+.btn.green:hover{background:rgba(59,191,138,.26)}
+.btn.ghost{border-color:rgba(74,159,224,.3);background:transparent;color:var(--ink-soft);font-size:11px;padding:7px 16px}
+.btn.ghost:hover{border-color:var(--sky-top);color:var(--ink);background:rgba(74,159,224,.08)}
+.btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.btn-row{display:flex;gap:10px;justify-content:center;margin-top:10px}
+.btn-row .btn{margin:0}
+
+/* ── POPUP ── */
+#popup-overlay{position:fixed;inset:0;z-index:100;background:rgba(74,159,224,.35);display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#popup-overlay.show{display:flex}
+#popup{background:linear-gradient(160deg,#ffffff 0%,#eaf6ff 100%);border:2px solid var(--sky-top);border-radius:20px;padding:30px 38px;max-width:440px;text-align:center;animation:pop-in .4s cubic-bezier(.34,1.56,.64,1);box-shadow:0 10px 50px rgba(74,159,224,.35)}
+@keyframes pop-in{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
+#popup h2{font-family:'Fredoka',sans-serif;font-size:19px;font-weight:700;color:var(--ink);margin-bottom:10px}
+#popup p{font-size:13px;color:var(--ink-soft);line-height:1.65;margin-bottom:18px}
+.popup-icon{font-size:42px;margin-bottom:10px;display:block}
+
+/* Sparkle confetti */
+.confetti-piece{position:fixed;border-radius:50%;animation:confetti-fall linear forwards;z-index:200}
+@keyframes confetti-fall{0%{transform:translateY(-20px) rotate(0deg) scale(1);opacity:1}100%{transform:translateY(100vh) rotate(540deg) scale(.6);opacity:0}}
+
+/* Feedback toast */
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:rgba(59,191,138,.95);color:#fff;padding:9px 22px;border-radius:22px;font-size:12px;font-weight:700;z-index:300;opacity:0;transition:opacity .3s;pointer-events:none;font-family:'Quicksand',sans-serif}
+#toast.show{opacity:1}
+#toast.error{background:rgba(255,107,107,.95);color:#fff}
+
+@media (max-width:760px){
+  #panel{padding:14px 14px}
+  #act1,#act3{flex-direction:column;align-items:center}
+  .usecase-grid{grid-template-columns:1fr;max-width:100%}
+  .diary-frame{min-width:0;width:100%}
+  .kite-preview{width:120px}
+}
+</style>
+</head>
+<body>
+
+<div id="sky">
+  <div id="ground"></div>
+</div>
+
+<div id="app">
+  <div id="titlebar">
+    <h1>☁️ PYTHON — READING &amp; WRITING FILES ☁️</h1>
+    <p>Drag, drop, and discover how your data can live on, even after the program closes!</p>
+  </div>
+
+  <div id="panel">
+    <div id="steps">
+      <div class="step-dot active" id="s1">1</div>
+      <div class="step-line" id="l1"></div>
+      <div class="step-dot" id="s2">2</div>
+      <div class="step-line" id="l2"></div>
+      <div class="step-dot" id="s3">3</div>
+    </div>
+
+    <div id="act-title"></div>
+    <div id="act-desc"></div>
+
+    <div id="act1"></div>
+    <div id="act2" style="display:none"></div>
+    <div id="act3" style="display:none"></div>
+  </div>
+</div>
+
+<div id="popup-overlay">
+  <div id="popup">
+    <span class="popup-icon" id="popup-icon"></span>
+    <h2 id="popup-title"></h2>
+    <p id="popup-body"></p>
+    <button class="btn" id="popup-btn"></button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════ SKY SCENE BUILDER ══════════════════════════
+(function buildSky(){
+  const sky=document.getElementById('sky');
+
+  // Sun with rays
+  const sunWrap=document.createElement('div');sunWrap.id='sun-wrap';
+  for(let i=0;i<12;i++){
+    const ray=document.createElement('div');ray.className='sun-ray';
+    ray.style.animationDelay=(-i*2.5)+'s';
+    ray.style.transform=`rotate(${i*30}deg) translateX(-50%)`;
+    sunWrap.appendChild(ray);
+  }
+  const sunCore=document.createElement('div');sunCore.id='sun-core';
+  sunWrap.appendChild(sunCore);
+  sky.appendChild(sunWrap);
+
+  // Sparkles around sun area
+  for(let i=0;i<18;i++){
+    const sp=document.createElement('div');sp.className='sparkle';
+    const sz=Math.random()*3+1.5;
+    Object.assign(sp.style,{
+      width:sz+'px',height:sz+'px',
+      left:(55+Math.random()*40)+'%',top:(2+Math.random()*22)+'%',
+      animationDuration:(1.5+Math.random()*2)+'s',
+      animationDelay:(Math.random()*3)+'s'
+    });
+    sky.appendChild(sp);
+  }
+
+  // Clouds — varying sizes, speeds, vertical positions
+  const cloudSpecs=[
+    {top:8, w:140, h:46, dur:55, delay:-5},
+    {top:18, w:100, h:36, dur:42, delay:-20},
+    {top:28, w:160, h:52, dur:65, delay:-35},
+    {top:6, w:90, h:32, dur:38, delay:-12},
+    {top:35, w:120, h:40, dur:50, delay:-45},
+    {top:14, w:75, h:28, dur:34, delay:-2}
+  ];
+  cloudSpecs.forEach(c=>{
+    const cl=document.createElement('div');cl.className='cloud';
+    Object.assign(cl.style,{
+      top:c.top+'%', width:c.w+'px', height:c.h+'px',
+      animationDuration:c.dur+'s', animationDelay:c.delay+'s',
+      left:'0'
+    });
+    // puff bumps via box-shadow trick using pseudo elements sized by CSS vars
+    cl.style.setProperty('--puff','1');
+    cl.innerHTML=`<div style="position:absolute;width:${c.w*0.55}px;height:${c.h*1.3}px;background:#fff;border-radius:50%;top:${-c.h*0.5}px;left:${c.w*0.12}px"></div>
+                   <div style="position:absolute;width:${c.w*0.4}px;height:${c.h*1.0}px;background:#fff;border-radius:50%;top:${-c.h*0.3}px;left:${c.w*0.5}px"></div>`;
+    sky.appendChild(cl);
+  });
+
+  // Birds — small V shapes flying across
+  const birdSpecs=[
+    {top:15, dur:22, delay:-3, sz:14},
+    {top:24, dur:28, delay:-14, sz:11},
+    {top:10, dur:34, delay:-22, sz:13},
+    {top:30, dur:25, delay:-8, sz:10}
+  ];
+  birdSpecs.forEach(b=>{
+    const wrap=document.createElement('div');wrap.className='bird';
+    Object.assign(wrap.style,{top:b.top+'%',animationDuration:b.dur+'s',animationDelay:b.delay+'s'});
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('width',b.sz*2);svg.setAttribute('height',b.sz);svg.setAttribute('viewBox','0 0 28 14');
+    svg.classList.add('bird-flap');
+    svg.innerHTML=`<path d="M0 7 Q7 0 14 7 Q21 0 28 7" stroke="#2c3e50" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+    wrap.appendChild(svg);
+    sky.appendChild(wrap);
+  });
+
+  // Hot air balloons
+  const balloonSpecs=[
+    {left:6, top:48, dur:6, sz:46, col:'#ff6b6b'},
+    {left:78, top:38, dur:7, sz:56, col:'#4ecdc4'},
+    {left:30, top:58, dur:5.5, sz:38, col:'#ffd93d'}
+  ];
+  balloonSpecs.forEach((bl,i)=>{
+    const wrap=document.createElement('div');wrap.className='balloon';
+    Object.assign(wrap.style,{left:bl.left+'%',top:bl.top+'%',animationDuration:bl.dur+'s',animationDelay:(i*0.7)+'s'});
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('width',bl.sz);svg.setAttribute('height',bl.sz*1.5);svg.setAttribute('viewBox','0 0 40 60');
+    svg.innerHTML=`<ellipse cx="20" cy="20" rx="18" ry="20" fill="${bl.col}" opacity="0.88"/>
+      <path d="M8 36 L14 44 L26 44 L32 36" stroke="${bl.col}" stroke-width="1.5" fill="none" opacity="0.7"/>
+      <rect x="13" y="44" width="14" height="9" rx="2" fill="#8b5a2b"/>
+      <path d="M14 12 Q20 6 26 12" stroke="#fff" stroke-width="2" fill="none" opacity="0.5"/>`;
+    Object.assign(svg.style,{filter:'drop-shadow(0 6px 10px rgba(0,0,0,.15))'});
+    wrap.appendChild(svg);
+    sky.appendChild(wrap);
+  });
+
+  // Rainbow arcs
+  const rb=document.createElement('div');rb.id='rainbow';
+  const rbColors=['#ff6b6b','#ff9f43','#ffd93d','#4ecdc4','#5fa8e0','#b39ddb'];
+  rbColors.forEach((col,i)=>{
+    const arc=document.createElement('div');arc.className='rb-arc';
+    const size=480-i*36;
+    Object.assign(arc.style,{
+      width:size+'px',height:(size/2)+'px',
+      borderWidth:'10px',
+      borderColor:col,
+      bottom:'0',
+      marginLeft:-(size/2)+'px'
+    });
+    rb.appendChild(arc);
+  });
+  sky.appendChild(rb);
+})();
+
+// ══════════════════════════ ACTIVITY ENGINE ══════════════════════════
+let currentActivity=1;
+let dragData=null;
+
+const titles={
+  1:'Activity 1 — Writing to the Secret Diary',
+  2:'Activity 2 — Arrange the File Operation Spells',
+  3:'Activity 3 — Build the Diary App Workflow'
+};
+const descs={
+  1:'When you write to a file, each line gets saved permanently — like writing in a real diary. Drag each diary entry card into the matching line of diary.txt to save it.',
+  2:'Every file operation has its own job. Drag Write, Read, and Append into the scene that matches what each one really does.',
+  3:'A full diary app follows a clear order: create an entry, save it to the file, read it back later, and append a new entry without erasing the old one. Drag the steps into the correct order.'
+};
+
+function setActivity(n){
+  currentActivity=n;
+  document.getElementById('act-title').textContent=titles[n];
+  document.getElementById('act-desc').textContent=descs[n];
+  [1,2,3].forEach(i=>{
+    document.getElementById('act'+i).style.display=(i===n)?'flex':'none';
+  });
+  updateSteps();
+}
+
+function updateSteps(){
+  [1,2,3].forEach(i=>{
+    const d=document.getElementById('s'+i);
+    d.className='step-dot'+(i<currentActivity?' done':i===currentActivity?' active':'');
+    if(i<3){
+      const l=document.getElementById('l'+i);
+      l.className='step-line'+(i<currentActivity?' done':'');
+    }
+  });
+}
+
+function shuffle(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+// ══════════════════════════ ACTIVITY 1: DIARY WRITING ══════════════════════════
+const A1={};
+A1.lines=[
+  {id:'l1', label:'"My high score is 9999 runs!"'},
+  {id:'l2', label:'"I learned to write files today."'},
+  {id:'l3', label:'"diary.txt will remember this."'}
+];
+A1.placed=[null,null,null];
+A1.cardOrder=[];
+
+A1.init=function(){
+  A1.placed=[null,null,null];
+  A1.cardOrder=shuffle(A1.lines.map(l=>l.id));
+};
+
+A1.render=function(){
+  const a1=document.getElementById('act1');
+  a1.innerHTML='';
+
+  // Card bank
+  const bank=document.createElement('div');
+  bank.className='bank';
+  bank.innerHTML='<h3>DIARY ENTRY CARDS</h3>';
+  A1.cardOrder.forEach(lid=>{
+    if(A1.placed.includes(lid))return;
+    const line=A1.lines.find(l=>l.id===lid);
+    const d=document.createElement('div');
+    d.className='entry-card';
+    d.textContent=line.label;
+    d.draggable=true;
+    d.addEventListener('dragstart',e=>{dragData={type:'entry',value:lid};d.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+    d.addEventListener('dragend',()=>d.classList.remove('dragging'));
+    bank.appendChild(d);
+  });
+  if(bank.children.length===1){
+    const done=document.createElement('div');
+    done.style.cssText='font-size:10px;color:var(--ok);text-align:center;padding:8px';
+    done.textContent='All entries saved! ✓';
+    bank.appendChild(done);
+  }
+  a1.appendChild(bank);
+
+  // Diary frame
+  const diaryArea=document.createElement('div');
+  diaryArea.className='diary-area';
+  const frame=document.createElement('div');
+  frame.className='diary-frame';
+  const fileLabel=document.createElement('div');fileLabel.className='file-label';fileLabel.textContent='📔 diary.txt';
+  frame.appendChild(fileLabel);
+
+  A1.lines.forEach((line,i)=>{
+    const slot=document.createElement('div');
+    slot.className='diary-slot'+(A1.placed[i]?' filled':'');
+    slot.textContent=A1.placed[i]?A1.lines.find(l=>l.id===A1.placed[i]).label:`line ${i+1}: drop entry here`;
+    slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('drag-over');});
+    slot.addEventListener('dragleave',()=>slot.classList.remove('drag-over'));
+    slot.addEventListener('drop',e=>{
+      e.preventDefault();slot.classList.remove('drag-over');
+      if(dragData&&dragData.type==='entry'){
+        if(!A1.placed[i]){
+          A1.placed[i]=dragData.value;
+          A1.render();
+        }
+      }
+    });
+    slot.addEventListener('click',()=>{
+      if(A1.placed[i]){A1.placed[i]=null;A1.render();}
+    });
+    frame.appendChild(slot);
+  });
+  diaryArea.appendChild(frame);
+  a1.appendChild(diaryArea);
+
+  // Kite preview
+  const preview=document.createElement('div');
+  preview.className='kite-preview';
+  preview.innerHTML='<h3>FILE BEING SAVED</h3>';
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.id='kite-canvas';
+  svg.setAttribute('viewBox','0 0 140 140');
+  renderKitePreview(svg, A1.placed);
+  preview.appendChild(svg);
+
+  const btnRow=document.createElement('div');btnRow.className='btn-row';
+  const checkBtn=document.createElement('button');checkBtn.className='btn green';checkBtn.id='a1btn';checkBtn.textContent='Save to File ▶';
+  const allFilled=A1.placed.every(v=>v!==null);
+  checkBtn.disabled=!allFilled;
+  checkBtn.addEventListener('click',A1.checkAndAdvance);
+  const resetBtn=document.createElement('button');resetBtn.className='btn ghost';resetBtn.textContent='Reset ↺';
+  resetBtn.addEventListener('click',()=>{A1.init();A1.render();});
+  btnRow.appendChild(checkBtn);btnRow.appendChild(resetBtn);
+  preview.appendChild(btnRow);
+
+  a1.appendChild(preview);
+};
+
+function renderKitePreview(svg,placed){
+  svg.innerHTML='';
+  const filledCount=placed.filter(v=>v!==null).length;
+  // sky backdrop circle
+  svg.innerHTML+=`<rect x="0" y="0" width="140" height="140" rx="14" fill="#eaf6ff"/>`;
+  // string
+  svg.innerHTML+=`<line x1="70" y1="120" x2="70" y2="70" stroke="#999" stroke-width="1.5"/>`;
+  // kite diamond grows / brightens with progress
+  const scale=0.5+filledCount*0.18;
+  const colors=['#ff6b6b','#ffd93d','#4ecdc4'];
+  const col=colors[Math.min(filledCount,2)];
+  const sz=40*scale;
+  const cx=70, cy=55;
+  svg.innerHTML+=`<g style="${filledCount>0?`filter:drop-shadow(0 0 8px ${col})`:''}">
+    <polygon points="${cx},${cy-sz} ${cx+sz*0.7},${cy} ${cx},${cy+sz} ${cx-sz*0.7},${cy}" fill="${col}" opacity="${0.3+filledCount*0.23}"/>
+    <line x1="${cx}" y1="${cy-sz}" x2="${cx}" y2="${cy+sz}" stroke="#fff" stroke-width="1" opacity="0.5"/>
+    <line x1="${cx-sz*0.7}" y1="${cy}" x2="${cx+sz*0.7}" y2="${cy}" stroke="#fff" stroke-width="1" opacity="0.5"/>
+  </g>`;
+  // label
+  svg.innerHTML+=`<text x="70" y="135" text-anchor="middle" font-family="Quicksand" font-size="9" fill="#4a6b8a">${filledCount}/3 lines saved</text>`;
+}
+
+A1.checkAndAdvance=function(){
+  let correct=0;
+  for(let i=0;i<A1.lines.length;i++){
+    if(A1.placed[i]===A1.lines[i].id)correct++;
+  }
+  if(correct===A1.lines.length){
+    showPopup('📔','File Written Successfully!',`All ${correct} lines were written into diary.txt, in order! Your data is now stored permanently — it will still be there even after the program closes. Next: let's explore what each file operation actually does.`,'Next: File Operations →',()=>{setActivity(2);A2.init();A2.render();});
+  } else {
+    showToast(`${correct}/${A1.lines.length} lines correct — entries must go in their matching diary line!`,true);
+  }
+};
+
+// ══════════════════════════ ACTIVITY 2: FILE OPERATION MATCHING ══════════════════════════
+const A2={};
+A2.ops=[
+  {id:'write', label:'Write'},
+  {id:'read', label:'Read'},
+  {id:'append', label:'Append'}
+];
+A2.usecases=[
+  {op:'write', desc:'Diya opens diary.txt for the very first time and types her brand new high score onto a fresh blank page.'},
+  {op:'read', desc:'The next morning, Diya opens diary.txt just to look at what she wrote yesterday, without changing anything.'},
+  {op:'append', desc:'Diya already has entries saved, and now wants to add one more new line to the end — without erasing what was already there.'}
+];
+A2.matched={};
+A2.opChips=[];
+let _a2order=null;
+
+A2.init=function(){
+  A2.matched={};
+  A2.opChips=shuffle(A2.ops.map(o=>o.id));
+  _a2order=null;
+};
+
+A2.render=function(){
+  const a2=document.getElementById('act2');
+  a2.innerHTML='';
+
+  // Op bank
+  const bank=document.createElement('div');
+  bank.className='op-bank';
+  bank.innerHTML='<h3>OPERATION CARDS</h3>';
+  A2.opChips.forEach(opId=>{
+    if(A2.matched[opId])return;
+    const op=A2.ops.find(o=>o.id===opId);
+    const d=document.createElement('div');
+    d.className='op-card';
+    d.textContent=op.label;
+    d.draggable=true;
+    d.addEventListener('dragstart',e=>{dragData={type:'op',value:opId};d.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+    d.addEventListener('dragend',()=>d.classList.remove('dragging'));
+    bank.appendChild(d);
+  });
+  if(bank.children.length===1){
+    const done=document.createElement('div');
+    done.style.cssText='font-size:10px;color:var(--ok);text-align:center;padding:8px';
+    done.textContent='All matched! ✓';
+    bank.appendChild(done);
+  }
+  a2.appendChild(bank);
+
+  // Usecase grid
+  const grid=document.createElement('div');
+  grid.className='usecase-grid';
+  shuffleOrder(A2.usecases).forEach(uc=>{
+    const card=document.createElement('div');
+    card.className='usecase-card'+(A2.matched[uc.op]?' matched':'');
+    const descEl=document.createElement('div');descEl.className='uc-desc';descEl.textContent=uc.desc;
+    card.appendChild(descEl);
+    const slot=document.createElement('div');
+    slot.className='uc-slot'+(A2.matched[uc.op]?' filled':'');
+    slot.textContent=A2.matched[uc.op]?A2.ops.find(o=>o.id===A2.matched[uc.op]).label:'drop operation card here';
+    card.appendChild(slot);
+
+    card.addEventListener('dragover',e=>{e.preventDefault();card.classList.add('drag-over');});
+    card.addEventListener('dragleave',()=>card.classList.remove('drag-over'));
+    card.addEventListener('drop',e=>{
+      e.preventDefault();card.classList.remove('drag-over');
+      if(dragData&&dragData.type==='op'){
+        if(dragData.value===uc.op){
+          A2.matched[uc.op]=dragData.value;
+          A2.render();
+          if(Object.keys(A2.matched).length===A2.ops.length){
+            setTimeout(()=>showPopup('🌈','All Operations Matched!','Write starts a fresh page, Read looks without changing anything, and Append adds new lines to the end. Now let\'s put it all together into a full diary app!','Next: Diary App →',()=>{setActivity(3);A3.init();A3.render();}),500);
+          }
+        } else {
+          showToast('Not quite — that operation does something different. Try again!',true);
+        }
+      }
+    });
+    grid.appendChild(card);
+  });
+  a2.appendChild(grid);
+
+  // Reset
+  const sideCol=document.createElement('div');
+  sideCol.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-width:60px';
+  const resetBtn=document.createElement('button');resetBtn.className='btn ghost';resetBtn.textContent='Reset ↺';
+  resetBtn.addEventListener('click',()=>{A2.init();A2.render();});
+  sideCol.appendChild(resetBtn);
+  a2.appendChild(sideCol);
+};
+
+function shuffleOrder(arr){
+  if(!_a2order||_a2order.length!==arr.length){
+    _a2order=shuffle(arr.map((_,i)=>i));
+  }
+  return _a2order.map(i=>arr[i]);
+}
+
+// ══════════════════════════ ACTIVITY 3: DIARY APP WORKFLOW ══════════════════════════
+const A3={};
+A3.correctOrder=[
+  {id:'create', label:'message = "My high score is 9999 runs!"', desc:'Create a new diary entry as text'},
+  {id:'save', label:'file = open("diary.txt","w") / file.write(message) / file.close()', desc:'Save the entry permanently to diary.txt'},
+  {id:'readback', label:'file = open("diary.txt","r") / print(file.read())', desc:'Read the saved entry back from the file'},
+  {id:'append', label:'file = open("diary.txt","a") / file.write(new_entry)', desc:'Append a brand new entry without erasing the old one'}
+];
+A3.placed=[null,null,null,null];
+A3.cardOrder=[];
+
+A3.init=function(){
+  A3.placed=[null,null,null,null];
+  A3.cardOrder=shuffle(A3.correctOrder.map(c=>c.id));
+};
+
+A3.render=function(){
+  const a3=document.getElementById('act3');
+  a3.innerHTML='';
+
+  // Card bank
+  const bank=document.createElement('div');
+  bank.className='seq-bank';
+  bank.innerHTML='<h3>WORKFLOW STEPS</h3>';
+  A3.cardOrder.forEach(cid=>{
+    if(A3.placed.includes(cid))return;
+    const c=A3.correctOrder.find(c=>c.id===cid);
+    const d=document.createElement('div');
+    d.className='seq-card';
+    d.textContent=c.label;
+    d.draggable=true;
+    d.addEventListener('dragstart',e=>{dragData={type:'seq',value:cid};d.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+    d.addEventListener('dragend',()=>d.classList.remove('dragging'));
+    bank.appendChild(d);
+  });
+  if(bank.children.length===1){
+    const done=document.createElement('div');
+    done.style.cssText='font-size:10px;color:var(--ok);text-align:center;padding:8px';
+    done.textContent='All steps placed! ✓';
+    bank.appendChild(done);
+  }
+  a3.appendChild(bank);
+
+  // Workflow frame
+  const wf=document.createElement('div');
+  wf.className='workflow-frame';
+  A3.correctOrder.forEach((step,i)=>{
+    const row=document.createElement('div');
+    row.className='workflow-step'+(A3.placed[i]?' matched':'');
+    const num=document.createElement('div');num.className='wf-num';num.textContent=(i+1)+'.';
+    row.appendChild(num);
+    const slot=document.createElement('div');
+    slot.className='wf-slot'+(A3.placed[i]?' filled':'');
+    slot.textContent=A3.placed[i]?A3.correctOrder.find(c=>c.id===A3.placed[i]).label:step.desc;
+    row.appendChild(slot);
+
+    row.addEventListener('dragover',e=>{e.preventDefault();row.classList.add('drag-over');});
+    row.addEventListener('dragleave',()=>row.classList.remove('drag-over'));
+    row.addEventListener('drop',e=>{
+      e.preventDefault();row.classList.remove('drag-over');
+      if(dragData&&dragData.type==='seq'){
+        if(dragData.value===step.id){
+          A3.placed[i]=dragData.value;
+          A3.render();
+          if(A3.placed.every(p=>p!==null)){
+            setTimeout(()=>showPopup('🎈','Diary App Complete!','Every step is in order! Create the entry, save it to the file, read it back later, and append new entries without losing the old ones. That\'s how real programs remember information forever!','Celebrate! 🎉',A3.celebrate),500);
+          }
+        } else {
+          showToast('That step belongs to a different part of the workflow — check the order!',true);
+        }
+      }
+    });
+    wf.appendChild(row);
+  });
+  a3.appendChild(wf);
+
+  // Reset
+  const sideCol=document.createElement('div');
+  sideCol.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-width:60px';
+  const resetBtn=document.createElement('button');resetBtn.className='btn ghost';resetBtn.textContent='Reset ↺';
+  resetBtn.addEventListener('click',()=>{A3.init();A3.render();});
+  sideCol.appendChild(resetBtn);
+  a3.appendChild(sideCol);
+};
+
+A3.celebrate=function(){
+  closePopup();
+  setTimeout(()=>{
+    showFinalPopup();
+  },300);
+};
+
+// ══════════════════════════ POPUPS ══════════════════════════
+function showPopup(icon,title,body,btnText,cb){
+  document.getElementById('popup-icon').textContent=icon;
+  document.getElementById('popup-title').textContent=title;
+  document.getElementById('popup-body').textContent=body;
+  const btn=document.getElementById('popup-btn');
+  btn.textContent=btnText;
+  btn.className='btn';
+  btn.onclick=()=>{closePopup();if(cb)cb();};
+  document.getElementById('popup-overlay').classList.add('show');
+}
+function closePopup(){document.getElementById('popup-overlay').classList.remove('show');}
+
+function showFinalPopup(){
+  spawnConfetti();
+  document.getElementById('popup-icon').textContent='🌈';
+  document.getElementById('popup-title').textContent='Sky-High Celebration!';
+  const body=document.getElementById('popup-body');
+  body.innerHTML='';
+  body.style.fontSize='12px';
+  body.style.lineHeight='1.7';
+  body.style.color='var(--ink-soft)';
+  body.innerHTML=`<strong style="color:var(--ink)">You mastered Python file handling!</strong><br><br>
+  Writing with <b style="color:#1c5d96">"w"</b> starts a fresh page, reading with <b style="color:#1c5d96">"r"</b> looks without changing anything, and appending with <b style="color:#1c5d96">"a"</b> adds more without erasing the past.<br><br>
+  You even built a working diary app, step by step — proving that your data can live on forever!<br><br>
+  <em style="color:#1f7a52">Balloons rise, birds soar, and the rainbow shines bright for your file-handling success! 🎈</em>`;
+  const btn=document.getElementById('popup-btn');
+  btn.textContent='Play Again ↺';
+  btn.className='btn green';
+  btn.style.fontSize='14px';
+  btn.style.padding='12px 30px';
+  btn.onclick=()=>{closePopup();resetAll();};
+  document.getElementById('popup-overlay').classList.add('show');
+}
+
+function resetAll(){
+  A1.init();
+  A2.init();
+  A3.init();
+  setActivity(1);
+  A1.render();
+}
+
+function showToast(msg,isError=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='show'+(isError?' error':'');
+  setTimeout(()=>t.className='',2800);
+}
+
+function spawnConfetti(){
+  const colors=['#ff6b6b','#ffd93d','#4ecdc4','#5fa8e0','#b39ddb','#ff8c42'];
+  for(let i=0;i<70;i++){
+    setTimeout(()=>{
+      const c=document.createElement('div');
+      c.className='confetti-piece';
+      const sz=5+Math.random()*8;
+      c.style.cssText=`left:${Math.random()*100}%;background:${colors[Math.floor(Math.random()*colors.length)]};animation-duration:${1.6+Math.random()*2}s;animation-delay:0s;width:${sz}px;height:${sz}px;box-shadow:0 0 6px rgba(0,0,0,.08)`;
+      document.body.appendChild(c);
+      setTimeout(()=>c.remove(),4200);
+    },i*40);
+  }
+}
+
+// ══════════════════════════ INIT ══════════════════════════
+A1.init();
+A2.init();
+A3.init();
+setActivity(1);
+A1.render();
+</script>
+</body>
+</html>

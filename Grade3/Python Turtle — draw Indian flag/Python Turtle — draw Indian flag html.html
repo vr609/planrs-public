@@ -1027,7 +1027,9 @@ function initActivity3(){
     pool.appendChild(piece);
   });
 
-  codeSteps.forEach((step, i)=>{
+  // Slots must be in fixed correct order (c1→c7) so each slot's answer is always the right step
+  const orderedSteps = [...codeSteps].sort((a,b)=> a.id.localeCompare(b.id));
+  orderedSteps.forEach((step, i)=>{
     const slot = document.createElement('div');
     slot.className='code-slot';
     slot.dataset.index = i;
@@ -1092,16 +1094,42 @@ function checkActivity3(){
   });
   if(filled === codeSteps.length){
     if(correct === codeSteps.length){
+      slots.forEach(slot=> slot.classList.add('slot-correct'));
       setTimeout(()=>{
         launchConfetti();
         showPopup('popupFinal');
       }, 400);
     } else {
+      // Highlight wrong slots in red and return their pieces to the pool so the student can fix them
       setTimeout(()=>{
         slots.forEach(slot=>{
-          if(slot.dataset.filled !== slot.dataset.answer) slot.classList.add('dragover');
+          if(slot.dataset.filled && slot.dataset.filled !== slot.dataset.answer){
+            // Return the piece to the pool
+            const wrongId = slot.dataset.filled;
+            const wrongStep = codeSteps.find(s=>s.id===wrongId);
+            if(wrongStep){
+              const pool = document.getElementById('codePool');
+              const piece = document.createElement('div');
+              piece.className='code-piece';
+              piece.draggable=true;
+              piece.dataset.id=wrongId;
+              piece.textContent=wrongStep.text;
+              piece.addEventListener('dragstart', e=>{
+                dragKey3=wrongId;
+                try{ e.dataTransfer.setData('text/plain',wrongId); e.dataTransfer.effectAllowed='move'; }catch(err){}
+                piece.classList.add('dragging');
+              });
+              piece.addEventListener('dragend',()=>piece.classList.remove('dragging'));
+              piece.addEventListener('click',()=>placeCodeStep(wrongId));
+              pool.appendChild(piece);
+            }
+            // Clear the wrong slot
+            slot.innerHTML = `Step ${parseInt(slot.dataset.index)+1}: drop here`;
+            delete slot.dataset.filled;
+            slot.classList.add('slot-wrong');
+            setTimeout(()=> slot.classList.remove('slot-wrong'), 900);
+          }
         });
-        setTimeout(()=> resetActivity3(), 700);
       }, 350);
     }
   }

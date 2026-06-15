@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paper Circuit — LED Greeting Card</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#170a2e;
+    --bg-mid:#2c1259;
+    --bg-far:#4c1d95;
+    --violet:#8b5cf6;
+    --violet-bright:#a78bfa;
+    --lavender:#e9d8ff;
+    --magenta:#e879f9;
+    --copper:#fcd34d;
+    --gold:#fde68a;
+    --gold-glow:#fbbf24;
+    --success:#5eead4;
+    --error:#fb7185;
+    --panel:rgba(255,255,255,0.06);
+    --panel-border:rgba(216,180,254,0.28);
+    --text:#f5f0ff;
+    --text-soft:#cbb6ef;
+  }
+
+  *{box-sizing:border-box;}
+
+  html,body{margin:0;padding:0;}
+
+  body{
+    min-height:100vh;
+    font-family:'Quicksand',sans-serif;
+    color:var(--text);
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(168,85,247,0.35), transparent 55%),
+      radial-gradient(ellipse at 85% 15%, rgba(232,121,249,0.18), transparent 50%),
+      linear-gradient(160deg, var(--bg-deep) 0%, var(--bg-mid) 55%, var(--bg-far) 100%);
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  /* ---------------- Background animation layers ---------------- */
+  #starsLayer{
+    position:fixed; inset:0; width:100%; height:100%;
+    pointer-events:none; z-index:0;
+  }
+  .star{
+    position:absolute; background:#fff; border-radius:50%;
+    box-shadow:0 0 6px 1px rgba(255,255,255,0.8);
+    animation:twinkle ease-in-out infinite;
+  }
+  @keyframes twinkle{
+    0%,100%{opacity:.15; transform:scale(1);}
+    50%{opacity:1; transform:scale(1.6);}
+  }
+
+  .shooting-star{
+    position:fixed; top:-10px; left:-10px; z-index:0; pointer-events:none;
+    width:140px; height:2px;
+    background:linear-gradient(90deg, rgba(255,255,255,0), #fff);
+    border-radius:2px;
+    transform:rotate(28deg);
+    animation:shoot 9s linear infinite;
+    opacity:0;
+  }
+  .shooting-star.s2{ animation-delay:4.5s; top:-10px; left:30%;}
+  @keyframes shoot{
+    0%{ transform:translate(-10vw,-5vh) rotate(28deg); opacity:0;}
+    8%{ opacity:1;}
+    25%{ transform:translate(60vw, 38vh) rotate(28deg); opacity:0;}
+    100%{ opacity:0; transform:translate(60vw, 38vh) rotate(28deg);}
+  }
+
+  .bird{
+    position:fixed; top:6%; left:-60px; z-index:0; pointer-events:none;
+    width:46px; height:46px;
+    animation:flyAcross 22s linear infinite;
+  }
+  .bird svg{ width:100%; height:100%; display:block; }
+  .bird .wing{
+    transform-origin:23px 22px;
+    animation:flap 0.45s ease-in-out infinite alternate;
+  }
+  @keyframes flap{
+    from{ transform:rotate(0deg) scaleY(1); }
+    to{ transform:rotate(-35deg) scaleY(0.85); }
+  }
+  @keyframes flyAcross{
+    0%{ left:-60px; top:8%; }
+    45%{ top:4%; }
+    50%{ left:55%; top:14%; }
+    100%{ left:110%; top:10%; }
+  }
+
+  /* ---------------- Layout ---------------- */
+  .page-wrap{
+    position:relative; z-index:1;
+    max-width:1100px; margin:0 auto;
+    padding:28px 20px 60px;
+  }
+
+  header.page-header{
+    text-align:center;
+    padding:18px 10px 28px;
+  }
+  header.page-header h1{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:800;
+    font-size:clamp(1.8rem, 5vw, 3rem);
+    margin:0;
+    letter-spacing:0.5px;
+    background:linear-gradient(90deg, var(--lavender), var(--magenta), var(--violet-bright));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    text-shadow:0 0 28px rgba(168,85,247,0.45);
+    animation:titleGlow 4s ease-in-out infinite;
+  }
+  @keyframes titleGlow{
+    0%,100%{ filter:drop-shadow(0 0 6px rgba(232,121,249,0.25)); }
+    50%{ filter:drop-shadow(0 0 18px rgba(168,85,247,0.55)); }
+  }
+
+  .progress-pill{
+    display:inline-flex; align-items:center; gap:8px;
+    margin-top:14px;
+    padding:8px 18px;
+    border-radius:999px;
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    font-weight:600; font-size:0.95rem;
+    color:var(--lavender);
+    backdrop-filter:blur(6px);
+  }
+  .progress-pill .star-icon{
+    font-size:1.05rem;
+    animation:bobStar 2.2s ease-in-out infinite;
+  }
+  @keyframes bobStar{
+    0%,100%{ transform:translateY(0) rotate(0deg);}
+    50%{ transform:translateY(-3px) rotate(12deg);}
+  }
+
+  /* ---------------- Activity panels ---------------- */
+  .activity{
+    background:linear-gradient(160deg, rgba(139,92,246,0.16), rgba(232,121,249,0.06));
+    border:1px solid var(--panel-border);
+    border-radius:26px;
+    padding:26px clamp(16px,3vw,34px) 30px;
+    margin-bottom:34px;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 18px 50px -25px rgba(76,29,149,0.9);
+  }
+  .activity::before{
+    content:"";
+    position:absolute; top:-60px; right:-60px;
+    width:180px; height:180px; border-radius:50%;
+    background:radial-gradient(circle, rgba(232,121,249,0.25), transparent 70%);
+    pointer-events:none;
+  }
+  .activity-head{
+    display:flex; align-items:center; gap:12px;
+    margin-bottom:6px;
+  }
+  .activity-badge{
+    display:flex; align-items:center; justify-content:center;
+    width:42px; height:42px; flex:none;
+    border-radius:14px;
+    background:linear-gradient(135deg, var(--violet), var(--magenta));
+    font-size:1.3rem;
+    box-shadow:0 6px 18px -6px rgba(232,121,249,0.6);
+  }
+  .activity h2{
+    font-family:'Baloo 2', sans-serif;
+    font-size:clamp(1.15rem, 2.4vw, 1.5rem);
+    margin:0;
+    color:var(--lavender);
+  }
+  .activity p.activity-desc{
+    margin:6px 0 22px;
+    color:var(--text-soft);
+    font-size:0.95rem;
+    max-width:680px;
+    line-height:1.5;
+  }
+
+  /* Generic draggable + dropzone */
+  .draggable{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:10px 16px;
+    border-radius:14px;
+    background:linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0.04));
+    border:1px solid rgba(255,255,255,0.25);
+    color:var(--text);
+    font-weight:600; font-size:0.92rem;
+    cursor:grab;
+    user-select:none; -webkit-user-select:none; touch-action:none;
+    box-shadow:0 6px 14px -8px rgba(0,0,0,0.5);
+    transition:transform .15s ease, box-shadow .15s ease;
+    white-space:nowrap;
+  }
+  .draggable:hover{ transform:translateY(-2px); }
+  .draggable.dragging{
+    cursor:grabbing;
+    transform:scale(1.06) rotate(-2deg);
+    box-shadow:0 14px 30px -10px rgba(168,85,247,0.7);
+    z-index:1000;
+    opacity:0.96;
+  }
+  .draggable svg{ width:20px; height:20px; flex:none; }
+
+  .dropzone{
+    position:relative;
+    border:2px dashed rgba(216,180,254,0.45);
+    border-radius:14px;
+    min-height:52px;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(23,10,46,0.35);
+    transition:background .2s ease, border-color .2s ease;
+  }
+  .dropzone .hint{
+    font-size:0.82rem; color:var(--text-soft); text-align:center; padding:6px 10px;
+    font-weight:600;
+  }
+  .dropzone:has(.draggable) .hint{ display:none; }
+  .dropzone:has(.draggable){
+    border-style:solid;
+    border-color:rgba(216,180,254,0.7);
+    background:rgba(168,85,247,0.18);
+  }
+  .dropzone.correct{
+    border-color:var(--success) !important;
+    background:rgba(94,234,212,0.16) !important;
+    box-shadow:0 0 0 3px rgba(94,234,212,0.25);
+  }
+  .dropzone.incorrect{
+    border-color:var(--error) !important;
+    background:rgba(251,113,133,0.14) !important;
+    animation:shake .35s ease;
+  }
+  @keyframes shake{
+    0%,100%{ transform:translateX(0); }
+    25%{ transform:translateX(-4px); }
+    75%{ transform:translateX(4px); }
+  }
+
+  .tray{
+    display:flex; flex-wrap:wrap; gap:12px;
+    padding:16px;
+    border-radius:16px;
+    background:rgba(0,0,0,0.18);
+    border:1px solid rgba(255,255,255,0.08);
+    min-height:70px;
+  }
+
+  .check-row{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    margin-top:20px;
+  }
+  button.action-btn{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:700; font-size:0.98rem;
+    padding:11px 26px;
+    border-radius:999px;
+    border:none;
+    background:linear-gradient(135deg, var(--violet), var(--magenta));
+    color:#fff;
+    cursor:pointer;
+    box-shadow:0 8px 20px -8px rgba(168,85,247,0.8);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  button.action-btn:hover{ transform:translateY(-2px); box-shadow:0 12px 26px -10px rgba(232,121,249,0.9);}
+  button.action-btn.secondary{
+    background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.25);
+    box-shadow:none;
+  }
+  .feedback{
+    font-weight:700; font-size:0.95rem; min-height:1.4em;
+    transition:color .2s ease;
+  }
+  .feedback.ok{ color:var(--success); }
+  .feedback.bad{ color:var(--error); }
+
+  /* ---------------- Activity 1 specific ---------------- */
+  .a1-layout{
+    display:grid; grid-template-columns:1.1fr 0.9fr; gap:28px;
+    align-items:center;
+  }
+  @media (max-width:760px){
+    .a1-layout{ grid-template-columns:1fr; }
+  }
+  .card-stage{
+    position:relative;
+    border-radius:22px;
+    background:linear-gradient(155deg, #fdf2ff 0%, #ede4ff 60%, #e3d4ff 100%);
+    box-shadow:0 18px 40px -18px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.7);
+    padding:14px;
+    overflow:hidden;
+  }
+  .card-stage::after{
+    content:"✦ pop-up greeting card ✦";
+    position:absolute; bottom:8px; left:0; right:0;
+    text-align:center; font-size:0.7rem; letter-spacing:2px;
+    color:#a78bfa; font-weight:700; opacity:0.7;
+  }
+  .card-stage svg{ width:100%; display:block; }
+
+  .tape{
+    fill:none; stroke:var(--copper); stroke-width:9; stroke-linecap:round; stroke-linejoin:round;
+    opacity:0.92;
+  }
+  .tape-shadow{
+    fill:none; stroke:#b8860b; stroke-width:9; stroke-linecap:round; stroke-linejoin:round;
+    opacity:0.18; transform:translate(0,3px);
+  }
+  .pulse-dot{
+    fill:#fff;
+    filter:drop-shadow(0 0 6px #fde68a) drop-shadow(0 0 14px #fbbf24);
+    opacity:0;
+  }
+  .pulse-dot.live{ opacity:1; }
+
+  .led-bulb{ transition:fill .4s ease; }
+  .led-bulb .glass{ fill:#3a3550; stroke:#5b5470; stroke-width:2; transition:fill .4s ease, stroke .4s ease; }
+  .led-bulb .glow{ fill:var(--gold-glow); opacity:0; transition:opacity .4s ease; }
+  .led-bulb.lit .glass{ fill:var(--gold); stroke:var(--gold-glow); }
+  .led-bulb.lit .glow{
+    opacity:0.9;
+    animation:ledPulse 1.1s ease-in-out infinite alternate;
+  }
+  @keyframes ledPulse{
+    from{ opacity:0.55; r:18; }
+    to{ opacity:1; r:26; }
+  }
+
+  .drop-overlay{
+    position:absolute;
+    transform:translate(-50%,-50%);
+    width:74px; height:54px;
+  }
+  .dz-battery{ left:50%; top:14.5%; }
+  .dz-led{ left:50%; top:85.5%; }
+
+  /* small icon styles */
+  .icon-led-mini circle{ fill:#3a3550; stroke:#fde68a; stroke-width:2; }
+  .draggable[data-id="led"] svg circle{ fill:var(--gold); }
+
+  /* ---------------- Activity 2 specific ---------------- */
+  .a2-layout{
+    display:grid; grid-template-columns:1fr 1fr; gap:18px 28px;
+  }
+  @media (max-width:680px){ .a2-layout{ grid-template-columns:1fr; } }
+  .a2-terms{
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .a2-terms .draggable{ justify-content:center; width:100%; }
+  .a2-defs{
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .def-row{
+    display:flex; align-items:center; gap:12px;
+    background:rgba(0,0,0,0.18);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:14px;
+    padding:10px 12px;
+  }
+  .def-row .dropzone{ flex:0 0 150px; min-height:46px; }
+  .def-row .def-text{ font-size:0.88rem; color:var(--text-soft); line-height:1.4; }
+  @media (max-width:520px){
+    .def-row{ flex-direction:column; align-items:stretch; }
+    .def-row .dropzone{ flex:none; }
+  }
+
+  /* ---------------- Activity 3 specific ---------------- */
+  .a3-slots{
+    display:flex; flex-direction:column; gap:10px;
+    margin-top:18px;
+  }
+  .a3-slot-row{
+    display:flex; align-items:center; gap:12px;
+  }
+  .slot-number{
+    flex:none; width:34px; height:34px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg, var(--violet), var(--magenta));
+    font-family:'Baloo 2',sans-serif; font-weight:800; color:#fff; font-size:0.95rem;
+  }
+  .a3-slot-row .dropzone{ flex:1; min-height:46px; justify-content:flex-start; padding:0 14px; }
+  .a3-slot-row .dropzone .draggable{ width:100%; box-sizing:border-box; }
+  .a3-slot-row .dropzone .hint{ text-align:left; }
+
+  /* ---------------- footer ---------------- */
+  footer{
+    text-align:center; padding:20px;
+    color:var(--text-soft); font-size:0.85rem;
+  }
+
+  /* sparkle burst */
+  .spark{
+    position:absolute; width:7px; height:7px; border-radius:50%;
+    background:var(--gold-glow);
+    box-shadow:0 0 8px var(--gold-glow);
+    pointer-events:none;
+    animation:sparkOut 0.9s ease-out forwards;
+  }
+  @keyframes sparkOut{
+    to{ transform:translate(var(--dx), var(--dy)) scale(0); opacity:0; }
+  }
+
+  /* chain reaction caption */
+  .chain-msg{
+    margin-top:14px;
+    font-size:0.92rem; font-weight:700; color:var(--gold);
+    opacity:0; transition:opacity .4s ease;
+  }
+  .chain-msg.show{ opacity:1; }
+</style>
+</head>
+<body>
+
+<div id="starsLayer"></div>
+<div class="shooting-star"></div>
+<div class="shooting-star s2"></div>
+
+<div class="bird">
+  <svg viewBox="0 0 46 46">
+    <g class="wing" fill="#e9d8ff">
+      <path d="M23 22 C12 14, 2 16, 4 24 C12 24, 20 24, 23 22 Z"/>
+    </g>
+    <g fill="#c4b5fd">
+      <ellipse cx="26" cy="23" rx="10" ry="5"/>
+      <circle cx="34" cy="20" r="3.4"/>
+      <path d="M37 19 L43 17 L37 21 Z" fill="#f0abfc"/>
+    </g>
+  </svg>
+</div>
+
+<div class="page-wrap">
+
+  <header class="page-header">
+    <h1>Paper Circuit — LED Greeting Card</h1>
+    <div class="progress-pill"><span class="star-icon">⭐</span> <span id="starCount">0</span> / 3 circuits glowing</div>
+  </header>
+
+  <main>
+
+    <!-- ACTIVITY 1 -->
+    <section class="activity" id="activity1">
+      <div class="activity-head">
+        <div class="activity-badge">💡</div>
+        <h2>Light Up the Card</h2>
+      </div>
+      <p class="activity-desc">Drag the correct parts into the gaps in the copper tape circuit. If everything is connected the right way, the LED will glow and a light pulse will race around the loop.</p>
+
+      <div class="a1-layout">
+        <div class="card-stage">
+          <svg viewBox="0 0 400 240" aria-label="Greeting card circuit diagram">
+            <!-- shadow tapes -->
+            <path class="tape-shadow" d="M220,34 L356,34 L356,206 L220,206"/>
+            <path class="tape-shadow" d="M180,206 L44,206 L44,34 L180,34"/>
+            <!-- copper tape segments -->
+            <path id="tapeA" class="tape" d="M220,34 L356,34 L356,206 L220,206"/>
+            <path id="tapeB" class="tape" d="M180,206 L44,206 L44,34 L180,34"/>
+
+            <!-- pulse dots that travel once circuit is complete -->
+            <circle class="pulse-dot" id="pulseA" r="6">
+              <animateMotion id="motionA" dur="2.6s" repeatCount="indefinite" begin="indefinite">
+                <mpath href="#tapeA"/>
+              </animateMotion>
+            </circle>
+            <circle class="pulse-dot" id="pulseB" r="6">
+              <animateMotion id="motionB" dur="2.6s" repeatCount="indefinite" begin="indefinite">
+                <mpath href="#tapeB"/>
+              </animateMotion>
+            </circle>
+
+            <!-- decorative star on the card -->
+            <path d="M200 90 l10 24 26 2 -20 18 6 26 -22 -14 -22 14 6 -26 -20 -18 26 -2 z"
+                  fill="none" stroke="#c4b5fd" stroke-width="2.5" stroke-linejoin="round" opacity="0.55"/>
+
+            <!-- LED bulb sits at bottom gap -->
+            <g class="led-bulb" id="ledBulb" transform="translate(200,206)">
+              <circle class="glow" r="20"/>
+              <circle class="glass" r="13"/>
+              <path d="M-6,10 L-6,22 M6,10 L6,22" stroke="#9ca3af" stroke-width="3" stroke-linecap="round"/>
+            </g>
+          </svg>
+
+          <!-- overlay dropzones -->
+          <div class="drop-overlay dz-battery">
+            <div class="dropzone" data-activity="1" data-accept="battery">
+              <span class="hint">coin&nbsp;battery</span>
+            </div>
+          </div>
+          <div class="drop-overlay dz-led">
+            <div class="dropzone" data-activity="1" data-accept="led">
+              <span class="hint">LED</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="tray" id="tray1">
+            <div class="draggable" data-activity="1" data-id="led" draggable="false">
+              <svg viewBox="0 0 24 24"><circle class="icon-led-mini" cx="12" cy="11" r="8"/><path d="M9 19 L9 22 M15 19 L15 22" stroke="#cbb6ef" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+              LED bulb
+            </div>
+            <div class="draggable" data-activity="1" data-id="battery" draggable="false">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#d1d5db"/><circle cx="12" cy="12" r="4" fill="#9ca3af"/></svg>
+              Coin battery
+            </div>
+            <div class="draggable" data-activity="1" data-id="glue" draggable="false">🧴 Glue stick</div>
+            <div class="draggable" data-activity="1" data-id="clip" draggable="false">🧷 Paper clip</div>
+            <div class="draggable" data-activity="1" data-id="scissors" draggable="false">✂️ Scissors</div>
+          </div>
+
+          <div class="check-row">
+            <button class="action-btn" onclick="checkActivity1()">Check circuit</button>
+            <button class="action-btn secondary" onclick="resetActivity('1')">Reset</button>
+          </div>
+          <div class="feedback" id="feedback1"></div>
+          <div class="chain-msg" id="chainMsg1">⚡ Chain reaction! Current flows around the tape and the LED lights up.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 2 -->
+    <section class="activity" id="activity2">
+      <div class="activity-head">
+        <div class="activity-badge">🔎</div>
+        <h2>Match the Parts</h2>
+      </div>
+      <p class="activity-desc">Drag each component onto the description that explains what it does in a paper circuit.</p>
+
+      <div class="a2-layout">
+        <div class="a2-terms tray" id="tray2">
+          <div class="draggable" data-activity="2" data-id="led" draggable="false">💡 LED</div>
+          <div class="draggable" data-activity="2" data-id="tape" draggable="false">➖ Copper tape</div>
+          <div class="draggable" data-activity="2" data-id="battery" draggable="false">🔘 Coin cell battery</div>
+          <div class="draggable" data-activity="2" data-id="switch" draggable="false">🔀 Switch</div>
+        </div>
+
+        <div class="a2-defs">
+          <div class="def-row">
+            <div class="dropzone" data-activity="2" data-accept="battery"><span class="hint">drop here</span></div>
+            <div class="def-text">Stores energy and gives the circuit the push (voltage) it needs to work.</div>
+          </div>
+          <div class="def-row">
+            <div class="dropzone" data-activity="2" data-accept="tape"><span class="hint">drop here</span></div>
+            <div class="def-text">A conductive path that carries electricity across the card, like a flat wire.</div>
+          </div>
+          <div class="def-row">
+            <div class="dropzone" data-activity="2" data-accept="led"><span class="hint">drop here</span></div>
+            <div class="def-text">Lights up when current flows through it from its long leg to its short leg.</div>
+          </div>
+          <div class="def-row">
+            <div class="dropzone" data-activity="2" data-accept="switch"><span class="hint">drop here</span></div>
+            <div class="def-text">Opens or closes a gap in the tape so the light can be turned on or off.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="check-row">
+        <button class="action-btn" onclick="checkActivity2()">Check matches</button>
+        <button class="action-btn secondary" onclick="resetActivity('2')">Reset</button>
+      </div>
+      <div class="feedback" id="feedback2"></div>
+    </section>
+
+    <!-- ACTIVITY 3 -->
+    <section class="activity" id="activity3">
+      <div class="activity-head">
+        <div class="activity-badge">🧩</div>
+        <h2>Build It in Order</h2>
+      </div>
+      <p class="activity-desc">Drag the steps into the correct order for making a paper circuit LED card, from blank card to glowing card.</p>
+
+      <div class="tray" id="tray3">
+        <div class="draggable" data-activity="3" data-step="3" draggable="false">Stick copper tape firmly along the pencil lines, folding neat corners.</div>
+        <div class="draggable" data-activity="3" data-step="1" draggable="false">Sketch the circuit path on the card with a pencil, leaving a small gap for the LED.</div>
+        <div class="draggable" data-activity="3" data-step="6" draggable="false">Close the card and press — the LED lights up!</div>
+        <div class="draggable" data-activity="3" data-step="4" draggable="false">Slide the LED's legs under the tape, matching the long leg to the positive line.</div>
+        <div class="draggable" data-activity="3" data-step="2" draggable="false">Fold the card and decide where the battery and LED will sit.</div>
+        <div class="draggable" data-activity="3" data-step="5" draggable="false">Tape the coin battery in place, lining up + and − with the circuit lines.</div>
+      </div>
+
+      <div class="a3-slots">
+        <div class="a3-slot-row"><div class="slot-number">1</div><div class="dropzone" data-activity="3" data-slot="1"><span class="hint">place step 1 here</span></div></div>
+        <div class="a3-slot-row"><div class="slot-number">2</div><div class="dropzone" data-activity="3" data-slot="2"><span class="hint">place step 2 here</span></div></div>
+        <div class="a3-slot-row"><div class="slot-number">3</div><div class="dropzone" data-activity="3" data-slot="3"><span class="hint">place step 3 here</span></div></div>
+        <div class="a3-slot-row"><div class="slot-number">4</div><div class="dropzone" data-activity="3" data-slot="4"><span class="hint">place step 4 here</span></div></div>
+        <div class="a3-slot-row"><div class="slot-number">5</div><div class="dropzone" data-activity="3" data-slot="5"><span class="hint">place step 5 here</span></div></div>
+        <div class="a3-slot-row"><div class="slot-number">6</div><div class="dropzone" data-activity="3" data-slot="6"><span class="hint">place step 6 here</span></div></div>
+      </div>
+
+      <div class="check-row">
+        <button class="action-btn" onclick="checkActivity3()">Check order</button>
+        <button class="action-btn secondary" onclick="resetActivity('3')">Reset</button>
+      </div>
+      <div class="feedback" id="feedback3"></div>
+    </section>
+
+  </main>
+
+  <footer>
+    Built for hands-on makers — drag, drop, and watch the circuit come alive. ✨
+  </footer>
+
+</div>
+
+<script>
+  /* ---------------- Background stars ---------------- */
+  const starsLayer = document.getElementById('starsLayer');
+  for(let i=0;i<55;i++){
+    const star = document.createElement('div');
+    star.className = 'star';
+    star.style.left = Math.random()*100+'%';
+    star.style.top = Math.random()*100+'%';
+    const size = (Math.random()*3+1).toFixed(1);
+    star.style.width = size+'px';
+    star.style.height = size+'px';
+    star.style.animationDelay = (Math.random()*5).toFixed(2)+'s';
+    star.style.animationDuration = (2+Math.random()*3).toFixed(2)+'s';
+    starsLayer.appendChild(star);
+  }
+
+  /* ---------------- Generic pointer-based drag & drop ---------------- */
+  let starCount = 0;
+  let drag = null;
+
+  function initDraggables(){
+    document.querySelectorAll('.draggable').forEach(item=>{
+      item.addEventListener('pointerdown', onPointerDown);
+    });
+  }
+
+  function onPointerDown(e){
+    const item = e.currentTarget;
+    item.setPointerCapture(e.pointerId);
+    const rect = item.getBoundingClientRect();
+    drag = {
+      item,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+      originParent: item.parentElement,
+      originNext: item.nextElementSibling,
+      width: rect.width,
+      height: rect.height
+    };
+    item.style.width = rect.width+'px';
+    item.style.height = rect.height+'px';
+    document.body.appendChild(item);
+    item.style.position = 'fixed';
+    item.style.left = rect.left+'px';
+    item.style.top = rect.top+'px';
+    item.style.margin = '0';
+    item.classList.add('dragging');
+
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+  }
+
+  function onPointerMove(e){
+    if(!drag) return;
+    drag.item.style.left = (e.clientX - drag.offsetX)+'px';
+    drag.item.style.top = (e.clientY - drag.offsetY)+'px';
+  }
+
+  function onPointerUp(e){
+    if(!drag) return;
+    const { item, originParent, originNext } = drag;
+
+    item.classList.remove('dragging');
+    item.style.position = '';
+    item.style.left = '';
+    item.style.top = '';
+    item.style.width = '';
+    item.style.height = '';
+    item.style.margin = '';
+
+    item.style.pointerEvents = 'none';
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    item.style.pointerEvents = '';
+
+    const dropzone = target ? target.closest('.dropzone') : null;
+    let placed = false;
+
+    if(dropzone && dropzone.dataset.activity === item.dataset.activity){
+      const existing = dropzone.querySelector('.draggable');
+      if(existing && existing !== item){
+        // swap existing item back to where the dragged item came from
+        if(originNext) originParent.insertBefore(existing, originNext);
+        else originParent.appendChild(existing);
+      }
+      dropzone.classList.remove('correct','incorrect');
+      dropzone.appendChild(item);
+      placed = true;
+    }
+
+    if(!placed){
+      if(originNext) originParent.insertBefore(item, originNext);
+      else originParent.appendChild(item);
+    }
+
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
+    drag = null;
+  }
+
+  initDraggables();
+
+  /* ---------------- Sparkle burst ---------------- */
+  function burst(container){
+    const rect = container.getBoundingClientRect();
+    for(let i=0;i<18;i++){
+      const s = document.createElement('div');
+      s.className = 'spark';
+      const angle = Math.random()*Math.PI*2;
+      const dist = 40+Math.random()*70;
+      s.style.setProperty('--dx', Math.cos(angle)*dist+'px');
+      s.style.setProperty('--dy', Math.sin(angle)*dist+'px');
+      s.style.left = (rect.width/2)+'px';
+      s.style.top = (rect.height/2)+'px';
+      container.appendChild(s);
+      setTimeout(()=>s.remove(), 950);
+    }
+  }
+
+  function addStar(){
+    starCount = Math.min(starCount+1, 3);
+    document.getElementById('starCount').textContent = starCount;
+  }
+  function removeStarIfCounted(flagAttr, container){
+    if(container.dataset[flagAttr] === '1'){
+      container.dataset[flagAttr] = '0';
+      starCount = Math.max(starCount-1, 0);
+      document.getElementById('starCount').textContent = starCount;
+    }
+  }
+
+  /* ---------------- Activity 1 ---------------- */
+  const a1 = document.getElementById('activity1');
+  function checkActivity1(){
+    const dzBattery = a1.querySelector('.dropzone[data-accept="battery"]');
+    const dzLed = a1.querySelector('.dropzone[data-accept="led"]');
+    const itemBattery = dzBattery.querySelector('.draggable');
+    const itemLed = dzLed.querySelector('.draggable');
+    const fb = document.getElementById('feedback1');
+    const chainMsg = document.getElementById('chainMsg1');
+
+    [dzBattery, dzLed].forEach(dz=>dz.classList.remove('correct','incorrect'));
+
+    const batteryOk = itemBattery && itemBattery.dataset.id === 'battery';
+    const ledOk = itemLed && itemLed.dataset.id === 'led';
+
+    if(batteryOk && ledOk){
+      dzBattery.classList.add('correct');
+      dzLed.classList.add('correct');
+      fb.textContent = "The circuit is complete!";
+      fb.className = 'feedback ok';
+
+      document.getElementById('ledBulb').classList.add('lit');
+      document.getElementById('pulseA').classList.add('live');
+      document.getElementById('pulseB').classList.add('live');
+      document.getElementById('motionA').beginElement();
+      document.getElementById('motionB').beginElement();
+      chainMsg.classList.add('show');
+
+      burst(a1);
+      if(a1.dataset.starred !== '1'){
+        a1.dataset.starred = '1';
+        addStar();
+      }
+    } else {
+      if(itemBattery && !batteryOk) dzBattery.classList.add('incorrect');
+      else if(!itemBattery) dzBattery.classList.add('incorrect');
+      if(itemLed && !ledOk) dzLed.classList.add('incorrect');
+      else if(!itemLed) dzLed.classList.add('incorrect');
+
+      fb.textContent = "Not quite — check which part goes in each gap.";
+      fb.className = 'feedback bad';
+
+      document.getElementById('ledBulb').classList.remove('lit');
+      document.getElementById('pulseA').classList.remove('live');
+      document.getElementById('pulseB').classList.remove('live');
+      chainMsg.classList.remove('show');
+      removeStarIfCounted('starred', a1);
+    }
+  }
+
+  /* ---------------- Activity 2 ---------------- */
+  const a2 = document.getElementById('activity2');
+  function checkActivity2(){
+    const dzs = a2.querySelectorAll('.dropzone');
+    const fb = document.getElementById('feedback2');
+    let allCorrect = true;
+    let anyEmpty = false;
+
+    dzs.forEach(dz=>{
+      dz.classList.remove('correct','incorrect');
+      const item = dz.querySelector('.draggable');
+      if(!item){ allCorrect = false; anyEmpty = true; return; }
+      if(item.dataset.id === dz.dataset.accept){
+        dz.classList.add('correct');
+      } else {
+        dz.classList.add('incorrect');
+        allCorrect = false;
+      }
+    });
+
+    if(allCorrect){
+      fb.textContent = "All matched! You know your circuit parts.";
+      fb.className = 'feedback ok';
+      burst(a2);
+      if(a2.dataset.starred !== '1'){
+        a2.dataset.starred = '1';
+        addStar();
+      }
+    } else {
+      fb.textContent = anyEmpty ? "Fill every box, then check again." : "A few don't match yet — try swapping them.";
+      fb.className = 'feedback bad';
+      removeStarIfCounted('starred', a2);
+    }
+  }
+
+  /* ---------------- Activity 3 ---------------- */
+  const a3 = document.getElementById('activity3');
+  function checkActivity3(){
+    const dzs = a3.querySelectorAll('.dropzone[data-slot]');
+    const fb = document.getElementById('feedback3');
+    let allCorrect = true;
+    let anyEmpty = false;
+
+    dzs.forEach(dz=>{
+      dz.classList.remove('correct','incorrect');
+      const item = dz.querySelector('.draggable');
+      if(!item){ allCorrect = false; anyEmpty = true; return; }
+      if(item.dataset.step === dz.dataset.slot){
+        dz.classList.add('correct');
+      } else {
+        dz.classList.add('incorrect');
+        allCorrect = false;
+      }
+    });
+
+    if(allCorrect){
+      fb.textContent = "Perfect order — that's how a paper circuit card comes to life!";
+      fb.className = 'feedback ok';
+      burst(a3);
+      if(a3.dataset.starred !== '1'){
+        a3.dataset.starred = '1';
+        addStar();
+      }
+    } else {
+      fb.textContent = anyEmpty ? "Place a step in every slot, then check again." : "Some steps are out of order — try rearranging.";
+      fb.className = 'feedback bad';
+      removeStarIfCounted('starred', a3);
+    }
+  }
+
+  /* ---------------- Reset ---------------- */
+  function resetActivity(num){
+    const section = document.getElementById('activity'+num);
+    const tray = document.getElementById('tray'+num);
+    section.querySelectorAll('.draggable').forEach(item=>tray.appendChild(item));
+    section.querySelectorAll('.dropzone').forEach(dz=>dz.classList.remove('correct','incorrect'));
+    const fb = document.getElementById('feedback'+num);
+    fb.textContent = '';
+    fb.className = 'feedback';
+
+    if(num === '1'){
+      document.getElementById('ledBulb').classList.remove('lit');
+      document.getElementById('pulseA').classList.remove('live');
+      document.getElementById('pulseB').classList.remove('live');
+      document.getElementById('chainMsg1').classList.remove('show');
+    }
+    removeStarIfCounted('starred', section);
+  }
+</script>
+</body>
+</html>

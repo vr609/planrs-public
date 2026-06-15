@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scratch — Draw shapes with pen</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: #0f0726;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Animated background elements */
+  #starfield {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .star {
+    position: absolute;
+    border-radius: 50%;
+    background: white;
+    animation: twinkle var(--dur, 3s) ease-in-out infinite;
+    opacity: 0;
+  }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 0; transform: scale(0.5); }
+    50% { opacity: var(--op, 0.8); transform: scale(1); }
+  }
+
+  .bird {
+    position: fixed;
+    font-size: 24px;
+    animation: flyBy linear infinite;
+    pointer-events: none;
+    z-index: 1;
+    filter: hue-rotate(140deg) brightness(1.4);
+  }
+
+  @keyframes flyBy {
+    from { transform: translateX(-80px) translateY(var(--yoff, 0px)); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    to { transform: translateX(110vw) translateY(var(--yend, 0px)); opacity: 0; }
+  }
+
+  .chain-particle {
+    position: fixed;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 1;
+    animation: chainUp linear infinite;
+  }
+
+  @keyframes chainUp {
+    0% { transform: translate(0, 0) scale(1); opacity: 0.9; }
+    100% { transform: translate(var(--dx, 20px), var(--dy, -80px)) scale(0); opacity: 0; }
+  }
+
+  /* Page structure */
+  .page-wrap {
+    position: relative;
+    z-index: 2;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 40px 20px 60px;
+  }
+
+  /* Title Only Heading Setup */
+  .page-title {
+    text-align: center;
+    font-family: 'Fredoka One', sans-serif;
+    font-size: clamp(30px, 5.5vw, 52px);
+    background: linear-gradient(135deg, #f472b6, #c084fc, #6366f1, #f472b6);
+    background-size: 300%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmerTitle 5s linear infinite;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  @keyframes shimmerTitle {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 300% 50%; }
+  }
+
+  .title-underline {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 40px;
+  }
+
+  .title-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    animation: bounceDot 1.4s ease-in-out infinite;
+  }
+
+  .title-dot:nth-child(1) { background: #f472b6; animation-delay: 0s; }
+  .title-dot:nth-child(2) { background: #c084fc; animation-delay: 0.2s; }
+  .title-dot:nth-child(3) { background: #818cf8; animation-delay: 0.4s; }
+  .title-dot:nth-child(4) { background: #c084fc; animation-delay: 0.6s; }
+  .title-dot:nth-child(5) { background: #f472b6; animation-delay: 0.8s; }
+
+  @keyframes bounceDot {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  /* Progress Roadmap */
+  .progress-tracker {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-bottom: 35px;
+  }
+
+  .prog-step {
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: rgba(192, 132, 252, 0.4);
+    transition: color 0.3s;
+  }
+
+  .prog-step.completed { color: #4ade80; }
+  .prog-step.current { color: #f3e8ff; }
+
+  .prog-num {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    border: 2px solid rgba(192, 132, 252, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 8px;
+    font-family: 'Fredoka One', sans-serif;
+    font-size: 16px;
+    transition: all 0.3s;
+  }
+
+  .prog-step.completed .prog-num {
+    background: rgba(34, 197, 94, 0.2);
+    border-color: #4ade80;
+    color: #4ade80;
+  }
+
+  .prog-step.current .prog-num {
+    background: rgba(139, 92, 246, 0.35);
+    border-color: #c084fc;
+    color: #f3e8ff;
+    animation: glowPulse 2s infinite;
+  }
+
+  @keyframes glowPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(192, 132, 252, 0.5); }
+    50% { box-shadow: 0 0 0 10px rgba(192, 132, 252, 0); }
+  }
+
+  /* Activity Modular Container */
+  .activity-box {
+    background: rgba(124, 58, 237, 0.07);
+    border: 2px solid rgba(168, 85, 247, 0.25);
+    border-radius: 24px;
+    padding: 30px;
+    margin-bottom: 35px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+
+  .activity-box:hover {
+    border-color: rgba(168, 85, 247, 0.5);
+  }
+
+  .act-title-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  .act-badge {
+    width: 42px; height: 42px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Fredoka One', sans-serif;
+    font-size: 20px;
+    color: white;
+  }
+
+  .b1 { background: linear-gradient(135deg, #a855f7, #ec4899); }
+  .b2 { background: linear-gradient(135deg, #7c3aed, #a855f7); }
+  .b3 { background: linear-gradient(135deg, #6366f1, #7c3aed); }
+
+  .act-name {
+    font-family: 'Fredoka One', sans-serif;
+    font-size: 24px;
+    color: #e9d5ff;
+    letter-spacing: 0.5px;
+  }
+
+  .act-tip {
+    font-size: 14px;
+    color: #ddd6fe;
+    margin-bottom: 24px;
+    line-height: 1.6;
+    background: rgba(88, 28, 135, 0.25);
+    border-left: 4px solid #a855f7;
+    padding: 12px 16px;
+    border-radius: 0 12px 12px 0;
+  }
+
+  /* Common Draggable / Drop Items Structure */
+  .drag-block {
+    background: linear-gradient(135deg, rgba(88, 28, 135, 0.45), rgba(124, 58, 237, 0.35));
+    border: 2px solid rgba(168, 85, 247, 0.4);
+    border-radius: 12px;
+    padding: 12px 16px;
+    cursor: grab;
+    font-size: 14px;
+    font-weight: 700;
+    color: #f3e8ff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    user-select: none;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  }
+
+  .drag-block:hover {
+    transform: scale(1.02) translateY(-1px);
+    border-color: #c084fc;
+    box-shadow: 0 6px 20px rgba(147, 51, 234, 0.3);
+  }
+
+  .drag-block.dragging {
+    opacity: 0.3;
+    cursor: grabbing;
+  }
+
+  .block-emoji { font-size: 18px; }
+
+  /* --- ACTIVITY 1 SPECIFICS --- */
+  .grid-match {
+    display: grid;
+    grid-template-columns: 1fr 50px 1fr;
+    gap: 15px;
+    align-items: start;
+  }
+
+  .col-title {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: #c084fc;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    margin-bottom: 12px;
+  }
+
+  .pool-blocks {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .drop-target-zone {
+    background: rgba(76, 29, 149, 0.15);
+    border: 2px dashed rgba(168, 85, 247, 0.35);
+    border-radius: 14px;
+    padding: 14px;
+    min-height: 52px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13.5px;
+    color: rgba(216, 180, 254, 0.6);
+    text-align: center;
+    transition: all 0.2s;
+  }
+
+  .drop-target-zone.hovered {
+    background: rgba(147, 51, 234, 0.2);
+    border-color: #c084fc;
+    border-style: solid;
+    transform: scale(1.01);
+  }
+
+  .drop-target-zone.filled {
+    background: rgba(88, 28, 135, 0.3);
+    border-style: solid;
+    border-color: rgba(168, 85, 247, 0.6);
+  }
+
+  .drop-target-zone.win { background: rgba(34, 197, 94, 0.15); border-color: #4ade80; }
+  .drop-target-zone.fail { background: rgba(239, 68, 68, 0.15); border-color: #f87171; animation: wobble 0.4s ease; }
+
+  .mid-connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 35px;
+    gap: 54px;
+  }
+
+  .conn-node {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(168, 85, 247, 0.35);
+  }
+
+  /* --- ACTIVITY 2 SPECIFICS --- */
+  .sequence-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .seq-card {
+    background: linear-gradient(135deg, rgba(88, 28, 135, 0.35), rgba(124, 58, 237, 0.2));
+    border: 2px solid rgba(168, 85, 247, 0.3);
+    border-radius: 14px;
+    padding: 14px 20px;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-weight: 700;
+    color: #e9d5ff;
+    transition: all 0.2s;
+  }
+
+  .seq-card:hover {
+    transform: translateX(5px);
+    border-color: #d8b4fe;
+    box-shadow: 0 5px 15px rgba(124, 58, 237, 0.25);
+  }
+
+  .seq-card.hover-over {
+    border-color: #ec4899;
+    background: rgba(236, 72, 153, 0.15);
+  }
+
+  .seq-index {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: rgba(147, 51, 234, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Fredoka One', sans-serif;
+    color: #f3e8ff;
+    font-size: 15px;
+  }
+
+  .seq-text { flex: 1; font-size: 14.5px; }
+  .seq-grip { color: rgba(168, 85, 247, 0.5); font-size: 18px; }
+
+  /* --- ACTIVITY 3 SPECIFICS --- */
+  .sort-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .sort-container {
+    background: rgba(67, 21, 131, 0.15);
+    border: 2px dashed rgba(168, 85, 247, 0.3);
+    border-radius: 16px;
+    padding: 16px;
+    min-height: 220px;
+  }
+
+  .sort-header-tag {
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 14px;
+    text-align: center;
+    padding: 6px 10px;
+    border-radius: 30px;
+  }
+
+  .tag-source { color: #e9d5ff; background: rgba(147, 51, 234, 0.25); }
+  .tag-right { color: #86efac; background: rgba(34, 197, 94, 0.12); border: 1.5px solid rgba(74, 222, 128, 0.25); }
+  .tag-wrong { color: #fca5a5; background: rgba(239, 68, 68, 0.12); border: 1.5px solid rgba(248, 113, 113, 0.25); }
+
+  .sort-drop-surface {
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .sort-drop-surface.hovered {
+    background: rgba(168, 85, 247, 0.15);
+    border-radius: 12px;
+  }
+
+  .sort-item-block {
+    background: linear-gradient(135deg, rgba(88, 28, 135, 0.45), rgba(124, 58, 237, 0.35));
+    border: 2px solid rgba(168, 85, 247, 0.35);
+    border-radius: 12px;
+    padding: 10px 14px;
+    cursor: grab;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #e9d5ff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+  }
+
+  .sort-item-block.good { background: rgba(34, 197, 94, 0.15); border-color: #4ade80; }
+  .sort-item-block.bad { background: rgba(239, 68, 68, 0.15); border-color: #f87171; animation: wobble 0.4s ease; }
+
+  .sort-item-block:hover { transform: scale(1.02); }
+  .sort-item-block.dragging { opacity: 0.2; }
+
+  .placeholder-text {
+    color: rgba(168, 85, 247, 0.4);
+    font-size: 13px;
+    text-align: center;
+    padding: 30px 10px;
+    font-style: italic;
+  }
+
+  /* Universal Feedback Action Bars */
+  .action-btn {
+    display: block;
+    margin: 20px auto 0;
+    background: linear-gradient(135deg, #a855f7, #7c3aed, #ec4899);
+    background-size: 200%;
+    border: none;
+    border-radius: 30px;
+    padding: 12px 36px;
+    color: white;
+    font-family: 'Fredoka One', sans-serif;
+    font-size: 16px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    animation: shiftingBg 4s linear infinite;
+  }
+
+  @keyframes shiftingBg {
+    0% { background-position: 0%; }
+    100% { background-position: 200%; }
+  }
+
+  .action-btn:hover {
+    transform: scale(1.04) translateY(-2px);
+    box-shadow: 0 8px 24px rgba(168, 85, 247, 0.4);
+  }
+
+  .status-message {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    display: none;
+    animation: zoomIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .status-message.pass { background: rgba(34, 197, 94, 0.15); border: 2px solid #4ade80; color: #86efac; display: block; }
+  .status-message.warn { background: rgba(251, 191, 36, 0.15); border: 2px solid #fbbf24; color: #fde68a; display: block; }
+
+  @keyframes zoomIn {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes wobble {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+
+  .confetti {
+    position: fixed;
+    width: 8px; height: 8px;
+    pointer-events: none;
+    z-index: 999;
+    animation: fall forwards;
+  }
+
+  @keyframes fall {
+    0% { transform: translate(0,0) rotate(0deg); opacity: 1; }
+    100% { transform: translate(var(--mx,0), var(--my,250px)) rotate(var(--mr,360deg)); opacity: 0; }
+  }
+
+  @media (max-width: 650px) {
+    .grid-match, .sort-layout { grid-template-columns: 1fr; }
+    .mid-connector { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="starfield"></div>
+<div id="dynamicLayer"></div>
+
+<div class="page-wrap">
+
+  <h1 class="page-title">Scratch — Draw shapes with pen</h1>
+  <div class="title-underline">
+    <div class="title-dot"></div>
+    <div class="title-dot"></div>
+    <div class="title-dot"></div>
+    <div class="title-dot"></div>
+    <div class="title-dot"></div>
+  </div>
+
+  <div class="progress-tracker">
+    <div class="prog-step current" id="pStep1"><div class="prog-num">1</div>Match Formulas</div>
+    <div class="prog-step" id="pStep2"><div class="prog-num">2</div>Square Logic</div>
+    <div class="prog-step" id="pStep3"><div class="prog-num">3</div>Sort Angles</div>
+  </div>
+
+  <div class="activity-box" id="actBlock1">
+    <div class="act-title-bar">
+      <div class="act-badge b1">1</div>
+      <div class="act-name">Match the Shape Turn!</div>
+    </div>
+    <div class="act-tip">
+      📐 To draw regular geometric shapes, Scratch needs to turn the exact correct angle. Drag each turn block from the left and match it to its correct target shape description on the right!
+    </div>
+
+    <div class="grid-match">
+      <div>
+        <div class="col-title">Turn Blocks</div>
+        <div class="pool-blocks" id="a1Pool">
+          <div class="drag-block" draggable="true" data-shape="triangle" id="b-tri">
+            <span class="block-emoji">↩️</span> turn 120 degrees
+          </div>
+          <div class="drag-block" draggable="true" data-shape="square" id="b-squ">
+            <span class="block-emoji">↩️</span> turn 90 degrees
+          </div>
+          <div class="drag-block" draggable="true" data-shape="hexagon" id="b-hex">
+            <span class="block-emoji">↩️</span> turn 60 degrees
+          </div>
+          <div class="drag-block" draggable="true" data-shape="circle" id="b-circ">
+            <span class="block-emoji">↩️</span> turn 1 degrees
+          </div>
+        </div>
+      </div>
+
+      <div class="mid-connector">
+        <div class="conn-node"></div>
+        <div class="conn-node"></div>
+        <div class="conn-node"></div>
+        <div class="conn-node"></div>
+      </div>
+
+      <div>
+        <div class="col-title">Target Shape Profile</div>
+        <div class="drop-target-zone" data-target="triangle">
+          Draws an Equilateral Triangle (3 regular sides)
+        </div>
+        <div class="drop-target-zone" data-target="square">
+          Draws a Perfect Square (4 regular sides)
+        </div>
+        <div class="drop-target-zone" data-target="hexagon">
+          Draws a Regular Hexagon (6 regular sides)
+        </div>
+        <div class="drop-target-zone" data-target="circle">
+          Draws a Smooth Ring/Circle (Repeat 360 times!)
+        </div>
+      </div>
+    </div>
+
+    <div class="status-message" id="msg1"></div>
+    <button class="action-btn" onclick="verifyActivity1()">Verify Matches ✨</button>
+  </div>
+
+  <div class="activity-box" id="actBlock2">
+    <div class="act-title-bar">
+      <div class="act-badge b2">2</div>
+      <div class="act-name">Build a Square Script</div>
+    </div>
+    <div class="act-tip">
+      🟩 Reorder the code instructions from top to bottom so Scratch sets up clean parameters, puts the pen down, and executes a looped script to construct a square!
+    </div>
+
+    <div class="sequence-list" id="seqContainer">
+      </div>
+
+    <div class="status-message" id="msg2"></div>
+    <button class="action-btn" onclick="verifyActivity2()">Verify Sequence 🟩</button>
+  </div>
+
+  <div class="activity-box" id="actBlock3">
+    <div class="act-title-bar">
+      <div class="act-badge b3">3</div>
+      <div class="act-name">Categorize the Turn Directions</div>
+    </div>
+    <div class="act-tip">
+      🔄 When creating geometry art, the math depends on whether you're drawing a standard convex polygon or clean geometric lines versus impossible attributes. Sort these turns!
+    </div>
+
+    <div class="sort-layout">
+      <div class="sort-container">
+        <div class="sort-header-tag tag-source">Block Bank 📦</div>
+        <div class="sort-drop-surface" id="sBank" ondragover="allowHover(event)" ondrop="handleSortDrop(event, 'source')"></div>
+      </div>
+
+      <div>
+        <div class="sort-container" style="margin-bottom: 12px;">
+          <div class="sort-header-tag tag-right">✅ Valid Exterior Turn Angles</div>
+          <div class="sort-drop-surface" id="sRight" ondragover="allowHover(event)" ondrop="handleSortDrop(event, 'right')">
+            <div class="placeholder-text">Drop correct shape exterior angles here</div>
+          </div>
+        </div>
+
+        <div class="sort-container">
+          <div class="sort-header-tag tag-wrong">❌ Invalid Geometric Turn Angles</div>
+          <div class="sort-drop-surface" id="sWrong" ondragover="allowHover(event)" ondrop="handleSortDrop(event, 'wrong')">
+            <div class="placeholder-text">Drop incorrect shape angles here</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-message" id="msg3"></div>
+    <button class="action-btn" onclick="verifyActivity3()">Verify Categories 🧩</button>
+  </div>
+
+</div>
+
+<script>
+// ===== BG STAR GENERATION =====
+const starfield = document.getElementById('starfield');
+for (let i = 0; i < 75; i++) {
+  const star = document.createElement('div');
+  star.className = 'star';
+  const size = Math.random() * 2.5 + 1;
+  star.style.cssText = `
+    width: ${size}px; height: ${size}px;
+    left: ${Math.random() * 100}%; top: ${Math.random() * 100}%;
+    --dur: ${2.5 + Math.random() * 3.5}s; --op: ${0.3 + Math.random() * 0.7};
+    animation-delay: ${Math.random() * 4}s;
+  `;
+  starfield.appendChild(star);
+}
+
+// ===== MOVING STAR/CELESTIAL OBJECTS =====
+function makeStar() {
+  const node = document.createElement('div');
+  node.style.cssText = `
+    position: fixed; font-size: ${18 + Math.random() * 16}px;
+    top: ${15 + Math.random() * 70}%; left: -50px; z-index: 1; pointer-events: none;
+    animation: flyBy ${7 + Math.random() * 6}s linear forwards;
+    filter: hue-rotate(${Math.random() * 360}deg);
+  `;
+  node.textContent = ['⭐','✨','🌟'][Math.floor(Math.random() * 3)];
+  node.style.setProperty('--yoff', `${(Math.random() - 0.5) * 50}px`);
+  node.style.setProperty('--yend', `${(Math.random() - 0.5) * 90}px`);
+  document.getElementById('dynamicLayer').appendChild(node);
+  setTimeout(() => node.remove(), 13000);
+}
+setInterval(makeStar, 4500);
+
+// ===== BIRDS REACTION LAYER =====
+function makeBird() {
+  const bird = document.createElement('div');
+  bird.className = 'bird';
+  bird.textContent = ['🐦','🦋','🕊️'][Math.floor(Math.random() * 3)];
+  bird.style.cssText = `top: ${10 + Math.random() * 50}%; animation-duration: ${9 + Math.random() * 5}s;`;
+  bird.style.setProperty('--yoff', `${(Math.random() - 0.5) * 40}px`);
+  bird.style.setProperty('--yend', `${(Math.random() - 0.5) * 60}px`);
+  document.getElementById('dynamicLayer').appendChild(bird);
+  setTimeout(() => bird.remove(), 15000);
+}
+setInterval(makeBird, 8000);
+
+// ===== CHAIN REACTION PARTICLES =====
+const clusterColors = ['#c084fc','#f472b6','#818cf8','#a78bfa','#f472b6'];
+function runChainReaction() {
+  for (let i = 0; i < 2; i++) {
+    const p = document.createElement('div');
+    p.className = 'chain-particle';
+    p.style.cssText = `
+      left: ${Math.random() * 100}%; top: ${Math.random() * 100}%;
+      background: ${clusterColors[Math.floor(Math.random() * clusterColors.length)]};
+      animation-duration: ${2.5 + Math.random() * 2}s;
+      --dx: ${(Math.random() - 0.5) * 60}px; --dy: ${-50 - Math.random() * 60}px;
+    `;
+    document.getElementById('dynamicLayer').appendChild(p);
+    setTimeout(() => p.remove(), 4000);
+  }
+}
+setInterval(runChainReaction, 900);
+
+// ===== CONFETTI BURST MECHANICAL TRACE =====
+function burstCelebration(x, y) {
+  const tones = ['#c084fc','#f472b6','#34d399','#60a5fa','#fbbf24'];
+  for (let i = 0; i < 30; i++) {
+    const item = document.createElement('div');
+    item.className = 'confetti';
+    item.style.cssText = `
+      left: ${x}px; top: ${y}px; background: ${tones[Math.floor(Math.random() * tones.length)]};
+      border-radius: ${Math.random() > 0.5 ? '50%' : '1px'};
+      animation-duration: ${0.7 + Math.random() * 0.9}s;
+      --mx: ${(Math.random() - 0.5) * 260}px; --my: ${120 + Math.random() * 180}px;
+      --mr: ${(Math.random() - 0.5) * 720}deg;
+    `;
+    document.body.appendChild(item);
+    setTimeout(() => item.remove(), 1600);
+  }
+}
+
+// ==========================================
+// DATA & LOGIC: ACTIVITY 1 (MATCHING)
+// ==========================================
+let activeDragId = null;
+
+document.querySelectorAll('#actBlock1 .drag-block').forEach(block => {
+  block.addEventListener('dragstart', e => {
+    activeDragId = block.id;
+    block.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', block.id);
+  });
+  block.addEventListener('dragend', () => block.classList.remove('dragging'));
+});
+
+document.querySelectorAll('#actBlock1 .drop-target-zone').forEach(zone => {
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('hovered'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('hovered'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('hovered');
+    const incomingId = e.dataTransfer.getData('text/plain');
+    const sourceElement = document.getElementById(incomingId);
+    if (!sourceElement) return;
+
+    if (zone.dataset.holding) {
+      const originalElement = document.getElementById(zone.dataset.holding);
+      if (originalElement) originalElement.style.display = 'flex';
+    }
+
+    sourceElement.style.display = 'none';
+    zone.dataset.holding = incomingId;
+    zone.classList.add('filled');
+    zone.classList.remove('win', 'fail');
+
+    const internalData = {
+      'b-tri': '↩️ turn 120 deg',
+      'b-squ': '↩️ turn 90 deg',
+      'b-hex': '↩️ turn 60 deg',
+      'b-circ': '↩️ turn 1 deg'
+    };
+    zone.innerHTML = `<div class="drag-block" style="width:100%; justify-content:center;">${internalData[incomingId]}</div>`;
+  });
+});
+
+function verifyActivity1() {
+  const zones = document.querySelectorAll('#actBlock1 .drop-target-zone');
+  let tally = 0;
+  const linkRelations = { 'b-tri': 'triangle', 'b-squ': 'square', 'b-hex': 'hexagon', 'b-circ': 'circle' };
+
+  zones.forEach(z => {
+    if (!z.dataset.holding) return;
+    if (linkRelations[z.dataset.holding] === z.dataset.target) {
+      z.classList.add('win');
+      z.classList.remove('fail');
+      tally++;
+    } else {
+      z.classList.add('fail');
+      z.classList.remove('win');
+    }
+  });
+
+  const banner = document.getElementById('msg1');
+  if (tally === 4) {
+    banner.className = 'status-message pass';
+    banner.textContent = '🎉 Sensational! All turn angles correctly match their shapes!';
+    burstCelebration(window.innerWidth / 2, window.innerHeight / 3);
+    document.getElementById('pStep1').className = 'prog-step completed';
+    document.getElementById('pStep1').querySelector('.prog-num').textContent = '✓';
+    document.getElementById('pStep2').className = 'prog-step current';
+  } else {
+    banner.className = 'status-message warn';
+    banner.textContent = `❌ You got ${tally} out of 4 correct. Incorrect mappings are shaking. Re-try!`;
+  }
+}
+
+// ==========================================
+// DATA & LOGIC: ACTIVITY 2 (SEQUENCING)
+// ==========================================
+const absoluteOrder = [
+  { id: 'stepA', text: '🏁 When green flag clicked' },
+  { id: 'stepB', text: '🧹 Clear' },
+  { id: 'stepC', text: '🎨 Set pen color to bright neon' },
+  { id: 'stepD', text: '🖊️ Pen down' },
+  { id: 'stepE', text: '🔄 Repeat 4 times' },
+  { id: 'stepF', text: '➡️ Move 100 steps' },
+  { id: 'stepG', text: '↩️ Turn 90 degrees' }
+];
+
+let workingOrder = [...absoluteOrder].sort(() => Math.random() - 0.5);
+
+function drawSequenceInterface() {
+  const host = document.getElementById('seqContainer');
+  host.innerHTML = '';
+  workingOrder.forEach((item, index) => {
+    const line = document.createElement('div');
+    line.className = 'seq-card';
+    line.draggable = true;
+    line.dataset.id = item.id;
+    line.innerHTML = `
+      <div class="seq-index">${index + 1}</div>
+      <div class="seq-text">${item.text}</div>
+      <div class="seq-grip">☰</div>
+    `;
+
+    line.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('targetStepId', item.id);
+      line.classList.add('dragging');
+    });
+    line.addEventListener('dragend', () => line.classList.remove('dragging'));
+    line.addEventListener('dragover', e => { e.preventDefault(); line.classList.add('hover-over'); });
+    line.addEventListener('dragleave', () => line.classList.remove('hover-over'));
+    line.addEventListener('drop', e => {
+      e.preventDefault();
+      line.classList.remove('hover-over');
+      const standardId = e.dataTransfer.getData('targetStepId');
+      const originIdx = workingOrder.findIndex(x => x.id === standardId);
+      const targetIdx = workingOrder.findIndex(x => x.id === item.id);
+      
+      if (originIdx === -1 || targetIdx === -1 || originIdx === targetIdx) return;
+      
+      const [extracted] = workingOrder.splice(originIdx, 1);
+      workingOrder.splice(targetIdx, 0, extracted);
+      drawSequenceInterface();
+    });
+
+    host.appendChild(line);
+  });
+}
+drawSequenceInterface();
+
+function verifyActivity2() {
+  const structuredPerfectly = workingOrder.every((val, idx) => val.id === absoluteOrder[idx].id);
+  const feedback = document.getElementById('msg2');
+  if (structuredPerfectly) {
+    feedback.className = 'status-message pass';
+    feedback.textContent = '🟩 Incredible! Your script builds a perfect square in the right execution line!';
+    burstCelebration(window.innerWidth / 2, window.innerHeight / 2);
+    document.getElementById('pStep2').className = 'prog-step completed';
+    document.getElementById('pStep2').querySelector('.prog-num').textContent = '✓';
+    document.getElementById('pStep3').className = 'prog-step current';
+  } else {
+    feedback.className = 'status-message warn';
+    feedback.textContent = '❌ Sequence error! Remember: Clear and set parameters before putting the Pen Down and looping movement.';
+  }
+}
+
+// ==========================================
+// DATA & LOGIC: ACTIVITY 3 (SORTING)
+// ==========================================
+const universalItems = [
+  { id: 'ang1', text: 'Turn 90° (Square)', group: 'right' },
+  { id: 'ang2', text: 'Turn 120° (Triangle)', group: 'right' },
+  { id: 'ang3', text: 'Turn 60° (Hexagon)', group: 'right' },
+  { id: 'ang4', text: 'Turn 72° (Pentagon)', group: 'right' },
+  { id: 'ang5', text: 'Turn 0° (No Change)', group: 'wrong' },
+  { id: 'ang6', text: 'Turn 580° (Too High)', group: 'wrong' },
+  { id: 'ang7', text: 'Turn -20° (Invalid Exterior)', group: 'wrong' }
+];
+
+let stateTracking = {};
+universalItems.forEach(i => { stateTracking[i.id] = 'source'; });
+
+function fillSortingGrid() {
+  const nodes = { 'source': 'sBank', 'right': 'sRight', 'wrong': 'sWrong' };
+  
+  Object.keys(nodes).forEach(key => {
+    const parent = document.getElementById(nodes[key]);
+    parent.innerHTML = '';
+    const filtered = universalItems.filter(item => stateTracking[item.id] === key);
+
+    if (filtered.length === 0 && key !== 'source') {
+      parent.innerHTML = `<div class="placeholder-text">Drop elements here</div>`;
+    }
+
+    filtered.forEach(element => {
+      const visualBlock = document.createElement('div');
+      visualBlock.className = 'sort-item-block';
+      visualBlock.draggable = true;
+      visualBlock.dataset.id = element.id;
+      visualBlock.innerHTML = `<span>📐</span> ${element.text}`;
+      
+      visualBlock.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('sortingElementId', element.id);
+        visualBlock.classList.add('dragging');
+      });
+      visualBlock.addEventListener('dragend', () => visualBlock.classList.remove('dragging'));
+      
+      parent.appendChild(visualBlock);
+    });
+  });
+}
+
+function allowHover(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('hovered');
+}
+
+function handleSortDrop(e, channel) {
+  e.preventDefault();
+  const targetSurface = document.getElementById(e.currentTarget.id);
+  if (targetSurface) targetSurface.classList.remove('hovered');
+  
+  const elementId = e.dataTransfer.getData('sortingElementId');
+  if (elementId) {
+    stateTracking[elementId] = channel;
+    fillSortingGrid();
+  }
+}
+
+fillSortingGrid();
+
+function verifyActivity3() {
+  let scoreCount = 0;
+  
+  document.querySelectorAll('.sort-item-block').forEach(el => {
+    el.classList.remove('good', 'bad');
+  });
+
+  universalItems.forEach(item => {
+    const assignment = stateTracking[item.id];
+    const isCorrect = assignment === item.group;
+    if (isCorrect && assignment !== 'source') scoreCount++;
+
+    const domRef = document.querySelector(`[data-id="${item.id}"]`);
+    if (domRef && assignment !== 'source') {
+      domRef.classList.add(isCorrect ? 'good' : 'bad');
+    }
+  });
+
+  const fbBar = document.getElementById('msg3');
+  const totalItems = universalItems.length;
+
+  if (scoreCount === totalItems) {
+    fbBar.className = 'status-message pass';
+    fbBar.textContent = `🏆 Incredible Masterpiece! All ${totalItems} geometric turns categorized accurately!`;
+    burstCelebration(window.innerWidth / 2, window.innerHeight * 0.75);
+    document.getElementById('pStep3').className = 'prog-step completed';
+    document.getElementById('pStep3').querySelector('.prog-num').textContent = '✓';
+  } else {
+    fbBar.className = 'status-message warn';
+    fbBar.textContent = `✨ You completed ${scoreCount}/${totalItems} matches successfully. Red markers indicate misplaced items!`;
+  }
+}
+</script>
+
+</body>
+</html>

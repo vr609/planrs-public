@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JavaScript — Make a Webpage Interactive</title>
+<style>
+  :root{
+    --deep1:#021c3a;
+    --deep2:#03335c;
+    --deep3:#055c8a;
+    --teal:#0fb5b0;
+    --gold:#ffd56b;
+    --coral:#ff7e6b;
+    --jelly:#c98bff;
+    --foam:#eafdff;
+    --ink:#04263f;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;
+    width:100%;height:100%;
+    overflow:hidden;
+    font-family:'Trebuchet MS', 'Segoe UI', sans-serif;
+    background:linear-gradient(to bottom, var(--deep1) 0%, var(--deep2) 45%, var(--deep3) 100%);
+    color:var(--foam);
+  }
+  #ocean{
+    position:fixed;
+    inset:0;
+    width:100%;height:100%;
+    overflow:hidden;
+  }
+
+  /* ---------- Background decorative elements ---------- */
+  .bubble{
+    position:absolute;
+    bottom:-50px;
+    border-radius:50%;
+    background:radial-gradient(circle at 30% 30%, rgba(255,255,255,0.85), rgba(255,255,255,0.08));
+    opacity:0.55;
+    animation:rise linear infinite;
+  }
+  @keyframes rise{
+    0%{transform:translateY(0) translateX(0) scale(1); opacity:0.6;}
+    50%{transform:translateY(-55vh) translateX(15px) scale(1.1); opacity:0.8;}
+    100%{transform:translateY(-110vh) translateX(-10px) scale(0.9); opacity:0;}
+  }
+
+  .seaweed{
+    position:absolute;
+    bottom:0;
+    width:40px;
+    height:180px;
+    background:linear-gradient(to top, #0a7a4a, #16b370);
+    border-radius:50px 50px 0 0;
+    transform-origin:bottom center;
+    animation:sway 4s ease-in-out infinite;
+    opacity:0.85;
+    box-shadow: inset 0 0 15px rgba(0,0,0,0.2);
+  }
+  .seaweed::before, .seaweed::after{
+    content:'';
+    position:absolute;
+    bottom:0;
+    width:40px;
+    height:140px;
+    background:linear-gradient(to top, #0a7a4a, #16b370);
+    border-radius:50px 50px 0 0;
+    opacity:0.7;
+  }
+  .seaweed::before{ left:-22px; height:120px; animation:sway2 5s ease-in-out infinite;}
+  .seaweed::after{ left:22px; height:150px; animation:sway2 3.5s ease-in-out infinite reverse;}
+  @keyframes sway{
+    0%,100%{transform:rotate(-8deg);}
+    50%{transform:rotate(8deg);}
+  }
+  @keyframes sway2{
+    0%,100%{transform:rotate(6deg);}
+    50%{transform:rotate(-10deg);}
+  }
+
+  .fish{
+    position:absolute;
+    font-size:34px;
+    filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+    animation:swim linear infinite;
+    z-index:2;
+  }
+  @keyframes swim{
+    0%{transform:translateX(-10vw) translateY(0);}
+    50%{transform:translateX(55vw) translateY(-30px);}
+    100%{transform:translateX(115vw) translateY(10px);}
+  }
+  .fish.flip{ transform:scaleX(-1); }
+
+  .jelly{
+    position:absolute;
+    font-size:42px;
+    opacity:0.8;
+    animation:drift ease-in-out infinite;
+    filter: drop-shadow(0 0 10px rgba(201,139,255,0.6));
+  }
+  @keyframes drift{
+    0%,100%{transform:translateY(0) translateX(0) rotate(0deg);}
+    50%{transform:translateY(-40px) translateX(20px) rotate(8deg);}
+  }
+
+  .sparkle{
+    position:absolute;
+    width:6px;height:6px;
+    background:#fff;
+    border-radius:50%;
+    opacity:0;
+    animation:twinkle ease-in-out infinite;
+    box-shadow:0 0 6px 2px rgba(255,255,255,0.8);
+  }
+  @keyframes twinkle{
+    0%,100%{opacity:0; transform:scale(0.5);}
+    50%{opacity:1; transform:scale(1.4);}
+  }
+
+  .chest{
+    position:absolute;
+    bottom:10px;
+    right:4%;
+    font-size:60px;
+    z-index:1;
+    filter: drop-shadow(0 0 18px rgba(255,213,107,0.7));
+    animation:glow 2.5s ease-in-out infinite;
+  }
+  @keyframes glow{
+    0%,100%{ filter: drop-shadow(0 0 8px rgba(255,213,107,0.5));}
+    50%{ filter: drop-shadow(0 0 26px rgba(255,213,107,0.95));}
+  }
+
+  /* ---------- Main UI ---------- */
+  .stage{
+    position:relative;
+    z-index:10;
+    width:100%;
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    padding:14px 18px;
+  }
+
+  header{
+    text-align:center;
+    margin-bottom:6px;
+    flex-shrink:0;
+  }
+  h1{
+    margin:0;
+    font-family:'Georgia', serif;
+    font-size:clamp(20px, 3.4vw, 38px);
+    letter-spacing:2px;
+    color:var(--gold);
+    text-shadow:0 0 12px rgba(255,213,107,0.55), 0 2px 4px rgba(0,0,0,0.5);
+  }
+  .subtitle{
+    font-size:clamp(11px, 1.4vw, 15px);
+    color:var(--foam);
+    opacity:0.85;
+    margin-top:2px;
+    letter-spacing:1px;
+  }
+
+  .progress-track{
+    display:flex;
+    gap:14px;
+    margin:8px 0 4px;
+    flex-shrink:0;
+  }
+  .progress-step{
+    width:clamp(28px,4vw,40px);
+    height:clamp(28px,4vw,40px);
+    border-radius:50%;
+    background:rgba(255,255,255,0.12);
+    border:2px solid rgba(255,255,255,0.35);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    font-size:clamp(12px,1.6vw,16px);
+    color:var(--foam);
+    transition: all 0.4s ease;
+  }
+  .progress-step.active{
+    background:var(--teal);
+    border-color:var(--gold);
+    box-shadow:0 0 14px rgba(15,181,176,0.8);
+    transform:scale(1.12);
+  }
+  .progress-step.done{
+    background:var(--gold);
+    border-color:var(--gold);
+    color:var(--ink);
+  }
+
+  .panel-wrap{
+    flex:1;
+    width:100%;
+    max-width:1100px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:0;
+  }
+
+  .panel{
+    background:rgba(2, 40, 70, 0.55);
+    border:2px solid rgba(15,181,176,0.45);
+    border-radius:22px;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 10px 35px rgba(0,0,0,0.35), inset 0 0 40px rgba(15,181,176,0.08);
+    padding:clamp(10px,1.6vw,22px);
+    width:100%;
+    height:100%;
+    max-height:100%;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+
+  .panel h2{
+    margin:0 0 6px;
+    text-align:center;
+    font-size:clamp(15px,2.2vw,24px);
+    color:var(--gold);
+    text-shadow:0 1px 3px rgba(0,0,0,0.5);
+    flex-shrink:0;
+  }
+  .panel .instructions{
+    text-align:center;
+    font-size:clamp(11px,1.4vw,14px);
+    margin:0 0 8px;
+    color:var(--foam);
+    opacity:0.9;
+    flex-shrink:0;
+  }
+
+  .activity-body{
+    flex:1;
+    display:flex;
+    gap:14px;
+    min-height:0;
+  }
+
+  /* Activity 1: matching columns */
+  .col{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    min-height:0;
+    overflow:auto;
+    padding:4px;
+  }
+  .col-title{
+    text-align:center;
+    font-size:clamp(11px,1.3vw,13px);
+    color:var(--teal);
+    font-weight:bold;
+    letter-spacing:1px;
+    margin-bottom:2px;
+    text-transform:uppercase;
+    flex-shrink:0;
+  }
+
+  .drag-item{
+    background:linear-gradient(135deg, #0a4a78, #0c6a9e);
+    border:2px solid var(--teal);
+    border-radius:12px;
+    padding:8px 12px;
+    font-size:clamp(11px,1.3vw,14px);
+    color:var(--foam);
+    cursor:grab;
+    user-select:none;
+    text-align:center;
+    box-shadow:0 3px 8px rgba(0,0,0,0.3);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    font-family:'Consolas','Courier New',monospace;
+    flex-shrink:0;
+  }
+  .drag-item:active{cursor:grabbing;}
+  .drag-item.dragging{
+    opacity:0.4;
+  }
+  .drag-item.locked{
+    cursor:default;
+    background:linear-gradient(135deg, #1d8a4a, #28b86b);
+    border-color:var(--gold);
+    color:#06281a;
+    font-weight:bold;
+  }
+
+  .drop-target{
+    background:rgba(255,255,255,0.06);
+    border:2px dashed rgba(255,255,255,0.35);
+    border-radius:12px;
+    padding:8px 12px;
+    font-size:clamp(11px,1.3vw,14px);
+    text-align:center;
+    min-height:40px;
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    justify-content:center;
+    gap:6px;
+    transition: background 0.2s ease, border-color 0.2s ease;
+    flex-shrink:0;
+  }
+  .drop-target.over{
+    background:rgba(15,181,176,0.25);
+    border-color:var(--teal);
+  }
+  .drop-target.correct{
+    background:rgba(40,184,107,0.25);
+    border-color:var(--gold);
+  }
+  .drop-target.shake{
+    animation: shake 0.4s ease;
+    border-color:var(--coral);
+  }
+  @keyframes shake{
+    0%,100%{transform:translateX(0);}
+    25%{transform:translateX(-6px);}
+    75%{transform:translateX(6px);}
+  }
+  .target-label{
+    font-size:clamp(10px,1.2vw,13px);
+    opacity:0.85;
+    flex-shrink:0;
+  }
+  .target-slot{
+    flex:1;
+    min-height:34px;
+    border-radius:8px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:100%;
+  }
+  .target-slot .drag-item{
+    width:100%;
+  }
+
+  /* Activity 2 & 3: sequence build */
+  .sequence-area{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    min-height:0;
+  }
+  .bank{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    justify-content:center;
+    padding:8px;
+    background:rgba(255,255,255,0.05);
+    border-radius:14px;
+    border:2px solid rgba(255,255,255,0.15);
+    min-height:60px;
+    align-items:center;
+    flex-shrink:0;
+  }
+  .slots{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    flex:1;
+    min-height:0;
+    overflow:auto;
+    padding:4px;
+  }
+  .slot{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:rgba(255,255,255,0.06);
+    border:2px dashed rgba(255,255,255,0.35);
+    border-radius:12px;
+    padding:6px 10px;
+    min-height:42px;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+  .slot.over{
+    background:rgba(15,181,176,0.25);
+    border-color:var(--teal);
+  }
+  .slot.correct{
+    background:rgba(40,184,107,0.25);
+    border-color:var(--gold);
+  }
+  .slot-num{
+    width:24px;height:24px;
+    border-radius:50%;
+    background:var(--teal);
+    color:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:bold;
+    flex-shrink:0;
+  }
+  .slot-content{
+    flex:1;
+    min-height:30px;
+    display:flex;
+    align-items:center;
+  }
+  .block{
+    background:linear-gradient(135deg, #0a4a78, #0c6a9e);
+    border:2px solid var(--teal);
+    border-radius:10px;
+    padding:6px 12px;
+    font-size:clamp(10px,1.25vw,13px);
+    color:var(--foam);
+    cursor:grab;
+    user-select:none;
+    font-family:'Consolas','Courier New',monospace;
+    box-shadow:0 3px 8px rgba(0,0,0,0.3);
+    width:fit-content;
+  }
+  .block.dragging{opacity:0.4;}
+
+  /* Live preview for activities 2 & 3 */
+  .preview{
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    background:rgba(255,255,255,0.05);
+    border-radius:14px;
+    border:2px solid rgba(255,255,255,0.15);
+    padding:8px;
+    min-height:54px;
+    flex-wrap:wrap;
+  }
+  .preview-btn{
+    background:var(--coral);
+    color:#fff;
+    border:none;
+    border-radius:10px;
+    padding:8px 16px;
+    font-size:clamp(11px,1.3vw,14px);
+    font-weight:bold;
+    cursor:pointer;
+    box-shadow:0 4px 10px rgba(0,0,0,0.3);
+    transition: transform 0.1s ease;
+  }
+  .preview-btn:active{transform:scale(0.95);}
+  .preview-text{
+    font-size:clamp(11px,1.4vw,15px);
+    color:var(--gold);
+    font-weight:bold;
+  }
+  .preview-box{
+    background:var(--jelly);
+    color:var(--ink);
+    border-radius:10px;
+    padding:6px 14px;
+    font-size:clamp(10px,1.2vw,13px);
+    font-weight:bold;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  .preview-box.hidden-box{
+    opacity:0;
+    transform:scale(0.5);
+    pointer-events:none;
+  }
+
+  /* Controls row */
+  .controls{
+    display:flex;
+    justify-content:center;
+    gap:12px;
+    margin-top:8px;
+    flex-shrink:0;
+  }
+  .btn{
+    border:none;
+    border-radius:30px;
+    padding:8px 22px;
+    font-size:clamp(12px,1.4vw,15px);
+    font-weight:bold;
+    cursor:pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow:0 4px 10px rgba(0,0,0,0.3);
+    font-family:inherit;
+  }
+  .btn:hover{ transform:translateY(-2px); }
+  .btn-primary{
+    background:var(--teal);
+    color:var(--ink);
+  }
+  .btn-reset{
+    background:transparent;
+    color:var(--foam);
+    border:2px solid rgba(255,255,255,0.4);
+  }
+  .btn-gold{
+    background:var(--gold);
+    color:var(--ink);
+  }
+  .btn:disabled{
+    opacity:0.4;
+    cursor:not-allowed;
+    transform:none;
+  }
+
+  /* Popups */
+  .overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(2,15,30,0.7);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.3s ease;
+  }
+  .overlay.show{
+    opacity:1;
+    pointer-events:all;
+  }
+  .popup{
+    background:linear-gradient(160deg, #0a4a78, #03335c);
+    border:3px solid var(--gold);
+    border-radius:24px;
+    padding:28px 36px;
+    text-align:center;
+    max-width:420px;
+    box-shadow:0 0 40px rgba(255,213,107,0.5);
+    transform:scale(0.85);
+    transition: transform 0.3s ease;
+  }
+  .overlay.show .popup{
+    transform:scale(1);
+  }
+  .popup .emoji{
+    font-size:50px;
+    display:block;
+    margin-bottom:10px;
+  }
+  .popup h3{
+    margin:0 0 8px;
+    color:var(--gold);
+    font-size:clamp(18px,2.4vw,26px);
+    font-family:'Georgia',serif;
+  }
+  .popup p{
+    margin:0 0 16px;
+    font-size:clamp(12px,1.5vw,15px);
+    color:var(--foam);
+  }
+
+  /* Final celebration extra bits */
+  .celebrate-icons{
+    font-size:34px;
+    margin:10px 0;
+    letter-spacing:10px;
+  }
+
+  @media (max-width:700px){
+    .activity-body{ flex-direction:column; }
+    .seaweed{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="ocean">
+  <!-- bubbles -->
+  <div class="bubble" style="left:5%; width:18px; height:18px; animation-duration:9s; animation-delay:0s;"></div>
+  <div class="bubble" style="left:12%; width:10px; height:10px; animation-duration:7s; animation-delay:1.5s;"></div>
+  <div class="bubble" style="left:22%; width:24px; height:24px; animation-duration:11s; animation-delay:0.5s;"></div>
+  <div class="bubble" style="left:35%; width:14px; height:14px; animation-duration:8s; animation-delay:2.2s;"></div>
+  <div class="bubble" style="left:48%; width:20px; height:20px; animation-duration:10s; animation-delay:0.8s;"></div>
+  <div class="bubble" style="left:60%; width:12px; height:12px; animation-duration:6.5s; animation-delay:3s;"></div>
+  <div class="bubble" style="left:70%; width:26px; height:26px; animation-duration:12s; animation-delay:1s;"></div>
+  <div class="bubble" style="left:80%; width:16px; height:16px; animation-duration:9.5s; animation-delay:2.6s;"></div>
+  <div class="bubble" style="left:90%; width:11px; height:11px; animation-duration:7.5s; animation-delay:0.3s;"></div>
+  <div class="bubble" style="left:95%; width:22px; height:22px; animation-duration:10.5s; animation-delay:1.9s;"></div>
+
+  <!-- seaweed -->
+  <div class="seaweed" style="left:2%; animation-duration:4.2s;"></div>
+  <div class="seaweed" style="left:98%; transform:translateX(-100%); animation-duration:3.6s;"></div>
+
+  <!-- fish -->
+  <div class="fish" style="top:18%; animation-duration:22s; animation-delay:0s;">🐠</div>
+  <div class="fish flip" style="top:65%; animation-duration:28s; animation-delay:4s;">🐟</div>
+  <div class="fish" style="top:40%; animation-duration:25s; animation-delay:8s;">🐡</div>
+  <div class="fish flip" style="top:80%; animation-duration:32s; animation-delay:2s;">🐠</div>
+
+  <!-- jellyfish -->
+  <div class="jelly" style="top:12%; left:15%; animation-duration:6s;">🪼</div>
+  <div class="jelly" style="top:25%; left:85%; animation-duration:7s; animation-delay:1s;">🪼</div>
+
+  <!-- sparkles -->
+  <div class="sparkle" style="top:10%; left:30%; animation-duration:3s; animation-delay:0s;"></div>
+  <div class="sparkle" style="top:55%; left:50%; animation-duration:2.5s; animation-delay:1s;"></div>
+  <div class="sparkle" style="top:30%; left:70%; animation-duration:3.5s; animation-delay:0.5s;"></div>
+  <div class="sparkle" style="top:75%; left:25%; animation-duration:2.8s; animation-delay:1.5s;"></div>
+  <div class="sparkle" style="top:45%; left:90%; animation-duration:3.2s; animation-delay:0.8s;"></div>
+
+  <!-- treasure chest -->
+  <div class="chest">🧰</div>
+</div>
+
+<div class="stage">
+  <header>
+    <h1>JAVASCRIPT — MAKE A WEBPAGE INTERACTIVE</h1>
+    <div class="subtitle">Dive in and connect the code that brings a webpage to life!</div>
+  </header>
+
+  <div class="progress-track">
+    <div class="progress-step active" id="step1">1</div>
+    <div class="progress-step" id="step2">2</div>
+    <div class="progress-step" id="step3">3</div>
+  </div>
+
+  <div class="panel-wrap">
+    <!-- ===================== ACTIVITY 1 ===================== -->
+    <div class="panel" id="activity1">
+      <h2>Activity 1 — Match the Code to the Action</h2>
+      <p class="instructions">Drag each code snippet onto the action it performs.</p>
+      <div class="activity-body">
+        <div class="col" id="a1-bank">
+          <div class="col-title">Code Snippets</div>
+        </div>
+        <div class="col" id="a1-targets">
+          <div class="col-title">Actions</div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn btn-reset" onclick="resetActivity(1)">Reset</button>
+        <button class="btn btn-primary" id="a1-next" disabled onclick="goToPopup(1)">Check & Continue</button>
+      </div>
+    </div>
+
+    <!-- ===================== ACTIVITY 2 ===================== -->
+    <div class="panel" id="activity2" style="display:none;">
+      <h2>Activity 2 — Build a Click Counter</h2>
+      <p class="instructions">Arrange the blocks in the correct order to make a button that counts clicks.</p>
+      <div class="activity-body">
+        <div class="sequence-area">
+          <div class="bank" id="a2-bank"></div>
+          <div class="slots" id="a2-slots"></div>
+          <div class="preview">
+            <button class="preview-btn" id="a2-preview-btn">Click Me!</button>
+            <span class="preview-text">Count: <span id="a2-count">0</span></span>
+          </div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn btn-reset" onclick="resetActivity(2)">Reset</button>
+        <button class="btn btn-primary" id="a2-next" disabled onclick="goToPopup(2)">Check & Continue</button>
+      </div>
+    </div>
+
+    <!-- ===================== ACTIVITY 3 ===================== -->
+    <div class="panel" id="activity3" style="display:none;">
+      <h2>Activity 3 — Build the Full Webpage Workflow</h2>
+      <p class="instructions">Put the steps in order: change the text, count the clicks, then show or hide the box.</p>
+      <div class="activity-body">
+        <div class="sequence-area">
+          <div class="bank" id="a3-bank"></div>
+          <div class="slots" id="a3-slots"></div>
+          <div class="preview">
+            <button class="preview-btn" id="a3-preview-btn">Run All Steps</button>
+            <span class="preview-text" id="a3-text">Hello, Webpage!</span>
+            <span class="preview-text">Count: <span id="a3-count">0</span></span>
+            <div class="preview-box hidden-box" id="a3-box">Surprise!</div>
+          </div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn btn-reset" onclick="resetActivity(3)">Reset</button>
+        <button class="btn btn-gold" id="a3-next" disabled onclick="finishAll()">Finish</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== POPUPS ===================== -->
+<div class="overlay" id="popup1">
+  <div class="popup">
+    <span class="emoji">🐢</span>
+    <h3>Great matching!</h3>
+    <p>You connected every code snippet to the right action. Ready for the next challenge?</p>
+    <button class="btn btn-gold" onclick="closePopup(1)">Continue to Activity 2 →</button>
+  </div>
+</div>
+
+<div class="overlay" id="popup2">
+  <div class="popup">
+    <span class="emoji">🐬</span>
+    <h3>Counter built!</h3>
+    <p>Your click counter works perfectly. One more dive to go!</p>
+    <button class="btn btn-gold" onclick="closePopup(2)">Continue to Activity 3 →</button>
+  </div>
+</div>
+
+<div class="overlay" id="popupFinal">
+  <div class="popup">
+    <span class="emoji">🏆</span>
+    <h3>You did it!</h3>
+    <div class="celebrate-icons">🐠🪼🐟🫧🐡</div>
+    <p>You built a complete interactive webpage workflow. The treasure chest is glowing just for you!</p>
+    <button class="btn btn-gold" id="play-again-btn" onclick="playAgain()">Play Again</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   Helper: shuffle array
+=============================================================*/
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+/* ============================================================
+   ACTIVITY 1 — Matching
+=============================================================*/
+const a1Pairs = [
+  { id:'p1', code:'box.innerHTML = "Hello!";', action:'Changes the text shown inside an element' },
+  { id:'p2', code:'btn.onclick = showSurprise;', action:'Runs a function when the button is clicked' },
+  { id:'p3', code:'hiddenBox.style.display = "block";', action:'Reveals content that was hidden on the page' }
+];
+
+let a1Matched = 0;
+
+function buildActivity1(){
+  a1Matched = 0;
+  document.getElementById('a1-next').disabled = true;
+
+  const bank = document.getElementById('a1-bank');
+  const targets = document.getElementById('a1-targets');
+  bank.innerHTML = '<div class="col-title">Code Snippets</div>';
+  targets.innerHTML = '<div class="col-title">Actions</div>';
+
+  const shuffledSnippets = shuffle(a1Pairs);
+  shuffledSnippets.forEach(pair=>{
+    const item = document.createElement('div');
+    item.className='drag-item';
+    item.draggable = true;
+    item.dataset.id = pair.id;
+    item.textContent = pair.code;
+    item.addEventListener('dragstart', dragStart);
+    item.addEventListener('dragend', dragEnd);
+    bank.appendChild(item);
+  });
+
+  const shuffledActions = shuffle(a1Pairs);
+  shuffledActions.forEach(pair=>{
+    const target = document.createElement('div');
+    target.className='drop-target';
+    target.dataset.id = pair.id;
+    const label = document.createElement('div');
+    label.className='target-label';
+    label.textContent = pair.action;
+    const slot = document.createElement('div');
+    slot.className='target-slot';
+    target.appendChild(label);
+    target.appendChild(slot);
+    target.addEventListener('dragover', dragOver);
+    target.addEventListener('dragleave', dragLeave);
+    target.addEventListener('drop', dropOnTarget1);
+    targets.appendChild(target);
+  });
+}
+
+let draggedEl = null;
+function dragStart(e){
+  draggedEl = e.target;
+  e.target.classList.add('dragging');
+  e.dataTransfer.setData('text/plain', e.target.dataset.id);
+}
+function dragEnd(e){
+  e.target.classList.remove('dragging');
+}
+function dragOver(e){
+  e.preventDefault();
+  e.currentTarget.classList.add('over');
+}
+function dragLeave(e){
+  e.currentTarget.classList.remove('over');
+}
+
+function dropOnTarget1(e){
+  e.preventDefault();
+  const target = e.currentTarget;
+  target.classList.remove('over');
+  if(target.classList.contains('correct')) return;
+
+  const draggedId = e.dataTransfer.getData('text/plain');
+  if(draggedId === target.dataset.id){
+    const slot = target.querySelector('.target-slot');
+    const movedItem = draggedEl;
+    movedItem.classList.add('locked');
+    movedItem.draggable = false;
+    movedItem.removeEventListener('dragstart', dragStart);
+    movedItem.removeEventListener('dragend', dragEnd);
+    slot.appendChild(movedItem);
+    target.classList.add('correct');
+    a1Matched++;
+    if(a1Matched === a1Pairs.length){
+      document.getElementById('a1-next').disabled = false;
+    }
+  } else {
+    target.classList.add('shake');
+    setTimeout(()=>target.classList.remove('shake'), 400);
+  }
+}
+
+/* ============================================================
+   ACTIVITY 2 — Click Counter sequence
+=============================================================*/
+const a2Steps = [
+  { id:'s1', text:'let count = 0;' },
+  { id:'s2', text:'btn.onclick = function() {' },
+  { id:'s3', text:'  count = count + 1;' },
+  { id:'s4', text:'  display.innerHTML = count;' },
+  { id:'s5', text:'}' }
+];
+
+let a2Filled = {};
+let a2Count = 0;
+
+function buildActivity2(){
+  a2Filled = {};
+  a2Count = 0;
+  document.getElementById('a2-count').textContent = '0';
+  document.getElementById('a2-next').disabled = true;
+
+  const bank = document.getElementById('a2-bank');
+  const slots = document.getElementById('a2-slots');
+  bank.innerHTML = '';
+  slots.innerHTML = '';
+
+  const shuffled = shuffle(a2Steps);
+  shuffled.forEach(step=>{
+    const block = document.createElement('div');
+    block.className='block';
+    block.draggable=true;
+    block.dataset.id = step.id;
+    block.textContent = step.text;
+    block.addEventListener('dragstart', dragStart);
+    block.addEventListener('dragend', dragEnd);
+    bank.appendChild(block);
+  });
+
+  a2Steps.forEach((step,index)=>{
+    const slot = document.createElement('div');
+    slot.className='slot';
+    slot.dataset.correctId = step.id;
+    slot.dataset.index = index;
+
+    const num = document.createElement('div');
+    num.className='slot-num';
+    num.textContent = index+1;
+
+    const content = document.createElement('div');
+    content.className='slot-content';
+
+    slot.appendChild(num);
+    slot.appendChild(content);
+
+    slot.addEventListener('dragover', dragOver);
+    slot.addEventListener('dragleave', dragLeave);
+    slot.addEventListener('drop', dropOnSlot.bind(null, 2));
+
+    slots.appendChild(slot);
+  });
+
+  // reset preview button behavior
+  const previewBtn = document.getElementById('a2-preview-btn');
+  previewBtn.onclick = null;
+  previewBtn.replaceWith(previewBtn.cloneNode(true));
+}
+
+function dropOnSlot(activityNum, e){
+  e.preventDefault();
+  const slot = e.currentTarget;
+  slot.classList.remove('over');
+  if(slot.classList.contains('correct')) return;
+
+  const draggedId = e.dataTransfer.getData('text/plain');
+  if(draggedId === slot.dataset.correctId){
+    const content = slot.querySelector('.slot-content');
+    const movedItem = draggedEl;
+    movedItem.draggable = false;
+    movedItem.removeEventListener('dragstart', dragStart);
+    movedItem.removeEventListener('dragend', dragEnd);
+    movedItem.style.cursor='default';
+    content.appendChild(movedItem);
+    slot.classList.add('correct');
+
+    if(activityNum === 2){
+      a2Filled[slot.dataset.index] = true;
+      if(Object.keys(a2Filled).length === a2Steps.length){
+        document.getElementById('a2-next').disabled = false;
+        enableCounterPreview();
+      }
+    } else if(activityNum === 3){
+      a3Filled[slot.dataset.index] = true;
+      if(Object.keys(a3Filled).length === a3Steps.length){
+        document.getElementById('a3-next').disabled = false;
+        enableWorkflowPreview();
+      }
+    }
+  } else {
+    slot.classList.add('shake');
+    setTimeout(()=>slot.classList.remove('shake'), 400);
+  }
+}
+
+function enableCounterPreview(){
+  const previewBtn = document.getElementById('a2-preview-btn');
+  previewBtn.onclick = function(){
+    a2Count++;
+    document.getElementById('a2-count').textContent = a2Count;
+    sparkleEffect(previewBtn);
+  };
+}
+
+/* ============================================================
+   ACTIVITY 3 — Full workflow sequence
+=============================================================*/
+const a3Steps = [
+  { id:'t1', text:'text.innerHTML = "Welcome, Diver!";' },
+  { id:'t2', text:'counterBtn.onclick = function() { clicks = clicks + 1; counter.innerHTML = clicks; }' },
+  { id:'t3', text:'toggleBtn.onclick = function() { box.style.display = "block"; }' },
+  { id:'t4', text:'runCelebration();' }
+];
+
+let a3Filled = {};
+let a3Count = 0;
+
+function buildActivity3(){
+  a3Filled = {};
+  a3Count = 0;
+  document.getElementById('a3-text').textContent = 'Hello, Webpage!';
+  document.getElementById('a3-count').textContent = '0';
+  const box = document.getElementById('a3-box');
+  box.classList.add('hidden-box');
+  document.getElementById('a3-next').disabled = true;
+
+  const bank = document.getElementById('a3-bank');
+  const slots = document.getElementById('a3-slots');
+  bank.innerHTML = '';
+  slots.innerHTML = '';
+
+  const shuffled = shuffle(a3Steps);
+  shuffled.forEach(step=>{
+    const block = document.createElement('div');
+    block.className='block';
+    block.draggable=true;
+    block.dataset.id = step.id;
+    block.textContent = step.text;
+    block.addEventListener('dragstart', dragStart);
+    block.addEventListener('dragend', dragEnd);
+    bank.appendChild(block);
+  });
+
+  a3Steps.forEach((step,index)=>{
+    const slot = document.createElement('div');
+    slot.className='slot';
+    slot.dataset.correctId = step.id;
+    slot.dataset.index = index;
+
+    const num = document.createElement('div');
+    num.className='slot-num';
+    num.textContent = index+1;
+
+    const content = document.createElement('div');
+    content.className='slot-content';
+
+    slot.appendChild(num);
+    slot.appendChild(content);
+
+    slot.addEventListener('dragover', dragOver);
+    slot.addEventListener('dragleave', dragLeave);
+    slot.addEventListener('drop', dropOnSlot.bind(null, 3));
+
+    slots.appendChild(slot);
+  });
+
+  const previewBtn = document.getElementById('a3-preview-btn');
+  previewBtn.onclick = null;
+  previewBtn.replaceWith(previewBtn.cloneNode(true));
+}
+
+function enableWorkflowPreview(){
+  const previewBtn = document.getElementById('a3-preview-btn');
+  previewBtn.onclick = function(){
+    document.getElementById('a3-text').textContent = 'Welcome, Diver!';
+    a3Count++;
+    document.getElementById('a3-count').textContent = a3Count;
+    document.getElementById('a3-box').classList.remove('hidden-box');
+    sparkleEffect(previewBtn);
+  };
+}
+
+/* ============================================================
+   Sparkle micro celebration on successful interaction
+=============================================================*/
+function sparkleEffect(el){
+  const rect = el.getBoundingClientRect();
+  for(let i=0;i<6;i++){
+    const star = document.createElement('div');
+    star.textContent = '✨';
+    star.style.position='fixed';
+    star.style.left = (rect.left + rect.width/2) + 'px';
+    star.style.top = (rect.top) + 'px';
+    star.style.fontSize='18px';
+    star.style.pointerEvents='none';
+    star.style.zIndex = 200;
+    star.style.transition='all 0.7s ease-out';
+    document.body.appendChild(star);
+    requestAnimationFrame(()=>{
+      const dx = (Math.random()-0.5)*120;
+      const dy = -40 - Math.random()*60;
+      star.style.transform = `translate(${dx}px, ${dy}px) scale(${0.5+Math.random()})`;
+      star.style.opacity = '0';
+    });
+    setTimeout(()=>star.remove(), 750);
+  }
+}
+
+/* ============================================================
+   Navigation / progression
+=============================================================*/
+function goToPopup(num){
+  document.getElementById('popup'+num).classList.add('show');
+}
+function closePopup(num){
+  document.getElementById('popup'+num).classList.remove('show');
+  if(num===1){
+    document.getElementById('activity1').style.display='none';
+    document.getElementById('activity2').style.display='flex';
+    document.getElementById('step1').classList.remove('active');
+    document.getElementById('step1').classList.add('done');
+    document.getElementById('step2').classList.add('active');
+    buildActivity2();
+  } else if(num===2){
+    document.getElementById('activity2').style.display='none';
+    document.getElementById('activity3').style.display='flex';
+    document.getElementById('step2').classList.remove('active');
+    document.getElementById('step2').classList.add('done');
+    document.getElementById('step3').classList.add('active');
+    buildActivity3();
+  }
+}
+
+function finishAll(){
+  document.getElementById('step3').classList.remove('active');
+  document.getElementById('step3').classList.add('done');
+  document.getElementById('popupFinal').classList.add('show');
+}
+
+function playAgain(){
+  document.getElementById('popupFinal').classList.remove('show');
+  // reset progress steps
+  document.getElementById('step1').className='progress-step active';
+  document.getElementById('step2').className='progress-step';
+  document.getElementById('step3').className='progress-step';
+
+  document.getElementById('activity3').style.display='none';
+  document.getElementById('activity2').style.display='none';
+  document.getElementById('activity1').style.display='flex';
+
+  buildActivity1();
+}
+
+/* ============================================================
+   Reset individual activity
+=============================================================*/
+function resetActivity(num){
+  if(num===1) buildActivity1();
+  if(num===2) buildActivity2();
+  if(num===3) buildActivity3();
+}
+
+/* ============================================================
+   Init
+=============================================================*/
+buildActivity1();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PYTHON — NUMBER GUESSING GAME WITH HINTS</title>
+<style>
+/* ============================================================
+   DESIGN TOKENS — Unicorn / Rainbow / Pastel Magic
+   ============================================================ */
+:root {
+  --sky0:    #fce8ff;
+  --sky1:    #e8d5ff;
+  --sky2:    #d4e8ff;
+  --sky3:    #d4f5ff;
+  --ink:     #2d1b4e;
+  --purple:  #9b5de5;
+  --pink:    #f15bb5;
+  --teal:    #00bbf9;
+  --yellow:  #fee440;
+  --green:   #00f5d4;
+  --coral:   #ff6b6b;
+  --white:   #fffcff;
+  --gold:    #ffd166;
+  --card-r:  12px;
+  --shadow:  0 4px 18px rgba(155,93,229,0.18);
+}
+
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*{box-sizing:border-box; margin:0; padding:0;}
+html, body {
+  width:100vw; height:100vh; overflow:hidden;
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  color: var(--ink);
+  background: linear-gradient(135deg, var(--sky0) 0%, var(--sky1) 30%, var(--sky2) 65%, var(--sky3) 100%);
+}
+
+/* ============================================================
+   ANIMATED BACKGROUND SCENE
+   ============================================================ */
+.bg-scene {
+  position: fixed; inset: 0; z-index: 0; overflow: hidden;
+  pointer-events: none;
+}
+
+/* Rainbow arc */
+.rainbow {
+  position: absolute;
+  top: -180px; left: 50%;
+  transform: translateX(-50%);
+  width: 820px; height: 820px;
+  border-radius: 50%;
+  border-top: 28px solid rgba(255,105,180,0.28);
+  box-shadow:
+    0 0 0 24px rgba(255,165,0,0.16),
+    0 0 0 48px rgba(255,230,0,0.13),
+    0 0 0 72px rgba(0,220,130,0.11),
+    0 0 0 96px rgba(0,180,255,0.10),
+    0 0 0 120px rgba(155,93,229,0.09);
+  animation: rainbowPulse 8s ease-in-out infinite;
+}
+@keyframes rainbowPulse {
+  0%,100%{opacity:.6; transform:translateX(-50%) scale(1);}
+  50%{opacity:1; transform:translateX(-50%) scale(1.04);}
+}
+
+/* Stars */
+.star {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--yellow);
+  animation: twinkle var(--dur,3s) ease-in-out infinite;
+}
+@keyframes twinkle {
+  0%,100%{opacity:.15; transform:scale(.6);}
+  50%{opacity:1; transform:scale(1.4);}
+}
+
+/* Sparkle 4-pointed */
+.sparkle {
+  position: absolute;
+  width: 14px; height: 14px;
+  animation: sparkleSpin var(--sdur,4s) linear infinite;
+}
+.sparkle::before,.sparkle::after {
+  content:'';
+  position:absolute;
+  background: var(--yellow);
+  border-radius: 50%;
+}
+.sparkle::before{left:50%;top:0;transform:translateX(-50%);width:4px;height:100%;}
+.sparkle::after{left:0;top:50%;transform:translateY(-50%);width:100%;height:4px;}
+@keyframes sparkleSpin {
+  0%{transform:rotate(0deg) scale(1); opacity:.9;}
+  50%{transform:rotate(180deg) scale(1.6); opacity:.5;}
+  100%{transform:rotate(360deg) scale(1); opacity:.9;}
+}
+
+/* Clouds */
+.cloud {
+  position: absolute;
+  background: rgba(255,255,255,0.72);
+  border-radius: 50px;
+  animation: cloudDrift var(--cdur,28s) linear infinite;
+  filter: blur(1px);
+}
+.cloud::before,.cloud::after {
+  content:''; position:absolute;
+  background: rgba(255,255,255,0.72);
+  border-radius: 50%;
+}
+.cloud::before{width:70%;height:140%;top:-40%;left:10%;}
+.cloud::after{width:50%;height:120%;top:-30%;left:40%;}
+@keyframes cloudDrift {
+  0%{transform:translateX(-200px);}
+  100%{transform:translateX(calc(100vw + 200px));}
+}
+
+/* Unicorn silhouettes */
+.unicorn {
+  position: absolute;
+  font-size: 40px;
+  animation: unicornFloat var(--ufloat,6s) ease-in-out infinite;
+  filter: drop-shadow(0 4px 14px rgba(155,93,229,0.38));
+  user-select: none;
+}
+@keyframes unicornFloat {
+  0%,100%{transform:translateY(0) rotate(-3deg);}
+  50%{transform:translateY(-18px) rotate(3deg);}
+}
+
+/* Glow orbs */
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(48px);
+  animation: orbPulse var(--opulse,7s) ease-in-out infinite;
+}
+@keyframes orbPulse {
+  0%,100%{opacity:.22; transform:scale(1);}
+  50%{opacity:.45; transform:scale(1.18);}
+}
+
+/* ============================================================
+   UI SHELL
+   ============================================================ */
+.ui {
+  position: relative; z-index: 5;
+  width: 100vw; height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center;
+  padding: 12px 16px 10px;
+  gap: 8px;
+}
+
+/* Header */
+header { text-align: center; }
+h1 {
+  font-size: clamp(18px, 3.2vw, 34px);
+  font-weight: 900;
+  letter-spacing: 2px;
+  background: linear-gradient(90deg, var(--purple), var(--pink), var(--teal));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 2px 8px rgba(155,93,229,0.3));
+}
+.subtitle {
+  font-size: clamp(10px, 1.5vw, 13px);
+  color: var(--purple); opacity: .85;
+  margin-top: 1px;
+}
+
+/* Progress trail */
+.progress {
+  display: flex; align-items: center; gap: 8px;
+}
+.p-step {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 13px;
+  background: rgba(255,255,255,0.5);
+  border: 2px solid rgba(155,93,229,0.3);
+  color: var(--purple);
+  transition: all .3s ease;
+}
+.p-step.active {
+  background: var(--purple); color: #fff;
+  box-shadow: 0 0 0 4px rgba(155,93,229,0.25);
+  transform: scale(1.12);
+}
+.p-step.done { background: var(--green); color: var(--ink); border-color: var(--green); }
+.p-line { width: 30px; height: 3px; background: rgba(155,93,229,0.2); border-radius: 2px; }
+.p-line.done { background: var(--green); }
+
+/* Panel */
+.panel {
+  width: min(1060px, 97vw);
+  flex: 1;
+  background: rgba(255,255,255,0.52);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255,255,255,0.75);
+  border-radius: 22px;
+  box-shadow: var(--shadow), inset 0 0 40px rgba(155,93,229,0.05);
+  display: flex; flex-direction: column;
+  padding: 14px 18px;
+  min-height: 0;
+  overflow: hidden;
+}
+.panel h2 {
+  text-align: center; margin-bottom: 2px;
+  font-size: clamp(14px, 2.2vw, 22px);
+  color: var(--purple); font-weight: 900;
+}
+.panel .instr {
+  text-align: center; font-size: clamp(10px, 1.5vw, 13px);
+  color: var(--ink); opacity: .85; margin-bottom: 8px;
+}
+
+/* Activity body */
+.act-body {
+  flex: 1; display: flex; gap: 14px; min-height: 0;
+}
+
+/* ============================================================
+   TRAY
+   ============================================================ */
+.tray {
+  flex: 0 0 200px;
+  display: flex; flex-direction: column; gap: 7px;
+  overflow-y: auto; padding-right: 2px;
+}
+.tray-title {
+  font-size: 11px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--purple); text-align: center;
+  margin-bottom: 2px;
+}
+
+/* ============================================================
+   DRAG CARD
+   ============================================================ */
+.card {
+  cursor: grab; user-select: none;
+  border-radius: var(--card-r);
+  padding: 9px 12px;
+  font-weight: 800; font-size: 13px;
+  text-align: center;
+  border: 2px solid rgba(0,0,0,0.08);
+  box-shadow: 0 3px 0 rgba(0,0,0,0.13), 0 5px 10px rgba(0,0,0,0.1);
+  transition: transform .15s, box-shadow .15s, opacity .15s;
+  position: relative;
+  color: var(--ink);
+}
+.card:hover { transform: translateY(-3px); box-shadow: 0 6px 0 rgba(0,0,0,0.13), 0 10px 18px rgba(0,0,0,0.13); }
+.card:active { cursor: grabbing; }
+.card.dragging { opacity: .35; }
+.card.placed { cursor: default; width: 100%; margin: 0; }
+.card.placed:hover { transform: none; box-shadow: 0 3px 0 rgba(0,0,0,0.13); }
+
+/* Card color themes */
+.card.c-purple  { background: #e8d5ff; }
+.card.c-pink    { background: #ffe0f0; }
+.card.c-teal    { background: #ccf7ff; }
+.card.c-yellow  { background: #fff5c0; }
+.card.c-green   { background: #c8ffe8; }
+.card.c-coral   { background: #ffdada; }
+.card.c-gold    { background: #fff0bb; }
+.card.c-sky     { background: #d4f0ff; }
+
+/* Number cards (big) */
+.card.num-card {
+  font-size: 22px; font-weight: 900;
+  padding: 12px 0; border-radius: 14px;
+}
+
+/* ============================================================
+   DROP ZONE (ACTIVITY 1 — three horizontal zones)
+   ============================================================ */
+.zones-wrap {
+  flex: 1; display: flex; gap: 12px; min-height: 0;
+}
+.drop-bucket {
+  flex: 1; border-radius: 16px;
+  border: 2.5px dashed rgba(155,93,229,0.3);
+  padding: 10px; display: flex; flex-direction: column; gap: 6px;
+  transition: border-color .2s, background .2s;
+  min-height: 0;
+  overflow-y: auto;
+}
+.drop-bucket.dragover { border-color: var(--purple); background: rgba(155,93,229,0.07); }
+.drop-bucket.correct-zone { border-color: var(--green); background: rgba(0,245,212,0.08); }
+.drop-bucket.wrong-zone  { border-color: var(--coral); background: rgba(255,107,107,0.08); }
+.bucket-title {
+  text-align: center; font-weight: 900;
+  font-size: clamp(11px,1.6vw,15px);
+  padding: 6px 0; border-radius: 8px;
+  margin-bottom: 2px;
+  position: sticky; top: 0; z-index: 1;
+}
+.bucket-title.high  { background: #ffdada; color: #c0392b; }
+.bucket-title.low   { background: #d4f0ff; color: #0077aa; }
+.bucket-title.exact { background: #c8ffe8; color: #007a55; }
+.bucket-emoji { font-size: 18px; margin-right: 4px; }
+.bucket-hint {
+  font-size: 11px; text-align: center; opacity: .7; margin-bottom: 4px;
+}
+
+/* Mystery number display */
+.mystery-box {
+  background: linear-gradient(135deg, #e8d5ff, #ffe0f0);
+  border: 3px solid rgba(155,93,229,0.35);
+  border-radius: 16px;
+  padding: 10px 14px; text-align: center;
+  margin-bottom: 8px; font-size: 13px; font-weight: 700;
+  color: var(--purple);
+  box-shadow: var(--shadow);
+}
+.mystery-box .big { font-size: 28px; font-weight: 900; }
+
+/* ============================================================
+   DROP ZONE (ACTIVITY 2 — vertical sequence)
+   ============================================================ */
+.seq-wrap {
+  flex: 1; display: flex; flex-direction: column; min-height: 0;
+}
+.seq-zone {
+  flex: 1; display: flex; flex-direction: column; gap: 7px;
+  border: 2.5px dashed rgba(155,93,229,0.3);
+  border-radius: 16px; padding: 10px;
+  background: rgba(255,255,255,0.35);
+  overflow-y: auto;
+  transition: border-color .2s, background .2s;
+}
+.seq-zone.dragover { border-color: var(--purple); background: rgba(155,93,229,0.07); }
+.seq-zone h3 {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--purple); font-weight: 800; text-align: center; margin-bottom: 2px;
+}
+.slot {
+  min-height: 44px; border-radius: 10px;
+  border: 2px dashed rgba(155,93,229,0.28);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: rgba(100,60,160,0.55); text-align: center;
+  padding: 4px; position: relative;
+  transition: border-color .2s, background .2s;
+}
+.slot.filled { border-style: solid; border-color: transparent; padding: 0; }
+.slot.step-num {
+  position: absolute; left: -22px; top: 50%; transform: translateY(-50%);
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--purple); color: #fff;
+  font-size: 10px; font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+  border: none;
+}
+.slot-wrap {
+  display: flex; align-items: center; gap: 6px; padding-left: 6px;
+}
+
+/* Activity 3 combined */
+.a3-body { flex: 1; display: flex; gap: 14px; min-height: 0; }
+.a3-left  { flex: 0 0 200px; display: flex; flex-direction: column; gap: 7px; overflow-y: auto; }
+.a3-right { flex: 1; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.a3-tracker {
+  background: linear-gradient(135deg, #e8d5ff, #ccf7ff);
+  border-radius: 14px; padding: 8px 12px;
+  font-size: 12px; font-weight: 700; color: var(--ink);
+  border: 2px solid rgba(155,93,229,0.2);
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
+}
+.a3-tracker .att-val { font-size: 20px; font-weight: 900; color: var(--purple); }
+.a3-target { font-style: italic; font-size: 12px; color: var(--pink); font-weight: 700; }
+.a3-seq {
+  flex: 1; display: flex; flex-direction: column; gap: 6px;
+  border: 2.5px dashed rgba(155,93,229,0.3);
+  border-radius: 16px; padding: 10px;
+  overflow-y: auto; background: rgba(255,255,255,0.35);
+  transition: border-color .2s, background .2s;
+}
+.a3-seq.dragover { border-color: var(--purple); background: rgba(155,93,229,0.07); }
+.a3-seq h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--purple); font-weight: 800; text-align: center; margin-bottom: 2px; }
+
+/* ============================================================
+   ROW ACTIONS
+   ============================================================ */
+.row-actions {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 8px; gap: 10px; flex-wrap: wrap;
+}
+.feedback {
+  font-size: 12px; color: var(--ink); flex: 1;
+  min-height: 16px; font-weight: 600;
+}
+.feedback.ok  { color: #007a55; }
+.feedback.no  { color: #c0392b; }
+
+button {
+  font-family: inherit; font-weight: 800; border: none;
+  border-radius: 30px; padding: 8px 18px; font-size: 12px;
+  cursor: pointer; transition: transform .15s, box-shadow .15s;
+  box-shadow: 0 3px 0 rgba(0,0,0,0.18);
+}
+button:hover { transform: translateY(-2px); }
+button:active { transform: translateY(1px); box-shadow: 0 1px 0 rgba(0,0,0,0.18); }
+.btn-reset  { background: #ffdada; color: #8b0000; }
+.btn-check  { background: var(--purple); color: #fff; }
+.btn-check:disabled { opacity: .45; cursor: default; transform: none; }
+.btn-big    { background: linear-gradient(135deg,var(--purple),var(--pink)); color:#fff;
+              font-size:16px; padding:12px 32px; box-shadow:0 5px 20px rgba(155,93,229,0.4); }
+
+/* Flash animations */
+@keyframes correctFlash {
+  0%{box-shadow:0 0 0 0 rgba(0,245,212,0);}
+  40%{box-shadow:0 0 0 8px rgba(0,245,212,.45);}
+  100%{box-shadow:0 0 0 0 rgba(0,245,212,0);}
+}
+@keyframes wrongFlash {
+  0%,100%{transform:translateX(0);}
+  25%{transform:translateX(-7px);}
+  75%{transform:translateX(7px);}
+}
+.correct-flash { animation: correctFlash .6s ease; }
+.wrong-flash   { animation: wrongFlash  .5s ease; }
+
+/* ============================================================
+   OVERLAY & POPUP
+   ============================================================ */
+.overlay {
+  position: fixed; inset: 0; z-index: 80;
+  background: rgba(45,27,78,.55);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity .35s ease;
+}
+.overlay.show { opacity: 1; pointer-events: auto; }
+.popup {
+  background: linear-gradient(160deg, #fff0ff, #e8f4ff);
+  border: 3px solid var(--purple);
+  border-radius: 24px; padding: 28px 36px;
+  text-align: center; max-width: 92vw;
+  box-shadow: 0 0 50px rgba(155,93,229,.45), 0 20px 50px rgba(0,0,0,.3);
+  transform: scale(.85); transition: transform .35s ease;
+}
+.overlay.show .popup { transform: scale(1); }
+.popup h2 { color: var(--purple); font-size: clamp(18px,3vw,28px); margin-bottom: 6px; }
+.popup p  { font-size: clamp(12px,1.8vw,15px); margin-bottom: 18px; color: var(--ink); }
+.popup .stars { font-size: 28px; margin-bottom: 8px; letter-spacing: 5px; }
+
+/* Final celebration */
+.celebration {
+  display: flex; gap: 8px; justify-content: center; margin: 12px 0;
+  font-size: 36px;
+}
+.cel-icon {
+  animation: celBounce 1.3s ease-in-out infinite;
+  display: inline-block;
+}
+.cel-icon:nth-child(2){animation-delay:-.2s;}
+.cel-icon:nth-child(3){animation-delay:-.4s;}
+.cel-icon:nth-child(4){animation-delay:-.6s;}
+@keyframes celBounce {
+  0%,100%{transform:translateY(0) rotate(0);}
+  50%{transform:translateY(-16px) rotate(8deg);}
+}
+.confetti-dot {
+  position: absolute; border-radius: 3px;
+  animation: confFall linear infinite;
+}
+@keyframes confFall {
+  0%{transform:translateY(-30px) rotate(0); opacity:1;}
+  100%{transform:translateY(200px) rotate(400deg); opacity:0;}
+}
+.popup-inner { position: relative; overflow: hidden; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media(max-width:720px){
+  .act-body,.a3-body{ flex-direction:column; }
+  .tray,.a3-left { flex:0 0 auto; flex-direction:row; flex-wrap:wrap; max-height:120px; }
+  .zones-wrap { flex-direction:column; }
+  .p-step{ width:26px; height:26px; font-size:11px; }
+  .p-line{ width:18px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     ANIMATED BACKGROUND SCENE
+     ============================================================ -->
+<div class="bg-scene" aria-hidden="true">
+
+  <!-- Rainbow arc -->
+  <div class="rainbow"></div>
+
+  <!-- Glow orbs -->
+  <div class="orb" style="width:340px;height:340px;background:rgba(155,93,229,.18);top:-80px;left:-80px;--opulse:7s;"></div>
+  <div class="orb" style="width:280px;height:280px;background:rgba(0,187,249,.15);top:40%;right:-60px;--opulse:9s;"></div>
+  <div class="orb" style="width:260px;height:260px;background:rgba(241,91,181,.14);bottom:-60px;left:30%;--opulse:6s;"></div>
+
+  <!-- Stars -->
+  <div class="star" style="width:5px;height:5px;top:8%;left:12%;--dur:2.8s;animation-delay:0s;"></div>
+  <div class="star" style="width:7px;height:7px;top:14%;left:28%;--dur:3.4s;animation-delay:-.8s;"></div>
+  <div class="star" style="width:4px;height:4px;top:6%;left:55%;--dur:2.4s;animation-delay:-.3s;"></div>
+  <div class="star" style="width:6px;height:6px;top:20%;left:70%;--dur:3.8s;animation-delay:-1.2s;"></div>
+  <div class="star" style="width:5px;height:5px;top:10%;left:85%;--dur:3.1s;animation-delay:-.6s;"></div>
+  <div class="star" style="width:4px;height:4px;top:30%;left:5%;--dur:2.6s;animation-delay:-2s;"></div>
+  <div class="star" style="width:8px;height:8px;top:40%;left:45%;--dur:4.2s;animation-delay:-1.5s;"></div>
+  <div class="star" style="width:5px;height:5px;top:55%;left:90%;--dur:3.5s;animation-delay:-.9s;"></div>
+  <div class="star" style="width:6px;height:6px;top:65%;left:15%;--dur:3.0s;animation-delay:-2.3s;"></div>
+  <div class="star" style="width:4px;height:4px;top:75%;left:60%;--dur:2.7s;animation-delay:-1.1s;"></div>
+
+  <!-- Sparkles -->
+  <div class="sparkle" style="top:16%;left:8%;--sdur:3.8s;animation-delay:0s;"></div>
+  <div class="sparkle" style="top:32%;left:22%;--sdur:4.5s;animation-delay:-.7s;"></div>
+  <div class="sparkle" style="top:18%;left:62%;--sdur:3.2s;animation-delay:-1.4s;"></div>
+  <div class="sparkle" style="top:50%;left:80%;--sdur:5s;animation-delay:-.3s;"></div>
+  <div class="sparkle" style="top:70%;left:38%;--sdur:4.1s;animation-delay:-2s;"></div>
+  <div class="sparkle" style="top:80%;left:75%;--sdur:3.6s;animation-delay:-.9s;"></div>
+
+  <!-- Clouds -->
+  <div class="cloud" style="width:180px;height:52px;top:6%;left:-220px;--cdur:32s;opacity:.7;"></div>
+  <div class="cloud" style="width:120px;height:38px;top:18%;left:-160px;--cdur:24s;animation-delay:-10s;opacity:.6;"></div>
+  <div class="cloud" style="width:220px;height:62px;top:3%;left:-280px;--cdur:40s;animation-delay:-18s;opacity:.55;"></div>
+  <div class="cloud" style="width:140px;height:44px;top:28%;left:-200px;--cdur:28s;animation-delay:-6s;opacity:.65;"></div>
+
+  <!-- Unicorn silhouettes -->
+  <div class="unicorn" style="top:74%;left:4%;--ufloat:5.5s;animation-delay:0s;">🦄</div>
+  <div class="unicorn" style="top:70%;right:4%;--ufloat:7s;animation-delay:-2s;font-size:32px;">🦄</div>
+  <div class="unicorn" style="top:80%;left:52%;--ufloat:6.2s;animation-delay:-1s;font-size:28px;opacity:.6;">🦄</div>
+
+</div>
+
+<!-- ============================================================
+     UI SHELL
+     ============================================================ -->
+<div class="ui">
+
+  <header>
+    <h1>PYTHON — NUMBER GUESSING GAME WITH HINTS</h1>
+    <p class="subtitle">Drag, sort and sequence your way to cracking the secret number!</p>
+  </header>
+
+  <!-- Progress -->
+  <div class="progress" id="progressTrail">
+    <div class="p-step active" data-step="1">1</div>
+    <div class="p-line" data-line="1"></div>
+    <div class="p-step" data-step="2">2</div>
+    <div class="p-line" data-line="2"></div>
+    <div class="p-step" data-step="3">3</div>
+    <div class="p-line" data-line="3"></div>
+    <div class="p-step" data-step="4">🏆</div>
+  </div>
+
+  <!-- ===================== ACTIVITY 1 ===================== -->
+  <div class="panel" id="panel1">
+    <h2>Activity 1 — Sort the Guesses</h2>
+    <p class="instr">The secret number is <strong>7</strong>. Drag each number card into the correct hint zone: <em>Too High</em>, <em>Too Low</em>, or <em>Correct Guess!</em></p>
+
+    <div class="mystery-box">
+      🔮 Secret Number: <span class="big">7</span>
+    </div>
+
+    <div class="act-body">
+      <div class="tray" id="tray1">
+        <div class="tray-title">Number Cards</div>
+      </div>
+      <div class="zones-wrap">
+        <div class="drop-bucket" id="bucket-high" data-zone="high">
+          <div class="bucket-title high"><span class="bucket-emoji">🔺</span>Too High</div>
+          <div class="bucket-hint">Guess &gt; 7</div>
+        </div>
+        <div class="drop-bucket" id="bucket-low" data-zone="low">
+          <div class="bucket-title low"><span class="bucket-emoji">🔻</span>Too Low</div>
+          <div class="bucket-hint">Guess &lt; 7</div>
+        </div>
+        <div class="drop-bucket" id="bucket-exact" data-zone="exact">
+          <div class="bucket-title exact"><span class="bucket-emoji">✅</span>Correct Guess!</div>
+          <div class="bucket-hint">Guess = 7</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row-actions">
+      <div class="feedback" id="feedback1">Tip: numbers bigger than 7 go Too High, smaller go Too Low, and 7 is Correct!</div>
+      <button class="btn-reset" data-reset="1">Reset</button>
+      <button class="btn-check" id="check1" disabled>Check My Sort</button>
+    </div>
+  </div>
+
+  <!-- ===================== ACTIVITY 2 ===================== -->
+  <div class="panel" id="panel2" style="display:none;">
+    <h2>Activity 2 — Sequence the Game Logic</h2>
+    <p class="instr">Drag the Python game steps into the correct order so the program runs from start to finish.</p>
+
+    <div class="act-body">
+      <div class="tray" id="tray2">
+        <div class="tray-title">Logic Cards</div>
+      </div>
+      <div class="seq-wrap">
+        <div class="seq-zone" id="zone2">
+          <h3>Program Sequence</h3>
+          <!-- slots injected by JS -->
+        </div>
+      </div>
+    </div>
+
+    <div class="row-actions">
+      <div class="feedback" id="feedback2">Tip: first pick a number, then get the player's guess, check if it's right, and show a hint!</div>
+      <button class="btn-reset" data-reset="2">Reset</button>
+      <button class="btn-check" id="check2" disabled>Check My Code</button>
+    </div>
+  </div>
+
+  <!-- ===================== ACTIVITY 3 ===================== -->
+  <div class="panel" id="panel3" style="display:none;">
+    <h2>Activity 3 — Crack the Secret Number!</h2>
+    <p class="instr">Build the full guessing sequence step-by-step. Drag guesses and hint cards in the right order to reach the hidden number in the fewest attempts.</p>
+
+    <div class="a3-body">
+      <div class="a3-left" id="tray3">
+        <div class="tray-title">Guess + Hint Cards</div>
+      </div>
+      <div class="a3-right">
+        <div class="a3-tracker">
+          <div>🎯 Target: <span class="a3-target">Secret!</span></div>
+          <div>Attempts: <span class="att-val" id="attVal">0</span></div>
+        </div>
+        <div class="a3-seq" id="zone3">
+          <h3>Your Guessing Journey</h3>
+          <!-- slots injected by JS -->
+        </div>
+      </div>
+    </div>
+
+    <div class="row-actions">
+      <div class="feedback" id="feedback3">Tip: start with a middle guess, use the hint to go higher or lower, then nail the correct number!</div>
+      <button class="btn-reset" data-reset="3">Reset</button>
+      <button class="btn-check" id="check3" disabled>Check My Game</button>
+    </div>
+  </div>
+
+  <!-- ===================== FINAL PANEL ===================== -->
+  <div class="panel" id="panelFinal" style="display:none;">
+    <h2>🌈 You Are a Python Game Builder! 🦄</h2>
+    <div class="celebration" id="celRow">
+      <span class="cel-icon">🦄</span>
+      <span class="cel-icon">⭐</span>
+      <span class="cel-icon">🌈</span>
+      <span class="cel-icon">🏆</span>
+    </div>
+    <p class="instr" style="font-size:15px;max-width:600px;margin:0 auto;">
+      You sorted guesses, sequenced logic blocks, and cracked the secret number — just like a real Python developer!
+      Variables store secrets, <code>if/else</code> checks the guess, and hints guide the player home.
+    </p>
+    <div class="row-actions" style="justify-content:center;margin-top:16px;">
+      <button class="btn-big" id="restartAll">🔄 Play Again</button>
+    </div>
+  </div>
+
+</div><!-- .ui -->
+
+<!-- ============================================================
+     POPUP OVERLAY
+     ============================================================ -->
+<div class="overlay" id="overlay">
+  <div class="popup">
+    <div class="popup-inner" id="popupInner">
+      <div class="stars">⭐⭐⭐</div>
+      <h2 id="popupTitle">Great job!</h2>
+      <p id="popupText">You nailed it!</p>
+      <button class="btn-check" id="popupNext">Continue →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+<script>
+/* ========================================================
+   HELPERS
+   ======================================================== */
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+let draggedCard = null;
+
+function makeDraggable(el){
+  el.draggable = true;
+  el.addEventListener('dragstart', e=>{
+    draggedCard = el;
+    el.classList.add('dragging');
+    e.dataTransfer.effectAllowed='move';
+  });
+  el.addEventListener('dragend', ()=>{
+    el.classList.remove('dragging');
+    draggedCard = null;
+  });
+  el.addEventListener('touchstart', ()=>{ draggedCard = el; el.classList.add('dragging'); },{passive:true});
+  el.addEventListener('touchend',   ()=>{ el.classList.remove('dragging'); draggedCard=null; });
+}
+
+function enableDrop(el, onDrop){
+  el.addEventListener('dragover', e=>{ e.preventDefault(); el.classList.add('dragover'); });
+  el.addEventListener('dragleave',   ()=> el.classList.remove('dragover'));
+  el.addEventListener('drop',    e=>{ e.preventDefault(); el.classList.remove('dragover'); onDrop(el); });
+  el.addEventListener('touchend',    ()=>{ el.classList.remove('dragover'); onDrop(el); });
+}
+
+function flashEl(el, type){
+  el.classList.remove('correct-flash','wrong-flash');
+  void el.offsetWidth;
+  el.classList.add(type==='ok'?'correct-flash':'wrong-flash');
+  setTimeout(()=>el.classList.remove('correct-flash','wrong-flash'), 700);
+}
+
+function updateProgress(active){
+  document.querySelectorAll('.p-step').forEach(s=>{
+    const n=+s.dataset.step;
+    s.classList.toggle('active', n===active);
+    s.classList.toggle('done',   n<active);
+  });
+  document.querySelectorAll('.p-line').forEach(l=>{
+    l.classList.toggle('done', +l.dataset.line < active);
+  });
+}
+
+/* ========================================================
+   ACTIVITY 1 — Sort number cards into buckets
+   ======================================================== */
+// secret = 7
+// card values and their correct buckets
+const ACT1_CARDS = [
+  {val:2, zone:'low',  col:'c-sky'},
+  {val:4, zone:'low',  col:'c-teal'},
+  {val:7, zone:'exact',col:'c-green'},
+  {val:9, zone:'high', col:'c-coral'},
+  {val:11,zone:'high', col:'c-pink'},
+  {val:3, zone:'low',  col:'c-sky'},
+  {val:10,zone:'high', col:'c-coral'},
+];
+
+function buildAct1(){
+  const tray = document.getElementById('tray1');
+  tray.querySelectorAll('.card').forEach(c=>c.remove());
+
+  // clear buckets (keep titles/hints)
+  ['bucket-high','bucket-low','bucket-exact'].forEach(id=>{
+    const b=document.getElementById(id);
+    b.querySelectorAll('.card').forEach(c=>c.remove());
+    b.classList.remove('correct-zone','wrong-zone','dragover');
+  });
+
+  shuffle(ACT1_CARDS).forEach(({val,col})=>{
+    const c=document.createElement('div');
+    c.className=`card num-card ${col}`;
+    c.dataset.val=val;
+    c.textContent=val;
+    makeDraggable(c);
+    tray.appendChild(c);
+  });
+
+  // enable drops on buckets
+  ['bucket-high','bucket-low','bucket-exact'].forEach(id=>{
+    const b=document.getElementById(id);
+    enableDrop(b, ()=>{
+      if(!draggedCard) return;
+      draggedCard.classList.add('placed');
+      draggedCard.style.width='100%';
+      b.appendChild(draggedCard);
+      draggedCard=null;
+      checkAct1AllPlaced();
+    });
+  });
+
+  document.getElementById('feedback1').textContent='Tip: numbers bigger than 7 go Too High, smaller go Too Low, and 7 is Correct!';
+  document.getElementById('feedback1').className='feedback';
+  document.getElementById('check1').disabled=true;
+}
+
+function checkAct1AllPlaced(){
+  const tray=document.getElementById('tray1');
+  if(tray.querySelectorAll('.card').length===0)
+    document.getElementById('check1').disabled=false;
+}
+
+document.getElementById('check1').addEventListener('click',()=>{
+  let allOk=true;
+  const map={high:v=>v>7, low:v=>v<7, exact:v=>v===7};
+  ['high','low','exact'].forEach(zone=>{
+    const b=document.getElementById('bucket-'+zone);
+    b.querySelectorAll('.card').forEach(c=>{
+      const v=+c.dataset.val;
+      const ok=map[zone](v);
+      flashEl(c, ok?'ok':'no');
+      if(!ok) allOk=false;
+    });
+  });
+  const fb=document.getElementById('feedback1');
+  if(allOk){
+    fb.textContent='Perfect! Every number is in the right place!'; fb.className='feedback ok';
+    setTimeout(()=>showPopup(1),550);
+  } else {
+    fb.textContent='Some numbers are in the wrong zone — give them another look!'; fb.className='feedback no';
+  }
+});
+
+/* ========================================================
+   ACTIVITY 2 — Sequence logic cards
+   ======================================================== */
+const ACT2_STEPS=[
+  {key:'pick',   label:'secret_number = 7  (Pick the secret number)',         col:'c-purple'},
+  {key:'input',  label:'guess = input("Guess a number: ")  (Get player guess)',col:'c-teal'},
+  {key:'check',  label:'if guess == secret_number:  (Check if correct)',       col:'c-yellow'},
+  {key:'win',    label:'print("Correct! You win!")  (Show winner message)',     col:'c-green'},
+  {key:'hint',   label:'else: print("Wrong — try again!")  (Show hint)',        col:'c-pink'},
+];
+
+function buildAct2(){
+  const tray=document.getElementById('tray2');
+  tray.querySelectorAll('.card').forEach(c=>c.remove());
+  const zone=document.getElementById('zone2');
+  zone.querySelectorAll('.slot-wrap').forEach(s=>s.remove());
+
+  // rebuild slots
+  ACT2_STEPS.forEach((_,i)=>{
+    const wrap=document.createElement('div');
+    wrap.className='slot-wrap';
+    const numEl=document.createElement('div');
+    numEl.textContent=i+1;
+    numEl.style.cssText='width:20px;height:20px;border-radius:50%;background:var(--purple);color:#fff;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;';
+    const slot=document.createElement('div');
+    slot.className='slot';
+    slot.dataset.idx=i;
+    slot.textContent='Drop step '+(i+1)+' here';
+    wrap.appendChild(numEl);
+    wrap.appendChild(slot);
+    zone.appendChild(wrap);
+  });
+
+  shuffle(ACT2_STEPS).forEach(({key,label,col})=>{
+    const c=document.createElement('div');
+    c.className=`card ${col}`;
+    c.dataset.key=key;
+    c.style.fontSize='11px';
+    c.style.textAlign='left';
+    c.style.padding='8px 10px';
+    c.textContent=label;
+    makeDraggable(c);
+    tray.appendChild(c);
+  });
+
+  enableDrop(zone, ()=>{
+    if(!draggedCard) return;
+    const firstEmpty=zone.querySelector('.slot:not(.filled)');
+    if(!firstEmpty) return;
+    const placed=draggedCard.cloneNode(true);
+    placed.classList.add('placed');
+    placed.style.width='100%';
+    firstEmpty.innerHTML='';
+    firstEmpty.classList.add('filled');
+    firstEmpty.appendChild(placed);
+    draggedCard.remove();
+    draggedCard=null;
+    checkAct2AllFilled();
+  });
+
+  document.getElementById('feedback2').textContent='Tip: first pick a number, then get the guess, check if it\'s right, and show a hint!';
+  document.getElementById('feedback2').className='feedback';
+  document.getElementById('check2').disabled=true;
+}
+
+function checkAct2AllFilled(){
+  const zone=document.getElementById('zone2');
+  const slots=zone.querySelectorAll('.slot');
+  if([...slots].every(s=>s.classList.contains('filled')))
+    document.getElementById('check2').disabled=false;
+}
+
+document.getElementById('check2').addEventListener('click',()=>{
+  const zone=document.getElementById('zone2');
+  const slots=[...zone.querySelectorAll('.slot')];
+  const correct=['pick','input','check','win','hint'];
+  let allOk=true;
+  slots.forEach((slot,i)=>{
+    const c=slot.querySelector('.card');
+    const ok=c&&c.dataset.key===correct[i];
+    if(!ok) allOk=false;
+    flashEl(slot,ok?'ok':'no');
+  });
+  const fb=document.getElementById('feedback2');
+  if(allOk){fb.textContent='Brilliant! The program will run perfectly now!';fb.className='feedback ok';setTimeout(()=>showPopup(2),550);}
+  else{fb.textContent='A couple of steps are out of order — shuffle them around!';fb.className='feedback no';}
+});
+
+/* ========================================================
+   ACTIVITY 3 — Guessing journey (target = 6)
+   Correct sequence: guess 5 (Too Low) → guess 8 (Too High) → guess 6 (Correct!)
+   Plus we track "attempts" as cards are placed
+   ======================================================== */
+const ACT3_SECRET=6;
+const ACT3_STEPS=[
+  {key:'g5',  label:'🔢 Guess: 5  →  Too Low!',      col:'c-sky',    hint:'too-low'},
+  {key:'g8',  label:'🔢 Guess: 8  →  Too High!',     col:'c-pink',   hint:'too-high'},
+  {key:'g6',  label:'🔢 Guess: 6  →  Correct! 🎉',  col:'c-green',  hint:'correct'},
+  {key:'h1',  label:'💡 Hint: Go Higher!',            col:'c-yellow', hint:'go-high'},
+  {key:'h2',  label:'💡 Hint: Go Lower!',             col:'c-purple', hint:'go-low'},
+  {key:'win3',label:'🏆 print("You guessed it!")',    col:'c-gold',   hint:'win'},
+];
+// Correct sequence keys in order
+const ACT3_CORRECT=['g5','h1','g8','h2','g6','win3'];
+
+function buildAct3(){
+  const tray=document.getElementById('tray3');
+  tray.querySelectorAll('.card').forEach(c=>c.remove());
+  const zone=document.getElementById('zone3');
+  zone.querySelectorAll('.slot-wrap').forEach(s=>s.remove());
+
+  document.getElementById('attVal').textContent='0';
+
+  // rebuild slots
+  ACT3_CORRECT.forEach((_,i)=>{
+    const wrap=document.createElement('div');
+    wrap.className='slot-wrap';
+    const numEl=document.createElement('div');
+    numEl.textContent=i+1;
+    numEl.style.cssText='width:20px;height:20px;border-radius:50%;background:var(--pink);color:#fff;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;';
+    const slot=document.createElement('div');
+    slot.className='slot';
+    slot.dataset.idx=i;
+    slot.textContent='Step '+(i+1);
+    wrap.appendChild(numEl);
+    wrap.appendChild(slot);
+    zone.appendChild(wrap);
+  });
+
+  shuffle(ACT3_STEPS).forEach(({key,label,col})=>{
+    const c=document.createElement('div');
+    c.className=`card ${col}`;
+    c.dataset.key=key;
+    c.style.fontSize='11px';
+    c.style.textAlign='left';
+    c.style.padding='7px 10px';
+    c.textContent=label;
+    makeDraggable(c);
+    tray.appendChild(c);
+  });
+
+  const zone3=document.getElementById('zone3');
+  enableDrop(zone3, ()=>{
+    if(!draggedCard) return;
+    const firstEmpty=zone3.querySelector('.slot:not(.filled)');
+    if(!firstEmpty) return;
+    const placed=draggedCard.cloneNode(true);
+    placed.classList.add('placed');
+    placed.style.width='100%';
+    firstEmpty.innerHTML='';
+    firstEmpty.classList.add('filled');
+    firstEmpty.appendChild(placed);
+    draggedCard.remove();
+    draggedCard=null;
+    // count guess cards placed
+    const gCards=zone3.querySelectorAll('.card.placed');
+    const guessCnt=[...gCards].filter(c=>c.dataset.key&&c.dataset.key.startsWith('g')).length;
+    document.getElementById('attVal').textContent=guessCnt;
+    checkAct3AllFilled();
+  });
+
+  document.getElementById('feedback3').textContent='Tip: start with a middle guess, use the hint to go higher or lower, then nail the correct number!';
+  document.getElementById('feedback3').className='feedback';
+  document.getElementById('check3').disabled=true;
+}
+
+function checkAct3AllFilled(){
+  const zone=document.getElementById('zone3');
+  const slots=zone.querySelectorAll('.slot');
+  if([...slots].every(s=>s.classList.contains('filled')))
+    document.getElementById('check3').disabled=false;
+}
+
+document.getElementById('check3').addEventListener('click',()=>{
+  const zone=document.getElementById('zone3');
+  const slots=[...zone.querySelectorAll('.slot')];
+  let allOk=true;
+  slots.forEach((slot,i)=>{
+    const c=slot.querySelector('.card');
+    const ok=c&&c.dataset.key===ACT3_CORRECT[i];
+    if(!ok) allOk=false;
+    flashEl(slot,ok?'ok':'no');
+  });
+  const fb=document.getElementById('feedback3');
+  if(allOk){fb.textContent='You cracked the code in just 3 guesses! Outstanding!';fb.className='feedback ok';setTimeout(()=>showPopup(3),550);}
+  else{fb.textContent='The sequence isn\'t quite right — remember: guess, hint, guess, hint, correct!';fb.className='feedback no';}
+});
+
+/* ========================================================
+   POPUP
+   ======================================================== */
+const POPUP_DATA={
+  1:{title:'Activity 1 Complete! 🌈',text:'You sorted every number perfectly. You know exactly when a guess is too high, too low, or spot on!'},
+  2:{title:'Activity 2 Complete! ⭐',text:'Your Python game logic is in the perfect order. The program will now run from start to finish!'},
+  3:{title:'Activity 3 Complete! 🦄',text:'You cracked the secret number with smart guesses and hints — just like a real Python game!'},
+};
+
+function showPopup(actNum){
+  const ov=document.getElementById('overlay');
+  document.getElementById('popupTitle').textContent=POPUP_DATA[actNum].title;
+  document.getElementById('popupText').textContent=POPUP_DATA[actNum].text;
+  const btn=document.getElementById('popupNext');
+  btn.textContent='Continue →';
+  ov.dataset.next=actNum;
+  ov.dataset.mode='progress';
+  ov.classList.add('show');
+}
+
+function showFinalPopup(){
+  const ov=document.getElementById('overlay');
+  document.getElementById('popupTitle').textContent='🦄 Python Game Builder Badge Unlocked!';
+  document.getElementById('popupText').textContent='You completed all 3 activities! You know variables, if/else logic, and how to build a number guessing game. Incredible work!';
+  const btn=document.getElementById('popupNext');
+  btn.textContent='🔄 Play Again';
+  spawnConfettiInPopup();
+  ov.dataset.mode='final';
+  ov.classList.add('show');
+}
+
+document.getElementById('popupNext').addEventListener('click',()=>{
+  const ov=document.getElementById('overlay');
+  ov.classList.remove('show');
+
+  if(ov.dataset.mode==='final'){
+    restartEverything();
+    return;
+  }
+
+  const actNum=+ov.dataset.next;
+  if(actNum<3){
+    document.getElementById('panel'+actNum).style.display='none';
+    document.getElementById('panel'+(actNum+1)).style.display='flex';
+    updateProgress(actNum+1);
+  } else {
+    document.getElementById('panel3').style.display='none';
+    document.getElementById('panelFinal').style.display='flex';
+    updateProgress(4);
+    setTimeout(()=>showFinalPopup(), 800);
+  }
+});
+
+/* ========================================================
+   CELEBRATION CONFETTI in popup
+   ======================================================== */
+function spawnConfettiInPopup(){
+  const inner=document.getElementById('popupInner');
+  inner.querySelectorAll('.confetti-dot').forEach(c=>c.remove());
+  const cols=['#9b5de5','#f15bb5','#fee440','#00f5d4','#ffd166','#00bbf9'];
+  for(let i=0;i<28;i++){
+    const d=document.createElement('div');
+    d.className='confetti-dot';
+    d.style.left=Math.random()*100+'%';
+    d.style.width=(4+Math.random()*5)+'px';
+    d.style.height=(7+Math.random()*6)+'px';
+    d.style.background=cols[Math.floor(Math.random()*cols.length)];
+    d.style.animationDelay=(Math.random()*2)+'s';
+    d.style.animationDuration=(1.8+Math.random()*1.5)+'s';
+    inner.appendChild(d);
+  }
+}
+
+function spawnCelebration(){
+  // nothing extra needed — final panel icons do it
+}
+
+/* ========================================================
+   RESET
+   ======================================================== */
+const BUILDERS={1:buildAct1, 2:buildAct2, 3:buildAct3};
+
+document.querySelectorAll('[data-reset]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const n=+btn.dataset.reset;
+    BUILDERS[n]();
+  });
+});
+
+function restartEverything(){
+  document.getElementById('panelFinal').style.display='none';
+  document.getElementById('panel1').style.display='flex';
+  [1,2,3].forEach(n=>BUILDERS[n]());
+  updateProgress(1);
+}
+
+document.getElementById('restartAll').addEventListener('click',restartEverything);
+
+/* ========================================================
+   INIT
+   ======================================================== */
+buildAct1();
+buildAct2();
+buildAct3();
+updateProgress(1);
+</script>
+</body>
+</html>

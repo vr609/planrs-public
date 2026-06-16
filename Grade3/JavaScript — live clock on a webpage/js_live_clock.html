@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JAVASCRIPT — LIVE CLOCK ON A WEBPAGE</title>
+<style>
+  :root{
+    --navy:#0c1230;
+    --navy2:#161c45;
+    --gold:#FFD23F;
+    --cyan:#3FE0FF;
+    --magenta:#FF4FA3;
+    --violet:#8B5CF6;
+    --ink:#E9ECFF;
+    --panelbg:rgba(18,22,55,0.72);
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;width:100%;height:100%;overflow:hidden;
+    font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    background:radial-gradient(ellipse at 50% 0%, #1c2466 0%, #0c1230 55%, #060816 100%);
+    color:var(--ink);
+  }
+  #stage{position:relative;width:100vw;height:100vh;overflow:hidden;}
+
+  /* ---------- Ambient background ---------- */
+  .sky-layer{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;}
+
+  .stars{position:absolute;inset:0;}
+  .twinkle-star{
+    position:absolute;background:#fff;border-radius:50%;
+    animation:twinkle ease-in-out infinite;
+  }
+  @keyframes twinkle{
+    0%,100%{opacity:.2;}
+    50%{opacity:1;}
+  }
+
+  .moon-glow{
+    position:absolute;top:4%;right:8%;width:70px;height:70px;border-radius:50%;
+    background:radial-gradient(circle,#fff8e0 0%,#ffe9a8 60%,rgba(255,233,168,0) 100%);
+    box-shadow:0 0 60px 20px rgba(255,233,168,.35);
+    animation:moonPulse 6s ease-in-out infinite;
+  }
+  @keyframes moonPulse{0%,100%{opacity:.85;}50%{opacity:1;}}
+
+  .cloud{
+    position:absolute;opacity:.18;
+    animation:drift linear infinite;
+  }
+  @keyframes drift{
+    from{transform:translateX(-150px);}
+    to{transform:translateX(110vw);}
+  }
+
+  .searchlight{
+    position:absolute;bottom:0;width:3px;height:60vh;
+    background:linear-gradient(to top, rgba(63,224,255,.35), rgba(63,224,255,0));
+    transform-origin:bottom center;
+    animation:sweep ease-in-out infinite;
+    filter:blur(1px);
+  }
+  @keyframes sweep{
+    0%{transform:rotate(-35deg);}
+    50%{transform:rotate(35deg);}
+    100%{transform:rotate(-35deg);}
+  }
+
+  .lightning{
+    position:absolute;inset:0;background:rgba(180,220,255,0);
+    pointer-events:none;
+    animation:flash 9s linear infinite;
+  }
+  @keyframes flash{
+    0%,93%,100%{background:rgba(180,220,255,0);}
+    93.3%{background:rgba(180,220,255,.18);}
+    93.6%{background:rgba(180,220,255,0);}
+    94%{background:rgba(180,220,255,.28);}
+    94.3%{background:rgba(180,220,255,0);}
+  }
+
+  .skyline{
+    position:absolute;bottom:0;left:0;width:100%;height:32vh;z-index:1;
+  }
+  .skyline svg{width:100%;height:100%;display:block;}
+  .window-lit{animation:windowGlow ease-in-out infinite;}
+  @keyframes windowGlow{
+    0%,100%{opacity:.3;}
+    50%{opacity:1;}
+  }
+
+  .hero-silhouette{
+    position:absolute;opacity:.55;
+    animation:soar linear infinite;
+    filter:drop-shadow(0 0 8px rgba(255,79,163,.4));
+  }
+  @keyframes soar{
+    0%{transform:translate(-10vw,0) scale(1);}
+    100%{transform:translate(115vw,-6vh) scale(1.05);}
+  }
+
+  .city-glow{
+    position:absolute;bottom:0;left:0;width:100%;height:34vh;
+    background:linear-gradient(to top, rgba(139,92,246,.25), rgba(139,92,246,0));
+    z-index:1;pointer-events:none;
+  }
+
+  /* ---------- App chrome ---------- */
+  #app{
+    position:relative;z-index:2;width:100%;height:100%;
+    display:flex;flex-direction:column;align-items:center;
+    padding:14px 18px 10px;
+  }
+
+  header{text-align:center;margin-bottom:6px;flex-shrink:0;}
+  h1{
+    margin:0;font-size:clamp(18px,2.8vw,32px);
+    letter-spacing:1px;color:var(--gold);
+    text-shadow:0 0 10px rgba(255,210,63,.6), 0 0 24px rgba(255,79,163,.25);
+  }
+  .subtitle{
+    margin:2px 0 0;font-size:clamp(11px,1.3vw,14px);color:var(--cyan);font-weight:600;
+  }
+
+  .progress-track{display:flex;gap:10px;align-items:center;margin:10px 0 4px;flex-shrink:0;}
+  .progress-dot{
+    width:34px;height:34px;border-radius:50%;
+    background:rgba(20,24,60,.8);border:3px solid var(--violet);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;color:var(--ink);font-size:14px;
+    transition:all .4s ease;
+  }
+  .progress-dot.active{
+    background:linear-gradient(135deg,#FF4FA3,#8B5CF6);
+    border-color:var(--gold);color:#fff;
+    box-shadow:0 0 0 4px rgba(255,210,63,.3), 0 0 16px rgba(255,79,163,.5);
+    transform:scale(1.12);
+  }
+  .progress-dot.done{
+    background:linear-gradient(135deg,#3FE0FF,#3FA9FF);
+    border-color:#3FE0FF;color:#06283a;
+  }
+  .progress-line{width:30px;height:4px;border-radius:2px;background:var(--violet);}
+  .progress-line.done{background:linear-gradient(90deg,#3FE0FF,#3FA9FF);}
+
+  main{
+    flex:1;width:100%;max-width:1180px;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+    min-height:0;
+  }
+
+  .panel{
+    width:100%;height:100%;
+    background:var(--panelbg);
+    border:2px solid rgba(63,224,255,.35);
+    border-radius:22px;
+    backdrop-filter:blur(7px);
+    box-shadow:0 10px 34px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.03) inset;
+    padding:14px 22px;
+    display:none;flex-direction:column;min-height:0;
+  }
+  .panel.show{display:flex;animation:panelIn .5s ease;}
+  @keyframes panelIn{
+    from{opacity:0;transform:translateY(18px) scale(.98);}
+    to{opacity:1;transform:translateY(0) scale(1);}
+  }
+
+  .panel h2{margin:0 0 2px;font-size:clamp(15px,2vw,20px);color:var(--gold);text-align:center;}
+  .panel .instructions{
+    margin:0 0 8px;text-align:center;font-size:clamp(11px,1.3vw,13px);color:var(--cyan);font-weight:600;
+  }
+
+  .controls-row{display:flex;justify-content:center;gap:10px;margin-bottom:8px;flex-shrink:0;}
+  .btn{
+    border:none;border-radius:30px;padding:8px 20px;font-size:13px;font-weight:700;
+    cursor:pointer;color:#08102a;letter-spacing:.3px;
+    background:linear-gradient(135deg,#FFD23F,#FF9F4F);
+    box-shadow:0 4px 14px rgba(255,170,60,.35);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 6px 18px rgba(255,170,60,.5);}
+  .btn:active{transform:translateY(0) scale(.98);}
+  .btn.reset{background:linear-gradient(135deg,#FF4FA3,#8B5CF6);color:#fff;}
+  .btn.next{background:linear-gradient(135deg,#3FE0FF,#3FA9FF);color:#06283a;}
+  .btn:disabled{opacity:.35;cursor:not-allowed;transform:none;box-shadow:none;}
+
+  .feedback-msg{text-align:center;min-height:20px;font-size:13px;font-weight:700;margin-bottom:6px;flex-shrink:0;}
+  .feedback-msg.good{color:#5CF0B0;}
+  .feedback-msg.bad{color:#FF7FA8;}
+
+  /* ---------- Activity 1: match snippet to purpose ---------- */
+  .a1-wrap{flex:1;display:flex;gap:20px;min-height:0;align-items:center;justify-content:center;}
+  .match-col{flex:1;display:flex;flex-direction:column;gap:10px;}
+  .match-title{font-size:12px;font-weight:700;color:var(--cyan);text-align:center;}
+
+  .purpose-slot{
+    min-height:54px;border-radius:14px;border:3px dashed rgba(63,224,255,.5);
+    background:rgba(63,224,255,.06);
+    display:flex;align-items:center;justify-content:center;text-align:center;
+    padding:8px 10px;font-size:13px;font-weight:700;color:var(--ink);
+    transition:background .2s,border-color .2s;
+  }
+  .purpose-slot .label{color:var(--gold);}
+  .purpose-slot.filled{border-style:solid;border-color:#5CF0B0;background:rgba(92,240,176,.12);}
+  .purpose-slot.over{border-color:#FFD23F;background:rgba(255,210,63,.18);}
+
+  .code-chip{
+    padding:9px 16px;border-radius:10px;font-weight:700;font-size:13px;cursor:grab;
+    background:linear-gradient(135deg,#1a2050,#222a66);
+    border:2px solid var(--violet);color:#cdeaff;
+    font-family:'Consolas','Courier New',monospace;
+    box-shadow:0 3px 10px rgba(0,0,0,.4);
+    user-select:none;touch-action:none;
+  }
+  .code-chip:active{cursor:grabbing;}
+  .code-chip.dragging{opacity:.4;}
+  .code-chip.placed{display:none;}
+
+  .chip-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+
+  /* ---------- Activity 2: sequence ---------- */
+  .a2-wrap{flex:1;display:flex;flex-direction:column;gap:10px;min-height:0;align-items:center;justify-content:center;}
+  .sequence-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+  .seq-slot{
+    width:170px;height:64px;border-radius:14px;
+    border:3px dashed var(--violet);background:rgba(139,92,246,.08);
+    display:flex;align-items:center;justify-content:center;
+    font-size:11px;color:var(--ink);font-weight:700;text-align:center;
+    position:relative;padding:6px;
+  }
+  .seq-slot .order-badge{
+    position:absolute;top:-12px;left:-12px;width:26px;height:26px;border-radius:50%;
+    background:var(--magenta);color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 6px rgba(0,0,0,.4);
+  }
+  .seq-slot.filled{border-style:solid;border-color:#5CF0B0;background:rgba(92,240,176,.12);}
+  .seq-slot.over{border-color:#FFD23F;background:rgba(255,210,63,.2);}
+
+  .logic-card{
+    width:170px;padding:12px 10px;border-radius:14px;text-align:center;
+    background:linear-gradient(135deg,#1a2050,#222a66);
+    border:2px solid var(--violet);color:#cdeaff;font-weight:700;font-size:12px;
+    cursor:grab;box-shadow:0 4px 12px rgba(0,0,0,.4);user-select:none;touch-action:none;
+  }
+  .logic-card:active{cursor:grabbing;}
+  .logic-card.dragging{opacity:.4;}
+  .logic-card.placed{display:none;}
+  .logic-card .emoji{font-size:20px;display:block;margin-bottom:3px;}
+  .logic-card code{color:var(--gold);}
+
+  .cards-pool{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+
+  /* ---------- Activity 3 ---------- */
+  .a3-wrap{flex:1;display:flex;flex-direction:column;gap:8px;min-height:0;align-items:center;justify-content:center;}
+  .build-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+  .build-slot{
+    width:155px;min-height:80px;border-radius:14px;border:3px dashed var(--violet);
+    background:rgba(139,92,246,.08);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:11px;font-weight:700;color:var(--ink);text-align:center;padding:8px;gap:4px;
+    position:relative;
+  }
+  .build-slot .order-badge{
+    position:absolute;top:-12px;left:-12px;width:26px;height:26px;border-radius:50%;
+    background:var(--magenta);color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 6px rgba(0,0,0,.4);
+  }
+  .build-slot.filled{border-style:solid;border-color:#5CF0B0;background:rgba(92,240,176,.12);}
+  .build-slot.over{border-color:#FFD23F;background:rgba(255,210,63,.2);}
+
+  .build-card{
+    width:155px;padding:10px 8px;border-radius:14px;text-align:center;
+    background:linear-gradient(135deg,#1a2050,#222a66);
+    border:2px solid var(--violet);color:#cdeaff;font-weight:700;font-size:11px;
+    cursor:grab;box-shadow:0 4px 10px rgba(0,0,0,.4);user-select:none;touch-action:none;line-height:1.4;
+  }
+  .build-card:active{cursor:grabbing;}
+  .build-card.dragging{opacity:.4;}
+  .build-card.placed{display:none;}
+
+  /* ---------- Popups ---------- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(6,8,22,.6);
+    display:none;align-items:center;justify-content:center;z-index:50;
+    backdrop-filter:blur(3px);
+  }
+  .overlay.show{display:flex;animation:fadeIn .3s ease;}
+  @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+  .popup{
+    background:linear-gradient(160deg,#161c45,#0c1230);
+    border-radius:24px;padding:28px 34px;max-width:420px;text-align:center;
+    box-shadow:0 16px 50px rgba(0,0,0,.6), 0 0 0 2px rgba(63,224,255,.25) inset;
+    border:2px solid var(--gold);
+    animation:popIn .4s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes popIn{
+    from{transform:scale(.7) translateY(20px);opacity:0;}
+    to{transform:scale(1) translateY(0);opacity:1;}
+  }
+  .popup .big-emoji{font-size:48px;display:block;margin-bottom:8px;animation:bounce 1.2s ease-in-out infinite;}
+  @keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-10px);}}
+  .popup h3{margin:0 0 8px;color:var(--gold);font-size:20px;}
+  .popup p{margin:0 0 16px;color:var(--ink);font-size:14px;font-weight:600;}
+
+  .final-popup{max-width:480px;}
+  .final-popup .big-emoji{font-size:60px;}
+  .confetti-canvas{position:fixed;inset:0;pointer-events:none;z-index:49;}
+
+  @media (max-width:760px){
+    .a1-wrap{flex-direction:column;}
+    .seq-slot,.logic-card,.build-card,.build-slot{width:120px;font-size:10px;}
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="sky-layer" id="skyLayer"></div>
+  <div class="lightning"></div>
+  <div class="skyline" id="skylineWrap"></div>
+  <div class="city-glow"></div>
+
+  <div id="app">
+    <header>
+      <h1>JAVASCRIPT — LIVE CLOCK ON A WEBPAGE</h1>
+      <p class="subtitle">Drag, drop, and power up the city's live clock!</p>
+    </header>
+
+    <div class="progress-track" id="progressTrack">
+      <div class="progress-dot active" id="dot1">1</div>
+      <div class="progress-line" id="line1"></div>
+      <div class="progress-dot" id="dot2">2</div>
+      <div class="progress-line" id="line2"></div>
+      <div class="progress-dot" id="dot3">3</div>
+    </div>
+
+    <main>
+      <!-- ACTIVITY 1 -->
+      <section class="panel show" id="panel1">
+        <h2>Activity 1: Match the Code to its Job</h2>
+        <p class="instructions">Drag each code snippet onto the job it performs.</p>
+        <div class="controls-row">
+          <button class="btn reset" id="reset1">Reset Activity</button>
+        </div>
+        <div class="feedback-msg" id="feedback1">&nbsp;</div>
+        <div class="a1-wrap">
+          <div class="match-col">
+            <div class="match-title">Jobs</div>
+            <div class="purpose-slot" data-job="time"><span class="label">Get the current time</span></div>
+            <div class="purpose-slot" data-job="update"><span class="label">Update the webpage text</span></div>
+            <div class="purpose-slot" data-job="repeat"><span class="label">Repeat every second</span></div>
+          </div>
+          <div class="match-col">
+            <div class="match-title">Code Snippets — drag one onto a job</div>
+            <div class="chip-row" id="chipTray1"></div>
+          </div>
+        </div>
+        <div class="controls-row">
+          <button class="btn next" id="next1" disabled>Continue →</button>
+        </div>
+      </section>
+
+      <!-- ACTIVITY 2 -->
+      <section class="panel" id="panel2">
+        <h2>Activity 2: Build the Clock Function</h2>
+        <p class="instructions">Arrange the steps in the order the live clock needs to run.</p>
+        <div class="controls-row">
+          <button class="btn reset" id="reset2">Reset Activity</button>
+        </div>
+        <div class="feedback-msg" id="feedback2">&nbsp;</div>
+        <div class="a2-wrap">
+          <div class="sequence-row" id="seqRow"></div>
+          <div class="match-title">Drag a step into the correct box</div>
+          <div class="cards-pool" id="cardPool2"></div>
+        </div>
+        <div class="controls-row">
+          <button class="btn next" id="next2" disabled>Continue →</button>
+        </div>
+      </section>
+
+      <!-- ACTIVITY 3 -->
+      <section class="panel" id="panel3">
+        <h2>Activity 3: Assemble the Whole Webpage</h2>
+        <p class="instructions">Drag each build step onto its correct place in the page-building order.</p>
+        <div class="controls-row">
+          <button class="btn reset" id="reset3">Reset Activity</button>
+        </div>
+        <div class="feedback-msg" id="feedback3">&nbsp;</div>
+        <div class="a3-wrap">
+          <div class="build-row" id="buildRow"></div>
+          <div class="match-title">Drag a card onto its step number</div>
+          <div class="cards-pool" id="cardPool3"></div>
+        </div>
+        <div class="controls-row">
+          <button class="btn next" id="finish3" disabled>Finish 🦸</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Mid-activity success popup -->
+  <div class="overlay" id="successOverlay">
+    <div class="popup">
+      <span class="big-emoji">⚡</span>
+      <h3 id="successTitle">Power Up!</h3>
+      <p id="successText">You completed this activity perfectly.</p>
+      <button class="btn next" id="successContinue">Continue →</button>
+    </div>
+  </div>
+
+  <!-- Final celebration popup -->
+  <div class="overlay" id="finalOverlay">
+    <div class="popup final-popup">
+      <span class="big-emoji">🦸‍♀️⚡🏙️</span>
+      <h3>Mission Complete!</h3>
+      <p>You built a real live clock and powered up the whole city skyline. The webpage is officially super!</p>
+      <button class="btn" id="playAgainBtn">Play Again</button>
+    </div>
+  </div>
+  <canvas class="confetti-canvas" id="confettiCanvas"></canvas>
+</div>
+
+<script>
+/* ================= AMBIENT BACKGROUND ================= */
+function buildSky(){
+  const layer = document.getElementById('skyLayer');
+  layer.innerHTML = '';
+
+  // Stars
+  const starsWrap = document.createElement('div');
+  starsWrap.className='stars';
+  for(let i=0;i<40;i++){
+    const s = document.createElement('div');
+    s.className='twinkle-star';
+    const size = 1+Math.random()*2.4;
+    s.style.width=size+'px';
+    s.style.height=size+'px';
+    s.style.left = Math.random()*100+'%';
+    s.style.top = Math.random()*62+'%';
+    s.style.animationDuration = (1.4+Math.random()*3)+'s';
+    s.style.animationDelay = (Math.random()*3)+'s';
+    starsWrap.appendChild(s);
+  }
+  layer.appendChild(starsWrap);
+
+  // Moon
+  const moon = document.createElement('div');
+  moon.className='moon-glow';
+  layer.appendChild(moon);
+
+  // Clouds
+  const cloudSVG = (w,h)=>`<svg width="${w}" height="${h}" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="60" cy="60" rx="55" ry="30" fill="#9fb3ff"/>
+    <ellipse cx="110" cy="45" rx="45" ry="36" fill="#9fb3ff"/>
+    <ellipse cx="150" cy="65" rx="40" ry="24" fill="#9fb3ff"/>
+    <ellipse cx="90" cy="75" rx="70" ry="20" fill="#9fb3ff"/>
+  </svg>`;
+  const cloudConfigs = [
+    {top:'8%', w:160,h:80, dur:60, delay:-5},
+    {top:'18%', w:110,h:55, dur:75, delay:-30},
+    {top:'3%', w:90,h:45, dur:50, delay:-15},
+  ];
+  cloudConfigs.forEach(cfg=>{
+    const d = document.createElement('div');
+    d.className='cloud';
+    d.style.top = cfg.top;
+    d.style.animationDuration = cfg.dur+'s';
+    d.style.animationDelay = cfg.delay+'s';
+    d.innerHTML = cloudSVG(cfg.w,cfg.h);
+    layer.appendChild(d);
+  });
+
+  // Searchlights
+  const lightConfigs = [
+    {left:'14%', dur:7, delay:0},
+    {left:'40%', dur:8.5, delay:-2},
+    {left:'68%', dur:6.5, delay:-4},
+    {left:'88%', dur:9, delay:-1},
+  ];
+  lightConfigs.forEach(cfg=>{
+    const l = document.createElement('div');
+    l.className='searchlight';
+    l.style.left = cfg.left;
+    l.style.animationDuration = cfg.dur+'s';
+    l.style.animationDelay = cfg.delay+'s';
+    layer.appendChild(l);
+  });
+
+  // Hero silhouettes (cape figures soaring)
+  const heroSVG = (color)=>`<svg width="60" height="44" viewBox="0 0 100 70" xmlns="http://www.w3.org/2000/svg">
+    <g fill="${color}">
+      <ellipse cx="48" cy="30" rx="10" ry="9"/>
+      <path d="M48 35 L60 60 L46 55 L40 65 L36 50 L20 58 Q35 38 48 35 Z"/>
+      <rect x="40" y="32" width="16" height="14" rx="4"/>
+      <path d="M40 36 L10 30 L38 44 Z"/>
+      <path d="M56 36 L86 26 L60 46 Z"/>
+    </g>
+  </svg>`;
+  const heroConfigs = [
+    {top:'10%', dur:16, delay:-2, color:'#FF4FA3'},
+    {top:'24%', dur:22, delay:-10, color:'#3FE0FF'},
+    {top:'4%', dur:19, delay:-6, color:'#FFD23F'},
+  ];
+  heroConfigs.forEach(cfg=>{
+    const h = document.createElement('div');
+    h.className='hero-silhouette';
+    h.style.top = cfg.top;
+    h.style.animationDuration = cfg.dur+'s';
+    h.style.animationDelay = cfg.delay+'s';
+    h.innerHTML = heroSVG(cfg.color);
+    layer.appendChild(h);
+  });
+}
+buildSky();
+buildSkyline();
+
+function buildSkyline(){
+  const wrap = document.getElementById('skylineWrap');
+  const buildingDefs = [
+    {x:0,   w:60,  h:120, c:'#161c45'},
+    {x:55,  w:40,  h:170, c:'#1c2358'},
+    {x:90,  w:70,  h:100, c:'#141938'},
+    {x:155, w:50,  h:200, c:'#202a66'},
+    {x:200, w:45,  h:140, c:'#161c45'},
+    {x:240, w:65,  h:185, c:'#1c2358'},
+    {x:300, w:38,  h:110, c:'#141938'},
+    {x:333, w:55,  h:160, c:'#202a66'},
+    {x:383, w:42,  h:130, c:'#161c45'},
+    {x:420, w:60,  h:210, c:'#1c2358'},
+    {x:475, w:48,  h:150, c:'#141938'},
+    {x:518, w:36,  h:100, c:'#202a66'},
+    {x:548, w:62,  h:175, c:'#161c45'},
+    {x:605, w:44,  h:120, c:'#1c2358'},
+    {x:644, w:56,  h:195, c:'#141938'},
+  ];
+  const totalWidth = 700;
+  let windows = '';
+  let buildings = '';
+  buildingDefs.forEach((b,bi)=>{
+    buildings += `<rect x="${b.x}" y="${300-b.h}" width="${b.w}" height="${b.h}" fill="${b.c}"/>`;
+    const cols = Math.max(2, Math.floor(b.w/14));
+    const rows = Math.max(3, Math.floor(b.h/18));
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        if(Math.random()>0.45){
+          const wx = b.x + 6 + c*(b.w-12)/cols;
+          const wy = (300-b.h) + 10 + r*(b.h-20)/rows;
+          const dur = (1.8+Math.random()*3).toFixed(1);
+          const delay = (Math.random()*4).toFixed(1);
+          windows += `<rect class="window-lit" x="${wx.toFixed(1)}" y="${wy.toFixed(1)}" width="5" height="7" fill="#FFD23F" style="animation-duration:${dur}s;animation-delay:${delay}s;"/>`;
+        }
+      }
+    }
+  });
+  wrap.innerHTML = `<svg viewBox="0 0 700 300" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    ${buildings}
+    ${windows}
+  </svg>`;
+}
+
+/* ================= UTIL ================= */
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function setupDragDrop(container, chipSelector, slotSelector, onDropCheck){
+  let dragEl = null;
+  let offsetX=0, offsetY=0;
+  let originParent=null, originNext=null;
+
+  function getSlots(){ return Array.from(container.querySelectorAll(slotSelector)); }
+
+  function onPointerDown(e){
+    const chip = e.target.closest(chipSelector);
+    if(!chip || chip.classList.contains('placed')) return;
+    e.preventDefault();
+    dragEl = chip;
+    originParent = chip.parentElement;
+    originNext = chip.nextSibling;
+    const rect = chip.getBoundingClientRect();
+    offsetX = (e.touches? e.touches[0].clientX : e.clientX) - rect.left;
+    offsetY = (e.touches? e.touches[0].clientY : e.clientY) - rect.top;
+    chip.style.position='fixed';
+    chip.style.zIndex=999;
+    chip.style.width = rect.width+'px';
+    chip.style.left = rect.left+'px';
+    chip.style.top = rect.top+'px';
+    chip.classList.add('dragging');
+    document.body.appendChild(chip);
+
+    document.addEventListener('mousemove', onPointerMove);
+    document.addEventListener('touchmove', onPointerMove, {passive:false});
+    document.addEventListener('mouseup', onPointerUp);
+    document.addEventListener('touchend', onPointerUp);
+  }
+
+  function onPointerMove(e){
+    if(!dragEl) return;
+    e.preventDefault();
+    const cx = e.touches? e.touches[0].clientX : e.clientX;
+    const cy = e.touches? e.touches[0].clientY : e.clientY;
+    dragEl.style.left = (cx-offsetX)+'px';
+    dragEl.style.top = (cy-offsetY)+'px';
+
+    getSlots().forEach(s=>s.classList.remove('over'));
+    const target = findSlotUnder(cx,cy);
+    if(target) target.classList.add('over');
+  }
+
+  function findSlotUnder(x,y){
+    const slots = getSlots();
+    for(const s of slots){
+      const r = s.getBoundingClientRect();
+      if(x>=r.left && x<=r.right && y>=r.top && y<=r.bottom) return s;
+    }
+    return null;
+  }
+
+  function onPointerUp(e){
+    if(!dragEl) return;
+    const cx = e.changedTouches? e.changedTouches[0].clientX : e.clientX;
+    const cy = e.changedTouches? e.changedTouches[0].clientY : e.clientY;
+    const target = findSlotUnder(cx,cy);
+    getSlots().forEach(s=>s.classList.remove('over'));
+
+    dragEl.style.position='';
+    dragEl.style.zIndex='';
+    dragEl.style.width='';
+    dragEl.style.left='';
+    dragEl.style.top='';
+    dragEl.classList.remove('dragging');
+
+    const chip = dragEl;
+    dragEl = null;
+    document.removeEventListener('mousemove', onPointerMove);
+    document.removeEventListener('touchmove', onPointerMove);
+    document.removeEventListener('mouseup', onPointerUp);
+    document.removeEventListener('touchend', onPointerUp);
+
+    if(target){
+      onDropCheck(chip, target, ()=>{}, ()=>{ returnToOrigin(chip); });
+    } else {
+      returnToOrigin(chip);
+    }
+  }
+
+  function returnToOrigin(chip){
+    if(originNext) originParent.insertBefore(chip, originNext);
+    else originParent.appendChild(chip);
+  }
+
+  container.addEventListener('mousedown', onPointerDown);
+  container.addEventListener('touchstart', onPointerDown, {passive:false});
+}
+
+/* ================= CONFETTI ================= */
+function fireConfetti(){
+  const canvas = document.getElementById('confettiCanvas');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  const colors = ['#FFD23F','#FF4FA3','#3FE0FF','#8B5CF6','#5CF0B0','#FF9F4F'];
+  let particles = [];
+  for(let i=0;i<150;i++){
+    particles.push({
+      x: Math.random()*canvas.width,
+      y: -20-Math.random()*canvas.height*0.3,
+      r: 4+Math.random()*5,
+      c: colors[Math.floor(Math.random()*colors.length)],
+      vy: 2+Math.random()*3,
+      vx: -1.5+Math.random()*3,
+      rot: Math.random()*360,
+      vr: -6+Math.random()*12
+    });
+  }
+  let frame=0;
+  function animate(){
+    frame++;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    particles.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr;
+      ctx.save();
+      ctx.translate(p.x,p.y);
+      ctx.rotate(p.rot*Math.PI/180);
+      ctx.fillStyle=p.c;
+      ctx.fillRect(-p.r/2,-p.r/2,p.r,p.r*1.6);
+      ctx.restore();
+    });
+    if(frame<160){
+      requestAnimationFrame(animate);
+    } else {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+    }
+  }
+  animate();
+}
+
+/* ================= NAVIGATION ================= */
+function showPanel(n){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show'));
+  document.getElementById('panel'+n).classList.add('show');
+  for(let i=1;i<=3;i++){
+    const dot = document.getElementById('dot'+i);
+    dot.classList.remove('active','done');
+    if(i<n) dot.classList.add('done');
+    else if(i===n) dot.classList.add('active');
+  }
+  document.getElementById('line1').classList.toggle('done', n>1);
+  document.getElementById('line2').classList.toggle('done', n>2);
+}
+
+function showSuccessPopup(title, text, onContinue){
+  document.getElementById('successTitle').textContent = title;
+  document.getElementById('successText').textContent = text;
+  const overlay = document.getElementById('successOverlay');
+  overlay.classList.add('show');
+  const btn = document.getElementById('successContinue');
+  const handler = ()=>{
+    overlay.classList.remove('show');
+    btn.removeEventListener('click', handler);
+    onContinue();
+  };
+  btn.addEventListener('click', handler);
+}
+
+document.getElementById('playAgainBtn').addEventListener('click', ()=>{
+  document.getElementById('finalOverlay').classList.remove('show');
+  resetActivity1();
+  resetActivity2();
+  resetActivity3();
+  showPanel(1);
+});
+
+/* ================= ACTIVITY 1: MATCH CODE TO JOB ================= */
+const a1Pieces = [
+  {id:'p_time', label:'new Date()', job:'time'},
+  {id:'p_update', label:'innerText', job:'update'},
+  {id:'p_repeat', label:'setInterval()', job:'repeat'},
+];
+let a1FilledCount = 0;
+
+function renderActivity1(){
+  const tray = document.getElementById('chipTray1');
+  tray.innerHTML='';
+  document.querySelectorAll('#panel1 .purpose-slot').forEach(s=>{
+    s.classList.remove('filled');
+  });
+  a1FilledCount = 0;
+  document.getElementById('next1').disabled = true;
+  document.getElementById('feedback1').textContent = '\u00A0';
+  document.getElementById('feedback1').className = 'feedback-msg';
+
+  // restore labels in case a previous run modified slot text
+  document.querySelector('.purpose-slot[data-job="time"]').innerHTML = '<span class="label">Get the current time</span>';
+  document.querySelector('.purpose-slot[data-job="update"]').innerHTML = '<span class="label">Update the webpage text</span>';
+  document.querySelector('.purpose-slot[data-job="repeat"]').innerHTML = '<span class="label">Repeat every second</span>';
+
+  const shuffled = shuffle(a1Pieces);
+  shuffled.forEach(piece=>{
+    const chip = document.createElement('div');
+    chip.className = 'code-chip';
+    chip.dataset.id = piece.id;
+    chip.dataset.job = piece.job;
+    chip.textContent = piece.label;
+    tray.appendChild(chip);
+  });
+}
+
+function checkActivity1Drop(chip, target, onSuccess, onFail){
+  if(!target.classList.contains('purpose-slot')){ onFail(); return; }
+  if(target.classList.contains('filled')){
+    onFail();
+    document.getElementById('feedback1').textContent = 'That job already has its code — try another!';
+    document.getElementById('feedback1').className = 'feedback-msg bad';
+    return;
+  }
+  const expectedJob = target.dataset.job;
+  const actualJob = chip.dataset.job;
+  if(expectedJob === actualJob){
+    target.innerHTML = '<span class="label">'+target.querySelector('.label').textContent+'</span> → <code style="color:#FFD23F">'+chip.textContent+'</code>';
+    target.classList.add('filled');
+    chip.classList.add('placed');
+    chip.remove();
+    a1FilledCount++;
+    document.getElementById('feedback1').textContent = 'Super match! ⚡';
+    document.getElementById('feedback1').className = 'feedback-msg good';
+    if(a1FilledCount === a1Pieces.length){
+      document.getElementById('next1').disabled = false;
+      setTimeout(()=>{
+        showSuccessPopup('Code Matched!', 'You matched every snippet to its job. The clock is ready to be built!', ()=>{
+          showPanel(2);
+        });
+      }, 400);
+    }
+  } else {
+    onFail();
+    document.getElementById('feedback1').textContent = 'Not quite the right job — give it another try!';
+    document.getElementById('feedback1').className = 'feedback-msg bad';
+  }
+}
+
+function resetActivity1(){ renderActivity1(); }
+document.getElementById('reset1').addEventListener('click', resetActivity1);
+document.getElementById('next1').addEventListener('click', ()=> showPanel(2));
+setupDragDrop(document.getElementById('panel1'), '.code-chip', '.purpose-slot', checkActivity1Drop);
+
+/* ================= ACTIVITY 2: CLOCK FUNCTION SEQUENCE ================= */
+const a2Steps = [
+  {id:'check', order:1, label:'Check the system time', code:'new Date()', emoji:'🕐'},
+  {id:'format', order:2, label:'Read hours, minutes, seconds', code:'getHours()', emoji:'🔢'},
+  {id:'update', order:3, label:'Update the webpage text', code:'innerText', emoji:'🖥️'},
+  {id:'repeat', order:4, label:'Repeat every second', code:'setInterval()', emoji:'🔁'},
+];
+let a2FilledCount = 0;
+
+function renderActivity2(){
+  const seqRow = document.getElementById('seqRow');
+  const pool = document.getElementById('cardPool2');
+  seqRow.innerHTML='';
+  pool.innerHTML='';
+  a2FilledCount = 0;
+  document.getElementById('next2').disabled = true;
+  document.getElementById('feedback2').textContent = '\u00A0';
+  document.getElementById('feedback2').className = 'feedback-msg';
+
+  a2Steps.forEach(step=>{
+    const slot = document.createElement('div');
+    slot.className = 'seq-slot';
+    slot.dataset.order = step.order;
+    const badge = document.createElement('div');
+    badge.className='order-badge';
+    badge.textContent = step.order;
+    slot.appendChild(badge);
+    const txt = document.createElement('span');
+    txt.textContent = 'Step '+step.order;
+    slot.appendChild(txt);
+    seqRow.appendChild(slot);
+  });
+
+  const shuffled = shuffle(a2Steps);
+  shuffled.forEach(step=>{
+    const card = document.createElement('div');
+    card.className='logic-card';
+    card.dataset.order = step.order;
+    card.innerHTML = `<span class="emoji">${step.emoji}</span>${step.label}<br><code>${step.code}</code>`;
+    pool.appendChild(card);
+  });
+}
+
+function checkActivity2Drop(chip, target, onSuccess, onFail){
+  if(!target.classList.contains('seq-slot')){ onFail(); return; }
+  if(target.classList.contains('filled')){
+    onFail();
+    document.getElementById('feedback2').textContent = 'That step is already placed — choose another box!';
+    document.getElementById('feedback2').className = 'feedback-msg bad';
+    return;
+  }
+  const expected = target.dataset.order;
+  const actual = chip.dataset.order;
+  if(expected === actual){
+    target.innerHTML = `<div class="order-badge">${expected}</div>${chip.innerHTML}`;
+    target.classList.add('filled');
+    chip.classList.add('placed');
+    chip.remove();
+    a2FilledCount++;
+    document.getElementById('feedback2').textContent = 'Locked into the script! 🌟';
+    document.getElementById('feedback2').className = 'feedback-msg good';
+    if(a2FilledCount === a2Steps.length){
+      document.getElementById('next2').disabled = false;
+      setTimeout(()=>{
+        showSuccessPopup('Function Built!', 'Your clock function now ticks in the right order. Time to build the full webpage!', ()=>{
+          showPanel(3);
+        });
+      }, 400);
+    }
+  } else {
+    onFail();
+    document.getElementById('feedback2').textContent = 'That step belongs somewhere else — try again!';
+    document.getElementById('feedback2').className = 'feedback-msg bad';
+  }
+}
+
+function resetActivity2(){ renderActivity2(); }
+document.getElementById('reset2').addEventListener('click', resetActivity2);
+document.getElementById('next2').addEventListener('click', ()=> showPanel(3));
+setupDragDrop(document.getElementById('panel2'), '.logic-card', '.seq-slot', checkActivity2Drop);
+
+/* ================= ACTIVITY 3: FULL PAGE BUILD ================= */
+const a3Steps = [
+  {id:'html', order:1, label:'Add the HTML clock box', code:'<div id="clock">', emoji:'🏗️'},
+  {id:'css', order:2, label:'Style it with CSS', code:'color: gold;', emoji:'🎨'},
+  {id:'js', order:3, label:'Write the clock function', code:'showMyTime()', emoji:'🧠'},
+  {id:'interval', order:4, label:'Start the live ticking', code:'setInterval()', emoji:'⚡'},
+];
+let a3FilledCount = 0;
+
+function renderActivity3(){
+  const buildRow = document.getElementById('buildRow');
+  const pool = document.getElementById('cardPool3');
+  buildRow.innerHTML='';
+  pool.innerHTML='';
+  a3FilledCount = 0;
+  document.getElementById('finish3').disabled = true;
+  document.getElementById('feedback3').textContent = '\u00A0';
+  document.getElementById('feedback3').className = 'feedback-msg';
+
+  a3Steps.forEach(step=>{
+    const slot = document.createElement('div');
+    slot.className='build-slot';
+    slot.dataset.order = step.order;
+    const badge = document.createElement('div');
+    badge.className='order-badge';
+    badge.textContent = step.order;
+    slot.appendChild(badge);
+    const txt = document.createElement('span');
+    txt.textContent = 'Step '+step.order;
+    slot.appendChild(txt);
+    buildRow.appendChild(slot);
+  });
+
+  const shuffled = shuffle(a3Steps);
+  shuffled.forEach(step=>{
+    const card = document.createElement('div');
+    card.className='build-card';
+    card.dataset.order = step.order;
+    card.innerHTML = `<span style="font-size:18px;display:block;">${step.emoji}</span>${step.label}<br><code style="color:#FFD23F">${step.code}</code>`;
+    pool.appendChild(card);
+  });
+}
+
+function checkActivity3Drop(chip, target, onSuccess, onFail){
+  if(!target.classList.contains('build-slot')){ onFail(); return; }
+  if(target.classList.contains('filled')){
+    onFail();
+    document.getElementById('feedback3').textContent = 'That step already has a card — try another spot!';
+    document.getElementById('feedback3').className = 'feedback-msg bad';
+    return;
+  }
+  const expected = target.dataset.order;
+  const actual = chip.dataset.order;
+  if(expected === actual){
+    target.innerHTML = `<div class="order-badge">${expected}</div>${chip.innerHTML}`;
+    target.classList.add('filled');
+    chip.classList.add('placed');
+    chip.remove();
+    a3FilledCount++;
+    document.getElementById('feedback3').textContent = 'Webpage powering up! 🏙️';
+    document.getElementById('feedback3').className = 'feedback-msg good';
+    if(a3FilledCount === a3Steps.length){
+      document.getElementById('finish3').disabled = false;
+    }
+  } else {
+    onFail();
+    document.getElementById('feedback3').textContent = 'That card belongs in a different step — try again!';
+    document.getElementById('feedback3').className = 'feedback-msg bad';
+  }
+}
+
+function resetActivity3(){ renderActivity3(); }
+document.getElementById('reset3').addEventListener('click', resetActivity3);
+document.getElementById('finish3').addEventListener('click', ()=>{
+  document.getElementById('finalOverlay').classList.add('show');
+  fireConfetti();
+});
+setupDragDrop(document.getElementById('panel3'), '.build-card', '.build-slot', checkActivity3Drop);
+
+/* ================= INIT ================= */
+renderActivity1();
+renderActivity2();
+renderActivity3();
+showPanel(1);
+
+window.addEventListener('resize', ()=>{
+  const canvas = document.getElementById('confettiCanvas');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+</script>
+</body>
+</html>

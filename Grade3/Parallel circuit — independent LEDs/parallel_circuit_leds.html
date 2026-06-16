@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Parallel Circuit — Independent LEDs</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Nunito:wght@400;600;700;800&display=swap');
+
+  :root {
+    --violet-deep: #1a0533;
+    --violet-dark: #2d0a5e;
+    --violet-mid: #5b1fa8;
+    --violet-bright: #8b3ef5;
+    --violet-glow: #b56fff;
+    --violet-light: #d4a8ff;
+    --pink-accent: #ff6bdf;
+    --cyan-accent: #00e5ff;
+    --gold-accent: #ffd700;
+    --white: #ffffff;
+    --text-dim: #c9a6ff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--violet-deep);
+    font-family: 'Nunito', sans-serif;
+    color: var(--white);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ===== STARFIELD ===== */
+  #starfield {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0; pointer-events: none;
+  }
+
+  .star {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle var(--dur, 3s) ease-in-out infinite,
+               drift var(--drift, 20s) linear infinite;
+  }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.2; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.5); }
+  }
+
+  @keyframes drift {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+    100% { transform: translateY(0px); }
+  }
+
+  /* ===== FLYING BIRDS ===== */
+  .bird {
+    position: fixed;
+    font-size: 20px;
+    animation: flyBird var(--bird-dur, 12s) linear infinite;
+    z-index: 1;
+    opacity: 0.6;
+  }
+
+  @keyframes flyBird {
+    0% { transform: translateX(-80px) translateY(0); opacity: 0; }
+    10% { opacity: 0.6; }
+    90% { opacity: 0.6; }
+    100% { transform: translateX(calc(100vw + 80px)) translateY(var(--bird-y, -30px)); opacity: 0; }
+  }
+
+  /* ===== CHAIN LINKS (decorative) ===== */
+  .chain-decoration {
+    position: fixed;
+    right: -30px;
+    top: 10%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    z-index: 1;
+    animation: chainSwing 4s ease-in-out infinite;
+    opacity: 0.35;
+  }
+  .chain-link {
+    width: 18px; height: 28px;
+    border: 3px solid var(--violet-glow);
+    border-radius: 50%;
+  }
+  @keyframes chainSwing {
+    0%, 100% { transform: rotate(-8deg); }
+    50% { transform: rotate(8deg); }
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    padding: 36px 20px 24px;
+  }
+
+  header h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(1.4rem, 4vw, 2.6rem);
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    background: linear-gradient(90deg, var(--violet-light), var(--pink-accent), var(--violet-glow), var(--cyan-accent));
+    background-size: 300% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmerTitle 3s linear infinite;
+    text-shadow: none;
+  }
+
+  @keyframes shimmerTitle {
+    0% { background-position: 0% center; }
+    100% { background-position: 300% center; }
+  }
+
+  .subtitle-bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    background: rgba(139, 62, 245, 0.2);
+    border: 1px solid rgba(139, 62, 245, 0.5);
+    border-radius: 30px;
+    padding: 6px 20px;
+    font-size: 0.82rem;
+    color: var(--violet-light);
+    letter-spacing: 0.08em;
+  }
+  .pulse-dot {
+    width: 8px; height: 8px;
+    background: var(--cyan-accent);
+    border-radius: 50%;
+    animation: pulseGlow 1.4s ease-in-out infinite;
+  }
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 4px var(--cyan-accent); transform: scale(1); }
+    50% { box-shadow: 0 0 12px var(--cyan-accent); transform: scale(1.3); }
+  }
+
+  /* ===== TABS ===== */
+  .tab-bar {
+    position: relative; z-index: 10;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 0 20px 24px;
+    flex-wrap: wrap;
+  }
+
+  .tab-btn {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 10px 22px;
+    border-radius: 30px;
+    border: 2px solid rgba(139, 62, 245, 0.5);
+    background: rgba(45, 10, 94, 0.6);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.3s;
+    letter-spacing: 0.04em;
+  }
+  .tab-btn:hover { border-color: var(--violet-glow); color: var(--white); }
+  .tab-btn.active {
+    background: linear-gradient(135deg, var(--violet-mid), var(--violet-bright));
+    border-color: var(--violet-glow);
+    color: white;
+    box-shadow: 0 0 20px rgba(139, 62, 245, 0.6);
+  }
+
+  /* ===== ACTIVITY PANELS ===== */
+  .activity-panel {
+    display: none;
+    position: relative; z-index: 10;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 16px 60px;
+  }
+  .activity-panel.active { display: block; }
+
+  .activity-card {
+    background: rgba(45, 10, 94, 0.55);
+    border: 1px solid rgba(139, 62, 245, 0.4);
+    border-radius: 20px;
+    padding: 28px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 0 40px rgba(91, 31, 168, 0.3);
+  }
+
+  .activity-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--violet-light);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .act-badge {
+    background: var(--violet-mid);
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .activity-desc {
+    font-size: 0.88rem;
+    color: var(--text-dim);
+    margin-bottom: 22px;
+    line-height: 1.6;
+  }
+
+  /* ===== SCORE ===== */
+  .score-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .score-display {
+    background: rgba(0,229,255,0.1);
+    border: 1px solid var(--cyan-accent);
+    border-radius: 20px;
+    padding: 5px 16px;
+    font-size: 0.82rem;
+    color: var(--cyan-accent);
+    font-weight: 700;
+  }
+  .reset-btn {
+    background: none;
+    border: 1px solid rgba(255,107,223,0.4);
+    border-radius: 20px;
+    color: var(--pink-accent);
+    padding: 5px 14px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    font-family: 'Nunito', sans-serif;
+    transition: all 0.2s;
+  }
+  .reset-btn:hover { background: rgba(255,107,223,0.1); }
+
+  /* ===== FEEDBACK ===== */
+  .feedback-msg {
+    text-align: center;
+    min-height: 34px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    border-radius: 12px;
+    padding: 8px 14px;
+    margin-top: 16px;
+    transition: all 0.3s;
+  }
+  .feedback-msg.correct {
+    background: rgba(0,255,120,0.12);
+    border: 1px solid #00ff78;
+    color: #00ff78;
+  }
+  .feedback-msg.wrong {
+    background: rgba(255,80,80,0.12);
+    border: 1px solid #ff5050;
+    color: #ff5050;
+  }
+
+  /* ============================
+     ACTIVITY 1: CIRCUIT BUILDER
+  ================================ */
+  #act1-workspace {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .parts-tray {
+    flex: 0 0 160px;
+    background: rgba(91,31,168,0.2);
+    border: 1px dashed rgba(139,62,245,0.5);
+    border-radius: 14px;
+    padding: 14px 10px;
+    min-height: 320px;
+  }
+  .tray-label {
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+  .part-item {
+    background: linear-gradient(135deg, rgba(91,31,168,0.7), rgba(45,10,94,0.9));
+    border: 1.5px solid var(--violet-mid);
+    border-radius: 10px;
+    padding: 9px 8px;
+    margin-bottom: 8px;
+    cursor: grab;
+    font-size: 0.78rem;
+    color: var(--violet-light);
+    text-align: center;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .part-item:hover {
+    border-color: var(--violet-glow);
+    color: white;
+    box-shadow: 0 0 12px rgba(139,62,245,0.5);
+    transform: scale(1.03);
+  }
+  .part-item.dragging { opacity: 0.4; transform: scale(0.95); }
+  .part-item .part-icon { font-size: 1.4rem; display: block; margin-bottom: 4px; }
+
+  .circuit-canvas {
+    flex: 1;
+    min-width: 280px;
+    background: rgba(26,5,51,0.7);
+    border: 1.5px solid rgba(139,62,245,0.4);
+    border-radius: 14px;
+    padding: 14px;
+    min-height: 340px;
+    position: relative;
+  }
+
+  .drop-zone {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .circuit-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .wire-h {
+    flex: 1;
+    height: 3px;
+    background: linear-gradient(90deg, var(--violet-mid), var(--violet-bright));
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+  }
+  .wire-h::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, var(--cyan-accent), transparent);
+    animation: currentFlow 2s linear infinite;
+  }
+  @keyframes currentFlow {
+    0% { left: -100%; }
+    100% { left: 100%; }
+  }
+
+  .node-slot {
+    width: 80px;
+    height: 56px;
+    border: 2px dashed rgba(139,62,245,0.5);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.62rem;
+    color: rgba(139,62,245,0.6);
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+  }
+  .node-slot.drag-over {
+    border-color: var(--violet-glow);
+    background: rgba(139,62,245,0.2);
+    box-shadow: 0 0 16px rgba(139,62,245,0.5);
+  }
+  .node-slot.filled {
+    border-color: var(--pink-accent);
+    background: rgba(255,107,223,0.1);
+    font-size: 1.5rem;
+    color: white;
+  }
+  .node-slot.correct-slot {
+    border-color: #00ff78;
+    background: rgba(0,255,120,0.1);
+    box-shadow: 0 0 16px rgba(0,255,120,0.3);
+  }
+  .node-slot.wrong-slot {
+    border-color: #ff5050;
+    background: rgba(255,80,80,0.1);
+    animation: shake 0.4s ease;
+  }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+
+  .battery-block {
+    background: linear-gradient(135deg, #2d0a5e, #1a0533);
+    border: 2px solid var(--gold-accent);
+    border-radius: 10px;
+    padding: 8px 10px;
+    text-align: center;
+    font-size: 0.65rem;
+    color: var(--gold-accent);
+    min-width: 64px;
+  }
+
+  .circuit-check-btn {
+    margin-top: 14px;
+    width: 100%;
+    background: linear-gradient(135deg, var(--violet-mid), var(--violet-bright));
+    border: none;
+    border-radius: 12px;
+    padding: 12px;
+    color: white;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    letter-spacing: 0.05em;
+  }
+  .circuit-check-btn:hover {
+    box-shadow: 0 0 24px rgba(139,62,245,0.7);
+    transform: translateY(-2px);
+  }
+
+  /* LED glow animation on correct */
+  .led-glow {
+    animation: ledOn 0.8s ease-in-out infinite alternate;
+  }
+  @keyframes ledOn {
+    from { filter: drop-shadow(0 0 4px var(--violet-glow)); }
+    to   { filter: drop-shadow(0 0 14px var(--pink-accent)) brightness(1.3); }
+  }
+
+  /* ============================
+     ACTIVITY 2: LABEL MATCH
+  ================================ */
+  #act2-workspace {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .labels-bank {
+    flex: 0 0 150px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .label-chip {
+    background: linear-gradient(135deg, rgba(91,31,168,0.7), rgba(45,10,94,0.9));
+    border: 1.5px solid var(--violet-mid);
+    border-radius: 20px;
+    padding: 9px 14px;
+    cursor: grab;
+    font-size: 0.8rem;
+    color: var(--violet-light);
+    text-align: center;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .label-chip:hover {
+    border-color: var(--violet-glow);
+    color: white;
+    box-shadow: 0 0 10px rgba(139,62,245,0.5);
+  }
+  .label-chip.dragging { opacity: 0.3; }
+  .label-chip.used { opacity: 0.25; pointer-events: none; }
+
+  .diagram-side {
+    flex: 1;
+    min-width: 260px;
+  }
+
+  .diag-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .diag-icon-box {
+    width: 60px; height: 60px;
+    background: rgba(26,5,51,0.8);
+    border: 1.5px solid rgba(139,62,245,0.4);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.7rem;
+    flex-shrink: 0;
+  }
+
+  .label-drop-target {
+    flex: 1;
+    min-height: 40px;
+    border: 2px dashed rgba(139,62,245,0.5);
+    border-radius: 20px;
+    padding: 8px 14px;
+    font-size: 0.78rem;
+    color: rgba(139,62,245,0.5);
+    display: flex;
+    align-items: center;
+    transition: all 0.25s;
+  }
+  .label-drop-target.drag-over {
+    border-color: var(--violet-glow);
+    background: rgba(139,62,245,0.15);
+    box-shadow: 0 0 14px rgba(139,62,245,0.4);
+  }
+  .label-drop-target.filled {
+    border-color: var(--pink-accent);
+    background: rgba(255,107,223,0.1);
+    color: white;
+    font-weight: 700;
+  }
+  .label-drop-target.correct-target {
+    border-color: #00ff78;
+    background: rgba(0,255,120,0.1);
+    color: #00ff78;
+  }
+  .label-drop-target.wrong-target {
+    border-color: #ff5050;
+    background: rgba(255,80,80,0.1);
+    color: #ff5050;
+    animation: shake 0.4s ease;
+  }
+
+  /* ============================
+     ACTIVITY 3: SEQUENCE SORT
+  ================================ */
+  #act3-workspace {
+    min-height: 340px;
+  }
+
+  .sort-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .sort-zone {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .zone-number {
+    width: 34px; height: 34px;
+    background: linear-gradient(135deg, var(--violet-mid), var(--violet-bright));
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+
+  .sort-drop {
+    flex: 1;
+    min-height: 50px;
+    border: 2px dashed rgba(139,62,245,0.45);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 0.8rem;
+    color: rgba(139,62,245,0.5);
+    display: flex;
+    align-items: center;
+    transition: all 0.25s;
+    cursor: default;
+  }
+  .sort-drop.drag-over {
+    border-color: var(--violet-glow);
+    background: rgba(139,62,245,0.18);
+    box-shadow: 0 0 14px rgba(139,62,245,0.4);
+  }
+  .sort-drop.filled {
+    border-color: var(--pink-accent);
+    background: rgba(255,107,223,0.08);
+    color: white;
+    font-weight: 700;
+  }
+  .sort-drop.correct-drop {
+    border-color: #00ff78;
+    background: rgba(0,255,120,0.1);
+    color: #00ff78;
+  }
+  .sort-drop.wrong-drop {
+    border-color: #ff5050;
+    background: rgba(255,80,80,0.1);
+    color: #ff5050;
+    animation: shake 0.4s;
+  }
+
+  .cards-pool {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px;
+    background: rgba(26,5,51,0.6);
+    border: 1px dashed rgba(139,62,245,0.4);
+    border-radius: 14px;
+    min-height: 80px;
+    margin-bottom: 14px;
+  }
+
+  .sort-card {
+    background: linear-gradient(135deg, rgba(91,31,168,0.8), rgba(45,10,94,1));
+    border: 1.5px solid var(--violet-mid);
+    border-radius: 10px;
+    padding: 9px 14px;
+    font-size: 0.8rem;
+    color: var(--violet-light);
+    cursor: grab;
+    user-select: none;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .sort-card:hover {
+    border-color: var(--violet-glow);
+    color: white;
+    box-shadow: 0 0 12px rgba(139,62,245,0.5);
+    transform: translateY(-2px);
+  }
+  .sort-card.dragging { opacity: 0.3; }
+  .sort-card.used { opacity: 0.2; pointer-events: none; }
+
+  /* ===== CONFETTI BURST ===== */
+  .confetti-piece {
+    position: fixed;
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    animation: confettiFall 1.8s ease-in forwards;
+    z-index: 999;
+    pointer-events: none;
+  }
+  @keyframes confettiFall {
+    0% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+    100% { transform: translateY(300px) rotate(720deg) scale(0.3); opacity: 0; }
+  }
+
+  /* ===== TOOLTIP ===== */
+  .tip-bubble {
+    background: rgba(45,10,94,0.95);
+    border: 1px solid var(--violet-mid);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+    line-height: 1.5;
+    position: relative;
+  }
+  .tip-bubble::before {
+    content: '💡';
+    margin-right: 6px;
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--violet-deep); }
+  ::-webkit-scrollbar-thumb { background: var(--violet-mid); border-radius: 3px; }
+
+  /* mini LED indicators */
+  .led-indicator {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--violet-mid);
+    box-shadow: 0 0 4px var(--violet-mid);
+    vertical-align: middle;
+    margin: 0 2px;
+    transition: all 0.3s;
+  }
+  .led-indicator.on {
+    background: var(--pink-accent);
+    box-shadow: 0 0 12px var(--pink-accent), 0 0 24px var(--pink-accent);
+    animation: ledBlink 0.9s ease-in-out infinite alternate;
+  }
+  @keyframes ledBlink {
+    from { box-shadow: 0 0 6px var(--pink-accent); }
+    to   { box-shadow: 0 0 18px var(--pink-accent), 0 0 34px rgba(255,107,223,0.4); }
+  }
+</style>
+</head>
+<body>
+
+<!-- STARFIELD -->
+<div id="starfield"></div>
+
+<!-- CHAIN DECORATION -->
+<div class="chain-decoration" id="chainDec"></div>
+
+<!-- HEADER -->
+<header>
+  <h1>Parallel Circuit — Independent LEDs</h1>
+  <div class="subtitle-bar">
+    <div class="pulse-dot"></div>
+    3 Interactive Drag &amp; Drop Activities
+    <div class="pulse-dot"></div>
+  </div>
+</header>
+
+<!-- TABS -->
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab(1)">⚡ Activity 1<br><small>Build the Circuit</small></button>
+  <button class="tab-btn" onclick="switchTab(2)">🏷️ Activity 2<br><small>Label the Parts</small></button>
+  <button class="tab-btn" onclick="switchTab(3)">🔢 Activity 3<br><small>Sort the Steps</small></button>
+</div>
+
+<!-- ==============================
+     ACTIVITY 1: CIRCUIT BUILDER
+================================= -->
+<div class="activity-panel active" id="panel1">
+  <div class="activity-card">
+    <div class="activity-title"><span class="act-badge">1</span>Build a Parallel Circuit</div>
+    <p class="activity-desc">Drag the correct components into the circuit diagram slots. In a parallel circuit, each LED has its OWN separate branch — removing one doesn't affect the others!</p>
+
+    <div class="tip-bubble">Each LED branch connects directly between the positive and negative rails. If one LED is removed, current keeps flowing through the other branches.</div>
+
+    <div class="score-bar">
+      <div class="score-display">Score: <span id="score1">0</span>/4</div>
+      <button class="reset-btn" onclick="resetAct1()">↺ Reset</button>
+    </div>
+
+    <!-- Parts Tray -->
+    <div id="act1-workspace">
+      <div class="parts-tray">
+        <div class="tray-label">🔧 Components</div>
+        <div class="part-item" draggable="true" data-part="led" id="p-led1" ondragstart="dragStart(event,'led','p-led1')">
+          <span class="part-icon">💡</span>LED
+        </div>
+        <div class="part-item" draggable="true" data-part="resistor" id="p-res1" ondragstart="dragStart(event,'resistor','p-res1')">
+          <span class="part-icon">〰️</span>Resistor
+        </div>
+        <div class="part-item" draggable="true" data-part="switch" id="p-sw1" ondragstart="dragStart(event,'switch','p-sw1')">
+          <span class="part-icon">🔘</span>Switch
+        </div>
+        <div class="part-item" draggable="true" data-part="wire" id="p-wire1" ondragstart="dragStart(event,'wire','p-wire1')">
+          <span class="part-icon">〰</span>Wire
+        </div>
+        <div class="part-item" draggable="true" data-part="led" id="p-led2" ondragstart="dragStart(event,'led','p-led2')">
+          <span class="part-icon">💡</span>LED #2
+        </div>
+        <div class="part-item" draggable="true" data-part="battery" id="p-bat" ondragstart="dragStart(event,'battery','p-bat')">
+          <span class="part-icon">🔋</span>Battery
+        </div>
+      </div>
+
+      <!-- Circuit Diagram -->
+      <div class="circuit-canvas">
+        <!-- Power Rail Labels -->
+        <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:var(--gold-accent);margin-bottom:6px;">
+          <span>⊕ Positive Rail</span><span>⊖ Negative Rail</span>
+        </div>
+
+        <div class="drop-zone">
+          <!-- TOP RAIL -->
+          <div class="circuit-row">
+            <div class="battery-block">🔋<br><span style="font-size:0.6rem">9V Source</span></div>
+            <div class="wire-h" style="max-width:30px"></div>
+            <div class="node-slot" id="slot-sw" data-accept="switch"
+                ondragover="allowDrop(event)" ondrop="dropPart(event,'slot-sw')" ondragleave="leaveDrop(event)">
+              <span style="font-size:0.55rem;text-align:center">Drop<br>Switch</span>
+            </div>
+            <div class="wire-h"></div>
+            <div style="font-size:0.65rem;color:var(--text-dim);white-space:nowrap">➤ +</div>
+          </div>
+
+          <div style="font-size:0.7rem;color:var(--text-dim);text-align:center;padding:4px 0;letter-spacing:0.05em;">── BRANCH 1 ──────── BRANCH 2 ──</div>
+
+          <!-- BRANCH ROW -->
+          <div style="display:flex;gap:12px;justify-content:center;">
+            <!-- Branch 1 -->
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+              <div class="wire-h" style="height:3px;width:3px;background:none;border-left:3px solid var(--violet-bright);height:24px;flex:none;width:3px;"></div>
+              <div class="node-slot" id="slot-led1" data-accept="led"
+                  ondragover="allowDrop(event)" ondrop="dropPart(event,'slot-led1')" ondragleave="leaveDrop(event)">
+                <span style="font-size:0.55rem;text-align:center">Drop<br>LED 1</span>
+              </div>
+              <div class="node-slot" id="slot-res1" data-accept="resistor"
+                  ondragover="allowDrop(event)" ondrop="dropPart(event,'slot-res1')" ondragleave="leaveDrop(event)">
+                <span style="font-size:0.55rem;text-align:center">Drop<br>Resistor</span>
+              </div>
+            </div>
+
+            <div style="width:28px;display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:var(--text-dim);flex-direction:column;">
+              <div style="width:2px;background:rgba(139,62,245,0.4);height:100%"></div>
+            </div>
+
+            <!-- Branch 2 -->
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+              <div style="width:3px;background:var(--violet-bright);height:24px;"></div>
+              <div class="node-slot" id="slot-led2" data-accept="led"
+                  ondragover="allowDrop(event)" ondrop="dropPart(event,'slot-led2')" ondragleave="leaveDrop(event)">
+                <span style="font-size:0.55rem;text-align:center">Drop<br>LED 2</span>
+              </div>
+              <div class="node-slot" id="slot-wire1" data-accept="wire"
+                  ondragover="allowDrop(event)" ondrop="dropPart(event,'slot-wire1')" ondragleave="leaveDrop(event)">
+                <span style="font-size:0.55rem;text-align:center">Drop<br>Wire</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="font-size:0.7rem;color:var(--text-dim);text-align:center;padding:4px 0;">── Common Negative Rail ──</div>
+        </div>
+
+        <button class="circuit-check-btn" onclick="checkCircuit()">✔ Check My Circuit</button>
+      </div>
+    </div>
+
+    <div class="feedback-msg" id="fb1"></div>
+
+    <!-- LED Status row -->
+    <div style="margin-top:14px;text-align:center;font-size:0.8rem;color:var(--text-dim);">
+      LED Status:
+      <span class="led-indicator" id="led-a"></span>
+      <span class="led-indicator" id="led-b"></span>
+      &nbsp; LEDs light independently 🔆
+    </div>
+  </div>
+</div>
+
+<!-- ==============================
+     ACTIVITY 2: LABEL MATCH
+================================= -->
+<div class="activity-panel" id="panel2">
+  <div class="activity-card">
+    <div class="activity-title"><span class="act-badge">2</span>Label the Circuit Parts</div>
+    <p class="activity-desc">Drag the correct label from the bank and drop it onto the matching component in the diagram. Can you identify all 5 parts of a parallel LED circuit?</p>
+
+    <div class="tip-bubble">Parallel circuits have multiple paths for current. Each LED is connected between the same two nodes — the shared + and − rails.</div>
+
+    <div class="score-bar">
+      <div class="score-display">Score: <span id="score2">0</span>/5</div>
+      <button class="reset-btn" onclick="resetAct2()">↺ Reset</button>
+    </div>
+
+    <div id="act2-workspace">
+      <!-- Labels Bank -->
+      <div class="labels-bank" id="labels-bank">
+        <div class="label-chip" draggable="true" id="lbl-battery" data-label="Battery"
+            ondragstart="dragStartLabel(event,'Battery','lbl-battery')">🔋 Battery</div>
+        <div class="label-chip" draggable="true" id="lbl-led" data-label="LED"
+            ondragstart="dragStartLabel(event,'LED','lbl-led')">💡 LED</div>
+        <div class="label-chip" draggable="true" id="lbl-resistor" data-label="Resistor"
+            ondragstart="dragStartLabel(event,'Resistor','lbl-resistor')">〰️ Resistor</div>
+        <div class="label-chip" draggable="true" id="lbl-switch" data-label="Switch"
+            ondragstart="dragStartLabel(event,'Switch','lbl-switch')">🔘 Switch</div>
+        <div class="label-chip" draggable="true" id="lbl-wire" data-label="Wire"
+            ondragstart="dragStartLabel(event,'Wire','lbl-wire')">➰ Wire</div>
+      </div>
+
+      <!-- Diagram with drop targets -->
+      <div class="diagram-side">
+        <div class="diag-row">
+          <div class="diag-icon-box" title="Power source">🔋</div>
+          <div class="label-drop-target" id="dt-battery" data-answer="Battery"
+              ondragover="allowDrop(event)" ondrop="dropLabel(event,'dt-battery')" ondragleave="leaveDrop(event)">
+            Drop label here…
+          </div>
+        </div>
+        <div class="diag-row">
+          <div class="diag-icon-box" title="Control flow">🔘</div>
+          <div class="label-drop-target" id="dt-switch" data-answer="Switch"
+              ondragover="allowDrop(event)" ondrop="dropLabel(event,'dt-switch')" ondragleave="leaveDrop(event)">
+            Drop label here…
+          </div>
+        </div>
+        <div class="diag-row">
+          <div class="diag-icon-box" title="Emits light">💡</div>
+          <div class="label-drop-target" id="dt-led" data-answer="LED"
+              ondragover="allowDrop(event)" ondrop="dropLabel(event,'dt-led')" ondragleave="leaveDrop(event)">
+            Drop label here…
+          </div>
+        </div>
+        <div class="diag-row">
+          <div class="diag-icon-box" title="Limits current">〰️</div>
+          <div class="label-drop-target" id="dt-resistor" data-answer="Resistor"
+              ondragover="allowDrop(event)" ondrop="dropLabel(event,'dt-resistor')" ondragleave="leaveDrop(event)">
+            Drop label here…
+          </div>
+        </div>
+        <div class="diag-row">
+          <div class="diag-icon-box" title="Conductor">〰</div>
+          <div class="label-drop-target" id="dt-wire" data-answer="Wire"
+              ondragover="allowDrop(event)" ondrop="dropLabel(event,'dt-wire')" ondragleave="leaveDrop(event)">
+            Drop label here…
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="feedback-msg" id="fb2"></div>
+  </div>
+</div>
+
+<!-- ==============================
+     ACTIVITY 3: SEQUENCE SORT
+================================= -->
+<div class="activity-panel" id="panel3">
+  <div class="activity-card">
+    <div class="activity-title"><span class="act-badge">3</span>Sort the Steps</div>
+    <p class="activity-desc">Drag and arrange the steps in the correct order to set up a parallel LED circuit. Think about what comes first — planning, connecting, testing!</p>
+
+    <div class="tip-bubble">When building a parallel circuit: always connect your power source LAST and test with a meter BEFORE switching on. Safety first! ⚡</div>
+
+    <div class="score-bar">
+      <div class="score-display">Score: <span id="score3">0</span>/6</div>
+      <button class="reset-btn" onclick="resetAct3()">↺ Reset</button>
+    </div>
+
+    <!-- Cards pool -->
+    <div class="cards-pool" id="cards-pool3"></div>
+
+    <!-- Sort zones -->
+    <div class="sort-grid" id="sort-grid3"></div>
+
+    <button class="circuit-check-btn" onclick="checkSort()">✔ Check My Order</button>
+    <div class="feedback-msg" id="fb3"></div>
+  </div>
+</div>
+
+<script>
+/* ========== STARS ========== */
+const starfield = document.getElementById('starfield');
+for (let i = 0; i < 90; i++) {
+  const s = document.createElement('div');
+  s.className = 'star';
+  const sz = Math.random() * 2.5 + 0.5;
+  s.style.cssText = `
+    left:${Math.random()*100}%; top:${Math.random()*100}%;
+    width:${sz}px; height:${sz}px;
+    --dur:${2+Math.random()*4}s; --drift:${15+Math.random()*20}s;
+    animation-delay:${Math.random()*5}s;
+    opacity:${0.1+Math.random()*0.5};
+  `;
+  starfield.appendChild(s);
+}
+
+/* ========== CHAIN ========== */
+const chain = document.getElementById('chainDec');
+for (let i = 0; i < 20; i++) {
+  const lk = document.createElement('div');
+  lk.className = 'chain-link';
+  lk.style.transform = i % 2 === 0 ? 'rotate(90deg)' : 'rotate(0deg)';
+  chain.appendChild(lk);
+}
+
+/* ========== BIRDS ========== */
+const birdEmojis = ['🐦','🕊️','🦋','✨'];
+function spawnBird() {
+  const b = document.createElement('div');
+  b.className = 'bird';
+  b.textContent = birdEmojis[Math.floor(Math.random()*birdEmojis.length)];
+  const top = 10 + Math.random() * 60;
+  const dur = 10 + Math.random() * 10;
+  const dy = (Math.random()-0.5) * 80;
+  b.style.cssText = `top:${top}%;--bird-dur:${dur}s;--bird-y:${dy}px;animation-delay:${Math.random()*8}s;font-size:${14+Math.random()*10}px`;
+  document.body.appendChild(b);
+  setTimeout(() => b.remove(), (dur + 8) * 1000);
+}
+spawnBird();
+setInterval(spawnBird, 4000);
+
+/* ========== TABS ========== */
+function switchTab(n) {
+  document.querySelectorAll('.activity-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel'+n).classList.add('active');
+  document.querySelectorAll('.tab-btn')[n-1].classList.add('active');
+}
+
+/* ========== CONFETTI ========== */
+function confettiBurst(x, y) {
+  const colors = ['#b56fff','#ff6bdf','#00e5ff','#ffd700','#8b3ef5'];
+  for (let i = 0; i < 24; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti-piece';
+    c.style.cssText = `
+      left:${x + (Math.random()-0.5)*60}px;
+      top:${y}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      transform:rotate(${Math.random()*360}deg);
+      animation-delay:${Math.random()*0.3}s;
+      width:${6+Math.random()*8}px;
+      height:${6+Math.random()*8}px;
+      border-radius:${Math.random()>0.5?'50%':'2px'};
+    `;
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 2200);
+  }
+}
+
+/* ================================
+   ACTIVITY 1: CIRCUIT BUILDER
+================================= */
+let draggedPart = null, draggedPartId = null;
+let score1 = 0;
+const slotCorrect = { 'slot-sw': 'switch', 'slot-led1': 'led', 'slot-res1': 'resistor', 'slot-led2': 'led', 'slot-wire1': 'wire' };
+const slotFilled = {};
+
+function dragStart(e, part, id) {
+  draggedPart = part; draggedPartId = id;
+  e.dataTransfer.setData('text/plain', part);
+  setTimeout(() => document.getElementById(id)?.classList.add('dragging'), 0);
+}
+
+function allowDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+function leaveDrop(e) { e.currentTarget.classList.remove('drag-over'); }
+
+const partIcons = { led:'💡', resistor:'〰️', switch:'🔘', wire:'〰', battery:'🔋' };
+
+function dropPart(e, slotId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!draggedPart) return;
+  if (slotFilled[slotId]) return;
+
+  const slot = document.getElementById(slotId);
+  const correct = slotCorrect[slotId];
+
+  if (draggedPart === correct) {
+    slot.innerHTML = `<span style="font-size:1.6rem" class="led-glow">${partIcons[correct]}</span>`;
+    slot.classList.add('filled','correct-slot');
+    slotFilled[slotId] = true;
+    score1++;
+    document.getElementById('score1').textContent = score1;
+    if (draggedPartId) document.getElementById(draggedPartId)?.remove();
+    showFeedback('fb1', '✅ Correct! Great placement!', 'correct');
+    if (score1 >= 4) {
+      document.getElementById('led-a').classList.add('on');
+      document.getElementById('led-b').classList.add('on');
+      confettiBurst(window.innerWidth/2, window.innerHeight/2);
+      showFeedback('fb1', '🎉 Circuit complete! Both LEDs glow independently!', 'correct');
+    }
+  } else {
+    slot.classList.add('wrong-slot');
+    showFeedback('fb1', `❌ That's a ${draggedPart}. This slot needs a ${correct}. Try again!`, 'wrong');
+    setTimeout(() => slot.classList.remove('wrong-slot'), 600);
+    if (draggedPartId) document.getElementById(draggedPartId)?.classList.remove('dragging');
+  }
+  draggedPart = null; draggedPartId = null;
+}
+
+function checkCircuit() {
+  const filled = Object.keys(slotFilled).length;
+  if (filled < 4) {
+    showFeedback('fb1', `⚠️ ${4-filled} slot(s) still empty. Fill them all to complete the circuit!`, 'wrong');
+  } else {
+    confettiBurst(window.innerWidth/2, 300);
+    showFeedback('fb1', '🔆 Parallel circuit verified! Each LED branch is independent!', 'correct');
+  }
+}
+
+function resetAct1() {
+  score1 = 0;
+  document.getElementById('score1').textContent = 0;
+  Object.keys(slotFilled).forEach(k => delete slotFilled[k]);
+  document.querySelectorAll('.node-slot').forEach(s => {
+    const key = s.id;
+    const txt = { 'slot-sw':'Drop<br>Switch','slot-led1':'Drop<br>LED 1','slot-res1':'Drop<br>Resistor','slot-led2':'Drop<br>LED 2','slot-wire1':'Drop<br>Wire' };
+    s.innerHTML = `<span style="font-size:0.55rem;text-align:center">${txt[key]||'Drop here'}</span>`;
+    s.className = 'node-slot';
+  });
+  document.getElementById('led-a').classList.remove('on');
+  document.getElementById('led-b').classList.remove('on');
+  document.getElementById('fb1').textContent = '';
+  document.getElementById('fb1').className = 'feedback-msg';
+  // restore parts tray
+  const tray = document.querySelector('.parts-tray');
+  tray.innerHTML = `
+    <div class="tray-label">🔧 Components</div>
+    <div class="part-item" draggable="true" id="p-led1" ondragstart="dragStart(event,'led','p-led1')"><span class="part-icon">💡</span>LED</div>
+    <div class="part-item" draggable="true" id="p-res1" ondragstart="dragStart(event,'resistor','p-res1')"><span class="part-icon">〰️</span>Resistor</div>
+    <div class="part-item" draggable="true" id="p-sw1" ondragstart="dragStart(event,'switch','p-sw1')"><span class="part-icon">🔘</span>Switch</div>
+    <div class="part-item" draggable="true" id="p-wire1" ondragstart="dragStart(event,'wire','p-wire1')"><span class="part-icon">〰</span>Wire</div>
+    <div class="part-item" draggable="true" id="p-led2" ondragstart="dragStart(event,'led','p-led2')"><span class="part-icon">💡</span>LED #2</div>
+    <div class="part-item" draggable="true" id="p-bat" ondragstart="dragStart(event,'battery','p-bat')"><span class="part-icon">🔋</span>Battery</div>
+  `;
+}
+
+/* ================================
+   ACTIVITY 2: LABEL MATCH
+================================= */
+let draggedLabel = null, draggedLabelId = null;
+let score2 = 0;
+const labelFilled = {};
+
+function dragStartLabel(e, label, id) {
+  draggedLabel = label; draggedLabelId = id;
+  e.dataTransfer.setData('text/plain', label);
+  setTimeout(() => document.getElementById(id)?.classList.add('dragging'), 0);
+}
+
+function dropLabel(e, targetId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!draggedLabel) return;
+  if (labelFilled[targetId]) return;
+
+  const target = document.getElementById(targetId);
+  const answer = target.dataset.answer;
+
+  if (draggedLabel === answer) {
+    target.textContent = '✅ ' + draggedLabel;
+    target.classList.add('filled','correct-target');
+    labelFilled[targetId] = true;
+    score2++;
+    document.getElementById('score2').textContent = score2;
+    document.getElementById(draggedLabelId)?.classList.add('used');
+    showFeedback('fb2', `✅ Correct! That's the ${draggedLabel}!`, 'correct');
+    if (score2 >= 5) {
+      confettiBurst(window.innerWidth/2, window.innerHeight/3);
+      showFeedback('fb2', '🏆 All parts labelled! You know your parallel circuit!', 'correct');
+    }
+  } else {
+    target.classList.add('wrong-target');
+    showFeedback('fb2', `❌ That's the ${draggedLabel}. This is the ${answer}. Try again!`, 'wrong');
+    setTimeout(() => target.classList.remove('wrong-target'), 600);
+    document.getElementById(draggedLabelId)?.classList.remove('dragging');
+  }
+  draggedLabel = null; draggedLabelId = null;
+}
+
+function resetAct2() {
+  score2 = 0;
+  document.getElementById('score2').textContent = 0;
+  Object.keys(labelFilled).forEach(k => delete labelFilled[k]);
+  document.querySelectorAll('.label-drop-target').forEach(t => {
+    t.textContent = 'Drop label here…';
+    t.className = 'label-drop-target';
+  });
+  document.querySelectorAll('.label-chip').forEach(c => c.className = 'label-chip');
+  document.querySelectorAll('.label-chip').forEach(c => {
+    c.setAttribute('draggable','true');
+  });
+  document.getElementById('fb2').textContent = '';
+  document.getElementById('fb2').className = 'feedback-msg';
+}
+
+// re-bind dragover/dragleave on act2 targets
+document.querySelectorAll('.label-drop-target').forEach(t => {
+  t.addEventListener('dragover', allowDrop);
+  t.addEventListener('dragleave', leaveDrop);
+});
+
+/* ================================
+   ACTIVITY 3: SEQUENCE SORT
+================================= */
+const steps = [
+  { id:'s1', icon:'📐', text:'Gather components: battery, LEDs, resistors, switch, wires.' },
+  { id:'s2', icon:'📋', text:'Draw the parallel circuit schematic on paper first.' },
+  { id:'s3', icon:'🔗', text:'Connect the positive rail wire along the top of the breadboard.' },
+  { id:'s4', icon:'💡', text:'Plug each LED with its resistor into separate parallel branches.' },
+  { id:'s5', icon:'🔌', text:'Connect the negative rail wire along the bottom.' },
+  { id:'s6', icon:'⚡', text:'Attach the battery last, flip the switch, and observe each LED glowing independently!' }
+];
+
+const correctOrder = ['s1','s2','s3','s4','s5','s6'];
+let score3 = 0;
+const sortFilled3 = {};
+
+function buildAct3() {
+  // shuffle cards
+  const shuffled = [...steps].sort(() => Math.random() - 0.5);
+  const pool = document.getElementById('cards-pool3');
+  pool.innerHTML = '';
+  shuffled.forEach(step => {
+    const card = document.createElement('div');
+    card.className = 'sort-card';
+    card.id = 'card-' + step.id;
+    card.draggable = true;
+    card.dataset.stepId = step.id;
+    card.innerHTML = `<span>${step.icon}</span><span>${step.text}</span>`;
+    card.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('stepId', step.id);
+      e.dataTransfer.setData('cardId', card.id);
+      setTimeout(() => card.classList.add('dragging'), 0);
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+    pool.appendChild(card);
+  });
+
+  // build drop zones
+  const grid = document.getElementById('sort-grid3');
+  grid.innerHTML = '';
+  for (let i = 1; i <= 6; i++) {
+    const row = document.createElement('div');
+    row.className = 'sort-zone';
+    row.innerHTML = `<div class="zone-number">${i}</div>`;
+    const drop = document.createElement('div');
+    drop.className = 'sort-drop';
+    drop.id = 'zone-' + i;
+    drop.dataset.position = i;
+    drop.textContent = 'Drop step here…';
+    drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('drag-over'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('drag-over'));
+    drop.addEventListener('drop', (e) => {
+      e.preventDefault();
+      drop.classList.remove('drag-over');
+      const stepId = e.dataTransfer.getData('stepId');
+      const cardId = e.dataTransfer.getData('cardId');
+      if (!stepId || sortFilled3[drop.id]) return;
+      const stepData = steps.find(s => s.id === stepId);
+      drop.innerHTML = `${stepData.icon} ${stepData.text}`;
+      drop.classList.add('filled');
+      sortFilled3[drop.id] = stepId;
+      const card = document.getElementById(cardId);
+      if (card) card.classList.add('used');
+    });
+    row.appendChild(drop);
+    grid.appendChild(row);
+  }
+}
+
+function checkSort() {
+  score3 = 0;
+  let allFilled = true;
+  for (let i = 1; i <= 6; i++) {
+    const zone = document.getElementById('zone-'+i);
+    const placed = sortFilled3['zone-'+i];
+    if (!placed) { allFilled = false; continue; }
+    if (placed === correctOrder[i-1]) {
+      zone.classList.remove('wrong-drop');
+      zone.classList.add('correct-drop');
+      score3++;
+    } else {
+      zone.classList.remove('correct-drop');
+      zone.classList.add('wrong-drop');
+    }
+  }
+  document.getElementById('score3').textContent = score3;
+  if (!allFilled) {
+    showFeedback('fb3', '⚠️ Fill all 6 slots before checking!', 'wrong');
+  } else if (score3 === 6) {
+    confettiBurst(window.innerWidth/2, window.innerHeight/2);
+    showFeedback('fb3', '🎉 Perfect order! You can build a parallel circuit like a pro!', 'correct');
+  } else {
+    showFeedback('fb3', `⚡ ${score3}/6 correct. Check the highlighted steps and try rearranging!`, 'wrong');
+  }
+}
+
+function resetAct3() {
+  score3 = 0;
+  document.getElementById('score3').textContent = 0;
+  Object.keys(sortFilled3).forEach(k => delete sortFilled3[k]);
+  document.getElementById('fb3').textContent = '';
+  document.getElementById('fb3').className = 'feedback-msg';
+  buildAct3();
+}
+
+buildAct3();
+
+/* ========== SHARED FEEDBACK ========== */
+function showFeedback(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'feedback-msg ' + type;
+  setTimeout(() => {
+    if (el.textContent === msg) {
+      el.textContent = '';
+      el.className = 'feedback-msg';
+    }
+  }, 3500);
+}
+</script>
+</body>
+</html>

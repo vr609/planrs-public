@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PYTHON — STUDENT GRADE BOOK PROGRAM</title>
+<style>
+  :root{
+    --pink:#FFD6EC;
+    --lav:#E3D6FF;
+    --sky:#CFEBFF;
+    --mint:#D6FFEF;
+    --gold:#FFE9B0;
+    --deep:#7C5CCB;
+    --deep2:#C24FA0;
+    --ink:#4B3A6E;
+    --white:#FFFFFF;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;width:100%;height:100%;overflow:hidden;
+    font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    background:linear-gradient(160deg,var(--pink) 0%,var(--lav) 35%,var(--sky) 70%,var(--mint) 100%);
+    color:var(--ink);
+  }
+  #stage{position:relative;width:100vw;height:100vh;overflow:hidden;}
+
+  /* ---------- Ambient background ---------- */
+  .sky-layer{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;}
+
+  .cloud{
+    position:absolute;opacity:.85;filter:drop-shadow(0 4px 10px rgba(150,120,220,.15));
+    animation:drift linear infinite;
+  }
+  @keyframes drift{
+    from{transform:translateX(-120px);}
+    to{transform:translateX(110vw);}
+  }
+
+  .star{
+    position:absolute;color:var(--gold);
+    animation:twinkle ease-in-out infinite;
+    filter:drop-shadow(0 0 4px rgba(255,220,150,.8));
+  }
+  @keyframes twinkle{
+    0%,100%{opacity:.25;transform:scale(.8) rotate(0deg);}
+    50%{opacity:1;transform:scale(1.25) rotate(15deg);}
+  }
+
+  .sparkle{
+    position:absolute;border-radius:50%;
+    background:radial-gradient(circle,#fff 0%,rgba(255,255,255,0) 70%);
+    animation:floatUp linear infinite;
+    pointer-events:none;
+  }
+  @keyframes floatUp{
+    0%{transform:translateY(0) scale(.6);opacity:0;}
+    10%{opacity:.9;}
+    90%{opacity:.5;}
+    100%{transform:translateY(-90vh) scale(1.1);opacity:0;}
+  }
+
+  .unicorn{
+    position:absolute;opacity:.5;
+    animation:bob ease-in-out infinite;
+    filter:drop-shadow(0 6px 10px rgba(180,100,200,.25));
+  }
+  @keyframes bob{
+    0%,100%{transform:translateY(0) rotate(-2deg);}
+    50%{transform:translateY(-18px) rotate(2deg);}
+  }
+
+  .rainbow-glow{
+    position:absolute;top:-30%;left:50%;transform:translateX(-50%);
+    width:140vw;height:60vh;
+    background:conic-gradient(from 180deg at 50% 100%,
+      #ffb3d9, #ffd9a0, #fff3a0, #c5f7c8, #a8e6ff, #c7b3ff, #ffb3d9);
+    border-radius:50%;
+    filter:blur(60px);
+    opacity:.35;
+    animation:glowPulse 9s ease-in-out infinite;
+  }
+  @keyframes glowPulse{
+    0%,100%{opacity:.25;}
+    50%{opacity:.45;}
+  }
+
+  /* ---------- App chrome ---------- */
+  #app{
+    position:relative;z-index:2;width:100%;height:100%;
+    display:flex;flex-direction:column;align-items:center;
+    padding:14px 18px 10px;
+  }
+
+  header{
+    text-align:center;margin-bottom:6px;flex-shrink:0;
+  }
+  h1{
+    margin:0;font-size:clamp(20px,3vw,34px);
+    letter-spacing:1px;
+    color:var(--deep);
+    text-shadow:0 2px 0 #fff, 0 4px 10px rgba(150,100,220,.25);
+  }
+  .subtitle{
+    margin:2px 0 0;font-size:clamp(11px,1.3vw,14px);color:var(--deep2);font-weight:600;
+  }
+
+  .progress-track{
+    display:flex;gap:10px;align-items:center;margin:10px 0 4px;flex-shrink:0;
+  }
+  .progress-dot{
+    width:34px;height:34px;border-radius:50%;
+    background:#fff;border:3px solid var(--lav);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;color:var(--deep);font-size:14px;
+    transition:all .4s ease;
+  }
+  .progress-dot.active{
+    background:linear-gradient(135deg,#FFB3D9,#C7B3FF);
+    border-color:var(--deep2);color:#fff;
+    box-shadow:0 0 0 4px rgba(199,179,255,.4);
+    transform:scale(1.12);
+  }
+  .progress-dot.done{
+    background:linear-gradient(135deg,#9be8b0,#6fd6c8);
+    border-color:#5bc89a;color:#fff;
+  }
+  .progress-line{width:30px;height:4px;border-radius:2px;background:var(--lav);}
+  .progress-line.done{background:linear-gradient(90deg,#9be8b0,#6fd6c8);}
+
+  main{
+    flex:1;width:100%;max-width:1180px;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+    min-height:0;
+  }
+
+  .panel{
+    width:100%;height:100%;
+    background:rgba(255,255,255,.55);
+    border:2px solid rgba(255,255,255,.8);
+    border-radius:22px;
+    backdrop-filter:blur(6px);
+    box-shadow:0 10px 30px rgba(150,100,220,.18);
+    padding:14px 22px;
+    display:none;
+    flex-direction:column;
+    min-height:0;
+  }
+  .panel.show{display:flex;animation:panelIn .5s ease;}
+  @keyframes panelIn{
+    from{opacity:0;transform:translateY(18px) scale(.98);}
+    to{opacity:1;transform:translateY(0) scale(1);}
+  }
+
+  .panel h2{
+    margin:0 0 2px;font-size:clamp(15px,2vw,20px);color:var(--deep2);text-align:center;
+  }
+  .panel .instructions{
+    margin:0 0 8px;text-align:center;font-size:clamp(11px,1.3vw,13px);color:var(--ink);font-weight:600;
+  }
+
+  .controls-row{
+    display:flex;justify-content:center;gap:10px;margin-bottom:8px;flex-shrink:0;
+  }
+  .btn{
+    border:none;border-radius:30px;padding:8px 20px;font-size:13px;font-weight:700;
+    cursor:pointer;color:#fff;letter-spacing:.3px;
+    background:linear-gradient(135deg,#FF9FD0,#C7A0FF);
+    box-shadow:0 4px 12px rgba(180,100,200,.35);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 6px 16px rgba(180,100,200,.45);}
+  .btn:active{transform:translateY(0) scale(.98);}
+  .btn.reset{background:linear-gradient(135deg,#FFD08A,#FFB3B3);}
+  .btn.next{background:linear-gradient(135deg,#8FE3C0,#7FC8F0);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
+
+  .feedback-msg{
+    text-align:center;min-height:20px;font-size:13px;font-weight:700;margin-bottom:6px;flex-shrink:0;
+  }
+  .feedback-msg.good{color:#2f9e6e;}
+  .feedback-msg.bad{color:#d65b8a;}
+
+  /* ---------- Activity 1 ---------- */
+  .a1-wrap{
+    flex:1;display:flex;gap:18px;min-height:0;
+  }
+  .dict-box{
+    flex:1.1;background:#2b1f4d;border-radius:16px;padding:14px 16px;
+    color:#cdeaff;font-family:'Consolas','Courier New',monospace;
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.08), 0 8px 20px rgba(70,40,120,.3);
+    display:flex;flex-direction:column;justify-content:center;
+    font-size:clamp(12px,1.6vw,16px);overflow:auto;
+  }
+  .dict-line{display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:2;}
+  .slot{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-width:64px;height:30px;padding:0 8px;
+    border:2px dashed rgba(255,255,255,.35);border-radius:8px;
+    background:rgba(255,255,255,.06);
+    font-size:13px;color:#ffe9b0;
+    transition:background .2s,border-color .2s;
+  }
+  .slot.filled{border-style:solid;border-color:#9be8b0;background:rgba(155,232,176,.18);color:#eaffea;}
+  .slot.over{border-color:#ffd166;background:rgba(255,209,102,.25);}
+
+  .tray{
+    flex:1;display:flex;flex-direction:column;gap:8px;justify-content:center;
+  }
+  .tray-title{font-size:12px;font-weight:700;color:var(--deep2);text-align:center;margin-bottom:2px;}
+  .chip-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+  .chip{
+    padding:7px 14px;border-radius:20px;font-weight:700;font-size:13px;cursor:grab;
+    background:linear-gradient(135deg,#fff,#fdf3ff);
+    border:2px solid var(--lav);color:var(--deep);
+    box-shadow:0 3px 8px rgba(150,100,220,.18);
+    user-select:none;touch-action:none;
+    transition:transform .12s ease;
+  }
+  .chip:active{cursor:grabbing;}
+  .chip.dragging{opacity:.4;}
+  .chip.placed{display:none;}
+  .chip.key{border-color:#ffd166;background:linear-gradient(135deg,#fffbe8,#fff3c9);}
+  .chip.name{border-color:#ff9fd0;background:linear-gradient(135deg,#fff0f8,#ffe0f0);}
+  .chip.mark{border-color:#7fc8f0;background:linear-gradient(135deg,#eaf8ff,#dcefff);}
+
+  /* ---------- Activity 2 ---------- */
+  .a2-wrap{
+    flex:1;display:flex;flex-direction:column;gap:10px;min-height:0;align-items:center;justify-content:center;
+  }
+  .sequence-row{
+    display:flex;gap:10px;justify-content:center;flex-wrap:wrap;
+  }
+  .seq-slot{
+    width:160px;height:64px;border-radius:14px;
+    border:3px dashed #c7a0ff;background:rgba(255,255,255,.5);
+    display:flex;align-items:center;justify-content:center;
+    font-size:11px;color:var(--deep);font-weight:700;text-align:center;
+    position:relative;padding:6px;
+  }
+  .seq-slot .order-badge{
+    position:absolute;top:-12px;left:-12px;width:26px;height:26px;border-radius:50%;
+    background:var(--deep2);color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 6px rgba(0,0,0,.2);
+  }
+  .seq-slot.filled{border-style:solid;border-color:#9be8b0;background:rgba(155,232,176,.2);}
+  .seq-slot.over{border-color:#ffd166;background:rgba(255,209,102,.25);}
+
+  .logic-card{
+    width:160px;padding:12px 10px;border-radius:14px;text-align:center;
+    background:linear-gradient(135deg,#fff,#fdf3ff);
+    border:2px solid var(--lav);color:var(--deep);font-weight:700;font-size:13px;
+    cursor:grab;box-shadow:0 4px 10px rgba(150,100,220,.2);user-select:none;touch-action:none;
+  }
+  .logic-card:active{cursor:grabbing;}
+  .logic-card.dragging{opacity:.4;}
+  .logic-card.placed{display:none;}
+  .logic-card .emoji{font-size:20px;display:block;margin-bottom:3px;}
+
+  .cards-pool{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+
+  /* ---------- Activity 3 ---------- */
+  .a3-wrap{
+    flex:1;display:flex;flex-direction:column;gap:8px;min-height:0;align-items:center;justify-content:center;
+  }
+  .podium-row{display:flex;gap:14px;justify-content:center;align-items:flex-end;}
+  .podium-slot{
+    width:150px;border-radius:14px;border:3px dashed #c7a0ff;background:rgba(255,255,255,.5);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:12px;font-weight:700;color:var(--deep);text-align:center;padding:8px;gap:4px;
+  }
+  .podium-slot[data-rank="1"]{height:120px;border-color:#ffd166;}
+  .podium-slot[data-rank="2"]{height:96px;}
+  .podium-slot[data-rank="3"]{height:80px;}
+  .podium-slot.filled{border-style:solid;border-color:#9be8b0;background:rgba(155,232,176,.2);}
+  .podium-slot.over{border-color:#ffd166;background:rgba(255,209,102,.3);}
+  .rank-label{font-size:18px;}
+
+  .record-card{
+    width:150px;padding:10px 8px;border-radius:14px;text-align:center;
+    background:linear-gradient(135deg,#fff,#fdf3ff);
+    border:2px solid var(--lav);color:var(--deep);font-weight:700;font-size:12px;
+    cursor:grab;box-shadow:0 4px 10px rgba(150,100,220,.2);user-select:none;touch-action:none;
+    line-height:1.5;
+  }
+  .record-card:active{cursor:grabbing;}
+  .record-card.dragging{opacity:.4;}
+  .record-card.placed{display:none;}
+
+  /* ---------- Popups ---------- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(80,50,120,.35);
+    display:none;align-items:center;justify-content:center;z-index:50;
+    backdrop-filter:blur(3px);
+  }
+  .overlay.show{display:flex;animation:fadeIn .3s ease;}
+  @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+  .popup{
+    background:linear-gradient(160deg,#fff,#fff3fb);
+    border-radius:24px;padding:28px 34px;max-width:420px;text-align:center;
+    box-shadow:0 16px 40px rgba(120,70,170,.35);
+    border:3px solid #fff;
+    animation:popIn .4s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes popIn{
+    from{transform:scale(.7) translateY(20px);opacity:0;}
+    to{transform:scale(1) translateY(0);opacity:1;}
+  }
+  .popup .big-emoji{font-size:48px;display:block;margin-bottom:8px;animation:bounce 1.2s ease-in-out infinite;}
+  @keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-10px);}}
+  .popup h3{margin:0 0 8px;color:var(--deep2);font-size:20px;}
+  .popup p{margin:0 0 16px;color:var(--ink);font-size:14px;font-weight:600;}
+
+  .final-popup{max-width:480px;}
+  .final-popup .big-emoji{font-size:60px;}
+  .confetti-canvas{position:fixed;inset:0;pointer-events:none;z-index:49;}
+
+  @media (max-width:760px){
+    .a1-wrap{flex-direction:column;}
+    .dict-box{flex:none;}
+    .seq-slot,.logic-card,.record-card{width:120px;font-size:11px;}
+    .podium-slot{width:100px;}
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="sky-layer" id="skyLayer"></div>
+  <div class="rainbow-glow"></div>
+
+  <div id="app">
+    <header>
+      <h1>PYTHON — STUDENT GRADE BOOK PROGRAM</h1>
+      <p class="subtitle">Drag, drop, and build a magical grade book step by step!</p>
+    </header>
+
+    <div class="progress-track" id="progressTrack">
+      <div class="progress-dot active" id="dot1">1</div>
+      <div class="progress-line" id="line1"></div>
+      <div class="progress-dot" id="dot2">2</div>
+      <div class="progress-line" id="line2"></div>
+      <div class="progress-dot" id="dot3">3</div>
+    </div>
+
+    <main>
+      <!-- ACTIVITY 1 -->
+      <section class="panel show" id="panel1">
+        <h2>Activity 1: Build the Grade Book Dictionary</h2>
+        <p class="instructions">Drag each piece into the matching slot to complete the Python dictionary.</p>
+        <div class="controls-row">
+          <button class="btn reset" id="reset1">Reset Activity</button>
+        </div>
+        <div class="feedback-msg" id="feedback1">&nbsp;</div>
+        <div class="a1-wrap">
+          <div class="dict-box">
+            <div class="dict-line">student = {</div>
+            <div class="dict-line" style="padding-left:20px;">
+              <span class="slot" data-slot="key1" data-accept="key1"></span> : <span class="slot" data-slot="val1" data-accept="val1"></span>,
+            </div>
+            <div class="dict-line" style="padding-left:20px;">
+              <span class="slot" data-slot="key2" data-accept="key2"></span> : <span class="slot" data-slot="val2" data-accept="val2"></span>,
+            </div>
+            <div class="dict-line" style="padding-left:20px;">
+              <span class="slot" data-slot="key3" data-accept="key3"></span> : <span class="slot" data-slot="val3" data-accept="val3"></span>
+            </div>
+            <div class="dict-line">}</div>
+          </div>
+          <div class="tray">
+            <div class="tray-title">Drag the correct pieces below</div>
+            <div class="chip-row" id="chipTray1"></div>
+          </div>
+        </div>
+        <div class="controls-row">
+          <button class="btn next" id="next1" disabled>Continue →</button>
+        </div>
+      </section>
+
+      <!-- ACTIVITY 2 -->
+      <section class="panel" id="panel2">
+        <h2>Activity 2: Put the Logic in Order</h2>
+        <p class="instructions">Arrange the steps in the order a grade book program would run them.</p>
+        <div class="controls-row">
+          <button class="btn reset" id="reset2">Reset Activity</button>
+        </div>
+        <div class="feedback-msg" id="feedback2">&nbsp;</div>
+        <div class="a2-wrap">
+          <div class="sequence-row" id="seqRow"></div>
+          <div class="tray-title">Drag a step into the correct box</div>
+          <div class="cards-pool" id="cardPool2"></div>
+        </div>
+        <div class="controls-row">
+          <button class="btn next" id="next2" disabled>Continue →</button>
+        </div>
+      </section>
+
+      <!-- ACTIVITY 3 -->
+      <section class="panel" id="panel3">
+        <h2>Activity 3: Reveal the Final Ranking</h2>
+        <p class="instructions">Drag each finished record onto its ranking spot to complete the grade book.</p>
+        <div class="controls-row">
+          <button class="btn reset" id="reset3">Reset Activity</button>
+        </div>
+        <div class="feedback-msg" id="feedback3">&nbsp;</div>
+        <div class="a3-wrap">
+          <div class="podium-row" id="podiumRow"></div>
+          <div class="tray-title">Drag a record onto its rank</div>
+          <div class="cards-pool" id="cardPool3"></div>
+        </div>
+        <div class="controls-row">
+          <button class="btn next" id="finish3" disabled>Finish 🎉</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Mid-activity success popup -->
+  <div class="overlay" id="successOverlay">
+    <div class="popup">
+      <span class="big-emoji">🦄</span>
+      <h3 id="successTitle">Wonderful!</h3>
+      <p id="successText">You completed this activity perfectly.</p>
+      <button class="btn next" id="successContinue">Continue →</button>
+    </div>
+  </div>
+
+  <!-- Final celebration popup -->
+  <div class="overlay" id="finalOverlay">
+    <div class="popup final-popup">
+      <span class="big-emoji">🌈🦄✨</span>
+      <h3>Magical Success!</h3>
+      <p>You built the entire Python grade book program from start to finish. Py &amp; Thon are doing a happy dance!</p>
+      <button class="btn" id="playAgainBtn">Play Again</button>
+    </div>
+  </div>
+  <canvas class="confetti-canvas" id="confettiCanvas"></canvas>
+</div>
+
+<script>
+/* ================= AMBIENT BACKGROUND ================= */
+function buildSky(){
+  const layer = document.getElementById('skyLayer');
+  layer.innerHTML = '';
+
+  // Clouds
+  const cloudSVG = (w,h,c)=>`<svg width="${w}" height="${h}" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="60" cy="60" rx="55" ry="32" fill="${c}"/>
+    <ellipse cx="110" cy="45" rx="45" ry="38" fill="${c}"/>
+    <ellipse cx="150" cy="65" rx="40" ry="26" fill="${c}"/>
+    <ellipse cx="90" cy="75" rx="70" ry="22" fill="${c}"/>
+  </svg>`;
+  const cloudConfigs = [
+    {top:'6%', w:160,h:80, dur:55, delay:-5, c:'rgba(255,255,255,0.9)'},
+    {top:'15%', w:110,h:55, dur:70, delay:-30, c:'rgba(255,255,255,0.75)'},
+    {top:'2%', w:90,h:45, dur:46, delay:-15, c:'rgba(255,255,255,0.65)'},
+    {top:'22%', w:140,h:70, dur:65, delay:-50, c:'rgba(255,255,255,0.8)'},
+  ];
+  cloudConfigs.forEach(cfg=>{
+    const d = document.createElement('div');
+    d.className='cloud';
+    d.style.top = cfg.top;
+    d.style.animationDuration = cfg.dur+'s';
+    d.style.animationDelay = cfg.delay+'s';
+    d.innerHTML = cloudSVG(cfg.w,cfg.h,cfg.c);
+    layer.appendChild(d);
+  });
+
+  // Stars
+  for(let i=0;i<16;i++){
+    const s = document.createElement('div');
+    s.className='star';
+    s.style.left = Math.random()*98+'%';
+    s.style.top = Math.random()*70+'%';
+    s.style.fontSize = (10+Math.random()*14)+'px';
+    s.style.animationDuration = (1.6+Math.random()*2.4)+'s';
+    s.style.animationDelay = (Math.random()*3)+'s';
+    s.textContent = '✦';
+    layer.appendChild(s);
+  }
+
+  // Sparkles floating up
+  for(let i=0;i<22;i++){
+    const sp = document.createElement('div');
+    sp.className='sparkle';
+    const size = 4+Math.random()*7;
+    sp.style.width = size+'px';
+    sp.style.height = size+'px';
+    sp.style.left = Math.random()*100+'%';
+    sp.style.bottom = '-10px';
+    sp.style.animationDuration = (6+Math.random()*8)+'s';
+    sp.style.animationDelay = (Math.random()*8)+'s';
+    layer.appendChild(sp);
+  }
+
+  // Unicorn silhouettes
+  const unicornSVG = `<svg width="90" height="70" viewBox="0 0 100 80" xmlns="http://www.w3.org/2000/svg">
+    <g fill="#C7A0FF" opacity="0.55">
+      <path d="M70 30 L85 15 L78 32 L88 30 L72 42 Z"/>
+      <ellipse cx="55" cy="40" rx="22" ry="16"/>
+      <circle cx="72" cy="28" r="12"/>
+      <path d="M50 50 L45 75 L52 75 L55 55 Z"/>
+      <path d="M62 50 L65 75 L72 75 L68 55 Z"/>
+      <path d="M40 38 Q20 35 15 50 Q28 48 38 44 Z"/>
+    </g>
+  </svg>`;
+  const unicornConfigs = [
+    {left:'4%', top:'62%', dur:6, scale:1},
+    {left:'85%', top:'12%', dur:7.5, scale:0.8},
+    {left:'48%', top:'4%', dur:5.5, scale:0.65},
+  ];
+  unicornConfigs.forEach(cfg=>{
+    const u = document.createElement('div');
+    u.className='unicorn';
+    u.style.left = cfg.left;
+    u.style.top = cfg.top;
+    u.style.transform = `scale(${cfg.scale})`;
+    u.style.animationDuration = cfg.dur+'s';
+    u.innerHTML = unicornSVG;
+    layer.appendChild(u);
+  });
+}
+buildSky();
+
+/* ================= UTIL ================= */
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function setupDragDrop(container, chipSelector, slotSelector, onDropCheck){
+  // Generic pointer-based drag and drop (works for mouse & touch)
+  let dragEl = null;
+  let offsetX=0, offsetY=0;
+  let originParent=null, originNext=null;
+  let startX=0,startY=0;
+
+  function getSlots(){ return Array.from(container.querySelectorAll(slotSelector)); }
+
+  function onPointerDown(e){
+    const chip = e.target.closest(chipSelector);
+    if(!chip || chip.classList.contains('placed')) return;
+    e.preventDefault();
+    dragEl = chip;
+    originParent = chip.parentElement;
+    originNext = chip.nextSibling;
+    const rect = chip.getBoundingClientRect();
+    startX = rect.left; startY = rect.top;
+    offsetX = (e.touches? e.touches[0].clientX : e.clientX) - rect.left;
+    offsetY = (e.touches? e.touches[0].clientY : e.clientY) - rect.top;
+    chip.style.position='fixed';
+    chip.style.zIndex=999;
+    chip.style.width = rect.width+'px';
+    chip.style.left = rect.left+'px';
+    chip.style.top = rect.top+'px';
+    chip.classList.add('dragging');
+    document.body.appendChild(chip);
+
+    document.addEventListener('mousemove', onPointerMove);
+    document.addEventListener('touchmove', onPointerMove, {passive:false});
+    document.addEventListener('mouseup', onPointerUp);
+    document.addEventListener('touchend', onPointerUp);
+  }
+
+  function onPointerMove(e){
+    if(!dragEl) return;
+    e.preventDefault();
+    const cx = e.touches? e.touches[0].clientX : e.clientX;
+    const cy = e.touches? e.touches[0].clientY : e.clientY;
+    dragEl.style.left = (cx-offsetX)+'px';
+    dragEl.style.top = (cy-offsetY)+'px';
+
+    getSlots().forEach(s=>s.classList.remove('over'));
+    const target = findSlotUnder(cx,cy);
+    if(target) target.classList.add('over');
+  }
+
+  function findSlotUnder(x,y){
+    const slots = getSlots();
+    for(const s of slots){
+      const r = s.getBoundingClientRect();
+      if(x>=r.left && x<=r.right && y>=r.top && y<=r.bottom) return s;
+    }
+    return null;
+  }
+
+  function onPointerUp(e){
+    if(!dragEl) return;
+    const cx = e.changedTouches? e.changedTouches[0].clientX : e.clientX;
+    const cy = e.changedTouches? e.changedTouches[0].clientY : e.clientY;
+    const target = findSlotUnder(cx,cy);
+    getSlots().forEach(s=>s.classList.remove('over'));
+
+    dragEl.style.position='';
+    dragEl.style.zIndex='';
+    dragEl.style.width='';
+    dragEl.style.left='';
+    dragEl.style.top='';
+    dragEl.classList.remove('dragging');
+
+    const chip = dragEl;
+    dragEl = null;
+    document.removeEventListener('mousemove', onPointerMove);
+    document.removeEventListener('touchmove', onPointerMove);
+    document.removeEventListener('mouseup', onPointerUp);
+    document.removeEventListener('touchend', onPointerUp);
+
+    if(target){
+      onDropCheck(chip, target, ()=>{
+        // success placement handled by callback
+      }, ()=>{
+        // failure -> return to origin
+        returnToOrigin(chip);
+      });
+    } else {
+      returnToOrigin(chip);
+    }
+  }
+
+  function returnToOrigin(chip){
+    if(originNext) originParent.insertBefore(chip, originNext);
+    else originParent.appendChild(chip);
+  }
+
+  container.addEventListener('mousedown', onPointerDown);
+  container.addEventListener('touchstart', onPointerDown, {passive:false});
+}
+
+/* ================= CONFETTI ================= */
+function fireConfetti(){
+  const canvas = document.getElementById('confettiCanvas');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  const colors = ['#FF9FD0','#C7A0FF','#7FC8F0','#9be8b0','#FFD166','#FFB3B3'];
+  let particles = [];
+  for(let i=0;i<140;i++){
+    particles.push({
+      x: Math.random()*canvas.width,
+      y: -20-Math.random()*canvas.height*0.3,
+      r: 4+Math.random()*5,
+      c: colors[Math.floor(Math.random()*colors.length)],
+      vy: 2+Math.random()*3,
+      vx: -1.5+Math.random()*3,
+      rot: Math.random()*360,
+      vr: -6+Math.random()*12
+    });
+  }
+  let frame=0;
+  function animate(){
+    frame++;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    particles.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr;
+      ctx.save();
+      ctx.translate(p.x,p.y);
+      ctx.rotate(p.rot*Math.PI/180);
+      ctx.fillStyle=p.c;
+      ctx.fillRect(-p.r/2,-p.r/2,p.r,p.r*1.6);
+      ctx.restore();
+    });
+    if(frame<160){
+      requestAnimationFrame(animate);
+    } else {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+    }
+  }
+  animate();
+}
+
+/* ================= NAVIGATION ================= */
+function showPanel(n){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show'));
+  document.getElementById('panel'+n).classList.add('show');
+  for(let i=1;i<=3;i++){
+    const dot = document.getElementById('dot'+i);
+    dot.classList.remove('active','done');
+    if(i<n) dot.classList.add('done');
+    else if(i===n) dot.classList.add('active');
+  }
+  document.getElementById('line1').classList.toggle('done', n>1);
+  document.getElementById('line2').classList.toggle('done', n>2);
+}
+
+function showSuccessPopup(title, text, onContinue){
+  document.getElementById('successTitle').textContent = title;
+  document.getElementById('successText').textContent = text;
+  const overlay = document.getElementById('successOverlay');
+  overlay.classList.add('show');
+  const btn = document.getElementById('successContinue');
+  const handler = ()=>{
+    overlay.classList.remove('show');
+    btn.removeEventListener('click', handler);
+    onContinue();
+  };
+  btn.addEventListener('click', handler);
+}
+
+document.getElementById('playAgainBtn').addEventListener('click', ()=>{
+  document.getElementById('finalOverlay').classList.remove('show');
+  resetActivity1();
+  resetActivity2();
+  resetActivity3();
+  showPanel(1);
+});
+
+/* ================= ACTIVITY 1: DICTIONARY BUILD ================= */
+const a1Data = [
+  {id:'key1', label:'"name"', type:'key', slot:'key1'},
+  {id:'val1', label:'"Diya"', type:'name', slot:'val1'},
+  {id:'key2', label:'"subject"', type:'key', slot:'key2'},
+  {id:'val2', label:'"Science"', type:'name', slot:'val2'},
+  {id:'key3', label:'"marks"', type:'mark', slot:'val3'},
+  {id:'key3label', label:'"marks"', type:'key', slot:'key3'},
+];
+// Build clean dataset: 3 key chips + 3 value chips (name, subject string, marks number)
+const a1Pieces = [
+  {id:'p_key_name', label:'"name"', type:'key', slot:'key1'},
+  {id:'p_key_subject', label:'"subject"', type:'key', slot:'key2'},
+  {id:'p_key_marks', label:'"marks"', type:'key', slot:'key3'},
+  {id:'p_val_name', label:'"Diya"', type:'name', slot:'val1'},
+  {id:'p_val_subject', label:'"Science"', type:'name', slot:'val2'},
+  {id:'p_val_marks', label:'95', type:'mark', slot:'val3'},
+];
+
+let a1FilledCount = 0;
+
+function renderActivity1(){
+  const tray = document.getElementById('chipTray1');
+  tray.innerHTML='';
+  document.querySelectorAll('#panel1 .slot').forEach(s=>{
+    s.classList.remove('filled');
+    s.textContent='';
+  });
+  a1FilledCount = 0;
+  document.getElementById('next1').disabled = true;
+  document.getElementById('feedback1').textContent = '\u00A0';
+  document.getElementById('feedback1').className = 'feedback-msg';
+
+  const shuffled = shuffle(a1Pieces);
+  shuffled.forEach(piece=>{
+    const chip = document.createElement('div');
+    chip.className = 'chip '+piece.type;
+    chip.dataset.id = piece.id;
+    chip.dataset.slot = piece.slot;
+    chip.textContent = piece.label;
+    tray.appendChild(chip);
+  });
+}
+
+function checkActivity1Drop(chip, target, onSuccess, onFail){
+  const expectedSlot = chip.dataset.slot;
+  const targetSlot = target.dataset.slot;
+  if(target.classList.contains('filled')){
+    onFail();
+    document.getElementById('feedback1').textContent = 'That box already has a piece — try another!';
+    document.getElementById('feedback1').className = 'feedback-msg bad';
+    return;
+  }
+  if(expectedSlot === targetSlot){
+    target.textContent = chip.textContent;
+    target.classList.add('filled');
+    chip.classList.add('placed');
+    chip.remove();
+    a1FilledCount++;
+    document.getElementById('feedback1').textContent = 'Perfect fit! ✨';
+    document.getElementById('feedback1').className = 'feedback-msg good';
+    if(a1FilledCount === a1Pieces.length){
+      document.getElementById('next1').disabled = false;
+      setTimeout(()=>{
+        showSuccessPopup('Dictionary Complete!', 'You built the student record perfectly. On to the next magical step!', ()=>{
+          showPanel(2);
+        });
+      }, 400);
+    }
+  } else {
+    onFail();
+    document.getElementById('feedback1').textContent = 'Not quite the right spot — give it another try!';
+    document.getElementById('feedback1').className = 'feedback-msg bad';
+  }
+}
+
+function resetActivity1(){
+  renderActivity1();
+}
+
+document.getElementById('reset1').addEventListener('click', resetActivity1);
+document.getElementById('next1').addEventListener('click', ()=> showPanel(2));
+
+setupDragDrop(document.getElementById('panel1'), '.chip', '.slot', checkActivity1Drop);
+
+/* ================= ACTIVITY 2: LOGIC SEQUENCE ================= */
+const a2Steps = [
+  {id:'store', order:1, label:'Store Marks', emoji:'📦'},
+  {id:'average', order:2, label:'Calculate Average', emoji:'➗'},
+  {id:'compare', order:3, label:'Compare Scores', emoji:'⚖️'},
+  {id:'rank', order:4, label:'Rank Students', emoji:'🏅'},
+];
+let a2FilledCount = 0;
+
+function renderActivity2(){
+  const seqRow = document.getElementById('seqRow');
+  const pool = document.getElementById('cardPool2');
+  seqRow.innerHTML='';
+  pool.innerHTML='';
+  a2FilledCount = 0;
+  document.getElementById('next2').disabled = true;
+  document.getElementById('feedback2').textContent = '\u00A0';
+  document.getElementById('feedback2').className = 'feedback-msg';
+
+  a2Steps.forEach(step=>{
+    const slot = document.createElement('div');
+    slot.className = 'seq-slot';
+    slot.dataset.order = step.order;
+    const badge = document.createElement('div');
+    badge.className='order-badge';
+    badge.textContent = step.order;
+    slot.appendChild(badge);
+    const txt = document.createElement('span');
+    txt.textContent = 'Step '+step.order;
+    slot.appendChild(txt);
+    seqRow.appendChild(slot);
+  });
+
+  const shuffled = shuffle(a2Steps);
+  shuffled.forEach(step=>{
+    const card = document.createElement('div');
+    card.className='logic-card';
+    card.dataset.order = step.order;
+    card.innerHTML = `<span class="emoji">${step.emoji}</span>${step.label}`;
+    pool.appendChild(card);
+  });
+}
+
+function checkActivity2Drop(chip, target, onSuccess, onFail){
+  if(!target.classList.contains('seq-slot')){ onFail(); return; }
+  if(target.classList.contains('filled')){
+    onFail();
+    document.getElementById('feedback2').textContent = 'That step is already placed — choose another box!';
+    document.getElementById('feedback2').className = 'feedback-msg bad';
+    return;
+  }
+  const expected = target.dataset.order;
+  const actual = chip.dataset.order;
+  if(expected === actual){
+    target.innerHTML = `<div class="order-badge">${expected}</div>${chip.innerHTML}`;
+    target.classList.add('filled');
+    chip.classList.add('placed');
+    chip.remove();
+    a2FilledCount++;
+    document.getElementById('feedback2').textContent = 'Great sequencing! 🌟';
+    document.getElementById('feedback2').className = 'feedback-msg good';
+    if(a2FilledCount === a2Steps.length){
+      document.getElementById('next2').disabled = false;
+      setTimeout(()=>{
+        showSuccessPopup('Logic Mastered!', 'The program now knows exactly what to do, step by step!', ()=>{
+          showPanel(3);
+        });
+      }, 400);
+    }
+  } else {
+    onFail();
+    document.getElementById('feedback2').textContent = 'That step belongs somewhere else — try again!';
+    document.getElementById('feedback2').className = 'feedback-msg bad';
+  }
+}
+
+function resetActivity2(){
+  renderActivity2();
+}
+
+document.getElementById('reset2').addEventListener('click', resetActivity2);
+document.getElementById('next2').addEventListener('click', ()=> showPanel(3));
+
+setupDragDrop(document.getElementById('panel2'), '.logic-card', '.seq-slot', checkActivity2Drop);
+
+/* ================= ACTIVITY 3: FINAL RANKING ================= */
+const a3Records = [
+  {id:'r1', rank:1, label:'Diya — Average 97', emoji:'🥇'},
+  {id:'r2', rank:2, label:'Aarav — Average 92', emoji:'🥈'},
+  {id:'r3', rank:3, label:'Kabir — Average 88', emoji:'🥉'},
+];
+let a3FilledCount = 0;
+
+function renderActivity3(){
+  const podiumRow = document.getElementById('podiumRow');
+  const pool = document.getElementById('cardPool3');
+  podiumRow.innerHTML='';
+  pool.innerHTML='';
+  a3FilledCount = 0;
+  document.getElementById('finish3').disabled = true;
+  document.getElementById('feedback3').textContent = '\u00A0';
+  document.getElementById('feedback3').className = 'feedback-msg';
+
+  const order = [2,1,3]; // visual podium order: 2nd, 1st, 3rd
+  order.forEach(rank=>{
+    const slot = document.createElement('div');
+    slot.className='podium-slot';
+    slot.dataset.rank = rank;
+    const label = document.createElement('div');
+    label.className='rank-label';
+    label.textContent = rank===1?'🏆 Rank 1':('Rank '+rank);
+    slot.appendChild(label);
+    podiumRow.appendChild(slot);
+  });
+
+  const shuffled = shuffle(a3Records);
+  shuffled.forEach(rec=>{
+    const card = document.createElement('div');
+    card.className='record-card';
+    card.dataset.rank = rec.rank;
+    card.innerHTML = `<span style="font-size:18px;display:block;">${rec.emoji}</span>${rec.label}`;
+    pool.appendChild(card);
+  });
+}
+
+function checkActivity3Drop(chip, target, onSuccess, onFail){
+  if(!target.classList.contains('podium-slot')){ onFail(); return; }
+  if(target.classList.contains('filled')){
+    onFail();
+    document.getElementById('feedback3').textContent = 'That rank is already taken — try another spot!';
+    document.getElementById('feedback3').className = 'feedback-msg bad';
+    return;
+  }
+  const expected = target.dataset.rank;
+  const actual = chip.dataset.rank;
+  if(expected === actual){
+    const rankLabel = target.querySelector('.rank-label').outerHTML;
+    target.innerHTML = rankLabel + chip.innerHTML;
+    target.classList.add('filled');
+    chip.classList.add('placed');
+    chip.remove();
+    a3FilledCount++;
+    document.getElementById('feedback3').textContent = 'Locked into place! 🌈';
+    document.getElementById('feedback3').className = 'feedback-msg good';
+    if(a3FilledCount === a3Records.length){
+      document.getElementById('finish3').disabled = false;
+    }
+  } else {
+    onFail();
+    document.getElementById('feedback3').textContent = 'That record belongs on a different rank — try again!';
+    document.getElementById('feedback3').className = 'feedback-msg bad';
+  }
+}
+
+function resetActivity3(){
+  renderActivity3();
+}
+
+document.getElementById('reset3').addEventListener('click', resetActivity3);
+document.getElementById('finish3').addEventListener('click', ()=>{
+  document.getElementById('finalOverlay').classList.add('show');
+  fireConfetti();
+});
+
+setupDragDrop(document.getElementById('panel3'), '.record-card', '.podium-slot', checkActivity3Drop);
+
+/* ================= INIT ================= */
+renderActivity1();
+renderActivity2();
+renderActivity3();
+showPanel(1);
+
+window.addEventListener('resize', ()=>{
+  const canvas = document.getElementById('confettiCanvas');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+</script>
+</body>
+</html>

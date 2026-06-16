@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How AI learns — decision trees explained</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@400;600&display=swap');
+
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+  :root{
+    --v1:#2D1B69;--v2:#4A2C9B;--v3:#6B3FD0;--v4:#8B5CF6;--v5:#A78BFA;
+    --v6:#C4B5FD;--v7:#EDE9FE;--v8:#F5F3FF;
+    --gold:#FFD700;--mint:#00F5A0;--coral:#FF6B9D;--sky:#60DFFF;
+    --success:#10B981;--warn:#F59E0B;--danger:#EF4444;
+  }
+
+  body{
+    font-family:'Nunito Sans',sans-serif;
+    background:var(--v1);
+    min-height:100vh;
+    overflow-x:hidden;
+    color:#fff;
+  }
+
+  canvas#stars{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none}
+  canvas#birds{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none}
+
+  .page{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:0 1.5rem 4rem}
+
+  h1{
+    font-family:'Nunito',sans-serif;
+    font-size:clamp(1.6rem,4vw,2.4rem);
+    font-weight:900;
+    text-align:center;
+    padding:2rem 0 0.5rem;
+    letter-spacing:-0.5px;
+    background:linear-gradient(135deg,#fff 30%,var(--v5));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    line-height:1.2;
+  }
+
+  .subtitle{text-align:center;font-size:1rem;color:var(--v6);margin-bottom:2.5rem;font-weight:600}
+
+  .activity{
+    background:rgba(255,255,255,0.06);
+    border:1.5px solid rgba(167,139,250,0.3);
+    border-radius:20px;
+    padding:1.75rem 1.5rem;
+    margin-bottom:2rem;
+    backdrop-filter:blur(10px);
+    position:relative;
+    overflow:hidden;
+  }
+  .activity::before{
+    content:'';position:absolute;top:-60px;right:-60px;
+    width:200px;height:200px;
+    background:radial-gradient(circle,rgba(139,92,246,0.18) 0%,transparent 70%);
+    border-radius:50%;pointer-events:none;
+  }
+
+  .act-badge{
+    display:inline-flex;align-items:center;gap:6px;
+    background:linear-gradient(135deg,var(--v3),var(--v4));
+    border-radius:30px;padding:4px 14px;
+    font-family:'Nunito',sans-serif;font-weight:800;font-size:0.78rem;
+    text-transform:uppercase;letter-spacing:1px;margin-bottom:0.75rem;
+    box-shadow:0 2px 12px rgba(107,63,208,0.5);
+  }
+  .act-title{font-family:'Nunito',sans-serif;font-weight:800;font-size:1.25rem;margin-bottom:0.4rem;color:#fff}
+  .act-desc{font-size:0.9rem;color:var(--v6);margin-bottom:1.2rem;line-height:1.6}
+
+  /* ── ACTIVITY 1 : Sort the node types ── */
+  .node-bank{
+    display:flex;flex-wrap:wrap;gap:10px;
+    min-height:60px;padding:12px;
+    background:rgba(0,0,0,0.25);border-radius:14px;
+    border:2px dashed rgba(167,139,250,0.4);
+    margin-bottom:1rem;
+  }
+  .node-chip{
+    padding:8px 16px;border-radius:30px;
+    font-family:'Nunito',sans-serif;font-weight:700;font-size:0.88rem;
+    cursor:grab;user-select:none;
+    border:2px solid transparent;
+    transition:transform 0.15s,box-shadow 0.15s;
+    touch-action:none;
+  }
+  .node-chip:hover{transform:scale(1.06);box-shadow:0 4px 18px rgba(0,0,0,0.35)}
+  .node-chip.dragging{opacity:0.4;transform:scale(0.95);cursor:grabbing}
+  .node-chip.placed{cursor:default}
+
+  .chip-q{background:linear-gradient(135deg,#3B82F6,#1D4ED8);color:#fff}
+  .chip-l{background:linear-gradient(135deg,var(--success),#059669);color:#fff}
+  .chip-r{background:linear-gradient(135deg,var(--v3),var(--v2));color:#fff}
+  .chip-c{background:linear-gradient(135deg,var(--coral),#BE185D);color:#fff}
+
+  .dropzones1{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  @media(max-width:500px){.dropzones1{grid-template-columns:1fr}}
+  .dz{
+    min-height:90px;border-radius:14px;padding:10px;
+    border:2px dashed rgba(255,255,255,0.2);
+    transition:border-color 0.2s,background 0.2s;
+  }
+  .dz.over{border-color:var(--v5);background:rgba(139,92,246,0.15)}
+  .dz.correct{border-color:var(--success);background:rgba(16,185,129,0.1)}
+  .dz.wrong{border-color:var(--danger);background:rgba(239,68,68,0.08)}
+  .dz-label{font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;color:var(--v5)}
+  .dz-items{display:flex;flex-wrap:wrap;gap:6px;min-height:40px}
+
+  /* ── ACTIVITY 2 : Build the tree ── */
+  .tree-stage{
+    background:rgba(0,0,0,0.3);border-radius:16px;padding:1rem;
+    position:relative;min-height:260px;
+    border:2px dashed rgba(167,139,250,0.3);
+    margin-bottom:1rem;overflow:hidden;
+  }
+  .tree-slots{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:0;
+    align-items:start;
+    justify-items:center;
+  }
+  .tree-row{display:flex;justify-content:center;gap:30px;margin:6px 0;width:100%;flex-wrap:wrap}
+  .slot{
+    width:140px;min-height:48px;border-radius:12px;
+    border:2px dashed rgba(167,139,250,0.4);
+    display:flex;align-items:center;justify-content:center;
+    font-size:0.78rem;color:rgba(255,255,255,0.35);
+    position:relative;transition:all 0.2s;
+    flex-shrink:0;
+  }
+  .slot.over{border-color:var(--v5);background:rgba(139,92,246,0.2);color:var(--v5)}
+  .slot.filled{border-style:solid;border-color:rgba(167,139,250,0.5);color:#fff;font-size:0.82rem;font-weight:700;text-align:center;padding:6px}
+  .slot.correct-slot{border-color:var(--success);background:rgba(16,185,129,0.12)}
+  .slot.wrong-slot{border-color:var(--danger);background:rgba(239,68,68,0.08)}
+
+  .cards2{display:flex;flex-wrap:wrap;gap:10px;padding:10px 0}
+  .card2{
+    padding:8px 14px;border-radius:10px;
+    background:rgba(139,92,246,0.25);border:1.5px solid var(--v5);
+    font-family:'Nunito',sans-serif;font-weight:700;font-size:0.82rem;
+    cursor:grab;user-select:none;transition:transform 0.15s;
+    touch-action:none;
+  }
+  .card2:hover{transform:scale(1.05);background:rgba(139,92,246,0.4)}
+  .card2.dragging{opacity:0.3}
+
+  /* SVG connector lines */
+  .tree-svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+
+  /* ── ACTIVITY 3 : Chain reaction ── */
+  .chain-grid{
+    display:flex;flex-direction:column;gap:14px;
+    margin-bottom:1rem;
+  }
+  .chain-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .chain-arrow{color:var(--v5);font-size:1.4rem;font-weight:900;flex-shrink:0}
+  .chain-slot3{
+    flex:1;min-width:120px;min-height:44px;border-radius:12px;
+    border:2px dashed rgba(167,139,250,0.4);
+    display:flex;align-items:center;justify-content:center;
+    font-size:0.8rem;color:rgba(255,255,255,0.3);
+    transition:all 0.2s;padding:6px 10px;text-align:center;
+  }
+  .chain-slot3.over{border-color:var(--sky);background:rgba(96,223,255,0.12);color:var(--sky)}
+  .chain-slot3.filled{color:#fff;font-size:0.82rem;font-weight:700;border-style:solid;border-color:rgba(96,223,255,0.5)}
+  .chain-slot3.correct-slot{border-color:var(--success);background:rgba(16,185,129,0.12)}
+  .chain-slot3.wrong-slot{border-color:var(--danger)}
+
+  .chain-label{font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--v5);min-width:90px;flex-shrink:0}
+
+  .cards3{display:flex;flex-wrap:wrap;gap:10px;padding:10px 0}
+  .card3{
+    padding:8px 14px;border-radius:10px;
+    background:rgba(96,223,255,0.15);border:1.5px solid var(--sky);
+    font-family:'Nunito',sans-serif;font-weight:700;font-size:0.82rem;color:var(--sky);
+    cursor:grab;user-select:none;transition:transform 0.15s;
+    touch-action:none;
+  }
+  .card3:hover{transform:scale(1.05);background:rgba(96,223,255,0.28)}
+  .card3.dragging{opacity:0.3}
+
+  /* Shared feedback + buttons */
+  .feedback{
+    margin-top:0.8rem;padding:10px 16px;border-radius:12px;
+    font-family:'Nunito',sans-serif;font-weight:700;font-size:0.9rem;
+    display:none;align-items:center;gap:8px;
+  }
+  .feedback.show{display:flex}
+  .feedback.ok{background:rgba(16,185,129,0.18);border:1.5px solid var(--success);color:#6EE7B7}
+  .feedback.bad{background:rgba(239,68,68,0.12);border:1.5px solid var(--danger);color:#FCA5A5}
+
+  .btn-row{display:flex;gap:10px;margin-top:0.9rem;flex-wrap:wrap}
+  .btn{
+    font-family:'Nunito',sans-serif;font-weight:800;font-size:0.85rem;
+    padding:9px 22px;border-radius:30px;border:none;cursor:pointer;
+    transition:transform 0.12s,filter 0.12s;letter-spacing:0.3px;
+  }
+  .btn:hover{transform:translateY(-2px);filter:brightness(1.1)}
+  .btn:active{transform:scale(0.97)}
+  .btn-check{background:linear-gradient(135deg,var(--v4),var(--v3));color:#fff}
+  .btn-reset{background:rgba(255,255,255,0.1);color:var(--v6);border:1.5px solid rgba(255,255,255,0.2)}
+
+  /* Score bar */
+  .score-row{
+    display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin:1.2rem 0 2rem;
+  }
+  .score-badge{
+    background:rgba(255,255,255,0.08);border:1.5px solid rgba(167,139,250,0.3);
+    border-radius:40px;padding:8px 20px;
+    font-family:'Nunito',sans-serif;font-weight:800;font-size:0.9rem;
+    display:flex;align-items:center;gap:8px;
+  }
+  .score-num{font-size:1.3rem;color:var(--gold)}
+
+  /* Sparkle burst on correct */
+  .sparkle{
+    position:fixed;pointer-events:none;z-index:999;
+    font-size:1.8rem;animation:burst 0.8s ease forwards;
+  }
+  @keyframes burst{
+    0%{opacity:1;transform:scale(0) rotate(0deg)}
+    60%{opacity:1;transform:scale(1.4) rotate(20deg)}
+    100%{opacity:0;transform:scale(1.8) rotate(40deg) translateY(-40px)}
+  }
+
+  /* Chain reaction animation overlay */
+  .chain-fire{
+    position:fixed;top:0;left:0;width:100%;height:100%;
+    pointer-events:none;z-index:800;
+    display:none;
+  }
+  .chain-fire.active{display:block}
+  .fire-dot{
+    position:absolute;border-radius:50%;
+    animation:fire-move 1.2s ease forwards;
+  }
+  @keyframes fire-move{
+    0%{opacity:1;transform:scale(1)}
+    80%{opacity:0.8}
+    100%{opacity:0;transform:scale(0) translateY(-80px)}
+  }
+
+  /* Progress stars at top */
+  .progress-stars{
+    display:flex;justify-content:center;gap:16px;padding:1rem 0 0;
+  }
+  .p-star{font-size:1.6rem;transition:all 0.4s;opacity:0.25}
+  .p-star.lit{opacity:1;animation:star-pop 0.5s ease}
+  @keyframes star-pop{0%{transform:scale(0.3)}60%{transform:scale(1.3)}100%{transform:scale(1)}}
+
+  /* How-it-works strip */
+  .how-strip{
+    display:flex;gap:0;margin:0 0 1.5rem;
+    background:rgba(0,0,0,0.25);border-radius:16px;padding:1rem;
+    flex-wrap:wrap;gap:10px;
+  }
+  .how-item{flex:1;min-width:130px;text-align:center}
+  .how-icon{font-size:2rem;margin-bottom:4px}
+  .how-title{font-family:'Nunito',sans-serif;font-weight:800;font-size:0.8rem;color:var(--v5);margin-bottom:2px}
+  .how-desc{font-size:0.72rem;color:rgba(255,255,255,0.55);line-height:1.4}
+  .how-sep{width:2px;background:rgba(255,255,255,0.08);border-radius:2px;align-self:stretch;flex-shrink:0}
+
+  .accent{color:var(--v5)}
+  .gold{color:var(--gold)}
+
+  .confetti-row{text-align:center;font-size:2rem;margin:1.5rem 0;display:none}
+  .confetti-row.show{display:block;animation:pulse-glow 1s ease infinite alternate}
+  @keyframes pulse-glow{0%{filter:drop-shadow(0 0 8px gold)}100%{filter:drop-shadow(0 0 24px gold)}}
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+<canvas id="birds"></canvas>
+
+<div class="page">
+
+  <h1>How AI learns — decision trees explained</h1>
+  <p class="subtitle">Three hands-on challenges to master how AI thinks</p>
+
+  <!-- Progress stars -->
+  <div class="progress-stars">
+    <span class="p-star" id="ps1">⭐</span>
+    <span class="p-star" id="ps2">⭐</span>
+    <span class="p-star" id="ps3">⭐</span>
+  </div>
+
+  <!-- Score -->
+  <div class="score-row">
+    <div class="score-badge">🏆 Total score <span class="score-num" id="total-score">0</span> / 30</div>
+    <div class="score-badge">🎯 Activities done <span class="score-num" id="acts-done">0</span> / 3</div>
+  </div>
+
+  <!-- How-it-works strip -->
+  <div class="how-strip">
+    <div class="how-item">
+      <div class="how-icon">🌳</div>
+      <div class="how-title">Decision Tree</div>
+      <div class="how-desc">A model that learns by asking yes/no questions to split data</div>
+    </div>
+    <div class="how-sep"></div>
+    <div class="how-item">
+      <div class="how-icon">❓</div>
+      <div class="how-title">Split Node</div>
+      <div class="how-desc">Where the tree asks a question and branches left or right</div>
+    </div>
+    <div class="how-sep"></div>
+    <div class="how-item">
+      <div class="how-icon">🍃</div>
+      <div class="how-title">Leaf Node</div>
+      <div class="how-desc">End of a branch — gives a final prediction or answer</div>
+    </div>
+    <div class="how-sep"></div>
+    <div class="how-item">
+      <div class="how-icon">📊</div>
+      <div class="how-title">Gini / Entropy</div>
+      <div class="how-desc">Measures how mixed a group is — lower = purer split</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       ACTIVITY 1 : Sort the node types
+  ══════════════════════════════════════════ -->
+  <div class="activity" id="act1">
+    <div class="act-badge">🔢 Activity 1</div>
+    <div class="act-title">Sort the node types</div>
+    <div class="act-desc">Drag each card into the correct category. A decision tree has three types of nodes — figure out which is which!</div>
+
+    <p style="font-size:0.8rem;color:var(--v6);margin-bottom:8px;">🎒 Node bank — drag from here</p>
+    <div class="node-bank" id="bank1">
+      <div class="node-chip chip-q" draggable="true" data-id="q1" data-cat="question" id="chip-q1">Is age > 30?</div>
+      <div class="node-chip chip-l" draggable="true" data-id="l1" data-cat="leaf" id="chip-l1">Predict: Yes</div>
+      <div class="node-chip chip-r" draggable="true" data-id="r1" data-cat="root" id="chip-r1">Income > 50k?</div>
+      <div class="node-chip chip-l" draggable="true" data-id="l2" data-cat="leaf" id="chip-l2">Predict: No</div>
+      <div class="node-chip chip-q" draggable="true" data-id="q2" data-cat="question" id="chip-q2">Has car?</div>
+      <div class="node-chip chip-r" draggable="true" data-id="r2" data-cat="root" id="chip-r2">Education level?</div>
+      <div class="node-chip chip-q" draggable="true" data-id="q3" data-cat="question" id="chip-q3">Credit score ≥ 700?</div>
+      <div class="node-chip chip-l" draggable="true" data-id="l3" data-cat="leaf" id="chip-l3">Predict: Maybe</div>
+    </div>
+
+    <div class="dropzones1" id="dz-area1">
+      <div class="dz" data-cat="root" id="dz-root">
+        <div class="dz-label">🌱 Root node <span style="font-weight:400;text-transform:none">(first question)</span></div>
+        <div class="dz-items" id="items-root"></div>
+      </div>
+      <div class="dz" data-cat="question" id="dz-question">
+        <div class="dz-label">🔀 Decision nodes <span style="font-weight:400;text-transform:none">(inner branches)</span></div>
+        <div class="dz-items" id="items-question"></div>
+      </div>
+      <div class="dz" data-cat="leaf" id="dz-leaf">
+        <div class="dz-label">🍃 Leaf nodes <span style="font-weight:400;text-transform:none">(final answers)</span></div>
+        <div class="dz-items" id="items-leaf"></div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-check" onclick="checkAct1()">Check answers ✓</button>
+      <button class="btn btn-reset" onclick="resetAct1()">Reset ↺</button>
+    </div>
+    <div class="feedback" id="fb1"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       ACTIVITY 2 : Build the tree
+  ══════════════════════════════════════════ -->
+  <div class="activity" id="act2">
+    <div class="act-badge">🌳 Activity 2</div>
+    <div class="act-title">Build a decision tree</div>
+    <div class="act-desc">Drag the right question or prediction into each slot to complete the tree that decides <span class="accent">"should we approve the loan?"</span></div>
+
+    <!-- Cards to drag -->
+    <div class="cards2" id="bank2">
+      <div class="card2" draggable="true" data-id="a" id="c2-a">Income > 50k? 💰</div>
+      <div class="card2" draggable="true" data-id="b" id="c2-b">✅ Approve</div>
+      <div class="card2" draggable="true" data-id="c" id="c2-c">Credit ≥ 700? 📊</div>
+      <div class="card2" draggable="true" data-id="d" id="c2-d">❌ Reject</div>
+      <div class="card2" draggable="true" data-id="e" id="c2-e">Has collateral? 🏠</div>
+      <div class="card2" draggable="true" data-id="f" id="c2-f">✅ Approve</div>
+      <div class="card2" draggable="true" data-id="g" id="c2-g">❌ Reject</div>
+    </div>
+
+    <div class="tree-stage" id="tree-stage2">
+      <svg class="tree-svg" id="tree-svg2"></svg>
+      <div class="tree-slots">
+        <!-- Row 0: root -->
+        <div class="tree-row" id="tr-0">
+          <div class="slot" data-pos="0" data-ans="a" id="ts-0">drop here</div>
+        </div>
+        <!-- Row 1: level 1 -->
+        <div class="tree-row" id="tr-1">
+          <div class="slot" data-pos="1" data-ans="c" id="ts-1">drop here</div>
+          <div class="slot" data-pos="2" data-ans="d" id="ts-2">drop here</div>
+        </div>
+        <!-- Row 2: level 2 -->
+        <div class="tree-row" id="tr-2">
+          <div class="slot" data-pos="3" data-ans="b" id="ts-3">drop here</div>
+          <div class="slot" data-pos="4" data-ans="e" id="ts-4">drop here</div>
+          <div class="slot" data-pos="5" data-ans="g" id="ts-5">drop here</div>
+        </div>
+        <!-- Row 3: leaves -->
+        <div class="tree-row" id="tr-3">
+          <div class="slot" data-pos="6" data-ans="f" id="ts-6">drop here</div>
+          <div class="slot" data-pos="7" data-ans="d" id="ts-7">drop here</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-check" onclick="checkAct2()">Check tree ✓</button>
+      <button class="btn btn-reset" onclick="resetAct2()">Reset ↺</button>
+    </div>
+    <div class="feedback" id="fb2"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       ACTIVITY 3 : Chain reaction — steps of learning
+  ══════════════════════════════════════════ -->
+  <div class="activity" id="act3">
+    <div class="act-badge">⚡ Activity 3</div>
+    <div class="act-title">Chain reaction — how AI learns</div>
+    <div class="act-desc">Drag the correct step into each link of the chain. Put the learning process in the right order!</div>
+
+    <div class="cards3" id="bank3">
+      <div class="card3" draggable="true" data-id="p" id="c3-p">🔮 Make predictions</div>
+      <div class="card3" draggable="true" data-id="s" id="c3-s">📐 Choose best split</div>
+      <div class="card3" draggable="true" data-id="d" id="c3-d">📦 Collect training data</div>
+      <div class="card3" draggable="true" data-id="e" id="c3-e">📏 Measure impurity (Gini)</div>
+      <div class="card3" draggable="true" data-id="g" id="c3-g">🌳 Grow branches</div>
+      <div class="card3" draggable="true" data-id="t" id="c3-t">✂️ Prune the tree</div>
+      <div class="card3" draggable="true" data-id="v" id="c3-v">🧪 Validate & test</div>
+    </div>
+
+    <div class="chain-grid">
+      <div class="chain-row">
+        <div class="chain-label">Step 1</div>
+        <div class="chain-slot3" data-step="1" data-ans="d" id="cs-1">drop here</div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-label">Step 2</div>
+        <div class="chain-slot3" data-step="2" data-ans="e" id="cs-2">drop here</div>
+      </div>
+      <div class="chain-row">
+        <div class="chain-arrow" style="transform:rotate(90deg)">→</div>
+      </div>
+      <div class="chain-row">
+        <div class="chain-label">Step 3</div>
+        <div class="chain-slot3" data-step="3" data-ans="s" id="cs-3">drop here</div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-label">Step 4</div>
+        <div class="chain-slot3" data-step="4" data-ans="g" id="cs-4">drop here</div>
+      </div>
+      <div class="chain-row">
+        <div class="chain-arrow" style="transform:rotate(90deg)">→</div>
+      </div>
+      <div class="chain-row">
+        <div class="chain-label">Step 5</div>
+        <div class="chain-slot3" data-step="5" data-ans="t" id="cs-5">drop here</div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-label">Step 6</div>
+        <div class="chain-slot3" data-step="6" data-ans="p" id="cs-6">drop here</div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-label">Step 7</div>
+        <div class="chain-slot3" data-step="7" data-ans="v" id="cs-7">drop here</div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-check" onclick="checkAct3()">Check chain ✓</button>
+      <button class="btn btn-reset" onclick="resetAct3()">Reset ↺</button>
+    </div>
+    <div class="feedback" id="fb3"></div>
+  </div>
+
+  <div class="confetti-row" id="confetti">🎉 Amazing! You've mastered decision trees! 🌳✨🏆</div>
+
+</div>
+
+<div class="chain-fire" id="chain-fire"></div>
+
+<script>
+/* ─── ANIMATED STARS ─── */
+(function(){
+  const c=document.getElementById('stars');
+  const ctx=c.getContext('2d');
+  let W,H,stars=[];
+  function resize(){W=c.width=innerWidth;H=c.height=innerHeight}
+  resize();window.addEventListener('resize',resize);
+  function mkStar(){
+    return{x:Math.random()*W,y:Math.random()*H,
+      r:Math.random()*1.8+0.3,
+      speed:Math.random()*0.4+0.1,
+      twinkle:Math.random()*Math.PI*2,
+      tSpeed:Math.random()*0.03+0.01
+    }
+  }
+  for(let i=0;i<180;i++)stars.push(mkStar());
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    stars.forEach(s=>{
+      s.twinkle+=s.tSpeed;
+      const a=0.3+0.7*Math.abs(Math.sin(s.twinkle));
+      ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(196,181,253,${a})`;ctx.fill();
+      s.y-=s.speed;if(s.y<-4){s.y=H+4;s.x=Math.random()*W}
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ─── ANIMATED BIRDS ─── */
+(function(){
+  const c=document.getElementById('birds');
+  const ctx=c.getContext('2d');
+  let W,H,birds=[];
+  function resize(){W=c.width=innerWidth;H=c.height=innerHeight}
+  resize();window.addEventListener('resize',resize);
+  function mkBird(){
+    return{
+      x:Math.random()*W,y:Math.random()*H*0.6+20,
+      speed:Math.random()*1.2+0.4,
+      wing:0,wSpeed:Math.random()*0.12+0.06,
+      size:Math.random()*4+3,
+      opacity:Math.random()*0.35+0.15
+    }
+  }
+  for(let i=0;i<22;i++)birds.push(mkBird());
+  function drawBird(b){
+    const w=b.wing;
+    ctx.save();ctx.translate(b.x,b.y);
+    ctx.strokeStyle=`rgba(167,139,250,${b.opacity})`;
+    ctx.lineWidth=1.5;ctx.lineCap='round';
+    ctx.beginPath();
+    ctx.moveTo(-b.size,0);
+    ctx.quadraticCurveTo(-b.size*0.5,-b.size*Math.sin(w),0,0);
+    ctx.quadraticCurveTo(b.size*0.5,-b.size*Math.sin(w),b.size,0);
+    ctx.stroke();
+    ctx.restore();
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    birds.forEach(b=>{
+      b.wing+=b.wSpeed;b.x+=b.speed;
+      if(b.x>W+30){b.x=-30;b.y=Math.random()*H*0.6+20}
+      drawBird(b);
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ─── DRAG STATE ─── */
+let dragId=null,dragEl=null,dragSrc=null;
+
+function initDrag(bankId,chips,onDrop){
+  chips.forEach(ch=>{
+    ch.addEventListener('dragstart',e=>{
+      dragId=ch.dataset.id||ch.dataset.pos;
+      dragEl=ch;dragSrc=bankId;
+      ch.classList.add('dragging');
+      e.dataTransfer.effectAllowed='move';
+    });
+    ch.addEventListener('dragend',()=>ch.classList.remove('dragging'));
+    /* touch */
+    let tx,ty,clone=null;
+    ch.addEventListener('touchstart',e=>{
+      const t=e.touches[0];tx=t.clientX;ty=t.clientY;
+      dragId=ch.dataset.id||ch.dataset.pos;dragEl=ch;dragSrc=bankId;
+      clone=ch.cloneNode(true);
+      clone.style.cssText=`position:fixed;z-index:9999;pointer-events:none;opacity:0.85;top:${ty-20}px;left:${tx-40}px;`;
+      document.body.appendChild(clone);
+    },{passive:true});
+    ch.addEventListener('touchmove',e=>{
+      const t=e.touches[0];
+      if(clone){clone.style.top=(t.clientY-20)+'px';clone.style.left=(t.clientX-40)+'px'}
+      e.preventDefault();
+    },{passive:false});
+    ch.addEventListener('touchend',e=>{
+      if(clone){document.body.removeChild(clone);clone=null}
+      const t=e.changedTouches[0];
+      const el=document.elementFromPoint(t.clientX,t.clientY);
+      if(el) onDrop(el,dragId,dragEl);
+      dragId=null;dragEl=null;
+    });
+  });
+}
+
+function makeDZListeners(zones,onDrop){
+  zones.forEach(z=>{
+    z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('over')});
+    z.addEventListener('dragleave',()=>z.classList.remove('over'));
+    z.addEventListener('drop',e=>{
+      e.preventDefault();z.classList.remove('over');
+      onDrop(z,dragId,dragEl);
+    });
+  });
+}
+
+/* ─── SCORE ─── */
+let scores=[0,0,0];
+function updateScore(){
+  document.getElementById('total-score').textContent=scores.reduce((a,b)=>a+b,0);
+  document.getElementById('acts-done').textContent=scores.filter(s=>s>0).length;
+}
+
+function lightStar(n){
+  document.getElementById('ps'+n).classList.add('lit');
+}
+
+function showSparkles(x,y){
+  const emojis=['✨','🌟','💫','⭐','🎉'];
+  for(let i=0;i<6;i++){
+    const s=document.createElement('span');
+    s.className='sparkle';
+    s.textContent=emojis[i%emojis.length];
+    s.style.left=(x+Math.random()*80-40)+'px';
+    s.style.top=(y+Math.random()*60-30)+'px';
+    document.body.appendChild(s);
+    setTimeout(()=>s.remove(),900);
+  }
+}
+
+function chainReaction(){
+  const fire=document.getElementById('chain-fire');
+  fire.classList.add('active');
+  const colors=['#8B5CF6','#A78BFA','#C4B5FD','#60DFFF','#FFD700','#FF6B9D'];
+  for(let i=0;i<40;i++){
+    setTimeout(()=>{
+      const dot=document.createElement('div');
+      dot.className='fire-dot';
+      const sz=Math.random()*20+8;
+      dot.style.cssText=`width:${sz}px;height:${sz}px;
+        left:${Math.random()*100}%;top:${Math.random()*100}%;
+        background:${colors[Math.floor(Math.random()*colors.length)]};
+        animation-delay:${Math.random()*0.3}s;
+        animation-duration:${0.8+Math.random()*0.8}s;`;
+      fire.appendChild(dot);
+      setTimeout(()=>dot.remove(),1400);
+    },i*40);
+  }
+  setTimeout(()=>fire.classList.remove('active'),2200);
+}
+
+function checkAll(){
+  if(scores.every(s=>s>=8)){
+    chainReaction();
+    document.getElementById('confetti').classList.add('show');
+  }
+}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 1
+═══════════════════════════════════════ */
+const chipIds1=['q1','q2','q3','l1','l2','l3','r1','r2'];
+const act1Chips=chipIds1.map(id=>document.getElementById('chip-'+id));
+
+function act1Drop(target,id,el){
+  const dz=target.closest('.dz');if(!dz)return;
+  const cat=dz.dataset.cat;
+  const items=dz.querySelector('.dz-items');
+  const chip=document.getElementById('chip-'+id)||el;
+  if(!chip)return;
+  chip.classList.add('placed');
+  items.appendChild(chip);
+}
+
+initDrag('bank1',act1Chips,act1Drop);
+makeDZListeners(document.querySelectorAll('#dz-area1 .dz'),act1Drop);
+
+function checkAct1(){
+  let correct=0;
+  document.querySelectorAll('#dz-area1 .dz').forEach(dz=>{
+    const cat=dz.dataset.cat;
+    const chips=dz.querySelectorAll('.node-chip');
+    let dzOk=chips.length>0;
+    chips.forEach(ch=>{if(ch.dataset.cat!==cat)dzOk=false});
+    if(dzOk&&chips.length>0)correct++;
+    dz.classList.toggle('correct',dzOk&&chips.length>0);
+    dz.classList.toggle('wrong',!dzOk||chips.length===0);
+  });
+  const pts=correct>=3?10:correct>=2?6:correct>=1?3:0;
+  scores[0]=pts;updateScore();
+  const fb=document.getElementById('fb1');
+  if(correct>=3){
+    fb.className='feedback ok show';
+    fb.innerHTML='🎉 Perfect! Root=first split, Decision=inner question, Leaf=final answer!';
+    lightStar(1);showSparkles(400,300);
+  }else{
+    fb.className='feedback bad show';
+    fb.innerHTML=`❌ ${correct}/3 categories right. Hint: leaves always give a final prediction!`;
+  }
+  checkAll();
+}
+
+function resetAct1(){
+  const bank=document.getElementById('bank1');
+  act1Chips.forEach(ch=>{ch.classList.remove('placed','correct','wrong');bank.appendChild(ch)});
+  document.querySelectorAll('#dz-area1 .dz').forEach(dz=>dz.classList.remove('correct','wrong','over'));
+  document.querySelectorAll('#items-root,#items-question,#items-leaf').forEach(el=>el.innerHTML='');
+  document.getElementById('fb1').className='feedback';
+  scores[0]=0;updateScore();
+}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 2
+═══════════════════════════════════════ */
+const act2Cards=['a','b','c','d','e','f','g'].map(id=>document.getElementById('c2-'+id));
+const slotAns={0:'a',1:'c',2:'d',3:'b',4:'e',5:'g',6:'f',7:'d'};
+
+function act2Drop(target,id,el){
+  const slot=target.closest('.slot');if(!slot)return;
+  if(slot.classList.contains('filled')){
+    /* move existing back to bank */
+    const old=slot.querySelector('.card2');
+    if(old){document.getElementById('bank2').appendChild(old);old.draggable=true}
+  }
+  const card=document.getElementById('c2-'+id)||el;
+  if(!card)return;
+  slot.innerHTML='';
+  slot.appendChild(card);
+  slot.classList.add('filled');
+  card.draggable=false;
+  card.style.cursor='default';
+  drawTreeLines();
+}
+
+initDrag('bank2',act2Cards,act2Drop);
+makeDZListeners(document.querySelectorAll('[id^="ts-"]'),act2Drop);
+
+function drawTreeLines(){
+  const svg=document.getElementById('tree-svg2');
+  svg.innerHTML='';
+  const stage=document.getElementById('tree-stage2');
+  const sr=stage.getBoundingClientRect();
+  const positions={
+    0:document.getElementById('ts-0'),
+    1:document.getElementById('ts-1'),2:document.getElementById('ts-2'),
+    3:document.getElementById('ts-3'),4:document.getElementById('ts-4'),5:document.getElementById('ts-5'),
+    6:document.getElementById('ts-6'),7:document.getElementById('ts-7')
+  };
+  const conns=[[0,1],[0,2],[1,3],[1,4],[2,5],[4,6],[4,7]];
+  conns.forEach(([f,t])=>{
+    const fe=positions[f],te=positions[t];
+    if(!fe||!te)return;
+    const fr=fe.getBoundingClientRect(),tr=te.getBoundingClientRect();
+    const x1=fr.left-sr.left+fr.width/2;
+    const y1=fr.top-sr.top+fr.height;
+    const x2=tr.left-sr.left+tr.width/2;
+    const y2=tr.top-sr.top;
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',x1);line.setAttribute('y1',y1);
+    line.setAttribute('x2',x2);line.setAttribute('y2',y2);
+    line.setAttribute('stroke','rgba(167,139,250,0.35)');
+    line.setAttribute('stroke-width','1.5');
+    line.setAttribute('stroke-dasharray','4 3');
+    svg.appendChild(line);
+  });
+}
+
+setTimeout(drawTreeLines,200);window.addEventListener('resize',drawTreeLines);
+
+function checkAct2(){
+  let correct=0,total=0;
+  document.querySelectorAll('[id^="ts-"]').forEach(slot=>{
+    const pos=parseInt(slot.dataset.pos);
+    const ans=slotAns[pos];
+    const card=slot.querySelector('.card2');
+    if(!card){slot.classList.remove('correct-slot','wrong-slot');return}
+    total++;
+    const ok=card.dataset.id===ans;
+    if(ok)correct++;
+    slot.classList.toggle('correct-slot',ok);
+    slot.classList.toggle('wrong-slot',!ok);
+  });
+  const pts=correct>=6?10:correct>=4?7:correct>=2?4:0;
+  scores[1]=pts;updateScore();
+  const fb=document.getElementById('fb2');
+  if(correct>=6){
+    fb.className='feedback ok show';
+    fb.innerHTML='🌳 Amazing tree! The root asks the most important question first!';
+    lightStar(2);showSparkles(400,400);
+  }else{
+    fb.className='feedback bad show';
+    fb.innerHTML=`🔍 ${correct}/${total} nodes correct. Remember: Income splits first, then Credit score on left branch!`;
+  }
+  checkAll();
+}
+
+function resetAct2(){
+  const bank=document.getElementById('bank2');
+  document.querySelectorAll('[id^="ts-"]').forEach(slot=>{
+    const card=slot.querySelector('.card2');
+    if(card){card.draggable=true;card.style.cursor='grab';bank.appendChild(card)}
+    slot.classList.remove('filled','correct-slot','wrong-slot');
+    slot.innerHTML='drop here';
+  });
+  document.getElementById('fb2').className='feedback';
+  scores[1]=0;updateScore();
+  drawTreeLines();
+}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 3
+═══════════════════════════════════════ */
+const act3Cards=['p','s','d','e','g','t','v'].map(id=>document.getElementById('c3-'+id));
+const chainAns={1:'d',2:'e',3:'s',4:'g',5:'t',6:'p',7:'v'};
+
+function act3Drop(target,id,el){
+  const slot=target.closest('.chain-slot3');if(!slot)return;
+  const card=document.getElementById('c3-'+id)||el;if(!card)return;
+  if(slot.classList.contains('filled')){
+    const old=slot.querySelector('.card3');
+    if(old){document.getElementById('bank3').appendChild(old);old.draggable=true}
+  }
+  slot.innerHTML='';
+  slot.appendChild(card);
+  slot.classList.add('filled');
+  card.draggable=false;card.style.cursor='default';
+}
+
+initDrag('bank3',act3Cards,act3Drop);
+makeDZListeners(document.querySelectorAll('[id^="cs-"]'),act3Drop);
+
+function checkAct3(){
+  let correct=0,total=0;
+  document.querySelectorAll('[id^="cs-"]').forEach(slot=>{
+    const step=parseInt(slot.dataset.step);
+    const ans=chainAns[step];
+    const card=slot.querySelector('.card3');
+    if(!card){slot.classList.remove('correct-slot','wrong-slot');return}
+    total++;
+    const ok=card.dataset.id===ans;
+    if(ok)correct++;
+    slot.classList.toggle('correct-slot',ok);
+    slot.classList.toggle('wrong-slot',!ok);
+  });
+  const pts=correct>=6?10:correct>=4?7:correct>=2?4:0;
+  scores[2]=pts;updateScore();
+  const fb=document.getElementById('fb3');
+  if(correct>=6){
+    fb.className='feedback ok show';
+    fb.innerHTML='⚡ Chain reaction complete! You know how AI builds a decision tree from scratch!';
+    lightStar(3);chainReaction();
+  }else{
+    fb.className='feedback bad show';
+    fb.innerHTML=`🔗 ${correct}/${total} steps correct. The chain starts with data → measure impurity → split → grow → prune → predict → validate!`;
+  }
+  checkAll();
+}
+
+function resetAct3(){
+  const bank=document.getElementById('bank3');
+  document.querySelectorAll('[id^="cs-"]').forEach(slot=>{
+    const card=slot.querySelector('.card3');
+    if(card){card.draggable=true;card.style.cursor='grab';bank.appendChild(card)}
+    slot.classList.remove('filled','correct-slot','wrong-slot');
+    slot.innerHTML='drop here';
+  });
+  document.getElementById('fb3').className='feedback';
+  scores[2]=0;updateScore();
+}
+</script>
+</body>
+</html>

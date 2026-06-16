@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>T1 Python Project — Personalised Report Card</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+
+  :root {
+    --v1: #2D0057;
+    --v2: #4B0082;
+    --v3: #6A0DAD;
+    --v4: #9B30FF;
+    --v5: #BF80FF;
+    --v6: #E0C3FF;
+    --accent: #FFD700;
+    --accent2: #FF6EF7;
+    --white: #FFFFFF;
+    --success: #00E676;
+    --error: #FF5252;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--v1);
+    color: var(--white);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* ── CANVAS BACKGROUND ── */
+  #bgCanvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 20px 60px;
+  }
+
+  /* ── HEADING ── */
+  .main-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(1.6rem, 4vw, 2.8rem);
+    text-align: center;
+    background: linear-gradient(135deg, var(--v5), var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 1px;
+    padding: 10px 0 6px;
+    animation: shimmer 3s infinite alternate;
+    filter: drop-shadow(0 0 18px rgba(191,128,255,0.5));
+  }
+
+  @keyframes shimmer {
+    from { filter: drop-shadow(0 0 10px rgba(191,128,255,0.4)); }
+    to   { filter: drop-shadow(0 0 28px rgba(255,215,0,0.7)); }
+  }
+
+  /* ── TAB NAV ── */
+  .tab-nav {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin: 22px 0 28px;
+    flex-wrap: wrap;
+  }
+
+  .tab-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    padding: 10px 22px;
+    border: 2px solid var(--v4);
+    border-radius: 50px;
+    background: transparent;
+    color: var(--v5);
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+    letter-spacing: 0.5px;
+  }
+  .tab-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--v4), var(--accent2));
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: -1;
+  }
+  .tab-btn:hover { color: var(--white); border-color: var(--accent2); }
+  .tab-btn:hover::before { opacity: 1; }
+  .tab-btn.active {
+    color: var(--v1);
+    border-color: var(--accent);
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    font-weight: 900;
+    box-shadow: 0 4px 20px rgba(255,215,0,0.4);
+  }
+  .tab-btn.active::before { opacity: 0; }
+
+  /* ── SECTION CARDS ── */
+  .activity-section {
+    display: none;
+    animation: fadeIn 0.4s ease;
+  }
+  .activity-section.active { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .section-card {
+    background: rgba(75,0,130,0.35);
+    border: 1.5px solid rgba(155,48,255,0.4);
+    border-radius: 20px;
+    padding: 28px 24px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.07);
+  }
+
+  .section-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.35rem;
+    color: var(--accent);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-desc {
+    color: var(--v6);
+    font-size: 0.92rem;
+    margin-bottom: 22px;
+    line-height: 1.5;
+  }
+
+  /* ════════════════════════════════════════
+     ACTIVITY 1 — MATCH THE CODE CONCEPT
+     Drag code snippets → matching output/description
+  ═══════════════════════════════════════════ */
+  .match-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media(max-width:640px){ .match-grid { grid-template-columns: 1fr; } }
+
+  .match-col-title {
+    font-family: 'Fredoka One', cursive;
+    color: var(--v5);
+    font-size: 1rem;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+
+  .drag-item {
+    background: linear-gradient(135deg, rgba(106,13,173,0.7), rgba(75,0,130,0.8));
+    border: 2px solid var(--v4);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    cursor: grab;
+    font-size: 0.88rem;
+    font-family: 'Courier New', monospace;
+    color: var(--v6);
+    transition: all 0.25s;
+    user-select: none;
+    position: relative;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+  }
+  .drag-item:hover {
+    border-color: var(--accent2);
+    color: var(--white);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255,110,247,0.35);
+  }
+  .drag-item.dragging {
+    opacity: 0.5;
+    transform: rotate(-2deg) scale(1.04);
+    border-color: var(--accent);
+  }
+  .drag-item.placed {
+    border-color: var(--success);
+    background: linear-gradient(135deg, rgba(0,100,50,0.6), rgba(0,150,80,0.5));
+    cursor: default;
+  }
+  .drag-item.wrong-place {
+    border-color: var(--error);
+    animation: shake 0.4s;
+  }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)}
+    25%{transform:translateX(-6px)}
+    75%{transform:translateX(6px)}
+  }
+
+  .drop-zone {
+    background: rgba(45,0,87,0.6);
+    border: 2px dashed rgba(155,48,255,0.5);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    min-height: 52px;
+    font-size: 0.88rem;
+    color: rgba(191,128,255,0.6);
+    transition: all 0.25s;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .drop-zone.label-visible { color: var(--v6); font-style: italic; }
+  .drop-zone.drag-over {
+    border-color: var(--accent2);
+    background: rgba(106,13,173,0.5);
+    box-shadow: 0 0 16px rgba(255,110,247,0.3);
+  }
+  .drop-zone.correct {
+    border-color: var(--success);
+    border-style: solid;
+    background: rgba(0,100,60,0.35);
+  }
+  .drop-zone.incorrect {
+    border-color: var(--error);
+    animation: shake 0.4s;
+  }
+  .drop-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.88rem;
+    color: var(--v5);
+    pointer-events: none;
+  }
+
+  /* ════════════════════════════════════════
+     ACTIVITY 2 — BUILD YOUR REPORT CARD
+     Drag features into the right category box
+  ═══════════════════════════════════════════ */
+  .build-container {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .feature-pool {
+    flex: 1; min-width: 220px;
+  }
+  .category-grid {
+    flex: 2; min-width: 300px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media(max-width:640px){
+    .build-container{ flex-direction: column; }
+    .category-grid{ grid-template-columns: 1fr; }
+  }
+  .category-box {
+    background: rgba(45,0,87,0.55);
+    border: 2px dashed rgba(155,48,255,0.5);
+    border-radius: 14px;
+    padding: 12px 10px;
+    min-height: 130px;
+    transition: all 0.25s;
+  }
+  .category-box.drag-over {
+    border-color: var(--accent);
+    background: rgba(106,13,173,0.45);
+    box-shadow: 0 0 18px rgba(255,215,0,0.25);
+  }
+  .category-box.correct-cat { border-color: var(--success); border-style: solid; }
+
+  .cat-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.95rem;
+    color: var(--accent2);
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .feature-chip {
+    background: linear-gradient(135deg, rgba(106,13,173,0.75), rgba(75,0,130,0.85));
+    border: 1.5px solid var(--v4);
+    border-radius: 30px;
+    padding: 7px 13px;
+    margin: 5px 4px 0 0;
+    font-size: 0.82rem;
+    color: var(--v6);
+    cursor: grab;
+    display: inline-block;
+    user-select: none;
+    transition: all 0.2s;
+  }
+  .feature-chip:hover {
+    border-color: var(--accent2);
+    color: var(--white);
+    transform: scale(1.05);
+    box-shadow: 0 0 12px rgba(255,110,247,0.3);
+  }
+  .feature-chip.dragging { opacity: 0.45; transform: scale(0.96) rotate(-2deg); }
+  .feature-chip.placed-chip {
+    border-color: var(--success);
+    background: linear-gradient(135deg, rgba(0,100,50,0.55),rgba(0,150,80,0.45));
+    cursor: default;
+  }
+
+  /* ════════════════════════════════════════
+     ACTIVITY 3 — SEQUENCE THE STEPS
+     Drag steps into the correct order
+  ═══════════════════════════════════════════ */
+  .sequence-area {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media(max-width:640px){ .sequence-area{ grid-template-columns: 1fr; } }
+
+  .seq-pool-title, .seq-target-title {
+    font-family: 'Fredoka One', cursive;
+    color: var(--v5);
+    font-size: 0.95rem;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  .seq-pool {
+    background: rgba(45,0,87,0.45);
+    border: 1.5px solid rgba(155,48,255,0.3);
+    border-radius: 14px;
+    padding: 14px;
+    min-height: 280px;
+  }
+  .seq-target {
+    background: rgba(45,0,87,0.45);
+    border: 1.5px solid rgba(155,48,255,0.3);
+    border-radius: 14px;
+    padding: 14px;
+    min-height: 280px;
+  }
+  .seq-slot {
+    background: rgba(45,0,87,0.6);
+    border: 2px dashed rgba(155,48,255,0.4);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    min-height: 46px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.25s;
+  }
+  .seq-slot.drag-over {
+    border-color: var(--accent);
+    background: rgba(106,13,173,0.45);
+    box-shadow: 0 0 14px rgba(255,215,0,0.2);
+  }
+  .seq-slot.filled { border-style: solid; border-color: var(--v4); }
+  .seq-slot.correct-slot { border-color: var(--success); background: rgba(0,100,60,0.3); }
+  .seq-slot.wrong-slot  { border-color: var(--error); animation: shake 0.4s; }
+
+  .slot-num {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+    color: var(--accent);
+    min-width: 22px;
+    text-align: center;
+  }
+
+  .seq-item {
+    background: linear-gradient(135deg, rgba(106,13,173,0.75), rgba(75,0,130,0.85));
+    border: 1.5px solid var(--v4);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    font-size: 0.84rem;
+    color: var(--v6);
+    cursor: grab;
+    user-select: none;
+    transition: all 0.25s;
+  }
+  .seq-item:hover {
+    border-color: var(--accent2);
+    color: var(--white);
+    transform: translateX(3px);
+  }
+  .seq-item.dragging { opacity: 0.45; }
+  .seq-item.used { opacity: 0.3; cursor: default; pointer-events: none; }
+
+  /* ── FEEDBACK BANNER ── */
+  .feedback-bar {
+    margin-top: 20px;
+    padding: 14px 18px;
+    border-radius: 12px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.05rem;
+    text-align: center;
+    transition: all 0.4s;
+    display: none;
+  }
+  .feedback-bar.show { display: block; }
+  .feedback-bar.success {
+    background: linear-gradient(135deg, rgba(0,150,80,0.5), rgba(0,200,100,0.35));
+    border: 1.5px solid var(--success);
+    color: var(--success);
+    box-shadow: 0 0 20px rgba(0,230,118,0.25);
+  }
+  .feedback-bar.partial {
+    background: linear-gradient(135deg, rgba(255,165,0,0.35), rgba(255,200,0,0.25));
+    border: 1.5px solid var(--accent);
+    color: var(--accent);
+  }
+
+  /* ── BUTTONS ── */
+  .action-row {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    margin-top: 20px; justify-content: flex-end;
+  }
+  .btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.95rem;
+    padding: 10px 22px;
+    border-radius: 50px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.25s;
+    letter-spacing: 0.4px;
+  }
+  .btn-check {
+    background: linear-gradient(135deg, var(--v4), var(--accent2));
+    color: var(--white);
+    box-shadow: 0 4px 16px rgba(155,48,255,0.4);
+  }
+  .btn-check:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(155,48,255,0.55); }
+  .btn-reset {
+    background: transparent;
+    color: var(--v5);
+    border: 1.5px solid var(--v4);
+  }
+  .btn-reset:hover { background: rgba(155,48,255,0.15); color: var(--white); }
+
+  /* ── STAR BURST ── */
+  .burst {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    border-radius: 50%;
+    width: 10px; height: 10px;
+    animation: burst 0.7s ease-out forwards;
+  }
+  @keyframes burst {
+    0%   { transform: scale(0); opacity: 1; }
+    100% { transform: scale(2.5) translate(var(--tx), var(--ty)); opacity: 0; }
+  }
+
+  /* ── PROGRESS DOTS ── */
+  .progress-row {
+    display: flex; justify-content: center; gap: 8px; margin: 16px 0 0;
+  }
+  .dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--v4);
+    background: transparent;
+    transition: all 0.3s;
+  }
+  .dot.done { background: var(--success); border-color: var(--success); box-shadow: 0 0 8px rgba(0,230,118,0.5); }
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<div class="page">
+
+  <h1 class="main-title">🐍 T1 Python Project — Personalised Report Card</h1>
+
+  <!-- TAB NAV -->
+  <nav class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab(0)">🧩 Match the Code</button>
+    <button class="tab-btn" onclick="switchTab(1)">🛠️ Build Your Report</button>
+    <button class="tab-btn" onclick="switchTab(2)">🔢 Order the Steps</button>
+  </nav>
+
+  <div class="progress-row">
+    <div class="dot" id="dot0"></div>
+    <div class="dot" id="dot1"></div>
+    <div class="dot" id="dot2"></div>
+  </div>
+
+  <!-- ════════════ ACTIVITY 1 ════════════ -->
+  <div class="activity-section active" id="act0">
+    <div class="section-card">
+      <div class="section-title">🧩 Activity 1 — Match the Code</div>
+      <div class="section-desc">Drag each Python code snippet on the left to its correct description on the right.</div>
+      <div class="match-grid">
+        <div>
+          <div class="match-col-title">💜 Code Snippets</div>
+          <div id="dragPool1">
+            <div class="drag-item" draggable="true" data-id="a1"><code>name = input("Name: ")</code></div>
+            <div class="drag-item" draggable="true" data-id="a2"><code>scores = [85, 92, 78]</code></div>
+            <div class="drag-item" draggable="true" data-id="a3"><code>avg = sum(s)/len(s)</code></div>
+            <div class="drag-item" draggable="true" data-id="a4"><code>if avg >= 90: grade="A"</code></div>
+            <div class="drag-item" draggable="true" data-id="a5"><code>print(f"Hi, {name}!")</code></div>
+            <div class="drag-item" draggable="true" data-id="a6"><code>with open("r.txt","w")</code></div>
+          </div>
+        </div>
+        <div>
+          <div class="match-col-title">⭐ Descriptions</div>
+          <div class="drop-zone label-visible" data-answer="a1">
+            <span class="drop-label">Collects a student's name from keyboard</span>
+          </div>
+          <div class="drop-zone label-visible" data-answer="a2">
+            <span class="drop-label">Stores three test marks in a list</span>
+          </div>
+          <div class="drop-zone label-visible" data-answer="a3">
+            <span class="drop-label">Calculates the average score</span>
+          </div>
+          <div class="drop-zone label-visible" data-answer="a4">
+            <span class="drop-label">Assigns grade "A" if average is 90 or more</span>
+          </div>
+          <div class="drop-zone label-visible" data-answer="a5">
+            <span class="drop-label">Prints a personalised greeting using f-string</span>
+          </div>
+          <div class="drop-zone label-visible" data-answer="a6">
+            <span class="drop-label">Opens a file to write the report card</span>
+          </div>
+        </div>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-reset" onclick="resetAct1()">↺ Reset</button>
+        <button class="btn btn-check" onclick="checkAct1()">✔ Check Answers</button>
+      </div>
+      <div class="feedback-bar" id="fb1"></div>
+    </div>
+  </div>
+
+  <!-- ════════════ ACTIVITY 2 ════════════ -->
+  <div class="activity-section" id="act1">
+    <div class="section-card">
+      <div class="section-title">🛠️ Activity 2 — Build Your Report Card</div>
+      <div class="section-desc">Drag each feature into the correct category for building a Python personalised report card.</div>
+      <div class="build-container">
+        <div class="feature-pool">
+          <div class="match-col-title">💫 Features to Place</div>
+          <div id="featurePool">
+            <div class="feature-chip" draggable="true" data-id="f1" data-cat="input">input() function</div>
+            <div class="feature-chip" draggable="true" data-id="f2" data-cat="processing">calculate average</div>
+            <div class="feature-chip" draggable="true" data-id="f3" data-cat="output">print report</div>
+            <div class="feature-chip" draggable="true" data-id="f4" data-cat="input">student name</div>
+            <div class="feature-chip" draggable="true" data-id="f5" data-cat="processing">if/elif for grade</div>
+            <div class="feature-chip" draggable="true" data-id="f6" data-cat="output">save to file</div>
+            <div class="feature-chip" draggable="true" data-id="f7" data-cat="input">subject marks</div>
+            <div class="feature-chip" draggable="true" data-id="f8" data-cat="processing">sort scores list</div>
+            <div class="feature-chip" draggable="true" data-id="f9" data-cat="output">f-string message</div>
+            <div class="feature-chip" draggable="true" data-id="f10" data-cat="design">colour themes</div>
+            <div class="feature-chip" draggable="true" data-id="f11" data-cat="design">student photo</div>
+            <div class="feature-chip" draggable="true" data-id="f12" data-cat="design">font style</div>
+          </div>
+        </div>
+        <div class="category-grid">
+          <div class="category-box" data-cat="input">
+            <div class="cat-title">📥 Input</div>
+            <div class="cat-drop-zone" id="drop-input"></div>
+          </div>
+          <div class="category-box" data-cat="processing">
+            <div class="cat-title">⚙️ Processing</div>
+            <div class="cat-drop-zone" id="drop-processing"></div>
+          </div>
+          <div class="category-box" data-cat="output">
+            <div class="cat-title">📤 Output</div>
+            <div class="cat-drop-zone" id="drop-output"></div>
+          </div>
+          <div class="category-box" data-cat="design">
+            <div class="cat-title">🎨 Design</div>
+            <div class="cat-drop-zone" id="drop-design"></div>
+          </div>
+        </div>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-reset" onclick="resetAct2()">↺ Reset</button>
+        <button class="btn btn-check" onclick="checkAct2()">✔ Check Answers</button>
+      </div>
+      <div class="feedback-bar" id="fb2"></div>
+    </div>
+  </div>
+
+  <!-- ════════════ ACTIVITY 3 ════════════ -->
+  <div class="activity-section" id="act2">
+    <div class="section-card">
+      <div class="section-title">🔢 Activity 3 — Order the Steps</div>
+      <div class="section-desc">Drag the programming steps into the correct order (1–6) to create a personalised Python report card.</div>
+      <div class="sequence-area">
+        <div>
+          <div class="seq-pool-title">🌀 Steps (drag from here)</div>
+          <div class="seq-pool" id="seqPool">
+            <div class="seq-item" draggable="true" data-id="s3">Calculate average of marks</div>
+            <div class="seq-item" draggable="true" data-id="s1">Import libraries / set up</div>
+            <div class="seq-item" draggable="true" data-id="s5">Format and print the report</div>
+            <div class="seq-item" draggable="true" data-id="s2">Collect student name &amp; marks</div>
+            <div class="seq-item" draggable="true" data-id="s6">Save report to a file</div>
+            <div class="seq-item" draggable="true" data-id="s4">Assign grade using conditions</div>
+          </div>
+        </div>
+        <div>
+          <div class="seq-target-title">✅ Correct Order</div>
+          <div class="seq-target" id="seqTarget">
+            <div class="seq-slot" data-pos="1" data-answer="s1"><span class="slot-num">1</span><span class="slot-text"></span></div>
+            <div class="seq-slot" data-pos="2" data-answer="s2"><span class="slot-num">2</span><span class="slot-text"></span></div>
+            <div class="seq-slot" data-pos="3" data-answer="s3"><span class="slot-num">3</span><span class="slot-text"></span></div>
+            <div class="seq-slot" data-pos="4" data-answer="s4"><span class="slot-num">4</span><span class="slot-text"></span></div>
+            <div class="seq-slot" data-pos="5" data-answer="s5"><span class="slot-num">5</span><span class="slot-text"></span></div>
+            <div class="seq-slot" data-pos="6" data-answer="s6"><span class="slot-num">6</span><span class="slot-text"></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-reset" onclick="resetAct3()">↺ Reset</button>
+        <button class="btn btn-check" onclick="checkAct3()">✔ Check Answers</button>
+      </div>
+      <div class="feedback-bar" id="fb3"></div>
+    </div>
+  </div>
+
+</div><!-- .page -->
+
+<script>
+/* ═══════════════════════════════════════════════
+   BACKGROUND ANIMATION — stars, birds, chains
+═══════════════════════════════════════════════ */
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+
+function resize(){ canvas.width=innerWidth; canvas.height=innerHeight; }
+resize(); window.addEventListener('resize', resize);
+
+// Stars
+const stars = Array.from({length:80}, ()=>({
+  x: Math.random()*innerWidth,
+  y: Math.random()*innerHeight,
+  r: Math.random()*2+0.5,
+  vx: (Math.random()-0.5)*0.3,
+  vy: (Math.random()-0.5)*0.3,
+  alpha: Math.random(),
+  dA: (Math.random()-0.5)*0.015,
+  hue: Math.floor(Math.random()*60)+260,  // purples to pinks
+}));
+
+// Birds (V-shape lines)
+const birds = Array.from({length:6}, ()=>({
+  x: Math.random()*innerWidth,
+  y: Math.random()*innerHeight*0.6,
+  vx: Math.random()*0.8+0.4,
+  vy: Math.sin(Math.random()*Math.PI*2)*0.3,
+  wing: 0,
+  wingDir: 1,
+  wingSpeed: Math.random()*0.04+0.02,
+  size: Math.random()*6+5,
+}));
+
+// Chain nodes
+const CHAIN_COUNT = 5;
+const chains = Array.from({length:CHAIN_COUNT},(_,i)=>({
+  x: (i+1)*(innerWidth/(CHAIN_COUNT+1)),
+  y: innerHeight*0.5,
+  vx: (Math.random()-0.5)*0.8,
+  vy: (Math.random()-0.5)*0.8,
+  r: Math.random()*18+10,
+}));
+
+function drawStar(x,y,spikes,outerR,innerR,hue,alpha){
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = `hsl(${hue},100%,75%)`;
+  ctx.beginPath();
+  let rot = (Math.PI/2)*3, step = Math.PI/spikes;
+  ctx.moveTo(x, y-outerR);
+  for(let i=0;i<spikes;i++){
+    ctx.lineTo(x+Math.cos(rot)*outerR, y+Math.sin(rot)*outerR); rot+=step;
+    ctx.lineTo(x+Math.cos(rot)*innerR, y+Math.sin(rot)*innerR); rot+=step;
+  }
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function drawBird(b){
+  ctx.save();
+  ctx.strokeStyle = `rgba(191,128,255,${0.6+b.wing*0.3})`;
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  const w = b.size, wf = b.wing;
+  ctx.beginPath();
+  ctx.moveTo(b.x - w, b.y + wf*w*0.4);
+  ctx.quadraticCurveTo(b.x, b.y - wf*w*0.5, b.x+w, b.y + wf*w*0.4);
+  ctx.stroke();
+  ctx.restore();
+}
+
+let tick = 0;
+function animate(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  tick++;
+
+  // Stars
+  for(const s of stars){
+    s.x+=s.vx; s.y+=s.vy;
+    s.alpha+=s.dA;
+    if(s.alpha>1||s.alpha<0.1) s.dA*=-1;
+    if(s.x<0) s.x=canvas.width; if(s.x>canvas.width) s.x=0;
+    if(s.y<0) s.y=canvas.height; if(s.y>canvas.height) s.y=0;
+    drawStar(s.x, s.y, 5, s.r*2.2, s.r, s.hue, s.alpha*0.9);
+  }
+
+  // Chain (connected circles)
+  for(const c of chains){
+    c.x+=c.vx; c.y+=c.vy;
+    if(c.x<c.r||c.x>canvas.width-c.r) c.vx*=-1;
+    if(c.y<c.r||c.y>canvas.height-c.r) c.vy*=-1;
+  }
+  for(let i=0;i<chains.length-1;i++){
+    const a=chains[i], b=chains[i+1];
+    ctx.beginPath();
+    ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+    ctx.strokeStyle='rgba(155,48,255,0.25)'; ctx.lineWidth=2; ctx.stroke();
+  }
+  for(const c of chains){
+    const pulse = Math.sin(tick*0.03+c.x)*0.15+0.15;
+    ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2);
+    ctx.strokeStyle=`rgba(155,48,255,${pulse+0.1})`; ctx.lineWidth=2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(c.x,c.y,c.r*0.4,0,Math.PI*2);
+    ctx.fillStyle=`rgba(191,128,255,${pulse*0.6})`; ctx.fill();
+  }
+
+  // Birds
+  for(const b of birds){
+    b.x+=b.vx; b.y+=b.vy;
+    b.wing+=b.wingDir*b.wingSpeed;
+    if(b.wing>1||b.wing<-1) b.wingDir*=-1;
+    if(b.x>canvas.width+20){ b.x=-20; b.y=Math.random()*canvas.height*0.6; }
+    if(b.x<-20){ b.x=canvas.width+20; }
+    drawBird(b);
+  }
+
+  requestAnimationFrame(animate);
+}
+animate();
+
+/* ═══════════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════════ */
+function switchTab(idx){
+  document.querySelectorAll('.activity-section').forEach((s,i)=>s.classList.toggle('active',i===idx));
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
+}
+
+/* ═══════════════════════════════════════════════
+   STAR BURST EFFECT
+═══════════════════════════════════════════════ */
+function burstAt(x,y,count=10){
+  const colors=['#BF80FF','#FFD700','#FF6EF7','#00E676','#9B30FF'];
+  for(let i=0;i<count;i++){
+    const el=document.createElement('div');
+    el.className='burst';
+    const angle=Math.random()*Math.PI*2;
+    const dist=40+Math.random()*60;
+    el.style.left=x+'px'; el.style.top=y+'px';
+    el.style.background=colors[i%colors.length];
+    el.style.setProperty('--tx',Math.cos(angle)*dist+'px');
+    el.style.setProperty('--ty',Math.sin(angle)*dist+'px');
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),700);
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   ACTIVITY 1 — MATCH THE CODE
+═══════════════════════════════════════════════ */
+let dragging1 = null;
+
+function initAct1(){
+  document.querySelectorAll('#dragPool1 .drag-item').forEach(item=>{
+    item.addEventListener('dragstart', e=>{ dragging1=item; item.classList.add('dragging'); });
+    item.addEventListener('dragend', ()=>item.classList.remove('dragging'));
+  });
+  document.querySelectorAll('#act0 .drop-zone').forEach(zone=>{
+    zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', ()=>zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e=>{
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      if(!dragging1||zone.dataset.filled) return;
+      // Move the label text and replace
+      zone.dataset.filled = dragging1.dataset.id;
+      const label = zone.querySelector('.drop-label');
+      if(label) zone.removeChild(label);
+      const clone = dragging1.cloneNode(true);
+      clone.draggable = false;
+      clone.style.margin='0'; clone.style.border='none'; clone.style.background='transparent';
+      clone.style.padding='0';
+      zone.appendChild(clone);
+      dragging1.style.opacity='0.3'; dragging1.draggable=false; dragging1.classList.add('placed');
+      dragging1=null;
+    });
+  });
+}
+initAct1();
+
+function checkAct1(){
+  let correct=0, total=0;
+  document.querySelectorAll('#act0 .drop-zone').forEach(zone=>{
+    if(!zone.dataset.filled) return;
+    total++;
+    if(zone.dataset.filled===zone.dataset.answer){ correct++; zone.classList.add('correct'); zone.classList.remove('incorrect'); }
+    else { zone.classList.add('incorrect'); zone.classList.remove('correct'); }
+  });
+  const fb=document.getElementById('fb1');
+  if(correct===6){
+    fb.className='feedback-bar show success'; fb.textContent='🎉 Perfect! All 6 matches correct — brilliant Python knowledge!';
+    document.getElementById('dot0').classList.add('done');
+    burstAt(window.innerWidth/2, 200, 20);
+  } else {
+    fb.className='feedback-bar show partial'; fb.textContent=`⭐ ${correct} of ${total} correct — keep going!`;
+  }
+}
+
+function resetAct1(){
+  document.querySelectorAll('#dragPool1 .drag-item').forEach(i=>{
+    i.style.opacity='1'; i.draggable=true; i.classList.remove('placed','wrong-place');
+  });
+  document.querySelectorAll('#act0 .drop-zone').forEach(z=>{
+    z.innerHTML='<span class="drop-label">'+z.querySelector('span')?.textContent+'</span>';
+    // Restore original labels
+    z.className='drop-zone label-visible';
+    delete z.dataset.filled;
+  });
+  // Re-set labels
+  const labels=['Collects a student\'s name from keyboard','Stores three test marks in a list','Calculates the average score','Assigns grade "A" if average is 90 or more','Prints a personalised greeting using f-string','Opens a file to write the report card'];
+  document.querySelectorAll('#act0 .drop-zone').forEach((z,i)=>{
+    z.innerHTML=`<span class="drop-label">${labels[i]}</span>`;
+    delete z.dataset.filled;
+    z.className='drop-zone label-visible';
+  });
+  initAct1();
+  document.getElementById('fb1').className='feedback-bar';
+}
+
+/* ═══════════════════════════════════════════════
+   ACTIVITY 2 — BUILD YOUR REPORT CARD
+═══════════════════════════════════════════════ */
+let dragging2=null;
+
+function initAct2(){
+  document.querySelectorAll('#featurePool .feature-chip').forEach(chip=>{
+    chip.addEventListener('dragstart',e=>{ dragging2=chip; chip.classList.add('dragging'); });
+    chip.addEventListener('dragend',()=>chip.classList.remove('dragging'));
+  });
+  document.querySelectorAll('.category-box').forEach(box=>{
+    box.addEventListener('dragover',e=>{ e.preventDefault(); box.classList.add('drag-over'); });
+    box.addEventListener('dragleave',()=>box.classList.remove('drag-over'));
+    box.addEventListener('drop',e=>{
+      e.preventDefault(); box.classList.remove('drag-over');
+      if(!dragging2||dragging2.classList.contains('placed-chip')) return;
+      const zone=box.querySelector('.cat-drop-zone');
+      const clone=dragging2.cloneNode(true);
+      clone.draggable=false; clone.classList.remove('dragging');
+      clone.dataset.originalCat=dragging2.dataset.cat;
+      clone.dataset.droppedCat=box.dataset.cat;
+      zone.appendChild(clone);
+      dragging2.classList.add('placed-chip'); dragging2.draggable=false; dragging2.style.opacity='0.3';
+      dragging2=null;
+    });
+  });
+}
+initAct2();
+
+function checkAct2(){
+  let correct=0,total=0;
+  document.querySelectorAll('.category-box').forEach(box=>{
+    box.querySelector('.cat-drop-zone').querySelectorAll('.feature-chip').forEach(chip=>{
+      total++;
+      if(chip.dataset.originalCat===box.dataset.cat){ correct++; chip.style.borderColor='var(--success)'; }
+      else { chip.style.borderColor='var(--error)'; chip.style.animation='shake 0.4s'; setTimeout(()=>chip.style.animation='',500); }
+    });
+  });
+  const fb=document.getElementById('fb2');
+  if(correct===12){
+    fb.className='feedback-bar show success'; fb.textContent='🌟 Outstanding! Every feature in the right category!';
+    document.getElementById('dot1').classList.add('done');
+    burstAt(window.innerWidth/2,200,20);
+  } else if(correct>0){
+    fb.className='feedback-bar show partial'; fb.textContent=`⭐ ${correct} of ${total} correct — nearly there!`;
+  } else {
+    fb.className='feedback-bar show partial'; fb.textContent=`Try dragging some features into the boxes first!`;
+  }
+}
+
+function resetAct2(){
+  document.querySelectorAll('#featurePool .feature-chip').forEach(c=>{
+    c.classList.remove('placed-chip'); c.draggable=true; c.style.opacity='1';
+  });
+  document.querySelectorAll('.cat-drop-zone').forEach(z=>z.innerHTML='');
+  document.querySelectorAll('.category-box').forEach(b=>b.classList.remove('correct-cat'));
+  initAct2();
+  document.getElementById('fb2').className='feedback-bar';
+}
+
+/* ═══════════════════════════════════════════════
+   ACTIVITY 3 — ORDER THE STEPS
+═══════════════════════════════════════════════ */
+let dragging3=null;
+
+function initAct3(){
+  document.querySelectorAll('#seqPool .seq-item').forEach(item=>{
+    item.addEventListener('dragstart',e=>{ dragging3=item; item.classList.add('dragging'); });
+    item.addEventListener('dragend',()=>item.classList.remove('dragging'));
+  });
+  document.querySelectorAll('#seqTarget .seq-slot').forEach(slot=>{
+    slot.addEventListener('dragover',e=>{ e.preventDefault(); slot.classList.add('drag-over'); });
+    slot.addEventListener('dragleave',()=>slot.classList.remove('drag-over'));
+    slot.addEventListener('drop',e=>{
+      e.preventDefault(); slot.classList.remove('drag-over');
+      if(!dragging3||slot.classList.contains('filled')) return;
+      slot.dataset.placed=dragging3.dataset.id;
+      slot.querySelector('.slot-text').textContent=dragging3.textContent;
+      slot.classList.add('filled');
+      dragging3.classList.add('used'); dragging3.draggable=false;
+      dragging3=null;
+    });
+  });
+}
+initAct3();
+
+function checkAct3(){
+  let correct=0, total=0;
+  document.querySelectorAll('#seqTarget .seq-slot').forEach(slot=>{
+    if(!slot.dataset.placed) return;
+    total++;
+    if(slot.dataset.placed===slot.dataset.answer){ correct++; slot.classList.add('correct-slot'); slot.classList.remove('wrong-slot'); }
+    else { slot.classList.add('wrong-slot'); slot.classList.remove('correct-slot'); }
+  });
+  const fb=document.getElementById('fb3');
+  if(correct===6){
+    fb.className='feedback-bar show success'; fb.textContent='🚀 Flawless! You know the perfect order to build a report card!';
+    document.getElementById('dot2').classList.add('done');
+    burstAt(window.innerWidth/2,200,25);
+  } else if(total===0){
+    fb.className='feedback-bar show partial'; fb.textContent='Drag some steps into the numbered slots first!';
+  } else {
+    fb.className='feedback-bar show partial'; fb.textContent=`⭐ ${correct} of ${total} in the right spot — review and try again!`;
+  }
+}
+
+function resetAct3(){
+  document.querySelectorAll('#seqPool .seq-item').forEach(i=>{
+    i.classList.remove('used'); i.draggable=true;
+  });
+  document.querySelectorAll('#seqTarget .seq-slot').forEach(slot=>{
+    slot.querySelector('.slot-text').textContent='';
+    slot.classList.remove('filled','correct-slot','wrong-slot');
+    delete slot.dataset.placed;
+  });
+  initAct3();
+  document.getElementById('fb3').className='feedback-bar';
+}
+
+/* touch-to-drag shim for mobile */
+(function(){
+  let touchItem=null, clone=null, ox=0, oy=0;
+  document.addEventListener('touchstart',e=>{
+    const t=e.target.closest('[draggable]');
+    if(!t)return;
+    touchItem=t;
+    const r=t.getBoundingClientRect();
+    ox=e.touches[0].clientX-r.left; oy=e.touches[0].clientY-r.top;
+    clone=t.cloneNode(true);
+    clone.style.cssText=`position:fixed;pointer-events:none;z-index:9999;opacity:0.85;width:${r.width}px;`;
+    document.body.appendChild(clone);
+  },{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!clone)return; e.preventDefault();
+    clone.style.left=(e.touches[0].clientX-ox)+'px';
+    clone.style.top=(e.touches[0].clientY-oy)+'px';
+  },{passive:false});
+  document.addEventListener('touchend',e=>{
+    if(!clone||!touchItem){clone&&clone.remove();clone=null;return;}
+    clone.remove(); clone=null;
+    const touch=e.changedTouches[0];
+    const target=document.elementFromPoint(touch.clientX,touch.clientY);
+    if(target){
+      touchItem.dispatchEvent(new Event('dragstart',{bubbles:true}));
+      const dropTarget=target.closest('.drop-zone,.category-box,.seq-slot');
+      if(dropTarget){
+        dropTarget.dispatchEvent(new Event('dragover',{bubbles:true,cancelable:true}));
+        dropTarget.dispatchEvent(new Event('drop',{bubbles:true}));
+      }
+    }
+    touchItem=null;
+  });
+})();
+</script>
+</body>
+</html>

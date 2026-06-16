@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python Turtle — Draw with Code</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Fira+Code:wght@400;600&display=swap');
+
+  :root {
+    --v1: #1a0533;
+    --v2: #2d0a5e;
+    --v3: #4b1fa8;
+    --v4: #7c3aed;
+    --v5: #a855f7;
+    --v6: #d8b4fe;
+    --v7: #f3e8ff;
+    --accent: #e879f9;
+    --gold: #fbbf24;
+    --teal: #2dd4bf;
+    --pink: #f472b6;
+    --white: #ffffff;
+    --correct: #22c55e;
+    --wrong: #f87171;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--v1);
+    font-family: 'Space Grotesk', sans-serif;
+    color: var(--v7);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* ── Animated canvas background ── */
+  #bg-canvas {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Page wrapper ── */
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* ── Title ── */
+  .title-block {
+    text-align: center;
+    padding: 48px 0 36px;
+  }
+  .title-block h1 {
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--v6), var(--accent), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.15;
+    position: relative;
+    display: inline-block;
+  }
+  .title-block h1::after {
+    content: '';
+    display: block;
+    height: 3px;
+    margin-top: 10px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--v5), transparent);
+    border-radius: 2px;
+  }
+
+  /* ── Tab nav ── */
+  .tabs {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 36px;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    padding: 12px 28px;
+    border-radius: 50px;
+    border: 2px solid var(--v4);
+    background: transparent;
+    color: var(--v6);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .tab-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--v3), var(--v4));
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+  .tab-btn span { position: relative; z-index: 1; }
+  .tab-btn:hover::before, .tab-btn.active::before { opacity: 1; }
+  .tab-btn.active {
+    border-color: var(--accent);
+    color: var(--white);
+    box-shadow: 0 0 20px rgba(168,85,247,0.45);
+  }
+  .tab-btn:hover { color: var(--white); border-color: var(--v5); }
+
+  /* ── Activity panel ── */
+  .activity {
+    display: none;
+    animation: fadeUp 0.4s ease;
+  }
+  .activity.active { display: block; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Card ── */
+  .card {
+    background: linear-gradient(145deg, rgba(45,10,94,0.75), rgba(75,31,168,0.4));
+    border: 1px solid rgba(168,85,247,0.35);
+    border-radius: 20px;
+    padding: 28px 28px;
+    margin-bottom: 22px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .card h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .card p { color: var(--v6); font-size: 0.95rem; line-height: 1.65; margin-bottom: 16px; }
+
+  /* ── ① MATCH COMMANDS ── */
+  .match-area {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 10px;
+  }
+  .match-col { display: flex; flex-direction: column; gap: 10px; }
+  .match-col label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--v5);
+    margin-bottom: 4px;
+  }
+
+  .cmd-chip {
+    padding: 11px 16px;
+    border-radius: 12px;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.88rem;
+    font-weight: 600;
+    background: rgba(124,58,237,0.25);
+    border: 2px solid rgba(168,85,247,0.4);
+    color: var(--v6);
+    cursor: grab;
+    transition: all 0.2s;
+    user-select: none;
+    position: relative;
+  }
+  .cmd-chip:active { cursor: grabbing; }
+  .cmd-chip.dragging { opacity: 0.4; transform: scale(0.97); }
+  .cmd-chip.matched {
+    background: rgba(34,197,94,0.2);
+    border-color: #22c55e;
+    color: #bbf7d0;
+    cursor: default;
+  }
+
+  .drop-zone {
+    min-height: 48px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 2px dashed rgba(168,85,247,0.4);
+    background: rgba(26,5,51,0.5);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(168,85,247,0.12);
+  }
+  .drop-zone .meaning {
+    font-size: 0.88rem;
+    color: var(--v5);
+    flex: 1;
+  }
+  .drop-zone .dropped-chip {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.82rem;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: rgba(124,58,237,0.4);
+    border: 1px solid var(--v5);
+    color: var(--v6);
+  }
+  .drop-zone.correct { border-color: var(--correct); background: rgba(34,197,94,0.1); }
+  .drop-zone.wrong   { border-color: var(--wrong); background: rgba(248,113,113,0.1); }
+  .drop-zone .tick {
+    font-size: 1rem;
+    display: none;
+  }
+  .drop-zone.correct .tick { display: inline; color: var(--correct); }
+  .drop-zone.wrong   .tick { display: inline; color: var(--wrong); }
+
+  #match-feedback {
+    margin-top: 14px;
+    padding: 14px 18px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    display: none;
+  }
+  #match-feedback.show { display: block; }
+  #match-feedback.all-correct { background: rgba(34,197,94,0.18); border: 1px solid #22c55e; color: #bbf7d0; }
+  #match-feedback.partial     { background: rgba(251,191,36,0.12); border: 1px solid #fbbf24; color: #fef3c7; }
+
+  .btn-check {
+    margin-top: 16px;
+    padding: 12px 30px;
+    border-radius: 50px;
+    border: none;
+    background: linear-gradient(135deg, var(--v4), var(--accent));
+    color: var(--white);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 18px rgba(168,85,247,0.4);
+  }
+  .btn-check:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(168,85,247,0.55); }
+  .btn-check:active { transform: translateY(0); }
+
+  /* ── ② BUILD THE CODE ── */
+  .build-intro { font-size: 0.9rem; color: var(--v5); margin-bottom: 14px; font-style: italic; }
+
+  .shape-selector {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .shape-btn {
+    padding: 9px 20px;
+    border-radius: 50px;
+    border: 2px solid rgba(168,85,247,0.4);
+    background: rgba(45,10,94,0.6);
+    color: var(--v6);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .shape-btn:hover, .shape-btn.selected {
+    border-color: var(--accent);
+    background: rgba(124,58,237,0.35);
+    color: var(--white);
+  }
+
+  .blocks-pool {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    margin-bottom: 20px;
+  }
+  .block-chip {
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.83rem;
+    font-weight: 600;
+    cursor: grab;
+    user-select: none;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+  }
+  .block-chip:active { cursor: grabbing; }
+  .block-chip.dragging { opacity: 0.35; }
+  .block-chip.type-cmd  { background: rgba(124,58,237,0.3); border-color: var(--v4); color: #c4b5fd; }
+  .block-chip.type-num  { background: rgba(232,121,249,0.2); border-color: var(--accent); color: #f5d0fe; }
+  .block-chip.type-loop { background: rgba(45,212,191,0.18); border-color: var(--teal); color: #99f6e4; }
+  .block-chip.type-fn   { background: rgba(251,191,36,0.15); border-color: var(--gold); color: #fef08a; }
+  .block-chip.used { opacity: 0.3; pointer-events: none; }
+
+  .sequence-drop {
+    min-height: 80px;
+    border: 2px dashed rgba(168,85,247,0.35);
+    border-radius: 14px;
+    padding: 12px 14px;
+    background: rgba(26,5,51,0.6);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-content: flex-start;
+    transition: border-color 0.2s, background 0.2s;
+    margin-bottom: 14px;
+  }
+  .sequence-drop.drag-over {
+    border-color: var(--accent);
+    background: rgba(168,85,247,0.1);
+  }
+  .sequence-drop .block-chip { cursor: default; }
+  .sequence-drop .block-chip.removable { cursor: pointer; }
+  .sequence-drop .block-chip.removable:hover { opacity: 0.6; border-color: var(--wrong); }
+  .seq-hint { color: rgba(168,85,247,0.45); font-size: 0.85rem; font-style: italic; align-self: center; }
+
+  .preview-box {
+    border-radius: 14px;
+    overflow: hidden;
+    border: 2px solid rgba(168,85,247,0.3);
+    background: #0e0118;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #turtle-canvas { display: block; }
+
+  .build-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .btn-secondary {
+    padding: 10px 24px;
+    border-radius: 50px;
+    border: 2px solid var(--v4);
+    background: transparent;
+    color: var(--v5);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); background: rgba(168,85,247,0.1); }
+
+  #build-score {
+    font-weight: 700;
+    font-size: 0.92rem;
+    padding: 10px 18px;
+    border-radius: 50px;
+    background: rgba(124,58,237,0.2);
+    border: 1px solid var(--v4);
+    color: var(--v5);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ── ③ FIX THE BUG ── */
+  .debug-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .bug-card {
+    background: rgba(26,5,51,0.7);
+    border: 1px solid rgba(168,85,247,0.25);
+    border-radius: 14px;
+    padding: 20px 22px;
+    transition: border-color 0.25s;
+  }
+  .bug-card.solved { border-color: var(--correct); }
+  .bug-card.revealed { border-color: var(--wrong); }
+
+  .bug-question {
+    font-size: 0.92rem;
+    color: var(--v6);
+    margin-bottom: 14px;
+    line-height: 1.6;
+  }
+  .bug-question code {
+    font-family: 'Fira Code', monospace;
+    background: rgba(124,58,237,0.25);
+    padding: 2px 8px;
+    border-radius: 6px;
+    color: #e9d5ff;
+    font-size: 0.87rem;
+  }
+
+  .options-row {
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+  }
+  .opt-chip {
+    padding: 9px 18px;
+    border-radius: 10px;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 2px solid rgba(168,85,247,0.35);
+    background: rgba(45,10,94,0.5);
+    color: var(--v6);
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .opt-chip:hover:not(.locked) { border-color: var(--v5); background: rgba(124,58,237,0.3); color: var(--white); }
+  .opt-chip.correct-ans { border-color: var(--correct); background: rgba(34,197,94,0.18); color: #bbf7d0; }
+  .opt-chip.wrong-ans   { border-color: var(--wrong); background: rgba(248,113,113,0.12); color: #fecaca; }
+  .opt-chip.locked { pointer-events: none; }
+
+  .bug-explain {
+    margin-top: 12px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: rgba(124,58,237,0.15);
+    font-size: 0.87rem;
+    color: var(--v6);
+    line-height: 1.6;
+    display: none;
+  }
+  .bug-explain.show { display: block; }
+  .bug-explain strong { color: var(--accent); }
+
+  .debug-score-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 6px;
+    margin-bottom: 18px;
+  }
+  .debug-score-bar span { color: var(--v5); font-size: 0.9rem; font-weight: 600; }
+  .score-pill {
+    padding: 6px 20px;
+    border-radius: 50px;
+    background: linear-gradient(135deg, var(--v3), var(--v4));
+    color: var(--white);
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  /* ── Floating particles ── */
+  .star-particle {
+    position: fixed;
+    pointer-events: none;
+    font-size: 18px;
+    animation: floatStar 5s ease-in-out infinite;
+    z-index: 0;
+    opacity: 0.22;
+  }
+
+  @keyframes floatStar {
+    0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.18; }
+    50% { transform: translateY(-28px) rotate(180deg); opacity: 0.3; }
+  }
+
+  @media (max-width: 600px) {
+    .match-area { grid-template-columns: 1fr; }
+    .match-col label { display: block; }
+    .card { padding: 20px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Animated starfield canvas -->
+<canvas id="bg-canvas"></canvas>
+
+<div class="page">
+
+  <!-- TITLE -->
+  <div class="title-block">
+    <h1>Python Turtle — Draw with Code</h1>
+  </div>
+
+  <!-- TABS -->
+  <nav class="tabs" role="tablist">
+    <button class="tab-btn active" onclick="showTab(0)" role="tab" aria-selected="true">
+      <span>🐢 Match Commands</span>
+    </button>
+    <button class="tab-btn" onclick="showTab(1)" role="tab" aria-selected="false">
+      <span>🎨 Build the Code</span>
+    </button>
+    <button class="tab-btn" onclick="showTab(2)" role="tab" aria-selected="false">
+      <span>🐛 Fix the Bug</span>
+    </button>
+  </nav>
+
+  <!-- ══════════════════════════════════════════
+       ACTIVITY 1 — MATCH TURTLE COMMANDS
+  ══════════════════════════════════════════ -->
+  <section class="activity active" id="act-0">
+    <div class="card">
+      <h2>🐢 Match the Turtle Commands</h2>
+      <p>Drag each <strong>command chip</strong> from the left and drop it onto the matching <strong>description</strong> on the right.</p>
+    </div>
+
+    <div class="card">
+      <div class="match-area">
+        <div class="match-col">
+          <label>Commands</label>
+          <div id="cmd-pool"></div>
+        </div>
+        <div class="match-col">
+          <label>What it does</label>
+          <div id="drop-pool"></div>
+        </div>
+      </div>
+      <button class="btn-check" onclick="checkMatch()">✦ Check My Answers</button>
+      <div id="match-feedback"></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       ACTIVITY 2 — BUILD THE CODE
+  ══════════════════════════════════════════ -->
+  <section class="activity" id="act-1">
+    <div class="card">
+      <h2>🎨 Build the Code</h2>
+      <p>Pick a shape to draw, then drag code blocks into the sequence area in the right order. Hit <strong>Run</strong> to see your turtle draw it!</p>
+    </div>
+
+    <div class="card">
+      <p class="build-intro">Choose a shape:</p>
+      <div class="shape-selector" id="shape-selector"></div>
+
+      <p class="build-intro">Drag blocks here to build your code:</p>
+      <div class="blocks-pool" id="blocks-pool"></div>
+
+      <div class="sequence-drop" id="sequence-drop" ondragover="event.preventDefault(); this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropBlock(event)">
+        <span class="seq-hint" id="seq-hint">← Drop code blocks here in order</span>
+      </div>
+
+      <div class="build-actions">
+        <button class="btn-check" onclick="runTurtle()">▶ Run</button>
+        <button class="btn-secondary" onclick="clearSequence()">✕ Clear</button>
+        <span id="build-score">⭐ Score: 0</span>
+      </div>
+
+      <div class="preview-box" style="margin-top:18px;">
+        <canvas id="turtle-canvas" width="380" height="240"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       ACTIVITY 3 — FIX THE BUG
+  ══════════════════════════════════════════ -->
+  <section class="activity" id="act-2">
+    <div class="card">
+      <h2>🐛 Fix the Bug</h2>
+      <p>Each snippet below has one bug. Tap the <strong>correct fix</strong> to repair the code!</p>
+    </div>
+
+    <div class="card">
+      <div class="debug-score-bar">
+        <span>Your progress</span>
+        <div class="score-pill" id="debug-score">0 / 5</div>
+      </div>
+      <div class="debug-grid" id="debug-grid"></div>
+    </div>
+  </section>
+
+</div><!-- /page -->
+
+<script>
+/* ══════════════════════════
+   BACKGROUND STARFIELD
+══════════════════════════ */
+const bgCanvas = document.getElementById('bg-canvas');
+const bgCtx = bgCanvas.getContext('2d');
+let stars = [], birds = [], W, H;
+
+function resizeBg() {
+  W = bgCanvas.width = window.innerWidth;
+  H = bgCanvas.height = window.innerHeight;
+}
+resizeBg();
+window.addEventListener('resize', resizeBg);
+
+// Stars
+for (let i = 0; i < 90; i++) {
+  stars.push({
+    x: Math.random() * 2000,
+    y: Math.random() * 1200,
+    r: Math.random() * 1.6 + 0.4,
+    speed: Math.random() * 0.4 + 0.05,
+    phase: Math.random() * Math.PI * 2,
+    hue: Math.random() > 0.5 ? 270 : 300,
+  });
+}
+
+// Birds (simple V shapes)
+for (let i = 0; i < 7; i++) {
+  birds.push({
+    x: Math.random() * 2000,
+    y: 80 + Math.random() * 300,
+    speed: 0.5 + Math.random() * 0.8,
+    size: 6 + Math.random() * 6,
+    phase: Math.random() * Math.PI * 2,
+  });
+}
+
+// Chain reaction dots
+let chain = [];
+for (let i = 0; i < 18; i++) {
+  chain.push({
+    x: 120 + i * 90,
+    y: H * 0.78,
+    r: 4,
+    pulse: i * 0.3,
+  });
+}
+
+function drawBg(t) {
+  bgCtx.clearRect(0, 0, W, H);
+
+  // Stars
+  stars.forEach(s => {
+    const tw = t * 0.001 + s.phase;
+    const sy = (s.y + t * s.speed * 0.15) % H;
+    const alpha = 0.15 + 0.12 * Math.sin(tw);
+    bgCtx.beginPath();
+    bgCtx.arc(s.x % W, sy, s.r + 0.8 * Math.abs(Math.sin(tw)), 0, Math.PI * 2);
+    bgCtx.fillStyle = `hsla(${s.hue},80%,75%,${alpha})`;
+    bgCtx.fill();
+  });
+
+  // Moving birds
+  birds.forEach(b => {
+    b.x = (b.x - b.speed * 0.6 + W) % W;
+    const wingAngle = 0.4 * Math.sin(t * 0.003 + b.phase);
+    bgCtx.save();
+    bgCtx.translate(b.x, b.y);
+    bgCtx.strokeStyle = 'rgba(216,180,254,0.22)';
+    bgCtx.lineWidth = 1.5;
+    bgCtx.beginPath();
+    bgCtx.moveTo(-b.size, 0);
+    bgCtx.quadraticCurveTo(-b.size * 0.4, -b.size * wingAngle, 0, 0);
+    bgCtx.quadraticCurveTo(b.size * 0.4, -b.size * wingAngle, b.size, 0);
+    bgCtx.stroke();
+    bgCtx.restore();
+  });
+
+  // Chain reaction pulse
+  chain.forEach((c, i) => {
+    const pulse = (t * 0.0025 - i * 0.18) % 1;
+    const r = c.r + 6 * Math.max(0, Math.sin(pulse * Math.PI));
+    const alpha = 0.08 + 0.13 * Math.max(0, Math.sin(pulse * Math.PI));
+    bgCtx.beginPath();
+    bgCtx.arc(c.x % W, H * 0.78, r, 0, Math.PI * 2);
+    bgCtx.fillStyle = `rgba(168,85,247,${alpha})`;
+    bgCtx.fill();
+    if (i < chain.length - 1) {
+      bgCtx.beginPath();
+      bgCtx.moveTo(c.x % W, H * 0.78);
+      bgCtx.lineTo(chain[i + 1].x % W, H * 0.78);
+      bgCtx.strokeStyle = `rgba(168,85,247,${0.05 + 0.07 * Math.max(0, Math.sin(pulse * Math.PI))})`;
+      bgCtx.lineWidth = 1;
+      bgCtx.stroke();
+    }
+  });
+}
+
+let lastT = 0;
+function animateBg(t) {
+  lastT = t;
+  drawBg(t);
+  requestAnimationFrame(animateBg);
+}
+requestAnimationFrame(animateBg);
+
+/* ══════════════════════════
+   TAB SWITCHER
+══════════════════════════ */
+function showTab(idx) {
+  document.querySelectorAll('.activity').forEach((a, i) => a.classList.toggle('active', i === idx));
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', i === idx);
+    b.setAttribute('aria-selected', i === idx);
+  });
+}
+
+/* ══════════════════════════
+   ACTIVITY 1 — MATCH
+══════════════════════════ */
+const matchData = [
+  { cmd: 'forward(100)',  meaning: 'Move turtle ahead by 100 steps', key: 'A' },
+  { cmd: 'left(90)',      meaning: 'Turn turtle 90° to the left',    key: 'B' },
+  { cmd: 'penup()',       meaning: 'Lift pen — no drawing while moving', key: 'C' },
+  { cmd: 'pendown()',     meaning: 'Lower pen — start drawing again', key: 'D' },
+  { cmd: 'circle(50)',    meaning: 'Draw a circle with radius 50',    key: 'E' },
+  { cmd: 'color("red")',  meaning: 'Change the pen colour to red',    key: 'F' },
+];
+
+let draggedCmd = null;
+let matchState = {}; // dropKey → cmdKey
+
+function buildMatch() {
+  const pool = document.getElementById('cmd-pool');
+  const drops = document.getElementById('drop-pool');
+  pool.innerHTML = '';
+  drops.innerHTML = '';
+
+  const shuffledCmds = [...matchData].sort(() => Math.random() - 0.5);
+  const shuffledDrops = [...matchData].sort(() => Math.random() - 0.5);
+
+  shuffledCmds.forEach(item => {
+    const chip = document.createElement('div');
+    chip.className = 'cmd-chip';
+    chip.textContent = item.cmd;
+    chip.dataset.key = item.key;
+    chip.draggable = true;
+    chip.addEventListener('dragstart', e => {
+      draggedCmd = item.key;
+      chip.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
+    pool.appendChild(chip);
+  });
+
+  shuffledDrops.forEach(item => {
+    const zone = document.createElement('div');
+    zone.className = 'drop-zone';
+    zone.dataset.key = item.key;
+    zone.innerHTML = `<span class="meaning">${item.meaning}</span><span class="dropped-chip" style="display:none"></span><span class="tick"></span>`;
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      if (!draggedCmd) return;
+      // Find the label of dragged cmd
+      const item2 = matchData.find(m => m.key === draggedCmd);
+      if (!item2) return;
+      // Set dropped
+      matchState[item.key] = draggedCmd;
+      const chip = zone.querySelector('.dropped-chip');
+      chip.textContent = item2.cmd;
+      chip.style.display = 'inline';
+      zone.classList.remove('correct', 'wrong');
+      draggedCmd = null;
+      document.getElementById('match-feedback').classList.remove('show');
+    });
+    drops.appendChild(zone);
+  });
+}
+
+function checkMatch() {
+  let correct = 0;
+  document.querySelectorAll('.drop-zone').forEach(zone => {
+    const key = zone.dataset.key;
+    zone.classList.remove('correct', 'wrong');
+    if (matchState[key] === undefined) return;
+    if (matchState[key] === key) {
+      zone.classList.add('correct');
+      zone.querySelector('.tick').textContent = '✓';
+      correct++;
+    } else {
+      zone.classList.add('wrong');
+      zone.querySelector('.tick').textContent = '✗';
+    }
+  });
+  const fb = document.getElementById('match-feedback');
+  fb.classList.add('show');
+  if (correct === matchData.length) {
+    fb.className = 'show all-correct';
+    fb.textContent = `🎉 Perfect! You matched all ${matchData.length} commands correctly!`;
+  } else {
+    fb.className = 'show partial';
+    fb.textContent = `You got ${correct} out of ${matchData.length}. Try fixing the wrong ones!`;
+  }
+}
+
+buildMatch();
+
+/* ══════════════════════════
+   ACTIVITY 2 — BUILD
+══════════════════════════ */
+const shapes = {
+  Square: {
+    label: '⬜ Square',
+    blocks: [
+      { id:'loop',   text:'for i in range(4):', type:'loop' },
+      { id:'fwd',    text:'forward(100)',        type:'cmd'  },
+      { id:'turn',   text:'right(90)',           type:'cmd'  },
+      { id:'penup',  text:'penup()',             type:'cmd'  },
+      { id:'speed',  text:'speed(3)',            type:'fn'   },
+      { id:'color',  text:'color("violet")',     type:'fn'   },
+    ],
+    correct: ['loop', 'fwd', 'turn'],
+    draw(ctx, W, H) {
+      const s = 100, ox = W/2 - s/2, oy = H/2 - s/2;
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(ox, oy, s, s);
+    }
+  },
+  Triangle: {
+    label: '△ Triangle',
+    blocks: [
+      { id:'loop',   text:'for i in range(3):', type:'loop' },
+      { id:'fwd',    text:'forward(100)',        type:'cmd'  },
+      { id:'turn',   text:'left(120)',           type:'cmd'  },
+      { id:'right',  text:'right(90)',           type:'cmd'  },
+      { id:'color',  text:'color("pink")',       type:'fn'   },
+      { id:'circle', text:'circle(50)',          type:'cmd'  },
+    ],
+    correct: ['loop', 'fwd', 'turn'],
+    draw(ctx, W, H) {
+      const cx = W/2, cy = H/2 + 35, r = 70;
+      ctx.strokeStyle = '#f472b6';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let i = 0; i < 3; i++) {
+        const a = -Math.PI/2 + (i * 2 * Math.PI / 3);
+        i === 0 ? ctx.moveTo(cx + r*Math.cos(a), cy + r*Math.sin(a))
+                : ctx.lineTo(cx + r*Math.cos(a), cy + r*Math.sin(a));
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+  },
+  Circle: {
+    label: '○ Circle',
+    blocks: [
+      { id:'circle', text:'circle(60)',          type:'cmd'  },
+      { id:'penup',  text:'penup()',             type:'cmd'  },
+      { id:'color',  text:'color("cyan")',       type:'fn'   },
+      { id:'fwd',    text:'forward(100)',        type:'cmd'  },
+      { id:'loop',   text:'for i in range(4):', type:'loop' },
+      { id:'pendown',text:'pendown()',           type:'cmd'  },
+    ],
+    correct: ['penup', 'pendown', 'circle'],
+    draw(ctx, W, H) {
+      ctx.strokeStyle = '#2dd4bf';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(W/2, H/2, 70, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  },
+  Star: {
+    label: '★ Star',
+    blocks: [
+      { id:'loop',   text:'for i in range(5):', type:'loop' },
+      { id:'fwd',    text:'forward(100)',        type:'cmd'  },
+      { id:'turn',   text:'right(144)',          type:'cmd'  },
+      { id:'turn90', text:'right(90)',           type:'cmd'  },
+      { id:'color',  text:'color("gold")',       type:'fn'   },
+      { id:'circle', text:'circle(50)',          type:'cmd'  },
+    ],
+    correct: ['loop', 'fwd', 'turn'],
+    draw(ctx, W, H) {
+      const cx = W/2, cy = H/2, r = 70, n = 5;
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let i = 0; i <= n; i++) {
+        const a = -Math.PI/2 + (i * 4 * Math.PI / n);
+        i === 0 ? ctx.moveTo(cx + r*Math.cos(a), cy + r*Math.sin(a))
+                : ctx.lineTo(cx + r*Math.cos(a), cy + r*Math.sin(a));
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+  },
+};
+
+let selectedShape = 'Square';
+let sequence = [];
+let buildScore = 0;
+
+function buildShapeSelector() {
+  const sel = document.getElementById('shape-selector');
+  sel.innerHTML = '';
+  Object.keys(shapes).forEach(key => {
+    const btn = document.createElement('button');
+    btn.className = 'shape-btn' + (key === selectedShape ? ' selected' : '');
+    btn.textContent = shapes[key].label;
+    btn.onclick = () => { selectedShape = key; buildShapeSelector(); buildBlockPool(); clearSequence(); };
+    sel.appendChild(btn);
+  });
+}
+
+let draggedBlock = null;
+
+function buildBlockPool() {
+  const pool = document.getElementById('blocks-pool');
+  pool.innerHTML = '';
+  const sh = shapes[selectedShape];
+  const shuffled = [...sh.blocks].sort(() => Math.random() - 0.5);
+  shuffled.forEach(b => {
+    const chip = document.createElement('div');
+    chip.className = `block-chip type-${b.type}`;
+    chip.textContent = b.text;
+    chip.dataset.id = b.id;
+    chip.draggable = true;
+    chip.addEventListener('dragstart', e => {
+      draggedBlock = { id: b.id, text: b.text, type: b.type };
+      chip.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
+    pool.appendChild(chip);
+  });
+  sequence = [];
+  renderSequence();
+}
+
+function dropBlock(event) {
+  event.preventDefault();
+  const seqDrop = document.getElementById('sequence-drop');
+  seqDrop.classList.remove('drag-over');
+  if (!draggedBlock) return;
+  sequence.push({ ...draggedBlock });
+  const src = document.querySelector(`[data-id="${draggedBlock.id}"]`);
+  if (src) src.classList.add('used');
+  draggedBlock = null;
+  renderSequence();
+}
+
+function renderSequence() {
+  const seqDrop = document.getElementById('sequence-drop');
+  seqDrop.innerHTML = '';
+  if (sequence.length === 0) {
+    seqDrop.innerHTML = '<span class="seq-hint" id="seq-hint">← Drop code blocks here in order</span>';
+    return;
+  }
+  sequence.forEach((b, i) => {
+    const chip = document.createElement('div');
+    chip.className = `block-chip type-${b.type} removable`;
+    chip.textContent = b.text;
+    chip.title = 'Click to remove';
+    chip.onclick = () => {
+      sequence.splice(i, 1);
+      const src = document.querySelector(`[data-id="${b.id}"]`);
+      if (src) src.classList.remove('used');
+      renderSequence();
+    };
+    seqDrop.appendChild(chip);
+  });
+}
+
+function clearSequence() {
+  sequence = [];
+  document.querySelectorAll('.block-chip.used').forEach(c => c.classList.remove('used'));
+  renderSequence();
+  const ctx = document.getElementById('turtle-canvas').getContext('2d');
+  ctx.clearRect(0, 0, 380, 240);
+}
+
+function runTurtle() {
+  const sh = shapes[selectedShape];
+  const correct = sh.correct;
+  const seqIds = sequence.map(b => b.id);
+  const canvas = document.getElementById('turtle-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, 380, 240);
+
+  // Check correctness: sequence must contain all required blocks
+  const hasAll = correct.every(c => seqIds.includes(c));
+  const noExtra = seqIds.every(s => correct.includes(s));
+
+  if (hasAll) {
+    // Animate drawing
+    animateDraw(ctx, sh.draw, 380, 240);
+    if (noExtra) {
+      buildScore += 3;
+    } else {
+      buildScore += 1;
+    }
+    document.getElementById('build-score').textContent = `⭐ Score: ${buildScore}`;
+  } else {
+    // Shake effect
+    ctx.fillStyle = 'rgba(248,113,113,0.12)';
+    ctx.fillRect(0, 0, 380, 240);
+    ctx.fillStyle = '#f87171';
+    ctx.font = '600 14px Space Grotesk';
+    ctx.textAlign = 'center';
+    ctx.fillText('Hmm… check your block order!', 190, 120);
+  }
+}
+
+function animateDraw(ctx, drawFn, W, H) {
+  ctx.clearRect(0, 0, W, H);
+  // Draw guide grid
+  ctx.strokeStyle = 'rgba(124,58,237,0.1)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // Turtle emoji
+  let progress = 0;
+  const steps = 60;
+  const id = setInterval(() => {
+    if (progress >= steps) { clearInterval(id); drawFn(ctx, W, H); return; }
+    ctx.clearRect(0, 0, W, H);
+    // Grid again
+    ctx.strokeStyle = 'rgba(124,58,237,0.08)';
+    for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+    // Partial draw
+    ctx.save();
+    ctx.globalAlpha = progress / steps;
+    drawFn(ctx, W, H);
+    ctx.restore();
+
+    // Turtle head following path
+    ctx.font = '20px serif';
+    const t = progress / steps;
+    ctx.fillText('🐢', W * 0.15 + t * W * 0.7, H/2);
+
+    progress++;
+  }, 22);
+}
+
+buildShapeSelector();
+buildBlockPool();
+
+/* ══════════════════════════
+   ACTIVITY 3 — FIX THE BUG
+══════════════════════════ */
+const bugData = [
+  {
+    question: `What's wrong here? <code>t.forwrd(100)</code>`,
+    context: 'The turtle won\'t move at all — Python says "AttributeError".',
+    options: ['t.forward(100)', 't.foreward(100)', 't.move(100)'],
+    correct: 0,
+    explain: `<strong>forward</strong> is the correct spelling. Python is case-sensitive and has no typo forgiveness!`,
+  },
+  {
+    question: `Which line is buggy? <code>for i in range(4)\n    t.forward(100)</code>`,
+    context: 'This should draw a square but gives a SyntaxError.',
+    options: ['Missing : after range(4)', 'Should be range(5)', 'Wrong indentation'],
+    correct: 0,
+    explain: `<strong>for</strong> loops in Python must end with a colon <strong>:</strong>. Writing <code>for i in range(4):</code> is correct.`,
+  },
+  {
+    question: `The circle is tiny: <code>t.circle(0)</code>`,
+    context: 'A radius of 0 draws nothing visible. Pick the correct fix.',
+    options: ['t.circle(50)', 't.circle = 50', 'radius(50)'],
+    correct: 0,
+    explain: `<strong>circle()</strong> takes a radius argument. Use <code>t.circle(50)</code> for a visible circle of radius 50.`,
+  },
+  {
+    question: `The pen is still up: <code>t.penup()\nt.goto(0,0)\nt.forward(100)</code>`,
+    context: 'The turtle moves but draws nothing. One line is missing.',
+    options: ['Add t.pendown() before forward', 'Remove t.penup()', 'Change forward to backward'],
+    correct: 0,
+    explain: `After moving to a new position with <strong>penup()</strong>, call <strong>t.pendown()</strong> before drawing so the pen touches the canvas again.`,
+  },
+  {
+    question: `Colour won't change: <code>t.color(violet)</code>`,
+    context: 'Python raises a NameError — violet is not defined.',
+    options: ['t.color("violet")', 't.colour("violet")', 't.setcolor(violet)'],
+    correct: 0,
+    explain: `Colour names must be <strong>strings</strong> in quotes: <code>t.color("violet")</code>. Without quotes Python looks for a variable called violet.`,
+  },
+];
+
+let debugAnswered = 0;
+let debugScore = 0;
+
+function buildDebug() {
+  const grid = document.getElementById('debug-grid');
+  grid.innerHTML = '';
+  bugData.forEach((bug, bi) => {
+    const card = document.createElement('div');
+    card.className = 'bug-card';
+    card.id = `bug-${bi}`;
+    card.innerHTML = `
+      <div class="bug-question">${bug.question}<br><small style="color:var(--v5);font-size:0.82rem;">${bug.context}</small></div>
+      <div class="options-row" id="opts-${bi}">
+        ${bug.options.map((o, oi) => `<div class="opt-chip" data-bi="${bi}" data-oi="${oi}" onclick="checkBug(${bi},${oi})">${o}</div>`).join('')}
+      </div>
+      <div class="bug-explain" id="explain-${bi}">${bug.explain}</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function checkBug(bi, oi) {
+  const bug = bugData[bi];
+  const card = document.getElementById(`bug-${bi}`);
+  if (card.classList.contains('solved') || card.classList.contains('revealed')) return;
+
+  const opts = document.querySelectorAll(`#opts-${bi} .opt-chip`);
+  opts.forEach(o => o.classList.add('locked'));
+
+  if (oi === bug.correct) {
+    opts[oi].classList.add('correct-ans');
+    card.classList.add('solved');
+    debugScore++;
+  } else {
+    opts[oi].classList.add('wrong-ans');
+    opts[bug.correct].classList.add('correct-ans');
+    card.classList.add('revealed');
+  }
+  document.getElementById(`explain-${bi}`).classList.add('show');
+  debugAnswered++;
+  document.getElementById('debug-score').textContent = `${debugScore} / ${bugData.length}`;
+}
+
+buildDebug();
+</script>
+</body>
+</html>

@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python Turtle — Colourful Spiral</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    min-height:100vh;
+    background:#0d0010;
+    font-family:'Segoe UI',system-ui,sans-serif;
+    overflow-x:hidden;
+    color:#fff;
+  }
+
+  /* === ANIMATED BG === */
+  #bg-canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+
+  .wrapper{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:20px 16px 60px;}
+
+  /* === HEADING === */
+  .main-title{
+    text-align:center;
+    font-size:clamp(1.6rem,4vw,2.6rem);
+    font-weight:700;
+    letter-spacing:2px;
+    padding:32px 0 8px;
+    background:linear-gradient(135deg,#e040fb,#9c27b0,#7b1fa2,#ce93d8);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+    text-shadow:none;
+    position:relative;
+  }
+  .main-title::after{
+    content:'';display:block;width:80px;height:3px;
+    background:linear-gradient(90deg,#e040fb,#7b1fa2);
+    border-radius:2px;margin:10px auto 0;
+  }
+
+  /* === ACTIVITY TABS === */
+  .tab-bar{
+    display:flex;gap:8px;justify-content:center;flex-wrap:wrap;
+    margin:28px 0 24px;
+  }
+  .tab-btn{
+    padding:9px 22px;border-radius:30px;border:2px solid #9c27b0;
+    background:transparent;color:#ce93d8;font-size:0.88rem;font-weight:600;
+    cursor:pointer;letter-spacing:0.5px;transition:all .25s;
+  }
+  .tab-btn.active,.tab-btn:hover{
+    background:linear-gradient(135deg,#9c27b0,#6a1b9a);
+    color:#fff;border-color:#e040fb;
+    box-shadow:0 0 18px #9c27b080;
+  }
+
+  /* === ACTIVITY PANELS === */
+  .activity{display:none;}
+  .activity.active{display:block;}
+
+  .act-card{
+    background:rgba(30,0,50,0.75);
+    border:1.5px solid #7b1fa260;
+    border-radius:20px;
+    padding:24px;
+    backdrop-filter:blur(10px);
+    box-shadow:0 0 40px #4a0072 30;
+  }
+
+  .act-instruction{
+    font-size:0.92rem;color:#ce93d8;
+    margin-bottom:18px;line-height:1.6;
+    background:rgba(156,39,176,0.12);
+    border-left:3px solid #9c27b0;
+    padding:10px 14px;border-radius:0 10px 10px 0;
+  }
+
+  /* === SCORE / FEEDBACK === */
+  .feedback{
+    min-height:36px;padding:8px 14px;border-radius:10px;
+    font-size:0.9rem;font-weight:600;text-align:center;
+    margin-top:14px;transition:all .3s;
+  }
+  .feedback.success{background:rgba(100,200,50,0.18);color:#a5d6a7;border:1px solid #4caf5060;}
+  .feedback.error{background:rgba(230,50,80,0.18);color:#ef9a9a;border:1px solid #f4433660;}
+  .feedback.neutral{background:rgba(156,39,176,0.1);color:#ce93d8;border:1px solid #7b1fa240;}
+
+  .score-bar{display:flex;gap:12px;align-items:center;margin-bottom:18px;flex-wrap:wrap;}
+  .score-badge{
+    padding:4px 16px;border-radius:20px;
+    background:rgba(156,39,176,0.2);border:1.5px solid #9c27b0;
+    font-size:0.85rem;color:#e040fb;font-weight:700;
+  }
+
+  /* ======================================
+     ACTIVITY 1 — DRAG BLOCKS TO BUILD CODE
+  ====================================== */
+  .code-drop-zone{
+    min-height:180px;background:rgba(0,0,0,0.4);
+    border:2px dashed #7b1fa2;border-radius:14px;
+    padding:12px;display:flex;flex-direction:column;gap:6px;
+    transition:border-color .2s;
+  }
+  .code-drop-zone.drag-over{border-color:#e040fb;background:rgba(156,39,176,0.12);}
+  .code-drop-zone .placeholder{
+    color:#6a1b9a;font-style:italic;font-size:0.88rem;text-align:center;
+    padding:16px 0;pointer-events:none;
+  }
+
+  .block-pool{
+    display:flex;flex-wrap:wrap;gap:8px;
+    padding:14px;background:rgba(0,0,0,0.3);
+    border-radius:12px;min-height:56px;margin-bottom:14px;
+    border:1.5px solid #4a0072;
+  }
+
+  .code-block{
+    padding:7px 14px;border-radius:8px;font-family:'Courier New',monospace;
+    font-size:0.84rem;font-weight:600;cursor:grab;user-select:none;
+    border:1.5px solid transparent;transition:transform .15s,box-shadow .15s;
+    white-space:nowrap;
+  }
+  .code-block:active{cursor:grabbing;transform:scale(1.05);}
+  .code-block.dragging{opacity:0.4;}
+
+  .cb-import{background:#1a0030;color:#ce93d8;border-color:#7b1fa2;}
+  .cb-setup {background:#12002a;color:#f48fb1;border-color:#ad1457;}
+  .cb-loop  {background:#0a001f;color:#80deea;border-color:#00838f;}
+  .cb-draw  {background:#0d1a00;color:#c5e1a5;border-color:#558b2f;}
+  .cb-color {background:#1a1000;color:#ffe082;border-color:#f9a825;}
+  .cb-end   {background:#2a0010;color:#ef9a9a;border-color:#b71c1c;}
+
+  .code-block.in-zone{
+    display:flex;align-items:center;gap:8px;
+    padding:8px 12px;border-radius:8px;
+    font-family:'Courier New',monospace;font-size:0.84rem;
+    cursor:grab;width:100%;
+  }
+  .remove-btn{
+    margin-left:auto;background:none;border:none;color:#6a1b9a;
+    cursor:pointer;font-size:1rem;padding:0 4px;line-height:1;
+    transition:color .15s;
+  }
+  .remove-btn:hover{color:#ef5350;}
+
+  .check-btn{
+    padding:10px 28px;border-radius:25px;border:none;
+    background:linear-gradient(135deg,#9c27b0,#6a1b9a);
+    color:#fff;font-weight:700;font-size:0.92rem;cursor:pointer;
+    box-shadow:0 0 20px #9c27b060;transition:all .2s;
+  }
+  .check-btn:hover{transform:translateY(-2px);box-shadow:0 4px 24px #9c27b080;}
+
+  /* ======================================
+     ACTIVITY 2 — MATCH TURTLE COMMANDS
+  ====================================== */
+  .match-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:540px){.match-grid{grid-template-columns:1fr;}}
+
+  .match-col-label{
+    font-size:0.78rem;font-weight:700;letter-spacing:1px;
+    color:#9c27b0;text-transform:uppercase;margin-bottom:8px;
+  }
+
+  .match-item{
+    padding:10px 14px;border-radius:10px;border:1.5px solid #7b1fa2;
+    background:rgba(74,0,114,0.15);font-size:0.87rem;
+    cursor:grab;user-select:none;transition:all .2s;
+    min-height:42px;display:flex;align-items:center;
+  }
+  .match-item:active{cursor:grabbing;transform:scale(1.03);}
+  .match-item.dragging{opacity:0.35;}
+
+  .definition-slot{
+    min-height:46px;border-radius:10px;
+    border:2px dashed #4a0072;
+    background:rgba(0,0,0,0.25);
+    padding:8px 12px;font-size:0.84rem;color:#9e9e9e;
+    display:flex;align-items:center;transition:all .2s;
+    position:relative;
+  }
+  .definition-slot.drag-over{border-color:#e040fb;background:rgba(156,39,176,0.15);}
+  .definition-slot.filled{border-color:#9c27b0;color:#fff;background:rgba(74,0,114,0.3);}
+  .definition-slot.correct{border-color:#4caf50!important;background:rgba(76,175,80,0.15)!important;color:#a5d6a7!important;}
+  .definition-slot.wrong{border-color:#f44336!important;background:rgba(244,67,54,0.12)!important;color:#ef9a9a!important;}
+
+  .slot-label{
+    font-size:0.78rem;color:#7b1fa2;position:absolute;top:-9px;left:10px;
+    background:#0d0010;padding:0 6px;font-weight:600;
+  }
+
+  /* ======================================
+     ACTIVITY 3 — SPIRAL PROPERTY SEQUENCER
+  ====================================== */
+  .sequence-list{
+    display:flex;flex-direction:column;gap:10px;
+    margin-bottom:16px;
+  }
+  .seq-item{
+    padding:12px 16px;border-radius:12px;
+    background:rgba(30,0,50,0.7);
+    border:1.5px solid #7b1fa2;
+    display:flex;align-items:center;gap:14px;
+    cursor:grab;user-select:none;
+    transition:all .2s;font-size:0.9rem;
+  }
+  .seq-item:active{cursor:grabbing;}
+  .seq-item.dragging-seq{opacity:0.3;transform:scale(0.98);}
+  .seq-item.drag-over-seq{border-color:#e040fb;background:rgba(156,39,176,0.2);}
+  .seq-num{
+    width:28px;height:28px;border-radius:50%;
+    background:linear-gradient(135deg,#9c27b0,#6a1b9a);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:0.8rem;flex-shrink:0;
+  }
+  .seq-handle{color:#6a1b9a;font-size:1.1rem;flex-shrink:0;}
+  .seq-item .seq-code{font-family:'Courier New',monospace;font-size:0.83rem;color:#ce93d8;}
+  .seq-item .seq-desc{font-size:0.8rem;color:#9e9e9e;margin-top:2px;}
+
+  .turtle-preview{
+    width:100%;max-width:340px;margin:0 auto;display:block;
+    border-radius:12px;border:1.5px solid #7b1fa260;
+    background:rgba(0,0,0,0.5);
+  }
+
+  .spiral-canvas{
+    width:100%;max-width:360px;display:block;margin:0 auto;
+    border-radius:12px;border:1.5px solid #7b1fa280;
+    background:#060010;
+  }
+
+  .act3-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;}
+  @media(max-width:600px){.act3-layout{grid-template-columns:1fr;}}
+
+  /* === STARS ANIMATION (CSS) === */
+  @keyframes twinkle{0%,100%{opacity:.3;transform:scale(.8);}50%{opacity:1;transform:scale(1.2);}}
+  @keyframes spin-slow{to{transform:rotate(360deg);}}
+  @keyframes float-bird{
+    0%{transform:translateX(-60px) translateY(0);}
+    50%{transform:translateX(calc(100vw + 60px)) translateY(-40px);}
+    100%{transform:translateX(-60px) translateY(0);}
+  }
+
+  .star-deco{position:fixed;pointer-events:none;z-index:0;}
+  .bird-svg{position:fixed;top:12%;left:-80px;z-index:0;pointer-events:none;animation:float-bird 18s linear infinite;}
+  .bird-svg2{position:fixed;top:28%;left:-80px;z-index:0;pointer-events:none;animation:float-bird 26s linear 4s infinite;}
+
+  /* chain reaction dots */
+  .chain{
+    position:fixed;bottom:18px;left:0;width:100%;z-index:0;
+    display:flex;justify-content:center;gap:8px;pointer-events:none;
+  }
+  .chain-dot{
+    width:8px;height:8px;border-radius:50%;
+    background:#9c27b0;
+    animation:chain-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes chain-pulse{
+    0%,100%{transform:scale(0.7);opacity:0.3;}
+    50%{transform:scale(1.4);opacity:1;background:#e040fb;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ANIMATED BACKGROUND CANVAS -->
+<canvas id="bg-canvas"></canvas>
+
+<!-- FLOATING BIRDS -->
+<svg class="bird-svg" width="40" height="20" viewBox="0 0 40 20" fill="none">
+  <path d="M0 10 Q10 2 20 10 Q30 2 40 10" stroke="#9c27b0" stroke-width="2.5" fill="none" opacity="0.7"/>
+</svg>
+<svg class="bird-svg2" width="30" height="15" viewBox="0 0 40 20" fill="none">
+  <path d="M0 10 Q10 2 20 10 Q30 2 40 10" stroke="#ce93d8" stroke-width="2" fill="none" opacity="0.5"/>
+</svg>
+
+<!-- CHAIN REACTION DOTS -->
+<div class="chain">
+  <div class="chain-dot" style="animation-delay:0s"></div>
+  <div class="chain-dot" style="animation-delay:.14s"></div>
+  <div class="chain-dot" style="animation-delay:.28s"></div>
+  <div class="chain-dot" style="animation-delay:.42s"></div>
+  <div class="chain-dot" style="animation-delay:.56s"></div>
+  <div class="chain-dot" style="animation-delay:.70s"></div>
+  <div class="chain-dot" style="animation-delay:.84s"></div>
+  <div class="chain-dot" style="animation-delay:.98s"></div>
+  <div class="chain-dot" style="animation-delay:1.12s"></div>
+  <div class="chain-dot" style="animation-delay:1.26s"></div>
+</div>
+
+<div class="wrapper">
+  <h1 class="main-title">Python Turtle — Colourful Spiral</h1>
+
+  <!-- TABS -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab(0)">Activity 1<br><small>Build the Code</small></button>
+    <button class="tab-btn" onclick="switchTab(1)">Activity 2<br><small>Match Commands</small></button>
+    <button class="tab-btn" onclick="switchTab(2)">Activity 3<br><small>Order the Steps</small></button>
+  </div>
+
+  <!-- ==================== ACTIVITY 1 ==================== -->
+  <div class="activity active" id="act0">
+    <div class="act-card">
+      <div class="score-bar">
+        <div class="score-badge" id="score1-badge">Score: 0 / 6</div>
+        <button class="check-btn" onclick="checkAct1()">Check Answer</button>
+        <button class="check-btn" style="background:linear-gradient(135deg,#4a0072,#2a0050);" onclick="resetAct1()">Reset</button>
+      </div>
+      <div class="act-instruction">
+        Drag the code blocks from the pool into the drop zone to build a working colourful spiral program. Place them in the correct order!
+      </div>
+
+      <div style="font-size:0.78rem;color:#9c27b0;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">🧩 Code Block Pool</div>
+      <div class="block-pool" id="block-pool">
+        <div class="code-block cb-loop" draggable="true" data-id="loop">for i in range(100):</div>
+        <div class="code-block cb-import" draggable="true" data-id="import">import turtle</div>
+        <div class="code-block cb-color" draggable="true" data-id="color">t.pencolor(colors[i % 6])</div>
+        <div class="code-block cb-end" draggable="true" data-id="done">turtle.done()</div>
+        <div class="code-block cb-setup" draggable="true" data-id="setup">t = turtle.Turtle()</div>
+        <div class="code-block cb-draw" draggable="true" data-id="draw">t.forward(i * 2); t.right(91)</div>
+      </div>
+
+      <div style="font-size:0.78rem;color:#9c27b0;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">📋 Drop Zone — Your Code</div>
+      <div class="code-drop-zone" id="drop-zone1">
+        <div class="placeholder">← Drag blocks here in the right order</div>
+      </div>
+
+      <div class="feedback neutral" id="feedback1">Arrange all 6 blocks then click Check Answer.</div>
+    </div>
+  </div>
+
+  <!-- ==================== ACTIVITY 2 ==================== -->
+  <div class="activity" id="act1">
+    <div class="act-card">
+      <div class="score-bar">
+        <div class="score-badge" id="score2-badge">Score: 0 / 5</div>
+        <button class="check-btn" onclick="checkAct2()">Check Answer</button>
+        <button class="check-btn" style="background:linear-gradient(135deg,#4a0072,#2a0050);" onclick="resetAct2()">Reset</button>
+      </div>
+      <div class="act-instruction">
+        Drag each turtle command (left column) and drop it onto its correct definition (right column).
+      </div>
+
+      <div class="match-grid">
+        <div>
+          <div class="match-col-label">🐢 Commands</div>
+          <div id="commands-pool" style="display:flex;flex-direction:column;gap:8px;">
+            <div class="match-item" draggable="true" data-cmd="forward" style="font-family:monospace;background:rgba(74,0,114,0.25);border-color:#9c27b0;">t.forward(n)</div>
+            <div class="match-item" draggable="true" data-cmd="right" style="font-family:monospace;background:rgba(74,0,114,0.25);border-color:#9c27b0;">t.right(angle)</div>
+            <div class="match-item" draggable="true" data-cmd="pencolor" style="font-family:monospace;background:rgba(74,0,114,0.25);border-color:#9c27b0;">t.pencolor(c)</div>
+            <div class="match-item" draggable="true" data-cmd="speed" style="font-family:monospace;background:rgba(74,0,114,0.25);border-color:#9c27b0;">t.speed(0)</div>
+            <div class="match-item" draggable="true" data-cmd="pensize" style="font-family:monospace;background:rgba(74,0,114,0.25);border-color:#9c27b0;">t.pensize(n)</div>
+          </div>
+        </div>
+        <div>
+          <div class="match-col-label">📖 Definitions</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div class="definition-slot" data-answer="speed" id="slot-speed">
+              <span class="slot-label">A</span>
+              Sets turtle animation to fastest
+            </div>
+            <div class="definition-slot" data-answer="forward" id="slot-forward">
+              <span class="slot-label">B</span>
+              Moves turtle forward by n pixels
+            </div>
+            <div class="definition-slot" data-answer="pencolor" id="slot-pencolor">
+              <span class="slot-label">C</span>
+              Changes the drawing line colour
+            </div>
+            <div class="definition-slot" data-answer="pensize" id="slot-pensize">
+              <span class="slot-label">D</span>
+              Sets the thickness of the line
+            </div>
+            <div class="definition-slot" data-answer="right" id="slot-right">
+              <span class="slot-label">E</span>
+              Turns turtle clockwise by angle°
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="feedback neutral" id="feedback2">Drag each command to its matching definition.</div>
+    </div>
+  </div>
+
+  <!-- ==================== ACTIVITY 3 ==================== -->
+  <div class="activity" id="act2">
+    <div class="act-card">
+      <div class="score-bar">
+        <div class="score-badge" id="score3-badge">Score: 0 / 5</div>
+        <button class="check-btn" onclick="checkAct3()">Check Order</button>
+        <button class="check-btn" style="background:linear-gradient(135deg,#4a0072,#2a0050);" onclick="resetAct3()">Shuffle</button>
+      </div>
+      <div class="act-instruction">
+        Drag and re-order the steps below to show the correct sequence for drawing a colourful spiral. Watch the preview animate when you get it right!
+      </div>
+      <div class="act3-layout">
+        <div>
+          <div style="font-size:0.78rem;color:#9c27b0;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">📋 Sequence Steps</div>
+          <div class="sequence-list" id="seq-list"></div>
+        </div>
+        <div>
+          <div style="font-size:0.78rem;color:#9c27b0;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">🌀 Spiral Preview</div>
+          <canvas class="spiral-canvas" id="spiral-canvas" width="340" height="280"></canvas>
+          <div style="text-align:center;font-size:0.78rem;color:#6a1b9a;margin-top:8px;">Preview updates when correct order is set!</div>
+        </div>
+      </div>
+      <div class="feedback neutral" id="feedback3">Order the 5 steps then click Check Order.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT
+============================================================= -->
+<script>
+/* ---- BG CANVAS STARS ---- */
+const bgC = document.getElementById('bg-canvas');
+const bgCtx = bgC.getContext('2d');
+let stars = [];
+function initStars(){
+  bgC.width = window.innerWidth; bgC.height = window.innerHeight;
+  stars = Array.from({length:120},()=>({
+    x:Math.random()*bgC.width, y:Math.random()*bgC.height,
+    r:Math.random()*2.2+0.4, speed:Math.random()*0.6+0.2,
+    phase:Math.random()*Math.PI*2,
+    color:`hsl(${270+Math.random()*60},80%,${55+Math.random()*30}%)`
+  }));
+}
+function drawStars(){
+  bgCtx.clearRect(0,0,bgC.width,bgC.height);
+  const t = Date.now()/1000;
+  stars.forEach(s=>{
+    const bri = 0.4+0.6*Math.sin(t*s.speed+s.phase);
+    bgCtx.beginPath();
+    bgCtx.arc(s.x,s.y,s.r*(0.8+0.4*bri),0,Math.PI*2);
+    bgCtx.fillStyle = s.color.replace(')',`,${bri})`).replace('hsl','hsla');
+    bgCtx.fill();
+    // 4-point star shape for larger ones
+    if(s.r>1.5){
+      bgCtx.save();
+      bgCtx.translate(s.x,s.y);
+      bgCtx.rotate(t*0.2+s.phase);
+      bgCtx.strokeStyle = s.color.replace(')',`,${bri*0.5})`).replace('hsl','hsla');
+      bgCtx.lineWidth=0.8;
+      bgCtx.beginPath();
+      for(let a=0;a<4;a++){
+        const ang=a*Math.PI/2;
+        bgCtx.moveTo(0,0);
+        bgCtx.lineTo(Math.cos(ang)*s.r*3.5,Math.sin(ang)*s.r*3.5);
+      }
+      bgCtx.stroke();
+      bgCtx.restore();
+    }
+  });
+  requestAnimationFrame(drawStars);
+}
+window.addEventListener('resize',initStars);
+initStars(); drawStars();
+
+/* ---- TAB SWITCH ---- */
+function switchTab(n){
+  document.querySelectorAll('.activity').forEach((a,i)=>a.classList.toggle('active',i===n));
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===n));
+  if(n===2) drawSpiralPreview();
+}
+
+/* ==============================
+   ACTIVITY 1 — DRAG CODE BLOCKS
+============================== */
+const CORRECT_ORDER=['import','setup','loop','color','draw','done'];
+let zone1Items=[];
+
+function initAct1(){
+  const pool=document.getElementById('block-pool');
+  const zone=document.getElementById('drop-zone1');
+  zone1Items=[];
+  updateZone1();
+
+  // re-setup pool draggables
+  pool.querySelectorAll('.code-block').forEach(b=>{
+    b.addEventListener('dragstart',e=>{
+      e.dataTransfer.setData('text/plain', b.dataset.id+':pool');
+      b.classList.add('dragging');
+    });
+    b.addEventListener('dragend',()=>b.classList.remove('dragging'));
+  });
+
+  zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over');});
+  zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));
+  zone.addEventListener('drop',e=>{
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const raw=e.dataTransfer.getData('text/plain');
+    const [id,src]=raw.split(':');
+    if(src==='pool' && !zone1Items.includes(id)){
+      zone1Items.push(id);
+      updateZone1();
+    }
+  });
+}
+
+const BLOCK_META={
+  import:{label:'import turtle',cls:'cb-import'},
+  setup:{label:'t = turtle.Turtle()',cls:'cb-setup'},
+  loop:{label:'for i in range(100):',cls:'cb-loop'},
+  color:{label:'  t.pencolor(colors[i % 6])',cls:'cb-color'},
+  draw:{label:'  t.forward(i * 2); t.right(91)',cls:'cb-draw'},
+  done:{label:'turtle.done()',cls:'cb-end'},
+};
+
+function updateZone1(){
+  const zone=document.getElementById('drop-zone1');
+  if(zone1Items.length===0){
+    zone.innerHTML='<div class="placeholder">← Drag blocks here in the right order</div>';
+  } else {
+    zone.innerHTML='';
+    zone1Items.forEach((id,idx)=>{
+      const div=document.createElement('div');
+      const m=BLOCK_META[id];
+      div.className=`code-block in-zone ${m.cls}`;
+      div.setAttribute('draggable','true');
+      div.dataset.id=id; div.dataset.src='zone';
+      div.innerHTML=`<span>${m.label}</span><button class="remove-btn" onclick="removeFromZone1('${id}')">✕</button>`;
+      div.addEventListener('dragstart',e=>{
+        e.dataTransfer.setData('text/plain',id+':zone');
+        div.classList.add('dragging');
+      });
+      div.addEventListener('dragend',()=>div.classList.remove('dragging'));
+      zone.appendChild(div);
+    });
+  }
+}
+
+function removeFromZone1(id){
+  zone1Items=zone1Items.filter(x=>x!==id);
+  updateZone1();
+  setFeedback('feedback1','neutral','Block returned to pool.');
+  document.getElementById('score1-badge').textContent='Score: 0 / 6';
+}
+
+function checkAct1(){
+  if(zone1Items.length<6){
+    setFeedback('feedback1','error',`Only ${zone1Items.length} of 6 blocks placed. Add all blocks!`);
+    return;
+  }
+  let correct=0;
+  zone1Items.forEach((id,i)=>{ if(id===CORRECT_ORDER[i]) correct++; });
+  document.getElementById('score1-badge').textContent=`Score: ${correct} / 6`;
+  if(correct===6){
+    setFeedback('feedback1','success','🎉 Perfect! Your spiral program is correct!');
+    launchConfetti();
+  } else {
+    setFeedback('feedback1','error',`${correct}/6 correct. Check the order — import comes first, turtle.done() last!`);
+  }
+}
+
+function resetAct1(){
+  zone1Items=[];
+  updateZone1();
+  setFeedback('feedback1','neutral','Arrange all 6 blocks then click Check Answer.');
+  document.getElementById('score1-badge').textContent='Score: 0 / 6';
+}
+
+/* ==============================
+   ACTIVITY 2 — MATCH COMMANDS
+============================== */
+const SLOT_FILLS={};
+let dragCmd=null;
+
+function initAct2(){
+  document.querySelectorAll('#commands-pool .match-item').forEach(item=>{
+    item.addEventListener('dragstart',e=>{
+      dragCmd=item.dataset.cmd;
+      item.classList.add('dragging');
+      e.dataTransfer.setData('text/plain',dragCmd);
+    });
+    item.addEventListener('dragend',()=>item.classList.remove('dragging'));
+  });
+
+  document.querySelectorAll('.definition-slot').forEach(slot=>{
+    slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('drag-over');});
+    slot.addEventListener('dragleave',()=>slot.classList.remove('drag-over'));
+    slot.addEventListener('drop',e=>{
+      e.preventDefault(); slot.classList.remove('drag-over');
+      const cmd=e.dataTransfer.getData('text/plain');
+      if(!cmd) return;
+      slot.classList.add('filled');
+      slot.classList.remove('correct','wrong');
+      SLOT_FILLS[slot.dataset.answer]=cmd;
+      // update slot text (keep label)
+      const label=slot.querySelector('.slot-label').outerHTML;
+      slot.innerHTML=`${label}<span style="font-family:monospace;color:#e040fb;font-size:0.85rem;">${cmdLabel(cmd)}</span>`;
+    });
+  });
+}
+
+function cmdLabel(id){
+  const map={forward:'t.forward(n)',right:'t.right(angle)',pencolor:'t.pencolor(c)',speed:'t.speed(0)',pensize:'t.pensize(n)'};
+  return map[id]||id;
+}
+
+function checkAct2(){
+  let correct=0,total=0;
+  document.querySelectorAll('.definition-slot').forEach(slot=>{
+    const ans=slot.dataset.answer;
+    const filled=SLOT_FILLS[ans];
+    if(filled!==undefined){
+      total++;
+      if(filled===ans){correct++;slot.classList.add('correct');slot.classList.remove('wrong');}
+      else{slot.classList.add('wrong');slot.classList.remove('correct');}
+    }
+  });
+  document.getElementById('score2-badge').textContent=`Score: ${correct} / 5`;
+  if(correct===5){
+    setFeedback('feedback2','success','🎉 All matched correctly! You know your turtle commands!');
+    launchConfetti();
+  } else {
+    setFeedback('feedback2','error',`${correct}/5 correct. Keep trying — check the highlighted slots!`);
+  }
+}
+
+function resetAct2(){
+  Object.keys(SLOT_FILLS).forEach(k=>delete SLOT_FILLS[k]);
+  document.querySelectorAll('.definition-slot').forEach(slot=>{
+    slot.classList.remove('filled','correct','wrong');
+    const lbl=slot.querySelector('.slot-label');
+    const lblHTML=lbl ? lbl.outerHTML : '';
+    const texts={speed:'Sets turtle animation to fastest',forward:'Moves turtle forward by n pixels',
+      pencolor:'Changes the drawing line colour',pensize:'Sets the thickness of the line',
+      right:'Turns turtle clockwise by angle°'};
+    slot.innerHTML=`${lblHTML}${texts[slot.dataset.answer]}`;
+  });
+  setFeedback('feedback2','neutral','Drag each command to its matching definition.');
+  document.getElementById('score2-badge').textContent='Score: 0 / 5';
+}
+
+/* ==============================
+   ACTIVITY 3 — SEQUENCE STEPS
+============================== */
+const SEQ_CORRECT=['colors','turtle','loop','pencolor','move'];
+const SEQ_DATA={
+  colors:{code:"colors = ['red','orange','yellow','green','blue','violet']", desc:'Define the list of 6 spiral colours'},
+  turtle:{code:"t = turtle.Turtle()  |  t.speed(0)", desc:'Create the turtle & set max speed'},
+  loop:{code:'for i in range(100):', desc:'Start a loop that runs 100 times'},
+  pencolor:{code:'t.pencolor(colors[i % 6])', desc:'Set colour using loop index'},
+  move:{code:'t.forward(i*2)  |  t.right(91)', desc:'Move forward & turn to grow spiral'},
+};
+let seqOrder=[...SEQ_CORRECT];
+let dragSeqId=null, dragOverSeqId=null;
+
+function shuffleArray(arr){
+  for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
+  return arr;
+}
+
+function initAct3(){
+  seqOrder=shuffleArray([...SEQ_CORRECT]);
+  while(seqOrder.join('')===SEQ_CORRECT.join('')) seqOrder=shuffleArray([...SEQ_CORRECT]);
+  renderSeq();
+}
+
+function renderSeq(){
+  const list=document.getElementById('seq-list');
+  list.innerHTML='';
+  seqOrder.forEach((id,i)=>{
+    const d=SEQ_DATA[id];
+    const div=document.createElement('div');
+    div.className='seq-item'; div.dataset.id=id;
+    div.draggable=true;
+    div.innerHTML=`
+      <span class="seq-handle">⠿</span>
+      <span class="seq-num">${i+1}</span>
+      <div>
+        <div class="seq-code">${d.code}</div>
+        <div class="seq-desc">${d.desc}</div>
+      </div>`;
+    div.addEventListener('dragstart',e=>{
+      dragSeqId=id; div.classList.add('dragging-seq');
+      e.dataTransfer.effectAllowed='move';
+    });
+    div.addEventListener('dragend',()=>{
+      div.classList.remove('dragging-seq');
+      document.querySelectorAll('.seq-item').forEach(x=>x.classList.remove('drag-over-seq'));
+    });
+    div.addEventListener('dragover',e=>{
+      e.preventDefault();
+      document.querySelectorAll('.seq-item').forEach(x=>x.classList.remove('drag-over-seq'));
+      div.classList.add('drag-over-seq');
+      dragOverSeqId=id;
+    });
+    div.addEventListener('drop',e=>{
+      e.preventDefault();
+      div.classList.remove('drag-over-seq');
+      if(dragSeqId && dragOverSeqId && dragSeqId!==dragOverSeqId){
+        const fromIdx=seqOrder.indexOf(dragSeqId);
+        const toIdx=seqOrder.indexOf(dragOverSeqId);
+        seqOrder.splice(fromIdx,1);
+        seqOrder.splice(toIdx,0,dragSeqId);
+        renderSeq();
+      }
+    });
+    list.appendChild(div);
+  });
+}
+
+function checkAct3(){
+  let correct=0;
+  seqOrder.forEach((id,i)=>{ if(id===SEQ_CORRECT[i]) correct++; });
+  document.getElementById('score3-badge').textContent=`Score: ${correct} / 5`;
+  if(correct===5){
+    setFeedback('feedback3','success','🎉 Perfect sequence! Watch the spiral come alive!');
+    drawSpiralPreview(true);
+    launchConfetti();
+  } else {
+    setFeedback('feedback3','error',`${correct}/5 in right position. Think about what must happen before the loop!`);
+    drawSpiralPreview(false);
+  }
+}
+
+function resetAct3(){
+  initAct3();
+  setFeedback('feedback3','neutral','Order the 5 steps then click Check Order.');
+  document.getElementById('score3-badge').textContent='Score: 0 / 5';
+  const sc=document.getElementById('spiral-canvas');
+  const ctx=sc.getContext('2d');
+  ctx.clearRect(0,0,sc.width,sc.height);
+}
+
+/* ---- SPIRAL CANVAS DRAW ---- */
+let spiralAnim=null;
+function drawSpiralPreview(animate=false){
+  const sc=document.getElementById('spiral-canvas');
+  const ctx=sc.getContext('2d');
+  ctx.clearRect(0,0,sc.width,sc.height);
+  if(spiralAnim){cancelAnimationFrame(spiralAnim); spiralAnim=null;}
+  const colors=['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff','#ff6eb4'];
+  const cx=sc.width/2, cy=sc.height/2;
+  let angle=0, step=0, total=80;
+  let x=cx,y=cy;
+
+  if(!animate){
+    // draw static incomplete spiral
+    ctx.lineWidth=1.5;
+    for(let i=0;i<40;i++){
+      ctx.beginPath();
+      ctx.strokeStyle=colors[i%6];
+      ctx.lineWidth=1+i*0.02;
+      const rad=angle*Math.PI/180;
+      const nx=x+Math.cos(rad)*i*2.2;
+      const ny=y+Math.sin(rad)*i*2.2;
+      ctx.moveTo(x,y); ctx.lineTo(nx,ny);
+      ctx.stroke(); x=nx; y=ny; angle+=91;
+    }
+    return;
+  }
+
+  let i=0;
+  function frame(){
+    if(i>=total) return;
+    ctx.beginPath();
+    ctx.strokeStyle=colors[i%6];
+    ctx.lineWidth=1.2+i*0.025;
+    const rad=angle*Math.PI/180;
+    const nx=x+Math.cos(rad)*i*2.2;
+    const ny=y+Math.sin(rad)*i*2.2;
+    ctx.moveTo(x,y); ctx.lineTo(nx,ny);
+    ctx.stroke(); x=nx; y=ny; angle+=91; i++;
+    spiralAnim=requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+/* ---- FEEDBACK HELPER ---- */
+function setFeedback(id,type,msg){
+  const el=document.getElementById(id);
+  el.className=`feedback ${type}`; el.textContent=msg;
+}
+
+/* ---- CONFETTI ---- */
+function launchConfetti(){
+  const colors=['#e040fb','#9c27b0','#f48fb1','#ce93d8','#fff176','#80deea'];
+  for(let i=0;i<40;i++){
+    const div=document.createElement('div');
+    div.style.cssText=`position:fixed;width:8px;height:8px;border-radius:2px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      left:${Math.random()*100}vw;top:-12px;z-index:999;pointer-events:none;
+      animation:confetti-fall ${1.5+Math.random()}s ease-in forwards;`;
+    document.body.appendChild(div);
+    setTimeout(()=>div.remove(),(2+Math.random())*1000);
+  }
+}
+
+// Add confetti animation
+const style=document.createElement('style');
+style.textContent=`@keyframes confetti-fall{
+  0%{transform:translateY(0) rotate(0deg);}
+  100%{transform:translateY(100vh) rotate(${Math.random()>0.5?'':'-'}720deg);opacity:0;}
+}`;
+document.head.appendChild(style);
+
+/* ---- INIT ALL ---- */
+initAct1();
+initAct2();
+initAct3();
+</script>
+</body>
+</html>

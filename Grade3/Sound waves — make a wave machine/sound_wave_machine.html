@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sound Waves — Make a Wave Machine</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Nunito:wght@400;600;700;800&display=swap');
+
+  :root {
+    --violet-deep: #1a0030;
+    --violet-mid: #3b0070;
+    --violet-bright: #7c3aed;
+    --violet-glow: #a855f7;
+    --violet-light: #c084fc;
+    --violet-pale: #e9d5ff;
+    --neon-pink: #f472b6;
+    --neon-cyan: #22d3ee;
+    --neon-gold: #fbbf24;
+    --white: #ffffff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--violet-deep);
+    font-family: 'Nunito', sans-serif;
+    color: var(--white);
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* ── STAR FIELD ── */
+  #starfield {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .star {
+    position: absolute;
+    border-radius: 50%;
+    background: white;
+    animation: twinkle var(--d, 3s) ease-in-out infinite alternate,
+               drift var(--s, 20s) linear infinite;
+    opacity: 0;
+  }
+  @keyframes twinkle {
+    0%   { opacity: 0; transform: scale(0.5); }
+    100% { opacity: 1; transform: scale(1.2); }
+  }
+  @keyframes drift {
+    from { transform: translateY(0) translateX(0); }
+    to   { transform: translateY(-100vh) translateX(30px); }
+  }
+
+  /* ── BIRDS ── */
+  .bird {
+    position: fixed;
+    font-size: 22px;
+    animation: flyBird var(--dur, 12s) linear infinite;
+    top: var(--top, 20%);
+    opacity: 0.7;
+    z-index: 1;
+    pointer-events: none;
+  }
+  @keyframes flyBird {
+    from { left: -60px; transform: scaleX(1); }
+    to   { left: 110vw; transform: scaleX(1); }
+  }
+
+  /* ── CHAIN REACTION PARTICLES ── */
+  #chain-canvas {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    padding: 38px 20px 18px;
+  }
+  header h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(1.6rem, 5vw, 3.2rem);
+    font-weight: 900;
+    background: linear-gradient(90deg, var(--violet-light), var(--neon-cyan), var(--neon-pink), var(--violet-light));
+    background-size: 300% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 4s linear infinite;
+    letter-spacing: 2px;
+    text-shadow: none;
+    filter: drop-shadow(0 0 24px rgba(168,85,247,0.7));
+  }
+  @keyframes shimmer {
+    from { background-position: 0% center; }
+    to   { background-position: 300% center; }
+  }
+
+  /* ── LIVE WAVE VISUALISER (below title) ── */
+  #wave-bar {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 4px;
+    height: 54px;
+    padding: 0 20px 10px;
+  }
+  .wbar {
+    width: 6px;
+    border-radius: 3px 3px 0 0;
+    background: linear-gradient(to top, var(--violet-bright), var(--neon-cyan));
+    box-shadow: 0 0 8px var(--neon-cyan);
+    animation: waveBar var(--wb-d, 0.8s) ease-in-out infinite alternate;
+    transform-origin: bottom;
+  }
+  @keyframes waveBar { from { scaleY(0.2); } to { scaleY(1); } }
+
+  /* ── TABS ── */
+  .tabs {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px 20px 0;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 800;
+    padding: 10px 22px;
+    border: 2px solid var(--violet-glow);
+    border-radius: 40px;
+    background: transparent;
+    color: var(--violet-light);
+    cursor: pointer;
+    transition: all 0.3s;
+    letter-spacing: 0.5px;
+  }
+  .tab-btn:hover, .tab-btn.active {
+    background: linear-gradient(135deg, var(--violet-bright), var(--neon-pink));
+    border-color: var(--neon-pink);
+    color: white;
+    box-shadow: 0 0 20px rgba(244,114,182,0.5);
+    transform: translateY(-2px);
+  }
+
+  /* ── PANELS ── */
+  .panel {
+    display: none;
+    position: relative;
+    z-index: 10;
+    max-width: 900px;
+    margin: 22px auto;
+    padding: 0 16px 40px;
+  }
+  .panel.active { display: block; }
+
+  .panel-card {
+    background: linear-gradient(135deg, rgba(60,0,112,0.7), rgba(26,0,48,0.85));
+    border: 1.5px solid rgba(168,85,247,0.4);
+    border-radius: 24px;
+    padding: 30px 28px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 0 40px rgba(124,58,237,0.25), inset 0 0 30px rgba(168,85,247,0.05);
+  }
+
+  .activity-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    color: var(--neon-cyan);
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+  }
+  .activity-desc {
+    font-size: 0.92rem;
+    color: var(--violet-pale);
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+
+  /* ── ACTIVITY 1: BUILD YOUR WAVE ── */
+  #wave-builder {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .builder-controls {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .slider-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-width: 160px;
+  }
+  .slider-group label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--violet-light);
+    display: flex;
+    justify-content: space-between;
+  }
+  .slider-group label span { color: var(--neon-gold); }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(to right, var(--violet-bright), var(--neon-cyan));
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--neon-pink);
+    box-shadow: 0 0 10px var(--neon-pink);
+    cursor: grab;
+  }
+
+  #wave-canvas {
+    width: 100%;
+    height: 180px;
+    border-radius: 16px;
+    border: 1.5px solid rgba(168,85,247,0.3);
+    background: rgba(10,0,24,0.7);
+  }
+
+  .wave-type-btns {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .wave-type-btn {
+    padding: 8px 18px;
+    border-radius: 30px;
+    border: 2px solid var(--violet-glow);
+    background: transparent;
+    color: var(--violet-light);
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .wave-type-btn.active, .wave-type-btn:hover {
+    background: var(--violet-bright);
+    color: white;
+    box-shadow: 0 0 14px var(--violet-glow);
+  }
+
+  .wave-info-box {
+    background: rgba(124,58,237,0.15);
+    border-left: 4px solid var(--neon-cyan);
+    border-radius: 0 12px 12px 0;
+    padding: 12px 16px;
+    font-size: 0.88rem;
+    color: var(--violet-pale);
+    line-height: 1.5;
+  }
+  .wave-info-box strong { color: var(--neon-cyan); }
+
+  /* ── ACTIVITY 2: DRAG & SORT WAVE PARTS ── */
+  .sort-area {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .sort-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .sort-label {
+    font-size: 0.82rem;
+    color: var(--violet-light);
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  .drag-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 40px;
+    background: linear-gradient(135deg, var(--violet-mid), var(--violet-bright));
+    border: 2px solid var(--violet-glow);
+    color: white;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: grab;
+    user-select: none;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 16px rgba(124,58,237,0.3);
+  }
+  .drag-chip:active { cursor: grabbing; }
+  .drag-chip.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+  }
+  .drag-chip .chip-icon { font-size: 1.2rem; }
+
+  .drop-zone {
+    min-height: 66px;
+    min-width: 150px;
+    flex: 1;
+    border-radius: 16px;
+    border: 2.5px dashed rgba(168,85,247,0.4);
+    background: rgba(26,0,48,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    padding: 8px;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .drop-zone.over {
+    border-color: var(--neon-cyan);
+    background: rgba(34,211,238,0.08);
+    box-shadow: 0 0 20px rgba(34,211,238,0.2);
+  }
+  .drop-zone .zone-label {
+    font-size: 0.75rem;
+    color: rgba(192,132,252,0.6);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+  .drop-zone.correct { border-color: #4ade80; background: rgba(74,222,128,0.08); }
+  .drop-zone.wrong   { border-color: #f87171; background: rgba(248,113,113,0.08); }
+
+  #sort-feedback {
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 700;
+    min-height: 28px;
+    padding: 6px;
+    border-radius: 10px;
+    transition: all 0.3s;
+  }
+  #sort-feedback.correct { color: #4ade80; background: rgba(74,222,128,0.1); }
+  #sort-feedback.wrong   { color: #f87171; background: rgba(248,113,113,0.1); }
+
+  .reset-btn {
+    padding: 10px 26px;
+    border-radius: 30px;
+    border: none;
+    background: linear-gradient(135deg, var(--violet-bright), var(--neon-pink));
+    color: white;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 0.92rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 16px rgba(244,114,182,0.3);
+    display: block;
+    margin: 0 auto;
+  }
+  .reset-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(244,114,182,0.5);
+  }
+
+  /* ── ACTIVITY 3: WAVE TYPES DRAG-MATCH ── */
+  .match-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media(max-width:600px){ .match-grid { grid-template-columns: 1fr; } }
+
+  .match-sources {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .match-targets {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .match-card {
+    padding: 14px 18px;
+    border-radius: 16px;
+    border: 2px solid var(--violet-glow);
+    background: linear-gradient(135deg, rgba(60,0,112,0.6), rgba(26,0,48,0.7));
+    cursor: grab;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .match-card:hover { border-color: var(--neon-pink); transform: translateX(4px); }
+  .match-card.dragging { opacity: 0.4; }
+  .match-card .card-emoji { font-size: 1.8rem; display: block; margin-bottom: 4px; }
+  .match-card .card-name { font-weight: 800; font-size: 0.9rem; color: var(--violet-light); }
+  .match-card .card-hint { font-size: 0.78rem; color: rgba(192,132,252,0.7); margin-top: 2px; }
+
+  .match-drop {
+    min-height: 80px;
+    border-radius: 16px;
+    border: 2.5px dashed rgba(168,85,247,0.35);
+    background: rgba(10,0,24,0.5);
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    gap: 12px;
+    transition: all 0.2s;
+  }
+  .match-drop.over { border-color: var(--neon-gold); background: rgba(251,191,36,0.06); }
+  .match-drop.matched { border-color: #4ade80; background: rgba(74,222,128,0.06); }
+  .match-drop.wrong   { border-color: #f87171; background: rgba(248,113,113,0.06); animation: shake 0.4s; }
+  .match-drop .drop-icon { font-size: 1.6rem; }
+  .match-drop .drop-desc { font-size: 0.82rem; color: var(--violet-pale); line-height: 1.4; }
+  .match-drop .drop-title { font-weight: 800; font-size: 0.88rem; color: var(--neon-cyan); display: block; margin-bottom: 2px; }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25%      { transform: translateX(-8px); }
+    75%      { transform: translateX(8px); }
+  }
+
+  #match-score {
+    text-align: center;
+    margin-top: 16px;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--neon-gold);
+  }
+  #match-score span { color: var(--neon-cyan); font-size: 1.4rem; }
+
+  /* ── SCORE BADGE ── */
+  .score-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, var(--violet-bright), var(--neon-pink));
+    border-radius: 30px;
+    padding: 6px 16px;
+    font-size: 0.85rem;
+    font-weight: 800;
+    box-shadow: 0 4px 14px rgba(124,58,237,0.3);
+    margin-top: 10px;
+  }
+
+  /* ── WAVE DIAGRAM (A1 explanation) ── */
+  .wave-diagram {
+    position: relative;
+    width: 100%;
+    height: 90px;
+    margin: 10px 0;
+  }
+
+  /* ── CONFETTI ── */
+  .confetti-piece {
+    position: fixed;
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 9999;
+    animation: confettiFall 1.8s ease-in forwards;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* ── FOOTER ── */
+  .panel-footer {
+    text-align: center;
+    margin-top: 18px;
+    font-size: 0.78rem;
+    color: rgba(192,132,252,0.45);
+    letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Star Field -->
+<div id="starfield"></div>
+
+<!-- Chain Reaction Canvas -->
+<canvas id="chain-canvas"></canvas>
+
+<!-- Birds -->
+<div class="bird" style="--dur:14s;--top:8%">🦋</div>
+<div class="bird" style="--dur:19s;--top:22%;animation-delay:-6s">🦜</div>
+<div class="bird" style="--dur:11s;--top:55%;animation-delay:-3s">🐦</div>
+<div class="bird" style="--dur:24s;--top:38%;animation-delay:-10s">🦅</div>
+
+<!-- HEADER -->
+<header>
+  <h1>Sound Waves — Make a Wave Machine</h1>
+</header>
+
+<!-- Live Wave Bar -->
+<div id="wave-bar"></div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab(0)">🌊 Build Your Wave</button>
+  <button class="tab-btn" onclick="switchTab(1)">🧩 Sort Wave Parts</button>
+  <button class="tab-btn" onclick="switchTab(2)">🎯 Match Wave Types</button>
+</div>
+
+<!-- ══════════════════════════════════
+     PANEL 1 — BUILD YOUR WAVE
+══════════════════════════════════ -->
+<div class="panel active" id="panel-0">
+  <div class="panel-card">
+    <div class="activity-title">Activity 1 — Build Your Wave</div>
+    <div class="activity-desc">
+      Drag the sliders to shape your sound wave! Change the <strong style="color:var(--neon-cyan)">amplitude</strong> (loudness) and <strong style="color:var(--neon-pink)">frequency</strong> (pitch), then pick a wave type.
+    </div>
+    <div id="wave-builder">
+      <div class="wave-type-btns">
+        <button class="wave-type-btn active" onclick="setWaveType('sine',this)">~ Sine</button>
+        <button class="wave-type-btn" onclick="setWaveType('square',this)">⊓ Square</button>
+        <button class="wave-type-btn" onclick="setWaveType('triangle',this)">∧ Triangle</button>
+        <button class="wave-type-btn" onclick="setWaveType('sawtooth',this)">⟋ Sawtooth</button>
+      </div>
+      <div class="builder-controls">
+        <div class="slider-group">
+          <label>Amplitude (Loudness) <span id="ampVal">60</span></label>
+          <input type="range" id="ampSlider" min="10" max="80" value="60">
+        </div>
+        <div class="slider-group">
+          <label>Frequency (Pitch) <span id="freqVal">2</span></label>
+          <input type="range" id="freqSlider" min="1" max="8" value="2">
+        </div>
+        <div class="slider-group">
+          <label>Speed <span id="speedVal">2</span></label>
+          <input type="range" id="speedSlider" min="1" max="6" value="2">
+        </div>
+      </div>
+      <canvas id="wave-canvas"></canvas>
+      <div class="wave-info-box" id="wave-info-box">
+        <strong>Sine wave</strong> — the purest sound wave! This is the basic shape of a single musical tone. Smooth and continuous.
+      </div>
+    </div>
+  </div>
+  <div class="panel-footer">Drag sliders to explore wave properties</div>
+</div>
+
+<!-- ══════════════════════════════════
+     PANEL 2 — SORT WAVE PARTS
+══════════════════════════════════ -->
+<div class="panel" id="panel-1">
+  <div class="panel-card">
+    <div class="activity-title">Activity 2 — Sort Wave Parts</div>
+    <div class="activity-desc">
+      Drag each wave property chip into its correct category — <strong style="color:var(--neon-cyan)">Compression</strong> (particles close together) or <strong style="color:var(--neon-pink)">Rarefaction</strong> (particles spread apart).
+    </div>
+    <div class="sort-area">
+      <div>
+        <div class="sort-label">🎲 Drag these properties:</div>
+        <div class="sort-row" id="chip-bank">
+          <div class="drag-chip" draggable="true" data-answer="compression" id="chip1">
+            <span class="chip-icon">🔴</span> High pressure
+          </div>
+          <div class="drag-chip" draggable="true" data-answer="rarefaction" id="chip2">
+            <span class="chip-icon">🔵</span> Low pressure
+          </div>
+          <div class="drag-chip" draggable="true" data-answer="compression" id="chip3">
+            <span class="chip-icon">⚡</span> Particles bunched
+          </div>
+          <div class="drag-chip" draggable="true" data-answer="rarefaction" id="chip4">
+            <span class="chip-icon">💨</span> Particles spread
+          </div>
+          <div class="drag-chip" draggable="true" data-answer="compression" id="chip5">
+            <span class="chip-icon">🔊</span> Dense region
+          </div>
+          <div class="drag-chip" draggable="true" data-answer="rarefaction" id="chip6">
+            <span class="chip-icon">🌬️</span> Sparse region
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        <!-- Compression Zone -->
+        <div style="flex:1;min-width:200px;">
+          <div class="sort-label" style="color:var(--neon-cyan)">🔵 COMPRESSION</div>
+          <div class="drop-zone" id="zone-compression" data-type="compression">
+            <div class="zone-label">Drop compression properties here</div>
+          </div>
+        </div>
+        <!-- Rarefaction Zone -->
+        <div style="flex:1;min-width:200px;">
+          <div class="sort-label" style="color:var(--neon-pink)">🌊 RAREFACTION</div>
+          <div class="drop-zone" id="zone-rarefaction" data-type="rarefaction">
+            <div class="zone-label">Drop rarefaction properties here</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="sort-feedback"></div>
+      <button class="reset-btn" onclick="resetSort()">🔄 Reset Activity</button>
+    </div>
+  </div>
+  <div class="panel-footer">All 6 chips must be sorted correctly to win!</div>
+</div>
+
+<!-- ══════════════════════════════════
+     PANEL 3 — MATCH WAVE TYPES
+══════════════════════════════════ -->
+<div class="panel" id="panel-2">
+  <div class="panel-card">
+    <div class="activity-title">Activity 3 — Match Wave Types</div>
+    <div class="activity-desc">
+      Drag each wave card to its correct description on the right. Match all 4 to complete the challenge!
+    </div>
+
+    <div class="match-grid">
+      <!-- Source cards -->
+      <div class="match-sources" id="match-source">
+        <div class="match-card" draggable="true" id="mc-longitudinal" data-key="longitudinal">
+          <span class="card-emoji">〰️</span>
+          <div class="card-name">Longitudinal Wave</div>
+          <div class="card-hint">Particles move parallel to wave</div>
+        </div>
+        <div class="match-card" draggable="true" id="mc-transverse" data-key="transverse">
+          <span class="card-emoji">🌊</span>
+          <div class="card-name">Transverse Wave</div>
+          <div class="card-hint">Particles move perpendicular</div>
+        </div>
+        <div class="match-card" draggable="true" id="mc-standing" data-key="standing">
+          <span class="card-emoji">🎵</span>
+          <div class="card-name">Standing Wave</div>
+          <div class="card-hint">Nodes and antinodes</div>
+        </div>
+        <div class="match-card" draggable="true" id="mc-shock" data-key="shock">
+          <span class="card-emoji">💥</span>
+          <div class="card-name">Shock Wave</div>
+          <div class="card-hint">Supersonic speed</div>
+        </div>
+      </div>
+
+      <!-- Drop targets -->
+      <div class="match-targets" id="match-targets">
+        <div class="match-drop" data-key="longitudinal">
+          <div class="drop-icon">🔊</div>
+          <div class="drop-desc">
+            <span class="drop-title">Like sound in air</span>
+            Compressions and rarefactions travel in the same direction as energy.
+          </div>
+        </div>
+        <div class="match-drop" data-key="transverse">
+          <div class="drop-icon">💡</div>
+          <div class="drop-desc">
+            <span class="drop-title">Like light waves</span>
+            Vibrations are at right angles to the direction of travel.
+          </div>
+        </div>
+        <div class="match-drop" data-key="standing">
+          <div class="drop-icon">🎸</div>
+          <div class="drop-desc">
+            <span class="drop-title">Like a guitar string</span>
+            Two waves cancel to create stationary points called nodes.
+          </div>
+        </div>
+        <div class="match-drop" data-key="shock">
+          <div class="drop-icon">✈️</div>
+          <div class="drop-desc">
+            <span class="drop-title">Like a sonic boom</span>
+            Created when an object travels faster than sound.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="match-score">Matched: <span id="match-count">0</span> / 4</div>
+    <div style="text-align:center;margin-top:12px">
+      <button class="reset-btn" onclick="resetMatch()">🔄 Reset Activity</button>
+    </div>
+  </div>
+  <div class="panel-footer">Drag each wave card to its matching description</div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════
+   STARS
+═══════════════════════════════════════ */
+(function spawnStars(){
+  const sf = document.getElementById('starfield');
+  for(let i=0;i<90;i++){
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = Math.random()*3+1;
+    s.style.cssText = `
+      width:${sz}px;height:${sz}px;
+      left:${Math.random()*100}%;
+      top:${Math.random()*100}%;
+      --d:${(Math.random()*3+1).toFixed(1)}s;
+      --s:${(Math.random()*25+10).toFixed(1)}s;
+      animation-delay:${(-Math.random()*20).toFixed(1)}s;
+    `;
+    sf.appendChild(s);
+  }
+})();
+
+/* ═══════════════════════════════════════
+   CHAIN REACTION CANVAS
+═══════════════════════════════════════ */
+(function chainReaction(){
+  const canvas = document.getElementById('chain-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  window.addEventListener('resize',()=>{
+    canvas.width=window.innerWidth;
+    canvas.height=window.innerHeight;
+  });
+  const nodes=[];
+  const MAX=26;
+  for(let i=0;i<MAX;i++){
+    nodes.push({
+      x:Math.random()*canvas.width,
+      y:Math.random()*canvas.height,
+      vx:(Math.random()-0.5)*0.4,
+      vy:(Math.random()-0.5)*0.4,
+      r:Math.random()*3+2,
+      pulse:Math.random()*Math.PI*2
+    });
+  }
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    nodes.forEach(n=>{
+      n.x+=n.vx; n.y+=n.vy; n.pulse+=0.04;
+      if(n.x<0||n.x>canvas.width) n.vx*=-1;
+      if(n.y<0||n.y>canvas.height) n.vy*=-1;
+      const glow = Math.abs(Math.sin(n.pulse));
+      ctx.beginPath();
+      ctx.arc(n.x,n.y,n.r+glow*3,0,Math.PI*2);
+      ctx.fillStyle=`rgba(168,85,247,${0.3+glow*0.5})`;
+      ctx.fill();
+    });
+    // Connect close nodes
+    for(let i=0;i<nodes.length;i++){
+      for(let j=i+1;j<nodes.length;j++){
+        const dx=nodes[i].x-nodes[j].x;
+        const dy=nodes[i].y-nodes[j].y;
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        if(dist<160){
+          const alpha=1-dist/160;
+          ctx.beginPath();
+          ctx.moveTo(nodes[i].x,nodes[i].y);
+          ctx.lineTo(nodes[j].x,nodes[j].y);
+          ctx.strokeStyle=`rgba(124,58,237,${alpha*0.25})`;
+          ctx.lineWidth=1;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ═══════════════════════════════════════
+   WAVE BAR VISUALISER
+═══════════════════════════════════════ */
+(function waveBar(){
+  const bar = document.getElementById('wave-bar');
+  for(let i=0;i<38;i++){
+    const b=document.createElement('div');
+    b.className='wbar';
+    const h=Math.sin(i*0.4)*30+35;
+    b.style.cssText=`height:${h}px;--wb-d:${(0.5+Math.random()*0.8).toFixed(2)}s;animation-delay:${(i*0.06).toFixed(2)}s;`;
+    bar.appendChild(b);
+  }
+  // Animate them with JS
+  const bars = bar.querySelectorAll('.wbar');
+  let t=0;
+  setInterval(()=>{
+    t+=0.07;
+    bars.forEach((b,i)=>{
+      const h = Math.abs(Math.sin(t+i*0.28))*55+8;
+      b.style.height=h+'px';
+    });
+  },40);
+})();
+
+/* ═══════════════════════════════════════
+   TABS
+═══════════════════════════════════════ */
+function switchTab(idx){
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',i===idx));
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
+}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 1 — WAVE BUILDER
+═══════════════════════════════════════ */
+const waveCanvas = document.getElementById('wave-canvas');
+const wctx = waveCanvas.getContext('2d');
+let waveAmp=60, waveFreq=2, waveSpeed=2, wavePhase=0, waveType='sine';
+const waveInfos = {
+  sine: '<strong>Sine wave</strong> — the purest sound wave! This is the basic shape of a single musical tone. Smooth and continuous.',
+  square: '<strong>Square wave</strong> — jumps sharply between high and low. Sounds buzzy — like old video game music!',
+  triangle: '<strong>Triangle wave</strong> — softer than square, has a hollow, flute-like quality.',
+  sawtooth: '<strong>Sawtooth wave</strong> — rises slowly, drops sharply. Rich in harmonics, like a violin or brass instrument.'
+};
+
+function resizeWaveCanvas(){
+  const r=waveCanvas.parentElement.getBoundingClientRect();
+  waveCanvas.width=r.width-2;
+  waveCanvas.height=180;
+}
+resizeWaveCanvas();
+window.addEventListener('resize',resizeWaveCanvas);
+
+function drawWave(){
+  const W=waveCanvas.width, H=waveCanvas.height;
+  wctx.clearRect(0,0,W,H);
+  // Grid
+  wctx.strokeStyle='rgba(124,58,237,0.18)';
+  wctx.lineWidth=1;
+  for(let y=0;y<H;y+=30){ wctx.beginPath();wctx.moveTo(0,y);wctx.lineTo(W,y);wctx.stroke(); }
+  for(let x=0;x<W;x+=50){ wctx.beginPath();wctx.moveTo(x,0);wctx.lineTo(x,H);wctx.stroke(); }
+  // Centre line
+  wctx.strokeStyle='rgba(168,85,247,0.3)';
+  wctx.setLineDash([6,4]);
+  wctx.beginPath();wctx.moveTo(0,H/2);wctx.lineTo(W,H/2);wctx.stroke();
+  wctx.setLineDash([]);
+  // Wave gradient
+  const grad = wctx.createLinearGradient(0,0,W,0);
+  grad.addColorStop(0,'#7c3aed');
+  grad.addColorStop(0.5,'#22d3ee');
+  grad.addColorStop(1,'#f472b6');
+  wctx.strokeStyle=grad;
+  wctx.lineWidth=3;
+  wctx.shadowColor='#a855f7';
+  wctx.shadowBlur=12;
+  wctx.beginPath();
+  for(let x=0;x<=W;x++){
+    const t = (x/W)*(Math.PI*2*waveFreq) + wavePhase;
+    let y;
+    if(waveType==='sine')      y = Math.sin(t);
+    else if(waveType==='square')  y = Math.sign(Math.sin(t));
+    else if(waveType==='triangle') y = (2/Math.PI)*Math.asin(Math.sin(t));
+    else if(waveType==='sawtooth') y = (t%(2*Math.PI))/Math.PI - 1;
+    const py = H/2 + y*waveAmp;
+    x===0 ? wctx.moveTo(x,py) : wctx.lineTo(x,py);
+  }
+  wctx.stroke();
+  wctx.shadowBlur=0;
+  // Labels
+  wctx.fillStyle='rgba(192,132,252,0.6)';
+  wctx.font='10px Nunito';
+  wctx.fillText('Crest',6,H/2-waveAmp-6);
+  wctx.fillText('Trough',6,H/2+waveAmp+14);
+}
+
+function animateWave(){
+  wavePhase += waveSpeed*0.025;
+  drawWave();
+  requestAnimationFrame(animateWave);
+}
+animateWave();
+
+document.getElementById('ampSlider').addEventListener('input',function(){
+  waveAmp=+this.value;
+  document.getElementById('ampVal').textContent=this.value;
+});
+document.getElementById('freqSlider').addEventListener('input',function(){
+  waveFreq=+this.value;
+  document.getElementById('freqVal').textContent=this.value;
+});
+document.getElementById('speedSlider').addEventListener('input',function(){
+  waveSpeed=+this.value;
+  document.getElementById('speedVal').textContent=this.value;
+});
+
+function setWaveType(type,btn){
+  waveType=type;
+  document.querySelectorAll('.wave-type-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('wave-info-box').innerHTML=waveInfos[type];
+}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 2 — SORT WAVE PARTS
+═══════════════════════════════════════ */
+let draggedChip=null;
+let sortedCount=0;
+
+function initSort(){
+  document.querySelectorAll('.drag-chip').forEach(chip=>{
+    chip.addEventListener('dragstart',e=>{
+      draggedChip=chip;
+      chip.classList.add('dragging');
+      e.dataTransfer.effectAllowed='move';
+    });
+    chip.addEventListener('dragend',()=>chip.classList.remove('dragging'));
+  });
+  document.querySelectorAll('.drop-zone').forEach(zone=>{
+    zone.addEventListener('dragover',e=>{
+      e.preventDefault();
+      zone.classList.add('over');
+    });
+    zone.addEventListener('dragleave',()=>zone.classList.remove('over'));
+    zone.addEventListener('drop',e=>{
+      e.preventDefault();
+      zone.classList.remove('over');
+      if(!draggedChip) return;
+      const correct = draggedChip.dataset.answer === zone.dataset.type;
+      zone.appendChild(draggedChip);
+      draggedChip.style.cursor='default';
+      draggedChip.setAttribute('draggable','false');
+      if(correct){
+        draggedChip.style.background='linear-gradient(135deg,#064e3b,#065f46)';
+        draggedChip.style.borderColor='#4ade80';
+        sortedCount++;
+      } else {
+        draggedChip.style.background='linear-gradient(135deg,#7f1d1d,#991b1b)';
+        draggedChip.style.borderColor='#f87171';
+      }
+      draggedChip=null;
+      checkSort();
+    });
+  });
+}
+initSort();
+
+function checkSort(){
+  const total=document.querySelectorAll('.drag-chip').length;
+  const placed=total-document.querySelectorAll('#chip-bank .drag-chip').length;
+  const fb=document.getElementById('sort-feedback');
+  if(placed===total){
+    if(sortedCount===total){
+      fb.textContent='🎉 Perfect! All sorted correctly!';
+      fb.className='correct';
+      confetti();
+    } else {
+      fb.textContent=`❌ ${sortedCount}/${total} correct. Try resetting!`;
+      fb.className='wrong';
+    }
+  } else {
+    fb.textContent=`${placed}/${total} placed…`;
+    fb.className='';
+  }
+}
+
+function resetSort(){
+  const bank=document.getElementById('chip-bank');
+  document.querySelectorAll('.drag-chip').forEach(c=>{
+    c.style.background='';
+    c.style.borderColor='';
+    c.style.cursor='grab';
+    c.setAttribute('draggable','true');
+    bank.appendChild(c);
+  });
+  document.querySelectorAll('.drop-zone .zone-label').forEach(l=>l.style.display='');
+  sortedCount=0;
+  const fb=document.getElementById('sort-feedback');
+  fb.textContent='';fb.className='';
+}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 3 — MATCH WAVE TYPES
+═══════════════════════════════════════ */
+let matchDrag=null, matchScore=0;
+
+function initMatch(){
+  document.querySelectorAll('.match-card').forEach(card=>{
+    card.addEventListener('dragstart',e=>{
+      matchDrag=card;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed='move';
+    });
+    card.addEventListener('dragend',()=>card.classList.remove('dragging'));
+  });
+  document.querySelectorAll('.match-drop').forEach(drop=>{
+    drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
+    drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+    drop.addEventListener('drop',e=>{
+      e.preventDefault();
+      drop.classList.remove('over');
+      if(!matchDrag||drop.classList.contains('matched')) return;
+      const correct = matchDrag.dataset.key === drop.dataset.key;
+      if(correct){
+        drop.classList.add('matched');
+        const inner = drop.innerHTML;
+        drop.innerHTML = `<div style="display:flex;align-items:center;gap:12px;">${drop.querySelector('.drop-icon').outerHTML}<div>${drop.querySelector('.drop-desc').innerHTML}</div><span style="margin-left:auto;font-size:1.4rem">✅</span></div>`;
+        matchDrag.style.opacity='0.3';
+        matchDrag.setAttribute('draggable','false');
+        matchScore++;
+        document.getElementById('match-count').textContent=matchScore;
+        if(matchScore===4){
+          setTimeout(()=>{
+            confetti();
+            document.getElementById('match-score').innerHTML='🏆 All matched! You\'re a wave expert! <span>4</span>/4';
+          },200);
+        }
+      } else {
+        drop.classList.add('wrong');
+        setTimeout(()=>drop.classList.remove('wrong'),500);
+      }
+      matchDrag=null;
+    });
+  });
+}
+initMatch();
+
+function resetMatch(){
+  matchScore=0;
+  document.getElementById('match-count').textContent=0;
+  document.getElementById('match-score').innerHTML='Matched: <span id="match-count">0</span> / 4';
+  const src=document.getElementById('match-source');
+  document.querySelectorAll('.match-card').forEach(c=>{
+    c.style.opacity='';
+    c.setAttribute('draggable','true');
+    src.appendChild(c);
+  });
+  document.querySelectorAll('.match-drop').forEach(d=>{
+    d.className='match-drop';
+    const key=d.dataset.key;
+    const icons={'longitudinal':'🔊','transverse':'💡','standing':'🎸','shock':'✈️'};
+    const titles={'longitudinal':'Like sound in air','transverse':'Like light waves','standing':'Like a guitar string','shock':'Like a sonic boom'};
+    const descs={
+      'longitudinal':'Compressions and rarefactions travel in the same direction as energy.',
+      'transverse':'Vibrations are at right angles to the direction of travel.',
+      'standing':'Two waves cancel to create stationary points called nodes.',
+      'shock':'Created when an object travels faster than sound.'
+    };
+    d.innerHTML=`<div class="drop-icon">${icons[key]}</div><div class="drop-desc"><span class="drop-title">${titles[key]}</span>${descs[key]}</div>`;
+  });
+}
+
+/* ═══════════════════════════════════════
+   CONFETTI
+═══════════════════════════════════════ */
+function confetti(){
+  const colors=['#a855f7','#f472b6','#22d3ee','#fbbf24','#4ade80','#fb923c'];
+  for(let i=0;i<60;i++){
+    const c=document.createElement('div');
+    c.className='confetti-piece';
+    c.style.cssText=`
+      left:${Math.random()*100}vw;
+      top:-20px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-delay:${(Math.random()*0.8).toFixed(2)}s;
+      animation-duration:${(1.4+Math.random()*1).toFixed(2)}s;
+      width:${6+Math.random()*8}px;
+      height:${6+Math.random()*8}px;
+      border-radius:${Math.random()>0.5?'50%':'2px'};
+    `;
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(),3000);
+  }
+}
+</script>
+</body>
+</html>

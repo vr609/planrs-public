@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Thermistor Circuit — Temperature-Sensitive Switch</title>
+<link href="https://fonts.googleapis.com/css2?family=Pirata+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+/* ═══════════════════════════════════════
+   ROOT & RESET
+═══════════════════════════════════════ */
+:root{
+  --ocean1:#0a3d6b; --ocean2:#0e5c99; --ocean3:#1a7abf;
+  --sky1:#1a3a5c;   --sky2:#2d6a9f;   --sky3:#5ba3d9;
+  --sand:#e8c97a;   --sand2:#d4a843;  --sand3:#b8883a;
+  --gold:#FFD700;   --amber:#FF8C00;  --red:#cc2200;
+  --green:#2a7a3a;  --teal:#00b4cc;   --white:#fffdf0;
+  --card:rgba(255,245,200,0.10);
+  --border:rgba(255,215,100,0.30);
+  --parchment:#f5e6c0;
+  --ink:#3a2000;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;
+  font-family:'Nunito',sans-serif;background:var(--sky1);}
+
+/* ═══════════════════════════════════════
+   ANIMATED SKY + OCEAN BG
+═══════════════════════════════════════ */
+#bg-sky{
+  position:fixed;inset:0;z-index:0;
+  background:linear-gradient(180deg,
+    #0a1f3c 0%,#0d2d54 20%,#133d70 38%,
+    #1a5490 52%,#0e7abf 65%,#0f8fd4 72%,
+    #0a6ea8 82%,#084d80 92%,#063558 100%);
+  animation:skyBreath 10s ease-in-out infinite alternate;
+}
+@keyframes skyBreath{from{filter:brightness(1);}to{filter:brightness(1.1);}}
+
+#stars-canvas{position:fixed;inset:0;z-index:1;pointer-events:none;}
+#wave-canvas{position:fixed;bottom:0;left:0;width:100%;z-index:2;pointer-events:none;}
+#particle-canvas{position:fixed;inset:0;z-index:3;pointer-events:none;}
+
+/* ── ISLAND / PALM ── */
+.island{position:fixed;bottom:0;z-index:4;pointer-events:none;}
+.palm{position:fixed;bottom:0;z-index:5;pointer-events:none;
+  font-size:clamp(40px,6vw,72px);
+  animation:palmSway 3s ease-in-out infinite alternate;
+  filter:drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+}
+@keyframes palmSway{from{transform:rotate(-4deg) translateY(0);}to{transform:rotate(4deg) translateY(-3px);}}
+
+/* ── SHIP ── */
+.ship{position:fixed;z-index:4;pointer-events:none;
+  font-size:clamp(30px,4vw,52px);
+  animation:shipSail linear infinite;
+  filter:drop-shadow(0 6px 12px rgba(0,0,0,0.5));
+}
+@keyframes shipSail{
+  0%{transform:translateX(-120px) translateY(0);}
+  50%{transform:translateX(50vw) translateY(-8px);}
+  100%{transform:translateX(calc(100vw + 120px)) translateY(0);}
+}
+
+/* ── PARROT ── */
+.parrot{position:fixed;z-index:6;pointer-events:none;
+  font-size:clamp(22px,3vw,36px);
+  animation:parrotFly linear infinite;
+  filter:drop-shadow(0 3px 6px rgba(0,0,0,0.4));
+}
+@keyframes parrotFly{
+  0%{transform:translateX(-80px) translateY(0) scaleX(-1);}
+  40%{transform:translateX(40vw) translateY(-20px) scaleX(-1);}
+  60%{transform:translateX(60vw) translateY(-15px) scaleX(1);}
+  100%{transform:translateX(calc(100vw + 80px)) translateY(0) scaleX(1);}
+}
+
+/* ── CLOUD ── */
+.cloud{position:fixed;z-index:3;pointer-events:none;opacity:0.5;
+  animation:cloudDrift linear infinite;font-size:clamp(24px,4vw,52px);}
+@keyframes cloudDrift{
+  from{transform:translateX(-160px);}
+  to{transform:translateX(calc(100vw + 160px));}
+}
+
+/* ═══════════════════════════════════════
+   APP SHELL
+═══════════════════════════════════════ */
+#app{
+  position:relative;z-index:10;
+  width:100%;height:100vh;
+  display:flex;flex-direction:column;
+  align-items:center;padding:5px 8px 5px;gap:4px;
+}
+
+/* ═══════════════════════════════════════
+   HEADER
+═══════════════════════════════════════ */
+#header{text-align:center;}
+#header h1{
+  font-family:'Pirata One',cursive;
+  font-size:clamp(13px,2.2vw,24px);
+  color:var(--gold);
+  text-shadow:0 0 18px rgba(255,180,0,0.7),0 2px 5px rgba(0,0,0,0.9),
+    2px 2px 0 #8B4513;
+  letter-spacing:0.5px;
+  animation:titleGlow 3s ease-in-out infinite alternate;
+}
+@keyframes titleGlow{
+  from{text-shadow:0 0 10px rgba(255,180,0,0.5),0 2px 5px rgba(0,0,0,0.9),2px 2px 0 #8B4513;}
+  to{text-shadow:0 0 28px rgba(255,220,0,1),0 0 50px rgba(255,120,0,0.5),0 2px 5px rgba(0,0,0,0.9),2px 2px 0 #8B4513;}
+}
+#header .subtitle{
+  font-size:clamp(8px,1.1vw,11px);
+  color:rgba(255,220,150,0.75);font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;margin-top:1px;
+}
+
+/* ═══════════════════════════════════════
+   PROGRESS DOTS
+═══════════════════════════════════════ */
+#progress{display:flex;align-items:center;gap:5px;}
+.pdot{
+  width:26px;height:26px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Pirata One',cursive;font-size:12px;
+  border:2px solid rgba(255,215,100,0.35);transition:all 0.4s;
+}
+.pdot.inactive{background:rgba(255,255,255,0.07);color:rgba(255,215,100,0.35);}
+.pdot.active{
+  background:linear-gradient(135deg,#cc7700,#FFD700);color:#1a0a00;
+  box-shadow:0 0 12px rgba(255,200,0,0.7);
+  animation:dotPulse 1.5s ease-in-out infinite;
+}
+.pdot.done{background:linear-gradient(135deg,#2a7a3a,#5CB85C);color:#fff;border-color:transparent;}
+@keyframes dotPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.15);}}
+.pline{width:20px;height:2px;background:rgba(255,215,100,0.18);border-radius:2px;}
+
+/* ═══════════════════════════════════════
+   PANEL (parchment style)
+═══════════════════════════════════════ */
+#panel{
+  width:100%;max-width:980px;flex:1;min-height:0;
+  background:rgba(18,8,2,0.80);
+  backdrop-filter:blur(18px);
+  border-radius:18px;
+  border:2px solid rgba(180,120,30,0.45);
+  box-shadow:0 0 50px rgba(180,100,0,0.2),inset 0 1px 0 rgba(255,215,100,0.10);
+  overflow:hidden;position:relative;
+  display:flex;flex-direction:column;
+}
+#panel::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,#cc7700,#FFD700,#cc2200,#FFD700,#00b4cc,#FFD700,#cc7700);
+  background-size:300%;animation:goldenLine 4s linear infinite;
+}
+@keyframes goldenLine{0%{background-position:0%;}100%{background-position:300%;}}
+
+/* ═══════════════════════════════════════
+   ACTIVITY SCREENS
+═══════════════════════════════════════ */
+.ascreen{display:none;flex-direction:column;gap:5px;padding:9px 13px 7px;flex:1;min-height:0;}
+.ascreen.active{display:flex;}
+
+.atitle{
+  font-family:'Pirata One',cursive;
+  font-size:clamp(12px,1.8vw,18px);
+  color:var(--gold);
+  display:flex;align-items:center;gap:7px;
+  text-shadow:0 0 8px rgba(255,180,0,0.4);
+}
+.abadge{
+  background:linear-gradient(135deg,#cc7700,#FFD700);
+  color:#1a0800;font-size:8px;padding:2px 7px;
+  border-radius:20px;font-family:'Nunito',sans-serif;
+  font-weight:900;letter-spacing:1px;text-transform:uppercase;
+}
+.ainstr{
+  font-size:clamp(8px,1.1vw,11px);
+  color:rgba(255,220,160,0.88);font-weight:700;line-height:1.4;
+  background:rgba(180,100,0,0.15);
+  border-radius:9px;padding:5px 10px;
+  border-left:3px solid var(--amber);
+}
+
+/* ═══════════════════════════════════════
+   DRAG CARDS
+═══════════════════════════════════════ */
+.card-bank{
+  display:flex;flex-wrap:wrap;gap:5px;padding:5px 7px;
+  background:rgba(255,255,255,0.04);border-radius:9px;
+  border:1.5px dashed rgba(255,215,100,0.22);
+  min-height:38px;align-items:center;
+}
+.dcard{
+  padding:5px 11px;border-radius:9px;
+  font-family:'Nunito',sans-serif;font-size:clamp(9px,1.3vw,12px);font-weight:800;
+  cursor:grab;user-select:none;
+  transition:transform 0.14s,box-shadow 0.14s,opacity 0.18s;
+  border:1.5px solid rgba(255,255,255,0.18);
+  box-shadow:0 3px 10px rgba(0,0,0,0.4);
+  white-space:nowrap;color:#fff;
+}
+.dcard:hover{transform:scale(1.07) rotate(-1.5deg);box-shadow:0 5px 16px rgba(255,180,0,0.35);}
+.dcard.dragging{opacity:0.3;cursor:grabbing;}
+.dcard.placed{opacity:0.22;pointer-events:none;}
+
+/* ═══════════════════════════════════════
+   DROP SLOTS
+═══════════════════════════════════════ */
+.dslot{
+  border-radius:9px;border:1.5px dashed rgba(255,200,100,0.38);
+  background:rgba(255,255,255,0.04);
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.2s;position:relative;min-height:34px;
+}
+.dslot.over{background:rgba(255,160,0,0.14);border-color:#FFD700;
+  box-shadow:0 0 12px rgba(255,200,0,0.3);}
+.dslot.correct{background:rgba(42,122,58,0.22);border-color:#5CB85C;
+  animation:slotPop 0.4s ease;}
+.dslot.wrong{animation:slotShake 0.35s ease;}
+.slot-hint{font-size:clamp(7px,0.9vw,9px);color:rgba(255,215,100,0.38);
+  font-weight:700;pointer-events:none;text-align:center;padding:0 3px;letter-spacing:0.2px;}
+@keyframes slotPop{0%{transform:scale(1);}50%{transform:scale(1.05);}100%{transform:scale(1);}}
+@keyframes slotShake{0%,100%{transform:translateX(0);}33%{transform:translateX(-7px);}66%{transform:translateX(7px);}}
+
+.slot-chip{
+  padding:4px 9px;border-radius:7px;
+  font-family:'Nunito',sans-serif;font-size:clamp(9px,1.2vw,12px);font-weight:800;
+  color:#fff;box-shadow:0 2px 7px rgba(0,0,0,0.35);
+  animation:chipLand 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  pointer-events:none;white-space:nowrap;
+}
+@keyframes chipLand{from{transform:scale(0.4) rotate(-8deg);opacity:0;}to{transform:scale(1);opacity:1;}}
+
+/* ═══════════════════════════════════════
+   FEEDBACK & BUTTONS
+═══════════════════════════════════════ */
+.feedback{
+  min-height:20px;font-size:clamp(8px,1.1vw,11px);
+  font-weight:800;text-align:center;padding:3px 9px;border-radius:7px;transition:all 0.3s;
+}
+.feedback.ok{background:rgba(42,122,58,0.25);color:#5CB85C;}
+.feedback.err{background:rgba(180,30,0,0.25);color:#FF6B6B;}
+
+.action-row{display:flex;gap:7px;justify-content:center;align-items:center;margin-top:1px;}
+.btn{
+  padding:6px 18px;font-family:'Pirata One',cursive;
+  font-size:clamp(10px,1.4vw,13px);color:#1a0800;
+  cursor:pointer;border:none;border-radius:28px;
+  background:linear-gradient(135deg,#cc7700,#FFD700);
+  box-shadow:0 4px 14px rgba(255,180,0,0.35);
+  transition:transform 0.14s,box-shadow 0.14s;letter-spacing:0.3px;
+}
+.btn:hover{transform:scale(1.05);box-shadow:0 6px 20px rgba(255,200,0,0.55);}
+.btn:active{transform:scale(0.97);}
+.btn.reset{background:linear-gradient(135deg,#2a1a00,#5a3800);color:rgba(255,220,150,0.88);
+  box-shadow:0 4px 10px rgba(0,0,0,0.4);}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 1 — CIRCUIT BOARD
+═══════════════════════════════════════ */
+.circuit-board{
+  background:rgba(0,25,10,0.55);border-radius:13px;
+  border:1.5px solid rgba(0,200,120,0.22);
+  padding:7px;display:flex;flex-direction:column;gap:5px;flex:1;
+}
+.circuit-board-title{
+  font-family:'Pirata One',cursive;font-size:clamp(9px,1.2vw,12px);
+  color:rgba(100,220,140,0.80);letter-spacing:0.4px;text-align:center;
+}
+.circuit-slots-row{
+  display:flex;gap:8px;justify-content:space-around;
+  align-items:flex-start;flex-wrap:wrap;
+}
+.circuit-slot-wrap{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.circuit-slot-label{
+  font-size:clamp(6px,0.85vw,9px);color:rgba(255,220,150,0.55);
+  font-weight:700;text-transform:uppercase;letter-spacing:0.4px;text-align:center;
+}
+.circuit-slot{width:clamp(68px,8.5vw,92px);height:clamp(46px,5.5vw,58px);}
+
+.wire-row{display:flex;align-items:center;justify-content:center;gap:0;padding:0 8px;}
+.wire{height:2px;flex:1;
+  background:linear-gradient(90deg,rgba(0,200,120,0.3),rgba(0,200,120,0.65),rgba(0,200,120,0.3));}
+.wire-dot{width:5px;height:5px;border-radius:50%;background:#00b4cc;
+  box-shadow:0 0 5px #00b4cc;}
+
+/* LED result */
+.led-result-row{
+  display:flex;align-items:center;justify-content:center;gap:10px;margin-top:2px;
+}
+.led-bulb{
+  width:clamp(32px,4vw,46px);height:clamp(32px,4vw,46px);border-radius:50%;
+  border:2.5px solid rgba(255,255,255,0.15);
+  display:flex;align-items:center;justify-content:center;
+  font-size:clamp(16px,2.2vw,24px);transition:all 0.5s;
+}
+.led-bulb.off{background:rgba(80,80,80,0.25);box-shadow:none;}
+.led-bulb.on{
+  background:radial-gradient(circle,#FFF8DC,#FFD700,#FF8C00);
+  box-shadow:0 0 22px rgba(255,200,0,0.85),0 0 45px rgba(255,140,0,0.4);
+  animation:ledBlink 1s ease-in-out infinite alternate;
+}
+.led-bulb.dim{
+  background:radial-gradient(circle,#fde68a,#f59e0b,#b45309);
+  box-shadow:0 0 10px rgba(255,160,0,0.5);
+}
+.led-bulb.bright{
+  background:radial-gradient(circle,#ffffff,#FFD700,#FF8C00);
+  box-shadow:0 0 35px rgba(255,220,0,1),0 0 70px rgba(255,140,0,0.6);
+  animation:ledBrightPulse 0.6s ease-in-out infinite alternate;
+}
+@keyframes ledBlink{from{box-shadow:0 0 18px rgba(255,200,0,0.7);}to{box-shadow:0 0 32px rgba(255,200,0,1),0 0 55px rgba(255,140,0,0.5);}}
+@keyframes ledBrightPulse{from{box-shadow:0 0 28px rgba(255,220,0,0.9),0 0 55px rgba(255,140,0,0.4);}to{box-shadow:0 0 55px rgba(255,255,100,1),0 0 100px rgba(255,180,0,0.7);}}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 2 — THERMISTOR SENSING
+═══════════════════════════════════════ */
+.act2-layout{display:flex;gap:8px;flex:1;min-height:0;flex-wrap:wrap;}
+
+.thermo-scene{
+  flex:1.2;min-width:190px;
+  background:rgba(0,15,30,0.65);border-radius:13px;
+  border:1.5px solid rgba(0,180,200,0.22);
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:6px;padding:8px;position:relative;overflow:hidden;
+}
+.thermo-mascot{
+  font-size:clamp(30px,4vw,46px);
+  animation:thermoBob 2s ease-in-out infinite;
+  filter:drop-shadow(0 0 10px rgba(255,100,0,0.4));
+  transition:filter 0.5s;
+}
+.thermo-mascot.hot{filter:drop-shadow(0 0 18px rgba(255,80,0,0.8));}
+.thermo-mascot.cold{filter:drop-shadow(0 0 12px rgba(100,180,255,0.6));}
+@keyframes thermoBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-7px);}}
+
+.thermo-label{font-family:'Pirata One',cursive;font-size:clamp(10px,1.3vw,13px);
+  color:#00b4cc;text-shadow:0 0 6px rgba(0,180,200,0.5);}
+.thermo-status{font-size:clamp(8px,1vw,10px);font-weight:800;
+  padding:3px 9px;border-radius:7px;text-align:center;transition:all 0.4s;}
+.thermo-status.warm{background:rgba(255,100,0,0.25);color:#ff8c00;}
+.thermo-status.hot{background:rgba(220,30,0,0.3);color:#ff4400;
+  animation:statusPulse 0.6s ease-in-out infinite alternate;}
+.thermo-status.cool{background:rgba(0,100,200,0.25);color:#5bb4ff;}
+@keyframes statusPulse{from{box-shadow:0 0 0 rgba(255,80,0,0);}to{box-shadow:0 0 10px rgba(255,80,0,0.5);}}
+
+/* thermometer visual */
+.thermo-bar-wrap{
+  width:clamp(20px,2.5vw,28px);height:clamp(55px,7vw,80px);
+  background:rgba(255,255,255,0.1);border-radius:20px;
+  border:1.5px solid rgba(255,255,255,0.2);
+  overflow:hidden;position:relative;display:flex;align-items:flex-end;
+}
+.thermo-fill{
+  width:100%;background:linear-gradient(0deg,#cc2200,#ff8c00);
+  border-radius:20px;transition:height 0.6s ease;
+}
+
+.drop-card-slot{
+  flex:1;border-radius:9px;
+  border:1.5px dashed rgba(255,215,100,0.28);
+  background:rgba(255,255,255,0.03);
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:3px;
+  transition:all 0.2s;min-height:46px;
+}
+.drop-card-slot.over{background:rgba(255,160,0,0.12);border-color:#FFD700;}
+.drop-card-slot.correct{background:rgba(42,122,58,0.18);border-color:#5CB85C;animation:slotPop 0.4s ease;}
+.drop-card-slot.wrong-slot{animation:slotShake 0.35s ease;}
+.dslot-label{font-size:clamp(7px,0.9vw,10px);color:rgba(255,220,150,0.48);
+  font-weight:800;text-transform:uppercase;letter-spacing:0.4px;text-align:center;}
+
+.led-col{
+  flex:0.9;min-width:130px;
+  background:rgba(10,5,20,0.72);border-radius:13px;
+  border:1.5px solid rgba(255,200,0,0.14);
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:8px;padding:8px;
+}
+.big-led{
+  width:clamp(50px,6.5vw,76px);height:clamp(50px,6.5vw,76px);
+  border-radius:50%;border:2.5px solid rgba(255,255,255,0.12);
+  display:flex;align-items:center;justify-content:center;
+  font-size:clamp(22px,3.2vw,36px);transition:all 0.5s;
+}
+.led-big-label{font-family:'Pirata One',cursive;font-size:clamp(10px,1.3vw,13px);}
+.led-brightness-bar{
+  width:80%;height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden;
+}
+.led-brightness-fill{height:100%;background:linear-gradient(90deg,#cc7700,#FFD700);
+  border-radius:4px;transition:width 0.6s ease;width:0%;}
+
+.act2-drop-area{
+  flex:1;min-width:155px;
+  display:flex;flex-direction:column;gap:5px;
+  background:rgba(255,255,255,0.03);border-radius:13px;
+  border:1.5px solid rgba(255,215,100,0.13);
+  padding:7px;
+}
+.drop-area-title{font-family:'Pirata One',cursive;font-size:clamp(9px,1.1vw,11px);
+  color:rgba(255,215,100,0.55);margin-bottom:2px;}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 3 — SEQUENCE STEPS
+═══════════════════════════════════════ */
+.seq-layout{display:flex;gap:8px;flex:1;min-height:0;}
+.seq-bank-col{flex:1;min-width:155px;display:flex;flex-direction:column;gap:5px;}
+.seq-drop-col{flex:1.6;min-width:195px;display:flex;flex-direction:column;gap:4px;}
+
+.seq-slot{
+  flex:1;border-radius:9px;
+  border:1.5px dashed rgba(255,215,100,0.32);
+  background:rgba(255,255,255,0.03);
+  display:flex;align-items:center;padding:0 9px;
+  gap:7px;transition:all 0.2s;min-height:36px;
+}
+.seq-slot.over{background:rgba(255,160,0,0.12);border-color:#FFD700;box-shadow:0 0 8px rgba(255,200,0,0.2);}
+.seq-slot.correct{background:rgba(42,122,58,0.18);border-color:#5CB85C;}
+.seq-slot.wrong{animation:slotShake 0.35s ease;}
+.seq-num{
+  width:20px;height:20px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,#cc7700,#FFD700);
+  color:#1a0800;font-family:'Pirata One',cursive;font-size:11px;
+  display:flex;align-items:center;justify-content:center;
+}
+.seq-hint{font-size:clamp(7px,0.9vw,10px);color:rgba(255,215,100,0.32);font-weight:700;}
+
+/* treasure mascot */
+.treasure-deco{
+  font-size:clamp(22px,3vw,38px);
+  animation:treasureBob 2.2s ease-in-out infinite;
+  filter:drop-shadow(0 0 8px rgba(255,180,0,0.5));
+}
+@keyframes treasureBob{0%,100%{transform:translateY(0) rotate(-4deg);}50%{transform:translateY(-8px) rotate(4deg);}}
+
+/* ═══════════════════════════════════════
+   POPUP
+═══════════════════════════════════════ */
+#popup{
+  position:fixed;inset:0;z-index:200;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(5,2,15,0.80);backdrop-filter:blur(9px);
+}
+#popup.show{display:flex;}
+.popup-box{
+  background:linear-gradient(135deg,#12080a,#2a1800);
+  border-radius:22px;padding:22px 28px;max-width:400px;width:90%;
+  text-align:center;
+  border:2px solid rgba(180,130,20,0.5);
+  box-shadow:0 0 60px rgba(180,100,0,0.3),0 20px 50px rgba(0,0,0,0.6);
+  animation:popIn 0.5s cubic-bezier(0.34,1.56,0.64,1);
+  position:relative;overflow:hidden;
+}
+.popup-box::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,#cc7700,#FFD700,#cc2200,#FFD700,#00b4cc,#FFD700,#cc7700);
+  background-size:300%;animation:goldenLine 3.5s linear infinite;
+}
+@keyframes popIn{from{transform:scale(0.5) rotate(-5deg);opacity:0;}to{transform:scale(1);opacity:1;}}
+
+.popup-emoji{font-size:52px;display:block;margin-bottom:7px;
+  animation:emojiPop 0.6s cubic-bezier(0.34,1.56,0.64,1);}
+@keyframes emojiPop{from{transform:scale(0);}to{transform:scale(1);}}
+.popup-title{
+  font-family:'Pirata One',cursive;font-size:22px;
+  color:var(--gold);text-shadow:0 0 14px rgba(255,200,0,0.55);
+  margin-bottom:6px;
+}
+.popup-msg{font-size:12px;color:rgba(255,220,150,0.85);
+  font-weight:700;line-height:1.5;margin-bottom:14px;}
+.popup-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.popup-btn{
+  padding:9px 26px;font-family:'Pirata One',cursive;font-size:15px;
+  color:#1a0800;cursor:pointer;border:none;border-radius:28px;
+  background:linear-gradient(135deg,#cc7700,#FFD700);
+  box-shadow:0 5px 16px rgba(255,180,0,0.45);
+  transition:transform 0.14s;
+}
+.popup-btn:hover{transform:scale(1.05);}
+.popup-btn.play-again{
+  font-size:17px;padding:11px 32px;
+  background:linear-gradient(135deg,#FFD700,#cc7700);
+  box-shadow:0 6px 22px rgba(255,200,0,0.55);
+  border:2px solid rgba(255,255,200,0.3);
+}
+
+.confetti-piece{
+  position:absolute;pointer-events:none;
+  animation:confettiFall linear forwards;
+}
+@keyframes confettiFall{
+  0%{transform:translateY(0) rotate(0deg);opacity:1;}
+  100%{transform:translateY(290px) rotate(720deg);opacity:0;}
+}
+.sparkle-pop{position:fixed;pointer-events:none;z-index:300;
+  font-size:18px;animation:sparkleOut 0.7s ease forwards;}
+@keyframes sparkleOut{0%{transform:scale(0);opacity:1;}100%{transform:scale(2.2);opacity:0;}}
+</style>
+</head>
+<body>
+
+<!-- ── BG LAYERS ── -->
+<div id="bg-sky"></div>
+<canvas id="stars-canvas"></canvas>
+<canvas id="wave-canvas"></canvas>
+<canvas id="particle-canvas"></canvas>
+
+<!-- APP -->
+<div id="app">
+  <div id="header">
+    <h1>⚓ THERMISTOR CIRCUIT — TEMPERATURE-SENSITIVE SWITCH 🌡️</h1>
+    <div class="subtitle">Electronics &amp; Smart Automation · Pirate Science Lab</div>
+  </div>
+
+  <div id="progress">
+    <div class="pdot active" id="pd1">1</div>
+    <div class="pline"></div>
+    <div class="pdot inactive" id="pd2">2</div>
+    <div class="pline"></div>
+    <div class="pdot inactive" id="pd3">3</div>
+  </div>
+
+  <div id="panel">
+
+    <!-- ═══════════════════════
+         ACT 1: BUILD CIRCUIT
+    ════════════════════════ -->
+    <div class="ascreen active" id="act1">
+      <div class="atitle">🔌 Activity 1: Build the Thermistor Circuit <span class="abadge">CIRCUIT</span></div>
+      <div class="ainstr">Drag each circuit tool into its correct slot on the board to complete the temperature-sensitive circuit! Every piece has a special treasure job. ⚡🏴‍☠️</div>
+      <div class="card-bank" id="act1-bank"></div>
+      <div class="circuit-board">
+        <div class="circuit-board-title">🗺️ Thermistor Circuit Board — Build It Right!</div>
+        <div class="circuit-slots-row" id="act1-slots"></div>
+        <div class="wire-row">
+          <div class="wire-dot"></div><div class="wire"></div>
+          <div class="wire-dot"></div><div class="wire"></div>
+          <div class="wire-dot"></div><div class="wire"></div>
+          <div class="wire-dot"></div>
+        </div>
+        <div class="led-result-row">
+          <div style="font-size:9px;color:rgba(255,220,150,0.45);font-weight:700;">RESULT →</div>
+          <div id="act1-led" class="led-bulb off">💡</div>
+          <div id="act1-led-label" style="font-size:9px;color:rgba(200,150,100,0.55);font-weight:700;">Waiting for circuit...</div>
+        </div>
+      </div>
+      <div class="feedback" id="fb1"></div>
+      <div class="action-row">
+        <button class="btn reset" onclick="resetAct1()">↺ Reset</button>
+        <button class="btn" onclick="checkAct1()">⚓ Check Circuit</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════
+         ACT 2: TEMP CARDS
+    ════════════════════════ -->
+    <div class="ascreen" id="act2">
+      <div class="atitle">🌡️ Activity 2: Heat the Thermistor! <span class="abadge">SENSOR</span></div>
+      <div class="ainstr">Drag a HOT card onto the thermistor to make the LED glow bright! Drag a COLD card to dim it. Watch the treasure light react! 🔥❄️</div>
+      <div class="card-bank" id="act2-bank"></div>
+      <div class="act2-layout">
+        <div class="thermo-scene" id="act2-scene">
+          <div class="thermo-mascot" id="thermo-mascot">🌡️</div>
+          <div class="thermo-label">Thermo the Heat Detective</div>
+          <div style="display:flex;align-items:flex-end;gap:8px;">
+            <div class="thermo-bar-wrap">
+              <div class="thermo-fill" id="thermo-fill" style="height:30%;"></div>
+            </div>
+            <div id="thermo-status" class="thermo-status cool">❄️ Cool — relaxed</div>
+          </div>
+          <div class="dslot" id="act2-thermo-drop" data-accept="temp"
+            style="width:100%;min-height:42px;margin-top:4px;">
+            <span class="slot-hint">Drop a temperature card here 🌡️</span>
+          </div>
+        </div>
+        <div class="led-col">
+          <div class="thermo-label">LED Brightness</div>
+          <div id="act2-led" class="big-led off">💡</div>
+          <div id="act2-led-label" class="led-big-label" style="color:rgba(150,150,150,0.5);">OFF</div>
+          <div class="led-brightness-bar">
+            <div class="led-brightness-fill" id="led-brightness" style="width:0%;"></div>
+          </div>
+          <div style="font-size:8px;color:rgba(255,220,150,0.38);font-weight:700;text-align:center;max-width:105px;line-height:1.3;margin-top:2px;">
+            Hot = LED brighter<br>Cold = LED dimmer
+          </div>
+        </div>
+        <div class="act2-drop-area">
+          <div class="drop-area-title">⚡ Test both conditions:</div>
+          <div class="drop-card-slot" id="slot-hot" data-expect="hot">
+            <div class="dslot-label">🔥 Hot Card</div>
+            <div style="font-size:7px;color:rgba(255,215,100,0.33);">thermistor conducts more</div>
+          </div>
+          <div class="drop-card-slot" id="slot-cold" data-expect="cold">
+            <div class="dslot-label">❄️ Cold Card</div>
+            <div style="font-size:7px;color:rgba(255,215,100,0.33);">thermistor blocks more</div>
+          </div>
+        </div>
+      </div>
+      <div class="feedback" id="fb2"></div>
+      <div class="action-row">
+        <button class="btn reset" onclick="resetAct2()">↺ Reset</button>
+        <button class="btn" onclick="checkAct2()">🗺️ Check Results</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════
+         ACT 3: SEQUENCE
+    ════════════════════════ -->
+    <div class="ascreen" id="act3">
+      <div class="atitle">🏴‍☠️ Activity 3: Thermistor Treasure Map — Right Order! <span class="abadge">SEQUENCE</span></div>
+      <div class="ainstr">Drag each step into the correct numbered slot to show how the thermistor circuit works from start to finish. Follow the treasure map! 🗺️⚓</div>
+      <div class="card-bank" id="act3-bank"></div>
+      <div class="seq-layout">
+        <div class="seq-bank-col">
+          <div style="font-family:'Pirata One',cursive;font-size:10px;color:rgba(255,215,100,0.45);margin-bottom:3px;">Treasure Steps</div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+            <div class="treasure-deco">🏴‍☠️</div>
+          </div>
+        </div>
+        <div class="seq-drop-col" id="act3-slots"></div>
+      </div>
+      <div class="feedback" id="fb3"></div>
+      <div class="action-row">
+        <button class="btn reset" onclick="resetAct3()">↺ Reset</button>
+        <button class="btn" onclick="checkAct3()">⚓ Reveal the Map!</button>
+      </div>
+    </div>
+
+  </div><!-- /panel -->
+</div><!-- /app -->
+
+<!-- POPUP -->
+<div id="popup">
+  <div class="popup-box" id="popup-box">
+    <span class="popup-emoji" id="pe">🎉</span>
+    <div class="popup-title" id="pt">Ahoy!</div>
+    <div class="popup-msg" id="pm"></div>
+    <div class="popup-btns" id="pbtns"></div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════
+   BACKGROUND ANIMATIONS
+═══════════════════════════════════ */
+// Stars
+(function(){
+  const c=document.getElementById('stars-canvas');
+  const ctx=c.getContext('2d');let W,H,stars=[];
+  function resize(){W=c.width=innerWidth;H=c.height=innerHeight;}
+  resize();window.addEventListener('resize',resize);
+  for(let i=0;i<160;i++){
+    stars.push({x:Math.random(),y:Math.random()*0.6,
+      r:Math.random()*1.4+0.3,a:Math.random(),da:0.005+Math.random()*0.014,dir:Math.random()>0.5?1:-1});
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    stars.forEach(s=>{
+      s.a+=s.da*s.dir;if(s.a>=1||s.a<=0.08)s.dir*=-1;
+      ctx.save();ctx.globalAlpha=s.a;ctx.fillStyle='#FFF8DC';
+      ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r,0,Math.PI*2);ctx.fill();ctx.restore();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// Ocean waves
+(function(){
+  const c=document.getElementById('wave-canvas');
+  const ctx=c.getContext('2d');let W,H,t=0;
+  function resize(){W=c.width=innerWidth;H=c.height=innerHeight;}
+  resize();window.addEventListener('resize',resize);
+  function draw(){
+    ctx.clearRect(0,0,W,H);t+=0.012;
+    const waveH=H*0.25;
+    // Back wave
+    ctx.beginPath();ctx.moveTo(0,H);
+    for(let x=0;x<=W;x+=4){
+      ctx.lineTo(x,waveH+Math.sin(x*0.008+t)*18+Math.sin(x*0.015-t*0.7)*10);
+    }
+    ctx.lineTo(W,H);ctx.closePath();
+    ctx.fillStyle='rgba(10,61,107,0.85)';ctx.fill();
+    // Mid wave
+    ctx.beginPath();ctx.moveTo(0,H);
+    for(let x=0;x<=W;x+=4){
+      ctx.lineTo(x,waveH+H*0.04+Math.sin(x*0.010-t)*15+Math.sin(x*0.020+t*0.8)*8);
+    }
+    ctx.lineTo(W,H);ctx.closePath();
+    ctx.fillStyle='rgba(14,92,153,0.80)';ctx.fill();
+    // Front wave
+    ctx.beginPath();ctx.moveTo(0,H);
+    for(let x=0;x<=W;x+=4){
+      ctx.lineTo(x,waveH+H*0.08+Math.sin(x*0.012+t*1.2)*12+Math.sin(x*0.025-t)*6);
+    }
+    ctx.lineTo(W,H);ctx.closePath();
+    ctx.fillStyle='rgba(26,122,191,0.75)';ctx.fill();
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// Treasure sparkle particles
+(function(){
+  const c=document.getElementById('particle-canvas');
+  const ctx=c.getContext('2d');let W,H;
+  const particles=[];
+  function resize(){W=c.width=innerWidth;H=c.height=innerHeight;}
+  resize();window.addEventListener('resize',resize);
+  for(let i=0;i<40;i++){
+    particles.push({x:Math.random(),y:Math.random()*0.7,
+      vx:(Math.random()-0.5)*0.25,vy:(-0.05-Math.random()*0.12),
+      r:Math.random()*2+0.5,a:Math.random()*0.5+0.1,
+      color:`hsl(${40+Math.random()*30},90%,${65+Math.random()*20}%)`});
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    particles.forEach(p=>{
+      p.x+=p.vx/W*0.6;p.y+=p.vy/H*0.6;
+      if(p.y<-0.05){p.y=0.75+Math.random()*0.1;p.x=Math.random();}
+      if(p.x<-0.05)p.x=1.05;if(p.x>1.05)p.x=-0.05;
+      ctx.save();ctx.globalAlpha=p.a*0.6;ctx.fillStyle=p.color;
+      ctx.beginPath();ctx.arc(p.x*W,p.y*H,p.r,0,Math.PI*2);ctx.fill();ctx.restore();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// Ships
+(function(){
+  const ships=[{dur:32,delay:0,bottom:'23%',size:40},{dur:50,delay:-18,bottom:'22%',size:32}];
+  ships.forEach((s,i)=>{
+    const d=document.createElement('div');d.className='ship';
+    d.style.cssText=`font-size:${s.size}px;bottom:${s.bottom};animation-duration:${s.dur}s;animation-delay:${s.delay}s;opacity:0.55;`;
+    d.textContent=i===0?'⛵':'🚢';document.body.appendChild(d);
+  });
+})();
+
+// Parrots
+(function(){
+  [{dur:20,delay:0,top:'20%'},{dur:30,delay:-12,top:'30%'}].forEach(p=>{
+    const d=document.createElement('div');d.className='parrot';
+    d.style.cssText=`top:${p.top};animation-duration:${p.dur}s;animation-delay:${p.delay}s;opacity:0.7;`;
+    d.textContent='🦜';document.body.appendChild(d);
+  });
+})();
+
+// Clouds
+(function(){
+  [{dur:42,delay:0,top:'8%',sz:36},{dur:60,delay:-20,top:'14%',sz:28},{dur:35,delay:-10,top:'5%',sz:44}].forEach(c=>{
+    const d=document.createElement('div');d.className='cloud';
+    d.style.cssText=`top:${c.top};animation-duration:${c.dur}s;animation-delay:${c.delay}s;font-size:${c.sz}px;`;
+    d.textContent='☁️';document.body.appendChild(d);
+  });
+})();
+
+/* ═══════════════════════════════════
+   DRAG & DROP ENGINE
+═══════════════════════════════════ */
+let dragEl=null,ghostEl=null,dragOffset={x:0,y:0};
+
+function shuffleArr(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+
+function makeDragCard(label,bg,id,data={}){
+  const el=document.createElement('div');
+  el.className='dcard';el.id=id;el.style.background=bg;
+  Object.assign(el.dataset,data);
+  el.innerHTML=label;
+  el.addEventListener('mousedown',startDrag);
+  el.addEventListener('touchstart',startDrag,{passive:false});
+  return el;
+}
+
+function startDrag(e){
+  if(dragEl)return;
+  const card=e.currentTarget;
+  if(card.classList.contains('placed'))return;
+  e.preventDefault();dragEl=card;card.classList.add('dragging');
+  ghostEl=card.cloneNode(true);
+  ghostEl.style.cssText+=';position:fixed;z-index:999;pointer-events:none;opacity:0.88;transition:none;margin:0;';
+  document.body.appendChild(ghostEl);
+  const t=e.touches?e.touches[0]:e,r=card.getBoundingClientRect();
+  dragOffset={x:t.clientX-r.left,y:t.clientY-r.top};
+  moveGhost(t.clientX,t.clientY);
+  document.addEventListener('mousemove',onDrag);document.addEventListener('touchmove',onDrag,{passive:false});
+  document.addEventListener('mouseup',endDrag);document.addEventListener('touchend',endDrag);
+}
+function moveGhost(cx,cy){if(!ghostEl)return;ghostEl.style.left=(cx-dragOffset.x)+'px';ghostEl.style.top=(cy-dragOffset.y)+'px';}
+function onDrag(e){
+  if(!dragEl)return;e.preventDefault();
+  const t=e.touches?e.touches[0]:e;moveGhost(t.clientX,t.clientY);
+  document.querySelectorAll('.dslot,.drop-card-slot,.seq-slot').forEach(z=>{
+    const r=z.getBoundingClientRect();
+    z.classList.toggle('over',t.clientX>=r.left&&t.clientX<=r.right&&t.clientY>=r.top&&t.clientY<=r.bottom);
+  });
+}
+function endDrag(e){
+  if(!dragEl)return;
+  document.removeEventListener('mousemove',onDrag);document.removeEventListener('touchmove',onDrag);
+  document.removeEventListener('mouseup',endDrag);document.removeEventListener('touchend',endDrag);
+  const t=e.changedTouches?e.changedTouches[0]:e,cx=t.clientX,cy=t.clientY;
+  let dropped=false;
+  document.querySelectorAll('.dslot,.drop-card-slot,.seq-slot').forEach(z=>{
+    z.classList.remove('over');
+    const r=z.getBoundingClientRect();
+    if(!dropped&&cx>=r.left&&cx<=r.right&&cy>=r.top&&cy<=r.bottom)
+      dropped=handleDrop(dragEl,z);
+  });
+  if(!dropped)dragEl.classList.remove('dragging');
+  if(ghostEl){ghostEl.remove();ghostEl=null;}
+  dragEl=null;
+}
+
+function placeChip(slot,label,bg){
+  slot.innerHTML='';
+  const ch=document.createElement('div');
+  ch.className='slot-chip';ch.style.background=bg;ch.innerHTML=label;
+  slot.appendChild(ch);
+}
+
+function spawnSparkle(el){
+  const r=el.getBoundingClientRect();
+  const emojis=['✨','⭐','💫','🌟','💎'];
+  const s=document.createElement('div');s.className='sparkle-pop';
+  s.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+  s.style.left=(r.left+r.width/2-12)+'px';s.style.top=(r.top+r.height/2-12)+'px';
+  document.body.appendChild(s);setTimeout(()=>s.remove(),800);
+}
+
+/* ═══════════════════════════════════
+   ACTIVITY 1
+═══════════════════════════════════ */
+const A1_COMPS=[
+  {id:'c-ntc',label:'🌡️ NTC Thermistor',bg:'linear-gradient(135deg,#cc2200,#ff6600)',slot:'s-ntc',hint:'Thermistor'},
+  {id:'c-res',label:'🔧 Fixed Resistor',bg:'linear-gradient(135deg,#7c3aed,#a78bfa)',slot:'s-res',hint:'Resistor'},
+  {id:'c-led',label:'💡 LED',bg:'linear-gradient(135deg,#b45309,#f59e0b)',slot:'s-led',hint:'LED'},
+  {id:'c-bat',label:'🔋 Battery',bg:'linear-gradient(135deg,#166534,#22c55e)',slot:'s-bat',hint:'Battery'},
+];
+let act1Placed={};
+
+function setupAct1(){
+  act1Placed={};
+  const bank=document.getElementById('act1-bank');bank.innerHTML='';
+  shuffleArr(A1_COMPS).forEach(c=>{
+    bank.appendChild(makeDragCard(c.label,c.bg,c.id,{act:'1',cid:c.id}));
+  });
+  const row=document.getElementById('act1-slots');row.innerHTML='';
+  A1_COMPS.forEach(c=>{
+    const w=document.createElement('div');w.className='circuit-slot-wrap';
+    const lb=document.createElement('div');lb.className='circuit-slot-label';lb.textContent=c.hint;
+    const sl=document.createElement('div');sl.className='dslot circuit-slot';sl.id=c.slot;sl.dataset.expects=c.id;sl.dataset.act='1';
+    sl.innerHTML='<span class="slot-hint">Drop here</span>';
+    w.appendChild(lb);w.appendChild(sl);row.appendChild(w);
+  });
+  const led=document.getElementById('act1-led');led.className='led-bulb off';led.textContent='💡';
+  const lbl=document.getElementById('act1-led-label');lbl.textContent='Waiting...';lbl.style.color='rgba(200,150,100,0.55)';
+  const fb=document.getElementById('fb1');fb.className='feedback';fb.textContent='';
+}
+
+function handleAct1Drop(card,slot){
+  if(slot.dataset.act!=='1')return false;
+  const ex=slot.dataset.expects,cid=card.dataset.cid;
+  if(cid===ex){
+    const c=A1_COMPS.find(x=>x.id===cid);
+    placeChip(slot,c.label,c.bg);slot.classList.add('correct');
+    card.classList.add('placed');card.classList.remove('dragging');
+    act1Placed[cid]=true;spawnSparkle(slot);
+    if(Object.keys(act1Placed).length===A1_COMPS.length){
+      setTimeout(()=>{
+        document.getElementById('act1-led').className='led-bulb on';
+        document.getElementById('act1-led-label').textContent='Circuit Complete! ✓';
+        document.getElementById('act1-led-label').style.color='#FFD700';
+      },350);
+    }
+  } else {
+    slot.classList.add('wrong');setTimeout(()=>slot.classList.remove('wrong'),400);
+    card.classList.remove('dragging');
+  }
+  return true;
+}
+function checkAct1(){
+  const fb=document.getElementById('fb1');
+  const p=Object.keys(act1Placed).length,t=A1_COMPS.length;
+  if(p===t){fb.className='feedback ok';fb.textContent='⚡ Perfect circuit, pirate! All tools in place!';setTimeout(()=>showPopup(1),700);}
+  else{fb.className='feedback err';fb.textContent=`🗺️ ${t-p} tool(s) still need placing. Keep searching!`;}
+}
+function resetAct1(){setupAct1();}
+
+/* ═══════════════════════════════════
+   ACTIVITY 2
+═══════════════════════════════════ */
+const A2_CARDS=[
+  {id:'card-hot1',label:'🔥 Hot Card<br><span style="font-size:7px;opacity:0.7;">summer heat!</span>',bg:'linear-gradient(135deg,#991b1b,#ef4444)',type:'hot'},
+  {id:'card-hot2',label:'☀️ Very Hot Card<br><span style="font-size:7px;opacity:0.7;">blazing sun!</span>',bg:'linear-gradient(135deg,#9a3412,#f97316)',type:'hot'},
+  {id:'card-cold1',label:'❄️ Cold Card<br><span style="font-size:7px;opacity:0.7;">ocean breeze</span>',bg:'linear-gradient(135deg,#1e3a5f,#3b82f6)',type:'cold'},
+  {id:'card-cold2',label:'🧊 Icy Cold Card<br><span style="font-size:7px;opacity:0.7;">freezing night</span>',bg:'linear-gradient(135deg,#0c2a4a,#60a5fa)',type:'cold'},
+];
+let act2HotDone=false,act2ColdDone=false;
+
+function setupAct2(){
+  act2HotDone=false;act2ColdDone=false;
+  const bank=document.getElementById('act2-bank');bank.innerHTML='';
+  shuffleArr(A2_CARDS).forEach(c=>{
+    bank.appendChild(makeDragCard(c.label,c.bg,c.id,{act:'2',ctype:c.type}));
+  });
+  ['slot-hot','slot-cold'].forEach(id=>{
+    const s=document.getElementById(id);s.className='drop-card-slot';
+    const isHot=id==='slot-hot';
+    s.innerHTML=`<div class="dslot-label">${isHot?'🔥 Hot Card':'❄️ Cold Card'}</div><div style="font-size:7px;color:rgba(255,215,100,0.33);">${isHot?'thermistor conducts more':'thermistor blocks more'}</div>`;
+  });
+  const td=document.getElementById('act2-thermo-drop');
+  td.innerHTML='<span class="slot-hint">Drop a temperature card here 🌡️</span>';
+  td.className='dslot';td.dataset.accept='temp';
+  setThermoState('cool');
+  const fb=document.getElementById('fb2');fb.className='feedback';fb.textContent='';
+}
+
+function setThermoState(state){
+  const mascot=document.getElementById('thermo-mascot');
+  const fill=document.getElementById('thermo-fill');
+  const status=document.getElementById('thermo-status');
+  const led=document.getElementById('act2-led');
+  const lbl=document.getElementById('act2-led-label');
+  const bar=document.getElementById('led-brightness');
+  if(state==='hot'){
+    mascot.textContent='🌡️';mascot.className='thermo-mascot hot';
+    fill.style.height='92%';fill.style.background='linear-gradient(0deg,#cc2200,#ff4500)';
+    status.className='thermo-status hot';status.textContent='🔥 HOT! Heat detected!';
+    led.className='big-led bright';led.textContent='💡';
+    lbl.textContent='BRIGHT! ✨';lbl.style.color='#FFD700';
+    bar.style.width='95%';
+  } else if(state==='warm'){
+    mascot.textContent='🌡️';mascot.className='thermo-mascot hot';
+    fill.style.height='60%';fill.style.background='linear-gradient(0deg,#cc7700,#ff8c00)';
+    status.className='thermo-status warm';status.textContent='☀️ Warm — active';
+    led.className='big-led dim';led.textContent='💡';
+    lbl.textContent='DIM';lbl.style.color='#f59e0b';
+    bar.style.width='50%';
+  } else {
+    mascot.textContent='🌡️';mascot.className='thermo-mascot cold';
+    fill.style.height='20%';fill.style.background='linear-gradient(0deg,#1e3a5f,#3b82f6)';
+    status.className='thermo-status cool';status.textContent='❄️ Cool — relaxed';
+    led.className='big-led off';led.textContent='💡';
+    lbl.textContent='OFF';lbl.style.color='rgba(150,150,150,0.5)';
+    bar.style.width='5%';
+  }
+}
+
+function handleAct2Drop(card,slot){
+  if(card.dataset.act!=='2')return false;
+  const ctype=card.dataset.ctype;
+  // slot-hot / slot-cold labelling slots
+  if(slot.id==='slot-hot'||slot.id==='slot-cold'){
+    const expects=slot.dataset.expect;
+    if(ctype===expects){
+      placeChip(slot,card.innerHTML,ctype==='hot'?'linear-gradient(135deg,#991b1b,#ef4444)':'linear-gradient(135deg,#1e3a5f,#3b82f6)');
+      slot.classList.add('correct');card.classList.add('placed');card.classList.remove('dragging');
+      spawnSparkle(slot);
+      if(ctype==='hot')act2HotDone=true; else act2ColdDone=true;
+      setThermoState(ctype==='hot'?'hot':'cool');
+    } else {
+      slot.classList.add('wrong-slot');setTimeout(()=>slot.classList.remove('wrong-slot'),400);
+      card.classList.remove('dragging');
+    }
+    return true;
+  }
+  // main thermo drop zone
+  if(slot.id==='act2-thermo-drop'){
+    placeChip(slot,card.innerHTML,ctype==='hot'?'linear-gradient(135deg,#991b1b,#ef4444)':'linear-gradient(135deg,#1e3a5f,#3b82f6)');
+    slot.classList.add('correct');card.classList.add('placed');card.classList.remove('dragging');
+    spawnSparkle(slot);
+    if(ctype==='hot'){act2HotDone=true;setThermoState('hot');}
+    else{act2ColdDone=true;setThermoState('cool');}
+    return true;
+  }
+  card.classList.remove('dragging');return false;
+}
+
+function checkAct2(){
+  const fb=document.getElementById('fb2');
+  if(act2HotDone&&act2ColdDone){
+    fb.className='feedback ok';fb.textContent='🔥 Brilliant! Hot = LED bright. Cold = LED dim/off. Treasure unlocked!';
+    setTimeout(()=>showPopup(2),700);
+  } else if(!act2HotDone&&!act2ColdDone){
+    fb.className='feedback err';fb.textContent='🌡️ Drop both a Hot card and a Cold card to test the thermistor!';
+  } else if(!act2HotDone){
+    fb.className='feedback err';fb.textContent='🔥 Good start! Now try a Hot card to see full brightness!';
+  } else {
+    fb.className='feedback err';fb.textContent='❄️ Great! Now try a Cold card to see the LED dim down!';
+  }
+}
+function resetAct2(){setupAct2();}
+
+/* ═══════════════════════════════════
+   ACTIVITY 3
+═══════════════════════════════════ */
+const A3_STEPS=[
+  {id:'s1',order:1,label:'🌡️ Temperature rises (gets hot)',bg:'linear-gradient(135deg,#7f1d1d,#dc2626)'},
+  {id:'s2',order:2,label:'⚡ Thermistor lets more current flow',bg:'linear-gradient(135deg,#0891b2,#06b6d4)'},
+  {id:'s3',order:3,label:'📊 Voltage across LED increases',bg:'linear-gradient(135deg,#7c3aed,#a78bfa)'},
+  {id:'s4',order:4,label:'💡 LED glows brighter automatically',bg:'linear-gradient(135deg,#b45309,#f59e0b)'},
+  {id:'s5',order:5,label:'🏴‍☠️ Circuit detects heat — mission success!',bg:'linear-gradient(135deg,#166534,#22c55e)'},
+];
+let act3Placed={};
+
+function setupAct3(){
+  act3Placed={};
+  const bank=document.getElementById('act3-bank');bank.innerHTML='';
+  shuffleArr(A3_STEPS).forEach(s=>{
+    bank.appendChild(makeDragCard(s.label,s.bg,s.id,{act:'3',sid:s.id,sorder:s.order}));
+  });
+  const col=document.getElementById('act3-slots');col.innerHTML='';
+  A3_STEPS.forEach(s=>{
+    const sl=document.createElement('div');sl.className='seq-slot';
+    sl.id='ss-'+s.order;sl.dataset.expects=s.id;sl.dataset.act='3';
+    sl.innerHTML=`<div class="seq-num">${s.order}</div><div class="seq-hint">Step ${s.order} — drop here…</div>`;
+    col.appendChild(sl);
+  });
+  const fb=document.getElementById('fb3');fb.className='feedback';fb.textContent='';
+}
+
+function handleAct3Drop(card,slot){
+  if(card.dataset.act!=='3'||slot.dataset.act!=='3')return false;
+  const ex=slot.dataset.expects,sid=card.dataset.sid;
+  if(sid===ex){
+    const step=A3_STEPS.find(s=>s.id===sid);
+    const numHTML=slot.querySelector('.seq-num').outerHTML;
+    slot.innerHTML=numHTML+`<div class="slot-chip" style="background:${step.bg};font-size:10px;">${step.label}</div>`;
+    slot.classList.add('correct');card.classList.add('placed');card.classList.remove('dragging');
+    act3Placed[sid]=true;spawnSparkle(slot);
+  } else {
+    slot.classList.add('wrong');setTimeout(()=>slot.classList.remove('wrong'),400);
+    card.classList.remove('dragging');
+  }
+  return true;
+}
+function checkAct3(){
+  const fb=document.getElementById('fb3');
+  const p=Object.keys(act3Placed).length,t=A3_STEPS.length;
+  if(p===t){
+    fb.className='feedback ok';fb.textContent='🏴‍☠️ TREASURE FOUND! Perfect sequence — you\'ve mapped the whole circuit!';
+    setTimeout(()=>showFinalPopup(),900);
+  } else {
+    fb.className='feedback err';fb.textContent=`⚓ ${t-p} step(s) still to place. Follow the treasure map order!`;
+  }
+}
+function resetAct3(){setupAct3();}
+
+/* ═══════════════════════════════════
+   UNIVERSAL DROP ROUTER
+═══════════════════════════════════ */
+function handleDrop(card,slot){
+  const act=card.dataset.act;
+  if(act==='1')return handleAct1Drop(card,slot);
+  if(act==='2')return handleAct2Drop(card,slot);
+  if(act==='3')return handleAct3Drop(card,slot);
+  return false;
+}
+
+/* ═══════════════════════════════════
+   POPUP SYSTEM
+═══════════════════════════════════ */
+function showPopup(act){
+  const data={
+    1:{e:'⚓',t:'Circuit Complete!',m:'Ahoy! You built the thermistor circuit like a true pirate engineer! The LED is glowing! Now discover how the thermistor actually reacts to heat!',btn:'Try the Thermistor 🌡️',next:2},
+    2:{e:'🔥',t:'Heat Detective!',m:'You proved it, matey! Heat makes the LED shine bright, cold dims it down! That\'s the thermistor\'s treasure secret! Now arrange the full workflow!',btn:'Build the Map 🗺️',next:3},
+  };
+  const d=data[act];
+  showPopupContent(d.e,d.t,d.m,[{label:d.btn,onclick:`nextAct(${d.next})`}]);
+}
+
+function showFinalPopup(){
+  showPopupContent('🏆','TREASURE UNLOCKED!',
+    'You mastered ALL 3 pirate challenges!\n⚓ Circuit ✓   🌡️ Sensor ✓   🗺️ Sequence ✓\n\nYou now know how a thermistor automatically controls circuits with temperature — just like the safety sensor in a home iron!',
+    [{label:'🔄 Play Again',cls:'play-again',onclick:'playAgain()'}]);
+  ['pd3'].forEach(id=>{
+    const el=document.getElementById(id);el.className='pdot done';el.textContent='✓';
+  });
+  spawnConfetti();
+}
+
+function showPopupContent(emoji,title,msg,buttons){
+  document.getElementById('pe').textContent=emoji;
+  document.getElementById('pt').textContent=title;
+  document.getElementById('pm').innerHTML=msg.replace(/\n/g,'<br>');
+  const btns=document.getElementById('pbtns');btns.innerHTML='';
+  buttons.forEach(b=>{
+    const btn=document.createElement('button');
+    btn.className='popup-btn'+(b.cls?' '+b.cls:'');
+    btn.textContent=b.label;btn.setAttribute('onclick',b.onclick);
+    btns.appendChild(btn);
+  });
+  spawnConfetti();
+  document.getElementById('popup').classList.add('show');
+}
+
+function nextAct(n){
+  document.getElementById('popup').classList.remove('show');
+  document.getElementById(`pd${n-1}`).className='pdot done';
+  document.getElementById(`pd${n-1}`).textContent='✓';
+  document.getElementById(`pd${n}`).className='pdot active';
+  document.querySelectorAll('.ascreen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(`act${n}`).classList.add('active');
+  if(n===2)setupAct2();
+  if(n===3)setupAct3();
+}
+
+function playAgain(){
+  document.getElementById('popup').classList.remove('show');
+  ['pd1','pd2','pd3'].forEach((id,i)=>{
+    const el=document.getElementById(id);
+    el.className='pdot '+(i===0?'active':'inactive');
+    el.textContent=i+1;
+  });
+  document.querySelectorAll('.ascreen').forEach((s,i)=>s.classList.toggle('active',i===0));
+  setupAct1();
+}
+
+function spawnConfetti(){
+  const colors=['#FFD700','#cc7700','#cc2200','#00b4cc','#22c55e','#a78bfa'];
+  const box=document.querySelector('.popup-box');
+  for(let i=0;i<24;i++){
+    const c=document.createElement('div');c.className='confetti-piece';
+    const sz=6+Math.random()*7;
+    c.style.cssText=`left:${8+Math.random()*84}%;top:8%;width:${sz}px;height:${sz}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      border-radius:${Math.random()>0.5?'50%':'3px'};
+      animation-duration:${0.9+Math.random()*0.6}s;animation-delay:${Math.random()*0.3}s;`;
+    box.appendChild(c);setTimeout(()=>c.remove(),1700);
+  }
+}
+
+/* ═══════════════════════════════════
+   INIT
+═══════════════════════════════════ */
+setupAct1();
+</script>
+</body>
+</html>

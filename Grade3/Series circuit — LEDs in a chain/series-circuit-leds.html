@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Series Circuit — LEDs in a Chain</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Nunito:wght@400;600;700;800&display=swap');
+
+  :root {
+    --v1: #1a0a2e;
+    --v2: #2d1b54;
+    --v3: #4a1f8a;
+    --v4: #7c3aed;
+    --v5: #a855f7;
+    --v6: #c084fc;
+    --v7: #e9d5ff;
+    --glow: #d946ef;
+    --gold: #fbbf24;
+    --teal: #2dd4bf;
+    --pink: #f472b6;
+    --white: #ffffff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--v1);
+    font-family: 'Nunito', sans-serif;
+    color: var(--white);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ---- STAR CANVAS ---- */
+  #starCanvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ---- BIRDS ---- */
+  .bird-container {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 1;
+    overflow: hidden;
+  }
+  .bird {
+    position: absolute;
+    font-size: 22px;
+    animation: flyBird linear infinite;
+    opacity: 0.6;
+    filter: drop-shadow(0 0 6px var(--glow));
+  }
+  @keyframes flyBird {
+    0%   { transform: translateX(-80px) translateY(0px) scaleX(1); }
+    50%  { transform: translateX(calc(50vw)) translateY(-30px) scaleX(1); }
+    100% { transform: translateX(calc(110vw)) translateY(10px) scaleX(1); }
+  }
+
+  /* ---- MAIN LAYOUT ---- */
+  .page-wrap {
+    position: relative;
+    z-index: 2;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 20px 60px;
+  }
+
+  /* ---- TITLE BLOCK ---- */
+  .title-block {
+    text-align: center;
+    padding: 36px 0 28px;
+  }
+  .topic-tag {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--v3), var(--v4));
+    border: 1px solid var(--v5);
+    border-radius: 30px;
+    padding: 6px 20px;
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--v6);
+    margin-bottom: 14px;
+    box-shadow: 0 0 20px rgba(168,85,247,0.3);
+  }
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(24px, 5vw, 46px);
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--v6) 0%, var(--glow) 40%, var(--gold) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    line-height: 1.1;
+    letter-spacing: 1px;
+    filter: drop-shadow(0 0 30px rgba(217,70,239,0.5));
+    animation: titlePulse 3s ease-in-out infinite;
+  }
+  @keyframes titlePulse {
+    0%,100% { filter: drop-shadow(0 0 20px rgba(217,70,239,0.4)); }
+    50%      { filter: drop-shadow(0 0 40px rgba(217,70,239,0.9)); }
+  }
+
+  /* ---- CHAIN DECORATION ---- */
+  .chain-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin: 18px 0 30px;
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+  .chain-led {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.3);
+    position: relative;
+    animation: ledChainBlink 1.2s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  .chain-led:nth-child(odd)  { animation-delay: 0s; }
+  .chain-led:nth-child(even) { animation-delay: 0.6s; }
+  .chain-link {
+    width: 18px; height: 4px;
+    background: linear-gradient(90deg, var(--v4), var(--v5));
+    flex-shrink: 0;
+    border-radius: 2px;
+  }
+  @keyframes ledChainBlink {
+    0%,100% { box-shadow: 0 0 6px 2px currentColor; opacity: 0.5; }
+    50%      { box-shadow: 0 0 18px 6px currentColor; opacity: 1; }
+  }
+
+  /* ---- ACTIVITY CARDS ---- */
+  .activities-nav {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+  }
+  .nav-btn {
+    padding: 10px 24px;
+    border-radius: 30px;
+    border: 2px solid var(--v4);
+    background: transparent;
+    color: var(--v6);
+    font-family: 'Nunito', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+    letter-spacing: 0.5px;
+  }
+  .nav-btn:hover, .nav-btn.active {
+    background: linear-gradient(135deg, var(--v3), var(--v4));
+    color: var(--white);
+    box-shadow: 0 0 20px rgba(124,58,237,0.6);
+    border-color: var(--v5);
+    transform: translateY(-2px);
+  }
+
+  .activity-panel {
+    display: none;
+    animation: fadeInUp 0.5s ease;
+  }
+  .activity-panel.active { display: block; }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .card {
+    background: linear-gradient(135deg, rgba(45,27,84,0.9) 0%, rgba(26,10,46,0.95) 100%);
+    border: 1px solid rgba(124,58,237,0.4);
+    border-radius: 20px;
+    padding: 28px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(168,85,247,0.2);
+    backdrop-filter: blur(10px);
+  }
+
+  .card h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    color: var(--v6);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .card h2 .act-num {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--v4), var(--glow));
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    font-weight: 900;
+    color: white;
+    box-shadow: 0 0 12px rgba(217,70,239,0.6);
+    flex-shrink: 0;
+  }
+  .card .instructions {
+    font-size: 14px;
+    color: var(--v7);
+    margin-bottom: 20px;
+    line-height: 1.6;
+    opacity: 0.85;
+  }
+
+  /* ===== ACTIVITY 1: BUILD THE CIRCUIT ===== */
+  #act1 .component-bank {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 14px;
+    border: 1px dashed rgba(124,58,237,0.5);
+    margin-bottom: 20px;
+    min-height: 80px;
+  }
+  .comp-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    cursor: grab;
+    transition: transform 0.2s;
+    user-select: none;
+  }
+  .comp-item:active { cursor: grabbing; }
+  .comp-item:hover { transform: scale(1.1); }
+  .comp-icon {
+    width: 56px; height: 56px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    border: 2px solid rgba(168,85,247,0.4);
+    background: rgba(45,27,84,0.8);
+    box-shadow: 0 0 10px rgba(124,58,237,0.3);
+    transition: all 0.2s;
+  }
+  .comp-item:hover .comp-icon {
+    box-shadow: 0 0 20px rgba(168,85,247,0.7);
+    border-color: var(--v5);
+  }
+  .comp-label { font-size: 11px; color: var(--v6); font-weight: 700; }
+
+  .circuit-slots {
+    display: flex;
+    gap: 0;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 20px;
+    background: rgba(0,0,0,0.25);
+    border-radius: 14px;
+    border: 1px solid rgba(124,58,237,0.3);
+    min-height: 100px;
+    position: relative;
+  }
+  .slot {
+    width: 64px; height: 64px;
+    border-radius: 12px;
+    border: 2px dashed rgba(168,85,247,0.5);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: rgba(45,27,84,0.4);
+    position: relative;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .slot.drag-over {
+    border-color: var(--glow);
+    background: rgba(217,70,239,0.15);
+    box-shadow: 0 0 20px rgba(217,70,239,0.4);
+  }
+  .slot.filled {
+    border-style: solid;
+    border-color: var(--v5);
+    background: rgba(124,58,237,0.2);
+  }
+  .slot-label {
+    font-size: 9px;
+    color: rgba(196,132,252,0.6);
+    position: absolute;
+    bottom: 3px;
+    text-align: center;
+    width: 100%;
+  }
+  .slot-wire {
+    width: 30px; height: 4px;
+    background: linear-gradient(90deg, var(--v4), var(--v5));
+    border-radius: 2px;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .slot-wire::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--v5);
+    animation: sparkle 1.5s ease-in-out infinite;
+  }
+  @keyframes sparkle {
+    0%,100% { opacity: 0.3; transform: translate(-50%,-50%) scale(0.6); }
+    50%      { opacity: 1; transform: translate(-50%,-50%) scale(1.2); box-shadow: 0 0 6px var(--glow); }
+  }
+
+  .a1-feedback {
+    text-align: center;
+    padding: 14px;
+    border-radius: 10px;
+    margin-top: 16px;
+    font-weight: 700;
+    font-size: 15px;
+    display: none;
+  }
+  .a1-feedback.success {
+    background: rgba(45,212,191,0.15);
+    border: 1px solid var(--teal);
+    color: var(--teal);
+    display: block;
+  }
+  .a1-feedback.error {
+    background: rgba(244,114,182,0.15);
+    border: 1px solid var(--pink);
+    color: var(--pink);
+    display: block;
+  }
+  .check-btn {
+    display: block;
+    margin: 16px auto 0;
+    padding: 12px 32px;
+    border-radius: 30px;
+    border: none;
+    background: linear-gradient(135deg, var(--v3), var(--v4));
+    color: white;
+    font-family: 'Nunito', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(124,58,237,0.5);
+    transition: all 0.3s;
+    letter-spacing: 0.5px;
+  }
+  .check-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 30px rgba(124,58,237,0.8);
+  }
+
+  /* ===== ACTIVITY 2: BROKEN LINK FINDER ===== */
+  .led-chain-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 20px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 14px;
+    flex-wrap: wrap;
+  }
+  .led-node {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    cursor: pointer;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    transition: all 0.3s;
+    border: 3px solid rgba(255,255,255,0.2);
+    user-select: none;
+    flex-shrink: 0;
+  }
+  .led-node.lit {
+    animation: ledGlow 1s ease-in-out infinite;
+  }
+  .led-node.broken {
+    filter: grayscale(1) brightness(0.3);
+    border-color: rgba(255,100,100,0.5);
+    cursor: pointer;
+  }
+  .led-node.found-broken {
+    animation: foundBroken 0.5s ease;
+    border-color: var(--gold) !important;
+    filter: none;
+    box-shadow: 0 0 25px var(--gold) !important;
+  }
+  @keyframes ledGlow {
+    0%,100% { box-shadow: 0 0 12px 4px currentColor; }
+    50%      { box-shadow: 0 0 28px 10px currentColor; }
+  }
+  @keyframes foundBroken {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.3); }
+    100% { transform: scale(1); }
+  }
+  .wire-seg {
+    height: 6px;
+    width: 40px;
+    border-radius: 3px;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .wire-seg.active {
+    background: linear-gradient(90deg, var(--v4), var(--v5));
+    animation: currentFlow 0.8s linear infinite;
+    background-size: 20px 100%;
+  }
+  .wire-seg.dead {
+    background: rgba(100,100,120,0.4);
+  }
+  @keyframes currentFlow {
+    0%   { background-position: 0 0; }
+    100% { background-position: 20px 0; }
+  }
+  .a2-score {
+    text-align: center;
+    margin-top: 16px;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--gold);
+  }
+
+  /* ===== ACTIVITY 3: SEQUENCE SORT ===== */
+  .sort-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media(max-width: 600px) { .sort-container { grid-template-columns: 1fr; } }
+  .sort-bank {
+    padding: 16px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 14px;
+    border: 1px dashed rgba(168,85,247,0.5);
+    min-height: 300px;
+  }
+  .sort-bank h3 {
+    font-size: 13px;
+    color: var(--v6);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+    font-family: 'Orbitron', monospace;
+  }
+  .sequence-drop {
+    padding: 16px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 14px;
+    border: 1px solid rgba(124,58,237,0.4);
+    min-height: 300px;
+  }
+  .sequence-drop h3 {
+    font-size: 13px;
+    color: var(--teal);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+    font-family: 'Orbitron', monospace;
+  }
+  .step-card {
+    background: linear-gradient(135deg, var(--v2), var(--v3));
+    border: 2px solid rgba(168,85,247,0.4);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--v7);
+    transition: all 0.25s;
+    user-select: none;
+    position: relative;
+  }
+  .step-card:active { cursor: grabbing; }
+  .step-card:hover {
+    border-color: var(--v5);
+    transform: translateX(4px);
+    box-shadow: 0 0 16px rgba(124,58,237,0.5);
+  }
+  .step-card.drag-src {
+    opacity: 0.4;
+  }
+  .step-card .step-icon { font-size: 20px; flex-shrink: 0; }
+  .step-card.correct-pos {
+    border-color: var(--teal);
+    background: linear-gradient(135deg, rgba(45,212,191,0.1), var(--v2));
+    animation: correctCard 0.5s ease;
+  }
+  @keyframes correctCard {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.04); }
+    100% { transform: scale(1); }
+  }
+  .drop-placeholder {
+    border: 2px dashed rgba(168,85,247,0.4);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+    color: rgba(196,132,252,0.4);
+    font-size: 13px;
+    min-height: 48px;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+  }
+  .drop-placeholder.drag-over {
+    border-color: var(--glow);
+    background: rgba(217,70,239,0.1);
+    color: var(--glow);
+  }
+
+  .chain-reaction-bar {
+    margin-top: 20px;
+    padding: 16px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 14px;
+    border: 1px solid rgba(45,212,191,0.3);
+  }
+  .chain-reaction-bar h3 {
+    font-size: 13px;
+    color: var(--teal);
+    text-align: center;
+    margin-bottom: 12px;
+    font-family: 'Orbitron', monospace;
+    letter-spacing: 1px;
+  }
+  .reaction-leds {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+  }
+  .r-led {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.2);
+    position: relative;
+    flex-shrink: 0;
+    transition: all 0.4s;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    filter: grayscale(1) brightness(0.3);
+  }
+  .r-led.on {
+    filter: none;
+    animation: rLedOn 0.5s ease forwards;
+  }
+  @keyframes rLedOn {
+    0%   { transform: scale(0.8); }
+    60%  { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+  .r-wire {
+    width: 24px; height: 4px;
+    border-radius: 2px;
+    background: rgba(100,100,120,0.4);
+    flex-shrink: 0;
+    transition: background 0.4s;
+  }
+  .r-wire.on {
+    background: linear-gradient(90deg, var(--v4), var(--v5));
+    box-shadow: 0 0 8px var(--v5);
+  }
+
+  /* ===== PROGRESS STARS ===== */
+  .score-bar {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 30px;
+    flex-wrap: wrap;
+  }
+  .star-badge {
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    background: rgba(45,27,84,0.8);
+    border: 2px solid rgba(124,58,237,0.4);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    filter: grayscale(1) brightness(0.4);
+    transition: all 0.5s;
+    cursor: default;
+  }
+  .star-badge.earned {
+    filter: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 20px rgba(251,191,36,0.6);
+    animation: starEarned 0.6s ease;
+  }
+  @keyframes starEarned {
+    0%   { transform: scale(0); }
+    60%  { transform: scale(1.3); }
+    100% { transform: scale(1); }
+  }
+
+  .global-score {
+    text-align: center;
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--v6);
+    opacity: 0.8;
+  }
+
+  /* Confetti */
+  .confetti-piece {
+    position: fixed;
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    z-index: 9999;
+    pointer-events: none;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* Reset button */
+  .reset-btn {
+    padding: 8px 20px;
+    border-radius: 20px;
+    border: 1px solid rgba(168,85,247,0.4);
+    background: transparent;
+    color: var(--v6);
+    font-size: 12px;
+    font-family: 'Nunito', sans-serif;
+    cursor: pointer;
+    float: right;
+    transition: all 0.2s;
+    font-weight: 700;
+  }
+  .reset-btn:hover {
+    background: rgba(124,58,237,0.2);
+    border-color: var(--v5);
+  }
+
+  @media(max-width: 600px) {
+    .circuit-slots { gap: 6px; }
+    .slot-wire { width: 16px; }
+    .wire-seg { width: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="starCanvas"></canvas>
+<div class="bird-container" id="birdContainer"></div>
+
+<div class="page-wrap">
+
+  <!-- TITLE -->
+  <div class="title-block">
+    <div class="topic-tag">⚡ Interactive Activity</div>
+    <h1>Series Circuit — LEDs in a Chain</h1>
+  </div>
+
+  <!-- ANIMATED CHAIN OF LEDs -->
+  <div class="chain-row" id="chainRow"></div>
+
+  <!-- NAV -->
+  <div class="activities-nav">
+    <button class="nav-btn active" onclick="switchActivity(1)">⚡ Activity 1: Build It</button>
+    <button class="nav-btn" onclick="switchActivity(2)">🔍 Activity 2: Find the Break</button>
+    <button class="nav-btn" onclick="switchActivity(3)">🔀 Activity 3: Sort the Steps</button>
+  </div>
+
+  <!-- ========================= ACTIVITY 1 ========================= -->
+  <div class="activity-panel active" id="panel1">
+    <div class="card">
+      <h2><span class="act-num">1</span> Build the Series Circuit</h2>
+      <p class="instructions">
+        Drag each component from the bank below into the correct slot in the circuit. 
+        In a series circuit, all components sit in ONE single path — current flows through them one after another! 🔗
+      </p>
+      <button class="reset-btn" onclick="resetActivity1()">↩ Reset</button>
+
+      <div class="component-bank" id="compBank"></div>
+
+      <div class="circuit-slots" id="circuitSlots"></div>
+
+      <button class="check-btn" onclick="checkActivity1()">✔ Check My Circuit</button>
+      <div class="a1-feedback" id="a1Feedback"></div>
+    </div>
+  </div>
+
+  <!-- ========================= ACTIVITY 2 ========================= -->
+  <div class="activity-panel" id="panel2">
+    <div class="card">
+      <h2><span class="act-num">2</span> Find the Broken LED</h2>
+      <p class="instructions">
+        In a series circuit, if ONE LED breaks, ALL go dark. Click the faulty (dim) LED to fix the chain! 
+        Each round a random LED goes bad. Can you score 5 out of 5? 💡
+      </p>
+      <button class="reset-btn" onclick="resetActivity2()">↩ New Round</button>
+
+      <div class="led-chain-row" id="ledChain"></div>
+      <div class="a2-score" id="a2Score">Score: 0 / 5</div>
+    </div>
+  </div>
+
+  <!-- ========================= ACTIVITY 3 ========================= -->
+  <div class="activity-panel" id="panel3">
+    <div class="card">
+      <h2><span class="act-num">3</span> Sort the Circuit Steps</h2>
+      <p class="instructions">
+        Drag the steps from the left bank into the correct order on the right to build a working LED series circuit. 
+        Watch the chain reaction light up as you place each step correctly! 🌟
+      </p>
+      <button class="reset-btn" onclick="resetActivity3()">↩ Reset</button>
+
+      <div class="sort-container">
+        <div class="sort-bank">
+          <h3>📦 Steps Bank</h3>
+          <div id="stepsBank"></div>
+        </div>
+        <div class="sequence-drop">
+          <h3>📋 Your Sequence</h3>
+          <div id="sequenceZone"></div>
+        </div>
+      </div>
+
+      <div class="chain-reaction-bar">
+        <h3>⚡ Chain Reaction</h3>
+        <div class="reaction-leds" id="reactionLeds"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCORE / STARS -->
+  <div class="score-bar" id="scoreBar">
+    <div class="star-badge" id="star1" title="Activity 1">⭐</div>
+    <div class="star-badge" id="star2" title="Activity 2">⭐</div>
+    <div class="star-badge" id="star3" title="Activity 3">⭐</div>
+  </div>
+  <div class="global-score" id="globalScore">Complete activities to earn stars!</div>
+
+</div><!-- page-wrap -->
+
+<script>
+/* ============================= STARS BACKGROUND ============================= */
+(function () {
+  const canvas = document.getElementById('starCanvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, stars = [];
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function initStars() {
+    stars = [];
+    for (let i = 0; i < 160; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 2 + 0.3,
+        speed: Math.random() * 0.4 + 0.1,
+        twinkle: Math.random() * Math.PI * 2,
+        twinkleSpeed: Math.random() * 0.04 + 0.01,
+        color: `hsl(${270 + Math.random() * 60}, 80%, ${60 + Math.random() * 30}%)`,
+        drift: (Math.random() - 0.5) * 0.15
+      });
+    }
+  }
+
+  function drawStars() {
+    ctx.clearRect(0, 0, W, H);
+    for (let s of stars) {
+      s.twinkle += s.twinkleSpeed;
+      const alpha = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(s.twinkle));
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = s.color;
+      ctx.shadowColor = s.color;
+      ctx.shadowBlur = 6;
+      ctx.fill();
+      ctx.restore();
+      s.y -= s.speed;
+      s.x += s.drift;
+      if (s.y < -5) { s.y = H + 5; s.x = Math.random() * W; }
+      if (s.x < -5) s.x = W + 5;
+      if (s.x > W + 5) s.x = -5;
+    }
+    requestAnimationFrame(drawStars);
+  }
+
+  resize();
+  initStars();
+  drawStars();
+  window.addEventListener('resize', () => { resize(); initStars(); });
+})();
+
+/* ============================= BIRDS ============================= */
+(function () {
+  const container = document.getElementById('birdContainer');
+  const birds = ['🦋', '🐦', '🦅', '✨'];
+  function spawnBird() {
+    const el = document.createElement('div');
+    el.className = 'bird';
+    el.textContent = birds[Math.floor(Math.random() * birds.length)];
+    const duration = 8 + Math.random() * 10;
+    const topPct = 5 + Math.random() * 55;
+    el.style.cssText = `top:${topPct}%;animation-duration:${duration}s;animation-delay:0s;font-size:${16 + Math.random() * 14}px`;
+    container.appendChild(el);
+    setTimeout(() => el.remove(), duration * 1000);
+  }
+  for (let i = 0; i < 4; i++) setTimeout(spawnBird, i * 2000);
+  setInterval(spawnBird, 3500);
+})();
+
+/* ============================= CHAIN HEADER ============================= */
+(function () {
+  const row = document.getElementById('chainRow');
+  const colors = ['#f472b6','#a855f7','#2dd4bf','#fbbf24','#818cf8','#34d399'];
+  for (let i = 0; i < 10; i++) {
+    if (i > 0) {
+      const link = document.createElement('div');
+      link.className = 'chain-link';
+      row.appendChild(link);
+    }
+    const led = document.createElement('div');
+    led.className = 'chain-led';
+    led.style.color = colors[i % colors.length];
+    led.style.background = colors[i % colors.length] + '33';
+    led.textContent = '💡';
+    led.style.fontSize = '16px';
+    led.style.display = 'flex';
+    led.style.alignItems = 'center';
+    led.style.justifyContent = 'center';
+    row.appendChild(led);
+  }
+})();
+
+/* ============================= ACTIVITY SWITCHER ============================= */
+function switchActivity(n) {
+  document.querySelectorAll('.activity-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel' + n).classList.add('active');
+  document.querySelectorAll('.nav-btn')[n - 1].classList.add('active');
+}
+
+/* ============================= STARS / SCORE ============================= */
+const stars = { 1: false, 2: false, 3: false };
+function earnStar(n) {
+  if (stars[n]) return;
+  stars[n] = true;
+  const el = document.getElementById('star' + n);
+  el.classList.add('earned');
+  confetti(20);
+  updateGlobalScore();
+}
+function updateGlobalScore() {
+  const count = Object.values(stars).filter(Boolean).length;
+  document.getElementById('globalScore').textContent =
+    count === 3 ? '🎉 All stars earned! You\'re a Series Circuit expert!' :
+    `${count} / 3 stars earned — keep going!`;
+}
+
+function confetti(num) {
+  const colors = ['#a855f7','#f472b6','#fbbf24','#2dd4bf','#818cf8','#f97316'];
+  for (let i = 0; i < num; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.cssText = `
+      left:${20 + Math.random() * 60}vw;
+      top:10vh;
+      background:${colors[Math.floor(Math.random() * colors.length)]};
+      animation-duration:${1 + Math.random() * 1.5}s;
+      animation-delay:${Math.random() * 0.5}s;
+      width:${8 + Math.random() * 8}px;
+      height:${8 + Math.random() * 8}px;
+      border-radius:${Math.random() > 0.5 ? '50%' : '2px'};
+    `;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2500);
+  }
+}
+
+/* ========================= ACTIVITY 1: BUILD THE CIRCUIT ========================= */
+const a1Components = [
+  { id: 'battery',   label: 'Battery',    icon: '🔋', slot: 0 },
+  { id: 'switch',    label: 'Switch',     icon: '🔘', slot: 1 },
+  { id: 'led1',      label: 'LED 1',      icon: '💡', slot: 2 },
+  { id: 'led2',      label: 'LED 2',      icon: '💡', slot: 3 },
+  { id: 'led3',      label: 'LED 3',      icon: '💡', slot: 4 },
+  { id: 'resistor',  label: 'Resistor',   icon: '🟫', slot: 5 },
+];
+const a1SlotLabels = ['Battery', 'Switch', 'LED 1', 'LED 2', 'LED 3', 'Resistor'];
+let a1SlotContents = Array(6).fill(null);
+let a1DragId = null;
+
+function buildActivity1() {
+  const bank = document.getElementById('compBank');
+  bank.innerHTML = '';
+  const shuffled = [...a1Components].sort(() => Math.random() - 0.5);
+  shuffled.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'comp-item';
+    el.draggable = true;
+    el.dataset.id = c.id;
+    el.innerHTML = `<div class="comp-icon">${c.icon}</div><span class="comp-label">${c.label}</span>`;
+    el.addEventListener('dragstart', e => {
+      a1DragId = c.id;
+      el.style.opacity = '0.4';
+    });
+    el.addEventListener('dragend', () => { el.style.opacity = '1'; });
+    bank.appendChild(el);
+  });
+
+  const slotsEl = document.getElementById('circuitSlots');
+  slotsEl.innerHTML = '';
+  a1SlotContents = Array(6).fill(null);
+
+  for (let i = 0; i < 6; i++) {
+    if (i > 0) {
+      const wire = document.createElement('div');
+      wire.className = 'slot-wire';
+      slotsEl.appendChild(wire);
+    }
+    const slot = document.createElement('div');
+    slot.className = 'slot';
+    slot.dataset.idx = i;
+    slot.innerHTML = `<span class="slot-label">${a1SlotLabels[i]}</span>`;
+
+    slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('drag-over'); });
+    slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
+    slot.addEventListener('drop', e => {
+      e.preventDefault();
+      slot.classList.remove('drag-over');
+      const comp = a1Components.find(c => c.id === a1DragId);
+      if (!comp) return;
+      if (a1SlotContents[i] !== null) return; // slot occupied
+      a1SlotContents[i] = a1DragId;
+      slot.innerHTML = `<div class="comp-icon" style="font-size:22px">${comp.icon}</div><span class="slot-label">${comp.label}</span>`;
+      slot.classList.add('filled');
+      // Remove from bank
+      const bankItem = document.querySelector(`[data-id="${a1DragId}"]`);
+      if (bankItem) bankItem.remove();
+    });
+    slotsEl.appendChild(slot);
+  }
+
+  document.getElementById('a1Feedback').className = 'a1-feedback';
+  document.getElementById('a1Feedback').textContent = '';
+}
+
+function checkActivity1() {
+  const fb = document.getElementById('a1Feedback');
+  const correct = a1Components.every((c, i) => a1SlotContents[i] === c.id);
+  const filled  = a1SlotContents.filter(Boolean).length;
+
+  if (filled < 6) {
+    fb.className = 'a1-feedback error';
+    fb.textContent = '⚠️ Some slots are still empty! Fill all 6 slots first.';
+    return;
+  }
+  if (correct) {
+    fb.className = 'a1-feedback success';
+    fb.textContent = '🎉 Perfect! You built a correct series circuit! Current flows in one single loop!';
+    earnStar(1);
+    // Light up slots
+    document.querySelectorAll('.slot.filled .comp-icon').forEach((el, i) => {
+      setTimeout(() => {
+        el.style.boxShadow = '0 0 20px 6px #a855f7';
+        el.style.transition = 'box-shadow 0.4s';
+      }, i * 200);
+    });
+  } else {
+    // Find first wrong
+    const firstWrong = a1Components.findIndex((c, i) => a1SlotContents[i] !== c.id);
+    fb.className = 'a1-feedback error';
+    fb.textContent = `❌ Hmm, slot "${a1SlotLabels[firstWrong]}" has the wrong component. Remember the order: Battery → Switch → LEDs → Resistor!`;
+  }
+}
+
+function resetActivity1() {
+  buildActivity1();
+}
+
+buildActivity1();
+
+/* ========================= ACTIVITY 2: BROKEN LED FINDER ========================= */
+let a2Score = 0, a2Round = 0, a2MaxRounds = 5, a2Broken = -1;
+const a2Colors = ['#f472b6','#a855f7','#2dd4bf','#fbbf24','#818cf8','#34d399','#f97316'];
+const a2LedCount = 6;
+
+function buildActivity2() {
+  const chain = document.getElementById('ledChain');
+  chain.innerHTML = '';
+  a2Broken = Math.floor(Math.random() * a2LedCount);
+
+  for (let i = 0; i < a2LedCount; i++) {
+    if (i > 0) {
+      const wire = document.createElement('div');
+      wire.className = 'wire-seg ' + (i <= a2Broken ? 'active' : 'dead');
+      chain.appendChild(wire);
+    }
+    const led = document.createElement('div');
+    led.className = 'led-node ' + (i === a2Broken ? 'broken' : (i < a2Broken ? 'lit' : ''));
+    led.dataset.idx = i;
+    const col = a2Colors[i % a2Colors.length];
+    led.style.color = col;
+    led.style.background = col + '22';
+    if (i !== a2Broken) led.style.boxShadow = `0 0 14px 4px ${col}`;
+    led.textContent = '💡';
+    led.addEventListener('click', () => handleA2Click(i));
+    led.title = i === a2Broken ? 'Click to fix the broken LED!' : 'This LED seems fine...';
+    chain.appendChild(led);
+  }
+}
+
+function handleA2Click(idx) {
+  if (a2Round >= a2MaxRounds) return;
+  const chain = document.getElementById('ledChain');
+  const leds = chain.querySelectorAll('.led-node');
+  const wires = chain.querySelectorAll('.wire-seg');
+
+  if (idx === a2Broken) {
+    a2Score++;
+    a2Round++;
+    leds[idx].classList.remove('broken');
+    leds[idx].classList.add('found-broken');
+    const col = a2Colors[idx % a2Colors.length];
+    leds[idx].style.boxShadow = `0 0 25px 10px ${col}`;
+    // Light up everything
+    leds.forEach((l, i) => {
+      setTimeout(() => {
+        const c = a2Colors[i % a2Colors.length];
+        l.classList.add('lit');
+        l.style.boxShadow = `0 0 18px 6px ${c}`;
+        l.classList.remove('broken');
+        l.style.filter = 'none';
+      }, i * 150);
+    });
+    wires.forEach(w => {
+      w.classList.add('active');
+      w.classList.remove('dead');
+    });
+    document.getElementById('a2Score').textContent = `Score: ${a2Score} / ${a2MaxRounds}  ✅`;
+    if (a2Score >= a2MaxRounds) {
+      earnStar(2);
+      document.getElementById('a2Score').textContent = `🌟 Perfect! ${a2Score} / ${a2MaxRounds} — Series circuit master!`;
+      return;
+    }
+    setTimeout(buildActivity2, 1800);
+  } else {
+    a2Round++;
+    document.getElementById('a2Score').textContent = `Score: ${a2Score} / ${a2MaxRounds}  ❌ Wrong LED!`;
+    leds[idx].style.animation = 'none';
+    leds[idx].style.border = '3px solid #f97316';
+    setTimeout(() => {
+      leds[idx].style.border = '';
+      document.getElementById('a2Score').textContent = `Score: ${a2Score} / ${a2MaxRounds}`;
+      if (a2Round >= a2MaxRounds) {
+        document.getElementById('a2Score').textContent = `Final score: ${a2Score} / ${a2MaxRounds} — Try again!`;
+      } else {
+        setTimeout(buildActivity2, 800);
+      }
+    }, 800);
+  }
+}
+
+function resetActivity2() {
+  a2Score = 0; a2Round = 0;
+  document.getElementById('a2Score').textContent = 'Score: 0 / 5';
+  buildActivity2();
+}
+
+buildActivity2();
+
+/* ========================= ACTIVITY 3: SEQUENCE SORT ========================= */
+const a3Steps = [
+  { id: 's1', icon: '🔋', text: 'Connect the battery (power source)',        correct: 0 },
+  { id: 's2', icon: '🔘', text: 'Add the switch in the circuit',              correct: 1 },
+  { id: 's3', icon: '🟫', text: 'Place the resistor to limit current',        correct: 2 },
+  { id: 's4', icon: '💡', text: 'Connect LED 1 in series',                    correct: 3 },
+  { id: 's5', icon: '💡', text: 'Connect LED 2 in series after LED 1',        correct: 4 },
+  { id: 's6', icon: '💡', text: 'Connect LED 3 to complete the chain',        correct: 5 },
+  { id: 's7', icon: '🔌', text: 'Close the circuit loop back to battery',     correct: 6 },
+];
+let a3Sequence = [];
+let a3DragStep = null;
+
+function buildActivity3() {
+  a3Sequence = [];
+
+  const bank = document.getElementById('stepsBank');
+  bank.innerHTML = '';
+  const shuffled = [...a3Steps].sort(() => Math.random() - 0.5);
+  shuffled.forEach(step => {
+    bank.appendChild(makeStepCard(step, 'bank'));
+  });
+
+  const zone = document.getElementById('sequenceZone');
+  zone.innerHTML = '';
+  for (let i = 0; i < a3Steps.length; i++) {
+    zone.appendChild(makeDropPlaceholder(i));
+  }
+
+  buildReactionBar();
+}
+
+function makeStepCard(step, source) {
+  const el = document.createElement('div');
+  el.className = 'step-card';
+  el.draggable = true;
+  el.dataset.id = step.id;
+  el.innerHTML = `<span class="step-icon">${step.icon}</span>${step.text}`;
+
+  el.addEventListener('dragstart', () => {
+    a3DragStep = step;
+    el.classList.add('drag-src');
+  });
+  el.addEventListener('dragend', () => el.classList.remove('drag-src'));
+  return el;
+}
+
+function makeDropPlaceholder(idx) {
+  const el = document.createElement('div');
+  el.className = 'drop-placeholder';
+  el.dataset.pos = idx;
+  el.textContent = `Step ${idx + 1}`;
+
+  el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag-over'); });
+  el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+  el.addEventListener('drop', e => {
+    e.preventDefault();
+    el.classList.remove('drag-over');
+    if (!a3DragStep) return;
+    if (a3Sequence[idx] !== undefined) return; // already placed
+
+    // Check if correct
+    if (a3DragStep.correct === idx) {
+      a3Sequence[idx] = a3DragStep.id;
+      // Replace placeholder with card
+      const card = makeStepCard(a3DragStep, 'zone');
+      card.classList.add('correct-pos');
+      card.draggable = false;
+      el.replaceWith(card);
+      // Remove from bank
+      const bankEl = document.querySelector(`#stepsBank [data-id="${a3DragStep.id}"]`);
+      if (bankEl) bankEl.remove();
+      // Update reaction LEDs
+      updateReactionLeds(idx);
+      // Check complete
+      if (a3Sequence.filter(Boolean).length === a3Steps.length) {
+        earnStar(3);
+        document.querySelectorAll('#reactionLeds .r-led').forEach(l => {
+          l.style.animation = 'ledGlow 0.8s ease-in-out infinite';
+        });
+      }
+    } else {
+      // Wrong position — flash
+      el.style.borderColor = '#f97316';
+      el.style.background = 'rgba(249,115,22,0.1)';
+      el.textContent = '❌ Wrong spot! Try another.';
+      setTimeout(() => {
+        el.style.borderColor = '';
+        el.style.background = '';
+        el.textContent = `Step ${idx + 1}`;
+      }, 900);
+    }
+    a3DragStep = null;
+  });
+  return el;
+}
+
+function buildReactionBar() {
+  const bar = document.getElementById('reactionLeds');
+  bar.innerHTML = '';
+  const rColors = ['#fbbf24','#f472b6','#a855f7','#2dd4bf','#818cf8','#34d399','#f97316'];
+  for (let i = 0; i < a3Steps.length; i++) {
+    if (i > 0) {
+      const w = document.createElement('div');
+      w.className = 'r-wire';
+      w.id = `rw${i}`;
+      bar.appendChild(w);
+    }
+    const led = document.createElement('div');
+    led.className = 'r-led';
+    led.id = `rl${i}`;
+    led.style.color = rColors[i];
+    led.style.background = rColors[i] + '22';
+    led.textContent = ['🔋','🔘','🟫','💡','💡','💡','🔌'][i];
+    bar.appendChild(led);
+  }
+}
+
+function updateReactionLeds(idx) {
+  const led = document.getElementById(`rl${idx}`);
+  if (led) {
+    led.classList.add('on');
+    const col = led.style.color;
+    led.style.boxShadow = `0 0 18px 6px ${col}`;
+    led.style.filter = 'none';
+  }
+  if (idx > 0) {
+    const wire = document.getElementById(`rw${idx}`);
+    if (wire) wire.classList.add('on');
+  }
+}
+
+function resetActivity3() {
+  buildActivity3();
+}
+
+buildActivity3();
+</script>
+</body>
+</html>

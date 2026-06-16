@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>LDR — Automatic Night Light</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+/* ═══════════════════════════════════════
+   ROOT & RESET
+═══════════════════════════════════════ */
+:root{
+  --sand:#F5C97A; --sand2:#E8A94B; --sand3:#C4843A;
+  --dusk:#1A0A2E; --dusk2:#2D1B5E; --night:#0D0720;
+  --star:#FFF8DC; --gold:#FFD700; --orange:#FF8C42;
+  --teal:#00CED1; --rose:#FF6B8A; --green:#5CB85C;
+  --red:#E8402A; --white:#FFFDF5;
+  --card:rgba(255,248,220,0.12);
+  --border:rgba(255,215,100,0.35);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;
+  font-family:'Nunito',sans-serif;background:var(--night);}
+
+/* ═══════════════════════════════════════
+   LAYERED BACKGROUND
+═══════════════════════════════════════ */
+#bg-sky{
+  position:fixed;inset:0;z-index:0;
+  background:linear-gradient(180deg,
+    #0D0720 0%,#1A0A2E 30%,#2D1B5E 55%,
+    #8B4513 72%,#C4843A 82%,#E8A94B 90%,#F5C97A 100%);
+  animation:skyPulse 8s ease-in-out infinite alternate;
+}
+@keyframes skyPulse{
+  from{filter:brightness(1);}to{filter:brightness(1.08);}
+}
+/* Stars canvas */
+#stars-canvas{position:fixed;inset:0;z-index:1;pointer-events:none;}
+/* Dunes */
+#dunes-layer{position:fixed;bottom:0;left:0;width:100%;z-index:4;pointer-events:none;}
+/* Sand particles */
+#sand-canvas{position:fixed;inset:0;z-index:3;pointer-events:none;}
+/* Camel silhouettes */
+.camel-wrap{position:fixed;bottom:14%;z-index:5;pointer-events:none;
+  animation:camelWalk linear infinite;}
+@keyframes camelWalk{from{left:-160px;}to{left:calc(100vw + 160px);}}
+
+/* ═══════════════════════════════════════
+   APP SHELL
+═══════════════════════════════════════ */
+#app{
+  position:relative;z-index:10;
+  width:100%;height:100vh;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;
+  padding:6px 10px 6px;
+  gap:5px;
+}
+
+/* ═══════════════════════════════════════
+   HEADER
+═══════════════════════════════════════ */
+#header{text-align:center;position:relative;}
+#header h1{
+  font-family:'Fredoka One',cursive;
+  font-size:clamp(14px,2.4vw,26px);
+  color:var(--gold);
+  text-shadow:0 0 20px rgba(255,200,0,0.6),0 2px 4px rgba(0,0,0,0.8);
+  letter-spacing:0.5px;
+  animation:titleGlow 3s ease-in-out infinite alternate;
+}
+@keyframes titleGlow{
+  from{text-shadow:0 0 12px rgba(255,200,0,0.5),0 2px 4px rgba(0,0,0,0.8);}
+  to{text-shadow:0 0 30px rgba(255,200,0,0.9),0 0 60px rgba(255,150,0,0.4),0 2px 4px rgba(0,0,0,0.8);}
+}
+#header .subtitle{
+  font-size:clamp(9px,1.2vw,12px);color:rgba(255,220,150,0.8);
+  font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  margin-top:1px;
+}
+
+/* ═══════════════════════════════════════
+   PROGRESS BAR
+═══════════════════════════════════════ */
+#progress{display:flex;align-items:center;gap:6px;}
+.pdot{
+  width:28px;height:28px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Fredoka One',cursive;font-size:12px;
+  border:2px solid rgba(255,215,100,0.4);
+  transition:all 0.4s;
+}
+.pdot.inactive{background:rgba(255,255,255,0.08);color:rgba(255,215,100,0.4);}
+.pdot.active{
+  background:linear-gradient(135deg,#FF8C42,#FFD700);
+  color:#1A0A2E;
+  box-shadow:0 0 14px rgba(255,200,0,0.7);
+  animation:dotPulse 1.5s ease-in-out infinite;
+}
+.pdot.done{background:linear-gradient(135deg,#5CB85C,#00CED1);color:#fff;border-color:transparent;}
+@keyframes dotPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.15);}}
+.pline{width:22px;height:2px;background:rgba(255,215,100,0.2);border-radius:2px;}
+
+/* ═══════════════════════════════════════
+   PANEL
+═══════════════════════════════════════ */
+#panel{
+  width:100%;max-width:1000px;flex:1;min-height:0;
+  background:rgba(13,7,32,0.75);
+  backdrop-filter:blur(16px);
+  border-radius:20px;
+  border:1.5px solid var(--border);
+  box-shadow:0 0 40px rgba(255,150,0,0.15),inset 0 1px 0 rgba(255,215,100,0.12);
+  overflow:hidden;position:relative;
+  display:flex;flex-direction:column;
+}
+#panel::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,#FF8C42,#FFD700,#FF6B8A,#00CED1,#FFD700,#FF8C42);
+  background-size:300%;animation:rainbowLine 4s linear infinite;
+}
+@keyframes rainbowLine{0%{background-position:0%;}100%{background-position:300%;}}
+
+/* ═══════════════════════════════════════
+   ACTIVITY SCREENS
+═══════════════════════════════════════ */
+.ascreen{display:none;flex-direction:column;gap:6px;padding:10px 14px 8px;flex:1;min-height:0;}
+.ascreen.active{display:flex;}
+
+.atitle{
+  font-family:'Fredoka One',cursive;
+  font-size:clamp(13px,1.9vw,19px);
+  color:var(--gold);
+  display:flex;align-items:center;gap:8px;
+  text-shadow:0 0 10px rgba(255,200,0,0.4);
+}
+.abadge{
+  background:linear-gradient(135deg,#FF8C42,#FFD700);
+  color:#1A0A2E;font-size:9px;padding:2px 8px;
+  border-radius:20px;font-family:'Nunito',sans-serif;
+  font-weight:900;letter-spacing:1px;
+}
+.ainstr{
+  font-size:clamp(9px,1.2vw,12px);
+  color:rgba(255,220,150,0.9);font-weight:700;line-height:1.4;
+  background:rgba(255,150,0,0.1);
+  border-radius:10px;padding:5px 10px;
+  border-left:3px solid var(--orange);
+}
+
+/* ═══════════════════════════════════════
+   DRAG CARDS
+═══════════════════════════════════════ */
+.card-bank{
+  display:flex;flex-wrap:wrap;gap:6px;padding:6px 8px;
+  background:rgba(255,255,255,0.04);border-radius:10px;
+  border:1.5px dashed rgba(255,215,100,0.25);
+  min-height:40px;align-items:center;
+}
+.dcard{
+  padding:5px 11px;border-radius:10px;
+  font-family:'Fredoka One',cursive;font-size:clamp(10px,1.5vw,14px);
+  cursor:grab;user-select:none;
+  transition:transform 0.15s,box-shadow 0.15s,opacity 0.2s;
+  border:1.5px solid rgba(255,255,255,0.2);
+  box-shadow:0 3px 10px rgba(0,0,0,0.35);
+  white-space:nowrap;
+}
+.dcard:hover{transform:scale(1.07) rotate(-1deg);box-shadow:0 6px 18px rgba(255,200,0,0.3);}
+.dcard.dragging{opacity:0.35;cursor:grabbing;}
+.dcard.placed{opacity:0.25;pointer-events:none;}
+
+/* ═══════════════════════════════════════
+   DROP SLOTS
+═══════════════════════════════════════ */
+.dslot{
+  border-radius:10px;border:1.5px dashed rgba(255,215,100,0.4);
+  background:rgba(255,255,255,0.04);
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.2s;position:relative;
+  min-height:36px;
+}
+.dslot.over{
+  background:rgba(255,180,0,0.15);border-color:#FFD700;
+  box-shadow:0 0 14px rgba(255,200,0,0.35);
+}
+.dslot.correct{background:rgba(92,184,92,0.2);border-color:#5CB85C;
+  animation:slotPop 0.4s ease;}
+.dslot.wrong{animation:slotShake 0.35s ease;}
+.slot-hint{
+  font-size:clamp(8px,1vw,10px);color:rgba(255,215,100,0.4);
+  font-weight:700;pointer-events:none;text-align:center;padding:0 4px;
+  letter-spacing:0.3px;
+}
+@keyframes slotPop{0%{transform:scale(1);}50%{transform:scale(1.05);}100%{transform:scale(1);}}
+@keyframes slotShake{0%,100%{transform:translateX(0);}33%{transform:translateX(-7px);}66%{transform:translateX(7px);}}
+
+/* chip placed inside slot */
+.slot-chip{
+  padding:4px 10px;border-radius:8px;
+  font-family:'Fredoka One',cursive;font-size:clamp(10px,1.4vw,13px);
+  color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);
+  animation:chipLand 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  pointer-events:none;
+}
+@keyframes chipLand{from{transform:scale(0.4) rotate(-8deg);opacity:0;}to{transform:scale(1);opacity:1;}}
+
+/* ═══════════════════════════════════════
+   FEEDBACK & BUTTONS
+═══════════════════════════════════════ */
+.feedback{
+  min-height:22px;font-size:clamp(9px,1.2vw,12px);
+  font-weight:800;text-align:center;padding:3px 10px;
+  border-radius:8px;transition:all 0.3s;
+}
+.feedback.ok{background:rgba(92,184,92,0.2);color:#5CB85C;}
+.feedback.err{background:rgba(232,64,42,0.2);color:#FF6B6B;}
+
+.action-row{display:flex;gap:8px;justify-content:center;align-items:center;margin-top:2px;}
+.btn{
+  padding:7px 22px;font-family:'Fredoka One',cursive;
+  font-size:clamp(11px,1.5vw,14px);color:#1A0A2E;
+  cursor:pointer;border:none;border-radius:30px;
+  background:linear-gradient(135deg,#FF8C42,#FFD700);
+  box-shadow:0 4px 16px rgba(255,200,0,0.35);
+  transition:transform 0.15s,box-shadow 0.15s;
+  letter-spacing:0.3px;
+}
+.btn:hover{transform:scale(1.05);box-shadow:0 6px 22px rgba(255,200,0,0.55);}
+.btn:active{transform:scale(0.97);}
+.btn.reset{background:linear-gradient(135deg,#2D1B5E,#4A2F8A);color:rgba(255,220,150,0.9);
+  box-shadow:0 4px 12px rgba(0,0,0,0.3);}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 1 — CIRCUIT BOARD
+═══════════════════════════════════════ */
+.circuit-grid{
+  display:grid;gap:6px;flex:1;
+}
+.circuit-board{
+  background:rgba(0,30,20,0.5);border-radius:14px;
+  border:1.5px solid rgba(0,200,150,0.25);
+  padding:8px;display:flex;flex-direction:column;gap:5px;
+  flex:1;
+}
+.circuit-board-title{
+  font-family:'Fredoka One',cursive;font-size:clamp(10px,1.3vw,13px);
+  color:rgba(0,220,170,0.8);letter-spacing:0.5px;
+  text-align:center;margin-bottom:2px;
+}
+.circuit-slots-row{
+  display:flex;gap:8px;justify-content:space-around;
+  align-items:center;flex-wrap:wrap;
+}
+.circuit-slot-wrap{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+}
+.circuit-slot-label{
+  font-size:clamp(7px,0.9vw,9px);color:rgba(255,220,150,0.6);
+  font-weight:700;text-transform:uppercase;letter-spacing:0.5px;
+  text-align:center;
+}
+.circuit-slot{
+  width:clamp(72px,9vw,95px);height:clamp(50px,6vw,62px);
+}
+/* Wire connectors */
+.wire-row{
+  display:flex;align-items:center;justify-content:center;gap:0;
+  padding:0 8px;
+}
+.wire{height:2px;flex:1;background:linear-gradient(90deg,rgba(0,200,150,0.4),rgba(0,200,150,0.7),rgba(0,200,150,0.4));}
+.wire-dot{width:6px;height:6px;border-radius:50%;background:#00CED1;box-shadow:0 0 6px #00CED1;}
+
+/* LED visual */
+.led-visual{
+  width:40px;height:40px;border-radius:50%;
+  border:3px solid rgba(255,255,255,0.2);
+  transition:all 0.5s;
+  position:relative;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;
+}
+.led-visual.off{background:rgba(100,100,100,0.3);box-shadow:none;}
+.led-visual.on{
+  background:radial-gradient(circle,#FFD700,#FF8C42);
+  box-shadow:0 0 20px rgba(255,200,0,0.8),0 0 40px rgba(255,150,0,0.4);
+  animation:ledGlow 1s ease-in-out infinite alternate;
+}
+@keyframes ledGlow{from{box-shadow:0 0 15px rgba(255,200,0,0.7),0 0 30px rgba(255,150,0,0.3);}
+  to{box-shadow:0 0 30px rgba(255,200,0,1),0 0 60px rgba(255,150,0,0.6);}}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 2 — LDR SENSOR
+═══════════════════════════════════════ */
+.act2-layout{
+  display:flex;gap:10px;flex:1;min-height:0;
+  flex-wrap:wrap;
+}
+.ldr-scene{
+  flex:1.2;min-width:200px;
+  background:rgba(0,20,40,0.6);border-radius:14px;
+  border:1.5px solid rgba(0,200,220,0.2);
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:8px;padding:10px;
+  position:relative;overflow:hidden;
+}
+.ldr-eye{
+  width:clamp(60px,8vw,90px);height:clamp(60px,8vw,90px);
+  border-radius:50%;border:3px solid rgba(0,200,220,0.5);
+  display:flex;align-items:center;justify-content:center;
+  font-size:clamp(28px,4vw,44px);
+  background:radial-gradient(circle,rgba(0,50,80,0.8),rgba(0,20,40,0.9));
+  position:relative;transition:all 0.4s;
+}
+.ldr-eye.sensing{
+  border-color:#FFD700;
+  box-shadow:0 0 20px rgba(255,200,0,0.5);
+  animation:ldrPulse 0.8s ease-in-out infinite;
+}
+@keyframes ldrPulse{0%,100%{box-shadow:0 0 15px rgba(255,200,0,0.4);}50%{box-shadow:0 0 30px rgba(255,200,0,0.8);}}
+.ldr-label{font-family:'Fredoka One',cursive;font-size:clamp(11px,1.4vw,14px);
+  color:#00CED1;text-shadow:0 0 8px rgba(0,200,220,0.5);}
+.ldr-status{font-size:clamp(9px,1.1vw,11px);font-weight:800;
+  padding:3px 10px;border-radius:8px;text-align:center;}
+.ldr-status.bright{background:rgba(255,200,0,0.2);color:#FFD700;}
+.ldr-status.dark{background:rgba(60,0,100,0.4);color:#c084fc;}
+
+.cover-zone{
+  width:clamp(72px,9vw,100px);height:clamp(72px,9vw,100px);
+  border-radius:50%;
+  border:2px dashed rgba(255,215,100,0.4);
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.3s;position:absolute;
+}
+.cover-zone.over{border-color:#FFD700;background:rgba(255,200,0,0.1);}
+.cover-zone.covered{border-color:#c084fc;border-style:solid;background:rgba(60,0,100,0.5);}
+.cover-zone .hint{font-size:9px;color:rgba(255,215,100,0.5);text-align:center;pointer-events:none;}
+
+.led-col{
+  flex:0.8;min-width:140px;
+  background:rgba(10,5,25,0.7);border-radius:14px;
+  border:1.5px solid rgba(255,200,0,0.15);
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:10px;padding:10px;
+}
+.big-led{
+  width:clamp(55px,7vw,80px);height:clamp(55px,7vw,80px);
+  border-radius:50%;border:3px solid rgba(255,255,255,0.15);
+  display:flex;align-items:center;justify-content:center;
+  font-size:clamp(24px,3.5vw,38px);
+  transition:all 0.5s;
+}
+.big-led.off{background:rgba(80,80,80,0.2);box-shadow:none;}
+.big-led.on{
+  background:radial-gradient(circle,#FFF8DC,#FFD700,#FF8C42);
+  box-shadow:0 0 30px rgba(255,200,0,0.8),0 0 60px rgba(255,150,0,0.4);
+  animation:bigLedGlow 0.8s ease-in-out infinite alternate;
+}
+@keyframes bigLedGlow{from{box-shadow:0 0 20px rgba(255,200,0,0.7),0 0 40px rgba(255,150,0,0.3);}
+  to{box-shadow:0 0 45px rgba(255,220,0,1),0 0 90px rgba(255,150,0,0.6);}}
+.led-big-label{font-family:'Fredoka One',cursive;font-size:clamp(11px,1.4vw,14px);
+  color:rgba(255,220,150,0.8);}
+.act2-drop-area{
+  flex:1;min-width:170px;
+  display:flex;flex-direction:column;gap:6px;
+  background:rgba(255,255,255,0.03);border-radius:14px;
+  border:1.5px solid rgba(255,215,100,0.15);
+  padding:8px;
+}
+.drop-card-slot{
+  flex:1;border-radius:10px;
+  border:1.5px dashed rgba(255,215,100,0.3);
+  background:rgba(255,255,255,0.03);
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:4px;
+  transition:all 0.2s;min-height:50px;
+}
+.drop-card-slot.over{background:rgba(255,180,0,0.12);border-color:#FFD700;}
+.drop-card-slot.correct{background:rgba(92,184,92,0.15);border-color:#5CB85C;animation:slotPop 0.4s ease;}
+.drop-card-slot.wrong-slot{animation:slotShake 0.35s ease;}
+.dslot-label{font-size:clamp(8px,1vw,10px);color:rgba(255,220,150,0.5);
+  font-weight:800;text-transform:uppercase;letter-spacing:0.5px;}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 3 — WORKFLOW SEQUENCE
+═══════════════════════════════════════ */
+.seq-layout{display:flex;gap:10px;flex:1;min-height:0;}
+.seq-bank-col{
+  flex:1;min-width:160px;
+  display:flex;flex-direction:column;gap:6px;
+}
+.seq-drop-col{
+  flex:1.5;min-width:200px;
+  display:flex;flex-direction:column;gap:4px;
+}
+.seq-slot{
+  flex:1;border-radius:10px;
+  border:1.5px dashed rgba(255,215,100,0.35);
+  background:rgba(255,255,255,0.03);
+  display:flex;align-items:center;padding:0 10px;
+  gap:8px;transition:all 0.2s;min-height:38px;
+}
+.seq-slot.over{background:rgba(255,180,0,0.12);border-color:#FFD700;box-shadow:0 0 10px rgba(255,200,0,0.2);}
+.seq-slot.correct{background:rgba(92,184,92,0.15);border-color:#5CB85C;}
+.seq-slot.wrong{animation:slotShake 0.35s ease;}
+.seq-num{
+  width:22px;height:22px;border-radius:50%;
+  background:linear-gradient(135deg,#FF8C42,#FFD700);
+  color:#1A0A2E;font-family:'Fredoka One',cursive;font-size:12px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.seq-hint{font-size:clamp(8px,1vw,10px);color:rgba(255,215,100,0.35);
+  font-weight:700;letter-spacing:0.3px;}
+
+/* LDR mascot */
+.ldr-mascot{
+  font-size:clamp(24px,3.5vw,40px);
+  animation:mascotBob 2s ease-in-out infinite;
+  filter:drop-shadow(0 0 8px rgba(255,200,0,0.4));
+}
+@keyframes mascotBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+
+/* ═══════════════════════════════════════
+   POPUP
+═══════════════════════════════════════ */
+#popup{
+  position:fixed;inset:0;z-index:200;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(13,7,32,0.75);backdrop-filter:blur(8px);
+}
+#popup.show{display:flex;}
+.popup-box{
+  background:linear-gradient(135deg,#1A0A2E,#2D1B5E);
+  border-radius:24px;padding:24px 30px;max-width:400px;width:90%;
+  text-align:center;
+  border:2px solid rgba(255,215,100,0.4);
+  box-shadow:0 0 60px rgba(255,150,0,0.25),0 20px 50px rgba(0,0,0,0.5);
+  animation:popIn 0.5s cubic-bezier(0.34,1.56,0.64,1);
+  position:relative;overflow:hidden;
+}
+.popup-box::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,#FF8C42,#FFD700,#FF6B8A,#00CED1,#FFD700,#FF8C42);
+  background-size:300%;animation:rainbowLine 3s linear infinite;
+}
+@keyframes popIn{from{transform:scale(0.5) rotate(-6deg);opacity:0;}to{transform:scale(1);opacity:1;}}
+.popup-emoji{font-size:56px;display:block;margin-bottom:8px;
+  animation:emojiPop 0.6s cubic-bezier(0.34,1.56,0.64,1);}
+@keyframes emojiPop{from{transform:scale(0);}to{transform:scale(1);}}
+.popup-title{
+  font-family:'Fredoka One',cursive;font-size:24px;
+  color:var(--gold);text-shadow:0 0 15px rgba(255,200,0,0.5);
+  margin-bottom:6px;
+}
+.popup-msg{font-size:13px;color:rgba(255,220,150,0.85);
+  font-weight:700;line-height:1.5;margin-bottom:16px;}
+.popup-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+.popup-btn{
+  padding:10px 28px;font-family:'Fredoka One',cursive;font-size:16px;
+  color:#1A0A2E;cursor:pointer;border:none;border-radius:30px;
+  background:linear-gradient(135deg,#FF8C42,#FFD700);
+  box-shadow:0 5px 18px rgba(255,200,0,0.4);
+  transition:transform 0.15s;
+}
+.popup-btn:hover{transform:scale(1.05);}
+.popup-btn.secondary{
+  background:linear-gradient(135deg,#2D3748,#4A5568);
+  color:rgba(255,220,150,0.9);
+  box-shadow:0 5px 14px rgba(0,0,0,0.3);
+}
+
+/* confetti */
+.confetti-piece{
+  position:absolute;width:8px;height:8px;
+  border-radius:2px;pointer-events:none;
+  animation:confettiFall linear forwards;
+}
+@keyframes confettiFall{
+  0%{transform:translateY(0) rotate(0deg);opacity:1;}
+  100%{transform:translateY(280px) rotate(720deg);opacity:0;}
+}
+/* sparkle */
+.sparkle{position:fixed;pointer-events:none;z-index:300;
+  font-size:20px;animation:sparkleOut 0.7s ease forwards;}
+@keyframes sparkleOut{0%{transform:scale(0);opacity:1;}100%{transform:scale(2.2);opacity:0;}}
+</style>
+</head>
+<body>
+
+<!-- ── BG LAYERS ── -->
+<div id="bg-sky"></div>
+<canvas id="stars-canvas"></canvas>
+<canvas id="sand-canvas"></canvas>
+
+<!-- Dunes SVG -->
+<div id="dunes-layer">
+<svg viewBox="0 0 1440 160" preserveAspectRatio="none" style="width:100%;height:auto;display:block;">
+  <path d="M0,160 Q120,60 280,110 Q420,155 560,90 Q700,30 860,100 Q1000,155 1150,80 Q1300,20 1440,90 L1440,160Z" fill="#C4843A" opacity="0.9"/>
+  <path d="M0,160 Q180,100 320,130 Q480,160 620,120 Q780,80 940,130 Q1100,165 1260,110 Q1360,80 1440,120 L1440,160Z" fill="#E8A94B" opacity="0.7"/>
+  <path d="M0,160 Q200,140 380,155 Q560,168 720,145 Q900,128 1080,152 Q1260,170 1440,148 L1440,160Z" fill="#F5C97A" opacity="0.8"/>
+</svg>
+</div>
+
+<!-- Camel silhouette (generated by JS) -->
+
+<!-- ── APP ── -->
+<div id="app">
+  <!-- Header -->
+  <div id="header">
+    <h1>🌵 LDR — AUTOMATIC NIGHT LIGHT 🌙</h1>
+    <div class="subtitle">Electronics &amp; Smart Automation · Desert Lab</div>
+  </div>
+
+  <!-- Progress -->
+  <div id="progress">
+    <div class="pdot active" id="pd1">1</div>
+    <div class="pline"></div>
+    <div class="pdot inactive" id="pd2">2</div>
+    <div class="pline"></div>
+    <div class="pdot inactive" id="pd3">3</div>
+  </div>
+
+  <!-- Panel -->
+  <div id="panel">
+
+    <!-- ═══════════════════════════════════
+         ACT 1: Build the Circuit
+    ════════════════════════════════════ -->
+    <div class="ascreen active" id="act1">
+      <div class="atitle">
+        🔌 Activity 1: Build the Night-Light Circuit
+        <span class="abadge">CIRCUIT</span>
+      </div>
+      <div class="ainstr">
+        Drag each component into its correct slot on the circuit board to complete the automatic night-light! Every part has a special job. ⚡
+      </div>
+
+      <!-- Card bank -->
+      <div class="card-bank" id="act1-bank"></div>
+
+      <!-- Circuit board -->
+      <div class="circuit-board">
+        <div class="circuit-board-title">🔧 Night-Light Circuit Board</div>
+        <div class="circuit-slots-row" id="act1-slots"></div>
+
+        <!-- Wire row -->
+        <div class="wire-row">
+          <div class="wire-dot"></div>
+          <div class="wire"></div>
+          <div class="wire-dot"></div>
+          <div class="wire"></div>
+          <div class="wire-dot"></div>
+          <div class="wire"></div>
+          <div class="wire-dot"></div>
+        </div>
+
+        <!-- LED display -->
+        <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:2px;">
+          <div style="font-size:10px;color:rgba(255,220,150,0.5);font-weight:700;">RESULT →</div>
+          <div id="act1-led" class="led-visual off">💡</div>
+          <div id="act1-led-label" style="font-size:10px;color:rgba(255,150,100,0.6);font-weight:700;">Waiting...</div>
+        </div>
+      </div>
+
+      <div class="feedback" id="fb1"></div>
+      <div class="action-row">
+        <button class="btn reset" onclick="resetAct1()">↺ Reset</button>
+        <button class="btn" onclick="checkAct1()">✓ Check Circuit</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════
+         ACT 2: Cover / Reveal the LDR
+    ════════════════════════════════════ -->
+    <div class="ascreen" id="act2">
+      <div class="atitle">
+        👁️ Activity 2: Cover the LDR — Light the LED!
+        <span class="abadge">SENSOR</span>
+      </div>
+      <div class="ainstr">
+        Drag a SHADOW card onto the LDR sensor to block light and turn the LED ON. Drag a SUNSHINE card to reveal the LDR and turn the LED OFF. Watch it react! ☀️🌑
+      </div>
+
+      <div class="card-bank" id="act2-bank"></div>
+
+      <div class="act2-layout">
+        <!-- LDR scene -->
+        <div class="ldr-scene" id="act2-scene">
+          <div class="ldr-mascot">🤖</div>
+          <div class="ldr-label">LDR Darkness Detective</div>
+          <div id="act2-ldr-eye" class="ldr-eye">👁️</div>
+          <!-- cover zone centered on the eye – positioned by JS after render -->
+          <div class="cover-zone" id="act2-cover-zone">
+            <span class="hint" style="font-size:8px;color:rgba(255,215,100,0.4);">Drop card<br>here</span>
+          </div>
+          <div id="act2-ldr-status" class="ldr-status bright">☀️ Bright Light Detected</div>
+        </div>
+
+        <!-- LED result -->
+        <div class="led-col">
+          <div class="ldr-label">LED Status</div>
+          <div id="act2-led" class="big-led off">💡</div>
+          <div id="act2-led-label" class="led-big-label" style="color:rgba(150,150,150,0.6);">OFF</div>
+          <div style="font-size:9px;color:rgba(255,220,150,0.4);font-weight:700;text-align:center;max-width:110px;line-height:1.3;">
+            Bright Light = LED OFF<br>Darkness = LED ON
+          </div>
+        </div>
+
+        <!-- Drop slots for card types -->
+        <div class="act2-drop-area">
+          <div style="font-family:'Fredoka One',cursive;font-size:11px;color:rgba(255,215,100,0.6);margin-bottom:2px;">Try both actions:</div>
+          <div class="drop-card-slot" id="slot-shadow" data-expect="shadow">
+            <div class="dslot-label">🌑 Shadow Card</div>
+            <div style="font-size:8px;color:rgba(255,215,100,0.35);">blocks the LDR</div>
+          </div>
+          <div class="drop-card-slot" id="slot-shine" data-expect="shine">
+            <div class="dslot-label">☀️ Sunshine Card</div>
+            <div style="font-size:8px;color:rgba(255,215,100,0.35);">reveals the LDR</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feedback" id="fb2"></div>
+      <div class="action-row">
+        <button class="btn reset" onclick="resetAct2()">↺ Reset</button>
+        <button class="btn" onclick="checkAct2()">✓ Check Results</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════
+         ACT 3: Workflow Sequence
+    ════════════════════════════════════ -->
+    <div class="ascreen" id="act3">
+      <div class="atitle">
+        🗺️ Activity 3: LDR Workflow — The Right Order!
+        <span class="abadge">SEQUENCE</span>
+      </div>
+      <div class="ainstr">
+        Drag each step into the correct numbered slot to show exactly how an LDR automatically controls the night light. Order matters! 🌙✨
+      </div>
+
+      <div class="card-bank" id="act3-bank"></div>
+
+      <div class="seq-layout">
+        <div class="seq-bank-col">
+          <div style="font-family:'Fredoka One',cursive;font-size:11px;color:rgba(255,215,100,0.5);margin-bottom:2px;">Available Steps</div>
+          <!-- bank cards shown here via JS -->
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+            <div class="ldr-mascot" style="font-size:48px;">🌙</div>
+          </div>
+        </div>
+        <div class="seq-drop-col" id="act3-slots">
+          <!-- slots injected by JS -->
+        </div>
+      </div>
+
+      <div class="feedback" id="fb3"></div>
+      <div class="action-row">
+        <button class="btn reset" onclick="resetAct3()">↺ Reset</button>
+        <button class="btn" onclick="checkAct3()">✓ Check Sequence</button>
+      </div>
+    </div>
+
+  </div><!-- /panel -->
+</div><!-- /app -->
+
+<!-- ── POPUP ── -->
+<div id="popup">
+  <div class="popup-box" id="popup-box">
+    <span class="popup-emoji" id="popup-emoji">🎉</span>
+    <div class="popup-title" id="popup-title">Well done!</div>
+    <div class="popup-msg" id="popup-msg"></div>
+    <div class="popup-btns">
+      <button class="popup-btn" id="popup-next-btn">Next Activity →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// BACKGROUND ANIMATIONS
+// ═══════════════════════════════════════════
+(function initStars(){
+  const c=document.getElementById('stars-canvas');
+  const ctx=c.getContext('2d');
+  let W,H,stars=[];
+  function resize(){W=c.width=innerWidth;H=c.height=innerHeight;}
+  resize();window.addEventListener('resize',resize);
+  for(let i=0;i<180;i++){
+    stars.push({x:Math.random()*1,y:Math.random()*0.65,
+      r:Math.random()*1.5+0.3,alpha:Math.random(),da:0.005+Math.random()*0.015,
+      twinkleDir:Math.random()>0.5?1:-1});
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    stars.forEach(s=>{
+      s.alpha+=s.da*s.twinkleDir;
+      if(s.alpha>=1||s.alpha<=0.1)s.twinkleDir*=-1;
+      ctx.save();
+      ctx.globalAlpha=s.alpha;
+      ctx.fillStyle='#FFF8DC';
+      ctx.beginPath();
+      ctx.arc(s.x*W,s.y*H,s.r,0,Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+(function initSandParticles(){
+  const c=document.getElementById('sand-canvas');
+  const ctx=c.getContext('2d');
+  let W,H,particles=[];
+  function resize(){W=c.width=innerWidth;H=c.height=innerHeight;}
+  resize();window.addEventListener('resize',resize);
+  for(let i=0;i<60;i++){
+    particles.push({
+      x:Math.random()*1,y:0.55+Math.random()*0.4,
+      vx:0.3+Math.random()*0.8,vy:-0.05+Math.random()*0.1,
+      r:Math.random()*2+0.5,alpha:Math.random()*0.4+0.1,
+      color:`hsl(${30+Math.random()*20},${60+Math.random()*20}%,${60+Math.random()*20}%)`
+    });
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    particles.forEach(p=>{
+      p.x+=p.vx/W*0.8;p.y+=p.vy/H;
+      if(p.x>1.05){p.x=-0.05;p.y=0.6+Math.random()*0.35;}
+      if(p.y<0.5){p.y=0.55+Math.random()*0.35;}
+      ctx.save();ctx.globalAlpha=p.alpha;
+      ctx.fillStyle=p.color;ctx.beginPath();
+      ctx.arc(p.x*W,p.y*H,p.r,0,Math.PI*2);ctx.fill();ctx.restore();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// Camel silhouettes
+(function initCamels(){
+  const emojis=['🐪','🐫','🐪'];
+  emojis.forEach((e,i)=>{
+    const d=document.createElement('div');
+    d.className='camel-wrap';
+    d.style.cssText=`font-size:${32+i*8}px;animation-duration:${22+i*8}s;animation-delay:${-i*9}s;bottom:${13+i*2}%;opacity:${0.35+i*0.1};filter:drop-shadow(0 4px 8px rgba(0,0,0,0.5));`;
+    d.textContent=e;document.body.appendChild(d);
+  });
+})();
+
+// ═══════════════════════════════════════════
+// DRAG & DROP ENGINE
+// ═══════════════════════════════════════════
+let dragEl=null,ghostEl=null,dragOffset={x:0,y:0};
+
+function makeDragCard(text,bg,id,extraData={}){
+  const el=document.createElement('div');
+  el.className='dcard';el.id=id;
+  el.dataset.cardId=id;
+  Object.assign(el.dataset,extraData);
+  el.style.background=bg;el.style.color='#fff';
+  el.innerHTML=text;
+  el.addEventListener('mousedown',startDrag);
+  el.addEventListener('touchstart',startDrag,{passive:false});
+  return el;
+}
+
+function startDrag(e){
+  if(dragEl)return;
+  const card=e.currentTarget;
+  if(card.classList.contains('placed'))return;
+  e.preventDefault();
+  dragEl=card;card.classList.add('dragging');
+  ghostEl=card.cloneNode(true);
+  ghostEl.style.cssText+=';position:fixed;z-index:999;pointer-events:none;opacity:0.85;transition:none;margin:0;';
+  document.body.appendChild(ghostEl);
+  const t=e.touches?e.touches[0]:e;
+  const r=card.getBoundingClientRect();
+  dragOffset={x:t.clientX-r.left,y:t.clientY-r.top};
+  moveGhost(t.clientX,t.clientY);
+  document.addEventListener('mousemove',onDrag);document.addEventListener('touchmove',onDrag,{passive:false});
+  document.addEventListener('mouseup',endDrag);document.addEventListener('touchend',endDrag);
+}
+function moveGhost(cx,cy){if(!ghostEl)return;ghostEl.style.left=(cx-dragOffset.x)+'px';ghostEl.style.top=(cy-dragOffset.y)+'px';}
+function onDrag(e){if(!dragEl)return;e.preventDefault();const t=e.touches?e.touches[0]:e;moveGhost(t.clientX,t.clientY);
+  document.querySelectorAll('.dslot,.drop-card-slot,.seq-slot,.cover-zone').forEach(z=>{
+    const r=z.getBoundingClientRect();
+    z.classList.toggle('over',t.clientX>=r.left&&t.clientX<=r.right&&t.clientY>=r.top&&t.clientY<=r.bottom);
+  });
+}
+function endDrag(e){
+  if(!dragEl)return;
+  document.removeEventListener('mousemove',onDrag);document.removeEventListener('touchmove',onDrag);
+  document.removeEventListener('mouseup',endDrag);document.removeEventListener('touchend',endDrag);
+  const t=e.changedTouches?e.changedTouches[0]:e;
+  const cx=t.clientX,cy=t.clientY;
+  let dropped=false;
+  document.querySelectorAll('.dslot,.drop-card-slot,.seq-slot').forEach(z=>{
+    z.classList.remove('over');
+    const r=z.getBoundingClientRect();
+    if(!dropped&&cx>=r.left&&cx<=r.right&&cy>=r.top&&cy<=r.bottom){
+      dropped=handleDrop(dragEl,z);
+    }
+  });
+  if(!dropped)dragEl.classList.remove('dragging');
+  if(ghostEl){ghostEl.remove();ghostEl=null;}
+  dragEl=null;
+}
+
+function placeChipInSlot(slot,text,bg){
+  slot.innerHTML='';
+  const chip=document.createElement('div');
+  chip.className='slot-chip';chip.style.background=bg;chip.innerHTML=text;
+  slot.appendChild(chip);
+}
+
+function spawnSparkle(el){
+  const r=el.getBoundingClientRect();
+  const s=document.createElement('div');s.className='sparkle';
+  s.textContent=['✨','⭐','🌟','💫'][Math.floor(Math.random()*4)];
+  s.style.left=(r.left+r.width/2-12)+'px';s.style.top=(r.top+r.height/2-12)+'px';
+  document.body.appendChild(s);setTimeout(()=>s.remove(),800);
+}
+
+function wrongEffect(el){
+  el.classList.add('wrong')||el.classList.add('wrong-slot');
+  setTimeout(()=>{el.classList.remove('wrong');el.classList.remove('wrong-slot');},400);
+}
+
+// ═══════════════════════════════════════════
+// ACTIVITY 1 — CIRCUIT BUILDER
+// ═══════════════════════════════════════════
+const act1Components=[
+  {id:'c-ldr',label:'🔮 LDR Sensor',bg:'linear-gradient(135deg,#0891b2,#06b6d4)',slot:'slot-ldr',hint:'LDR Sensor'},
+  {id:'c-res',label:'🔧 Fixed Resistor',bg:'linear-gradient(135deg,#7c3aed,#a78bfa)',slot:'slot-res',hint:'Fixed Resistor'},
+  {id:'c-led',label:'💡 LED',bg:'linear-gradient(135deg,#b45309,#f59e0b)',slot:'slot-led',hint:'LED'},
+  {id:'c-bat',label:'🔋 Battery',bg:'linear-gradient(135deg,#166534,#22c55e)',slot:'slot-bat',hint:'Battery'},
+];
+let act1Placed={};
+
+function shuffleArr(a){return a.sort(()=>Math.random()-0.5);}
+
+function setupAct1(){
+  act1Placed={};
+  // bank
+  const bank=document.getElementById('act1-bank');bank.innerHTML='';
+  shuffleArr([...act1Components]).forEach(c=>{
+    bank.appendChild(makeDragCard(c.label,c.bg,c.id,{type:'act1',compId:c.id}));
+  });
+  // slots
+  const slotsRow=document.getElementById('act1-slots');slotsRow.innerHTML='';
+  act1Components.forEach(c=>{
+    const wrap=document.createElement('div');wrap.className='circuit-slot-wrap';
+    const lbl=document.createElement('div');lbl.className='circuit-slot-label';lbl.textContent=c.hint;
+    const slot=document.createElement('div');
+    slot.className='dslot circuit-slot';slot.id=c.slot;slot.dataset.expects=c.id;
+    slot.innerHTML=`<span class="slot-hint">Drop here</span>`;
+    wrap.appendChild(lbl);wrap.appendChild(slot);slotsRow.appendChild(wrap);
+  });
+  // LED reset
+  document.getElementById('act1-led').className='led-visual off';
+  document.getElementById('act1-led').textContent='💡';
+  document.getElementById('act1-led-label').textContent='Waiting...';
+  document.getElementById('act1-led-label').style.color='rgba(255,150,100,0.6)';
+  const fb=document.getElementById('fb1');fb.className='feedback';fb.textContent='';
+}
+
+function handleAct1Drop(card,slot){
+  const expects=slot.dataset.expects;
+  const cid=card.dataset.compId;
+  if(cid===expects){
+    const comp=act1Components.find(c=>c.id===cid);
+    placeChipInSlot(slot,comp.label,comp.bg);
+    slot.classList.add('correct');card.classList.add('placed');card.classList.remove('dragging');
+    act1Placed[cid]=true;spawnSparkle(slot);
+    // light up LED when all placed
+    if(Object.keys(act1Placed).length===act1Components.length){
+      setTimeout(()=>{
+        document.getElementById('act1-led').className='led-visual on';
+        document.getElementById('act1-led').textContent='💡';
+        document.getElementById('act1-led-label').textContent='LED ON! ✓';
+        document.getElementById('act1-led-label').style.color='#FFD700';
+      },400);
+    }
+    return true;
+  } else {
+    wrongEffect(slot);card.classList.remove('dragging');return true;
+  }
+}
+
+function checkAct1(){
+  const fb=document.getElementById('fb1');
+  const total=act1Components.length,placed=Object.keys(act1Placed).length;
+  if(placed===total){
+    fb.className='feedback ok';fb.textContent='⚡ Perfect circuit! All components in the right place!';
+    setTimeout(()=>showPopup(1),700);
+  } else {
+    fb.className='feedback err';fb.textContent=`🔍 ${total-placed} component(s) still need placing. Keep going!`;
+  }
+}
+function resetAct1(){setupAct1();}
+
+// ═══════════════════════════════════════════
+// ACTIVITY 2 — LDR COVER / REVEAL
+// ═══════════════════════════════════════════
+const act2Cards=[
+  {id:'card-shadow',label:'🌑 Shadow Card',bg:'linear-gradient(135deg,#3730a3,#6d28d9)',type:'shadow',desc:'Blocks light from LDR'},
+  {id:'card-shine',label:'☀️ Sunshine Card',bg:'linear-gradient(135deg,#b45309,#f59e0b)',type:'shine',desc:'Light floods the LDR'},
+  {id:'card-shadow2',label:'🌑 Shadow Card',bg:'linear-gradient(135deg,#4c1d95,#7c3aed)',type:'shadow',desc:'Darkness for LDR'},
+  {id:'card-shine2',label:'☀️ Sunshine Card',bg:'linear-gradient(135deg,#92400e,#d97706)',type:'shine',desc:'Bright day for LDR'},
+];
+let act2ShadowDone=false,act2ShineDone=false;
+
+function setupAct2(){
+  act2ShadowDone=false;act2ShineDone=false;
+  const bank=document.getElementById('act2-bank');bank.innerHTML='';
+  shuffleArr([...act2Cards]).forEach(c=>{
+    bank.appendChild(makeDragCard(`${c.label}<br><span style="font-size:8px;opacity:0.7;">${c.desc}</span>`,c.bg,c.id,{type:'act2',cardType:c.type}));
+  });
+  // reset slots
+  ['slot-shadow','slot-shine'].forEach(id=>{
+    const s=document.getElementById(id);s.className='drop-card-slot';
+    const lbl=id==='slot-shadow'?'🌑 Shadow Card':'☀️ Sunshine Card';
+    const sub=id==='slot-shadow'?'blocks the LDR':'reveals the LDR';
+    s.innerHTML=`<div class="dslot-label">${lbl}</div><div style="font-size:8px;color:rgba(255,215,100,0.35);">${sub}</div>`;
+  });
+  // reset LED and LDR display
+  setLDRState('bright');
+  const fb=document.getElementById('fb2');fb.className='feedback';fb.textContent='';
+}
+
+function setLDRState(state){
+  const eye=document.getElementById('act2-ldr-eye');
+  const led=document.getElementById('act2-led');
+  const ledLbl=document.getElementById('act2-led-label');
+  const ldrStatus=document.getElementById('act2-ldr-status');
+  if(state==='dark'){
+    eye.classList.add('sensing');eye.textContent='🌑';
+    ldrStatus.className='ldr-status dark';ldrStatus.textContent='🌑 Darkness Detected!';
+    led.className='big-led on';led.textContent='💡';
+    ledLbl.textContent='ON ✨';ledLbl.style.color='#FFD700';
+  } else {
+    eye.classList.remove('sensing');eye.textContent='👁️';
+    ldrStatus.className='ldr-status bright';ldrStatus.textContent='☀️ Bright Light Detected';
+    led.className='big-led off';led.textContent='💡';
+    ledLbl.textContent='OFF';ledLbl.style.color='rgba(150,150,150,0.6)';
+  }
+}
+
+function handleAct2Drop(card,slot){
+  const cardType=card.dataset.cardType;
+  const expects=slot.dataset.expect;
+  if(!expects){card.classList.remove('dragging');return false;}
+  if(cardType===expects){
+    placeChipInSlot(slot,card.innerHTML,cardType==='shadow'?'linear-gradient(135deg,#3730a3,#6d28d9)':'linear-gradient(135deg,#b45309,#f59e0b)');
+    slot.classList.add('correct');card.classList.add('placed');card.classList.remove('dragging');
+    spawnSparkle(slot);
+    if(cardType==='shadow'){act2ShadowDone=true;setLDRState('dark');}
+    else{act2ShineDone=true;setLDRState('bright');}
+    return true;
+  } else {
+    slot.classList.add('wrong-slot');setTimeout(()=>slot.classList.remove('wrong-slot'),400);
+    card.classList.remove('dragging');return true;
+  }
+}
+
+function checkAct2(){
+  const fb=document.getElementById('fb2');
+  if(act2ShadowDone&&act2ShineDone){
+    fb.className='feedback ok';fb.textContent='🌙 Brilliant! Shadow → LED ON. Sunshine → LED OFF. You understand the LDR!';
+    setTimeout(()=>showPopup(2),700);
+  } else if(!act2ShadowDone&&!act2ShineDone){
+    fb.className='feedback err';fb.textContent='💡 Drop both a Shadow card and a Sunshine card to test the LDR!';
+  } else if(!act2ShadowDone){
+    fb.className='feedback err';fb.textContent='🌑 Great start! Now try dropping the Shadow card to block the LDR.';
+  } else {
+    fb.className='feedback err';fb.textContent='☀️ Almost! Drop the Sunshine card to reveal the LDR.';
+  }
+}
+function resetAct2(){setupAct2();}
+
+// ═══════════════════════════════════════════
+// ACTIVITY 3 — WORKFLOW SEQUENCE
+// ═══════════════════════════════════════════
+const act3Steps=[
+  {id:'step1',order:1,label:'🌙 Darkness falls — sun sets',short:'Darkness falls',bg:'linear-gradient(135deg,#1e1b4b,#4338ca)'},
+  {id:'step2',order:2,label:'👁️ LDR detects less light',short:'LDR senses dark',bg:'linear-gradient(135deg,#0891b2,#06b6d4)'},
+  {id:'step3',order:3,label:'📈 LDR resistance increases',short:'Resistance rises',bg:'linear-gradient(135deg,#7c3aed,#a78bfa)'},
+  {id:'step4',order:4,label:'⚡ Voltage changes in circuit',short:'Voltage changes',bg:'linear-gradient(135deg,#b45309,#f59e0b)'},
+  {id:'step5',order:5,label:'💡 LED automatically switches ON',short:'LED turns ON!',bg:'linear-gradient(135deg,#166534,#22c55e)'},
+];
+let act3Placed={};
+
+function setupAct3(){
+  act3Placed={};
+  const bank=document.getElementById('act3-bank');bank.innerHTML='';
+  shuffleArr([...act3Steps]).forEach(s=>{
+    bank.appendChild(makeDragCard(s.label,s.bg,s.id,{type:'act3',stepId:s.id,stepOrder:s.order}));
+  });
+  // slots
+  const slotsCont=document.getElementById('act3-slots');slotsCont.innerHTML='';
+  act3Steps.forEach(s=>{
+    const slot=document.createElement('div');
+    slot.className='seq-slot';slot.id='sslot-'+s.order;slot.dataset.expects=s.id;
+    slot.innerHTML=`<div class="seq-num">${s.order}</div><div class="seq-hint">Drop step ${s.order} here…</div>`;
+    slotsCont.appendChild(slot);
+  });
+  const fb=document.getElementById('fb3');fb.className='feedback';fb.textContent='';
+}
+
+function handleAct3Drop(card,slot){
+  const expects=slot.dataset.expects;
+  const stepId=card.dataset.stepId;
+  if(!expects){card.classList.remove('dragging');return false;}
+  if(stepId===expects){
+    const step=act3Steps.find(s=>s.id===stepId);
+    const num=slot.querySelector('.seq-num').outerHTML;
+    slot.innerHTML=num+`<div class="slot-chip" style="background:${step.bg};font-size:11px;">${step.label}</div>`;
+    slot.classList.add('correct');card.classList.add('placed');card.classList.remove('dragging');
+    act3Placed[stepId]=true;spawnSparkle(slot);return true;
+  } else {
+    slot.classList.add('wrong');setTimeout(()=>slot.classList.remove('wrong'),400);
+    card.classList.remove('dragging');return true;
+  }
+}
+
+function checkAct3(){
+  const fb=document.getElementById('fb3');
+  const placed=Object.keys(act3Placed).length;
+  if(placed===act3Steps.length){
+    fb.className='feedback ok';fb.textContent='🎉 Perfect sequence! You now know exactly how an LDR works!';
+    setTimeout(()=>showFinalPopup(),900);
+  } else {
+    fb.className='feedback err';fb.textContent=`🌵 ${act3Steps.length-placed} step(s) still need placing. Arrange all 5 steps in order!`;
+  }
+}
+function resetAct3(){setupAct3();}
+
+// ═══════════════════════════════════════════
+// UNIVERSAL DROP ROUTER
+// ═══════════════════════════════════════════
+function handleDrop(card,slot){
+  if(card.dataset.type==='act1')return handleAct1Drop(card,slot);
+  if(card.dataset.type==='act2')return handleAct2Drop(card,slot);
+  if(card.dataset.type==='act3')return handleAct3Drop(card,slot);
+  return false;
+}
+
+// ═══════════════════════════════════════════
+// POPUP SYSTEM
+// ═══════════════════════════════════════════
+const popups={
+  1:{emoji:'⚡',title:'Circuit Complete!',
+    msg:'Amazing work! You placed every component correctly and lit up the LED! The battery powers it all. Now discover how the LDR actually senses light! 🔋',
+    btn:'Try the LDR Sensor →'},
+  2:{emoji:'🌙',title:'Sensor Expert!',
+    msg:'You proved it! Shadow makes the LED glow, sunlight turns it off. That\'s the magic of the LDR Darkness Detective! Now arrange the full workflow! 👁️',
+    btn:'Build the Workflow →'},
+};
+
+function showPopup(act){
+  const d=popups[act];
+  const box=document.getElementById('popup-box');
+  box.innerHTML=`
+    <span class="popup-emoji">${d.emoji}</span>
+    <div class="popup-title">${d.title}</div>
+    <div class="popup-msg">${d.msg}</div>
+    <div class="popup-btns">
+      <button class="popup-btn" onclick="nextAct(${act+1})">${d.btn}</button>
+    </div>`;
+  spawnConfetti();
+  document.getElementById('popup').classList.add('show');
+}
+
+function showFinalPopup(){
+  const box=document.getElementById('popup-box');
+  box.innerHTML=`
+    <span class="popup-emoji">🏆</span>
+    <div class="popup-title">Desert Champion!</div>
+    <div class="popup-msg">
+      You mastered all 3 challenges!<br>
+      <strong>Circuit ✓ &nbsp; Sensor ✓ &nbsp; Workflow ✓</strong><br><br>
+      You now know how an LDR Automatic Night Light works — just like the streetlights that switch on at sunset! 🌙🌵🐪
+    </div>
+    <div class="popup-btns">
+      <button class="popup-btn" onclick="playAgain()" style="background:linear-gradient(135deg,#FF8C42,#FFD700);font-size:18px;padding:12px 36px;">
+        🔄 Play Again
+      </button>
+    </div>`;
+  spawnConfetti();
+  document.getElementById('popup').classList.add('show');
+  // Mark pd3 done
+  document.getElementById('pd3').className='pdot done';
+  document.getElementById('pd3').textContent='✓';
+}
+
+function nextAct(n){
+  document.getElementById('popup').classList.remove('show');
+  // mark prev done
+  document.getElementById(`pd${n-1}`).className='pdot done';
+  document.getElementById(`pd${n-1}`).textContent='✓';
+  // activate next
+  document.getElementById(`pd${n}`).className='pdot active';
+  document.querySelectorAll('.ascreen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(`act${n}`).classList.add('active');
+  if(n===2)setupAct2();
+  if(n===3)setupAct3();
+}
+
+function playAgain(){
+  document.getElementById('popup').classList.remove('show');
+  ['pd1','pd2','pd3'].forEach((id,i)=>{
+    const el=document.getElementById(id);
+    el.className='pdot '+(i===0?'active':'inactive');
+    el.textContent=i+1;
+  });
+  document.querySelectorAll('.ascreen').forEach((s,i)=>{
+    s.classList.toggle('active',i===0);
+  });
+  setupAct1();
+}
+
+function spawnConfetti(){
+  const colors=['#FFD700','#FF8C42','#FF6B8A','#00CED1','#5CB85C','#c084fc'];
+  const box=document.querySelector('.popup-box');
+  for(let i=0;i<22;i++){
+    const c=document.createElement('div');
+    c.className='confetti-piece';
+    c.style.cssText=`left:${10+Math.random()*80}%;top:10%;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      width:${6+Math.random()*8}px;height:${6+Math.random()*8}px;
+      border-radius:${Math.random()>0.5?'50%':'3px'};
+      animation-duration:${0.8+Math.random()*0.6}s;
+      animation-delay:${Math.random()*0.3}s;`;
+    box.appendChild(c);setTimeout(()=>c.remove(),1600);
+  }
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+setupAct1();
+</script>
+</body>
+</html>

@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Separating Mixtures — Filtration & Evaporation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FFF6EA;
+    --cream-warm:#FDEAD0;
+    --panel-bg:rgba(255,250,240,0.72);
+    --panel-border:rgba(199,114,58,0.45);
+    --copper:#C7723A;
+    --copper-dark:#8B4513;
+    --steel-blue:#4A6FA5;
+    --herb-green:#5B8C5A;
+    --paprika:#E2654B;
+    --mustard:#D4A017;
+    --char:#3A2A1C;
+    --char-dim:#8A7460;
+    --success:#4CAF6D;
+    --danger:#D9534F;
+    --font-display:'Fredoka',sans-serif;
+    --font-body:'Nunito',sans-serif;
+    --font-mono:'Space Mono',monospace;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{
+    height:100%; margin:0; overflow:hidden;
+    background:var(--cream); font-family:var(--font-body); color:var(--char);
+    -webkit-tap-highlight-color:transparent;
+  }
+  body.dragging-active{ user-select:none; }
+  button{ font-family:var(--font-body); }
+
+  /* ---------- BACKGROUND LAYER ---------- */
+  #bgLayer{
+    position:fixed; inset:0; z-index:0; overflow:hidden;
+    background:
+      radial-gradient(ellipse at 15% 10%, rgba(199,114,58,0.16), transparent 55%),
+      radial-gradient(ellipse at 88% 82%, rgba(91,140,90,0.14), transparent 55%),
+      radial-gradient(ellipse at 75% 15%, rgba(212,160,23,0.12), transparent 50%),
+      repeating-linear-gradient(45deg, rgba(199,114,58,0.035) 0 40px, transparent 40px 80px),
+      linear-gradient(180deg, #FFF8EC 0%, #FDEAD0 55%, #FBE2C2 100%);
+  }
+  .glow-blob{ position:absolute; border-radius:50%; filter:blur(60px); opacity:0.35; animation:glowPulse 15s ease-in-out infinite alternate; }
+  .glow-1{ width:320px; height:320px; top:-6%; left:-5%; background:radial-gradient(circle, var(--copper), transparent 70%);}
+  .glow-2{ width:280px; height:280px; bottom:-8%; right:-4%; background:radial-gradient(circle, var(--herb-green), transparent 70%); animation-delay:4s;}
+  .glow-3{ width:240px; height:240px; top:38%; right:20%; background:radial-gradient(circle, var(--mustard), transparent 70%); animation-delay:8s; opacity:0.22;}
+  @keyframes glowPulse{ 0%{ transform:scale(1); opacity:0.25; } 100%{ transform:scale(1.2); opacity:0.42; } }
+
+  /* chef hats */
+  .chefhat{ position:absolute; width:48px; height:42px; opacity:0.55; animation:hatFloat 13s ease-in-out infinite; }
+  .chefhat .puff{ position:absolute; top:0; left:0; width:48px; height:32px; background:#fff; border-radius:50% 50% 45% 45% / 65% 65% 35% 35%; box-shadow:0 3px 6px rgba(139,69,19,0.18);}
+  .chefhat .band{ position:absolute; bottom:0; left:5px; width:38px; height:13px; background:#fff; border-radius:4px; box-shadow:0 3px 5px rgba(139,69,19,0.18);}
+  @keyframes hatFloat{
+    0%{ transform:translateY(0) rotate(0deg); }
+    50%{ transform:translateY(-12px) rotate(180deg); }
+    100%{ transform:translateY(0) rotate(360deg); }
+  }
+
+  /* floating ingredients */
+  .ingredient{ position:absolute; font-size:26px; opacity:0.6; animation:ingredientFloat ease-in-out infinite; filter:drop-shadow(0 2px 4px rgba(139,69,19,0.15)); }
+  @keyframes ingredientFloat{
+    0%{ transform:translate(0,0) rotate(0deg); }
+    50%{ transform:translate(16px,-26px) rotate(14deg); }
+    100%{ transform:translate(0,0) rotate(0deg); }
+  }
+
+  /* pots + steam + bubbles */
+  .pot{ position:absolute; width:64px; height:40px; }
+  .pot .pot-body{ position:absolute; bottom:0; width:64px; height:32px; background:linear-gradient(180deg,#9C5A2E,#6E3D1B); border-radius:0 0 16px 16px; box-shadow:inset 0 4px 8px rgba(0,0,0,0.25); }
+  .pot .pot-rim{ position:absolute; top:6px; width:64px; height:8px; background:#B6713C; border-radius:6px; }
+  .pot .handle{ position:absolute; top:10px; width:10px; height:14px; border:3px solid #6E3D1B; border-radius:4px; background:transparent; }
+  .pot .handle.left{ left:-9px; }
+  .pot .handle.right{ right:-9px; }
+  .bubble{ position:absolute; bottom:14px; width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.85); animation:bubbleUp 2.6s ease-in infinite; }
+  @keyframes bubbleUp{ 0%{ transform:translateY(0) scale(0.6); opacity:0;} 25%{opacity:0.9;} 100%{ transform:translateY(-26px) scale(1.1); opacity:0;} }
+
+  .steam{ position:absolute; bottom:34px; width:22px; height:80px; background:linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.65) 45%, rgba(255,255,255,0) 100%); border-radius:50%; filter:blur(4px); opacity:0; animation:steamRise ease-in infinite; }
+  @keyframes steamRise{
+    0%{ transform:translate(0,0) scaleX(1); opacity:0; }
+    18%{ opacity:0.55; }
+    55%{ transform:translate(10px,-68px) scaleX(1.35); opacity:0.35; }
+    100%{ transform:translate(-8px,-150px) scaleX(1.7); opacity:0; }
+  }
+
+  /* drifting spice particles */
+  .spice{ position:absolute; width:6px; height:6px; border-radius:50%; opacity:0.7; animation:spiceDrift linear infinite; }
+  @keyframes spiceDrift{ 0%{ transform:translate(-8vw,0) rotate(0deg);} 100%{ transform:translate(112vw,-50px) rotate(360deg);} }
+
+  /* ---------- APP LAYOUT ---------- */
+  .app{
+    position:relative; z-index:2; height:100vh; height:100dvh;
+    display:flex; flex-direction:column;
+    padding:clamp(10px,2.2vh,26px) clamp(14px,3vw,40px);
+    gap:clamp(6px,1.4vh,14px);
+  }
+  .app-header{ display:flex; flex-direction:column; align-items:center; gap:clamp(6px,1vh,10px); flex-shrink:0; }
+  .badge{
+    font-family:var(--font-mono); font-size:clamp(9px,1.1vw,11px); letter-spacing:2px;
+    color:var(--copper-dark); border:1px solid rgba(199,114,58,0.5); border-radius:20px;
+    padding:3px 12px; background:rgba(199,114,58,0.09); text-transform:uppercase;
+  }
+  .title{
+    margin:0; font-family:var(--font-display); font-weight:700;
+    font-size:clamp(16px,3vw,29px); letter-spacing:1px; text-align:center;
+    background:linear-gradient(90deg,#8B4513 0%, var(--paprika) 45%, var(--herb-green) 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 0 20px rgba(199,114,58,0.18);
+  }
+
+  /* progress burners */
+  .orbit-track{ display:flex; align-items:center; gap:clamp(6px,1.4vw,16px); }
+  .orbit-node{
+    width:clamp(28px,3.6vw,38px); height:clamp(28px,3.6vw,38px); border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-display); font-size:clamp(13px,1.7vw,17px); font-weight:600;
+    border:2px solid rgba(138,116,96,0.4); color:var(--char-dim);
+    background:rgba(255,255,255,0.35); transition:all .4s ease; flex-shrink:0;
+  }
+  .orbit-node.active{ border-color:var(--paprika); background:#FFD9A0; box-shadow:0 0 18px rgba(226,101,75,0.55); animation:pulseNode 1.6s ease-in-out infinite; }
+  .orbit-node.completed{ border-color:var(--success); background:var(--success); color:#fff; }
+  @keyframes pulseNode{ 0%,100%{ box-shadow:0 0 12px rgba(226,101,75,0.45);} 50%{ box-shadow:0 0 24px rgba(226,101,75,0.85);} }
+  .orbit-line{ width:clamp(28px,6vw,70px); height:3px; background:rgba(138,116,96,0.3); border-radius:3px; position:relative; overflow:hidden; }
+  .orbit-line::after{ content:''; position:absolute; inset:0; background:linear-gradient(90deg,var(--paprika),var(--success)); transform:scaleX(0); transform-origin:left; transition:transform .5s ease; }
+  .orbit-line.filled::after{ transform:scaleX(1); }
+  .orbit-labels{ display:flex; gap:clamp(6px,1.4vw,16px); margin-top:2px; }
+  .orbit-labels span{
+    width:clamp(28px,3.6vw,38px); text-align:center; font-size:clamp(8px,1vw,10.5px);
+    color:var(--char-dim); font-family:var(--font-mono); letter-spacing:0.5px;
+  }
+  .orbit-labels span:nth-child(2),.orbit-labels span:nth-child(3){ margin-left:clamp(28px,6vw,70px); }
+
+  /* ---------- STAGE / PANELS ---------- */
+  .stage{ flex:1; min-height:0; display:flex; align-items:center; justify-content:center; position:relative; }
+  .activity-panel{
+    width:min(960px,95vw); max-height:100%; height:100%;
+    display:flex; flex-direction:column; gap:clamp(6px,1.2vh,12px);
+    background:var(--panel-bg); border:1px solid var(--panel-border); border-radius:20px;
+    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    padding:clamp(10px,2vh,22px) clamp(12px,2.4vw,28px);
+    box-shadow:0 8px 40px rgba(139,69,19,0.12), inset 0 0 60px rgba(199,114,58,0.06);
+    animation:panelIn .5s ease;
+  }
+  .activity-panel.hidden{ display:none; }
+  @keyframes panelIn{ from{ opacity:0; transform:translateY(14px) scale(0.98); } to{ opacity:1; transform:translateY(0) scale(1); } }
+
+  .panel-header{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-shrink:0; }
+  .panel-heading h2{
+    margin:0 0 4px 0; font-family:var(--font-display); font-weight:600;
+    font-size:clamp(14px,2vw,20px); color:var(--char);
+  }
+  .panel-heading p{ margin:0; font-size:clamp(11px,1.25vw,14px); color:var(--char-dim); max-width:62ch; }
+  .panel-actions{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
+  .reset-btn{
+    font-family:var(--font-mono); font-size:clamp(10px,1.1vw,12px); color:var(--char);
+    background:rgba(255,255,255,0.55); border:1px solid rgba(138,116,96,0.4); border-radius:10px;
+    padding:6px 12px; cursor:pointer; transition:all .2s ease; white-space:nowrap;
+  }
+  .reset-btn:hover{ background:#fff; border-color:var(--paprika); }
+  .counter{ font-family:var(--font-mono); font-size:clamp(9px,1vw,11px); color:var(--copper-dark); white-space:nowrap; }
+
+  .slots-area{ display:grid; gap:clamp(6px,1.2vh,12px); flex-shrink:0; }
+  #a1-slots{ grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); }
+  #a2-slots, #a3-slots{ grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); }
+
+  .drop-slot{
+    position:relative; min-height:clamp(50px,7.5vh,76px); border-radius:14px;
+    border:2px dashed rgba(199,114,58,0.5); background:rgba(255,255,255,0.4);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+    padding:6px 8px; transition:all .25s ease; text-align:center;
+  }
+  .slot-label{ font-family:var(--font-mono); font-size:clamp(8px,0.95vw,10.5px); color:var(--copper-dark); letter-spacing:0.5px; text-transform:uppercase; }
+  .slot-content{ font-size:clamp(11px,1.2vw,13.5px); color:var(--char); display:flex; align-items:center; gap:5px; }
+  .slot-placeholder{ color:var(--char-dim); font-size:clamp(10px,1.1vw,12px); }
+  .drop-slot.filled{ border-style:solid; border-color:var(--success); background:rgba(76,175,109,0.14); box-shadow:0 0 16px rgba(76,175,109,0.35); }
+  .drop-slot.flash-ok{ animation:flashOk .5s ease; }
+  .drop-slot.flash-fail{ animation:flashFail .45s ease; }
+  @keyframes flashOk{ 0%{ box-shadow:0 0 0 rgba(76,175,109,0);} 50%{ box-shadow:0 0 26px rgba(76,175,109,0.9);} 100%{ box-shadow:0 0 16px rgba(76,175,109,0.35);} }
+  @keyframes flashFail{ 0%,100%{ border-color:var(--danger); } 50%{ border-color:var(--danger); transform:translateX(4px); } 25%,75%{ transform:translateX(-4px); } }
+
+  .item-pool{
+    flex:1; min-height:0; display:flex; flex-wrap:wrap; align-content:flex-start;
+    gap:clamp(7px,1vw,12px); justify-content:center; padding-top:4px; overflow:auto;
+  }
+  .drag-item{
+    padding:clamp(7px,1vh,11px) clamp(10px,1.4vw,15px);
+    background:linear-gradient(135deg, rgba(226,101,75,0.22), rgba(212,160,23,0.18));
+    border:1px solid rgba(199,114,58,0.55); border-radius:12px;
+    font-size:clamp(10.5px,1.15vw,13.5px); color:var(--char); font-weight:600;
+    cursor:grab; touch-action:none; user-select:none;
+    display:flex; align-items:center; gap:6px; transition:transform .15s ease, box-shadow .15s ease, opacity .2s ease;
+    max-width:min(280px,80vw);
+  }
+  .drag-item:hover{ box-shadow:0 0 14px rgba(199,114,58,0.4); }
+  .drag-item:active{ cursor:grabbing; }
+  .drag-item.item-hidden{ opacity:0.22; filter:grayscale(0.7); }
+  .drag-item.shake{ animation:shakeX .4s ease; }
+  .drag-ghost{ transform:scale(1.07); box-shadow:0 10px 26px rgba(0,0,0,0.3); }
+  @keyframes shakeX{ 0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px);} 75%{transform:translateX(6px);} }
+
+  /* ---------- POPUP ---------- */
+  .overlay{
+    position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center;
+    background:rgba(58,42,28,0.55); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    animation:overlayFade .3s ease;
+  }
+  .overlay.hidden{ display:none; }
+  @keyframes overlayFade{ from{opacity:0;} to{opacity:1;} }
+  .popup-card{
+    width:min(420px,88vw); background:linear-gradient(160deg, #FFF8EC, #FDEAD0);
+    border:1px solid rgba(199,114,58,0.5); border-radius:20px; padding:clamp(20px,4vh,32px) clamp(18px,4vw,28px);
+    text-align:center; box-shadow:0 10px 60px rgba(139,69,19,0.3); animation:popupIn .35s ease;
+  }
+  @keyframes popupIn{ from{ opacity:0; transform:scale(0.85) translateY(10px); } to{ opacity:1; transform:scale(1) translateY(0); } }
+  .popup-icon{ font-size:clamp(34px,6vw,48px); }
+  .popup-title{ font-family:var(--font-display); font-weight:600; font-size:clamp(17px,2.4vw,22px); margin:8px 0 6px; color:var(--char); }
+  .popup-message{ font-size:clamp(12px,1.4vw,14.5px); color:var(--char-dim); margin:0 0 20px; line-height:1.5; }
+  .primary-btn{
+    font-family:var(--font-display); font-weight:600; font-size:clamp(12px,1.4vw,14.5px); letter-spacing:0.3px;
+    color:#3A2410; background:linear-gradient(120deg,var(--mustard),var(--paprika));
+    border:none; border-radius:30px; padding:12px 28px; cursor:pointer;
+    box-shadow:0 6px 22px rgba(226,101,75,0.45); transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .primary-btn:hover{ transform:translateY(-2px); box-shadow:0 8px 28px rgba(226,101,75,0.65); }
+  .primary-btn:focus-visible, .reset-btn:focus-visible{ outline:2px solid var(--steel-blue); outline-offset:2px; }
+
+  /* ---------- CELEBRATION ---------- */
+  #celebrationOverlay{ z-index:300; background:rgba(58,42,28,0.6); }
+  .celebration-card{ text-align:center; position:relative; width:min(480px,92vw); }
+  .crystal-svg{ width:clamp(120px,22vw,180px); height:auto; filter:drop-shadow(0 0 18px rgba(226,101,75,0.4)); }
+  .crystal-svg path{ fill:none; stroke:var(--paprika); stroke-width:3; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:1000; stroke-dashoffset:1000; }
+  .crystal-svg.drawing path{ animation:drawLine 1.1s ease forwards; }
+  .crystal-svg .fillShape{ fill:url(#kitchenGrad); opacity:0; }
+  .crystal-svg.drawing .fillShape{ animation:fillFade 1s ease forwards; animation-delay:1s; }
+  @keyframes drawLine{ to{ stroke-dashoffset:0; } }
+  @keyframes fillFade{ to{ opacity:0.9; } }
+  .celebration-title{ font-family:var(--font-display); font-weight:700; font-size:clamp(19px,3.2vw,28px); margin:10px 0 6px; color:var(--char); }
+  .celebration-message{ font-size:clamp(12px,1.5vw,15px); color:var(--char-dim); margin:0 0 22px; }
+  .confetti-field{ position:absolute; inset:0; pointer-events:none; overflow:visible; }
+  .spark{ position:absolute; left:50%; top:38%; width:7px; height:7px; border-radius:1px; opacity:1; animation:sparkBurst 1.1s ease-out forwards; }
+  @keyframes sparkBurst{ to{ transform:translate(var(--dx),var(--dy)) rotate(280deg) scale(0.3); opacity:0; } }
+  .comet-fly{ position:absolute; top:14%; left:-10%; width:90px; height:3px; background:linear-gradient(90deg,transparent,#fff,transparent); transform:rotate(20deg); opacity:0; animation:cometFly 1.6s ease-in forwards; animation-delay:.2s; }
+  @keyframes cometFly{ 0%{ opacity:0; transform:translate(0,0) rotate(20deg); } 10%{ opacity:1; } 90%{ opacity:1; } 100%{ opacity:0; transform:translate(640px,260px) rotate(20deg); } }
+
+  /* ---------- RESPONSIVE TWEAKS ---------- */
+  @media (max-width:560px){
+    .panel-header{ flex-direction:column; }
+    .panel-actions{ align-items:flex-start; flex-direction:row; gap:10px; }
+  }
+  @media (max-height:680px){
+    .activity-panel{ padding:8px 12px; gap:6px; }
+    .drop-slot{ min-height:46px; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .ingredient,.chefhat,.pot,.bubble,.steam,.spice,.glow-blob{ animation:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div id="bgLayer">
+  <div class="glow-blob glow-1"></div>
+  <div class="glow-blob glow-2"></div>
+  <div class="glow-blob glow-3"></div>
+
+  <div class="chefhat" style="top:8%; left:6%; animation-duration:13s;"><div class="puff"></div><div class="band"></div></div>
+  <div class="chefhat" style="top:70%; left:88%; animation-duration:17s; animation-delay:-4s; width:38px;height:34px;"><div class="puff"></div><div class="band"></div></div>
+
+  <div class="ingredient" style="top:14%; left:80%; animation-duration:9s;">🧂</div>
+  <div class="ingredient" style="top:55%; left:4%; animation-duration:11s; animation-delay:-2s;">🥄</div>
+  <div class="ingredient" style="top:28%; left:46%; animation-duration:13s; animation-delay:-5s; font-size:22px;">🍋</div>
+  <div class="ingredient" style="top:80%; left:60%; animation-duration:10s; animation-delay:-3s; font-size:22px;">🌿</div>
+  <div class="ingredient" style="top:6%; left:55%; animation-duration:12s; animation-delay:-7s; font-size:20px;">🫙</div>
+
+  <div class="pot" style="bottom:4%; left:5%;">
+    <div class="pot-rim"></div><div class="pot-body"></div>
+    <div class="handle left"></div><div class="handle right"></div>
+    <div class="bubble" style="left:16px; animation-delay:0s;"></div>
+    <div class="bubble" style="left:30px; animation-delay:.8s;"></div>
+    <div class="bubble" style="left:44px; animation-delay:1.5s;"></div>
+  </div>
+  <div class="steam" style="bottom:8%; left:8px;"></div>
+  <div class="steam" style="bottom:8%; left:34px; animation-delay:-2s;"></div>
+
+  <div class="pot" style="bottom:5%; right:6%; transform:scale(0.85);">
+    <div class="pot-rim"></div><div class="pot-body"></div>
+    <div class="handle left"></div><div class="handle right"></div>
+    <div class="bubble" style="left:16px; animation-delay:.3s;"></div>
+    <div class="bubble" style="left:34px; animation-delay:1.1s;"></div>
+  </div>
+  <div class="steam" style="bottom:9%; right:50px; animation-delay:-1s;"></div>
+
+  <div class="spice" style="top:20%; background:var(--paprika); animation-duration:30s; animation-delay:-4s;"></div>
+  <div class="spice" style="top:46%; background:var(--mustard); animation-duration:38s; animation-delay:-12s;"></div>
+  <div class="spice" style="top:65%; background:var(--herb-green); animation-duration:26s; animation-delay:-8s;"></div>
+  <div class="spice" style="top:34%; background:var(--copper); animation-duration:44s; animation-delay:-20s;"></div>
+  <div class="spice" style="top:78%; background:var(--paprika); animation-duration:34s; animation-delay:-15s;"></div>
+</div>
+
+<div class="app">
+  <header class="app-header">
+    <span class="badge">Kitchen Science Mission</span>
+    <h1 class="title">SEPARATING MIXTURES — FILTRATION &amp; EVAPORATION</h1>
+    <div class="orbit-track">
+      <div class="orbit-node" id="node1">1</div>
+      <div class="orbit-line" id="line1"></div>
+      <div class="orbit-node" id="node2">2</div>
+      <div class="orbit-line" id="line2"></div>
+      <div class="orbit-node" id="node3">3</div>
+    </div>
+    <div class="orbit-labels"><span>Setup</span><span>Sequence</span><span>Workflow</span></div>
+  </header>
+
+  <main class="stage" id="stage">
+
+    <section class="activity-panel" id="panel-a1">
+      <div class="panel-header">
+        <div class="panel-heading">
+          <h2>Stage 1 · Assemble the Setup</h2>
+          <p>Drag each material to its correct station to build your filtration and evaporation setup.</p>
+        </div>
+        <div class="panel-actions">
+          <button class="reset-btn" onclick="resetActivity(0)">↺ Reset Stage</button>
+          <span class="counter" id="a1-count">0 / 6 placed</span>
+        </div>
+      </div>
+      <div class="slots-area" id="a1-slots"></div>
+      <div class="item-pool" id="a1-pool"></div>
+    </section>
+
+    <section class="activity-panel hidden" id="panel-a2">
+      <div class="panel-header">
+        <div class="panel-heading">
+          <h2>Stage 2 · Sequence the Steps</h2>
+          <p>Drag the steps into the order you'd actually follow — from mixing the ingredients to collecting salt crystals.</p>
+        </div>
+        <div class="panel-actions">
+          <button class="reset-btn" onclick="resetActivity(1)">↺ Reset Stage</button>
+          <span class="counter" id="a2-count">0 / 5 placed</span>
+        </div>
+      </div>
+      <div class="slots-area" id="a2-slots"></div>
+      <div class="item-pool" id="a2-pool"></div>
+    </section>
+
+    <section class="activity-panel hidden" id="panel-a3">
+      <div class="panel-header">
+        <div class="panel-heading">
+          <h2>Stage 3 · Build the Workflow</h2>
+          <p>Connect each workflow block in the right order to complete the separation challenge.</p>
+        </div>
+        <div class="panel-actions">
+          <button class="reset-btn" onclick="resetActivity(2)">↺ Reset Stage</button>
+          <span class="counter" id="a3-count">0 / 5 placed</span>
+        </div>
+      </div>
+      <div class="slots-area" id="a3-slots"></div>
+      <div class="item-pool" id="a3-pool"></div>
+    </section>
+
+  </main>
+</div>
+
+<div class="overlay hidden" id="popupOverlay">
+  <div class="popup-card">
+    <div class="popup-icon" id="popupIcon">🍳</div>
+    <div class="popup-title" id="popupTitle">Setup Ready!</div>
+    <p class="popup-message" id="popupMessage"></p>
+    <button class="primary-btn" id="popupBtn">Continue</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="celebrationOverlay">
+  <div class="celebration-card">
+    <div class="confetti-field" id="confettiField"></div>
+    <div class="comet-fly" id="cometFly"></div>
+    <svg class="crystal-svg" id="crystalSvg" viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="kitchenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#FBE2C2"/>
+          <stop offset="55%" stop-color="#E2654B"/>
+          <stop offset="100%" stop-color="#8B4513"/>
+        </linearGradient>
+      </defs>
+      <path class="fillShape" d="M100,10 L160,70 L140,170 L100,230 L60,170 L40,70 Z"/>
+      <path d="M100,10 L160,70 L140,170 L100,230 L60,170 L40,70 Z"/>
+      <path d="M100,10 L100,230"/>
+      <path d="M40,70 L160,70"/>
+      <path d="M60,170 L140,170"/>
+    </svg>
+    <div class="celebration-title">Separation Complete! 🧂✨</div>
+    <p class="celebration-message">Sand, salt, and water — all perfectly separated. Your salt crystals are ready to shine!</p>
+    <button class="primary-btn" onclick="playAgain()">Play Again</button>
+  </div>
+</div>
+
+<script>
+/* ---------------- activity data ---------------- */
+const activity1Data = {
+  slots:[
+    {id:'a1-sand', label:'Solid Component', icon:'🏖️'},
+    {id:'a1-salt', label:'Soluble Component', icon:'🧂'},
+    {id:'a1-water', label:'Liquid Base', icon:'💧'},
+    {id:'a1-funnel', label:'Filtration Stand', icon:'🔻'},
+    {id:'a1-filter', label:'Filter Layer', icon:'📄'},
+    {id:'a1-plate', label:'Evaporation Station', icon:'🍽️'}
+  ],
+  items:[
+    {id:'item-sand', icon:'🏖️', label:'Sand', correct:'a1-sand'},
+    {id:'item-salt', icon:'🧂', label:'Salt', correct:'a1-salt'},
+    {id:'item-water', icon:'💧', label:'Water', correct:'a1-water'},
+    {id:'item-funnel', icon:'🔻', label:'Funnel', correct:'a1-funnel'},
+    {id:'item-filter', icon:'📄', label:'Filter Paper', correct:'a1-filter'},
+    {id:'item-plate', icon:'🍽️', label:'Evaporation Plate', correct:'a1-plate'}
+  ]
+};
+
+const activity2Data = {
+  slots:[1,2,3,4,5].map(n=>({id:'a2-pos-'+n, label:'Step '+n})),
+  items:[
+    {id:'a2-i1', text:'Mix sand, salt, and water together in a bowl', correct:'a2-pos-1'},
+    {id:'a2-i2', text:'Pour the mixture through a filter paper placed in a funnel', correct:'a2-pos-2'},
+    {id:'a2-i3', text:'Collect the salty water that passes through the filter', correct:'a2-pos-3'},
+    {id:'a2-i4', text:'Heat the salty water gently so the water evaporates', correct:'a2-pos-4'},
+    {id:'a2-i5', text:'Collect the salt crystals left behind on the plate', correct:'a2-pos-5'}
+  ]
+};
+
+const activity3Data = {
+  slots:[1,2,3,4,5].map(n=>({id:'a3-pos-'+n, label:'Step '+n})),
+  items:[
+    {id:'a3-i1', text:'Mixture Formation', correct:'a3-pos-1'},
+    {id:'a3-i2', text:'Filtration', correct:'a3-pos-2'},
+    {id:'a3-i3', text:'Collecting Salty Water', correct:'a3-pos-3'},
+    {id:'a3-i4', text:'Evaporation', correct:'a3-pos-4'},
+    {id:'a3-i5', text:'Salt Crystal Recovery', correct:'a3-pos-5'}
+  ]
+};
+
+let currentStage = 1;
+
+const activities = [
+  { slotsId:'a1-slots', poolId:'a1-pool', countId:'a1-count', data:activity1Data, total:6, filled:0,
+    onComplete:()=>showPopup({icon:'🍳', title:'Setup Ready!', message:'Great work, Junior Chef-Scientist. Your filtration and evaporation station is fully assembled.', buttonText:'Continue to Stage 2', onContinue:()=>goToStage(2)}) },
+  { slotsId:'a2-slots', poolId:'a2-pool', countId:'a2-count', data:activity2Data, total:5, filled:0,
+    onComplete:()=>showPopup({icon:'🥄', title:'Steps in Order!', message:'You have mapped out exactly how to separate the mixture, step by step.', buttonText:'Continue to Stage 3', onContinue:()=>goToStage(3)}) },
+  { slotsId:'a3-slots', poolId:'a3-pool', countId:'a3-count', data:activity3Data, total:5, filled:0,
+    onComplete:()=>{ document.getElementById('panel-a3').classList.add('hidden'); showCelebration(); } }
+];
+
+/* ---------------- shuffle ---------------- */
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+/* ---------------- render ---------------- */
+function buildSlotEl(s){
+  const div = document.createElement('div');
+  div.className = 'drop-slot';
+  div.id = s.id;
+  div.innerHTML = `<span class="slot-label">${s.icon ? s.icon+' ' : ''}${s.label}</span><div class="slot-content"><span class="slot-placeholder">drop here</span></div>`;
+  return div;
+}
+
+function buildItemEl(it, act){
+  const div = document.createElement('div');
+  div.className = 'drag-item';
+  div.id = it.id;
+  div.dataset.correct = it.correct;
+  div.innerHTML = it.icon
+    ? `<span class="item-icon">${it.icon}</span><span class="item-text">${it.label}</span>`
+    : `<span class="item-text">${it.text}</span>`;
+  attachDrag(div, act);
+  return div;
+}
+
+function renderActivity(act){
+  act.filled = 0;
+  const slotsEl = document.getElementById(act.slotsId);
+  const poolEl = document.getElementById(act.poolId);
+  slotsEl.innerHTML = '';
+  poolEl.innerHTML = '';
+  act.data.slots.forEach(s => slotsEl.appendChild(buildSlotEl(s)));
+  shuffle(act.data.items).forEach(it => poolEl.appendChild(buildItemEl(it, act)));
+  updateCount(act);
+}
+
+function updateCount(act){
+  document.getElementById(act.countId).textContent = `${act.filled} / ${act.total} placed`;
+}
+
+function flashSlot(slot, ok){
+  const cls = ok ? 'flash-ok' : 'flash-fail';
+  slot.classList.add(cls);
+  setTimeout(()=>slot.classList.remove(cls), 500);
+}
+
+/* ---------------- drag engine (pointer events) ---------------- */
+function attachDrag(item, act){
+  item.addEventListener('pointerdown', function(e){
+    e.preventDefault();
+    const rect = item.getBoundingClientRect();
+    const ghost = item.cloneNode(true);
+    ghost.classList.add('drag-ghost');
+    ghost.style.position = 'fixed';
+    ghost.style.left = rect.left+'px';
+    ghost.style.top = rect.top+'px';
+    ghost.style.width = rect.width+'px';
+    ghost.style.zIndex = 9999;
+    ghost.style.pointerEvents = 'none';
+    document.body.appendChild(ghost);
+    item.classList.add('item-hidden');
+    document.body.classList.add('dragging-active');
+
+    const offX = e.clientX - rect.left;
+    const offY = e.clientY - rect.top;
+
+    function move(ev){
+      ghost.style.left = (ev.clientX - offX)+'px';
+      ghost.style.top = (ev.clientY - offY)+'px';
+    }
+    function up(ev){
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      document.body.classList.remove('dragging-active');
+      ghost.remove();
+
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const slot = el ? el.closest('.drop-slot') : null;
+
+      if(slot && !slot.classList.contains('filled')){
+        if(item.dataset.correct === slot.id){
+          const content = slot.querySelector('.slot-content');
+          content.innerHTML = item.innerHTML;
+          slot.classList.add('filled');
+          flashSlot(slot, true);
+          item.remove();
+          act.filled++;
+          updateCount(act);
+          if(act.filled === act.total){
+            setTimeout(()=>act.onComplete(), 350);
+          }
+        } else {
+          flashSlot(slot, false);
+          item.classList.remove('item-hidden');
+          item.classList.add('shake');
+          setTimeout(()=>item.classList.remove('shake'), 400);
+        }
+      } else {
+        item.classList.remove('item-hidden');
+      }
+    }
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+  });
+}
+
+/* ---------------- reset / stage flow ---------------- */
+function resetActivity(idx){ renderActivity(activities[idx]); }
+
+function showPanel(n){
+  document.getElementById('panel-a1').classList.toggle('hidden', n!==1);
+  document.getElementById('panel-a2').classList.toggle('hidden', n!==2);
+  document.getElementById('panel-a3').classList.toggle('hidden', n!==3);
+}
+
+function updateOrbit(n){
+  for(let i=1;i<=3;i++){
+    const node = document.getElementById('node'+i);
+    node.classList.remove('active','completed');
+    if(i < n){ node.classList.add('completed'); node.textContent = '✅'; }
+    else if(i === n){ node.classList.add('active'); node.textContent = '🔥'; }
+    else { node.textContent = String(i); }
+  }
+  document.getElementById('line1').classList.toggle('filled', n>=2);
+  document.getElementById('line2').classList.toggle('filled', n>=3);
+}
+
+function goToStage(n){
+  hidePopup();
+  currentStage = n;
+  showPanel(n);
+  renderActivity(activities[n-1]);
+  updateOrbit(n);
+}
+
+/* ---------------- popup ---------------- */
+function showPopup({icon,title,message,buttonText,onContinue}){
+  document.getElementById('popupIcon').textContent = icon;
+  document.getElementById('popupTitle').textContent = title;
+  document.getElementById('popupMessage').textContent = message;
+  const btn = document.getElementById('popupBtn');
+  btn.textContent = buttonText;
+  btn.onclick = onContinue;
+  document.getElementById('popupOverlay').classList.remove('hidden');
+}
+function hidePopup(){
+  document.getElementById('popupOverlay').classList.add('hidden');
+}
+
+/* ---------------- celebration ---------------- */
+function showCelebration(){
+  const overlay = document.getElementById('celebrationOverlay');
+  overlay.classList.remove('hidden');
+
+  const svg = document.getElementById('crystalSvg');
+  svg.classList.remove('drawing');
+  void svg.offsetWidth;
+  svg.classList.add('drawing');
+
+  const comet = document.getElementById('cometFly');
+  comet.style.animation = 'none';
+  void comet.offsetWidth;
+  comet.style.animation = '';
+
+  spawnConfetti();
+}
+
+function spawnConfetti(){
+  const field = document.getElementById('confettiField');
+  field.innerHTML = '';
+  const colors = ['#E2654B','#D4A017','#5B8C5A','#4CAF6D','#C7723A'];
+  for(let i=0;i<46;i++){
+    const s = document.createElement('div');
+    s.className = 'spark';
+    const angle = Math.random()*Math.PI*2;
+    const dist = 120 + Math.random()*180;
+    s.style.setProperty('--dx', (Math.cos(angle)*dist)+'px');
+    s.style.setProperty('--dy', (Math.sin(angle)*dist)+'px');
+    s.style.background = colors[Math.floor(Math.random()*colors.length)];
+    s.style.animationDelay = (Math.random()*0.3)+'s';
+    field.appendChild(s);
+  }
+}
+
+function playAgain(){
+  document.getElementById('celebrationOverlay').classList.add('hidden');
+  document.getElementById('panel-a3').classList.add('hidden');
+  document.getElementById('panel-a2').classList.add('hidden');
+  currentStage = 1;
+  showPanel(1);
+  renderActivity(activities[0]);
+  updateOrbit(1);
+}
+
+/* ---------------- init ---------------- */
+renderActivity(activities[0]);
+updateOrbit(1);
+</script>
+</body>
+</html>

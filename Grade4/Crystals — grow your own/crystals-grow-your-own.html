@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Crystals — Grow Your Own</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Outfit:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --space-black:#060814;
+    --space-deep:#0b1130;
+    --panel-bg:rgba(13,19,48,0.58);
+    --panel-border:rgba(124,58,237,0.45);
+    --nebula-violet:#7c3aed;
+    --nebula-magenta:#d946ef;
+    --crystal-cyan:#22d3ee;
+    --crystal-teal:#2dd4bf;
+    --star-gold:#fbbf24;
+    --text-light:#eef2ff;
+    --text-dim:#a6b0d6;
+    --success:#34d399;
+    --danger:#fb7185;
+    --font-display:'Orbitron',sans-serif;
+    --font-body:'Outfit',sans-serif;
+    --font-mono:'Space Mono',monospace;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{
+    height:100%;
+    margin:0;
+    overflow:hidden;
+    background:var(--space-black);
+    font-family:var(--font-body);
+    color:var(--text-light);
+    -webkit-tap-highlight-color:transparent;
+  }
+  body.dragging-active{user-select:none;}
+  button{font-family:var(--font-body);}
+
+  /* ---------- BACKGROUND LAYER ---------- */
+  #bgLayer{
+    position:fixed; inset:0; z-index:0; overflow:hidden;
+    background:
+      radial-gradient(ellipse at 18% 12%, rgba(124,58,237,0.20), transparent 55%),
+      radial-gradient(ellipse at 85% 78%, rgba(34,211,238,0.16), transparent 55%),
+      radial-gradient(ellipse at 70% 10%, rgba(217,70,239,0.12), transparent 50%),
+      linear-gradient(180deg, #050714 0%, #0b1130 55%, #0a0e26 100%);
+  }
+  .nebula-blob{
+    position:absolute; border-radius:50%; filter:blur(60px); opacity:0.35;
+    animation:nebulaPulse 16s ease-in-out infinite alternate;
+  }
+  .nebula-1{ width:380px; height:380px; top:-8%; left:-6%; background:radial-gradient(circle, var(--nebula-violet), transparent 70%);}
+  .nebula-2{ width:300px; height:300px; bottom:-10%; right:-5%; background:radial-gradient(circle, var(--nebula-magenta), transparent 70%); animation-delay:4s;}
+  .nebula-3{ width:260px; height:260px; top:35%; right:18%; background:radial-gradient(circle, var(--crystal-cyan), transparent 70%); animation-delay:8s; opacity:0.22;}
+
+  .star{ position:absolute; border-radius:50%; background:#fff; animation:twinkle linear infinite; }
+
+  .planet{ position:absolute; border-radius:50%; opacity:0.55; }
+  .planet-a{ width:130px; height:130px; top:6%; left:5%; background:radial-gradient(circle at 32% 30%, #c4b5fd, #6d28d9 65%, #2e1065 100%); animation:driftA 38s ease-in-out infinite; box-shadow:0 0 40px rgba(124,58,237,0.4);}
+  .planet-b{ width:84px; height:84px; bottom:9%; right:9%; background:radial-gradient(circle at 35% 35%, #67e8f9, #0891b2 65%, #043640 100%); animation:driftB 46s ease-in-out infinite; box-shadow:0 0 30px rgba(34,211,238,0.4);}
+  .planet-c{ width:48px; height:48px; top:62%; left:85%; background:radial-gradient(circle at 35% 35%, #fde68a, #d97706 65%, #78350f 100%); animation:driftC 30s ease-in-out infinite; box-shadow:0 0 22px rgba(251,191,36,0.45);}
+  .planet-c::after{
+    content:''; position:absolute; left:-14px; top:18px; width:76px; height:14px;
+    border:2px solid rgba(253,230,138,0.55); border-radius:50%; transform:rotate(-18deg);
+  }
+
+  .asteroid{
+    position:absolute; width:18px; height:14px; background:linear-gradient(135deg,#6b7280,#1f2937);
+    clip-path:polygon(20% 0%, 80% 8%, 100% 55%, 72% 100%, 22% 92%, 0% 42%);
+    opacity:0.6; animation:driftAsteroid linear infinite;
+  }
+
+  .satellite{
+    position:absolute; width:34px; height:14px; top:0; left:0;
+    animation:satelliteOrbit 55s linear infinite;
+  }
+  .satellite .body{ position:absolute; left:11px; top:3px; width:12px; height:8px; background:#cbd5e1; border-radius:2px;}
+  .satellite .panel{ position:absolute; top:2px; width:9px; height:10px; background:linear-gradient(180deg,#38bdf8,#0369a1); border:1px solid #bae6fd;}
+  .satellite .panel.left{ left:0; }
+  .satellite .panel.right{ right:0; }
+  .satellite .antenna{ position:absolute; left:23px; top:-5px; width:1px; height:8px; background:#cbd5e1; }
+  .satellite .blink{ position:absolute; left:16px; top:0; width:3px; height:3px; border-radius:50%; background:var(--danger); animation:blinkLight 1.4s ease-in-out infinite;}
+
+  .shooting-star{
+    position:absolute; width:140px; height:2px; opacity:0;
+    background:linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.95) 55%, rgba(255,255,255,0) 100%);
+    transform-origin:left center; animation:shoot linear infinite;
+  }
+
+  @keyframes twinkle{ 0%,100%{opacity:0.15;} 50%{opacity:1;} }
+  @keyframes nebulaPulse{ 0%{transform:scale(1);opacity:0.28;} 100%{transform:scale(1.18);opacity:0.42;} }
+  @keyframes driftA{ 0%,100%{transform:translate(0,0);} 50%{transform:translate(24px,-18px);} }
+  @keyframes driftB{ 0%,100%{transform:translate(0,0);} 50%{transform:translate(-20px,16px);} }
+  @keyframes driftC{ 0%,100%{transform:translate(0,0) rotate(0deg);} 50%{transform:translate(-14px,-10px) rotate(8deg);} }
+  @keyframes driftAsteroid{ 0%{transform:translate(-8vw,0) rotate(0deg);} 100%{transform:translate(110vw,60px) rotate(360deg);} }
+  @keyframes satelliteOrbit{
+    0%{ transform:translate(-10vw,72vh) rotate(18deg); }
+    50%{ transform:translate(52vw,18vh) rotate(18deg); }
+    100%{ transform:translate(112vw,64vh) rotate(18deg); }
+  }
+  @keyframes blinkLight{ 0%,100%{opacity:0.2;} 50%{opacity:1;} }
+  @keyframes shoot{
+    0%{ opacity:0; transform:translate(0,0) rotate(218deg); }
+    2%{ opacity:1; }
+    9%{ opacity:0; }
+    100%{ opacity:0; transform:translate(-520px,400px) rotate(218deg); }
+  }
+
+  /* ---------- APP LAYOUT ---------- */
+  .app{
+    position:relative; z-index:2; height:100vh; height:100dvh;
+    display:flex; flex-direction:column;
+    padding:clamp(10px,2.2vh,26px) clamp(14px,3vw,40px);
+    gap:clamp(6px,1.4vh,14px);
+  }
+  .app-header{ display:flex; flex-direction:column; align-items:center; gap:clamp(6px,1vh,10px); flex-shrink:0; }
+  .badge{
+    font-family:var(--font-mono); font-size:clamp(9px,1.1vw,11px); letter-spacing:2px;
+    color:var(--crystal-cyan); border:1px solid rgba(34,211,238,0.4); border-radius:20px;
+    padding:3px 12px; background:rgba(34,211,238,0.07); text-transform:uppercase;
+  }
+  .title{
+    margin:0; font-family:var(--font-display); font-weight:800;
+    font-size:clamp(18px,3.3vw,32px); letter-spacing:2.5px; text-align:center;
+    background:linear-gradient(90deg,#eef2ff 0%, var(--crystal-cyan) 45%, var(--nebula-magenta) 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 0 26px rgba(34,211,238,0.25);
+  }
+
+  /* progress orbit */
+  .orbit-track{ display:flex; align-items:center; gap:clamp(6px,1.4vw,16px); }
+  .orbit-node{
+    width:clamp(28px,3.6vw,38px); height:clamp(28px,3.6vw,38px); border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-display); font-size:clamp(11px,1.4vw,14px); font-weight:700;
+    border:2px solid rgba(166,176,214,0.4); color:var(--text-dim);
+    background:rgba(255,255,255,0.03); transition:all .4s ease; flex-shrink:0;
+  }
+  .orbit-node.active{ border-color:var(--crystal-cyan); color:var(--space-black); background:var(--crystal-cyan); box-shadow:0 0 18px rgba(34,211,238,0.65); animation:pulseNode 1.8s ease-in-out infinite; }
+  .orbit-node.completed{ border-color:var(--success); color:var(--space-black); background:var(--success); }
+  @keyframes pulseNode{ 0%,100%{ box-shadow:0 0 14px rgba(34,211,238,0.55);} 50%{ box-shadow:0 0 26px rgba(34,211,238,0.9);} }
+  .orbit-line{ width:clamp(28px,6vw,70px); height:2px; background:rgba(166,176,214,0.25); border-radius:2px; position:relative; overflow:hidden; }
+  .orbit-line::after{ content:''; position:absolute; inset:0; background:linear-gradient(90deg,var(--crystal-cyan),var(--success)); transform:scaleX(0); transform-origin:left; transition:transform .5s ease; }
+  .orbit-line.filled::after{ transform:scaleX(1); }
+  .orbit-labels{ display:flex; gap:clamp(6px,1.4vw,16px); margin-top:2px; }
+  .orbit-labels span{
+    width:clamp(28px,3.6vw,38px); text-align:center; font-size:clamp(8px,1vw,10.5px);
+    color:var(--text-dim); font-family:var(--font-mono); letter-spacing:0.5px;
+  }
+  .orbit-labels span:nth-child(2){ margin-left:clamp(28px,6vw,70px); }
+  .orbit-labels span:nth-child(3){ margin-left:clamp(28px,6vw,70px); }
+
+  /* ---------- STAGE / PANELS ---------- */
+  .stage{ flex:1; min-height:0; display:flex; align-items:center; justify-content:center; position:relative; }
+  .activity-panel{
+    width:min(960px,95vw); max-height:100%; height:100%;
+    display:flex; flex-direction:column; gap:clamp(6px,1.2vh,12px);
+    background:var(--panel-bg); border:1px solid var(--panel-border); border-radius:20px;
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    padding:clamp(10px,2vh,22px) clamp(12px,2.4vw,28px);
+    box-shadow:0 0 50px rgba(34,211,238,0.07), inset 0 0 70px rgba(124,58,237,0.06);
+    animation:panelIn .5s ease;
+  }
+  .activity-panel.hidden{ display:none; }
+  @keyframes panelIn{ from{ opacity:0; transform:translateY(14px) scale(0.98); } to{ opacity:1; transform:translateY(0) scale(1); } }
+
+  .panel-header{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-shrink:0; }
+  .panel-heading h2{
+    margin:0 0 4px 0; font-family:var(--font-display); font-weight:700;
+    font-size:clamp(14px,2vw,21px); color:var(--text-light); letter-spacing:0.5px;
+  }
+  .panel-heading p{ margin:0; font-size:clamp(11px,1.25vw,14px); color:var(--text-dim); max-width:62ch; }
+  .panel-actions{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
+  .reset-btn{
+    font-family:var(--font-mono); font-size:clamp(10px,1.1vw,12px); color:var(--text-light);
+    background:rgba(255,255,255,0.06); border:1px solid rgba(166,176,214,0.4); border-radius:10px;
+    padding:6px 12px; cursor:pointer; transition:all .2s ease; white-space:nowrap;
+  }
+  .reset-btn:hover{ background:rgba(255,255,255,0.14); border-color:var(--crystal-cyan); }
+  .counter{ font-family:var(--font-mono); font-size:clamp(9px,1vw,11px); color:var(--crystal-cyan); white-space:nowrap; }
+
+  .slots-area{ display:grid; gap:clamp(6px,1.2vh,12px); flex-shrink:0; }
+  #a1-slots{ grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); }
+  #a2-slots, #a3-slots{ grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); }
+
+  .drop-slot{
+    position:relative; min-height:clamp(50px,7.5vh,76px); border-radius:14px;
+    border:2px dashed rgba(34,211,238,0.4); background:rgba(255,255,255,0.03);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+    padding:6px 8px; transition:all .25s ease; text-align:center;
+  }
+  .slot-label{ font-family:var(--font-mono); font-size:clamp(8px,0.95vw,10.5px); color:var(--crystal-cyan); letter-spacing:0.5px; text-transform:uppercase; }
+  .slot-content{ font-size:clamp(11px,1.2vw,13.5px); color:var(--text-light); display:flex; align-items:center; gap:5px; }
+  .slot-placeholder{ color:var(--text-dim); font-size:clamp(10px,1.1vw,12px); }
+  .drop-slot.filled{ border-style:solid; border-color:var(--success); background:rgba(52,211,153,0.12); box-shadow:0 0 16px rgba(52,211,153,0.35); }
+  .drop-slot.flash-ok{ animation:flashOk .5s ease; }
+  .drop-slot.flash-fail{ animation:flashFail .45s ease; }
+  @keyframes flashOk{ 0%{ box-shadow:0 0 0 rgba(52,211,153,0);} 50%{ box-shadow:0 0 26px rgba(52,211,153,0.9);} 100%{ box-shadow:0 0 16px rgba(52,211,153,0.35);} }
+  @keyframes flashFail{ 0%,100%{ border-color:var(--danger); } 50%{ border-color:var(--danger); transform:translateX(4px); } 25%,75%{ transform:translateX(-4px); } }
+
+  .item-pool{
+    flex:1; min-height:0; display:flex; flex-wrap:wrap; align-content:flex-start;
+    gap:clamp(7px,1vw,12px); justify-content:center; padding-top:4px; overflow:auto;
+  }
+  .drag-item{
+    padding:clamp(7px,1vh,11px) clamp(10px,1.4vw,15px);
+    background:linear-gradient(135deg, rgba(124,58,237,0.28), rgba(34,211,238,0.18));
+    border:1px solid rgba(34,211,238,0.5); border-radius:12px;
+    font-size:clamp(10.5px,1.15vw,13.5px); color:var(--text-light);
+    cursor:grab; touch-action:none; user-select:none;
+    display:flex; align-items:center; gap:6px; transition:transform .15s ease, box-shadow .15s ease, opacity .2s ease;
+    max-width:min(280px,80vw);
+  }
+  .drag-item:hover{ box-shadow:0 0 14px rgba(34,211,238,0.4); }
+  .drag-item:active{ cursor:grabbing; }
+  .drag-item.item-hidden{ opacity:0.22; filter:grayscale(0.7); }
+  .drag-item.shake{ animation:shakeX .4s ease; }
+  .drag-ghost{ transform:scale(1.07); box-shadow:0 10px 26px rgba(0,0,0,0.55); }
+  @keyframes shakeX{ 0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px);} 75%{transform:translateX(6px);} }
+
+  /* ---------- POPUP ---------- */
+  .overlay{
+    position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center;
+    background:rgba(3,5,16,0.72); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    animation:overlayFade .3s ease;
+  }
+  .overlay.hidden{ display:none; }
+  @keyframes overlayFade{ from{opacity:0;} to{opacity:1;} }
+  .popup-card{
+    width:min(420px,88vw); background:linear-gradient(160deg, rgba(20,26,58,0.95), rgba(11,17,48,0.95));
+    border:1px solid rgba(34,211,238,0.5); border-radius:20px; padding:clamp(20px,4vh,32px) clamp(18px,4vw,28px);
+    text-align:center; box-shadow:0 0 60px rgba(124,58,237,0.35); animation:popupIn .35s ease;
+  }
+  @keyframes popupIn{ from{ opacity:0; transform:scale(0.85) translateY(10px); } to{ opacity:1; transform:scale(1) translateY(0); } }
+  .popup-icon{ font-size:clamp(34px,6vw,48px); }
+  .popup-title{ font-family:var(--font-display); font-weight:700; font-size:clamp(17px,2.4vw,22px); margin:8px 0 6px; color:var(--text-light); }
+  .popup-message{ font-size:clamp(12px,1.4vw,14.5px); color:var(--text-dim); margin:0 0 20px; line-height:1.5; }
+  .primary-btn{
+    font-family:var(--font-display); font-weight:700; font-size:clamp(12px,1.4vw,14.5px); letter-spacing:0.5px;
+    color:#04111a; background:linear-gradient(120deg,var(--crystal-cyan),var(--crystal-teal));
+    border:none; border-radius:30px; padding:12px 28px; cursor:pointer;
+    box-shadow:0 0 22px rgba(34,211,238,0.5); transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .primary-btn:hover{ transform:translateY(-2px); box-shadow:0 0 30px rgba(34,211,238,0.75); }
+  .primary-btn:focus-visible, .reset-btn:focus-visible{ outline:2px solid var(--star-gold); outline-offset:2px; }
+
+  /* ---------- CELEBRATION ---------- */
+  #celebrationOverlay{ z-index:300; background:rgba(2,4,14,0.88); }
+  .celebration-card{ text-align:center; position:relative; width:min(480px,92vw); }
+  .crystal-svg{ width:clamp(120px,22vw,180px); height:auto; filter:drop-shadow(0 0 22px rgba(34,211,238,0.55)); }
+  .crystal-svg path{ fill:none; stroke:var(--crystal-cyan); stroke-width:3; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:1000; stroke-dashoffset:1000; }
+  .crystal-svg.drawing path{ animation:drawLine 1.1s ease forwards; }
+  .crystal-svg .fillShape{ fill:url(#crystalGrad); opacity:0; }
+  .crystal-svg.drawing .fillShape{ animation:fillFade 1s ease forwards; animation-delay:1s; }
+  @keyframes drawLine{ to{ stroke-dashoffset:0; } }
+  @keyframes fillFade{ to{ opacity:0.85; } }
+  .celebration-title{ font-family:var(--font-display); font-weight:800; font-size:clamp(20px,3.4vw,30px); margin:10px 0 6px; color:var(--text-light); text-shadow:0 0 20px rgba(34,211,238,0.4); }
+  .celebration-message{ font-size:clamp(12px,1.5vw,15px); color:var(--text-dim); margin:0 0 22px; }
+  .confetti-field{ position:absolute; inset:0; pointer-events:none; overflow:visible; }
+  .spark{ position:absolute; left:50%; top:38%; width:7px; height:7px; border-radius:1px; opacity:1; animation:sparkBurst 1.1s ease-out forwards; }
+  @keyframes sparkBurst{ to{ transform:translate(var(--dx),var(--dy)) rotate(280deg) scale(0.3); opacity:0; } }
+  .comet-fly{ position:absolute; top:14%; left:-10%; width:90px; height:3px; background:linear-gradient(90deg,transparent,#fff,transparent); transform:rotate(20deg); opacity:0; animation:cometFly 1.6s ease-in forwards; animation-delay:.2s; }
+  @keyframes cometFly{ 0%{ opacity:0; transform:translate(0,0) rotate(20deg); } 10%{ opacity:1; } 90%{ opacity:1; } 100%{ opacity:0; transform:translate(640px,260px) rotate(20deg); } }
+
+  /* ---------- RESPONSIVE TWEAKS ---------- */
+  @media (max-width:560px){
+    .orbit-labels span:nth-child(2),.orbit-labels span:nth-child(3){ margin-left:clamp(28px,6vw,70px); }
+    .panel-header{ flex-direction:column; }
+    .panel-actions{ align-items:flex-start; flex-direction:row; gap:10px; }
+  }
+  @media (max-height:680px){
+    .activity-panel{ padding:8px 12px; gap:6px; }
+    .drop-slot{ min-height:46px; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .star,.planet,.asteroid,.satellite,.shooting-star,.nebula-blob{ animation:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div id="bgLayer">
+  <div class="nebula-blob nebula-1"></div>
+  <div class="nebula-blob nebula-2"></div>
+  <div class="nebula-blob nebula-3"></div>
+  <div class="planet planet-a"></div>
+  <div class="planet planet-b"></div>
+  <div class="planet planet-c"></div>
+  <div class="asteroid" style="top:18%; animation-duration:46s; animation-delay:-6s;"></div>
+  <div class="asteroid" style="top:48%; animation-duration:60s; animation-delay:-20s; width:24px;height:18px;"></div>
+  <div class="asteroid" style="top:74%; animation-duration:38s; animation-delay:-2s; width:14px;height:11px;"></div>
+  <div class="asteroid" style="top:30%; animation-duration:70s; animation-delay:-34s; width:20px;height:16px;"></div>
+  <div class="satellite">
+    <div class="panel left"></div>
+    <div class="body"></div>
+    <div class="panel right"></div>
+    <div class="antenna"></div>
+    <div class="blink"></div>
+  </div>
+  <div class="shooting-star" style="top:8%; left:70%; animation-duration:7s; animation-delay:1s;"></div>
+  <div class="shooting-star" style="top:20%; left:85%; animation-duration:9.5s; animation-delay:4s;"></div>
+  <div class="shooting-star" style="top:4%; left:50%; animation-duration:11s; animation-delay:6.5s;"></div>
+  <div class="shooting-star" style="top:14%; left:92%; animation-duration:8.2s; animation-delay:3s;"></div>
+  <div id="starField"></div>
+</div>
+
+<div class="app">
+  <header class="app-header">
+    <span class="badge">Operation: Crystal Lab</span>
+    <h1 class="title">CRYSTALS — GROW YOUR OWN</h1>
+    <div class="orbit-track">
+      <div class="orbit-node" id="node1">1</div>
+      <div class="orbit-line" id="line1"></div>
+      <div class="orbit-node" id="node2">2</div>
+      <div class="orbit-line" id="line2"></div>
+      <div class="orbit-node" id="node3">3</div>
+    </div>
+    <div class="orbit-labels"><span>Assemble</span><span>Sequence</span><span>Workflow</span></div>
+  </header>
+
+  <main class="stage" id="stage">
+
+    <section class="activity-panel" id="panel-a1">
+      <div class="panel-header">
+        <div class="panel-heading">
+          <h2>Stage 1 · Assemble the Lab</h2>
+          <p>Drag each item to its correct spot on the console. The heat source belongs in the Adult Helper Zone — always ask a grown-up before using heat.</p>
+        </div>
+        <div class="panel-actions">
+          <button class="reset-btn" onclick="resetActivity(0)">↺ Reset Stage</button>
+          <span class="counter" id="a1-count">0 / 6 placed</span>
+        </div>
+      </div>
+      <div class="slots-area" id="a1-slots"></div>
+      <div class="item-pool" id="a1-pool"></div>
+    </section>
+
+    <section class="activity-panel hidden" id="panel-a2">
+      <div class="panel-header">
+        <div class="panel-heading">
+          <h2>Stage 2 · Sequence the Growth</h2>
+          <p>Drag the steps into the order crystals actually grow — from mixing the solution to spotting your first crystal.</p>
+        </div>
+        <div class="panel-actions">
+          <button class="reset-btn" onclick="resetActivity(1)">↺ Reset Stage</button>
+          <span class="counter" id="a2-count">0 / 5 placed</span>
+        </div>
+      </div>
+      <div class="slots-area" id="a2-slots"></div>
+      <div class="item-pool" id="a2-pool"></div>
+    </section>
+
+    <section class="activity-panel hidden" id="panel-a3">
+      <div class="panel-header">
+        <div class="panel-heading">
+          <h2>Stage 3 · Build the Workflow</h2>
+          <p>Connect each workflow block in the right order to complete the mission.</p>
+        </div>
+        <div class="panel-actions">
+          <button class="reset-btn" onclick="resetActivity(2)">↺ Reset Stage</button>
+          <span class="counter" id="a3-count">0 / 5 placed</span>
+        </div>
+      </div>
+      <div class="slots-area" id="a3-slots"></div>
+      <div class="item-pool" id="a3-pool"></div>
+    </section>
+
+  </main>
+</div>
+
+<div class="overlay hidden" id="popupOverlay">
+  <div class="popup-card">
+    <div class="popup-icon" id="popupIcon">🛰️</div>
+    <div class="popup-title" id="popupTitle">Lab Assembled!</div>
+    <p class="popup-message" id="popupMessage"></p>
+    <button class="primary-btn" id="popupBtn">Continue</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="celebrationOverlay">
+  <div class="celebration-card">
+    <div class="confetti-field" id="confettiField"></div>
+    <div class="comet-fly" id="cometFly"></div>
+    <svg class="crystal-svg" id="crystalSvg" viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="crystalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#67e8f9"/>
+          <stop offset="55%" stop-color="#22d3ee"/>
+          <stop offset="100%" stop-color="#7c3aed"/>
+        </linearGradient>
+      </defs>
+      <path class="fillShape" d="M100,10 L160,70 L140,170 L100,230 L60,170 L40,70 Z"/>
+      <path d="M100,10 L160,70 L140,170 L100,230 L60,170 L40,70 Z"/>
+      <path d="M100,10 L100,230"/>
+      <path d="M40,70 L160,70"/>
+      <path d="M60,170 L140,170"/>
+    </svg>
+    <div class="celebration-title">Mission Complete! 🌌</div>
+    <p class="celebration-message">Every step is in place — your crystal is ready to grow among the stars.</p>
+    <button class="primary-btn" onclick="playAgain()">Play Again</button>
+  </div>
+</div>
+
+<script>
+/* ---------------- background star field ---------------- */
+(function(){
+  const field = document.getElementById('starField');
+  const count = 90;
+  for(let i=0;i<count;i++){
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = (Math.random()*2 + 1).toFixed(1);
+    s.style.width = size+'px';
+    s.style.height = size+'px';
+    s.style.top = (Math.random()*100)+'%';
+    s.style.left = (Math.random()*100)+'%';
+    s.style.animationDuration = (Math.random()*3 + 2).toFixed(1)+'s';
+    s.style.animationDelay = (Math.random()*4).toFixed(1)+'s';
+    s.style.opacity = (Math.random()*0.6+0.3).toFixed(2);
+    field.appendChild(s);
+  }
+})();
+
+/* ---------------- activity data ---------------- */
+const activity1Data = {
+  slots:[
+    {id:'a1-container', label:'Container', icon:'🫙'},
+    {id:'a1-water', label:'Liquid Base', icon:'💧'},
+    {id:'a1-solute', label:'Crystal Maker', icon:'🍬'},
+    {id:'a1-string', label:'Seed String', icon:'🧵'},
+    {id:'a1-holder', label:'String Holder', icon:'✏️'},
+    {id:'a1-adult', label:'Adult Helper Zone', icon:'🧑‍🚀'}
+  ],
+  items:[
+    {id:'item-jar', icon:'🫙', label:'Glass Jar', correct:'a1-container'},
+    {id:'item-water', icon:'💧', label:'Water', correct:'a1-water'},
+    {id:'item-sugar', icon:'🍬', label:'Sugar', correct:'a1-solute'},
+    {id:'item-string', icon:'🧵', label:'Cotton String', correct:'a1-string'},
+    {id:'item-pencil', icon:'✏️', label:'Pencil', correct:'a1-holder'},
+    {id:'item-stove', icon:'🔥', label:'Heat Source', correct:'a1-adult'}
+  ]
+};
+
+const activity2Data = {
+  slots:[1,2,3,4,5].map(n=>({id:'a2-pos-'+n, label:'Step '+n})),
+  items:[
+    {id:'a2-i1', text:'Heat water and dissolve sugar until no more will dissolve', correct:'a2-pos-1'},
+    {id:'a2-i2', text:'Pour the warm solution into a clean container', correct:'a2-pos-2'},
+    {id:'a2-i3', text:'Dip a string with a few crystal seeds into the solution', correct:'a2-pos-3'},
+    {id:'a2-i4', text:'Place the container in a quiet, undisturbed spot', correct:'a2-pos-4'},
+    {id:'a2-i5', text:'Watch crystals slowly form on the string over several days', correct:'a2-pos-5'}
+  ]
+};
+
+const activity3Data = {
+  slots:[1,2,3,4,5].map(n=>({id:'a3-pos-'+n, label:'Step '+n})),
+  items:[
+    {id:'a3-i1', text:'Mix Solution', correct:'a3-pos-1'},
+    {id:'a3-i2', text:'Suspend String', correct:'a3-pos-2'},
+    {id:'a3-i3', text:'Wait for Evaporation', correct:'a3-pos-3'},
+    {id:'a3-i4', text:'Crystal Formation', correct:'a3-pos-4'},
+    {id:'a3-i5', text:'Record Observations', correct:'a3-pos-5'}
+  ]
+};
+
+let currentStage = 1;
+
+const activities = [
+  { slotsId:'a1-slots', poolId:'a1-pool', countId:'a1-count', data:activity1Data, total:6, filled:0,
+    onComplete:()=>showPopup({icon:'🛰️', title:'Lab Assembled!', message:'Nice work, Crystal Scientist. Your experiment is set up and ready for launch.', buttonText:'Continue to Stage 2', onContinue:()=>goToStage(2)}) },
+  { slotsId:'a2-slots', poolId:'a2-pool', countId:'a2-count', data:activity2Data, total:5, filled:0,
+    onComplete:()=>showPopup({icon:'🪐', title:'Sequence Locked In!', message:'You have mapped out exactly how a crystal grows, step by step.', buttonText:'Continue to Stage 3', onContinue:()=>goToStage(3)}) },
+  { slotsId:'a3-slots', poolId:'a3-pool', countId:'a3-count', data:activity3Data, total:5, filled:0,
+    onComplete:()=>{ document.getElementById('panel-a3').classList.add('hidden'); showCelebration(); } }
+];
+
+/* ---------------- shuffle ---------------- */
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+/* ---------------- render ---------------- */
+function buildSlotEl(s){
+  const div = document.createElement('div');
+  div.className = 'drop-slot';
+  div.id = s.id;
+  div.innerHTML = `<span class="slot-label">${s.icon ? s.icon+' ' : ''}${s.label}</span><div class="slot-content"><span class="slot-placeholder">drop here</span></div>`;
+  return div;
+}
+
+function buildItemEl(it, act){
+  const div = document.createElement('div');
+  div.className = 'drag-item';
+  div.id = it.id;
+  div.dataset.correct = it.correct;
+  div.innerHTML = it.icon
+    ? `<span class="item-icon">${it.icon}</span><span class="item-text">${it.label}</span>`
+    : `<span class="item-text">${it.text}</span>`;
+  attachDrag(div, act);
+  return div;
+}
+
+function renderActivity(act){
+  act.filled = 0;
+  const slotsEl = document.getElementById(act.slotsId);
+  const poolEl = document.getElementById(act.poolId);
+  slotsEl.innerHTML = '';
+  poolEl.innerHTML = '';
+  act.data.slots.forEach(s => slotsEl.appendChild(buildSlotEl(s)));
+  shuffle(act.data.items).forEach(it => poolEl.appendChild(buildItemEl(it, act)));
+  updateCount(act);
+}
+
+function updateCount(act){
+  document.getElementById(act.countId).textContent = `${act.filled} / ${act.total} placed`;
+}
+
+function flashSlot(slot, ok){
+  const cls = ok ? 'flash-ok' : 'flash-fail';
+  slot.classList.add(cls);
+  setTimeout(()=>slot.classList.remove(cls), 500);
+}
+
+/* ---------------- drag engine (pointer events) ---------------- */
+function attachDrag(item, act){
+  item.addEventListener('pointerdown', function(e){
+    e.preventDefault();
+    const rect = item.getBoundingClientRect();
+    const ghost = item.cloneNode(true);
+    ghost.classList.add('drag-ghost');
+    ghost.style.position = 'fixed';
+    ghost.style.left = rect.left+'px';
+    ghost.style.top = rect.top+'px';
+    ghost.style.width = rect.width+'px';
+    ghost.style.zIndex = 9999;
+    ghost.style.pointerEvents = 'none';
+    document.body.appendChild(ghost);
+    item.classList.add('item-hidden');
+    document.body.classList.add('dragging-active');
+
+    const offX = e.clientX - rect.left;
+    const offY = e.clientY - rect.top;
+
+    function move(ev){
+      ghost.style.left = (ev.clientX - offX)+'px';
+      ghost.style.top = (ev.clientY - offY)+'px';
+    }
+    function up(ev){
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      document.body.classList.remove('dragging-active');
+      ghost.remove();
+
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const slot = el ? el.closest('.drop-slot') : null;
+
+      if(slot && !slot.classList.contains('filled')){
+        if(item.dataset.correct === slot.id){
+          const content = slot.querySelector('.slot-content');
+          content.innerHTML = item.innerHTML;
+          slot.classList.add('filled');
+          flashSlot(slot, true);
+          item.remove();
+          act.filled++;
+          updateCount(act);
+          if(act.filled === act.total){
+            setTimeout(()=>act.onComplete(), 350);
+          }
+        } else {
+          flashSlot(slot, false);
+          item.classList.remove('item-hidden');
+          item.classList.add('shake');
+          setTimeout(()=>item.classList.remove('shake'), 400);
+        }
+      } else {
+        item.classList.remove('item-hidden');
+      }
+    }
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+  });
+}
+
+/* ---------------- reset / stage flow ---------------- */
+function resetActivity(idx){ renderActivity(activities[idx]); }
+
+function showPanel(n){
+  document.getElementById('panel-a1').classList.toggle('hidden', n!==1);
+  document.getElementById('panel-a2').classList.toggle('hidden', n!==2);
+  document.getElementById('panel-a3').classList.toggle('hidden', n!==3);
+}
+
+function updateOrbit(n){
+  for(let i=1;i<=3;i++){
+    const node = document.getElementById('node'+i);
+    node.classList.remove('active','completed');
+    if(i < n) node.classList.add('completed');
+    else if(i === n) node.classList.add('active');
+  }
+  document.getElementById('line1').classList.toggle('filled', n>=2);
+  document.getElementById('line2').classList.toggle('filled', n>=3);
+}
+
+function goToStage(n){
+  hidePopup();
+  currentStage = n;
+  showPanel(n);
+  renderActivity(activities[n-1]);
+  updateOrbit(n);
+}
+
+/* ---------------- popup ---------------- */
+function showPopup({icon,title,message,buttonText,onContinue}){
+  document.getElementById('popupIcon').textContent = icon;
+  document.getElementById('popupTitle').textContent = title;
+  document.getElementById('popupMessage').textContent = message;
+  const btn = document.getElementById('popupBtn');
+  btn.textContent = buttonText;
+  btn.onclick = onContinue;
+  document.getElementById('popupOverlay').classList.remove('hidden');
+}
+function hidePopup(){
+  document.getElementById('popupOverlay').classList.add('hidden');
+}
+
+/* ---------------- celebration ---------------- */
+function showCelebration(){
+  const overlay = document.getElementById('celebrationOverlay');
+  overlay.classList.remove('hidden');
+
+  const svg = document.getElementById('crystalSvg');
+  svg.classList.remove('drawing');
+  void svg.offsetWidth;
+  svg.classList.add('drawing');
+
+  const comet = document.getElementById('cometFly');
+  comet.style.animation = 'none';
+  void comet.offsetWidth;
+  comet.style.animation = '';
+
+  spawnConfetti();
+}
+
+function spawnConfetti(){
+  const field = document.getElementById('confettiField');
+  field.innerHTML = '';
+  const colors = ['#22d3ee','#fbbf24','#d946ef','#34d399','#7c3aed'];
+  for(let i=0;i<46;i++){
+    const s = document.createElement('div');
+    s.className = 'spark';
+    const angle = Math.random()*Math.PI*2;
+    const dist = 120 + Math.random()*180;
+    s.style.setProperty('--dx', (Math.cos(angle)*dist)+'px');
+    s.style.setProperty('--dy', (Math.sin(angle)*dist)+'px');
+    s.style.background = colors[Math.floor(Math.random()*colors.length)];
+    s.style.animationDelay = (Math.random()*0.3)+'s';
+    field.appendChild(s);
+  }
+}
+
+function playAgain(){
+  document.getElementById('celebrationOverlay').classList.add('hidden');
+  document.getElementById('panel-a3').classList.add('hidden');
+  document.getElementById('panel-a2').classList.add('hidden');
+  currentStage = 1;
+  showPanel(1);
+  renderActivity(activities[0]);
+  updateOrbit(1);
+}
+
+/* ---------------- init ---------------- */
+renderActivity(activities[0]);
+updateOrbit(1);
+</script>
+</body>
+</html>

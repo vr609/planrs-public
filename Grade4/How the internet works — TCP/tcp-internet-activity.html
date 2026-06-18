@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>How the Internet Works — TCP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#140a26;
+    --bg-mid:#26113f;
+    --bg-soft:#34165a;
+    --violet-1:#7c3aed;
+    --violet-2:#a855f7;
+    --pink:#e879f9;
+    --lavender:#ddd6fe;
+    --gold:#fcd34d;
+    --green:#34d399;
+    --text:#f5f3ff;
+    --text-dim:#c7bce6;
+    --card:rgba(255,255,255,0.055);
+    --card-border:rgba(196,165,255,0.28);
+    --shadow-glow:0 0 32px rgba(168,85,247,0.35);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Inter',system-ui,sans-serif;
+    background:
+      radial-gradient(circle at 15% 8%, rgba(168,85,247,0.22), transparent 45%),
+      radial-gradient(circle at 85% 18%, rgba(232,121,249,0.16), transparent 50%),
+      radial-gradient(circle at 50% 95%, rgba(124,58,237,0.25), transparent 55%),
+      linear-gradient(160deg, var(--bg-deep) 0%, var(--bg-mid) 50%, var(--bg-soft) 100%);
+    color:var(--text);
+    min-height:100vh;
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  /* ---------------- AMBIENT BACKGROUND ---------------- */
+  .bg-layer{position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;}
+  .star{
+    position:absolute;
+    background:#fff;
+    border-radius:50%;
+    opacity:.5;
+    animation:twinkle ease-in-out infinite;
+  }
+  @keyframes twinkle{
+    0%,100%{opacity:.15; transform:scale(.7) translateY(0);}
+    50%{opacity:1; transform:scale(1.3) translateY(-6px);}
+  }
+  .shooting-star{
+    position:absolute;
+    top:8%;
+    left:-10%;
+    width:140px;
+    height:2px;
+    background:linear-gradient(90deg, rgba(255,255,255,0), #fff 70%, rgba(255,255,255,0));
+    border-radius:2px;
+    opacity:0;
+    transform:rotate(18deg);
+    animation:shoot 9s linear infinite;
+    animation-delay:2s;
+  }
+  .shooting-star.s2{ top:34%; animation-delay:6.2s; width:100px;}
+  @keyframes shoot{
+    0%{ left:-15%; top:6%; opacity:0;}
+    4%{opacity:1;}
+    18%{ left:115%; top:46%; opacity:0;}
+    100%{ left:115%; top:46%; opacity:0;}
+  }
+
+  /* ---------------- HEADER ---------------- */
+  header{
+    position:relative;
+    z-index:2;
+    padding:64px 20px 28px;
+    text-align:center;
+    overflow:hidden;
+    min-height:170px;
+  }
+  .bird-track{position:absolute; top:18%; left:0; width:100%; height:60px; z-index:1; pointer-events:none;}
+  .bird{
+    position:absolute;
+    left:-10%;
+    width:46px;
+    height:30px;
+    animation:flyAcross 13s linear infinite;
+  }
+  .bird .wing{
+    position:absolute;
+    width:22px;
+    height:13px;
+    top:8px;
+    background:linear-gradient(135deg, var(--pink), var(--violet-2));
+    border-radius:50% 50% 50% 10%/70% 70% 40% 40%;
+    box-shadow:0 0 10px rgba(232,121,249,.55);
+  }
+  .bird .wing.left{ left:2px; transform-origin:right center; animation:flapL .42s ease-in-out infinite;}
+  .bird .wing.right{ right:2px; transform-origin:left center; animation:flapR .42s ease-in-out infinite;}
+  .bird .body{
+    position:absolute; left:18px; top:10px; width:11px; height:9px;
+    background:radial-gradient(circle at 35% 35%, #fff, var(--lavender) 60%, var(--violet-2));
+    border-radius:50%;
+  }
+  @keyframes flapL{0%,100%{transform:rotate(8deg) scaleY(1);} 50%{transform:rotate(-38deg) scaleY(.55);} }
+  @keyframes flapR{0%,100%{transform:rotate(-8deg) scaleY(1);} 50%{transform:rotate(38deg) scaleY(.55);} }
+  @keyframes flyAcross{
+    0%{ left:-10%; top:0px;}
+    25%{ top:-14px;}
+    50%{ left:55%; top:6px;}
+    75%{ top:-10px;}
+    100%{ left:112%; top:0px;}
+  }
+
+  h1{
+    position:relative;
+    z-index:2;
+    font-family:'Fredoka', sans-serif;
+    font-weight:700;
+    font-size:clamp(1.7rem, 5.4vw, 3.3rem);
+    letter-spacing:.5px;
+    margin:0;
+    background:linear-gradient(90deg, var(--lavender), var(--pink) 45%, var(--violet-2) 80%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    text-shadow:0 0 38px rgba(168,85,247,.35);
+    animation:glow 4s ease-in-out infinite;
+  }
+  @keyframes glow{
+    0%,100%{ filter:drop-shadow(0 0 6px rgba(232,121,249,.25)); }
+    50%{ filter:drop-shadow(0 0 22px rgba(232,121,249,.55)); }
+  }
+
+  /* ---------------- LAYOUT ---------------- */
+  main{
+    position:relative; z-index:2;
+    max-width:980px;
+    margin:0 auto;
+    padding:6px 18px 80px;
+  }
+
+  .progress-row{
+    display:flex; justify-content:center; align-items:center;
+    gap:14px; margin:6px 0 38px;
+  }
+  .progress-star{
+    font-size:1.6rem;
+    color:rgba(255,255,255,.18);
+    transition:color .4s, transform .4s;
+    filter:drop-shadow(0 0 0 transparent);
+  }
+  .progress-star.filled{
+    color:var(--gold);
+    transform:scale(1.18) rotate(-6deg);
+    filter:drop-shadow(0 0 10px rgba(252,211,77,.7));
+  }
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--card-border);
+    border-radius:26px;
+    padding:30px clamp(16px,4vw,38px) 36px;
+    margin-bottom:46px;
+    backdrop-filter:blur(14px);
+    box-shadow:var(--shadow-glow), inset 0 1px 0 rgba(255,255,255,.06);
+    position:relative;
+  }
+  .badge{
+    display:inline-flex; align-items:center; gap:8px;
+    font-size:.72rem; font-weight:700; letter-spacing:1.4px;
+    text-transform:uppercase;
+    color:var(--violet-2);
+    background:rgba(168,85,247,.14);
+    border:1px solid rgba(168,85,247,.4);
+    padding:6px 14px;
+    border-radius:999px;
+    margin-bottom:14px;
+  }
+  .card h2{
+    font-family:'Fredoka', sans-serif;
+    font-weight:600;
+    font-size:clamp(1.25rem, 3vw, 1.7rem);
+    margin:0 0 8px;
+    color:var(--text);
+  }
+  .card p.instructions{
+    color:var(--text-dim);
+    margin:0 0 26px;
+    font-size:1.04rem;
+    line-height:1.55;
+    max-width:640px;
+  }
+  .reset-btn{
+    position:absolute; top:26px; right:clamp(16px,4vw,38px);
+    background:rgba(255,255,255,.07);
+    border:1px solid var(--card-border);
+    color:var(--text-dim);
+    font-size:.8rem;
+    font-weight:600;
+    padding:8px 14px;
+    border-radius:999px;
+    cursor:pointer;
+    display:flex; align-items:center; gap:6px;
+    transition:background .2s, color .2s, transform .2s;
+  }
+  .reset-btn:hover{ background:rgba(168,85,247,.25); color:#fff; transform:translateY(-1px);}
+
+  /* ---------------- TRAY / CHIPS ---------------- */
+  .tray{
+    display:flex; flex-wrap:wrap; gap:12px;
+    margin-top:22px;
+    min-height:64px;
+    justify-content:center;
+  }
+  .chip{
+    user-select:none;
+    touch-action:none;
+    cursor:grab;
+    background:linear-gradient(135deg, rgba(168,85,247,.85), rgba(232,121,249,.75));
+    color:#fff;
+    padding:13px 18px;
+    border-radius:14px;
+    font-weight:700;
+    font-size:1rem;
+    max-width:210px;
+    box-shadow:0 6px 16px rgba(124,58,237,.4), inset 0 1px 0 rgba(255,255,255,.25);
+    border:1px solid rgba(255,255,255,.25);
+    transition:transform .15s, box-shadow .15s;
+    line-height:1.3;
+    text-align:center;
+  }
+  .chip .sub{ display:block; font-weight:500; font-size:.72rem; opacity:.85; margin-top:4px;}
+  .chip:active{ cursor:grabbing; }
+  .chip.dragging{
+    transform:scale(1.07) rotate(-2deg);
+    box-shadow:0 14px 30px rgba(124,58,237,.55);
+    z-index:1000;
+  }
+  .chip.bounce-back{ animation:bounceBack .3s ease; }
+  @keyframes bounceBack{
+    0%{ transform:scale(1.05);} 50%{ transform:scale(.93) rotate(3deg);} 100%{ transform:scale(1);}
+  }
+  .chip.locked{ cursor:default; opacity:.95; }
+  .chip.term-chip{ background:linear-gradient(135deg, rgba(124,58,237,.9), rgba(94,40,210,.85)); min-width:118px;}
+
+  /* ---------------- MISSION 1 : HANDSHAKE ---------------- */
+  .handshake-row{
+    display:flex; align-items:center; justify-content:center;
+    gap:6px; flex-wrap:wrap; margin-top:10px;
+  }
+  .node{
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    width:84px;
+  }
+  .node .circle{
+    width:62px; height:62px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.7rem;
+    background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.35), rgba(168,85,247,.55));
+    border:2px solid rgba(255,255,255,.35);
+    box-shadow:0 0 22px rgba(168,85,247,.45);
+  }
+  .node .label{ font-size:.78rem; font-weight:700; color:var(--text-dim); letter-spacing:.5px;}
+
+  .chain{
+    display:flex; align-items:center; gap:4px; flex:1;
+    min-width:220px; justify-content:center;
+    position:relative;
+    padding:0 4px;
+  }
+  .link-wrap{
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    flex:1; max-width:175px; position:relative;
+  }
+  .arrow{
+    font-size:1.1rem; color:var(--text-dim); opacity:.7;
+  }
+  .dropzone{
+    width:100%;
+    min-height:68px;
+    border:2px dashed rgba(196,165,255,.4);
+    border-radius:14px;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(255,255,255,.03);
+    transition:background .2s, border-color .2s, box-shadow .2s;
+    padding:6px;
+  }
+  .dropzone.hover{
+    border-color:var(--pink);
+    background:rgba(232,121,249,.12);
+    box-shadow:0 0 18px rgba(232,121,249,.35);
+  }
+  .dropzone .chip{ font-size:.86rem; padding:10px 12px; width:100%; max-width:none;}
+  .link-wrap.correct .dropzone{
+    border-color:var(--gold);
+    background:rgba(252,211,77,.12);
+    box-shadow:0 0 18px rgba(252,211,77,.45);
+  }
+  .spark{
+    position:absolute;
+    top:50%; left:0;
+    width:10px; height:10px;
+    border-radius:50%;
+    background:var(--gold);
+    box-shadow:0 0 14px var(--gold), 0 0 28px var(--pink);
+    transform:translateY(-50%);
+    opacity:0;
+  }
+  .spark.travel{
+    opacity:1;
+    animation:travelSpark 1.5s ease-in-out forwards;
+  }
+  @keyframes travelSpark{
+    0%{ left:0%; opacity:1; }
+    95%{ left:96%; opacity:1; }
+    100%{ left:100%; opacity:0; }
+  }
+  .success-banner{
+    text-align:center;
+    margin-top:22px;
+    font-family:'Fredoka', sans-serif;
+    font-size:1.05rem;
+    font-weight:600;
+    color:var(--gold);
+    opacity:0;
+    transform:translateY(8px);
+    transition:opacity .5s, transform .5s;
+  }
+  .success-banner.show{ opacity:1; transform:translateY(0); }
+
+  /* ---------------- MISSION 2 : PACKETS ---------------- */
+  .packet-slots{
+    display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-top:8px;
+  }
+  .packet-slots .dropzone{ width:150px; min-height:74px;}
+  .packet-slots .dropzone.correct{
+    border-color:var(--green);
+    background:rgba(52,211,153,.12);
+    box-shadow:0 0 18px rgba(52,211,153,.4);
+  }
+  .packet-slots .dropzone.wrong-shake{ animation:shake .4s; border-color:#f87171; }
+  @keyframes shake{
+    0%,100%{ transform:translateX(0);}
+    25%{ transform:translateX(-6px);}
+    75%{ transform:translateX(6px);}
+  }
+  .chip.packet-chip{ font-size:.9rem; }
+  .chip.packet-chip .seq{
+    display:inline-block;
+    font-size:.65rem;
+    background:rgba(255,255,255,.25);
+    border-radius:999px;
+    padding:1px 7px;
+    margin-bottom:4px;
+    font-weight:700;
+  }
+  .message-reveal{
+    margin-top:26px;
+    text-align:center;
+    font-family:'Fredoka', sans-serif;
+    font-size:clamp(1rem, 2.6vw, 1.4rem);
+    font-weight:600;
+    letter-spacing:.5px;
+    min-height:34px;
+  }
+  .message-reveal span{
+    display:inline-block;
+    opacity:0;
+    transform:translateY(10px) scale(.8);
+    margin:0 4px;
+    background:linear-gradient(90deg, var(--lavender), var(--pink));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .message-reveal span.pop{
+    animation:popIn .45s forwards;
+  }
+  @keyframes popIn{ to{ opacity:1; transform:translateY(0) scale(1);} }
+
+  /* ---------------- MISSION 3 : MATCH ---------------- */
+  .match-grid{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:14px;
+    margin-top:18px;
+  }
+  @media(min-width:680px){
+    .match-grid{ grid-template-columns:1fr 1fr; gap:0 26px; }
+  }
+  .term-tray{
+    display:flex; flex-wrap:wrap; gap:10px; justify-content:center;
+    align-content:flex-start;
+    margin-bottom:10px;
+  }
+  @media(min-width:680px){ .term-tray{ flex-direction:column; align-items:stretch; } }
+  .def-list{ display:flex; flex-direction:column; gap:12px; }
+  .def-zone{
+    min-height:64px;
+    border:2px dashed rgba(196,165,255,.4);
+    border-radius:14px;
+    background:rgba(255,255,255,.03);
+    padding:10px 12px;
+    display:flex; flex-direction:column; gap:6px;
+    transition:background .2s, border-color .2s, box-shadow .2s;
+  }
+  .def-zone .def-text{ font-size:.85rem; color:var(--text-dim); line-height:1.4;}
+  .def-zone.hover{ border-color:var(--pink); background:rgba(232,121,249,.1); }
+  .def-zone.correct{
+    border-color:var(--green);
+    background:rgba(52,211,153,.1);
+    box-shadow:0 0 16px rgba(52,211,153,.35);
+  }
+  .def-zone .slot-inner{ min-height:34px; display:flex; align-items:center; }
+  .check-mark{ color:var(--green); font-weight:800; margin-left:6px; }
+
+  /* ---------------- CONFETTI ---------------- */
+  .confetti-piece{
+    position:fixed;
+    z-index:2000;
+    width:8px; height:8px;
+    border-radius:2px;
+    pointer-events:none;
+    animation:confettiFall 1.1s ease-out forwards;
+  }
+  @keyframes confettiFall{
+    0%{ opacity:1; transform:translate(0,0) rotate(0deg) scale(1); }
+    100%{ opacity:0; transform:translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(.6); }
+  }
+
+  .grand-finale{
+    text-align:center;
+    margin:-10px 0 40px;
+    font-family:'Fredoka', sans-serif;
+    font-size:clamp(1.1rem,3vw,1.5rem);
+    color:var(--text);
+    background:linear-gradient(135deg, rgba(168,85,247,.25), rgba(232,121,249,.18));
+    border:1px solid rgba(232,121,249,.45);
+    border-radius:22px;
+    padding:22px;
+    opacity:0;
+    max-height:0;
+    overflow:hidden;
+    transition:opacity .6s, padding .6s;
+  }
+  .grand-finale.show{ opacity:1; max-height:300px; }
+
+  @media (max-width:600px){
+    .node{ width:60px; }
+    .node .circle{ width:46px; height:46px; font-size:1.3rem;}
+    .chain{ gap:2px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-layer" id="bgLayer">
+  <div class="shooting-star"></div>
+  <div class="shooting-star s2"></div>
+</div>
+
+<header>
+  <div class="bird-track">
+    <div class="bird">
+      <div class="wing left"></div>
+      <div class="body"></div>
+      <div class="wing right"></div>
+    </div>
+  </div>
+  <h1>HOW THE INTERNET WORKS — TCP</h1>
+</header>
+
+<main>
+
+  <div class="progress-row" id="progressRow">
+    <span class="progress-star" data-star="1">★</span>
+    <span class="progress-star" data-star="2">★</span>
+    <span class="progress-star" data-star="3">★</span>
+  </div>
+
+  <div class="grand-finale" id="grandFinale">
+    🎉 Way to go! You just showed how the internet says hello, puts pieces back in order, and remembers what every part does.
+  </div>
+
+  <!-- ============ MISSION 1 ============ -->
+  <section class="card" data-activity="handshake">
+    <button class="reset-btn" id="resetHandshake">🔄 Shuffle</button>
+    <div class="badge">🤝 Say Hello</div>
+    <h2>Help two computers say hello</h2>
+    <p class="instructions">Before computers can chat, they say hello to each other — just like you wave before talking to a friend! Drag the 3 messages into the order they happen.</p>
+
+    <div class="handshake-row">
+      <div class="node">
+        <div class="circle">💻</div>
+        <div class="label">Client</div>
+      </div>
+
+      <div class="chain" id="chain">
+        <div class="link-wrap" data-index="0">
+          <span class="arrow">→</span>
+          <div class="dropzone" data-activity="handshake" data-zone-index="0"></div>
+        </div>
+        <div class="link-wrap" data-index="1">
+          <span class="arrow">←</span>
+          <div class="dropzone" data-activity="handshake" data-zone-index="1"></div>
+        </div>
+        <div class="link-wrap" data-index="2">
+          <span class="arrow">→</span>
+          <div class="dropzone" data-activity="handshake" data-zone-index="2"></div>
+        </div>
+        <div class="spark" id="spark"></div>
+      </div>
+
+      <div class="node">
+        <div class="circle">🖥️</div>
+        <div class="label">Server</div>
+      </div>
+    </div>
+
+    <div class="tray" id="handshakeTray"></div>
+
+    <div class="success-banner" id="handshakeBanner">🤝 You did it! Now the two computers can talk.</div>
+  </section>
+
+  <!-- ============ MISSION 2 ============ -->
+  <section class="card" data-activity="packets">
+    <button class="reset-btn" id="resetPackets">🔄 Shuffle</button>
+    <div class="badge">📦 Packet Pieces</div>
+    <h2>Put the pieces back together</h2>
+    <p class="instructions">Big messages get cut into small pieces called packets before they travel across the internet. Sometimes the pieces show up out of order! Drag each piece into a box, smallest number first, to read the secret message.</p>
+
+    <div class="packet-slots" id="packetSlots"></div>
+    <div class="tray" id="packetTray"></div>
+    <div class="message-reveal" id="messageReveal"></div>
+  </section>
+
+  <!-- ============ MISSION 3 ============ -->
+  <section class="card" data-activity="match">
+    <button class="reset-btn" id="resetMatch">🔄 Shuffle</button>
+    <div class="badge">🔗 Word Match</div>
+    <h2>Match the internet helpers</h2>
+    <p class="instructions">These five words all help your messages travel across the internet. Drag each word onto the sentence that tells what it does.</p>
+
+    <div class="match-grid">
+      <div class="term-tray" id="termTray"></div>
+      <div class="def-list" id="defList"></div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* =========================================================
+   UTILITIES
+========================================================= */
+function rand(min,max){ return Math.random()*(max-min)+min; }
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+/* =========================================================
+   AMBIENT STARFIELD
+========================================================= */
+(function buildStars(){
+  const wrap = document.getElementById('bgLayer');
+  const count = window.innerWidth < 700 ? 46 : 80;
+  for(let i=0;i<count;i++){
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = rand(1,3);
+    s.style.width = size+'px';
+    s.style.height = size+'px';
+    s.style.left = rand(0,100)+'%';
+    s.style.top = rand(0,100)+'%';
+    s.style.animationDuration = rand(2.2,5.5)+'s';
+    s.style.animationDelay = rand(0,5)+'s';
+    wrap.appendChild(s);
+  }
+})();
+
+/* =========================================================
+   CONFETTI
+========================================================= */
+function spawnConfetti(x, y, count){
+  const colors = ['#a855f7','#e879f9','#fcd34d','#ddd6fe','#34d399'];
+  for(let i=0;i<(count||26);i++){
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    const dx = rand(-160,160)+'px';
+    const dy = rand(60,220)+'px';
+    const rot = rand(180,720)+'deg';
+    p.style.setProperty('--dx', dx);
+    p.style.setProperty('--dy', dy);
+    p.style.setProperty('--rot', rot);
+    p.style.left = x+'px';
+    p.style.top = y+'px';
+    p.style.background = colors[Math.floor(rand(0,colors.length))];
+    p.style.animationDelay = rand(0,0.15)+'s';
+    document.body.appendChild(p);
+    setTimeout(()=>p.remove(), 1500);
+  }
+}
+
+/* =========================================================
+   GENERIC DRAG MANAGER (Pointer Events: mouse + touch)
+========================================================= */
+const DragManager = {
+  current:null, offsetX:0, offsetY:0, startParent:null, startNext:null,
+
+  init(){
+    document.addEventListener('pointermove', e=>this.onMove(e));
+    document.addEventListener('pointerup', e=>this.onUp(e));
+    document.addEventListener('pointercancel', e=>this.onUp(e));
+  },
+  makeDraggable(el, onDrop){
+    el._dropHandler = onDrop;
+    el.addEventListener('pointerdown', (e)=>{
+      if(el.classList.contains('locked')) return;
+      e.preventDefault();
+      this.startDrag(el, e);
+    });
+  },
+  startDrag(el, e){
+    const rect = el.getBoundingClientRect();
+    this.current = el;
+    this.offsetX = e.clientX - rect.left;
+    this.offsetY = e.clientY - rect.top;
+    this.startParent = el.parentElement;
+    this.startNext = el.nextSibling;
+    try{ el.setPointerCapture(e.pointerId); }catch(err){}
+    el.classList.add('dragging');
+    el.style.width = rect.width+'px';
+    document.body.appendChild(el);
+    el.style.position='fixed';
+    el.style.left = rect.left+'px';
+    el.style.top = rect.top+'px';
+    el.style.margin = '0';
+    el.style.zIndex = 1000;
+  },
+  onMove(e){
+    if(!this.current) return;
+    const el = this.current;
+    el.style.left = (e.clientX - this.offsetX)+'px';
+    el.style.top = (e.clientY - this.offsetY)+'px';
+    document.querySelectorAll('.dropzone.hover, .def-zone.hover').forEach(z=>z.classList.remove('hover'));
+    el.style.pointerEvents='none';
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    el.style.pointerEvents='';
+    const zone = target && (target.closest('.dropzone') || target.closest('.def-zone'));
+    if(zone) zone.classList.add('hover');
+  },
+  onUp(e){
+    if(!this.current) return;
+    const el = this.current;
+    el.classList.remove('dragging');
+    el.style.pointerEvents='none';
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    el.style.pointerEvents='';
+    const zone = target && (target.closest('.dropzone') || target.closest('.def-zone'));
+    document.querySelectorAll('.dropzone.hover, .def-zone.hover').forEach(z=>z.classList.remove('hover'));
+
+    el.style.position='';
+    el.style.left='';
+    el.style.top='';
+    el.style.width='';
+    el.style.zIndex='';
+    el.style.margin='';
+
+    const handler = el._dropHandler;
+    let accepted = false;
+
+    if(zone && !zone.querySelector('.chip')){
+      zone.appendChild(el);
+      let ok = true;
+      if(handler) ok = handler(zone, el);
+      if(ok === false){
+        zone.removeChild(el);
+      } else {
+        accepted = true;
+      }
+    }
+
+    if(!accepted){
+      if(this.startNext && this.startNext.parentElement === this.startParent){
+        this.startParent.insertBefore(el, this.startNext);
+      } else {
+        this.startParent.appendChild(el);
+      }
+      el.classList.add('bounce-back');
+      setTimeout(()=>el.classList.remove('bounce-back'), 320);
+    }
+
+    this.current = null;
+  }
+};
+DragManager.init();
+
+/* =========================================================
+   MISSION 1 — THREE WAY HANDSHAKE
+========================================================= */
+const handshakeData = [
+  {id:'syn', label:'Hi, can we talk?', sub:'(this step is called SYN)'},
+  {id:'synack', label:'Yes, I am ready!', sub:'(this step is called SYN-ACK)'},
+  {id:'ack', label:'Great, let\u2019s go!', sub:'(this step is called ACK)'}
+];
+const handshakeOrder = ['syn','synack','ack'];
+let handshakeDone = false;
+
+function buildHandshake(){
+  const tray = document.getElementById('handshakeTray');
+  tray.innerHTML = '';
+  document.querySelectorAll('.dropzone[data-activity="handshake"]').forEach(z=>z.innerHTML='');
+  document.querySelectorAll('#chain .link-wrap').forEach(z=>z.classList.remove('correct'));
+  document.getElementById('handshakeBanner').classList.remove('show');
+
+  let order = shuffle(handshakeData);
+  if(order.map(o=>o.id).join() === handshakeOrder.join()){
+    order = [order[1],order[0],order[2]];
+  }
+  order.forEach(item=>{
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.dataset.id = item.id;
+    chip.innerHTML = `${item.label}<span class="sub">${item.sub}</span>`;
+    DragManager.makeDraggable(chip, (zone)=>{
+      checkHandshake();
+      return true;
+    });
+    tray.appendChild(chip);
+  });
+}
+
+function checkHandshake(){
+  const zones = document.querySelectorAll('.dropzone[data-activity="handshake"]');
+  let allCorrect = true;
+  let filledCount = 0;
+  zones.forEach(zone=>{
+    const idx = +zone.dataset.zoneIndex;
+    const chip = zone.querySelector('.chip');
+    const linkWrap = zone.closest('.link-wrap');
+    if(chip){
+      filledCount++;
+      if(chip.dataset.id === handshakeOrder[idx]){
+        linkWrap.classList.add('correct');
+      } else {
+        linkWrap.classList.remove('correct');
+        allCorrect = false;
+      }
+    } else {
+      linkWrap.classList.remove('correct');
+      allCorrect = false;
+    }
+  });
+  if(allCorrect && filledCount === 3 && !handshakeDone){
+    handshakeDone = true;
+    triggerChainReaction();
+  }
+}
+
+function triggerChainReaction(){
+  const spark = document.getElementById('spark');
+  spark.classList.remove('travel');
+  void spark.offsetWidth;
+  spark.classList.add('travel');
+  setTimeout(()=>{
+    document.getElementById('handshakeBanner').classList.add('show');
+    const rect = document.getElementById('chain').getBoundingClientRect();
+    spawnConfetti(rect.left+rect.width/2, rect.top+20, 30);
+    setProgress(1, true);
+  }, 900);
+}
+
+document.getElementById('resetHandshake').addEventListener('click', ()=>{
+  handshakeDone = false;
+  buildHandshake();
+});
+buildHandshake();
+
+/* =========================================================
+   MISSION 2 — PACKET REASSEMBLY
+========================================================= */
+const packetData = [
+  {seq:1, text:'EVERY'},
+  {seq:2, text:'PACKET'},
+  {seq:3, text:'FINDS ITS'},
+  {seq:4, text:'WAY HOME'}
+];
+let packetsDone = false;
+
+function buildPackets(){
+  const slotsWrap = document.getElementById('packetSlots');
+  const tray = document.getElementById('packetTray');
+  slotsWrap.innerHTML = '';
+  tray.innerHTML = '';
+  document.getElementById('messageReveal').innerHTML = '';
+
+  for(let i=0;i<packetData.length;i++){
+    const zone = document.createElement('div');
+    zone.className = 'dropzone';
+    zone.dataset.activity = 'packets';
+    zone.dataset.zoneIndex = i;
+    slotsWrap.appendChild(zone);
+  }
+
+  let order = shuffle(packetData);
+  if(order.map(o=>o.seq).join() === packetData.map(o=>o.seq).join()){
+    order = [order[1],order[0],order[2],order[3]];
+  }
+  order.forEach(item=>{
+    const chip = document.createElement('div');
+    chip.className = 'chip packet-chip';
+    chip.dataset.seq = item.seq;
+    chip.innerHTML = `<span class="seq">#${item.seq}</span><br>${item.text}`;
+    DragManager.makeDraggable(chip, ()=>{
+      checkPackets();
+      return true;
+    });
+    tray.appendChild(chip);
+  });
+}
+
+function checkPackets(){
+  const zones = [...document.querySelectorAll('.dropzone[data-activity="packets"]')]
+    .sort((a,b)=>(+a.dataset.zoneIndex)-(+b.dataset.zoneIndex));
+  let filled = 0;
+  let correctSoFar = true;
+  zones.forEach((zone, idx)=>{
+    const chip = zone.querySelector('.chip');
+    zone.classList.remove('correct');
+    if(chip){
+      filled++;
+      if(+chip.dataset.seq === idx+1){
+        zone.classList.add('correct');
+      } else {
+        correctSoFar = false;
+      }
+    } else {
+      correctSoFar = false;
+    }
+  });
+  if(filled === zones.length){
+    if(correctSoFar && !packetsDone){
+      packetsDone = true;
+      revealMessage();
+    } else if(!correctSoFar){
+      zones.forEach(z=>{
+        z.classList.add('wrong-shake');
+        setTimeout(()=>z.classList.remove('wrong-shake'), 420);
+      });
+    }
+  }
+}
+
+function revealMessage(){
+  const reveal = document.getElementById('messageReveal');
+  reveal.innerHTML = '';
+  const words = packetData.map(p=>p.text).join(' ').split(' ');
+  words.forEach((w, i)=>{
+    const span = document.createElement('span');
+    span.textContent = w;
+    reveal.appendChild(span);
+    setTimeout(()=>span.classList.add('pop'), i*120);
+  });
+  setTimeout(()=>{
+    const rect = reveal.getBoundingClientRect();
+    spawnConfetti(rect.left+rect.width/2, rect.top, 26);
+    setProgress(2, true);
+  }, words.length*120 + 200);
+}
+
+document.getElementById('resetPackets').addEventListener('click', ()=>{
+  packetsDone = false;
+  buildPackets();
+});
+buildPackets();
+
+/* =========================================================
+   MISSION 3 — CONCEPT MATCH
+========================================================= */
+const matchData = [
+  {id:'ip', term:'IP Address', def:'A special number every computer has, like a home address for mail.'},
+  {id:'port', term:'Port', def:'Like a door that lets the right app receive information.'},
+  {id:'router', term:'Router', def:'Points data the right way, like a traffic signal for the internet.'},
+  {id:'packet', term:'Packet', def:'A small piece of a bigger message traveling across the internet.'},
+  {id:'bandwidth', term:'Bandwidth', def:'How much information can travel at the same time.'}
+];
+let matchedCount = 0;
+let matchTotal = matchData.length;
+
+function buildMatch(){
+  const termTray = document.getElementById('termTray');
+  const defList = document.getElementById('defList');
+  termTray.innerHTML = '';
+  defList.innerHTML = '';
+  matchedCount = 0;
+
+  shuffle(matchData).forEach(item=>{
+    const chip = document.createElement('div');
+    chip.className = 'chip term-chip';
+    chip.dataset.id = item.id;
+    chip.textContent = item.term;
+    DragManager.makeDraggable(chip, (zone, el)=>{
+      const correctMatch = zone.dataset.match === el.dataset.id;
+      if(correctMatch){
+        zone.classList.add('correct');
+        el.classList.add('locked');
+        const mark = document.createElement('span');
+        mark.className = 'check-mark';
+        mark.textContent = '✓';
+        el.appendChild(mark);
+        matchedCount++;
+        if(matchedCount === matchTotal){
+          const rect = zone.getBoundingClientRect();
+          spawnConfetti(rect.left+rect.width/2, rect.top, 30);
+          setProgress(3, true);
+        }
+        return true;
+      }
+      return false;
+    });
+    termTray.appendChild(chip);
+  });
+
+  shuffle(matchData).forEach(item=>{
+    const zone = document.createElement('div');
+    zone.className = 'def-zone';
+    zone.dataset.match = item.id;
+    zone.innerHTML = `<div class="def-text">${item.def}</div><div class="slot-inner"></div>`;
+    defList.appendChild(zone);
+  });
+}
+
+document.getElementById('resetMatch').addEventListener('click', buildMatch);
+buildMatch();
+
+/* =========================================================
+   PROGRESS + GRAND FINALE
+========================================================= */
+const progressState = {1:false, 2:false, 3:false};
+function setProgress(n, value){
+  progressState[n] = value;
+  const star = document.querySelector(`.progress-star[data-star="${n}"]`);
+  if(star) star.classList.toggle('filled', value);
+  if(progressState[1] && progressState[2] && progressState[3]){
+    const finale = document.getElementById('grandFinale');
+    finale.classList.add('show');
+    const rect = finale.getBoundingClientRect();
+    setTimeout(()=>spawnConfetti(rect.left+rect.width/2, rect.top+20, 50), 300);
+  }
+}
+</script>
+</body>
+</html>

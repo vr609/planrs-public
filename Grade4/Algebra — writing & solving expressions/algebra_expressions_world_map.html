@@ -1,0 +1,558 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;}
+body{font-family:'Segoe UI',Arial,sans-serif;overflow:hidden;}
+#root{width:100vw;height:100vh;min-height:500px;position:relative;background:#0a2a4a;overflow:hidden;}
+
+/* ── animated background ── */
+#bg-canvas{position:absolute;inset:0;width:100%;height:100%;}
+
+/* ── floating map markers ── */
+.marker{position:absolute;width:22px;height:28px;cursor:default;animation:floatUp 6s ease-in-out infinite;}
+.marker::before{content:'';position:absolute;left:50%;top:0;transform:translateX(-50%);width:14px;height:14px;border-radius:50% 50% 50% 0;border:2.5px solid #f59e0b;background:#1d4ed8;rotate:-45deg;}
+.marker::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:3px;height:10px;background:#f59e0b;border-radius:2px;}
+@keyframes floatUp{0%,100%{transform:translateY(0);}50%{transform:translateY(-10px);}}
+
+/* ── compass ── */
+#compass{position:absolute;right:18px;top:18px;width:60px;height:60px;animation:spin 18s linear infinite;}
+#compass svg{width:100%;height:100%;}
+
+/* ── globe ── */
+#globe{position:absolute;left:14px;bottom:14px;width:58px;height:58px;animation:spin 20s linear infinite;}
+@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+
+/* ── route lines ── */
+.route{position:absolute;pointer-events:none;animation:dash 4s linear infinite;}
+@keyframes dash{from{stroke-dashoffset:200;}to{stroke-dashoffset:0;}}
+
+/* ── main card ── */
+#card{position:absolute;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(680px,96vw);max-height:94vh;background:rgba(6,24,48,0.93);border:1.5px solid rgba(96,165,250,0.35);border-radius:18px;padding:18px 22px 16px;display:flex;flex-direction:column;gap:10px;backdrop-filter:blur(6px);}
+
+/* ── header ── */
+#hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+#title{color:#f59e0b;font-size:clamp(13px,2.2vw,17px);font-weight:700;letter-spacing:.5px;text-transform:uppercase;}
+#progress{display:flex;gap:5px;align-items:center;}
+.pip{width:28px;height:5px;border-radius:3px;background:rgba(255,255,255,.18);transition:background .4s;}
+.pip.done{background:#22c55e;}.pip.active{background:#f59e0b;}
+
+/* ── activity label ── */
+#act-label{font-size:11px;color:#93c5fd;letter-spacing:1px;text-transform:uppercase;font-weight:600;}
+#act-title{color:#fff;font-size:clamp(13px,2vw,15px);font-weight:600;line-height:1.4;margin-top:2px;}
+#act-sub{color:#94a3b8;font-size:12px;margin-top:2px;}
+
+/* ── drop zones ── */
+.drop-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:6px;}
+.drop-row label{color:#cbd5e1;font-size:12.5px;min-width:180px;flex-shrink:0;}
+.drop-zone{min-width:52px;height:34px;border:1.5px dashed #3b82f6;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#f59e0b;background:rgba(30,58,138,.35);transition:background .25s,border-color .25s;position:relative;}
+.drop-zone.hover{background:rgba(59,130,246,.28);border-color:#60a5fa;}
+.drop-zone.correct{border-color:#22c55e;background:rgba(21,128,61,.3);color:#4ade80;}
+.drop-zone.wrong{border-color:#ef4444;background:rgba(153,27,27,.3);color:#f87171;animation:shake .3s;}
+.drop-zone.filled{border-style:solid;}
+@keyframes shake{0%,100%{transform:translateX(0);}33%{transform:translateX(-4px);}66%{transform:translateX(4px);}}
+
+/* ── chips ── */
+#chip-area{display:flex;flex-wrap:wrap;gap:7px;min-height:42px;padding:8px 10px;background:rgba(255,255,255,.04);border-radius:10px;border:0.5px solid rgba(255,255,255,.08);}
+.chip{padding:6px 12px;border-radius:8px;background:#1e3a5f;border:1.5px solid #3b82f6;color:#e2e8f0;font-size:13px;font-weight:600;cursor:grab;transition:transform .15s,box-shadow .15s;touch-action:none;}
+.chip:hover{transform:translateY(-2px);}
+.chip.dragging{opacity:.5;cursor:grabbing;}
+.chip.used{opacity:.3;pointer-events:none;}
+
+/* ── feedback ── */
+#feedback{font-size:12.5px;min-height:18px;font-weight:600;}
+.fb-ok{color:#4ade80;}.fb-err{color:#f87171;}.fb-info{color:#93c5fd;}
+
+/* ── buttons ── */
+.btn{padding:7px 18px;border-radius:9px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:transform .15s,opacity .15s;}
+.btn:hover{opacity:.88;transform:translateY(-1px);}
+.btn-primary{background:#f59e0b;color:#1a1a1a;}
+.btn-danger{background:#dc2626;color:#fff;}
+.btn-success{background:#16a34a;color:#fff;}
+.btn-row{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:4px;}
+
+/* ── popup ── */
+#popup{display:none;position:absolute;inset:0;background:rgba(0,0,0,.72);border-radius:18px;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:50;text-align:center;padding:24px;}
+#popup.show{display:flex;}
+#popup .pop-icon{font-size:52px;}
+#popup .pop-title{color:#f59e0b;font-size:22px;font-weight:800;}
+#popup .pop-sub{color:#cbd5e1;font-size:14px;max-width:320px;line-height:1.6;}
+#popup .btn{font-size:15px;padding:10px 28px;}
+
+/* ── act2 eval table ── */
+.eval-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
+.eval-cell{background:rgba(255,255,255,.05);border-radius:10px;padding:8px 6px;text-align:center;}
+.eval-cell .ec-n{color:#93c5fd;font-size:11px;margin-bottom:4px;}
+.eval-cell .ec-expr{color:#f59e0b;font-size:13px;font-weight:700;margin-bottom:6px;}
+.eval-cell .ec-dz{margin:0 auto;}
+
+/* ── act3 sequence ── */
+#seq-area{display:flex;flex-direction:column;gap:5px;}
+.seq-slot{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:9px;background:rgba(255,255,255,.04);border:1px dashed rgba(100,149,237,.35);min-height:36px;}
+.seq-slot .slot-num{font-size:11px;color:#64748b;width:18px;flex-shrink:0;}
+.seq-slot .seq-dz{flex:1;min-height:28px;border:1.5px dashed #3b82f6;border-radius:7px;display:flex;align-items:center;padding:3px 8px;font-size:12.5px;font-weight:600;color:#f59e0b;background:rgba(30,58,138,.3);}
+.seq-slot .seq-dz.correct{border-color:#22c55e;background:rgba(21,128,61,.3);color:#4ade80;}
+.seq-slot .seq-dz.wrong{border-color:#ef4444;animation:shake .3s;}
+</style>
+
+<div id="root">
+  <canvas id="bg-canvas"></canvas>
+
+  <div id="compass">
+    <svg viewBox="0 0 60 60" fill="none">
+      <circle cx="30" cy="30" r="28" stroke="#f59e0b" stroke-width="2" opacity=".6"/>
+      <circle cx="30" cy="30" r="22" stroke="#1d4ed8" stroke-width="1" opacity=".4"/>
+      <polygon points="30,6 33,30 30,38 27,30" fill="#ef4444" opacity=".9"/>
+      <polygon points="30,54 33,30 30,22 27,30" fill="#e2e8f0" opacity=".7"/>
+      <text x="30" y="4" text-anchor="middle" fill="#f59e0b" font-size="6" font-weight="700">N</text>
+      <text x="30" y="58" text-anchor="middle" fill="#94a3b8" font-size="6">S</text>
+      <text x="3" y="32" text-anchor="middle" fill="#94a3b8" font-size="6">W</text>
+      <text x="57" y="32" text-anchor="middle" fill="#94a3b8" font-size="6">E</text>
+    </svg>
+  </div>
+
+  <div id="globe">
+    <svg viewBox="0 0 58 58" fill="none">
+      <circle cx="29" cy="29" r="26" fill="#0a2a4a" stroke="#1d4ed8" stroke-width="1.5" opacity=".7"/>
+      <ellipse cx="29" cy="29" rx="10" ry="26" stroke="#1d4ed8" stroke-width="1" opacity=".5"/>
+      <ellipse cx="29" cy="29" rx="26" ry="9" stroke="#1d4ed8" stroke-width="1" opacity=".5"/>
+      <line x1="3" y1="29" x2="55" y2="29" stroke="#1d4ed8" stroke-width=".8" opacity=".4"/>
+    </svg>
+  </div>
+
+  <div id="card">
+    <div id="hdr">
+      <div id="title">Algebra — Writing &amp; Solving Expressions</div>
+      <div id="progress">
+        <div class="pip active" id="pip0"></div>
+        <div class="pip" id="pip1"></div>
+        <div class="pip" id="pip2"></div>
+      </div>
+    </div>
+
+    <div id="act-label">Activity 1 of 3</div>
+    <div id="act-title"></div>
+    <div id="act-sub"></div>
+
+    <div id="body-area"></div>
+
+    <div id="feedback" class="fb-info"></div>
+    <div class="btn-row">
+      <button class="btn btn-danger" id="btn-reset">Reset</button>
+      <button class="btn btn-primary" id="btn-check">Check</button>
+    </div>
+
+    <div id="popup">
+      <div class="pop-icon" id="pop-icon"></div>
+      <div class="pop-title" id="pop-title"></div>
+      <div class="pop-sub" id="pop-sub"></div>
+      <button class="btn btn-success" id="pop-btn">Next Activity</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+
+/* ───────── background canvas ───────── */
+const canvas=document.getElementById('bg-canvas');
+const ctx=canvas.getContext('2d');
+let W,H,markers=[];
+const CONTINENTS=[
+  {pts:[[.12,.28],[.18,.22],[.26,.18],[.32,.22],[.35,.35],[.28,.42],[.2,.38]]},
+  {pts:[[.38,.22],[.46,.18],[.55,.2],[.58,.32],[.5,.38],[.42,.35]]},
+  {pts:[[.6,.22],[.72,.2],[.78,.28],[.75,.38],[.65,.38],[.58,.32]]},
+  {pts:[[.18,.48],[.28,.44],[.32,.52],[.28,.62],[.2,.58]]},
+  {pts:[[.62,.42],[.72,.4],[.76,.5],[.7,.58],[.62,.52]]},
+  {pts:[[.44,.6],[.5,.55],[.55,.62],[.5,.72],[.44,.68]]},
+];
+const GRID_LINES=8;
+let t=0;
+
+function resize(){
+  W=canvas.width=canvas.offsetWidth;
+  H=canvas.height=canvas.offsetHeight;
+  makeMarkers();
+}
+function makeMarkers(){
+  const area=document.getElementById('card').getBoundingClientRect();
+  const rect=canvas.getBoundingClientRect();
+  const cx=(area.left-rect.left)/W,cy=(area.top-rect.top)/H;
+  const cw=area.width/W,ch=area.height/H;
+  markers=[];
+  const spots=[[.08,.2],[.88,.25],[.05,.7],[.92,.65],[.45,.88],[.55,.08],[.82,.78],[.15,.82]];
+  for(const[px,py] of spots){
+    if(px>cx&&px<cx+cw&&py>cy&&py<cy+ch)continue;
+    markers.push({px,py,phase:Math.random()*Math.PI*2});
+  }
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  t+=.007;
+  /* ocean grid */
+  ctx.strokeStyle='rgba(29,78,216,.18)';ctx.lineWidth=.8;
+  for(let i=0;i<=GRID_LINES;i++){
+    ctx.beginPath();ctx.moveTo(i/GRID_LINES*W,0);ctx.lineTo(i/GRID_LINES*W,H);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,i/GRID_LINES*H);ctx.lineTo(W,i/GRID_LINES*H);ctx.stroke();
+  }
+  /* continents */
+  for(const c of CONTINENTS){
+    ctx.beginPath();
+    const fx=p=>p[0]*W,fy=p=>p[1]*H;
+    ctx.moveTo(fx(c.pts[0]),fy(c.pts[0]));
+    for(let i=1;i<c.pts.length;i++)ctx.lineTo(fx(c.pts[i]),fy(c.pts[i]));
+    ctx.closePath();
+    ctx.fillStyle='rgba(15,90,80,.55)';ctx.fill();
+    ctx.strokeStyle='rgba(96,211,180,.35)';ctx.lineWidth=1;ctx.stroke();
+  }
+  /* travel routes */
+  const routes=[[.08,.2,.88,.25],[.88,.25,.92,.65],[.08,.2,.15,.82],[.45,.88,.82,.78]];
+  for(const[x1,y1,x2,y2] of routes){
+    ctx.beginPath();
+    const mx=(x1+x2)/2,my=(y1+y2)/2-.08;
+    ctx.moveTo(x1*W,y1*H);
+    ctx.quadraticCurveTo(mx*W,my*H,x2*W,y2*H);
+    ctx.strokeStyle='rgba(245,158,11,.22)';
+    ctx.lineWidth=1.5;
+    ctx.setLineDash([8,6]);
+    ctx.lineDashOffset=-t*28%28;
+    ctx.stroke();ctx.setLineDash([]);
+  }
+  /* markers float */
+  for(const m of markers){
+    const y=m.py*H+Math.sin(t*1.4+m.phase)*8;
+    const x=m.px*W;
+    ctx.fillStyle='#1d4ed8';
+    ctx.beginPath();ctx.arc(x,y-8,7,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#f59e0b';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x-3,y-4);ctx.lineTo(x,y);ctx.lineTo(x+3,y-4);
+    ctx.strokeStyle='#f59e0b';ctx.lineWidth=1.2;ctx.stroke();
+  }
+  /* glowing landmark silhouettes */
+  const lms=[[.5,.5,0],[.22,.42,1],[.75,.55,2]];
+  const lmShapes=[
+    ()=>{ctx.fillRect(-5,-12,10,12);ctx.fillRect(-12,-18,24,6);ctx.fillRect(-2,-26,4,8);},
+    ()=>{ctx.arc(0,0,8,0,Math.PI*2);ctx.fill();ctx.fillRect(-3,-16,6,16);},
+    ()=>{for(let i=0;i<5;i++){const a=i*Math.PI*2/5-Math.PI/2;ctx.lineTo(Math.cos(a)*10,Math.sin(a)*10);}},
+  ];
+  for(let i=0;i<lms.length;i++){
+    const[px,py]=lms[i];
+    const glow=.12+.06*Math.sin(t*1.8+i*1.5);
+    ctx.save();ctx.translate(px*W,py*H);
+    ctx.fillStyle=`rgba(245,158,11,${glow})`;
+    ctx.strokeStyle=`rgba(245,158,11,${glow*2})`;
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    lmShapes[i]();
+    ctx.fill();
+    ctx.restore();
+  }
+  requestAnimationFrame(draw);
+}
+window.addEventListener('resize',resize);resize();draw();
+
+/* ───────── shuffle ───────── */
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+/* ───────── state ───────── */
+let actIdx=0;
+const feedEl=document.getElementById('feedback');
+const bodyEl=document.getElementById('body-area');
+const popup=document.getElementById('popup');
+let dropData={};
+
+/* ───────── ACTIVITY DEFINITIONS ───────── */
+const activities=[
+
+  /* ── ACT 1: word → expression ── */
+  {
+    label:'Activity 1 of 3',
+    title:'Drag the correct pieces to build algebraic expressions',
+    sub:'Read each word clue, then drag number/variable/operator chips to fill the blanks.',
+    reset: setupAct1,
+    check: checkAct1,
+  },
+
+  /* ── ACT 2: evaluate expression ── */
+  {
+    label:'Activity 2 of 3',
+    title:'Evaluate: drag the correct answer into each solution box',
+    sub:'The expression is 4n. For each value of n, find and drag the correct result.',
+    reset: setupAct2,
+    check: checkAct2,
+  },
+
+  /* ── ACT 3: arrange steps in order ── */
+  {
+    label:'Activity 3 of 3',
+    title:'Sequence the solution steps in the correct order',
+    sub:'Priya sells clay diyas at ₹4 each plus ₹10 packaging. Drag each step into its numbered slot.',
+    reset: setupAct3,
+    check: checkAct3,
+  },
+];
+
+/* ───────── render activity ───────── */
+function renderActivity(i){
+  actIdx=i;
+  const a=activities[i];
+  document.getElementById('act-label').textContent=a.label;
+  document.getElementById('act-title').textContent=a.title;
+  document.getElementById('act-sub').textContent=a.sub;
+  for(let p=0;p<3;p++){
+    const el=document.getElementById('pip'+p);
+    el.className='pip'+(p<i?' done':p===i?' active':'');
+  }
+  feedEl.textContent='';feedEl.className='fb-info';
+  popup.classList.remove('show');
+  a.reset();
+}
+
+/* ───────── drag helpers ───────── */
+let dragging=null,dragEl=null,ghost=null;
+function startDrag(chip,e){
+  dragging=chip.dataset.val;
+  dragEl=chip;
+  chip.classList.add('dragging');
+  ghost=chip.cloneNode(true);
+  ghost.style.cssText='position:fixed;opacity:.85;pointer-events:none;z-index:999;font-size:13px;padding:6px 12px;border-radius:8px;background:#1e3a5f;border:1.5px solid #3b82f6;color:#e2e8f0;font-weight:600;';
+  document.body.appendChild(ghost);
+  moveGhost(e);
+}
+function moveGhost(e){
+  if(!ghost)return;
+  const t=e.touches?e.touches[0]:e;
+  ghost.style.left=(t.clientX-30)+'px';ghost.style.top=(t.clientY-20)+'px';
+}
+function endDrag(e){
+  if(!ghost)return;
+  ghost.remove();ghost=null;
+  if(!dragging){dragEl&&dragEl.classList.remove('dragging');return;}
+  const t=e.changedTouches?e.changedTouches[0]:e;
+  const el=document.elementFromPoint(t.clientX,t.clientY);
+  const zone=el&&(el.classList.contains('drop-zone')||el.classList.contains('seq-dz'))?el:(el&&el.closest('.drop-zone,seq-dz'));
+  if(zone){handleDrop(zone,dragging,dragEl);}
+  dragEl&&dragEl.classList.remove('dragging');
+  dragging=null;dragEl=null;
+}
+document.addEventListener('mousemove',e=>{if(ghost)moveGhost(e);});
+document.addEventListener('touchmove',e=>{if(ghost)moveGhost(e);},{passive:true});
+document.addEventListener('mouseup',endDrag);
+document.addEventListener('touchend',endDrag);
+
+function makeChip(val,label){
+  const c=document.createElement('div');
+  c.className='chip';c.dataset.val=val;c.textContent=label||val;
+  c.addEventListener('mousedown',e=>{e.preventDefault();startDrag(c,e);});
+  c.addEventListener('touchstart',e=>{startDrag(c,e);},{passive:true});
+  return c;
+}
+function makeDropZone(key,w){
+  const d=document.createElement('div');
+  d.className='drop-zone';d.dataset.key=key;
+  if(w)d.style.minWidth=w;
+  d.addEventListener('dragover',e=>e.preventDefault());
+  return d;
+}
+function handleDrop(zone,val,chipEl){
+  if(actIdx===0) handleDropAct1(zone,val,chipEl);
+  else if(actIdx===1) handleDropAct2(zone,val,chipEl);
+  else handleDropAct3(zone,val,chipEl);
+}
+
+/* ═══════════════════ ACT 1 ═══════════════════ */
+const act1Items=[
+  {id:'a1',label:'"n pencils at ₹4 each"',parts:['4','*','n'],blanks:[0,2],given:[null,'×',null],answer:['4','n']},
+  {id:'a2',label:'"7 more than a number k"',parts:['k','+','7'],blanks:[0,2],given:[null,'+',null],answer:['k','7']},
+  {id:'a3',label:'"15 marbles shared among g groups"',parts:['15','÷','g'],blanks:[0,2],given:[null,'÷',null],answer:['15','g']},
+  {id:'a4',label:'"a number m minus 9"',parts:['m','-','9'],blanks:[0,2],given:[null,'−',null],answer:['m','9']},
+];
+const act1Chips=['4','n','k','7','15','g','m','9','3','x','2','p'];
+
+function setupAct1(){
+  dropData={};
+  const chips=shuffle([...act1Chips]);
+  let html='<div style="display:flex;flex-direction:column;gap:7px;margin-bottom:8px;">';
+  for(const it of act1Items){
+    html+=`<div class="drop-row">
+      <label>${it.label}</label>
+      <div style="display:flex;align-items:center;gap:5px;">`;
+    for(let i=0;i<it.parts.length;i++){
+      if(it.blanks.includes(i)){
+        html+=`<div class="drop-zone" data-key="${it.id}_${i}" style="min-width:44px;"></div>`;
+        dropData[`${it.id}_${i}`]={answer:it.answer[it.blanks.indexOf(i)],filled:null};
+      } else {
+        html+=`<div style="font-size:15px;font-weight:700;color:#93c5fd;">${it.given[i]}</div>`;
+      }
+    }
+    html+='</div></div>';
+  }
+  html+='</div><div id="chip-area"></div>';
+  bodyEl.innerHTML=html;
+  const chipArea=document.getElementById('chip-area');
+  for(const v of chips)chipArea.appendChild(makeChip(v));
+  attachDropZones();
+}
+function attachDropZones(){
+  document.querySelectorAll('.drop-zone,.seq-dz').forEach(z=>{
+    z.addEventListener('mouseup',()=>{if(dragging)handleDrop(z,dragging,dragEl);});
+    z.addEventListener('touchend',()=>{if(dragging)handleDrop(z,dragging,dragEl);});
+  });
+}
+function handleDropAct1(zone,val,chipEl){
+  const key=zone.dataset.key;if(!key||!dropData[key])return;
+  if(dropData[key].filled){
+    const prev=dropData[key].filled;
+    document.querySelectorAll('.chip').forEach(c=>{if(c.dataset.val===prev)c.classList.remove('used');});
+  }
+  dropData[key].filled=val;
+  zone.textContent=val;zone.classList.add('filled');
+  chipEl&&chipEl.classList.add('used');
+}
+function checkAct1(){
+  let ok=0,total=0;
+  document.querySelectorAll('.drop-zone').forEach(z=>{
+    const key=z.dataset.key;if(!key||!dropData[key])return;
+    total++;
+    if(dropData[key].filled===dropData[key].answer){z.classList.add('correct');z.classList.remove('wrong');ok++;}
+    else{z.classList.add('wrong');z.classList.remove('correct');}
+  });
+  if(ok===total&&total>0)showPopup(0);
+  else{feedEl.textContent=`${ok} of ${total} correct — try fixing the red zones!`;feedEl.className='fb-err';}
+}
+
+/* ═══════════════════ ACT 2 ═══════════════════ */
+const act2Cases=[{n:5,ans:20},{n:10,ans:40},{n:20,ans:80}];
+const act2Decoys=[25,35,50,60,100,15];
+function setupAct2(){
+  dropData={};
+  const allAnswers=act2Cases.map(c=>c.ans);
+  const decoys=shuffle([...act2Decoys]).slice(0,3);
+  const chips=shuffle([...allAnswers,...decoys]);
+  let html='<div class="eval-grid" style="margin-bottom:8px;">';
+  for(const c of act2Cases){
+    html+=`<div class="eval-cell">
+      <div class="ec-n">n = ${c.n}</div>
+      <div class="ec-expr">4 × ${c.n} = ?</div>
+      <div class="drop-zone ec-dz" data-key="eval_${c.n}" style="min-width:60px;margin:0 auto;"></div>
+    </div>`;
+    dropData[`eval_${c.n}`]={answer:String(c.ans),filled:null};
+  }
+  html+='</div><div id="chip-area"></div>';
+  bodyEl.innerHTML=html;
+  const chipArea=document.getElementById('chip-area');
+  for(const v of chips)chipArea.appendChild(makeChip(String(v)));
+  attachDropZones();
+}
+function handleDropAct2(zone,val,chipEl){
+  const key=zone.dataset.key;if(!key||!dropData[key])return;
+  if(dropData[key].filled){
+    document.querySelectorAll('.chip').forEach(c=>{if(c.dataset.val===dropData[key].filled)c.classList.remove('used');});
+  }
+  dropData[key].filled=val;
+  zone.textContent=val;zone.classList.add('filled');
+  chipEl&&chipEl.classList.add('used');
+}
+function checkAct2(){
+  let ok=0,total=0;
+  document.querySelectorAll('.drop-zone').forEach(z=>{
+    const key=z.dataset.key;if(!key||!dropData[key])return;
+    total++;
+    if(dropData[key].filled===dropData[key].answer){z.classList.add('correct');ok++;}
+    else{z.classList.add('wrong');}
+  });
+  if(ok===total&&total>0)showPopup(1);
+  else{feedEl.textContent=`${ok} of ${total} correct — check the calculation!`;feedEl.className='fb-err';}
+}
+
+/* ═══════════════════ ACT 3 ═══════════════════ */
+const act3Steps=[
+  'Word problem: Priya sells diyas at ₹4 each + ₹10 packaging.',
+  'Write expression: 4 × d + 10',
+  'Substitute: d = 5, so 4 × 5 + 10',
+  'Calculate: 20 + 10',
+  'Final answer: ₹30',
+];
+function setupAct3(){
+  dropData={};
+  const shuffled=shuffle([...act3Steps]);
+  let html='<div id="seq-area" style="margin-bottom:7px;">';
+  for(let i=0;i<5;i++){
+    html+=`<div class="seq-slot">
+      <div class="slot-num">${i+1}.</div>
+      <div class="seq-dz drop-zone" data-key="seq_${i}" style="min-width:280px;font-size:12px;"></div>
+    </div>`;
+    dropData[`seq_${i}`]={answer:act3Steps[i],filled:null};
+  }
+  html+='</div><div id="chip-area" style="margin-top:6px;"></div>';
+  bodyEl.innerHTML=html;
+  const chipArea=document.getElementById('chip-area');
+  for(const v of shuffled){
+    const c=makeChip(v,v);c.style.fontSize='11.5px';c.style.padding='5px 8px';c.style.maxWidth='260px';c.style.whiteSpace='normal';c.style.lineHeight='1.4';
+    chipArea.appendChild(c);
+  }
+  attachDropZones();
+}
+function handleDropAct3(zone,val,chipEl){
+  const key=zone.dataset.key;if(!key||!dropData[key])return;
+  if(dropData[key].filled){
+    document.querySelectorAll('.chip').forEach(c=>{if(c.textContent.trim()===dropData[key].filled.trim())c.classList.remove('used');});
+  }
+  dropData[key].filled=val;
+  zone.textContent=val;zone.classList.add('filled');chipEl&&chipEl.classList.add('used');
+}
+function checkAct3(){
+  let ok=0,total=0;
+  document.querySelectorAll('.drop-zone').forEach(z=>{
+    const key=z.dataset.key;if(!key||!dropData[key])return;
+    total++;
+    if((dropData[key].filled||'').trim()===(dropData[key].answer||'').trim()){z.classList.add('correct');ok++;}
+    else{z.classList.add('wrong');}
+  });
+  if(ok===total&&total>0)showPopup(2);
+  else{feedEl.textContent=`${ok} of ${total} in the right order — keep trying!`;feedEl.className='fb-err';}
+}
+
+/* ───────── popup ───────── */
+const popConfigs=[
+  {icon:'🗺️',title:'Destination unlocked!',sub:'You translated word clues into algebraic expressions. Explorer status: Active!',btn:'Next Activity'},
+  {icon:'🧭',title:'Navigation complete!',sub:'You evaluated the expression 4n for different values. Mathematical radar: engaged!',btn:'Next Activity'},
+  {icon:'🏆',title:'Journey complete!',sub:'All 3 challenges conquered! You can write, evaluate, and sequence algebraic expressions like a true math explorer!',btn:'Play Again',final:true},
+];
+function showPopup(which){
+  const cfg=popConfigs[which];
+  document.getElementById('pop-icon').textContent=cfg.icon;
+  document.getElementById('pop-title').textContent=cfg.title;
+  document.getElementById('pop-sub').textContent=cfg.sub;
+  const btn=document.getElementById('pop-btn');
+  btn.textContent=cfg.btn;
+  btn.onclick=cfg.final?()=>renderActivity(0):()=>renderActivity(which+1);
+  popup.classList.add('show');
+  fireCelebration();
+}
+function fireCelebration(){
+  const emojis=cfg=>cfg.final?['🎊','⭐','🌍','🗺️','🏆','✈️','🌟']:['✅','⭐','🎯'];
+  const picks=['🎊','⭐','🌍','✅','🎯','✈️'];
+  for(let i=0;i<18;i++){
+    const d=document.createElement('div');
+    d.textContent=picks[Math.floor(Math.random()*picks.length)];
+    d.style.cssText=`position:absolute;font-size:${18+Math.random()*14}px;left:${Math.random()*90}%;top:${Math.random()*80}%;animation:pop .9s ${Math.random()*.6}s forwards;z-index:60;pointer-events:none;`;
+    popup.appendChild(d);
+    setTimeout(()=>d.remove(),2000);
+  }
+}
+const style2=document.createElement('style');
+style2.textContent='@keyframes pop{0%{opacity:0;transform:scale(.5) rotate(0deg);}60%{opacity:1;transform:scale(1.3) rotate(20deg);}100%{opacity:0;transform:scale(1) translateY(-40px) rotate(-10deg);}}';
+document.head.appendChild(style2);
+
+/* ───────── buttons ───────── */
+document.getElementById('btn-reset').onclick=()=>renderActivity(actIdx);
+document.getElementById('btn-check').onclick=()=>{
+  if(actIdx===0)checkAct1();
+  else if(actIdx===1)checkAct2();
+  else checkAct3();
+};
+
+/* ───────── start ───────── */
+renderActivity(0);
+})();
+</script>

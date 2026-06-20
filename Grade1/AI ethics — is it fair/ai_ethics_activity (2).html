@@ -559,7 +559,6 @@
   <!-- ==================== ACTIVITY 1 ==================== -->
   <div class="activity visible" id="activity-1">
     <div class="activity-title">🎯 Activity 1: Sort It Out!</div>
-    <div class="activity-subtitle">Drag each word to the right box — Fair or Unfair use of AI?</div>
 
     <div class="drag-bank" id="bank-1">
       <div class="drag-item di-purple" draggable="true" data-id="a1-1" data-val="fair">Helping doctors</div>
@@ -701,7 +700,6 @@ function resize() {
 resize();
 window.addEventListener('resize', resize);
 
-// Flowing aurora waves
 let t = 0;
 function drawAurora() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -761,7 +759,6 @@ drawAurora();
     const dur = 14 + Math.random() * 18;
     const color = birdColors[i % birdColors.length];
     wrap.style.cssText = `top:${top}%; --dur:${dur}s; animation-delay:${i * 3.5}s;`;
-
     const birdSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     birdSvg.setAttribute('viewBox', '0 0 60 30');
     birdSvg.setAttribute('width', size);
@@ -794,65 +791,95 @@ drawAurora();
   });
 })();
 
-// ========== DRAG & DROP ENGINE ==========
+// ========== UNIFIED DRAG & DROP ENGINE ==========
+// Single set of listeners — no duplicate registrations
 let draggedItem = null;
 let draggedFrom = null;
 
-function setupDrag(bankId, dropSelectors) {
-  function getItems() { return document.querySelectorAll(`#${bankId} .drag-item, .drop-zone .drag-item, .scenario-drop .drag-item, .chain-drop .drag-item`); }
-
-  document.addEventListener('dragstart', e => {
-    if (!e.target.classList.contains('drag-item')) return;
-    draggedItem = e.target;
-    draggedFrom = e.target.parentElement;
-    setTimeout(() => e.target.classList.add('dragging'), 0);
-  });
-
-  document.addEventListener('dragend', e => {
-    if (!e.target.classList.contains('drag-item')) return;
-    e.target.classList.remove('dragging');
-    draggedItem = null;
-  });
-
-  document.querySelectorAll(dropSelectors).forEach(zone => {
-    zone.addEventListener('dragover', e => {
-      e.preventDefault();
-      zone.classList.add('over');
-    });
-    zone.addEventListener('dragleave', () => zone.classList.remove('over'));
-    zone.addEventListener('drop', e => {
-      e.preventDefault();
-      zone.classList.remove('over');
-      if (!draggedItem) return;
-
-      // If zone already has a card, return it to bank
-      const existing = zone.querySelector('.drag-item');
-      if (existing) {
-        document.getElementById(bankId).appendChild(existing);
-      }
-      // If item already in a zone, free that zone
-      if (draggedFrom && draggedFrom !== document.getElementById(bankId)) {
-        draggedFrom.classList.remove('correct', 'wrong');
-      }
-      zone.appendChild(draggedItem);
-      zone.classList.remove('correct', 'wrong');
-    });
-  });
-
-  // Allow dropping back to bank
-  document.getElementById(bankId).addEventListener('dragover', e => { e.preventDefault(); });
-  document.getElementById(bankId).addEventListener('drop', e => {
-    e.preventDefault();
-    if (draggedItem) document.getElementById(bankId).appendChild(draggedItem);
-  });
+// Helper: given a drag-item, find which bank it belongs to
+function getBankForItem(item) {
+  const id = item.dataset.id || '';           // e.g. "a1-3", "a2-1", "a3-5"
+  const actNum = id.charAt(1);               // '1', '2', or '3'
+  return document.getElementById(`bank-${actNum}`);
 }
 
-// Activity 1 drag
-setupDrag('bank-1', '.drop-zone');
-// Activity 2 drag
-setupDrag('bank-2', '.scenario-drop');
-// Activity 3 drag
-setupDrag('bank-3', '.chain-drop');
+// Helper: given a drop zone element, find which activity it lives in
+function getActivityForZone(zone) {
+  return zone.closest('.activity');
+}
+
+document.addEventListener('dragstart', e => {
+  if (!e.target.classList.contains('drag-item')) return;
+  draggedItem = e.target;
+  draggedFrom = e.target.parentElement;
+  setTimeout(() => e.target.classList.add('dragging'), 0);
+});
+
+document.addEventListener('dragend', e => {
+  if (!e.target.classList.contains('drag-item')) return;
+  e.target.classList.remove('dragging');
+  draggedItem = null;
+  draggedFrom = null;
+});
+
+// Attach drop-zone listeners once, scoped by activity
+document.querySelectorAll('.drop-zone, .scenario-drop, .chain-drop').forEach(zone => {
+  zone.addEventListener('dragover', e => {
+    e.preventDefault();
+    // Only highlight if the dragged item belongs to this activity
+    if (!draggedItem) return;
+    const itemActivity = draggedItem.closest('.activity') ||
+                         (getBankForItem(draggedItem) && getBankForItem(draggedItem).closest('.activity'));
+    const zoneActivity = getActivityForZone(zone);
+    if (itemActivity === zoneActivity) zone.classList.add('over');
+  });
+
+  zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('over');
+    if (!draggedItem) return;
+
+    // Scope check: only accept items from the same activity
+    const bank = getBankForItem(draggedItem);
+    if (!bank) return;
+    const zoneActivity = getActivityForZone(zone);
+    const bankActivity = bank.closest('.activity');
+    if (zoneActivity !== bankActivity) return;
+
+    // If zone already has a card, return it to its bank
+    const existing = zone.querySelector('.drag-item');
+    if (existing && existing !== draggedItem) {
+      const existingBank = getBankForItem(existing);
+      if (existingBank) existingBank.appendChild(existing);
+    }
+
+    // Clear feedback state from previous zone
+    if (draggedFrom && draggedFrom !== bank) {
+      draggedFrom.classList.remove('correct', 'wrong');
+    }
+
+    zone.appendChild(draggedItem);
+    zone.classList.remove('correct', 'wrong');
+  });
+});
+
+// Allow dropping items back onto their bank
+document.querySelectorAll('.drag-bank').forEach(bank => {
+  bank.addEventListener('dragover', e => { e.preventDefault(); });
+  bank.addEventListener('drop', e => {
+    e.preventDefault();
+    if (!draggedItem) return;
+    const itemBank = getBankForItem(draggedItem);
+    if (itemBank === bank) {
+      if (draggedFrom && draggedFrom !== bank) {
+        draggedFrom.classList.remove('correct', 'wrong');
+      }
+      bank.appendChild(draggedItem);
+    }
+  });
+});
 
 // ========== TOUCH DRAG (mobile) ==========
 let touchItem = null, touchClone = null, touchFrom = null;
@@ -876,7 +903,12 @@ document.addEventListener('touchmove', e => {
   document.querySelectorAll('.drop-zone, .scenario-drop, .chain-drop').forEach(z => z.classList.remove('over'));
   const el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
   const zone = el && el.closest('.drop-zone, .scenario-drop, .chain-drop');
-  if (zone) zone.classList.add('over');
+  if (zone && touchItem) {
+    const bank = getBankForItem(touchItem);
+    if (bank && getActivityForZone(zone) === bank.closest('.activity')) {
+      zone.classList.add('over');
+    }
+  }
 }, { passive: false });
 
 document.addEventListener('touchend', e => {
@@ -891,17 +923,18 @@ document.addEventListener('touchend', e => {
   document.querySelectorAll('.drop-zone, .scenario-drop, .chain-drop').forEach(z => z.classList.remove('over'));
 
   if (zone) {
-    const existing = zone.querySelector('.drag-item');
-    const bankId = touchItem.closest('[id^="bank-"]') ? touchItem.closest('[id^="bank-"]').id :
-      (touchItem.closest('[id^="zone-"]') || touchItem.closest('.scenario-drop') || touchItem.closest('.chain-drop')) ? null : null;
-    const globalBank = touchFrom.id && touchFrom.id.startsWith('bank') ? touchFrom : null;
+    const bank = getBankForItem(touchItem);
+    if (!bank) { touchItem = null; touchFrom = null; return; }
 
+    // Scope check
+    if (getActivityForZone(zone) !== bank.closest('.activity')) {
+      touchItem = null; touchFrom = null; return;
+    }
+
+    const existing = zone.querySelector('.drag-item');
     if (existing && existing !== touchItem) {
-      // Return existing to appropriate bank
-      const acts = ['bank-1', 'bank-2', 'bank-3'];
-      const act = touchItem.dataset.id.split('-')[0];
-      const actNum = touchItem.dataset.id.split('-')[0].replace('a','');
-      document.getElementById(`bank-${actNum}`) && document.getElementById(`bank-${actNum}`).appendChild(existing);
+      const existingBank = getBankForItem(existing);
+      if (existingBank) existingBank.appendChild(existing);
     }
     if (touchFrom !== zone) {
       touchFrom.classList && touchFrom.classList.remove('correct', 'wrong');
@@ -931,25 +964,24 @@ let currentActivity = 1;
 function checkActivity1() {
   const fairZone = document.getElementById('zone-fair');
   const unfairZone = document.getElementById('zone-unfair');
-  let correct = 0, wrong = 0;
+  const placed = fairZone.querySelectorAll('.drag-item').length + unfairZone.querySelectorAll('.drag-item').length;
+  const fb = document.getElementById('feedback-1');
 
+  if (placed < 8) {
+    fb.textContent = '🌟 Place all 8 cards in a box first!';
+    fb.className = 'fb-error';
+    return;
+  }
+
+  let wrong = 0;
   [fairZone, unfairZone].forEach(zone => {
     zone.classList.remove('correct', 'wrong');
-    const items = zone.querySelectorAll('.drag-item');
-    items.forEach(item => {
-      if (item.dataset.val === zone.dataset.accept) correct++;
+    zone.querySelectorAll('.drag-item').forEach(item => {
+      if (item.dataset.val === zone.dataset.accept) { /* correct */ }
       else { wrong++; shakeWrong(item); }
     });
   });
 
-  const fb = document.getElementById('feedback-1');
-  // Check all 8 placed
-  const placed = fairZone.querySelectorAll('.drag-item').length + unfairZone.querySelectorAll('.drag-item').length;
-  if (placed < 8) {
-    fb.textContent = '🌟 Place all cards in a box first!';
-    fb.className = 'fb-error';
-    return;
-  }
   if (wrong === 0) {
     fairZone.classList.add('correct');
     unfairZone.classList.add('correct');
@@ -965,14 +997,17 @@ function checkActivity1() {
 }
 
 function checkActivity2() {
-  const drops = document.querySelectorAll('.scenario-drop');
-  let wrong = 0;
+  const drops = document.querySelectorAll('#activity-2 .scenario-drop');
   const placed = [...drops].filter(d => d.querySelector('.drag-item')).length;
+  const fb = document.getElementById('feedback-2');
+
   if (placed < 5) {
-    document.getElementById('feedback-2').textContent = '🌟 Match all 5 scenarios first!';
-    document.getElementById('feedback-2').className = 'fb-error';
+    fb.textContent = '🌟 Match all 5 scenarios first!';
+    fb.className = 'fb-error';
     return;
   }
+
+  let wrong = 0;
   drops.forEach(drop => {
     drop.classList.remove('correct', 'wrong');
     const item = drop.querySelector('.drag-item');
@@ -984,7 +1019,7 @@ function checkActivity2() {
       wrong++;
     }
   });
-  const fb = document.getElementById('feedback-2');
+
   if (wrong === 0) {
     fb.textContent = '🎉 Brilliant! All values matched correctly!';
     fb.className = 'fb-success';
@@ -996,14 +1031,17 @@ function checkActivity2() {
 }
 
 function checkActivity3() {
-  const drops = document.querySelectorAll('.chain-drop');
-  let wrong = 0;
+  const drops = document.querySelectorAll('#activity-3 .chain-drop');
   const placed = [...drops].filter(d => d.querySelector('.drag-item')).length;
+  const fb = document.getElementById('feedback-3');
+
   if (placed < 5) {
-    document.getElementById('feedback-3').textContent = '🌟 Complete all 5 chains first!';
-    document.getElementById('feedback-3').className = 'fb-error';
+    fb.textContent = '🌟 Complete all 5 chains first!';
+    fb.className = 'fb-error';
     return;
   }
+
+  let wrong = 0;
   drops.forEach(drop => {
     drop.classList.remove('correct', 'wrong');
     const item = drop.querySelector('.drag-item');
@@ -1015,7 +1053,7 @@ function checkActivity3() {
       wrong++;
     }
   });
-  const fb = document.getElementById('feedback-3');
+
   if (wrong === 0) {
     fb.textContent = '🎉 Incredible! Every chain reaction is correct!';
     fb.className = 'fb-success';
@@ -1035,32 +1073,30 @@ const celebMessages = [
 
 function showCelebration(actNum) {
   const cel = document.getElementById('celebration');
-  document.getElementById('celeb-title').textContent = celebMessages[actNum-1][0];
-  document.getElementById('celeb-msg').textContent = celebMessages[actNum-1][1];
+  document.getElementById('celeb-title').textContent = celebMessages[actNum - 1][0];
+  document.getElementById('celeb-msg').textContent = celebMessages[actNum - 1][1];
   const btn = document.getElementById('next-btn');
-  if (actNum === 3) {
-    btn.textContent = 'See My Results! 🏆';
-  } else {
-    btn.textContent = 'Next Activity ➡️';
-  }
+  btn.textContent = actNum === 3 ? 'See My Results! 🏆' : 'Next Activity ➡️';
   cel.classList.add('show');
 
-  // Update progress
   document.getElementById(`dot-${actNum}`).classList.remove('active');
   document.getElementById(`dot-${actNum}`).classList.add('done');
   if (actNum < 3) {
-    document.getElementById(`dot-${actNum+1}`).classList.add('active');
+    document.getElementById(`dot-${actNum + 1}`).classList.add('active');
   }
 }
 
 function nextActivity() {
   document.getElementById('celebration').classList.remove('show');
-  const current = document.querySelector('.activity.visible');
+
+  const current = document.getElementById(`activity-${currentActivity}`);
   if (current) current.classList.remove('visible');
 
   currentActivity++;
+
   if (currentActivity <= 3) {
-    document.getElementById(`activity-${currentActivity}`).classList.add('visible');
+    const next = document.getElementById(`activity-${currentActivity}`);
+    if (next) next.classList.add('visible');
   } else {
     document.getElementById('final-screen').classList.add('show');
   }

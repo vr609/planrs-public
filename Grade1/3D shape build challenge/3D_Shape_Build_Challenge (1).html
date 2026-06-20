@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Shape Build Challenge</title>
+<style>
+:root{
+  --ink:#0b2e36;
+  --paper:#f4ecd8;
+  --ocean:#1b6e7a;
+  --ocean-deep:#0e4a54;
+  --sand:#e8c98a;
+  --coral:#e2693c;
+  --gold:#d9a441;
+  --leaf:#5a8f4f;
+  --line:rgba(11,46,54,0.18);
+  --good:#3f8a4a;
+  --bad:#c0473a;
+}
+*{box-sizing:border-box;}
+html,body{
+  margin:0;padding:0;height:100%;width:100%;overflow:hidden;
+  font-family:'Trebuchet MS','Segoe UI',sans-serif;
+  background:var(--paper);
+  color:var(--ink);
+}
+#stage{
+  position:relative;
+  height:100vh;
+  width:100vw;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(216,193,140,0.5), transparent 40%),
+    radial-gradient(circle at 85% 80%, rgba(27,110,122,0.25), transparent 45%),
+    linear-gradient(160deg,#f6efdc 0%, #ecdfba 45%, #e7d6a8 100%);
+}
+
+/* === Map background texture === */
+.grid-lines{
+  position:absolute;inset:0;
+  background-image:
+    repeating-linear-gradient(0deg, var(--line) 0, var(--line) 1px, transparent 1px, transparent 60px),
+    repeating-linear-gradient(90deg, var(--line) 0, var(--line) 1px, transparent 1px, transparent 60px);
+  opacity:0.5;
+  pointer-events:none;
+}
+
+.continent{
+  position:absolute;
+  opacity:0.22;
+  fill:var(--ocean-deep);
+  pointer-events:none;
+  filter:drop-shadow(0 0 12px rgba(14,74,84,0.15));
+}
+
+/* Compass */
+.compass{
+  position:absolute;
+  top:18px;right:18px;
+  width:84px;height:84px;
+  pointer-events:none;
+  z-index:5;
+}
+.compass .ring{
+  width:100%;height:100%;
+  border-radius:50%;
+  border:2px solid var(--ocean-deep);
+  background:radial-gradient(circle, #fffaf0 0%, var(--sand) 100%);
+  position:relative;
+  box-shadow:0 4px 10px rgba(0,0,0,0.15);
+}
+.compass .needle{
+  position:absolute;
+  left:50%;top:50%;
+  width:4px;height:34px;
+  background:linear-gradient(var(--coral), var(--ocean-deep));
+  transform-origin:50% 100%;
+  margin-left:-2px;
+  margin-top:-34px;
+  animation:swing 6s ease-in-out infinite;
+  border-radius:2px;
+}
+@keyframes swing{
+  0%,100%{transform:rotate(-12deg);}
+  50%{transform:rotate(12deg);}
+}
+.compass .letters span{
+  position:absolute;font-size:9px;font-weight:bold;color:var(--ocean-deep);
+}
+.compass .n{top:2px;left:50%;transform:translateX(-50%);}
+.compass .s{bottom:2px;left:50%;transform:translateX(-50%);}
+.compass .e{right:2px;top:50%;transform:translateY(-50%);}
+.compass .w{left:2px;top:50%;transform:translateY(-50%);}
+
+/* Floating globe */
+.globe{
+  position:absolute;
+  bottom:14px;left:14px;
+  width:70px;height:70px;
+  border-radius:50%;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 8px, rgba(14,74,84,0.35) 8px 9px),
+    radial-gradient(circle at 35% 30%, #7fc4c9, var(--ocean) 60%, var(--ocean-deep) 100%);
+  box-shadow:0 6px 16px rgba(0,0,0,0.2), inset -6px -6px 14px rgba(0,0,0,0.25);
+  animation:spin 14s linear infinite, bob 5s ease-in-out infinite;
+  opacity:0.85;
+  z-index:4;
+  pointer-events:none;
+}
+@keyframes spin{from{background-position:0 0;}to{background-position:140px 0;}}
+@keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+
+/* Flags waving */
+.flag{
+  position:absolute;
+  width:30px;height:20px;
+  pointer-events:none;
+  z-index:3;
+  transform-origin:left center;
+  animation:wave 2.2s ease-in-out infinite;
+  opacity:0.8;
+}
+.flag .pole{position:absolute;left:0;top:0;width:2px;height:36px;background:#6b4a2b;}
+.flag .cloth{position:absolute;left:2px;top:0;width:26px;height:16px;border-radius:0 3px 3px 0;}
+@keyframes wave{
+  0%,100%{transform:skewY(0deg) rotate(0deg);}
+  50%{transform:skewY(4deg) rotate(2deg);}
+}
+
+/* Travel route dashed line with moving plane */
+.route{
+  position:absolute;
+  pointer-events:none;
+  opacity:0.55;
+  z-index:2;
+}
+.route path{
+  fill:none;
+  stroke:var(--ocean-deep);
+  stroke-width:2;
+  stroke-dasharray:6 8;
+  animation:dash 3s linear infinite;
+}
+@keyframes dash{to{stroke-dashoffset:-140;}}
+.route .plane{
+  font-size:14px;
+  animation:fly 9s linear infinite;
+  offset-rotate:auto;
+}
+
+/* Landmark glow markers */
+.landmark{
+  position:absolute;
+  font-size:22px;
+  z-index:3;
+  pointer-events:none;
+  filter:drop-shadow(0 0 6px rgba(217,164,65,0.7));
+  animation:glow 3.4s ease-in-out infinite;
+}
+@keyframes glow{
+  0%,100%{opacity:0.55; transform:scale(1) translateY(0);}
+  50%{opacity:1; transform:scale(1.12) translateY(-4px);}
+}
+
+/* Map marker pins floating */
+.pin{
+  position:absolute;
+  font-size:18px;
+  z-index:3;
+  pointer-events:none;
+  animation:floaty 4s ease-in-out infinite;
+  opacity:0.7;
+}
+@keyframes floaty{
+  0%,100%{transform:translateY(0);}
+  50%{transform:translateY(-10px);}
+}
+
+/* === HEADER === */
+.header{
+  position:absolute;
+  top:0;left:0;right:0;
+  text-align:center;
+  padding:14px 0 6px;
+  z-index:10;
+}
+.header h1{
+  margin:0;
+  font-family:'Georgia', serif;
+  font-size:clamp(20px,3.2vw,34px);
+  letter-spacing:3px;
+  color:var(--ocean-deep);
+  text-shadow:1px 1px 0 var(--sand), 2px 2px 6px rgba(0,0,0,0.1);
+}
+.header .sub{
+  font-size:12px;
+  letter-spacing:4px;
+  color:var(--coral);
+  font-weight:bold;
+  text-transform:uppercase;
+}
+
+/* progress trail */
+.progress-trail{
+  position:absolute;
+  top:84px;left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:28px;
+  z-index:10;
+  align-items:center;
+}
+.trail-stop{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  font-size:10px;font-weight:bold;color:var(--ocean-deep);
+  opacity:0.45;
+  transition:opacity .3s, transform .3s;
+}
+.trail-stop.active{opacity:1; transform:scale(1.1);}
+.trail-stop.done{opacity:0.85;}
+.trail-dot{
+  width:30px;height:30px;border-radius:50%;
+  background:var(--paper);
+  border:2px solid var(--ocean-deep);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;
+}
+.trail-stop.done .trail-dot{background:var(--leaf); color:#fff; border-color:var(--leaf);}
+.trail-stop.active .trail-dot{background:var(--coral); color:#fff; border-color:var(--coral);}
+.trail-line{width:24px;height:2px;background:var(--ocean-deep);opacity:0.4;}
+
+/* === MAIN PANEL === */
+.activity-panel{
+  position:absolute;
+  top:130px; bottom:14px; left:50%;
+  transform:translateX(-50%);
+  width:min(94vw, 980px);
+  background:rgba(255,251,240,0.88);
+  border:3px solid var(--ocean-deep);
+  border-radius:18px;
+  box-shadow:0 14px 34px rgba(14,74,84,0.25);
+  z-index:8;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.panel-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:10px 20px;
+  background:linear-gradient(90deg, var(--ocean-deep), var(--ocean));
+  color:#fff;
+  flex-shrink:0;
+}
+.panel-head h2{
+  margin:0;
+  font-size:16px;
+  letter-spacing:1px;
+}
+.panel-head .reset-btn{
+  background:var(--coral);
+  border:none;
+  color:#fff;
+  padding:6px 14px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:bold;
+  cursor:pointer;
+  letter-spacing:1px;
+  transition:transform .15s, background .2s;
+}
+.panel-head .reset-btn:hover{background:#c8552d; transform:translateY(-1px);}
+
+.panel-body{
+  flex:1;
+  display:flex;
+  padding:14px 22px;
+  gap:18px;
+  overflow:hidden;
+}
+
+.instructions{
+  font-size:12.5px;
+  color:var(--ocean-deep);
+  padding:6px 22px 0;
+  flex-shrink:0;
+}
+.instructions b{color:var(--coral);}
+
+/* === Activity 1: Cube build === */
+.act1-wrap{
+  display:flex;
+  width:100%;
+  gap:16px;
+  height:100%;
+}
+.build-zone{
+  flex:1.3;
+  position:relative;
+  background:radial-gradient(circle at 50% 30%, rgba(27,110,122,0.08), transparent 70%);
+  border:2px dashed var(--ocean);
+  border-radius:14px;
+}
+#cubeStage{
+  position:absolute;inset:0;
+}
+.slot{
+  position:absolute;
+  border-radius:50%;
+  width:30px;height:30px;
+  margin-left:-15px;margin-top:-15px;
+  border:2px dashed var(--ocean-deep);
+  opacity:0.5;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:var(--ocean-deep);
+  transition:all .2s;
+}
+.slot.edge-slot{
+  border-radius:6px;
+  width:54px;height:14px;
+  margin-left:-27px;margin-top:-7px;
+}
+.slot.filled{opacity:1; border-style:solid; background:rgba(95,180,90,0.15);}
+.slot.flash-good{animation:flashGood .5s;}
+.slot.flash-bad{animation:flashBad .5s;}
+@keyframes flashGood{0%{box-shadow:0 0 0 0 rgba(63,138,74,0.6);}100%{box-shadow:0 0 0 14px rgba(63,138,74,0);}}
+@keyframes flashBad{0%,100%{transform:translateX(0);}25%{transform:translateX(-4px);}75%{transform:translateX(4px);}}
+
+.tray{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  overflow-y:auto;
+  padding-right:4px;
+}
+.tray h3{
+  margin:0 0 2px;
+  font-size:12px;
+  color:var(--ocean-deep);
+  text-transform:uppercase;
+  letter-spacing:1px;
+  border-bottom:1px solid var(--line);
+  padding-bottom:3px;
+}
+.tray-items{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.piece{
+  cursor:grab;
+  user-select:none;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:bold;
+  font-size:11px;
+  transition:transform .15s;
+  box-shadow:0 3px 6px rgba(0,0,0,0.18);
+}
+.piece:active{cursor:grabbing;}
+.piece.marshmallow{
+  width:34px;height:34px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #fffdf8, #f1e6cf 70%);
+  border:2px solid #d8c79e;
+  color:#9c8454;
+}
+.piece.stick{
+  width:58px;height:12px;border-radius:6px;
+  background:linear-gradient(180deg,#c89a5b,#a87639);
+  border:1px solid #7d551f;
+}
+.piece.dragging{opacity:0.4;}
+
+/* === Activity 2: Properties match === */
+.act2-wrap{
+  display:flex;
+  width:100%;
+  height:100%;
+  gap:18px;
+}
+.shapes-col{
+  flex:1.4;
+  display:flex;
+  flex-wrap:wrap;
+  align-content:flex-start;
+  gap:14px;
+  overflow-y:auto;
+}
+.shape-card{
+  background:#fff;
+  border:2px solid var(--ocean);
+  border-radius:12px;
+  padding:8px 10px;
+  width:170px;
+  text-align:center;
+  box-shadow:0 4px 10px rgba(0,0,0,0.08);
+}
+.shape-card .icon{font-size:30px;}
+.shape-card .name{font-size:12px;font-weight:bold;color:var(--ocean-deep);margin:2px 0 6px;}
+.dropline{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:10.5px;
+  margin:3px 0;
+  gap:6px;
+}
+.dropline .lbl{flex:1; color:var(--ink); opacity:0.8;}
+.droptarget{
+  width:64px;height:24px;
+  border:2px dashed var(--ocean-deep);
+  border-radius:6px;
+  font-size:10px;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--ocean-deep);
+  background:rgba(255,255,255,0.6);
+  transition:.2s;
+}
+.droptarget.filled{
+  border-style:solid;
+  background:rgba(95,180,90,0.2);
+  font-weight:bold;
+  color:var(--good);
+}
+.labels-col{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.labels-col h3{margin:0 0 2px;font-size:12px;color:var(--ocean-deep);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--line);padding-bottom:3px;}
+.label-tile{
+  cursor:grab;
+  background:var(--gold);
+  color:#3a2a05;
+  border-radius:8px;
+  padding:8px 10px;
+  font-size:12px;
+  font-weight:bold;
+  text-align:center;
+  box-shadow:0 3px 6px rgba(0,0,0,0.15);
+  user-select:none;
+}
+.label-tile.dragging{opacity:0.4;}
+
+/* === Activity 3: Order challenge === */
+.act3-wrap{
+  width:100%;
+  height:100%;
+  display:flex;
+  gap:18px;
+}
+.step-track{
+  flex:1.6;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  overflow-y:auto;
+}
+.step-slot{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  background:#fff;
+  border:2px dashed var(--ocean);
+  border-radius:10px;
+  padding:8px 12px;
+  min-height:42px;
+  font-size:12.5px;
+  transition:.2s;
+}
+.step-slot .num{
+  width:24px;height:24px;border-radius:50%;
+  background:var(--ocean-deep);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:bold;flex-shrink:0;
+}
+.step-slot.filled{border-style:solid; background:rgba(95,180,90,0.12);}
+.step-slot .content{font-weight:bold;color:var(--ocean-deep);}
+.facts-col{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.fact-box{
+  background:#fff;
+  border:2px solid var(--gold);
+  border-radius:12px;
+  padding:10px;
+  text-align:center;
+}
+.fact-box .big{font-size:26px;font-weight:bold;color:var(--coral);}
+.fact-box .lbl{font-size:11px;color:var(--ocean-deep);text-transform:uppercase;letter-spacing:1px;}
+.step-bank{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:auto;
+}
+.step-tile{
+  cursor:grab;
+  background:var(--sand);
+  border:1px solid #c2a366;
+  border-radius:8px;
+  padding:7px 10px;
+  font-size:11.5px;
+  font-weight:bold;
+  color:var(--ocean-deep);
+  user-select:none;
+  box-shadow:0 3px 6px rgba(0,0,0,0.12);
+}
+.step-tile.dragging{opacity:0.4;}
+
+/* === Popup overlay === */
+.overlay{
+  position:fixed;inset:0;
+  background:rgba(11,46,54,0.55);
+  display:flex;align-items:center;justify-content:center;
+  z-index:50;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .35s;
+}
+.overlay.show{opacity:1; pointer-events:auto;}
+.popup{
+  background:var(--paper);
+  border:4px solid var(--gold);
+  border-radius:20px;
+  padding:30px 36px;
+  text-align:center;
+  max-width:420px;
+  box-shadow:0 20px 50px rgba(0,0,0,0.4);
+  transform:scale(0.8) translateY(20px);
+  transition:transform .35s;
+}
+.overlay.show .popup{transform:scale(1) translateY(0);}
+.popup .stamp{font-size:46px;margin-bottom:6px;}
+.popup h2{margin:0 0 8px;color:var(--ocean-deep);font-family:Georgia,serif;letter-spacing:1px;}
+.popup p{font-size:13.5px;color:var(--ink); line-height:1.5;}
+.popup button{
+  margin-top:14px;
+  background:var(--coral);
+  color:#fff;
+  border:none;
+  padding:11px 26px;
+  border-radius:24px;
+  font-weight:bold;
+  font-size:14px;
+  letter-spacing:1px;
+  cursor:pointer;
+  box-shadow:0 6px 14px rgba(226,105,60,0.4);
+  transition:transform .15s;
+}
+.popup button:hover{transform:translateY(-2px);}
+
+/* Final celebration extras */
+#confettiCanvas{
+  position:fixed;inset:0;z-index:60;pointer-events:none;
+  display:none;
+}
+.final-popup{border-color:var(--leaf);}
+.final-popup .stamp{font-size:60px;}
+.play-again-btn{
+  background:var(--leaf) !important;
+  box-shadow:0 6px 14px rgba(90,143,79,0.45) !important;
+}
+
+@media (max-width:760px){
+  .act1-wrap,.act2-wrap,.act3-wrap{flex-direction:column;}
+  .build-zone{min-height:160px;}
+  .tray{flex-direction:row;flex-wrap:wrap;}
+  .compass,.globe{transform:scale(0.7);}
+}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div class="grid-lines"></div>
+
+  <!-- decorative continents -->
+  <svg class="continent" style="top:-40px;left:-60px;width:320px;height:260px;" viewBox="0 0 200 160">
+    <path d="M20 40 Q40 10 80 20 Q120 5 150 30 Q180 50 160 80 Q170 110 130 120 Q100 140 70 120 Q30 130 20 90 Q0 60 20 40Z"/>
+  </svg>
+  <svg class="continent" style="bottom:-50px;right:-50px;width:280px;height:240px;" viewBox="0 0 200 160">
+    <path d="M30 30 Q70 0 120 20 Q160 30 150 70 Q170 100 130 130 Q90 150 60 120 Q20 110 25 70 Q10 50 30 30Z"/>
+  </svg>
+
+  <!-- compass -->
+  <div class="compass">
+    <div class="ring">
+      <div class="letters">
+        <span class="n">N</span><span class="s">S</span><span class="e">E</span><span class="w">W</span>
+      </div>
+      <div class="needle"></div>
+    </div>
+  </div>
+
+  <!-- globe -->
+  <div class="globe"></div>
+
+  <!-- flags -->
+  <div class="flag" style="top:60px;left:6%;">
+    <div class="pole"></div><div class="cloth" style="background:var(--coral);"></div>
+  </div>
+  <div class="flag" style="bottom:90px;right:8%;animation-delay:.6s;">
+    <div class="pole"></div><div class="cloth" style="background:var(--leaf);"></div>
+  </div>
+  <div class="flag" style="top:120px;right:18%;animation-delay:1.1s;">
+    <div class="pole"></div><div class="cloth" style="background:var(--gold);"></div>
+  </div>
+
+  <!-- floating pins -->
+  <div class="pin" style="top:14%;left:22%;animation-delay:.2s;">📍</div>
+  <div class="pin" style="top:70%;left:8%;animation-delay:1.4s;">📍</div>
+  <div class="pin" style="top:18%;right:30%;animation-delay:.9s;">📍</div>
+
+  <!-- glowing landmarks -->
+  <div class="landmark" style="bottom:6%;left:38%;animation-delay:.3s;">⛰️</div>
+  <div class="landmark" style="top:8%;left:48%;animation-delay:1.6s;">🗼</div>
+  <div class="landmark" style="bottom:10%;right:5%;animation-delay:.8s;">🏛️</div>
+
+  <!-- travel route -->
+  <svg class="route" style="top:30%;left:5%;width:90%;height:200px;" viewBox="0 0 900 200" preserveAspectRatio="none">
+    <path d="M10 150 Q 200 20 450 100 T 880 60"/>
+  </svg>
+
+  <!-- HEADER -->
+  <div class="header">
+    <h1>🧭 3D SHAPE BUILD CHALLENGE</h1>
+    <div class="sub">Explorer's Engineering Camp</div>
+  </div>
+
+  <!-- progress trail -->
+  <div class="progress-trail" id="progressTrail">
+    <div class="trail-stop active" data-step="1">
+      <div class="trail-dot">🧱</div>
+      <span>Build</span>
+    </div>
+    <div class="trail-line"></div>
+    <div class="trail-stop" data-step="2">
+      <div class="trail-dot">🏷️</div>
+      <span>Match</span>
+    </div>
+    <div class="trail-line"></div>
+    <div class="trail-stop" data-step="3">
+      <div class="trail-dot">🗺️</div>
+      <span>Order</span>
+    </div>
+  </div>
+
+  <!-- ACTIVITY PANEL -->
+  <div class="activity-panel">
+    <div class="panel-head">
+      <h2 id="panelTitle">Activity 1 · Build the Cube Camp</h2>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+    <div class="instructions" id="instructions"></div>
+    <div class="panel-body" id="panelBody"></div>
+  </div>
+
+</div>
+
+<!-- progression popup -->
+<div class="overlay" id="popupOverlay">
+  <div class="popup" id="popupBox">
+    <div class="stamp" id="popupStamp">🎉</div>
+    <h2 id="popupTitle">Great Work, Explorer!</h2>
+    <p id="popupText"></p>
+    <button id="popupBtn">Continue Journey →</button>
+  </div>
+</div>
+
+<canvas id="confettiCanvas"></canvas>
+
+<script>
+/* ============ STATE ============ */
+let currentActivity = 1;
+
+const overlay = document.getElementById('popupOverlay');
+const popupBox = document.getElementById('popupBox');
+const popupStamp = document.getElementById('popupStamp');
+const popupTitle = document.getElementById('popupTitle');
+const popupText = document.getElementById('popupText');
+const popupBtn = document.getElementById('popupBtn');
+const panelBody = document.getElementById('panelBody');
+const panelTitle = document.getElementById('panelTitle');
+const instructions = document.getElementById('instructions');
+const resetBtn = document.getElementById('resetBtn');
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function updateTrail(){
+  document.querySelectorAll('.trail-stop').forEach(stop=>{
+    const step = parseInt(stop.dataset.step);
+    stop.classList.remove('active','done');
+    if(step < currentActivity) stop.classList.add('done');
+    else if(step === currentActivity) stop.classList.add('active');
+  });
+}
+
+function showPopup({stamp, title, text, btnLabel, onContinue, finalClass}){
+  popupStamp.textContent = stamp;
+  popupTitle.textContent = title;
+  popupText.textContent = text;
+  popupBtn.textContent = btnLabel;
+  popupBox.classList.toggle('final-popup', !!finalClass);
+  popupBtn.className = finalClass ? 'play-again-btn' : '';
+  overlay.classList.add('show');
+  popupBtn.onclick = ()=>{
+    overlay.classList.remove('show');
+    if(onContinue) onContinue();
+  };
+}
+
+resetBtn.addEventListener('click', ()=>{
+  if(currentActivity===1) renderActivity1();
+  else if(currentActivity===2) renderActivity2();
+  else renderActivity3();
+});
+
+/* ============================================================
+   ACTIVITY 1 — Build the cube: corners (marshmallows) + edges (sticks)
+   ============================================================ */
+function renderActivity1(){
+  panelTitle.textContent = 'Activity 1 · Build the Cube Camp';
+  instructions.innerHTML = 'Drag <b>marshmallows</b> onto the glowing corner posts and <b>craft sticks</b> onto the edge paths to build a cube tent frame.';
+  updateTrail();
+
+  // cube projection coordinates (isometric-ish), in % of build-zone box (0-100)
+  const corners = [
+    {id:'c0', x:30,y:20},{id:'c1', x:62,y:14},{id:'c2', x:86,y:30},{id:'c3', x:54,y:36},
+    {id:'c4', x:30,y:58},{id:'c5', x:62,y:52},{id:'c6', x:86,y:68},{id:'c7', x:54,y:74}
+  ];
+  const edgeDefs = [
+    ['c0','c1'],['c1','c2'],['c2','c3'],['c3','c0'],
+    ['c4','c5'],['c5','c6'],['c6','c7'],['c7','c4'],
+    ['c0','c4'],['c1','c5'],['c2','c6'],['c3','c7']
+  ];
+  const cornerMap = {};
+  corners.forEach(c=>cornerMap[c.id]=c);
+
+  panelBody.innerHTML = `
+    <div class="act1-wrap">
+      <div class="build-zone"><div id="cubeStage"></div></div>
+      <div class="tray">
+        <h3>Marshmallows (Corners) — need 8</h3>
+        <div class="tray-items" id="marshTray"></div>
+        <h3>Craft Sticks (Edges) — need 12</h3>
+        <div class="tray-items" id="stickTray"></div>
+      </div>
+    </div>
+  `;
+
+  const cubeStage = document.getElementById('cubeStage');
+  const marshTray = document.getElementById('marshTray');
+  const stickTray = document.getElementById('stickTray');
+
+  // svg for edge lines (drawn underneath, faint guide)
+  const svgNS = "http://www.w3.org/2000/svg";
+  const guideSvg = document.createElementNS(svgNS,'svg');
+  guideSvg.setAttribute('style','position:absolute;inset:0;width:100%;height:100%;');
+  cubeStage.appendChild(guideSvg);
+
+  function pctToPx(stageEl, xp, yp){
+    const r = stageEl.getBoundingClientRect();
+    return {x: xp/100*r.width, y: yp/100*r.height};
+  }
+
+  // corner slots
+  let filledCorners = 0, filledEdges = 0;
+  corners.forEach(c=>{
+    const slot = document.createElement('div');
+    slot.className='slot';
+    slot.style.left = c.x+'%';
+    slot.style.top = c.y+'%';
+    slot.dataset.id = c.id;
+    slot.dataset.type='corner';
+    slot.textContent = '';
+    cubeStage.appendChild(slot);
+    addDropHandlers(slot, 'corner');
+  });
+
+  // edge slots (midpoints)
+  edgeDefs.forEach(([a,b],i)=>{
+    const ca = cornerMap[a], cb = cornerMap[b];
+    const mx = (ca.x+cb.x)/2, my = (ca.y+cb.y)/2;
+    const angle = Math.atan2(cb.y-ca.y, cb.x-ca.x)*180/Math.PI;
+    const slot = document.createElement('div');
+    slot.className='slot edge-slot';
+    slot.style.left = mx+'%';
+    slot.style.top = my+'%';
+    slot.style.transform = `translate(-50%,-50%) rotate(${angle}deg)`;
+    slot.dataset.id = 'e'+i;
+    slot.dataset.type='edge';
+    cubeStage.appendChild(slot);
+    addDropHandlers(slot,'edge');
+  });
+
+  function addDropHandlers(slot, type){
+    slot.addEventListener('dragover', e=>e.preventDefault());
+    slot.addEventListener('drop', e=>{
+      e.preventDefault();
+      if(slot.classList.contains('filled')) return;
+      const dragType = e.dataTransfer.getData('type');
+      if(dragType === type){
+        slot.classList.add('filled','flash-good');
+        slot.textContent = type==='corner' ? '🟡' : '🟫';
+        setTimeout(()=>slot.classList.remove('flash-good'),500);
+        const draggedId = e.dataTransfer.getData('pieceId');
+        const el = document.getElementById(draggedId);
+        if(el) el.remove();
+        if(type==='corner') filledCorners++; else filledEdges++;
+        checkComplete();
+      } else {
+        slot.classList.add('flash-bad');
+        setTimeout(()=>slot.classList.remove('flash-bad'),500);
+      }
+    });
+  }
+
+  // create draggable pieces, shuffled order, plus a couple decoys removed (exact counts only, just shuffled)
+  const marshIds = corners.map((c,i)=>'m'+i);
+  const stickIds = edgeDefs.map((e,i)=>'s'+i);
+
+  shuffle(marshIds).forEach(id=>{
+    const p = document.createElement('div');
+    p.className='piece marshmallow';
+    p.id = id;
+    p.draggable = true;
+    p.addEventListener('dragstart', e=>{
+      e.dataTransfer.setData('type','corner');
+      e.dataTransfer.setData('pieceId', id);
+      p.classList.add('dragging');
+    });
+    p.addEventListener('dragend', ()=>p.classList.remove('dragging'));
+    marshTray.appendChild(p);
+  });
+
+  shuffle(stickIds).forEach(id=>{
+    const p = document.createElement('div');
+    p.className='piece stick';
+    p.id = id;
+    p.draggable = true;
+    p.addEventListener('dragstart', e=>{
+      e.dataTransfer.setData('type','edge');
+      e.dataTransfer.setData('pieceId', id);
+      p.classList.add('dragging');
+    });
+    p.addEventListener('dragend', ()=>p.classList.remove('dragging'));
+    stickTray.appendChild(p);
+  });
+
+  function checkComplete(){
+    if(filledCorners===8 && filledEdges===12){
+      setTimeout(()=>{
+        showPopup({
+          stamp:'🏕️',
+          title:'Camp Frame Complete!',
+          text:'You placed all 8 corner marshmallows and 12 edge sticks. Your cube tent is standing tall! Onward to the next checkpoint.',
+          btnLabel:'Continue Journey →',
+          onContinue: ()=>{ currentActivity=2; renderActivity2(); }
+        });
+      }, 400);
+    }
+  }
+}
+
+/* ============================================================
+   ACTIVITY 2 — Property matching
+   ============================================================ */
+function renderActivity2(){
+  panelTitle.textContent = 'Activity 2 · Match the Shape Properties';
+  instructions.innerHTML = 'Drag the correct label — <b>Corners</b>, <b>Edges</b>, or <b>Faces</b> — onto each shape\'s matching property slot.';
+  updateTrail();
+
+  const shapes = [
+    {id:'cube', icon:'🧊', name:'Cube', props:{Corners:'8', Edges:'12', Faces:'6'}},
+    {id:'cone', icon:'🍦', name:'Cone', props:{Corners:'0', Edges:'0', Faces:'1'}},
+    {id:'sphere', icon:'⚽', name:'Sphere', props:{Corners:'0', Edges:'0', Faces:'0'}},
+    {id:'cylinder', icon:'🥫', name:'Cylinder', props:{Corners:'0', Edges:'0', Faces:'2'}},
+  ];
+
+  panelBody.innerHTML = `
+    <div class="act2-wrap">
+      <div class="shapes-col" id="shapesCol"></div>
+      <div class="labels-col">
+        <h3>Drag a Label</h3>
+        <div id="labelBank" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+    </div>
+  `;
+
+  const shapesCol = document.getElementById('shapesCol');
+  const labelBank = document.getElementById('labelBank');
+
+  let filledCount = 0;
+  const totalSlots = shapes.length * 3;
+
+  shapes.forEach(shape=>{
+    const card = document.createElement('div');
+    card.className='shape-card';
+    card.innerHTML = `
+      <div class="icon">${shape.icon}</div>
+      <div class="name">${shape.name}</div>
+      ${['Corners','Edges','Faces'].map(prop=>`
+        <div class="dropline">
+          <span class="lbl">${prop}:</span>
+          <div class="droptarget" data-shape="${shape.id}" data-prop="${prop}"></div>
+        </div>
+      `).join('')}
+    `;
+    shapesCol.appendChild(card);
+  });
+
+  shapesCol.querySelectorAll('.droptarget').forEach(dt=>{
+    dt.addEventListener('dragover', e=>e.preventDefault());
+    dt.addEventListener('drop', e=>{
+      e.preventDefault();
+      if(dt.classList.contains('filled')) return;
+      const draggedProp = e.dataTransfer.getData('prop');
+      const shapeId = dt.dataset.shape;
+      const propType = dt.dataset.prop;
+      const correctVal = shapes.find(s=>s.id===shapeId).props[propType];
+      if(draggedProp === propType){
+        dt.classList.add('filled');
+        dt.textContent = correctVal;
+        dt.parentElement.parentElement.classList.add('flash-good');
+        setTimeout(()=>dt.parentElement.parentElement.classList.remove('flash-good'),500);
+        const draggedId = e.dataTransfer.getData('pieceId');
+        const el = document.getElementById(draggedId);
+        if(el) el.remove();
+        filledCount++;
+        if(filledCount===totalSlots){
+          setTimeout(()=>{
+            showPopup({
+              stamp:'🏷️',
+              title:'Properties Mastered!',
+              text:'You correctly matched corners, edges, and faces for every shape. Time for the final navigation challenge!',
+              btnLabel:'Continue Journey →',
+              onContinue: ()=>{ currentActivity=3; renderActivity3(); }
+            });
+          },400);
+        }
+      } else {
+        dt.classList.add('flash-bad');
+        setTimeout(()=>dt.classList.remove('flash-bad'),500);
+      }
+    });
+  });
+
+  // label tiles — need 3 of each type so every slot can be filled; shuffle order
+  const allLabels = [];
+  ['Corners','Edges','Faces'].forEach(prop=>{
+    for(let i=0;i<shapes.length;i++) allLabels.push(prop);
+  });
+  shuffle(allLabels).forEach((prop, idx)=>{
+    const tile = document.createElement('div');
+    tile.className='label-tile';
+    tile.id = 'lbl'+idx;
+    tile.textContent = prop;
+    tile.draggable = true;
+    tile.addEventListener('dragstart', e=>{
+      e.dataTransfer.setData('prop', prop);
+      e.dataTransfer.setData('pieceId', tile.id);
+      tile.classList.add('dragging');
+    });
+    tile.addEventListener('dragend', ()=>tile.classList.remove('dragging'));
+    labelBank.appendChild(tile);
+  });
+}
+
+/* ============================================================
+   ACTIVITY 3 — Order the cube-build steps + facts
+   ============================================================ */
+function renderActivity3(){
+  panelTitle.textContent = 'Activity 3 · Chart the Build Order';
+  instructions.innerHTML = 'Drag the steps into the correct build order: corners first, then edges, then faces, then the finished cube.';
+  updateTrail();
+
+  const correctSteps = [
+    {id:'st1', text:'Place all 8 corners (vertices)'},
+    {id:'st2', text:'Connect 12 edges between corners'},
+    {id:'st3', text:'Form 6 flat square faces'},
+    {id:'st4', text:'Complete the finished cube'},
+  ];
+
+  panelBody.innerHTML = `
+    <div class="act3-wrap">
+      <div class="step-track" id="stepTrack"></div>
+      <div class="facts-col">
+        <div class="fact-box"><div class="big">8</div><div class="lbl">Corners on a Cube</div></div>
+        <div class="fact-box"><div class="big">12</div><div class="lbl">Edges on a Cube</div></div>
+        <div class="step-bank" id="stepBank"></div>
+      </div>
+    </div>
+  `;
+
+  const stepTrack = document.getElementById('stepTrack');
+  const stepBank = document.getElementById('stepBank');
+
+  correctSteps.forEach((step, idx)=>{
+    const slot = document.createElement('div');
+    slot.className='step-slot';
+    slot.dataset.order = idx+1;
+    slot.innerHTML = `<div class="num">${idx+1}</div><div class="content"></div>`;
+    stepTrack.appendChild(slot);
+    slot.addEventListener('dragover', e=>e.preventDefault());
+    slot.addEventListener('drop', e=>{
+      e.preventDefault();
+      if(slot.classList.contains('filled')) return;
+      const stepId = e.dataTransfer.getData('stepId');
+      const stepOrder = e.dataTransfer.getData('order');
+      if(parseInt(stepOrder) === idx+1){
+        slot.classList.add('filled');
+        slot.querySelector('.content').textContent = correctSteps[idx].text;
+        slot.classList.add('flash-good');
+        setTimeout(()=>slot.classList.remove('flash-good'),500);
+        const el = document.getElementById(stepId);
+        if(el) el.remove();
+        checkAllFilled();
+      } else {
+        slot.classList.add('flash-bad');
+        setTimeout(()=>slot.classList.remove('flash-bad'),500);
+      }
+    });
+  });
+
+  shuffle(correctSteps.map((s,i)=>({...s, order:i+1}))).forEach(step=>{
+    const tile = document.createElement('div');
+    tile.className='step-tile';
+    tile.id = step.id;
+    tile.textContent = step.text;
+    tile.draggable = true;
+    tile.addEventListener('dragstart', e=>{
+      e.dataTransfer.setData('stepId', step.id);
+      e.dataTransfer.setData('order', step.order);
+      tile.classList.add('dragging');
+    });
+    tile.addEventListener('dragend', ()=>tile.classList.remove('dragging'));
+    stepBank.appendChild(tile);
+  });
+
+  function checkAllFilled(){
+    const allFilled = [...stepTrack.querySelectorAll('.step-slot')].every(s=>s.classList.contains('filled'));
+    if(allFilled){
+      setTimeout(()=>{
+        showPopup({
+          stamp:'🌍',
+          title:'Expedition Complete!',
+          text:'A cube has 8 corners and 12 edges — and you built it step by step, corners to faces, like a true junior architect!',
+          btnLabel:'Celebrate! 🎉',
+          finalClass:true,
+          onContinue: celebrateFinal
+        });
+      },400);
+    }
+  }
+}
+
+/* ============================================================
+   FINAL CELEBRATION
+   ============================================================ */
+function celebrateFinal(){
+  showFinalPopup();
+  launchConfetti();
+}
+
+function showFinalPopup(){
+  popupStamp.textContent = '🏆';
+  popupTitle.textContent = 'Expert World Builder!';
+  popupText.textContent = 'You built a cube, mastered its properties, and charted the perfect construction route across the map. 8 corners. 12 edges. 6 faces. Adventure complete!';
+  popupBox.classList.add('final-popup');
+  popupBtn.textContent = 'Play Again';
+  popupBtn.className = 'play-again-btn';
+  overlay.classList.add('show');
+  popupBtn.onclick = ()=>{
+    overlay.classList.remove('show');
+    stopConfetti();
+    currentActivity = 1;
+    renderActivity1();
+  };
+}
+
+/* simple confetti */
+let confettiAnim;
+function launchConfetti(){
+  const canvas = document.getElementById('confettiCanvas');
+  canvas.style.display='block';
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  const colors = ['#e2693c','#d9a441','#5a8f4f','#1b6e7a','#f4ecd8'];
+  const pieces = Array.from({length:120},()=>({
+    x: Math.random()*canvas.width,
+    y: -20 - Math.random()*canvas.height,
+    r: 4+Math.random()*5,
+    c: colors[Math.floor(Math.random()*colors.length)],
+    vy: 2+Math.random()*3,
+    vx: -1+Math.random()*2,
+    rot: Math.random()*360,
+    vr: -4+Math.random()*8,
+  }));
+  function frame(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    pieces.forEach(p=>{
+      p.y += p.vy; p.x += p.vx; p.rot += p.vr;
+      if(p.y > canvas.height+20){ p.y = -20; p.x = Math.random()*canvas.width; }
+      ctx.save();
+      ctx.translate(p.x,p.y);
+      ctx.rotate(p.rot*Math.PI/180);
+      ctx.fillStyle = p.c;
+      ctx.fillRect(-p.r/2,-p.r/2,p.r,p.r*1.6);
+      ctx.restore();
+    });
+    confettiAnim = requestAnimationFrame(frame);
+  }
+  frame();
+}
+function stopConfetti(){
+  const canvas = document.getElementById('confettiCanvas');
+  canvas.style.display='none';
+  if(confettiAnim) cancelAnimationFrame(confettiAnim);
+}
+
+window.addEventListener('resize', ()=>{
+  const canvas = document.getElementById('confettiCanvas');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+
+/* ============ INIT ============ */
+renderActivity1();
+</script>
+
+</body>
+</html>

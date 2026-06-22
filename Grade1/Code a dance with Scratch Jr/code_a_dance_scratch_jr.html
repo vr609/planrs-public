@@ -456,6 +456,46 @@ html, body {
   display:grid; grid-template-columns:1fr 1fr; gap:8px;
 }
 
+/* ─── BUTTON ROW (preview + main) ─── */
+.mbtn-row { display:flex; gap:8px; justify-content:center; align-items:center; flex-wrap:wrap; margin-top:7px; }
+.mbtn-row .mbtn { margin:0; }
+.mbtn.purple { background:linear-gradient(135deg,#7c3aed,#5b21b6); box-shadow:0 4px 16px rgba(124,58,237,0.5), 0 2px 0 rgba(91,33,182,0.4); }
+
+/* ─── PREVIEW MODAL ─── */
+.preview-overlay {
+  position:fixed; inset:0; z-index:9000;
+  display:none; align-items:center; justify-content:center;
+  background:radial-gradient(ellipse at center,rgba(2,14,42,0.95) 0%,rgba(6,51,86,0.97) 100%);
+  backdrop-filter:blur(4px);
+  padding:16px;
+}
+.preview-overlay.show{display:flex;}
+.preview-box {
+  width:min(94vw,560px);
+  background:rgba(6,51,86,0.92);
+  border:1.5px solid rgba(34,211,238,0.3);
+  border-radius:20px;
+  box-shadow:0 0 50px rgba(34,211,238,0.15), 0 4px 24px rgba(0,0,0,0.5);
+  padding:16px 18px;
+  text-align:center;
+  animation:cardIn 0.4s cubic-bezier(.34,1.56,.64,1);
+}
+.preview-title {
+  font-family:'Fredoka One',cursive;
+  font-size:clamp(0.85rem,1.8vw,1.1rem);
+  color:#bae6fd; margin-bottom:10px;
+}
+.preview-stages { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-bottom:10px; }
+.preview-stage-wrap { display:flex; flex-direction:column; align-items:center; gap:6px; }
+.preview-stage-lbl { font-size:0.62rem; font-weight:800; color:rgba(186,230,253,0.75); }
+.preview-step-row { display:flex; gap:4px; }
+.pstep {
+  font-size:0.9rem; padding:3px 5px; border-radius:7px;
+  background:rgba(255,255,255,0.06); opacity:0.4; transition:all 0.2s;
+}
+.pstep.active { opacity:1; background:rgba(34,211,238,0.25); transform:scale(1.25); box-shadow:0 0 10px rgba(34,211,238,0.5); }
+.preview-note { font-size:0.62rem; color:rgba(186,230,253,0.6); font-weight:700; margin-bottom:4px; }
+
 @media(max-height:640px){
   #app{gap:3px;} .cdesc{margin-bottom:5px;} .tray{min-height:38px;padding:6px 9px;} .seq-area{padding:6px 10px;margin-bottom:5px;} .mbtn{margin-top:4px;}
 }
@@ -491,6 +531,15 @@ html, body {
     You used <strong style="color:#22d3ee">Triggers</strong>, <strong style="color:#3b82f6">Motion</strong>, <strong style="color:#f97316">Loops</strong>, and <strong style="color:#a855f7">Look</strong> blocks — just like a real coder! 🌊
   </div>
   <button class="mbtn gold" onclick="restartAll()">🔄 Dance Again!</button>
+</div>
+
+<div id="previewModal" class="preview-overlay">
+  <div class="preview-box">
+    <div class="preview-title" id="previewTitle">👀 Sneak Peek</div>
+    <div class="preview-note">Watch how the finished routine should look, then build it yourself!</div>
+    <div class="preview-stages" id="previewStages"></div>
+    <button class="mbtn purple" onclick="closePreview()">Got it — let's build it! 🎬</button>
+  </div>
 </div>
 
 <script>
@@ -688,6 +737,37 @@ const A3 = {
 ══════════════════════════════════════ */
 let act=1, p1={}, p2o={}, p2i={}, p3={}, drag=null;
 
+/* ── Shuffle helpers: mix tray order, avoid correct answers sitting next to each other ── */
+function shuffle(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function shuffleMixed(ids, correctIds){
+  const a=shuffle(ids);
+  const isCorrect=id=>correctIds.includes(id);
+  for(let i=0;i<a.length-1;i++){
+    if(isCorrect(a[i]) && isCorrect(a[i+1])){
+      let swapIdx=-1;
+      for(let j=i+2;j<a.length;j++){ if(!isCorrect(a[j])){swapIdx=j;break;} }
+      if(swapIdx===-1){ for(let j=0;j<i;j++){ if(!isCorrect(a[j])){swapIdx=j;break;} } }
+      if(swapIdx!==-1){ [a[i+1],a[swapIdx]]=[a[swapIdx],a[i+1]]; }
+    }
+  }
+  return a;
+}
+let a1Order=[], a2OuterOrder=[], a2InnerOrder=[], a3Order=[];
+function initOrders(){
+  a1Order = shuffleMixed(A1.blocks.map(b=>b.id), A1.correct);
+  a2OuterOrder = shuffleMixed(A2.outerBlocks.map(b=>b.id), A2.outerCorrect);
+  a2InnerOrder = shuffleMixed(A2.innerBlocks.map(b=>b.id), A2.innerCorrect);
+  a3Order = shuffleMixed(A3.blocks.map(b=>b.id), [...A3.sprite1.correct,...A3.sprite2.correct]);
+}
+initOrders();
+
 /* ══════════════════════════════════════
    RENDER
 ══════════════════════════════════════ */
@@ -705,7 +785,7 @@ function render(){
 /* ── ACTIVITY 1 ── */
 function rA1(card){
   const placed=p1, pv=Object.values(placed);
-  const avail=A1.blocks.filter(b=>!pv.includes(b.id));
+  const avail=a1Order.map(id=>A1.blocks.find(b=>b.id===id)).filter(b=>!pv.includes(b.id));
   card.innerHTML=`
     <div class="ctitle"><span class="abadge">Activity 1 of 3</span>🐠 Sequence the Dance Moves!</div>
     <div class="cdesc">Drag blocks into the correct order so our fish dancer performs its routine — left to right, just like a choreography script!</div>
@@ -726,7 +806,10 @@ function rA1(card){
         }).join('')}
       </div>
     </div>
-    <button class="mbtn" onclick="chkA1()">🎬 Run the Dance!</button>`;
+    <div class="mbtn-row">
+      <button class="mbtn purple" onclick="openPreview(1)">👀 Preview Result</button>
+      <button class="mbtn" onclick="chkA1()">🎬 Run the Dance!</button>
+    </div>`;
   bindBlocks('#a1-tray .block','bid');
   bindSlots('#a1-slots .bslot',dropA1);
 }
@@ -750,8 +833,8 @@ let stageLoop=null, dancerPos=10, dancerDir=1, danceScore=0;
 
 function rA2(card){
   const pov=Object.values(p2o), piv=Object.values(p2i);
-  const outerAvail=A2.outerBlocks.filter(b=>!pov.includes(b.id));
-  const innerAvail=A2.innerBlocks.filter(b=>!piv.includes(b.id));
+  const outerAvail=a2OuterOrder.map(id=>A2.outerBlocks.find(b=>b.id===id)).filter(b=>!pov.includes(b.id));
+  const innerAvail=a2InnerOrder.map(id=>A2.innerBlocks.find(b=>b.id===id)).filter(b=>!piv.includes(b.id));
   const outerDone=A2.outerSlots.every(sl=>p2o[sl.id]);
   const innerDone=A2.innerSlots.every(sl=>p2i[sl.id]);
   const allDone=outerDone&&innerDone;
@@ -859,7 +942,7 @@ function chkA2(){
 /* ── ACTIVITY 3 ── */
 function rA3(card){
   const pv=Object.values(p3);
-  const avail=A3.blocks.filter(b=>!pv.includes(b.id));
+  const avail=a3Order.map(id=>A3.blocks.find(b=>b.id===id)).filter(b=>!pv.includes(b.id));
   const s1=A3.sprite1, s2=A3.sprite2;
 
   function seqHtml(sp,prefix){
@@ -890,7 +973,10 @@ function rA3(card){
       ${seqHtml(s1,'s1')}
       ${seqHtml(s2,'s2')}
     </div>
-    <button class="mbtn coral" onclick="chkA3()">🌊 Start the Show!</button>`;
+    <div class="mbtn-row">
+      <button class="mbtn purple" onclick="openPreview(3)">👀 Preview Result</button>
+      <button class="mbtn coral" onclick="chkA3()">🌊 Start the Show!</button>
+    </div>`;
 
   bindBlocks('#a3-tray .block','bid');
   const allSlotEls='[id^="sl3-"]';
@@ -916,7 +1002,13 @@ function chkA3(){
   const allS=[...A3.sprite1.slots,...A3.sprite2.slots];
   if(Object.keys(p3).length<allS.length){toast('Fill all slots in both scripts! 🧩','bad');return;}
   const allC=[...A3.sprite1.correct,...A3.sprite2.correct];
-  const ok=allS.every((sl,i)=>p3[sl.id]===allC[i]);
+  // Compare by what the block actually shows (label + category), not its internal id —
+  // some blocks (like the two "Repeat" blocks) look identical and should be interchangeable.
+  const ok=allS.every((sl,i)=>{
+    const placedBlock=A3.blocks.find(b=>b.id===p3[sl.id]);
+    const correctBlock=A3.blocks.find(b=>b.id===allC[i]);
+    return placedBlock && correctBlock && placedBlock.lbl===correctBlock.lbl && placedBlock.cls===correctBlock.cls;
+  });
   if(ok){toast('🏆 INCREDIBLE! The full dance show is live!','good');setTimeout(()=>celebrate(),1500);}
   else{toast('🔧 Some blocks are misplaced — almost perfect!','bad');p3={};setTimeout(()=>rA3(document.getElementById('card')),1600);}
 }
@@ -944,6 +1036,7 @@ function celebrate(){
 }
 function restartAll(){
   p1={};p2o={};p2i={};p3={};act=1;danceScore=0;dancerPos=10;dancerDir=1;
+  initOrders();
   clearInterval(stageLoop);
   const cel=document.getElementById('cel');
   cel.classList.remove('show');
@@ -960,7 +1053,7 @@ function goTo(n){
   card.classList.add('slide-out');
   setTimeout(()=>{
     card.classList.remove('slide-out');
-    act=n; render();
+    act=n; initOrders(); render();
     card.classList.add('slide-in');
     setTimeout(()=>card.classList.remove('slide-in'),500);
   },320);
@@ -1040,6 +1133,105 @@ function initTouchSlots(sel,handler){
 function r_sparks(el){
   const r=el.getBoundingClientRect();
   sparks(r.left+r.width/2,r.top+r.height/2,['✨','🫧','💙','⭐']);
+}
+
+/* ══════════════════════════════════════
+   PREVIEW — sneak peek of the finished routine
+══════════════════════════════════════ */
+let previewTimer=null;
+function openPreview(kind){
+  clearInterval(previewTimer);
+  const stagesEl=document.getElementById('previewStages');
+  const titleEl=document.getElementById('previewTitle');
+  stagesEl.innerHTML='';
+
+  let sequences=[];
+  if(kind===1){
+    titleEl.textContent='👀 Sneak Peek — Fish Dancer Routine';
+    sequences=[{
+      name:'🐠 Fish Dancer', emoji:'🐠',
+      steps:[
+        {icon:'🚩',action:'flag'},
+        {icon:'➡️',action:'right'},
+        {icon:'⬆️',action:'hop'},
+        {icon:'⬅️',action:'left'},
+        {icon:'🔍',action:'grow'},
+      ]
+    }];
+  } else {
+    titleEl.textContent='👀 Sneak Peek — Full Dance Show';
+    sequences=[
+      {name:'🐠 Fish Dancer', emoji:'🐠',
+       steps:[{icon:'🚩',action:'flag'},{icon:'➡️',action:'right'},{icon:'⬆️',action:'hop'},{icon:'⬅️',action:'left'},{icon:'🔁',action:'loop'}]},
+      {name:'🦑 Squid Dancer', emoji:'🦑',
+       steps:[{icon:'👆',action:'tap'},{icon:'🎵',action:'sound'},{icon:'🔍',action:'grow'},{icon:'🔎',action:'shrink'},{icon:'🔁',action:'loop'}]}
+    ];
+  }
+
+  sequences.forEach((seq,si)=>{
+    const stageDiv=document.createElement('div');
+    stageDiv.className='preview-stage-wrap';
+    stageDiv.innerHTML=`
+      <div class="preview-stage-lbl">${seq.name}</div>
+      <div class="stage" id="pstage-${si}">
+        <div class="stage-dancer dancing" id="pdancer-${si}" style="left:10%;">${seq.emoji}</div>
+      </div>
+      <div class="preview-step-row" id="psteps-${si}">
+        ${seq.steps.map((s,i)=>`<span class="pstep" id="pstep-${si}-${i}">${s.icon}</span>`).join('')}
+      </div>`;
+    stagesEl.appendChild(stageDiv);
+  });
+
+  document.getElementById('previewModal').classList.add('show');
+
+  let stepIdx=0;
+  function playStep(){
+    sequences.forEach((seq,si)=>{
+      seq.steps.forEach((_,i)=>{
+        const el=document.getElementById(`pstep-${si}-${i}`);
+        if(el) el.classList.remove('active');
+      });
+      const idx=stepIdx % seq.steps.length;
+      const step=seq.steps[idx];
+      const stepEl=document.getElementById(`pstep-${si}-${idx}`);
+      if(stepEl) stepEl.classList.add('active');
+      const dancer=document.getElementById(`pdancer-${si}`);
+      if(dancer) applyPreviewAction(dancer, step.action);
+    });
+    stepIdx++;
+  }
+  playStep();
+  previewTimer=setInterval(playStep,900);
+}
+function applyPreviewAction(dancer,action){
+  switch(action){
+    case 'right': dancer.style.left='66%'; dancer.style.transform='scaleX(1)'; break;
+    case 'left': dancer.style.left='10%'; dancer.style.transform='scaleX(-1)'; break;
+    case 'hop':
+      dancer.style.bottom='34px';
+      setTimeout(()=>{ if(dancer) dancer.style.bottom='12px'; },350);
+      break;
+    case 'grow':
+      dancer.style.fontSize='2.3rem';
+      setTimeout(()=>{ if(dancer) dancer.style.fontSize='1.8rem'; },500);
+      break;
+    case 'shrink':
+      dancer.style.fontSize='1.05rem';
+      setTimeout(()=>{ if(dancer) dancer.style.fontSize='1.8rem'; },500);
+      break;
+    case 'flag': case 'tap':
+      dancer.style.filter='drop-shadow(0 0 14px #fbbf24)';
+      setTimeout(()=>{ if(dancer) dancer.style.filter=''; },400);
+      break;
+    case 'sound':
+      dancer.style.filter='drop-shadow(0 0 14px #ec4899)';
+      setTimeout(()=>{ if(dancer) dancer.style.filter=''; },400);
+      break;
+  }
+}
+function closePreview(){
+  clearInterval(previewTimer);
+  document.getElementById('previewModal').classList.remove('show');
 }
 
 /* ══════════════════════════════════════

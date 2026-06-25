@@ -376,7 +376,7 @@ h1{
   background:rgba(5,2,0,.82);
   display:flex;align-items:center;justify-content:center;
   backdrop-filter:blur(7px);
-  opacity:0;pointer-events:none;transition:opacity .4s;
+  opacity:0;pointer-events:none;transition:opacity .7s;
 }
 .overlay.show{opacity:1;pointer-events:all}
 
@@ -388,7 +388,7 @@ h1{
   max-width:min(460px,86vw);
   width:100%;text-align:center;
   box-shadow:0 0 60px rgba(200,151,58,.25),0 30px 60px rgba(0,0,0,.6);
-  transform:scale(.85);transition:transform .4s cubic-bezier(.68,-0.55,.27,1.55);
+  transform:scale(.85);transition:transform .65s cubic-bezier(.68,-0.55,.27,1.55);
 }
 .overlay.show .popup{transform:scale(1)}
 
@@ -570,6 +570,32 @@ h1{
 @media(max-width:600px){
   #sidebar{width:130px;padding:8px 6px}
   .pop-btn{font-size:12px;padding:9px 18px}
+}
+
+/* ── CORRECT / WRONG SLOT FEEDBACK ──────────────────────────── */
+.result-slot.wrong{
+  border-color:var(--red) !important;
+  border-style:solid !important;
+  background:rgba(231,76,60,0.12) !important;
+  box-shadow:0 0 18px rgba(231,76,60,0.4) !important;
+  animation:wrongShake 0.45s ease-in-out;
+}
+.result-slot.correct{
+  border-color:var(--green) !important;
+  border-style:solid !important;
+  background:rgba(39,174,96,0.1) !important;
+  box-shadow:0 0 14px rgba(39,174,96,0.35) !important;
+}
+.wrong-card{
+  border-color:var(--red) !important;
+  box-shadow:0 0 16px rgba(231,76,60,0.5) !important;
+}
+@keyframes wrongShake{
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-7px)}
+  40%{transform:translateX(7px)}
+  60%{transform:translateX(-5px)}
+  80%{transform:translateX(5px)}
 }
 </style>
 </head>
@@ -807,7 +833,7 @@ const TOOLS_ACT={
     {id:'tape',emoji:'📏',label:'Tape Strip',count:2},
   ],
   2:[
-    {id:'coin',emoji:'🪙',label:'Coin',count:8},
+    {id:'coin',emoji:'🪙',label:'Coin',count:6},
   ],
   3:[]
 };
@@ -1234,7 +1260,7 @@ function handleAct1Drop(pos,cvr){
   toast(`Placed! ${act1Filled}/${ACT1_SLOTS} slots filled`);
 
   if(act1Filled>=ACT1_SLOTS){
-    setTimeout(()=>showPopup('pop-a1'),700);
+    setTimeout(()=>showPopup('pop-a1'),1400);
   }
 }
 
@@ -1287,7 +1313,7 @@ function handleAct2Drop(pos,cvr){
   if(act2Coins>=ACT2_TARGET){
     myBridgeCoins=act2Coins;
     document.getElementById('coins-held').textContent=act2Coins;
-    setTimeout(()=>showPopup('pop-a2'),600);
+    setTimeout(()=>showPopup('pop-a2'),1400);
   }
 }
 
@@ -1307,18 +1333,21 @@ function updateMeter(n){
 // ─────────────────────────────────────────────────────────────
 function handleCardDrop(slot){
   if(!dragData||!dragData.isCard)return;
-  if(slot.querySelector('.compare-card')){toast('This slot is taken!');return;}
+  if(slot.querySelector('.compare-card,.placed-card')){toast('This slot is taken!');return;}
 
   const card=dragData.cardEl.cloneNode(true);
   card.style.cursor='default';
   card.classList.add('placed-card','active');
   card.style.cssText='cursor:default;border:none;padding:4px;min-width:unset;width:100%;background:transparent';
+  // Preserve dataset from original card
+  card.dataset.id=dragData.bridge.id;
+  card.dataset.coins=dragData.bridge.coins;
 
   // Remove rank label from slot before inserting card
   slot.innerHTML='';
   slot.appendChild(card);
   slot.classList.add('placed');
-  slot.classList.remove('hot');
+  slot.classList.remove('hot','wrong','correct');
 
   // Hide original card
   dragData.cardEl.style.visibility='hidden';
@@ -1343,28 +1372,78 @@ function checkRanking(){
   slots.forEach((slot,i)=>{
     const card=slot.querySelector('.compare-card,.placed-card');
     if(!card)return;
-    const cid=card.dataset.id||card.querySelector('[data-id]')?.dataset.id;
-    // Check by coins value
-    const coinVal=parseInt(card.querySelector('.cc-val')?.textContent)||0;
-    if(coinVal!==allBridges[i].coins) allCorrect=false;
+    const coinVal=parseInt(card.dataset.coins||card.querySelector('.cc-val')?.textContent)||0;
+    const isCorrect=coinVal===allBridges[i].coins;
+    if(!isCorrect){
+      allCorrect=false;
+      // Mark slot and card as wrong
+      slot.classList.add('wrong');
+      card.classList.add('wrong-card');
+    } else {
+      slot.classList.remove('wrong');
+      card.classList.remove('wrong-card');
+      slot.classList.add('correct');
+    }
   });
 
-  // Add winner tag to highest
-  const lastSlot=slots[slots.length-1];
-  const winCard=lastSlot.querySelector('.compare-card,.placed-card');
-  if(winCard){
-    const tag=document.createElement('div');tag.className='winner-tag';
-    tag.textContent='STRONGEST! 🏆';winCard.appendChild(tag);
-    document.getElementById('winner-name').textContent=winCard.querySelector('.cc-name')?.textContent||'Your Bridge';
+  if(allCorrect){
+    // Add winner tag to highest
+    const lastSlot=slots[slots.length-1];
+    const winCard=lastSlot.querySelector('.compare-card,.placed-card');
+    if(winCard){
+      // Remove any existing winner tag
+      winCard.querySelector('.winner-tag')?.remove();
+      const tag=document.createElement('div');tag.className='winner-tag';
+      tag.textContent='STRONGEST! 🏆';winCard.appendChild(tag);
+      document.getElementById('winner-name').textContent=winCard.querySelector('.cc-name')?.textContent||'Your Bridge';
+    }
+    document.getElementById('complete-btn').style.display='inline-block';
+    toast('Perfect ranking! 🎉');
+    document.getElementById('speech').innerHTML='<b>Excellent!</b> Perfect order! Click <em>See Results</em> to finish! 🏆';
+  } else {
+    // Show feedback and allow rearranging
+    document.getElementById('complete-btn').style.display='none';
+    toast('Some cards are in the wrong order — try again! ❌');
+    document.getElementById('speech').innerHTML='<b>Not quite!</b> Red slots are <em>wrong</em>. Drag the cards back and try a new order! 🔄';
+    // Allow cards to be moved back out of wrong slots after a short delay
+    setTimeout(()=>{
+      slots.forEach(slot=>{
+        if(slot.classList.contains('wrong')){
+          const card=slot.querySelector('.compare-card,.placed-card');
+          if(card){
+            // Re-enable dragging on wrong cards
+            card.style.cursor='grab';
+            card.classList.remove('placed-card');
+            card.classList.add('compare-card');
+            const bridgeId=card.dataset.id;
+            const bridge=([{id:'mine',name:'My Bridge',emoji:'🍝',coins:myBridgeCoins,label:`${myBridgeCoins} coins`},...otherBridges]).find(b=>b.id===bridgeId);
+            if(bridge){
+              card.addEventListener('mousedown',e=>startDragCard(e,bridge,card));
+              card.addEventListener('touchstart',e=>startDragCard(e,bridge,card),{passive:false});
+            }
+          }
+          slot.innerHTML='';
+          slot.classList.remove('placed','wrong');
+          const i=parseInt(slot.dataset.rank);
+          const rankWord=i===0?'WEAKEST':i===slots.length-1?'STRONGEST':'MIDDLE';
+          slot.innerHTML=`<span class="rs-rank-num">${i+1}</span><span class="rs-label">${rankWord}</span>`;
+          // Re-add card to source area
+          if(card){
+            const cardRow=document.querySelector('#score-area > div[style*="flex"]');
+            if(cardRow){card.style.visibility='visible';cardRow.appendChild(card);}
+          }
+          slot.addEventListener('mouseenter',()=>{if(dragData&&dragData.isCard)slot.classList.add('hot')});
+          slot.addEventListener('mouseleave',()=>slot.classList.remove('hot'));
+        }
+      });
+      act3Done=[...slots].filter(s=>s.classList.contains('placed')).length;
+    },1800);
   }
-
-  document.getElementById('complete-btn').style.display='inline-block';
-  toast(allCorrect?'Perfect ranking! 🎉':'Ranking placed — check results!');
 }
 
 function showFinalResults(){
   spawnConfetti();
-  setTimeout(()=>showPopup('pop-final'),400);
+  setTimeout(()=>showPopup('pop-final'),900);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1386,7 +1465,7 @@ let toastT;
 function toast(msg){
   const t=document.getElementById('toast');
   t.textContent=msg;t.classList.add('show');
-  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),3200);
 }
 
 // ─────────────────────────────────────────────────────────────

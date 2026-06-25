@@ -645,16 +645,26 @@ function updateProgress() {
 
 // ===== DRAG-DROP HELPERS =====
 let dragData = null;
+let _dragSourceEl = null;   // the actual element being dragged from pool
+let _dragDropped = false;   // whether it was successfully dropped
 
 function makeDraggable(el, data) {
   el.draggable = true;
   el.addEventListener('dragstart', e => {
     dragData = data;
+    _dragSourceEl = el;
+    _dragDropped = false;
     e.dataTransfer.effectAllowed = 'move';
-    setTimeout(() => el.style.opacity = '0.4', 0);
+    // Hide after a tick so the browser can snapshot it
+    setTimeout(() => { if (el.parentNode) el.style.visibility = 'hidden'; }, 0);
   });
   el.addEventListener('dragend', e => {
-    el.style.opacity = '';
+    el.style.visibility = '';
+    // If it was never dropped into a zone, show it again in its original place
+    if (!_dragDropped && el.parentNode) {
+      el.style.visibility = '';
+    }
+    _dragSourceEl = null;
   });
   // Touch support
   el.addEventListener('touchstart', touchStart, {passive:true});
@@ -671,6 +681,7 @@ function touchStart(e) {
   _touchClone.style.cssText = `position:fixed;z-index:9999;pointer-events:none;opacity:0.85;
     width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;transition:none;`;
   document.body.appendChild(_touchClone);
+  _touchEl.style.visibility = 'hidden';
 }
 function touchMove(e) {
   e.preventDefault();
@@ -689,13 +700,17 @@ function touchMove(e) {
 function touchEnd(e) {
   if (!_touchClone) return;
   const t = e.changedTouches[0];
+  let dropped = false;
   document.querySelectorAll('.drop-zone,.tree-slot,.flow-node.drop-node').forEach(dz => {
     dz.classList.remove('over');
     const r = dz.getBoundingClientRect();
     if (t.clientX > r.left && t.clientX < r.right && t.clientY > r.top && t.clientY < r.bottom) {
       dz._dropHandler && dz._dropHandler(_touchEl._dragData || _touchData);
+      dropped = true;
     }
   });
+  // If no drop zone caught it, restore the original element visibility
+  if (!dropped && _touchEl) _touchEl.style.visibility = '';
   _touchClone.remove(); _touchClone = null;
 }
 
@@ -703,7 +718,16 @@ function makeDropZone(el, handler) {
   el._dropHandler = handler;
   el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('over'); });
   el.addEventListener('dragleave', () => el.classList.remove('over'));
-  el.addEventListener('drop', e => { e.preventDefault(); el.classList.remove('over'); handler(dragData); });
+  el.addEventListener('drop', e => {
+    e.preventDefault();
+    el.classList.remove('over');
+    _dragDropped = true;
+    // Remove the source element from the pool — it's now "placed"
+    if (_dragSourceEl && _dragSourceEl.parentNode) {
+      _dragSourceEl.remove();
+    }
+    handler(dragData);
+  });
 }
 
 // ===== RENDER ENGINE =====
@@ -834,6 +858,9 @@ function createChip(text, cls) {
 }
 
 function returnChipToPool(text, pool, type, ri) {
+  // Guard: don't add if already present in pool
+  const existing = Array.from(pool.children).find(c => c._dragData && c._dragData.text === text && c._dragData.type === type);
+  if (existing) return;
   const el = createChip(text, type === 'if' ? 'if-chip' : 'then-chip');
   el._dragData = {text, type, act1row: ri};
   makeDraggable(el, {text, type, act1row: ri});
@@ -958,9 +985,6 @@ function createTreeChip(step) {
   el.innerHTML = `${step.icon} ${step.label}`;
   el._dragData = {act:2, text: step.label};
   makeDraggable(el, {act:2, text: step.label});
-  el.addEventListener('touchstart', touchStart, {passive:true});
-  el.addEventListener('touchmove', touchMove, {passive:false});
-  el.addEventListener('touchend', touchEnd);
   return el;
 }
 

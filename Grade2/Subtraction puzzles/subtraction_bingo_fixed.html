@@ -1257,36 +1257,77 @@ function handleDropAct2(zone, value, tile) {
 }
 
 // ════════════════════════════════════════════════════
-//  ACTIVITY 3: BINGO
+//  ACTIVITY 3: SUBTRACTION BINGO — FIXED
+//  Strategy:
+//   • 8 questions, all with UNIQUE answers
+//   • Board is 4×4 with those 8 answers + 8 fillers
+//   • The 8 question-answers are placed so they cover
+//     exactly ONE guaranteed bingo line (diagonal) PLUS
+//     4 other spread cells — students just need to solve
+//     the 4 diagonal questions to win BINGO
 // ════════════════════════════════════════════════════
-// 4x4 board, questions produce answers that go on board
+
+// All 8 questions have unique answers
 const bingoQuestions = [
-  { q: '18 − 5 =', answer: 13 },
-  { q: '20 − 8 =', answer: 12 },
+  { q: '18 − 5 =',  answer: 13 },
+  { q: '20 − 8 =',  answer: 12 },
   { q: '35 − 14 =', answer: 21 },
   { q: '45 − 20 =', answer: 25 },
-  { q: '30 − 7 =', answer: 23 },
-  { q: '27 − 15 =', answer: 12 }, // dup ok, board has both
+  { q: '30 − 7 =',  answer: 23 },
   { q: '40 − 18 =', answer: 22 },
   { q: '50 − 30 =', answer: 20 },
+  { q: '27 − 9 =',  answer: 18 },
 ];
 
-// 4x4 board numbers (16 cells), some are correct answers, rest are fillers
-const boardNumbers = [13, 12, 21, 25, 23, 22, 20, 7, 9, 11, 15, 18, 3, 26, 4, 16];
-shuffleArr(boardNumbers);
+// The 4 diagonal positions (indices 0,5,10,15 in a flat 4×4)
+// will be filled with answers from questions 0,1,2,3
+// so students can always win by solving those 4.
+// The other 4 question answers fill random off-diagonal spots.
+// Filler numbers are chosen to NOT match any question answer.
+const fillerNumbers = [7, 9, 11, 3, 26, 4, 16, 6];
 
-let bingoCellFilled = {}; // cellValue → true
-let bingoQSolved = {};    // qIdx → true
+let boardNumbers = [];   // flat 16 array, index = board position
+let bingoCellFilled = {}; // position index → true
 let bingoWin = false;
 
+function buildBingoBoard() {
+  // Diagonal positions: 0, 5, 10, 15
+  const diagPositions = [0, 5, 10, 15];
+  // Off-diagonal positions for remaining 4 question answers
+  const offDiag = [1,2,3,4,6,7,8,9,11,12,13,14];
+  shuffleArr(offDiag);
+  const offDiagPicked = offDiag.slice(0, 4);
+
+  // Question answer positions
+  const qPositions = new Array(8);
+  diagPositions.forEach((pos, i) => { qPositions[i] = pos; });
+  offDiagPicked.forEach((pos, i) => { qPositions[4 + i] = pos; });
+
+  // Build flat board
+  boardNumbers = new Array(16).fill(null);
+  bingoQuestions.forEach((bq, i) => {
+    boardNumbers[qPositions[i]] = bq.answer;
+  });
+  // Fill remaining slots with fillers
+  let fi = 0;
+  for (let i = 0; i < 16; i++) {
+    if (boardNumbers[i] === null) boardNumbers[i] = fillerNumbers[fi++];
+  }
+}
+
 function buildAct3() {
+  buildBingoBoard();
+  bingoCellFilled = {};
+  bingoWin = false;
+  act3Solved = 0;
+
   const container = document.getElementById('act3-content');
   container.innerHTML = '';
 
   const area = document.createElement('div');
   area.className = 'bingo-area';
 
-  // Bingo Board
+  // ── Bingo Board ──
   const boardWrap = document.createElement('div');
   const bingoHdr = document.createElement('div');
   bingoHdr.className = 'bingo-header';
@@ -1296,15 +1337,14 @@ function buildAct3() {
   const board = document.createElement('div');
   board.className = 'bingo-board';
 
-  boardNumbers.forEach(num => {
+  boardNumbers.forEach((num, posIdx) => {
     const cell = document.createElement('div');
-    cell.className = 'bingo-cell empty-cell';
-    cell.id = `bcell-${num}`;
-    cell.dataset.num = num;
-    // Make cells accept drops
-    cell.classList.add('drop-zone');
-    cell.dataset.correct = num;
-    cell.dataset.activity = '3b'; // board cell
+    cell.className = 'bingo-cell empty-cell drop-zone';
+    cell.id = `bcell-${posIdx}`;           // ID by position, not value
+    cell.dataset.pos = posIdx;             // position on board
+    cell.dataset.num = num;                // the number shown
+    cell.dataset.correct = num;            // what value must be dropped here
+    cell.dataset.activity = '3b';
     const cn = document.createElement('div');
     cn.className = 'cell-num';
     cn.textContent = num;
@@ -1316,7 +1356,7 @@ function buildAct3() {
   boardWrap.appendChild(board);
   area.appendChild(boardWrap);
 
-  // Questions panel
+  // ── Questions Panel ──
   const qPanel = document.createElement('div');
   qPanel.className = 'bingo-questions';
   const ql = document.createElement('div');
@@ -1334,35 +1374,28 @@ function buildAct3() {
     qt.textContent = bq.q;
     qRow.appendChild(qt);
 
-    // Result tile (appears after solving from bank)
-    // Actually: show a tile bank of answers. Drag from tile to board cell.
-    // The tile is shown in the question row as a drag-able chip after user computes.
-    // Simpler: show a tile in the question row directly.
     const tile = document.createElement('div');
-    tile.className = `drag-tile cyan-tile`;
-    tile.style.width = '46px'; tile.style.height = '36px';
+    tile.className = 'drag-tile cyan-tile';
+    tile.style.width = '46px';
+    tile.style.height = '36px';
     tile.style.fontSize = '0.85rem';
     tile.dataset.value = bq.answer;
     tile.id = `bq-tile-${idx}`;
     tile.textContent = '?';
-    // Reveal on click/drag to show answer first:
-    // Users need to "reveal" answer first — click tile to reveal, then drag to board
     tile.dataset.revealed = 'false';
     tile.style.cursor = 'pointer';
+
     tile.addEventListener('click', () => {
-      if (tile.dataset.revealed === 'false') {
+      if (tile.dataset.revealed === 'false' && !tile.classList.contains('used')) {
         tile.textContent = bq.answer;
         tile.dataset.revealed = 'true';
-        tile.dataset.value = bq.answer;
         makeTileDraggable(tile, String(bq.answer), '3');
-        showFeedback('feedback-bar-3', `💡 Answer is ${bq.answer}! Now drag it to the board!`, 'fb-info');
+        showFeedback('feedback-bar-3', `💡 Answer is ${bq.answer}! Drag it to that number on the board!`, 'fb-info');
         addScore(5);
       }
     });
     tile.addEventListener('mousedown', e => {
-      if (tile.dataset.revealed === 'false') {
-        e.stopPropagation();
-      }
+      if (tile.dataset.revealed === 'false') e.stopPropagation();
     });
 
     qRow.appendChild(tile);
@@ -1374,68 +1407,76 @@ function buildAct3() {
 }
 
 function handleDropAct3(zone, value, tile) {
-  // zone is a bingo board cell
-  const cellNum = String(zone.dataset.num);
-  if (String(value) === cellNum) {
+  const cellValue = String(zone.dataset.num);
+  const posIdx    = zone.dataset.pos;
+
+  if (String(value) === cellValue && !bingoCellFilled[posIdx]) {
     zone.classList.add('filled-cell');
-    zone.classList.remove('empty-cell','drag-over');
-    // Remove dashed border by reclassing
+    zone.classList.remove('empty-cell', 'drag-over');
     zone.style.cursor = 'default';
+    zone.classList.add('filled');          // prevent double-drop
     tile.classList.add('used');
-    bingoCellFilled[cellNum] = true;
+    bingoCellFilled[posIdx] = true;
     act3Solved++;
     addScore(20);
-    showFeedback('feedback-bar-3', `🎯 YES! ${value} is on the board!`, 'fb-success');
 
-    // Check for bingo (row/col/diag)
+    // Mark question row as solved
+    bingoQuestions.forEach((bq, idx) => {
+      if (String(bq.answer) === String(value) && !document.getElementById(`bq-${idx}`).classList.contains('solved')) {
+        document.getElementById(`bq-${idx}`).classList.add('solved');
+      }
+    });
+
+    showFeedback('feedback-bar-3', `🎯 YES! ${value} is on the board!`, 'fb-success');
     checkBingo();
 
-    if (act3Solved >= 6) {
+    if (act3Solved >= 4 && !bingoWin) {
+      // Progress hint
+      showFeedback('feedback-bar-3', `🔥 ${act3Solved} placed — keep going, BINGO is close!`, 'fb-info');
+    }
+    if (act3Solved >= 6 && !bingoWin) {
       setTimeout(() => {
         document.getElementById('next-btn-3').classList.add('visible');
-        if (!bingoWin) showFeedback('feedback-bar-3','🌟 Fantastic! Ready to collect your trophy!','fb-success');
       }, 500);
     }
+  } else if (bingoCellFilled[posIdx]) {
+    showFeedback('feedback-bar-3', `💡 That cell is already filled!`, 'fb-wrong');
   } else {
     zone.classList.add('wrong');
     setTimeout(() => zone.classList.remove('wrong'), 600);
-    showFeedback('feedback-bar-3', `💡 That number isn't there! Try another cell!`, 'fb-wrong');
+    showFeedback('feedback-bar-3', `💡 That number isn't there — check the board again!`, 'fb-wrong');
     addScore(-2);
   }
 }
 
 function checkBingo() {
   if (bingoWin) return;
-  const board = boardNumbers; // flat 16
-  const grid = [];
-  for (let r = 0; r < 4; r++) grid.push(board.slice(r*4, r*4+4));
 
-  const check = (cells) => cells.every(n => bingoCellFilled[String(n)]);
-  let win = false;
+  // Build a 4×4 grid of filled positions
+  const filled = pos => !!bingoCellFilled[pos];
+  const rows = [[0,1,2,3],[4,5,6,7],[8,9,10,11],[12,13,14,15]];
+  const cols = [[0,4,8,12],[1,5,9,13],[2,6,10,14],[3,7,11,15]];
+  const diags = [[0,5,10,15],[3,6,9,12]];
 
-  // Rows
-  for (let r = 0; r < 4; r++) if (check(grid[r])) { win=true; highlightBingoLine(grid[r]); }
-  // Cols
-  for (let c = 0; c < 4; c++) if (check(grid.map(r=>r[c]))) { win=true; highlightBingoLine(grid.map(r=>r[c])); }
-  // Diags
-  if (check([grid[0][0],grid[1][1],grid[2][2],grid[3][3]])) {
-    win=true; highlightBingoLine([grid[0][0],grid[1][1],grid[2][2],grid[3][3]]);
-  }
-  if (check([grid[0][3],grid[1][2],grid[2][1],grid[3][0]])) {
-    win=true; highlightBingoLine([grid[0][3],grid[1][2],grid[2][1],grid[3][0]]);
+  const check = line => line.every(filled);
+
+  let winLine = null;
+  for (const line of [...rows, ...cols, ...diags]) {
+    if (check(line)) { winLine = line; break; }
   }
 
-  if (win && !bingoWin) {
+  if (winLine) {
     bingoWin = true;
+    highlightBingoLine(winLine);
     addScore(50);
-    showFeedback('feedback-bar-3','🎊 BINGO! 4 in a row! AMAZING!','fb-success');
-    document.getElementById('next-btn-3').classList.add('visible');
+    showFeedback('feedback-bar-3', '🎊 BINGO! 4 in a row! INCREDIBLE!', 'fb-success');
+    setTimeout(() => document.getElementById('next-btn-3').classList.add('visible'), 400);
   }
 }
 
-function highlightBingoLine(nums) {
-  nums.forEach(n => {
-    const el = document.getElementById(`bcell-${n}`);
+function highlightBingoLine(positions) {
+  positions.forEach(pos => {
+    const el = document.getElementById(`bcell-${pos}`);
     if (el) el.classList.add('bingo-win');
   });
 }
@@ -1500,7 +1541,8 @@ function spawnConfetti() {
 function resetAll() {
   score = 0;
   act1Solved = 0; act2Solved = 0; act3Solved = 0;
-  bingoCellFilled = {}; bingoQSolved = {}; bingoWin = false;
+  bingoCellFilled = {}; bingoWin = false;
+  boardNumbers = [];
   act1DropFills = {};
   document.getElementById('score-val').textContent = '0';
 

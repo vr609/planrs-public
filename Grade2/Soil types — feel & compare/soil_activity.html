@@ -435,6 +435,8 @@ html, body {
   position:absolute; inset:0;
   display:flex; align-items:center; justify-content:center;
   z-index:2;
+  background:none !important;
+  border:none !important;
 }
 .water-level {
   position:absolute; bottom:0; left:0; right:0; border-radius:0 0 9px 9px;
@@ -454,7 +456,7 @@ html, body {
 .drain-indicator {
   position:absolute; bottom:0; left:50%; transform:translateX(-50%);
   font-size:11px; font-weight:800; color:rgba(255,255,255,0.9);
-  text-shadow:0 1px 3px rgba(0,0,0,0.5); z-index:3;
+  text-shadow:0 1px 3px rgba(0,0,0,0.5); z-index:4;
   opacity:0; transition:opacity 0.5s;
   font-family:'Fredoka One'; letter-spacing:0.04em;
 }
@@ -732,7 +734,7 @@ html, body {
                 <div class="tank-drop-area drop-zone" id="drop-w-sandy" data-accept="sandy">
                   <span class="zone-placeholder">DROP<br>HERE</span>
                 </div>
-                <div class="drain-indicator" id="di-sandy">DRAINS FAST!</div>
+                <div class="drain-indicator" id="di-sandy"></div>
                 <div class="drain-arrows" id="da-sandy">
                   <div class="drain-arrow">▼</div>
                   <div class="drain-arrow">▼</div>
@@ -748,7 +750,7 @@ html, body {
                 <div class="tank-drop-area drop-zone" id="drop-w-clay" data-accept="clay">
                   <span class="zone-placeholder">DROP<br>HERE</span>
                 </div>
-                <div class="drain-indicator" id="di-clay">HOLDS WATER!</div>
+                <div class="drain-indicator" id="di-clay"></div>
               </div>
               <div class="absorption-result" id="res-clay"></div>
             </div>
@@ -759,7 +761,7 @@ html, body {
                 <div class="tank-drop-area drop-zone" id="drop-w-loamy" data-accept="loamy">
                   <span class="zone-placeholder">DROP<br>HERE</span>
                 </div>
-                <div class="drain-indicator" id="di-loamy">PERFECT MIX!</div>
+                <div class="drain-indicator" id="di-loamy"></div>
               </div>
               <div class="absorption-result" id="res-loamy"></div>
             </div>
@@ -844,7 +846,7 @@ html, body {
     <div class="popup-fact">
       🌱 <strong>You learned:</strong> Sandy = rough &amp; gritty · Clayey = smooth &amp; sticky · Loamy = soft, dark &amp; best for farming! <strong>"Sandy feels rough, clay sticks like glue, loamy is the best — plants love it too!"</strong>
     </div>
-    <button class="popup-cta" onclick="location.reload()">PLAY AGAIN 🌿</button>
+    <button class="popup-cta" onclick="restartAll()">PLAY AGAIN 🌿</button>
   </div>
 </div>
 
@@ -1073,9 +1075,17 @@ function dropAct2(zone, soil, accept) {
     return;
   }
   zone.dataset.filled = '1';
-  zone.classList.add('correct');
-  zone.querySelector('.zone-placeholder').style.display = 'none';
-  zone.innerHTML += buildFilledToken(soil, true);
+  // Fully neutralise the drop zone — remove every visible trace
+  zone.innerHTML = '';
+  zone.className = '';  // strip drop-zone / correct / drag-over classes
+  zone.style.cssText = 'position:absolute;inset:0;background:none;border:none;pointer-events:none;';
+
+  // Insert filled token as a centred sibling inside the tank (above water, below drain text)
+  const tokenWrap = document.createElement('div');
+  tokenWrap.className = 'tank-token-wrap';
+  tokenWrap.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2;pointer-events:none;';
+  tokenWrap.innerHTML = buildFilledToken(soil, true);
+  zone.parentElement.appendChild(tokenWrap);
 
   // Animate water
   const cfg = waterConfig[soil];
@@ -1288,6 +1298,113 @@ const messages = {
   correct: ['✅ Correct! Great job!','🌟 Yes! That\'s right!','🎉 Spot on!','👏 Excellent match!','🌿 Perfect!'],
   wrong:   ['❌ Not quite — try again!','🤔 Hmm, look at the clues!','💡 Check the description and try again!'],
 };
+
+// ═══════════════════════════════════════════
+//  RESTART — full JS reset, no page reload
+// ═══════════════════════════════════════════
+function restartAll() {
+  // ── 1. Hide final popup ──────────────────────────────────────────────────
+  const pf = document.getElementById('popupFinal');
+  pf.classList.remove('show');
+  pf.style.display = 'none';
+
+  // ── 2. Reset all global state ────────────────────────────────────────────
+  score = 0;
+  draggedEl = null; draggedSoil = null;
+  act1Done = false; act2Done = false; act3Done = false;
+  act2Placed.sandy = false; act2Placed.clay = false; act2Placed.loamy = false;
+  act2Count = 0;
+  act3Correct = 0;
+
+  // ── 3. Reset score display ───────────────────────────────────────────────
+  document.getElementById('scoreDisplay').textContent = '0';
+
+  // ── 4. Reset progress dots ───────────────────────────────────────────────
+  document.getElementById('dot1').className = 'prog-dot active';
+  document.getElementById('dot2').className = 'prog-dot';
+  document.getElementById('dot3').className = 'prog-dot';
+
+  // ── 5. Show act1, hide act2 / act3 ──────────────────────────────────────
+  document.getElementById('act1').classList.remove('hidden');
+  document.getElementById('act2').classList.add('hidden');
+  document.getElementById('act3').classList.add('hidden');
+
+  // ── 6. Hide all next-buttons ─────────────────────────────────────────────
+  ['nextBtn1','nextBtn2','nextBtn3'].forEach(id =>
+    document.getElementById(id).classList.remove('show')
+  );
+
+  // ── 7. Clear feedback bars ───────────────────────────────────────────────
+  ['fb1','fb2','fb3'].forEach(id => {
+    const el = document.getElementById(id);
+    el.textContent = '';
+    el.className = 'feedback-bar';
+  });
+
+  // ── 8. Reset Activity 1 drop zones & tokens ──────────────────────────────
+  ['drop-t-sandy','drop-t-clay','drop-t-loamy'].forEach(id => {
+    const z = document.getElementById(id);
+    delete z.dataset.filled;
+    z.className = 'drop-zone texture-drop';
+    z.innerHTML = '<span class="zone-placeholder">DROP HERE</span>';
+  });
+  ['tok-sandy-1','tok-clay-1','tok-loamy-1'].forEach(id => {
+    const t = document.getElementById(id);
+    t.style.opacity = '1';
+    t.style.pointerEvents = '';
+  });
+
+  // ── 9. Reset Activity 2 water tanks & tokens ─────────────────────────────
+  ['sandy','clay','loamy'].forEach(soil => {
+    // Water level back to 0
+    const wl = document.getElementById('wl-'+soil);
+    if (wl) wl.style.height = '0';
+
+    // Drain indicator hidden + text cleared
+    const di = document.getElementById('di-'+soil);
+    if (di) { di.classList.remove('show'); di.textContent = ''; }
+
+    // Drain arrows hidden (sandy only)
+    const da = document.getElementById('da-'+soil);
+    if (da) da.classList.remove('show');
+
+    // Result text cleared
+    const res = document.getElementById('res-'+soil);
+    if (res) res.textContent = '';
+
+    // Drop zone reset — restore original classes/styles and placeholder text
+    const dz = document.getElementById('drop-w-'+soil);
+    if (dz) {
+      delete dz.dataset.filled;
+      dz.className = 'tank-drop-area drop-zone';
+      dz.style.cssText = '';            // clear all inline overrides
+      dz.innerHTML = '<span class="zone-placeholder">DROP<br>HERE</span>';
+    }
+    // Remove sibling token wrappers injected by dropAct2
+    const tank = document.getElementById('tank-'+soil);
+    if (tank) tank.querySelectorAll('.tank-token-wrap').forEach(n => n.remove());
+
+    // Source token opacity reset
+    const tok2 = document.getElementById('tok-'+soil+'-2');
+    if (tok2) { tok2.style.opacity = '1'; tok2.style.pointerEvents = ''; }
+  });
+
+  // ── 10. Reset Activity 3 (clear generated HTML; initAct3 rebuilds it) ────
+  document.getElementById('propPool').innerHTML = '';
+  document.getElementById('matchCols').innerHTML = '';
+  document.getElementById('fb3').textContent = '';
+
+  // ── 11. Re-shuffle Act1 tokens in source ─────────────────────────────────
+  const src1 = document.getElementById('source1');
+  Array.from(src1.children)
+    .sort(() => Math.random() - 0.5)
+    .forEach(el => src1.appendChild(el));
+
+  // ── 12. Show intro popup ─────────────────────────────────────────────────
+  const intro = document.getElementById('introPopup');
+  intro.style.display = 'flex';
+  requestAnimationFrame(() => intro.classList.add('show'));
+}
 
 function buildFilledToken(soil, small=false) {
   const map = {

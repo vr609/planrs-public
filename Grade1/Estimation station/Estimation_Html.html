@@ -1103,9 +1103,135 @@ function showFinalCelebration(scoreMsg) {
   document.getElementById('popup-title').textContent = 'Estimation Champion!';
   document.getElementById('popup-msg').textContent = (scoreMsg ? scoreMsg + ' ' : '') + 'You completed all 3 activities! You are an amazing estimator. Keep using your maths brain every day!';
   document.getElementById('popup-btn').textContent = '🎊 Play Again!';
-  document.getElementById('popup-btn').onclick = () => location.reload();
+  document.getElementById('popup-btn').onclick = () => restartAll();
   document.getElementById('popup-overlay').classList.add('show');
   spawnConfetti(100);
+}
+
+// ═══════════════════════════════════════════════
+//  RESTART — full JS reset, no page reload
+// ═══════════════════════════════════════════════
+function restartAll() {
+  /* 1. Hide popup */
+  hidePopup();
+
+  /* 2. Reset all state variables */
+  currentActivity = 1;
+  act1Answer  = null;
+  act1Correct = null;
+  act1Guessed = null;
+  act2Data    = {};
+  act3Results = [];
+  act3Placed  = {};
+  dragSrcEl   = null;
+  dragSrcId   = null;
+
+  /* 3. Progress dots & lines back to start */
+  for (let i = 1; i <= 3; i++) {
+    const dot = document.getElementById('pd' + i);
+    dot.classList.remove('done', 'active');
+    const icons = { 1: '\u{1F52E}', 2: '\u{1F31F}', 3: '\u{1F3C6}' };
+    dot.textContent = icons[i];
+    if (i < 3) document.getElementById('pl' + i).classList.remove('done');
+  }
+  document.getElementById('pd1').classList.add('active');
+
+  /* 4. Show activity 1, hide others */
+  showActivity(1);
+
+  /* 5. Clear all feedback */
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('fb2').textContent = '';
+  document.getElementById('fb3').textContent = '';
+
+  /* 6. Rebuild Activity 1 with a fresh random jar */
+  const bc = document.getElementById('beans-container');
+  bc.innerHTML = '';
+
+  // Remove old choice chips
+  const choicesWrap = document.getElementById('choices-wrap');
+  [...choicesWrap.children].forEach(child => {
+    if (child.id !== 'drop-zone-1' && child.id !== 'submit-btn-1' &&
+        !child.textContent.includes('Choose a number')) {
+      child.remove();
+    }
+  });
+
+  // Reset submit button
+  const sb1 = document.getElementById('submit-btn-1');
+  sb1.style.display = 'none';
+  sb1.disabled = false;
+
+  // Fresh random bean count
+  const beanCount = 12 + Math.floor(Math.random() * 9);
+  act1Correct = beanCount;
+  const beanColors = ['#f783ac','#9b5de5','#4dabf7','#69db7c','#ffd43b','#ff8787','#c77dff','#38d9a9'];
+  for (let i = 0; i < beanCount; i++) {
+    const b = document.createElement('div');
+    b.className = 'bean';
+    b.style.background = beanColors[i % beanColors.length];
+    b.style.setProperty('--delay', (2 + Math.random() * 3) + 's');
+    bc.appendChild(b);
+  }
+
+  // Fresh choice chips
+  const choicesSet = new Set([beanCount]);
+  while (choicesSet.size < 4) {
+    const offset = Math.floor(Math.random() * 7) - 3;
+    const v = beanCount + offset;
+    if (v > 0 && v !== beanCount) choicesSet.add(v);
+  }
+  const shuffled = [...choicesSet].sort(() => Math.random() - .5);
+
+  // Re-wire drop zone by replacing the node (clears stale listeners)
+  const oldDz = document.getElementById('drop-zone-1');
+  const newDz = document.createElement('div');
+  newDz.id = 'drop-zone-1';
+  newDz.setAttribute('data-dropzone', '1');
+  newDz.innerHTML = '<span>Drop your guess here!</span>';
+  oldDz.parentNode.replaceChild(newDz, oldDz);
+  newDz.addEventListener('dragover', dzOver);
+  newDz.addEventListener('dragleave', dzLeave);
+  newDz.addEventListener('drop', e => {
+    e.preventDefault(); newDz.classList.remove('drag-over');
+    if (!dragSrcEl) return;
+    const val = parseInt(dragSrcEl.getAttribute('data-val'));
+    placeChip(dragSrcEl, val);
+  });
+  newDz.addEventListener('touchdrop', e => {
+    const src = document.querySelector('[data-id="' + e.detail.id + '"]');
+    if (!src) return;
+    placeChip(src, parseInt(src.getAttribute('data-val')));
+  });
+
+  // Insert chips before the new drop zone
+  shuffled.forEach(num => {
+    const chip = document.createElement('div');
+    chip.className = 'choice-chip';
+    chip.textContent = num;
+    chip.setAttribute('data-id', 'chip-' + num);
+    chip.setAttribute('data-val', num);
+    makeDraggable(chip, 'chip-' + num);
+    choicesWrap.insertBefore(chip, newDz);
+  });
+
+  /* 7. Clear Act2 pools/buckets (rebuilt fresh when initAct2 runs) */
+  document.getElementById('items-pool').innerHTML = '';
+  document.getElementById('buckets-row').innerHTML = '';
+
+  /* 8. Clear Act3 chart drops and results pool cards */
+  ['drop-exact','drop-close','drop-far'].forEach(id => {
+    document.getElementById(id).innerHTML = '';
+  });
+  const rPool = document.getElementById('results-pool');
+  [...rPool.children].filter(c => c.tagName !== 'H3').forEach(c => c.remove());
+
+  /* 9. Remove any leftover confetti */
+  document.querySelectorAll('.confetti-piece').forEach(c => c.remove());
+
+  /* 10. Restore popup button to default next-activity handler */
+  document.getElementById('popup-btn').onclick = nextActivity;
+  document.getElementById('popup-btn').textContent = 'Next Activity →';
 }
 </script>
 </body>

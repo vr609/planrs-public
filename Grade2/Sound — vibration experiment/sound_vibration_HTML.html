@@ -940,6 +940,132 @@ html, body {
 
 <script>
 /* ═══════════════════════════════════════════
+   WEB AUDIO ENGINE
+   All sounds are synthesised — no external files.
+═══════════════════════════════════════════ */
+let _audioCtx = null;
+function getAudioCtx() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_audioCtx.state === 'suspended') _audioCtx.resume();
+  return _audioCtx;
+}
+
+/* --- Activity 1: Rubber-band / guitar string pluck ---
+   Each string gets a slightly different pitch so they sound distinct. */
+const stringFreqs = [196, 247, 294]; // G3, B3, D4
+let _pluckIdx = 0;
+function playStringPluck() {
+  const ctx = getAudioCtx();
+  const freq = stringFreqs[_pluckIdx % stringFreqs.length];
+  _pluckIdx++;
+
+  // Karplus-Strong-ish: noise burst filtered → decaying resonance
+  const bufSize = ctx.sampleRate * 0.5;
+  const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  const period = Math.round(ctx.sampleRate / freq);
+  // Fill one period with noise, then copy-smooth for the rest
+  for (let i = 0; i < period; i++) data[i] = Math.random() * 2 - 1;
+  for (let i = period; i < bufSize; i++) {
+    data[i] = 0.996 * (data[i - period] + data[i - period + 1]) * 0.5;
+  }
+
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.55, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
+  src.connect(gain);
+  gain.connect(ctx.destination);
+  src.start();
+  src.stop(ctx.currentTime + 0.95);
+}
+
+/* --- Activity 2: Metal glass struck with spoon ---
+   Bright inharmonic partials that decay quickly = glass/bell ring. */
+function playGlassStrike() {
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+  // Three partials for a glassy ring
+  [[880, 0.5], [1320, 0.3], [2200, 0.15]].forEach(([f, vol]) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(f, now);
+    gain.gain.setValueAtTime(vol, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.4);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 1.45);
+  });
+  // Short attack click to simulate impact
+  const noise = ctx.createOscillator();
+  const nGain = ctx.createGain();
+  noise.type = 'square';
+  noise.frequency.setValueAtTime(200, now);
+  nGain.gain.setValueAtTime(0.3, now);
+  nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+  noise.connect(nGain);
+  nGain.connect(ctx.destination);
+  noise.start(now);
+  noise.stop(now + 0.06);
+}
+
+/* --- Activity 3: Dholak skin beat ---
+   Deep low thud (kick-drum style) + short decay. */
+function playDholakBeat() {
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+  // Body: pitched sine that drops in frequency (like a drum)
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(180, now);
+  osc.frequency.exponentialRampToValueAtTime(55, now + 0.18);
+  gain.gain.setValueAtTime(1.0, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.52);
+  // Snap attack: noise burst
+  const bufSize = Math.floor(ctx.sampleRate * 0.04);
+  const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) d[i] = (Math.random() * 2 - 1);
+  const ns = ctx.createBufferSource();
+  ns.buffer = buf;
+  const ng = ctx.createGain();
+  ng.gain.setValueAtTime(0.4, now);
+  ng.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+  ns.connect(ng);
+  ng.connect(ctx.destination);
+  ns.start(now);
+  ns.stop(now + 0.05);
+}
+
+/* --- Celebration fanfare: plays on success popup --- */
+function playCelebration() {
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+  const melody = [523, 659, 784, 1047]; // C5 E5 G5 C6
+  melody.forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, now + i * 0.15);
+    gain.gain.setValueAtTime(0, now + i * 0.15);
+    gain.gain.linearRampToValueAtTime(0.4, now + i * 0.15 + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.45);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now + i * 0.15);
+    osc.stop(now + i * 0.15 + 0.5);
+  });
+}
+
+/* ═══════════════════════════════════════════
    BACKGROUND CANVAS — Stars, Wave Rings
 ═══════════════════════════════════════════ */
 (function() {
@@ -1218,6 +1344,10 @@ function checkCompletion(actNum) {
     document.getElementById('act3-canvas').classList.add('ready');
     document.getElementById('pd3').classList.add('active');
     document.getElementById('pd3').classList.add('done');
+    // Play dholak beat to match the vibrating skin animation
+    playDholakBeat();
+    setTimeout(playDholakBeat, 380);
+    setTimeout(playDholakBeat, 720);
   }
 }
 
@@ -1234,6 +1364,7 @@ function pluckString(e) {
   str.classList.remove('vibrating');
   void str.offsetWidth;
   str.classList.add('vibrating');
+  playStringPluck();
 
   // Animate path
   str.setAttribute('d', `M ${x} ${y1} Q ${x+offset} ${midY} ${x} ${y2}`);
@@ -1285,6 +1416,7 @@ function pluckString(e) {
 let strikeCount = 0;
 function strikeGlass() {
   strikeCount++;
+  playGlassStrike();
   const waves = document.getElementById('bell-waves');
   waves.style.opacity = '1';
   waves.style.transition = 'opacity .3s';
@@ -1355,7 +1487,7 @@ function startActivity(num) {
 
 function showPopup(id) {
   document.getElementById(id).classList.remove('hidden');
-  if (id === 'success-popup') spawnConfetti();
+  if (id === 'success-popup') { spawnConfetti(); playCelebration(); }
 }
 function closePopup(id) {
   document.getElementById(id).classList.add('hidden');
@@ -1383,8 +1515,120 @@ function spawnConfetti() {
 
 /* ── Restart ── */
 function restartAll() {
-  closePopup('success-popup');
-  location.reload();
+  // 1. Hide all popups
+  ['success-popup','popup1','popup2'].forEach(id => {
+    document.getElementById(id).classList.add('hidden');
+  });
+
+  // 2. Reset score / state variables
+  pluckCount  = 0;
+  strikeCount = 0;
+  _pluckIdx   = 0;
+
+  // 3. Reset placed tracking object
+  placed[1] = {}; placed[2] = {}; placed[3] = {};
+
+  // 4. Restore all draggable parts (remove placed/dragging)
+  document.querySelectorAll('.draggable-part').forEach(el => {
+    el.classList.remove('placed', 'dragging');
+  });
+
+  // 5. Restore all drop zones to original empty state
+  // Act 1
+  const dz1 = [
+    {id:'dz-box',   html:'Drop<br>Box Here'},
+    {id:'dz-band1', html:'Band<br>1'},
+    {id:'dz-band2', html:'Band<br>2'},
+    {id:'dz-band3', html:'Band<br>3'},
+  ];
+  dz1.forEach(({id, html}) => {
+    const z = document.getElementById(id);
+    z.className = 'drop-zone';
+    z.innerHTML = html;
+  });
+  // Act 2
+  const dz2 = [
+    {id:'dz-glass', html:'Glass<br>Here'},
+    {id:'dz-spoon', html:'Spoon<br>Here'},
+    {id:'dz-salt',  html:'Salt<br>Here'},
+    {id:'dz-hand',  html:'Hold<br>Here'},
+  ];
+  dz2.forEach(({id, html}) => {
+    const z = document.getElementById(id);
+    z.className = 'drop-zone';
+    z.innerHTML = html;
+  });
+  // Act 3
+  const dz3 = [
+    {id:'dz-dholak', html:'Dholak<br>Here'},
+    {id:'dz-dhand',  html:'Beat<br>Here'},
+    {id:'dz-waves',  html:'Waves<br>Here'},
+    {id:'dz-ear',    html:'Ear<br>Here'},
+  ];
+  dz3.forEach(({id, html}) => {
+    const z = document.getElementById(id);
+    z.className = 'drop-zone';
+    z.innerHTML = html;
+  });
+
+  // 6. Reset SVG elements — hide all built pieces
+  // Act 1
+  ['gbox','gstrings'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.style.opacity='0'; el.style.pointerEvents='none'; }
+  });
+  // Restore string paths to straight lines, remove listeners
+  document.querySelectorAll('.guitar-string').forEach(s => {
+    s.classList.remove('vibrating');
+    const x  = s.getAttribute('data-x');
+    const y1 = s.getAttribute('data-y1');
+    const y2 = s.getAttribute('data-y2');
+    s.setAttribute('d', `M ${x} ${y1} L ${x} ${y2}`);
+    // Re-cloning to strip old event listeners cleanly
+    const fresh = s.cloneNode(true);
+    s.parentNode.replaceChild(fresh, s);
+  });
+  // Act 2
+  ['bg-glass','bg-spoon','bg-salt','bg-hand','bg-salt-top','bell-waves'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.style.opacity='0'; el.style.transform=''; }
+  });
+  document.getElementById('salt-grains-container').innerHTML = '';
+  // Act 3
+  ['dg-dholak','dg-hand','dg-waves','dg-ear','dg-vibskin'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.opacity = '0';
+  });
+
+  // 7. Hide fact bubbles, buttons, hints
+  document.getElementById('fact1').style.display = 'none';
+  document.getElementById('fact2').style.display = 'none';
+  document.getElementById('fact3').style.display = 'none';
+  document.getElementById('next-btn').style.display   = 'none';
+  document.getElementById('next-btn2').style.display  = 'none';
+  document.getElementById('strike-btn').style.display = 'none';
+  document.getElementById('finish-btn').style.display = 'none';
+  document.getElementById('pluck-hint').style.display = 'none';
+
+  // 8. Reset canvas ready states
+  ['act1-canvas','act2-canvas','act3-canvas'].forEach(id => {
+    document.getElementById(id).classList.remove('ready');
+  });
+
+  // 9. Reset progress dots
+  document.getElementById('pd1').className = 'prog-dot active';
+  document.getElementById('pd2').className = 'prog-dot';
+  document.getElementById('pd3').className = 'prog-dot';
+
+  // 10. Switch to activity 1
+  document.querySelectorAll('.activity-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('act1').classList.add('active');
+
+  // 11. Clear confetti
+  document.getElementById('confetti-container').innerHTML = '';
+
+  // 12. Re-attach drag listeners (drop zones were swapped, events need rebinding)
+  initDrag();
 }
 
 /* ── Init ── */

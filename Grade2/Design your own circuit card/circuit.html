@@ -660,7 +660,7 @@ function makeDrag(el,data){
     const t=e.changedTouches[0];
     const tgt=document.elementFromPoint(t.clientX,t.clientY);
     const z=tgt&&tgt.closest('[data-dz]');
-    if(z&&dragObj)z.dispatchEvent(new CustomEvent('itemDrop',{detail:{d:dragObj}}));
+    if(z&&dragObj)z.dispatchEvent(new CustomEvent('itemDrop',{detail:{d:dragObj,clientX:t.clientX,clientY:t.clientY}}));
     dragObj=null;
   },{passive:false});
 }
@@ -669,8 +669,8 @@ function makeZone(el,onDrop){
   el.setAttribute('data-dz','1');
   el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('over');});
   el.addEventListener('dragleave',()=>el.classList.remove('over'));
-  el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('over');if(dragObj)onDrop(dragObj,el);});
-  el.addEventListener('itemDrop',e=>{el.classList.remove('over');onDrop(e.detail.d,el);});
+  el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('over');if(dragObj)onDrop(dragObj,el,{clientX:e.clientX,clientY:e.clientY});});
+  el.addEventListener('itemDrop',e=>{el.classList.remove('over');onDrop(e.detail.d,el,e.detail);});
 }
 
 // ══════════════════════════════════
@@ -687,10 +687,10 @@ const ACT1_PARTS=[
 ];
 
 const ACT1_ZONES=[
-  {id:'z-power',   label:'POWER ZONE',   color:'#c97bff', accepts:['battery']},
-  {id:'z-path',    label:'TRACK PATH',   color:'#ff8ecb', accepts:['wirepos','wireneg']},
-  {id:'z-light',   label:'LIGHT ZONE',   color:'#ffe566', accepts:['led']},
-  {id:'z-extras',  label:'EXTRAS',       color:'#87d9ff', accepts:['switch','deco']},
+  {id:'z-power',   icon:'🔋', label:'POWER ZONE',   sub:'Drop the Battery here',          color:'#c97bff', accepts:['battery']},
+  {id:'z-path',    icon:'🔴🔵', label:'TRACK PATH', sub:'Drop BOTH Tracks (+ and −) here', color:'#ff8ecb', accepts:['wirepos','wireneg']},
+  {id:'z-light',   icon:'💡', label:'LIGHT ZONE',   sub:'Drop the LED here',               color:'#ffe566', accepts:['led']},
+  {id:'z-extras',  icon:'🔌', label:'SWITCH & EXTRAS', sub:'Drop the Switch + any decos here', color:'#87d9ff', accepts:['switch','deco']},
 ];
 
 function renderAct1(){
@@ -699,19 +699,20 @@ function renderAct1(){
   const parts=shuffle(ACT1_PARTS);
   card.innerHTML=`<div class="card-shimmer"></div>
     <div class="act-title">✨ Step 1: Plan Your Circuit!</div>
-    <div class="act-desc">Drag each part to the right zone on the card template. Every circuit needs a power source, a path, and a light!</div>
+    <div class="act-desc">Every circuit card needs 5 must-have parts. Read each zone's label, then drag the matching part into it — a wrong part will bounce back so you can try again!</div>
     <div style="display:flex;gap:10px;align-items:flex-start;flex:1;">
       <div class="toolbox" id="a1-box"><div class="toolbox-title">🧰 PARTS</div></div>
       <div style="flex:1;display:flex;flex-direction:column;gap:7px;">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">
           ${ACT1_ZONES.map(z=>`
-            <div class="drop-zone" id="${z.id}" style="min-height:65px;">
-              <div class="zone-tag" style="background:linear-gradient(135deg,${z.color},${z.color}99)">${z.label}</div>
+            <div class="drop-zone" id="${z.id}" style="min-height:70px;">
+              <div class="zone-tag" style="background:linear-gradient(135deg,${z.color},${z.color}99)">${z.icon} ${z.label}</div>
+              <div class="zone-sub" style="font-size:9px;color:rgba(255,255,255,.6);text-align:center;padding:0 4px;">${z.sub}</div>
             </div>`).join('')}
         </div>
         <div class="info-panel" id="a1-info">
           <strong>💡 Circuit = Power Source + Track Path + LED Light!</strong><br>
-          Place all required parts to complete your circuit plan!
+          Match every part to its labelled zone to complete your circuit plan!
         </div>
       </div>
     </div>
@@ -735,17 +736,23 @@ function renderAct1(){
     const zone=document.getElementById(z.id);
     makeZone(zone,(data,zEl)=>{
       if(usedIds.has(data.id)){toast('Already placed!','#ff8ecb');return;}
+      if(!z.accepts.includes(data.type)){
+        zEl.classList.add('zone-bad');
+        setTimeout(()=>zEl.classList.remove('zone-bad'),400);
+        toast(`🤔 ${data.emoji} doesn't belong in ${z.label} — read the zone label!`,'#ff7baa');
+        return;
+      }
       usedIds.add(data.id);
       placed[z.id]=placed[z.id]||[];
       placed[z.id].push(data);
       const src=document.getElementById(data.srcId);
       if(src)src.classList.add('used');
       const chip=document.createElement('div');
-      chip.className='placed-chip';
+      chip.className='placed-chip correct';
       chip.innerHTML=`${data.emoji} ${data.label}`;
       zEl.appendChild(chip);
       zEl.classList.add('zone-ok');
-      toast(`${data.emoji} Placed in ${z.label}!`,'#c97bff');
+      toast(`✅ ${data.emoji} Placed in ${z.label}!`,'#c97bff');
       // check enable
       const needed=ACT1_PARTS.filter(p=>p.needed).map(p=>p.type);
       const placedTypes=Object.values(placed).flat().map(p=>p.type);
@@ -757,21 +764,15 @@ function renderAct1(){
   document.getElementById('a1-reset').addEventListener('click',renderAct1);
   document.getElementById('a1-check').addEventListener('click',()=>{
     const placedTypes=Object.values(placed).flat().map(p=>p.type);
-    const correct=ACT1_ZONES.every(z=>{
-      const zPlaced=(placed[z.id]||[]).map(p=>p.type);
-      return zPlaced.every(t=>z.accepts.includes(t));
-    });
     showPopup({
-      emoji:correct?'🦄':'🌸',
-      title:correct?'Perfect Circuit Plan!':'Great Start!',
-      stars:correct?'⭐⭐⭐':'⭐⭐',
-      confetti:correct,
-      body:correct
-        ?`Wonderful! You know the 3 secrets of every circuit card:<br>
+      emoji:'🦄',
+      title:'Perfect Circuit Plan!',
+      stars:'⭐⭐⭐',
+      confetti:true,
+      body:`Wonderful! You know the 3 secrets of every circuit card:<br>
           <span class="hl">🔋 Battery</span> = Power Station<br>
           <span class="hl">🔴🔵 Tracks</span> = The Electricity Path<br>
-          <span class="hl">💡 LED</span> = The Light Maker!<br>Now let's decorate it!`
-        :`You placed ${placedTypes.length} parts! Remember: Battery → Tracks → LED are the must-haves! Keep going!`,
+          <span class="hl">💡 LED</span> = The Light Maker!<br>Now let's decorate it!`,
       btnLabel:'Next: Decorate! 🌈',
       onNext:renderAct2
     });

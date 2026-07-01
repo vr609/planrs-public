@@ -626,37 +626,72 @@ function makeDropTarget(el,onDrop){
 }
 
 // ======================================================
+//  ORTHOGONAL SHAPE BUILDER
+//  Builds a closed right-angle polygon from a sequence of
+//  {dir:'R'|'L'|'U'|'D', len} steps (lengths in metres), so
+//  the drawn shape's proportions ALWAYS match the given
+//  measurements, and computes correctly-aligned label
+//  positions sitting just outside the midpoint of each side.
+// ======================================================
+function buildOrthoPolygon(steps,scale,pad){
+  scale=scale||14;pad=pad||24;
+  let x=0,y=0;
+  const raw=[[0,0]];
+  const edges=[];
+  steps.forEach(st=>{
+    let dx=0,dy=0;
+    if(st.dir==='R')dx=st.len;
+    else if(st.dir==='L')dx=-st.len;
+    else if(st.dir==='D')dy=st.len;
+    else if(st.dir==='U')dy=-st.len;
+    const nx=x+dx,ny=y+dy;
+    edges.push({dir:st.dir,len:st.len,x1:x,y1:y,x2:nx,y2:ny});
+    x=nx;y=ny;raw.push([x,y]);
+  });
+  raw.pop(); // last point duplicates the start (closed loop)
+  const xs=raw.map(p=>p[0]),ys=raw.map(p=>p[1]);
+  const minX=Math.min(...xs),minY=Math.min(...ys),maxX=Math.max(...xs),maxY=Math.max(...ys);
+  const toPx=(mx,my)=>[(mx-minX)*scale+pad,(my-minY)*scale+pad];
+  const points=raw.map(([mx,my])=>toPx(mx,my));
+  const cx=points.reduce((s,p)=>s+p[0],0)/points.length;
+  const cy=points.reduce((s,p)=>s+p[1],0)/points.length;
+  const labelOffset=16;
+  const sides=edges.map(e=>{
+    const [px1,py1]=toPx(e.x1,e.y1),[px2,py2]=toPx(e.x2,e.y2);
+    const mx=(px1+px2)/2,my=(py1+py2)/2;
+    const horiz=(e.dir==='R'||e.dir==='L');
+    // perpendicular unit normal, pick the side facing away from centroid
+    let nx1,ny1;
+    if(horiz){nx1=0;ny1=1;}else{nx1=1;ny1=0;}
+    const outSign=((mx-cx)*nx1+(my-cy)*ny1)>=0?1:-1;
+    const lx=mx+nx1*outSign*labelOffset;
+    const ly=my+ny1*outSign*labelOffset;
+    return {label:e.len+' m',val:e.len,pos:{x:lx,y:ly},rot:horiz?0:90};
+  });
+  const svgW=(maxX-minX)*scale+pad*2,svgH=(maxY-minY)*scale+pad*2;
+  return {points,sides,svgW,svgH};
+}
+
+// ======================================================
 //  ACTIVITY 1 — SIDE PLACEMENT DRILL
 // ======================================================
 const shapes=[
-  {
-    name:'L-SHAPE',
-    points:[[20,20],[120,20],[120,70],[80,70],[80,160],[20,160]],
-    sides:[
-      {label:'6 m',correct:true,pos:{x:62,y:8},rot:0},
-      {label:'4 m',correct:true,pos:{x:126,y:40},rot:90},
-      {label:'2 m',correct:true,pos:{x:102,y:58},rot:0},
-      {label:'4 m',correct:true,pos:{x:82,y:115},rot:90},
-      {label:'3 m',correct:true,pos:{x:42,y:168},rot:0},
-      {label:'7 m',correct:true,pos:{x:8,y:90},rot:90},
-    ],
-    perim:26
-  },
-  {
-    name:'T-SHAPE',
-    points:[[10,80],[80,80],[80,10],[140,10],[140,80],[200,80],[200,130],[10,130]],
-    sides:[
-      {label:'8 m',correct:true,pos:{x:40,y:68},rot:0},
-      {label:'4 m',correct:true,pos:{x:77,y:44},rot:90},
-      {label:'4 m',correct:true,pos:{x:107,y:0},rot:0},
-      {label:'4 m',correct:true,pos:{x:143,y:44},rot:90},
-      {label:'4 m',correct:true,pos:{x:170,y:68},rot:0},
-      {label:'3 m',correct:true,pos:{x:203,y:105},rot:90},
-      {label:'12 m',correct:true,pos:{x:105,y:133},rot:0},
-      {label:'3 m',correct:true,pos:{x:5,y:105},rot:90},
-    ],
-    perim:42
-  }
+  (()=>{
+    // L-shape: right 6, down 4, left 2 (step in), down 3, left 4, up 7 — closes perfectly
+    const g=buildOrthoPolygon([
+      {dir:'R',len:6},{dir:'D',len:4},{dir:'L',len:2},
+      {dir:'D',len:3},{dir:'L',len:4},{dir:'U',len:7}
+    ],16,24);
+    return {name:'L-SHAPE',points:g.points,sides:g.sides,svgW:g.svgW,svgH:g.svgH,perim:26};
+  })(),
+  (()=>{
+    // Symmetric T-shape: wide top bar, narrower stem hanging below — closes perfectly
+    const g=buildOrthoPolygon([
+      {dir:'R',len:12},{dir:'D',len:3},{dir:'L',len:4},{dir:'D',len:5},
+      {dir:'L',len:4},{dir:'U',len:5},{dir:'L',len:4},{dir:'U',len:3}
+    ],13,24);
+    return {name:'T-SHAPE',points:g.points,sides:g.sides,svgW:g.svgW,svgH:g.svgH,perim:40};
+  })()
 ];
 
 let act1State={shapeIdx:0,placed:{},allCorrect:false};
@@ -677,11 +712,7 @@ function renderAct1Shape(){
   if(!wrap)return;
   const sh=shapes[act1State.shapeIdx];
   const pts=sh.points.map(p=>p.join(',')).join(' ');
-
-  // Compute bounding box
-  const xs=sh.points.map(p=>p[0]),ys=sh.points.map(p=>p[1]);
-  const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
-  const svgW=maxX+30,svgH=maxY+30;
+  const svgW=sh.svgW,svgH=sh.svgH;
 
   wrap.innerHTML=`
   <div style="flex:1.3;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;">
@@ -694,7 +725,7 @@ function renderAct1Shape(){
       </svg>
       ${sh.sides.map((s,i)=>`
         <div class="side-label-slot" id="slot-s${i}"
-          style="left:${s.pos.x}px;top:${s.pos.y}px;${s.rot===90?'writing-mode:vertical-lr;width:24px;min-width:24px;height:46px;':''}">
+          style="left:${s.pos.x}px;top:${s.pos.y}px;transform:translate(-50%,-50%);${s.rot===90?'writing-mode:vertical-lr;width:22px;min-width:22px;height:40px;':''}">
           ···
         </div>`).join('')}
     </div>
@@ -780,14 +811,17 @@ function updateAct1Btn(){
 //  ACTIVITY 2 — CLASSROOM FLOOR MEASUREMENT
 // ======================================================
 // L-shaped room: sides A(top)=8m, B(right-top)=3m, C(step)=4m, D(inner-right)=5m, E(bottom)=12m, F(left)=8m
-const floorSides=[
-  {id:'A',label:'8 m',val:8,x:60,y:-2,rot:0,hint:'top'},
-  {id:'B',label:'3 m',val:3,x:178,y:22,rot:90,hint:'upper-right'},
-  {id:'C',label:'4 m',val:4,x:100,y:46,rot:0,hint:'step-top'},
-  {id:'D',label:'5 m',val:5,x:118,y:90,rot:90,hint:'inner-right'},
-  {id:'E',label:'12 m',val:12,x:55,y:178,rot:0,hint:'bottom'},
-  {id:'F',label:'8 m',val:8,x:-18,y:90,rot:90,hint:'left'},
-];
+// Built with the same ortho-polygon helper as Activity 1 so the
+// drawn floor plan's proportions always match the given measurements.
+const floorGeo=buildOrthoPolygon([
+  {dir:'R',len:8},{dir:'D',len:3},{dir:'R',len:4},
+  {dir:'D',len:5},{dir:'L',len:12},{dir:'U',len:8}
+],13,22);
+const floorIds=['A','B','C','D','E','F'];
+const floorHints=['top','upper-right','step-top','inner-right','bottom','left'];
+const floorSides=floorGeo.sides.map((s,i)=>({
+  id:floorIds[i],label:s.label,val:s.val,x:s.pos.x,y:s.pos.y,rot:s.rot,hint:floorHints[i]
+}));
 
 let act2Placed={};
 function buildAct2(){
@@ -796,34 +830,32 @@ function buildAct2(){
   document.getElementById('actInstr').textContent='Label each side, then compute total perimeter';
 
   const body=document.getElementById('actBody');
-  // SVG L-shape room: 8m wide, 8m tall on left; step at x=120 going 4m across, 3m down; then down 5m; bottom 12m; total L
+  const fPts=floorGeo.points.map(p=>p.join(',')).join(' ');
+  const fW=floorGeo.svgW,fH=floorGeo.svgH;
   body.innerHTML=`
   <div id="act2-wrap" style="width:100%;height:100%;display:flex;gap:14px;align-items:center;">
     <div class="floor-plan">
       <div style="font-family:'Share Tech Mono',monospace;font-size:0.58rem;color:rgba(0,212,232,0.4);letter-spacing:0.15em;margin-bottom:6px;">◈ CLASSROOM FLOOR PLAN</div>
-      <div class="floor-svg-wrap" id="floorSvgWrap" style="position:relative;width:220px;height:200px;">
-        <svg viewBox="0 0 220 200" width="220" height="200">
+      <div class="floor-svg-wrap" id="floorSvgWrap" style="position:relative;width:${fW}px;height:${fH}px;">
+        <svg viewBox="0 0 ${fW} ${fH}" width="${fW}" height="${fH}">
           <!-- L-shape room -->
-          <polygon points="20,10 140,10 140,40 170,40 170,160 20,160" fill="rgba(0,212,232,0.05)" stroke="#00d4e8" stroke-width="2" stroke-linejoin="round"/>
-          <!-- grid tiles -->
+          <polygon points="${fPts}" fill="rgba(0,212,232,0.05)" stroke="#00d4e8" stroke-width="2" stroke-linejoin="round"/>
+          <!-- grid tiles (1m squares) -->
           ${(()=>{
             let g='';
-            for(let x=20;x<170;x+=15){for(let y=10;y<160;y+=15){
-              if(!((x>=140&&y<40)))g+=`<rect x="${x}" y="${y}" width="15" height="15" fill="none" stroke="rgba(0,212,232,0.08)" stroke-width="0.5"/>`;
+            const G=13,pad=22;
+            for(let x=pad;x<pad+12*G;x+=G){for(let y=pad;y<pad+8*G;y+=G){
+              g+=`<rect x="${x}" y="${y}" width="${G}" height="${G}" fill="none" stroke="rgba(0,212,232,0.08)" stroke-width="0.5"/>`;
             }}return g;
           })()}
           <!-- ant marker -->
-          <circle cx="20" cy="10" r="3" fill="var(--amber)" opacity="0.7">
+          <circle cx="${floorGeo.points[0][0]}" cy="${floorGeo.points[0][1]}" r="3" fill="var(--amber)" opacity="0.7">
             <animate attributeName="opacity" values="0.7;0.2;0.7" dur="1.2s" repeatCount="indefinite"/>
           </circle>
         </svg>
         <!-- Side label slots -->
-        <div class="side-label-slot" id="fslot-A" style="left:58px;top:-2px;" data-sid="A">?</div>
-        <div class="side-label-slot" id="fslot-B" style="left:142px;top:18px;writing-mode:vertical-lr;width:22px;min-width:22px;height:36px;" data-sid="B">?</div>
-        <div class="side-label-slot" id="fslot-C" style="left:100px;top:42px;" data-sid="C">?</div>
-        <div class="side-label-slot" id="fslot-D" style="left:172px;top:88px;writing-mode:vertical-lr;width:22px;min-width:22px;height:50px;" data-sid="D">?</div>
-        <div class="side-label-slot" id="fslot-E" style="left:50px;top:162px;" data-sid="E">?</div>
-        <div class="side-label-slot" id="fslot-F" style="left:-18px;top:82px;writing-mode:vertical-lr;width:22px;min-width:22px;height:50px;" data-sid="F">?</div>
+        ${floorSides.map(s=>`<div class="side-label-slot" id="fslot-${s.id}" data-sid="${s.id}"
+          style="left:${s.x}px;top:${s.y}px;transform:translate(-50%,-50%);${s.rot===90?'writing-mode:vertical-lr;width:22px;min-width:22px;height:38px;':''}">?</div>`).join('')}
       </div>
     </div>
     <div class="calc-panel">

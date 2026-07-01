@@ -285,14 +285,28 @@ html,body{
   align-items:flex-start;flex-wrap:wrap;
 }
 .tree-box{
-  flex:1;min-width:200px;max-width:300px;
+  flex:1;min-width:220px;max-width:320px;
   background:rgba(255,255,255,0.5);
-  border-radius:18px;border:2px solid rgba(192,132,252,0.3);
+  border-radius:18px;border:2.5px solid rgba(192,132,252,0.3);
   padding:10px;position:relative;
 }
 .tree-title{
   font-family:'Fredoka One',cursive;font-size:16px;
-  text-align:center;margin-bottom:8px;color:#7c3aed;
+  text-align:center;margin-bottom:6px;color:#7c3aed;
+}
+.mini-bank-label{
+  font-size:10px;font-weight:800;text-align:center;
+  letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;opacity:0.7;
+  color:#7c3aed;
+}
+.mini-bank{
+  display:flex;flex-wrap:wrap;gap:6px;justify-content:center;
+  min-height:40px;padding:6px;margin-bottom:10px;
+  background:rgba(255,255,255,0.55);border-radius:12px;
+  border:2px dashed rgba(192,132,252,0.35);
+}
+.tree-x{
+  font-weight:900;font-size:15px;color:#9333ea;align-self:center;
 }
 .tree-root{
   display:flex;flex-direction:column;align-items:center;gap:2px;
@@ -610,10 +624,8 @@ html,body{
         <span class="badge">PRIME FACTORS</span>
       </div>
       <div class="act-instruction">
-        Build the factor tree! Drag the number cards into the branching nodes to break each number into its factors. Prime numbers (circled in gold ✨) are the leaves!
+        A factor tree breaks a number into two smaller factors — again and again — until every branch ends in a <strong>PRIME number</strong> (gold circle ✨ = a number that can't be split any further, like 2, 3, 5, 7...). Each tree has its <strong>own</strong> set of cards right above it — drag them onto the "×" branches below to build that tree!
       </div>
-
-      <div class="card-bank" id="act2-bank"></div>
 
       <div class="tree-container" id="act2-trees"></div>
 
@@ -778,11 +790,12 @@ html,body{
 let dragging=null,dragEl=null,dragId=null,dragType=null,dragOffset={x:0,y:0};
 let ghostEl=null;
 
-function makeDragCard(num, colors_arr, actId){
+function makeDragCard(num, colors_arr, actId, treeId){
   const el=document.createElement('div');
   el.className='drag-card';
   el.dataset.num=num;
   el.dataset.act=actId;
+  if(treeId) el.dataset.tree=treeId;
   el.id=`card-${actId}-${num}-${Math.random().toString(36).slice(2,6)}`;
   const [bg,border]=colors_arr;
   el.style.cssText=`background:${bg};border-color:${border};color:#fff;`;
@@ -936,7 +949,7 @@ function setupAct1(){
 // For simplicity: 36 tree (2-level), 48 tree (2-level showing 6×8 then leaves)
 const trees=[
   {
-    num:36,color:'linear-gradient(135deg,#a78bfa,#818cf8)',
+    num:36,tree:'36',color:'linear-gradient(135deg,#a78bfa,#818cf8)',
     nodes:[
       {id:'t1-l',val:6,slot:'s1-l',prime:false},
       {id:'t1-r',val:6,slot:'s1-r',prime:false},
@@ -947,7 +960,7 @@ const trees=[
     ]
   },
   {
-    num:48,color:'linear-gradient(135deg,#34d399,#0891b2)',
+    num:48,tree:'48',color:'linear-gradient(135deg,#34d399,#0891b2)',
     nodes:[
       {id:'t2-l',val:6,slot:'s2-l',prime:false},
       {id:'t2-r',val:8,slot:'s2-r',prime:false},
@@ -961,45 +974,42 @@ const trees=[
   }
 ];
 
-// 14 cards to match all 14 tree slots:
-// Tree 36 (6 slots): 6,6,2,3,2,3  → needs 2×2, 3×2, 6×2
-// Tree 48 (8 slots): 6,8,2,3,2,4,2,2 → needs 2×4, 3×1, 4×1, 6×1, 8×1
-// Combined: 2×6, 3×3, 4×1, 6×3, 8×1 = 14 cards
-const act2Cards=[2,2,2,2,2,2,3,3,3,4,6,6,6,8];
+// Each tree gets its OWN set of cards (no mixing between trees):
+// Tree 36 (6 slots): 6,6,2,3,2,3
+const act2Cards36=[6,6,2,3,2,3];
+// Tree 48 (8 slots): 6,8,2,3,2,4,2,2
+const act2Cards48=[6,8,2,3,2,4,2,2];
 
 function buildTreeHTML(tree){
   const t=tree;
+  const bankHTML=`<div class="mini-bank-label">🎴 Cards for the tree of ${t.num}</div><div class="mini-bank" id="bank-${t.tree}"></div>`;
   if(t.num===36){
     return `
-    <div class="tree-box">
+    <div class="tree-box" style="border-color:${t.tree==='36'?'rgba(129,140,248,0.55)':'rgba(52,211,153,0.55)'};">
       <div class="tree-title" style="background:${t.color};-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Factor Tree of ${t.num}</div>
+      ${bankHTML}
       <div class="tree-root">
         <div class="tree-node root-node" style="background:${t.color};">${t.num}</div>
         <div class="tree-line"></div>
         <div style="position:relative;width:100%;">
-          <div style="display:flex;justify-content:space-around;width:100%;">
+          <div style="display:flex;justify-content:space-around;width:100%;align-items:flex-start;">
             <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-              <div class="tree-slot ${t.nodes[0].prime?'prime-leaf':''}" id="${t.nodes[0].slot}" data-expect="${t.nodes[0].val}" data-prime="${t.nodes[0].prime}">?</div>
+              <div class="tree-slot ${t.nodes[0].prime?'prime-leaf':''}" id="${t.nodes[0].slot}" data-tree="${t.tree}" data-expect="${t.nodes[0].val}" data-prime="${t.nodes[0].prime}">?</div>
               <div class="tree-line"></div>
-              <div style="display:flex;gap:12px;">
-                <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                  <div class="tree-slot ${t.nodes[2].prime?'prime-leaf':''}" id="${t.nodes[2].slot}" data-expect="${t.nodes[2].val}" data-prime="${t.nodes[2].prime}">?</div>
-                </div>
-                <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                  <div class="tree-slot ${t.nodes[3].prime?'prime-leaf':''}" id="${t.nodes[3].slot}" data-expect="${t.nodes[3].val}" data-prime="${t.nodes[3].prime}">?</div>
-                </div>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <div class="tree-slot ${t.nodes[2].prime?'prime-leaf':''}" id="${t.nodes[2].slot}" data-tree="${t.tree}" data-expect="${t.nodes[2].val}" data-prime="${t.nodes[2].prime}">?</div>
+                <span class="tree-x">×</span>
+                <div class="tree-slot ${t.nodes[3].prime?'prime-leaf':''}" id="${t.nodes[3].slot}" data-tree="${t.tree}" data-expect="${t.nodes[3].val}" data-prime="${t.nodes[3].prime}">?</div>
               </div>
             </div>
+            <span class="tree-x" style="margin-top:14px;">×</span>
             <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-              <div class="tree-slot ${t.nodes[1].prime?'prime-leaf':''}" id="${t.nodes[1].slot}" data-expect="${t.nodes[1].val}" data-prime="${t.nodes[1].prime}">?</div>
+              <div class="tree-slot ${t.nodes[1].prime?'prime-leaf':''}" id="${t.nodes[1].slot}" data-tree="${t.tree}" data-expect="${t.nodes[1].val}" data-prime="${t.nodes[1].prime}">?</div>
               <div class="tree-line"></div>
-              <div style="display:flex;gap:12px;">
-                <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                  <div class="tree-slot ${t.nodes[4].prime?'prime-leaf':''}" id="${t.nodes[4].slot}" data-expect="${t.nodes[4].val}" data-prime="${t.nodes[4].prime}">?</div>
-                </div>
-                <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                  <div class="tree-slot ${t.nodes[5].prime?'prime-leaf':''}" id="${t.nodes[5].slot}" data-expect="${t.nodes[5].val}" data-prime="${t.nodes[5].prime}">?</div>
-                </div>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <div class="tree-slot ${t.nodes[4].prime?'prime-leaf':''}" id="${t.nodes[4].slot}" data-tree="${t.tree}" data-expect="${t.nodes[4].val}" data-prime="${t.nodes[4].prime}">?</div>
+                <span class="tree-x">×</span>
+                <div class="tree-slot ${t.nodes[5].prime?'prime-leaf':''}" id="${t.nodes[5].slot}" data-tree="${t.tree}" data-expect="${t.nodes[5].val}" data-prime="${t.nodes[5].prime}">?</div>
               </div>
             </div>
           </div>
@@ -1008,31 +1018,36 @@ function buildTreeHTML(tree){
     </div>`;
   } else {
     return `
-    <div class="tree-box">
+    <div class="tree-box" style="border-color:rgba(52,211,153,0.55);">
       <div class="tree-title" style="background:${t.color};-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Factor Tree of ${t.num}</div>
+      ${bankHTML}
       <div class="tree-root">
         <div class="tree-node root-node" style="background:${t.color};">${t.num}</div>
         <div class="tree-line"></div>
-        <div style="display:flex;justify-content:space-around;width:100%;">
+        <div style="display:flex;justify-content:space-around;width:100%;align-items:flex-start;">
           <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <div class="tree-slot" id="${t.nodes[0].slot}" data-expect="${t.nodes[0].val}" data-prime="${t.nodes[0].prime}">?</div>
+            <div class="tree-slot" id="${t.nodes[0].slot}" data-tree="${t.tree}" data-expect="${t.nodes[0].val}" data-prime="${t.nodes[0].prime}">?</div>
             <div class="tree-line"></div>
-            <div style="display:flex;gap:12px;">
-              <div class="tree-slot prime-leaf" id="${t.nodes[2].slot}" data-expect="${t.nodes[2].val}" data-prime="true">?</div>
-              <div class="tree-slot prime-leaf" id="${t.nodes[3].slot}" data-expect="${t.nodes[3].val}" data-prime="true">?</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <div class="tree-slot prime-leaf" id="${t.nodes[2].slot}" data-tree="${t.tree}" data-expect="${t.nodes[2].val}" data-prime="true">?</div>
+              <span class="tree-x">×</span>
+              <div class="tree-slot prime-leaf" id="${t.nodes[3].slot}" data-tree="${t.tree}" data-expect="${t.nodes[3].val}" data-prime="true">?</div>
             </div>
           </div>
+          <span class="tree-x" style="margin-top:14px;">×</span>
           <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <div class="tree-slot" id="${t.nodes[1].slot}" data-expect="${t.nodes[1].val}" data-prime="${t.nodes[1].prime}">?</div>
+            <div class="tree-slot" id="${t.nodes[1].slot}" data-tree="${t.tree}" data-expect="${t.nodes[1].val}" data-prime="${t.nodes[1].prime}">?</div>
             <div class="tree-line"></div>
-            <div style="display:flex;gap:12px;">
-              <div class="tree-slot prime-leaf" id="${t.nodes[4].slot}" data-expect="${t.nodes[4].val}" data-prime="true">?</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <div class="tree-slot prime-leaf" id="${t.nodes[4].slot}" data-tree="${t.tree}" data-expect="${t.nodes[4].val}" data-prime="true">?</div>
+              <span class="tree-x">×</span>
               <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                <div class="tree-slot" id="${t.nodes[5].slot}" data-expect="${t.nodes[5].val}" data-prime="${t.nodes[5].prime}">?</div>
+                <div class="tree-slot" id="${t.nodes[5].slot}" data-tree="${t.tree}" data-expect="${t.nodes[5].val}" data-prime="${t.nodes[5].prime}">?</div>
                 <div class="tree-line"></div>
-                <div style="display:flex;gap:12px;">
-                  <div class="tree-slot prime-leaf" id="${t.nodes[6].slot}" data-expect="${t.nodes[6].val}" data-prime="true">?</div>
-                  <div class="tree-slot prime-leaf" id="${t.nodes[7].slot}" data-expect="${t.nodes[7].val}" data-prime="true">?</div>
+                <div style="display:flex;gap:6px;align-items:center;">
+                  <div class="tree-slot prime-leaf" id="${t.nodes[6].slot}" data-tree="${t.tree}" data-expect="${t.nodes[6].val}" data-prime="true">?</div>
+                  <span class="tree-x">×</span>
+                  <div class="tree-slot prime-leaf" id="${t.nodes[7].slot}" data-tree="${t.tree}" data-expect="${t.nodes[7].val}" data-prime="true">?</div>
                 </div>
               </div>
             </div>
@@ -1044,22 +1059,29 @@ function buildTreeHTML(tree){
 }
 
 function setupAct2(){
-  const bank=document.getElementById('act2-bank');
-  bank.innerHTML='';
-  const cols=[
-    ['linear-gradient(135deg,#f472b6,#ec4899)','#f9a8d4'],
+  const cont=document.getElementById('act2-trees');
+  cont.innerHTML=trees.map(buildTreeHTML).join('');
+
+  const colsA=[
     ['linear-gradient(135deg,#a78bfa,#7c3aed)','#c4b5fd'],
+    ['linear-gradient(135deg,#f472b6,#ec4899)','#f9a8d4'],
+    ['linear-gradient(135deg,#818cf8,#4338ca)','#c7d2fe'],
+  ];
+  const colsB=[
     ['linear-gradient(135deg,#34d399,#059669)','#6ee7b7'],
-    ['linear-gradient(135deg,#fb923c,#ea580c)','#fdba74'],
     ['linear-gradient(135deg,#60a5fa,#3b82f6)','#93c5fd'],
     ['linear-gradient(135deg,#facc15,#d97706)','#fde68a'],
   ];
-  [...act2Cards].sort(()=>Math.random()-0.5).forEach((n,i)=>{
-    bank.appendChild(makeDragCard(n,cols[i%cols.length],'a2'));
+
+  const bank36=document.getElementById('bank-36');
+  [...act2Cards36].sort(()=>Math.random()-0.5).forEach((n,i)=>{
+    bank36.appendChild(makeDragCard(n,colsA[i%colsA.length],'a2','36'));
   });
 
-  const cont=document.getElementById('act2-trees');
-  cont.innerHTML=trees.map(buildTreeHTML).join('');
+  const bank48=document.getElementById('bank-48');
+  [...act2Cards48].sort(()=>Math.random()-0.5).forEach((n,i)=>{
+    bank48.appendChild(makeDragCard(n,colsB[i%colsB.length],'a2','48'));
+  });
 
   // bind tree slots
   document.querySelectorAll('.tree-slot').forEach(slot=>{
@@ -1128,8 +1150,14 @@ function onDrop(card, zone){
   // Act 2 — tree slots
   if(zone.classList.contains('tree-slot')){
     if(act!=='a2') return false;
-    const expect=parseInt(zone.dataset.expect);
     if(zone.classList.contains('filled')) return false;
+    if(card.dataset.tree && zone.dataset.tree && card.dataset.tree!==zone.dataset.tree){
+      zone.classList.add('wrong');
+      setTimeout(()=>zone.classList.remove('wrong'),500);
+      card.classList.remove('dragging');
+      return false;
+    }
+    const expect=parseInt(zone.dataset.expect);
     if(num===expect){
       zone.classList.add('filled');
       if(zone.dataset.prime==='true') zone.classList.add('prime-leaf');
@@ -1137,6 +1165,11 @@ function onDrop(card, zone){
       card.classList.add('placed');
       card.classList.remove('dragging');
       spawnSparkle(zone);
+      // Auto-advance once every slot in both trees is correctly filled —
+      // no need to remember to tap "Check My Tree!" separately.
+      const allSlots=document.querySelectorAll('.tree-slot');
+      const allFilled=Array.from(allSlots).every(s=>s.classList.contains('filled'));
+      if(allFilled) setTimeout(checkAct2,400);
       return true;
     } else {
       zone.classList.add('wrong');

@@ -488,11 +488,18 @@ document.getElementById('rfact').style.transition='opacity .3s';
 rotateFact(); setInterval(rotateFact,6200);
 
 let score=0;
+let pendingTimeouts=[];
+function trackTimeout(fn,ms){
+  const id=setTimeout(()=>{pendingTimeouts=pendingTimeouts.filter(t=>t!==id);fn();},ms);
+  pendingTimeouts.push(id);
+  return id;
+}
+const ORIGINAL_MAIN_HTML=document.getElementById('main').innerHTML;
 function addPts(n,x,y){
   score+=n;document.getElementById('pts').textContent=score;
   const f=document.createElement('div');f.className='score-float';f.textContent='+'+n;
   f.style.left=x+'px';f.style.top=y+'px';document.body.appendChild(f);
-  setTimeout(()=>f.remove(),900);
+  trackTimeout(()=>f.remove(),900);
 }
 function showFB(id,cls,msg,keep){
   const el=document.getElementById(id);el.className='fb '+cls;el.textContent=msg;el.style.display='block';
@@ -503,116 +510,130 @@ function showFB(id,cls,msg,keep){
 const ans1={c1:'60',c2:'25',c3:'144',c4:'35',c5:'16',c6:'48'};
 let cnt1=0, drag1=null;
 
-document.getElementById('chips1').querySelectorAll('[draggable]').forEach(el=>{
-  el.addEventListener('dragstart',()=>drag1={id:el.dataset.c1,val:el.dataset.val,txt:el.textContent.trim()});
-});
-
-document.querySelectorAll('[data-z1]').forEach(z=>{
-  z.querySelectorAll('*').forEach(c=>c.style.pointerEvents='none');
-  z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('hi')});
-  z.addEventListener('dragleave',e=>{if(!z.contains(e.relatedTarget))z.classList.remove('hi')});
-  z.addEventListener('drop',e=>{
-    e.preventDefault();z.classList.remove('hi');
-    const d=drag1; if(!d)return;
-    const ztype=z.dataset.z1;
-    const src=document.getElementById('chips1').querySelector(`[data-c1="${d.id}"]`);
-    if(!src||src.classList.contains('placed'))return;
-    const ok=ans1[ztype]===d.val;
-    const pool=z.querySelector('.z-pool');
-    const chip=document.createElement('div');chip.className='dropped';chip.textContent=d.txt;pool.appendChild(chip);
-    src.classList.add('placed');cnt1++;document.getElementById('cnt1').textContent=cnt1;
-    if(ok){
-      const r=z.getBoundingClientRect();addPts(15,r.left+r.width/2,r.top);
-      showFB('fb1','fb-ok','✓ Excellent deduction! That\'s the correct answer for '+ztype+'!',true);
-    }else{
-      showFB('fb1','fb-no','✗ Pattern spotted an error! That belongs elsewhere — let\'s try again.',false);
-      setTimeout(()=>{src.classList.remove('placed');cnt1--;document.getElementById('cnt1').textContent=cnt1;chip.remove();drag1=null;},1500);return;
-    }
-    drag1=null;
-    if(cnt1>=6)document.getElementById('n1').classList.add('on');
+function initAct1(){
+  cnt1=0; drag1=null;
+  document.getElementById('chips1').querySelectorAll('[draggable]').forEach(el=>{
+    el.addEventListener('dragstart',()=>drag1={id:el.dataset.c1,val:el.dataset.val,txt:el.textContent.trim()});
   });
-});
+
+  document.querySelectorAll('[data-z1]').forEach(z=>{
+    z.querySelectorAll('*').forEach(c=>c.style.pointerEvents='none');
+    z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('hi')});
+    z.addEventListener('dragleave',e=>{if(!z.contains(e.relatedTarget))z.classList.remove('hi')});
+    z.addEventListener('drop',e=>{
+      e.preventDefault();z.classList.remove('hi');
+      const d=drag1; if(!d)return;
+      const ztype=z.dataset.z1;
+      const src=document.getElementById('chips1').querySelector(`[data-c1="${d.id}"]`);
+      if(!src||src.classList.contains('placed'))return;
+      const ok=ans1[ztype]===d.val;
+      const pool=z.querySelector('.z-pool');
+      const chip=document.createElement('div');chip.className='dropped';chip.textContent=d.txt;pool.appendChild(chip);
+      src.classList.add('placed');cnt1++;document.getElementById('cnt1').textContent=cnt1;
+      if(ok){
+        const r=z.getBoundingClientRect();addPts(15,r.left+r.width/2,r.top);
+        showFB('fb1','fb-ok','✓ Excellent deduction! That\'s the correct answer for '+ztype+'!',true);
+      }else{
+        showFB('fb1','fb-no','✗ Pattern spotted an error! That belongs elsewhere — let\'s try again.',false);
+        trackTimeout(()=>{src.classList.remove('placed');cnt1--;document.getElementById('cnt1').textContent=cnt1;chip.remove();drag1=null;},1500);return;
+      }
+      drag1=null;
+      if(cnt1>=6)document.getElementById('n1').classList.add('on');
+    });
+  });
+}
+initAct1();
 
 // ══ ACTIVITY 2 — SCIENCE ══
 const sciAns={sc1:'solid',sc2:'liquid',sc3:'gas',sc4:'solid',sc5:'liquid',sc6:'gas',sc7:'solid',sc8:'liquid',sc9:'gas'};
 let cnt2=0, drag2=null;
 
-document.getElementById('chips2').querySelectorAll('[draggable]').forEach(el=>{
-  el.addEventListener('dragstart',()=>drag2={id:el.dataset.c2,ans:el.dataset.ans,txt:el.textContent.trim()});
-});
-
-document.querySelectorAll('[data-sz]').forEach(z=>{
-  z.querySelectorAll('*').forEach(c=>c.style.pointerEvents='none');
-  z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('hi')});
-  z.addEventListener('dragleave',e=>{if(!z.contains(e.relatedTarget))z.classList.remove('hi')});
-  z.addEventListener('drop',e=>{
-    e.preventDefault();z.classList.remove('hi');
-    const d=drag2;if(!d)return;
-    const ztype=z.dataset.sz;
-    const src=document.getElementById('chips2').querySelector(`[data-c2="${d.id}"]`);
-    if(!src||src.classList.contains('placed'))return;
-    const ok=d.ans===ztype||ztype==='wild';
-    const pool=z.querySelector('.sz-pool');
-    const chip=document.createElement('div');chip.className='sci-dropped';chip.textContent=d.txt;pool.appendChild(chip);
-    src.classList.add('placed');cnt2++;document.getElementById('cnt2').textContent=cnt2;
-    if(ok){
-      const r=z.getBoundingClientRect();addPts(ztype==='wild'?8:20,r.left+r.width/2,r.top);
-      if(ztype!=='wild'){
-        // glow success ring
-        z.style.position='relative';
-        const ring=document.createElement('div');ring.className='glow-ring';
-        z.appendChild(ring);setTimeout(()=>ring.remove(),1600);
-      }
-      showFB('fb2','fb-ok','✓ '+(ztype==='wild'?'Smart move! Revisit this one — you can still figure it out!':'Pattern spotted! Correct state of matter!'),true);
-    }else{
-      showFB('fb2','fb-no','✗ Not quite! That property belongs to a different state. Try again!',false);
-      setTimeout(()=>{src.classList.remove('placed');cnt2--;document.getElementById('cnt2').textContent=cnt2;chip.remove();drag2=null;},1500);return;
-    }
-    drag2=null;
-    if(cnt2>=9)document.getElementById('n2').classList.add('on');
+function initAct2(){
+  cnt2=0; drag2=null;
+  document.getElementById('chips2').querySelectorAll('[draggable]').forEach(el=>{
+    el.addEventListener('dragstart',()=>drag2={id:el.dataset.c2,ans:el.dataset.ans,txt:el.textContent.trim()});
   });
-});
+
+  document.querySelectorAll('[data-sz]').forEach(z=>{
+    z.querySelectorAll('*').forEach(c=>c.style.pointerEvents='none');
+    z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('hi')});
+    z.addEventListener('dragleave',e=>{if(!z.contains(e.relatedTarget))z.classList.remove('hi')});
+    z.addEventListener('drop',e=>{
+      e.preventDefault();z.classList.remove('hi');
+      const d=drag2;if(!d)return;
+      const ztype=z.dataset.sz;
+      const src=document.getElementById('chips2').querySelector(`[data-c2="${d.id}"]`);
+      if(!src||src.classList.contains('placed'))return;
+      const ok=d.ans===ztype||ztype==='wild';
+      const pool=z.querySelector('.sz-pool');
+      const chip=document.createElement('div');chip.className='sci-dropped';chip.textContent=d.txt;pool.appendChild(chip);
+      src.classList.add('placed');cnt2++;document.getElementById('cnt2').textContent=cnt2;
+      if(ok){
+        const r=z.getBoundingClientRect();addPts(ztype==='wild'?8:20,r.left+r.width/2,r.top);
+        if(ztype!=='wild'){
+          // glow success ring
+          z.style.position='relative';
+          const ring=document.createElement('div');ring.className='glow-ring';
+          z.appendChild(ring);trackTimeout(()=>ring.remove(),1600);
+        }
+        showFB('fb2','fb-ok','✓ '+(ztype==='wild'?'Smart move! Revisit this one — you can still figure it out!':'Pattern spotted! Correct state of matter!'),true);
+      }else{
+        showFB('fb2','fb-no','✗ Not quite! That property belongs to a different state. Try again!',false);
+        trackTimeout(()=>{src.classList.remove('placed');cnt2--;document.getElementById('cnt2').textContent=cnt2;chip.remove();drag2=null;},1500);return;
+      }
+      drag2=null;
+      if(cnt2>=9)document.getElementById('n2').classList.add('on');
+    });
+  });
+}
+initAct2();
 
 // ══ ACTIVITY 3 — PROJECT BUILDER ══
 const laneState={1:[],2:[],3:[],4:[]};
 const laneSlots={1:['ls1-a','ls1-b'],2:['ls2-a','ls2-b'],3:['ls3-a','ls3-b'],4:['ls4-a','ls4-b']};
 let cnt3=0, drag3=null;
 
-document.getElementById('chips3').querySelectorAll('[draggable]').forEach(el=>{
-  el.addEventListener('dragstart',()=>drag3={id:el.dataset.c3,stage:parseInt(el.dataset.stage),txt:el.textContent.trim()});
-});
+function initAct3(){
+  cnt3=0; drag3=null;
+  laneState[1]=[]; laneState[2]=[]; laneState[3]=[]; laneState[4]=[];
 
-document.querySelectorAll('[data-lane]').forEach(z=>{
-  z.querySelectorAll('*').forEach(c=>c.style.pointerEvents='none');
-  z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('hi')});
-  z.addEventListener('dragleave',e=>{if(!z.contains(e.relatedTarget))z.classList.remove('hi')});
-  z.addEventListener('drop',e=>{
-    e.preventDefault();z.classList.remove('hi');
-    const d=drag3;if(!d)return;
-    const lane=parseInt(z.dataset.lane);
-    const src=document.getElementById('chips3').querySelector(`[data-c3="${d.id}"]`);
-    if(!src||src.classList.contains('placed'))return;
-    const ok=d.stage===lane;
-    if(!ok){
-      showFB('fb3','fb-no',`✗ This step doesn't belong in Stage ${lane}. Think about the project order!`,false);
-      drag3=null;return;
-    }
-    if(laneState[lane].length>=2){showFB('fb3','fb-info','This stage already has 2 cards!',false);drag3=null;return;}
-    laneState[lane].push(d.id);
-    src.classList.add('placed');
-    // fill slot
-    const slotId=laneSlots[lane][laneState[lane].length-1];
-    const slot=document.getElementById(slotId);
-    slot.textContent=d.txt;slot.className='lane-slot has-card';
-    const r=z.getBoundingClientRect();addPts(20,r.left+r.width/2,r.top);
-    if(laneState[lane].length===2){
-      z.classList.add('filled');cnt3++;document.getElementById('cnt3').textContent=cnt3;
-    }
-    showFB('fb3','fb-ok','✓ Perfect placement! Stage '+lane+' is taking shape! 🚀',true);
-    drag3=null;
-    if(cnt3>=4)document.getElementById('n3').classList.add('on');
+  document.getElementById('chips3').querySelectorAll('[draggable]').forEach(el=>{
+    el.addEventListener('dragstart',()=>drag3={id:el.dataset.c3,stage:parseInt(el.dataset.stage),txt:el.textContent.trim()});
   });
-});
+
+  document.querySelectorAll('[data-lane]').forEach(z=>{
+    z.querySelectorAll('*').forEach(c=>c.style.pointerEvents='none');
+    z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('hi')});
+    z.addEventListener('dragleave',e=>{if(!z.contains(e.relatedTarget))z.classList.remove('hi')});
+    z.addEventListener('drop',e=>{
+      e.preventDefault();z.classList.remove('hi');
+      const d=drag3;if(!d)return;
+      const lane=parseInt(z.dataset.lane);
+      const src=document.getElementById('chips3').querySelector(`[data-c3="${d.id}"]`);
+      if(!src||src.classList.contains('placed'))return;
+      const ok=d.stage===lane;
+      if(!ok){
+        showFB('fb3','fb-no',`✗ This step doesn't belong in Stage ${lane}. Think about the project order!`,false);
+        drag3=null;return;
+      }
+      if(laneState[lane].length>=2){showFB('fb3','fb-info','This stage already has 2 cards!',false);drag3=null;return;}
+      laneState[lane].push(d.id);
+      src.classList.add('placed');
+      // fill slot
+      const slotId=laneSlots[lane][laneState[lane].length-1];
+      const slot=document.getElementById(slotId);
+      slot.textContent=d.txt;slot.className='lane-slot has-card';
+      const r=z.getBoundingClientRect();addPts(20,r.left+r.width/2,r.top);
+      if(laneState[lane].length===2){
+        z.classList.add('filled');cnt3++;document.getElementById('cnt3').textContent=cnt3;
+      }
+      showFB('fb3','fb-ok','✓ Perfect placement! Stage '+lane+' is taking shape! 🚀',true);
+      drag3=null;
+      if(cnt3>=4)document.getElementById('n3').classList.add('on');
+    });
+  });
+}
+initAct3();
 
 // ══ POPUPS ══
 let curMod=1;
@@ -663,9 +684,45 @@ function showFinal(){
         <div style="font-family:'Baloo 2',cursive;font-size:9px;font-weight:800;letter-spacing:2px;color:var(--violet);margin-bottom:6px">🌟 YOUR OLYMPIAD TOOLKIT</div>
         <div style="font-size:11px;font-weight:600;color:var(--ink2);line-height:1.7">✦ Eliminate wrong answers first — always!<br>✦ Speed = Distance ÷ Time | Area = L × W<br>✦ Solid → Liquid → Gas: particles get freer<br>✦ Scientific method: Observe → Hypothesize → Test → Conclude</div>
       </div>
-      <button onclick="location.reload()" style="font-family:'Baloo 2',cursive;font-size:13px;font-weight:800;letter-spacing:1.5px;padding:11px 28px;background:linear-gradient(135deg,var(--violet),var(--rose));color:#fff;border:none;border-radius:25px;cursor:pointer;box-shadow:0 3px 0 #7c3aed,0 6px 20px rgba(168,85,247,.3);transition:all .2s;text-transform:uppercase" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 5px 0 #7c3aed,0 10px 28px rgba(168,85,247,.3)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 3px 0 #7c3aed,0 6px 20px rgba(168,85,247,.3)'">🔄 Play Again</button>
+      <button onclick="restartAll()" style="font-family:'Baloo 2',cursive;font-size:13px;font-weight:800;letter-spacing:1.5px;padding:11px 28px;background:linear-gradient(135deg,var(--violet),var(--rose));color:#fff;border:none;border-radius:25px;cursor:pointer;box-shadow:0 3px 0 #7c3aed,0 6px 20px rgba(168,85,247,.3);transition:all .2s;text-transform:uppercase" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 5px 0 #7c3aed,0 10px 28px rgba(168,85,247,.3)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 3px 0 #7c3aed,0 6px 20px rgba(168,85,247,.3)'">🔄 Play Again</button>
     </div>
   </div>`;
+}
+
+function restartAll(){
+  // stop any pending gameplay timeouts (feedback auto-hide, mistake-reset, glow rings, score floats)
+  pendingTimeouts.forEach(id=>clearTimeout(id));
+  pendingTimeouts=[];
+  document.querySelectorAll('.score-float').forEach(f=>f.remove());
+
+  // reset scores + counters + in-progress drags
+  score=0;
+  cnt1=0; drag1=null;
+  cnt2=0; drag2=null;
+  cnt3=0; drag3=null;
+  laneState[1]=[]; laneState[2]=[]; laneState[3]=[]; laneState[4]=[];
+  curMod=1;
+
+  // rebuild the three activities from the original markup and rebind drag/drop listeners
+  document.getElementById('main').innerHTML=ORIGINAL_MAIN_HTML;
+  document.getElementById('a1').classList.add('on');
+  document.getElementById('a2').classList.remove('on');
+  document.getElementById('a3').classList.remove('on');
+  initAct1();
+  initAct2();
+  initAct3();
+
+  // reset sidebar progress + score UI
+  document.getElementById('pts').textContent='0';
+  document.getElementById('mod').textContent='1/3';
+  document.querySelectorAll('.step').forEach(s=>s.classList.remove('active','done'));
+  document.getElementById('s1').classList.add('active');
+
+  // close popup if it was open
+  document.getElementById('popup-ov').classList.remove('on');
+
+  // reset the rotating tips back to the start
+  ti=0; ri=0;
 }
 </script>
 </body>

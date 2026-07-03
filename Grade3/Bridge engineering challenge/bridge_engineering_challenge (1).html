@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BRIDGE ENGINEERING CHALLENGE</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --steel: #1a2332;
+  --steel-mid: #243447;
+  --steel-light: #2e4060;
+  --amber: #f5a623;
+  --amber-bright: #ffc845;
+  --cyan: #00d4ff;
+  --green: #39ff6e;
+  --red: #ff3b3b;
+  --white: #e8edf5;
+  --muted: #7a8fa8;
+  --blueprint: #0a4a7a;
+  --blueprint-line: rgba(0,212,255,0.25);
+  --panel-bg: rgba(10,20,36,0.92);
+  --border: rgba(0,212,255,0.2);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Rajdhani',sans-serif;background:var(--steel);color:var(--white);}
+
+/* ===== ANIMATED BACKGROUND ===== */
+#bg{position:fixed;inset:0;z-index:0;overflow:hidden;}
+#bg-canvas{position:absolute;inset:0;}
+
+/* Blueprint grid overlay */
+.bp-grid{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(var(--blueprint-line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--blueprint-line) 1px,transparent 1px);
+  background-size:40px 40px;
+  animation:gridPulse 8s ease-in-out infinite;
+}
+@keyframes gridPulse{0%,100%{opacity:0.4}50%{opacity:0.7}}
+
+/* Drifting dust */
+.dust{position:absolute;border-radius:50%;pointer-events:none;animation:dustDrift linear infinite;}
+@keyframes dustDrift{0%{transform:translateY(100vh) translateX(0) rotate(0deg);opacity:0}10%{opacity:1}90%{opacity:0.6}100%{transform:translateY(-10vh) translateX(60px) rotate(360deg);opacity:0}}
+
+/* Crane SVG */
+.crane-wrap{position:absolute;bottom:0;right:60px;z-index:2;opacity:0.18;pointer-events:none;}
+.crane-arm{transform-origin:85px 30px;animation:craneSway 6s ease-in-out infinite;}
+@keyframes craneSway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+.crane-hook{animation:hookBob 3s ease-in-out infinite;}
+@keyframes hookBob{0%,100%{transform:translateY(0)}50%{transform:translateY(12px)}}
+
+/* Gears */
+.gear{position:absolute;pointer-events:none;opacity:0.12;}
+.gear svg{animation:gearSpin linear infinite;}
+@keyframes gearSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.gear.ccw svg{animation-direction:reverse;}
+
+/* ===== LAYOUT ===== */
+#app{position:relative;z-index:10;width:100vw;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px;}
+
+/* ===== HEADER ===== */
+#hdr{text-align:center;line-height:1;}
+#hdr h1{
+  font-family:'Black Han Sans',sans-serif;
+  font-size:clamp(1.05rem,3.2vw,1.8rem);
+  letter-spacing:3px;
+  background:linear-gradient(90deg,var(--amber),var(--amber-bright),var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 0 14px rgba(245,166,35,0.7));
+}
+#hdr p{font-family:'Share Tech Mono',monospace;font-size:0.62rem;color:var(--cyan);letter-spacing:4px;opacity:0.8;margin-top:2px;}
+
+/* ===== PROGRESS ===== */
+.prog-bar{display:flex;gap:6px;align-items:center;justify-content:center;}
+.prog-step{display:flex;align-items:center;gap:6px;}
+.prog-num{
+  width:24px;height:24px;border-radius:50%;
+  border:2px solid var(--muted);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Share Tech Mono',monospace;font-size:0.65rem;font-weight:700;
+  color:var(--muted);transition:all 0.4s;
+}
+.prog-num.done{border-color:var(--green);color:var(--green);box-shadow:0 0 10px var(--green);}
+.prog-num.active{border-color:var(--amber);color:var(--amber);box-shadow:0 0 14px var(--amber);background:rgba(245,166,35,0.12);}
+.prog-label{font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);transition:color 0.4s;}
+.prog-label.active{color:var(--amber);}
+.prog-connector{width:30px;height:2px;background:var(--muted);border-radius:1px;transition:background 0.4s;}
+.prog-connector.done{background:var(--green);}
+
+/* ===== ACTIVITY CARD ===== */
+.act-card{
+  background:var(--panel-bg);
+  border:1.5px solid var(--border);
+  border-radius:16px;
+  box-shadow:0 0 40px rgba(0,212,255,0.08),0 12px 40px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.05);
+  width:min(99vw,1020px);
+  max-height:80vh;
+  padding:14px 18px 12px;
+  display:none;flex-direction:column;gap:8px;
+  backdrop-filter:blur(14px);
+  animation:slideIn 0.45s cubic-bezier(.23,1.1,.5,1) both;
+}
+.act-card.active{display:flex;}
+@keyframes slideIn{from{opacity:0;transform:translateY(20px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* Card header */
+.card-hdr{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.act-tag{
+  font-family:'Share Tech Mono',monospace;font-size:0.6rem;letter-spacing:2px;
+  background:linear-gradient(135deg,rgba(245,166,35,0.2),rgba(255,200,69,0.1));
+  border:1px solid var(--amber);color:var(--amber);
+  padding:3px 10px;border-radius:4px;white-space:nowrap;
+}
+.act-name{font-family:'Black Han Sans',sans-serif;font-size:clamp(0.85rem,2vw,1.05rem);color:var(--white);letter-spacing:1px;}
+.act-tip{margin-left:auto;font-size:0.67rem;color:var(--muted);max-width:280px;text-align:right;line-height:1.4;}
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);}
+
+/* ===== SHARED ZONES ===== */
+.drop-zone{
+  border:2px dashed rgba(0,212,255,0.3);border-radius:12px;
+  background:rgba(0,212,255,0.03);
+  transition:border-color 0.2s,background 0.2s,box-shadow 0.2s;
+  position:relative;overflow:hidden;
+}
+.drop-zone.drag-over{border-color:var(--amber);background:rgba(245,166,35,0.07);box-shadow:0 0 20px rgba(245,166,35,0.2);}
+.drop-zone.correct{border-color:var(--green);background:rgba(57,255,110,0.06);}
+.drop-zone.wrong{border-color:var(--red);background:rgba(255,59,59,0.06);}
+.zone-lbl{font-family:'Share Tech Mono',monospace;font-size:0.6rem;letter-spacing:2px;text-transform:uppercase;padding:4px 8px;color:var(--muted);}
+
+/* ===== DRAG ITEMS ===== */
+.di{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.12);
+  border-radius:10px;padding:6px 10px;cursor:grab;
+  font-size:1.4rem;transition:transform 0.15s,box-shadow 0.15s,border-color 0.15s;
+  user-select:none;min-width:54px;text-align:center;
+}
+.di .dl{font-size:0.55rem;font-weight:700;font-family:'Rajdhani',sans-serif;color:rgba(232,237,245,0.65);letter-spacing:0.5px;}
+.di:hover{transform:scale(1.1) rotate(-1deg);box-shadow:0 6px 20px rgba(0,0,0,0.4);border-color:var(--cyan);}
+.di.dragging{opacity:0.25;}
+.di.used{opacity:0.3;pointer-events:none;filter:grayscale(0.8);}
+.di.placed{opacity:0.3;pointer-events:none;}
+
+/* ===== BUTTONS ===== */
+.btn{
+  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.78rem;
+  padding:8px 20px;border-radius:6px;border:none;cursor:pointer;
+  letter-spacing:1.5px;text-transform:uppercase;transition:all 0.2s;
+}
+.btn-gold{background:linear-gradient(135deg,var(--amber),var(--amber-bright));color:#1a1000;box-shadow:0 4px 16px rgba(245,166,35,0.4);}
+.btn-gold:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(245,166,35,0.6);}
+.btn-ghost{background:transparent;color:var(--cyan);border:1.5px solid var(--cyan);}
+.btn-ghost:hover{background:rgba(0,212,255,0.08);}
+.btn-red{background:linear-gradient(135deg,#c0392b,var(--red));color:#fff;box-shadow:0 4px 16px rgba(255,59,59,0.4);}
+.btn-red:hover{transform:translateY(-2px);}
+.btn:disabled{opacity:0.35;cursor:not-allowed;transform:none!important;}
+.btn-row{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:4px;}
+
+/* ===== COMPONENT POOL ===== */
+.pool{
+  display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;
+  background:rgba(0,0,0,0.2);border-radius:10px;
+  border:1px solid rgba(255,255,255,0.06);
+  min-height:58px;align-content:flex-start;
+}
+.pool-lbl{font-family:'Share Tech Mono',monospace;font-size:0.55rem;letter-spacing:2px;color:rgba(255,255,255,0.25);width:100%;margin-bottom:2px;}
+
+/* ===== ACTIVITY 1 — BRIDGE ASSEMBLY ===== */
+#act1 .main{display:flex;gap:10px;flex:1;min-height:0;}
+#act1 .left{flex:0.9;display:flex;flex-direction:column;gap:7px;}
+#act1 .right{flex:1.1;display:flex;flex-direction:column;gap:7px;}
+
+/* Bridge diagram */
+.bridge-diagram{
+  flex:1;position:relative;border-radius:12px;
+  background:linear-gradient(180deg,rgba(10,74,122,0.3) 0%,rgba(5,20,40,0.5) 100%);
+  border:1.5px solid rgba(0,212,255,0.2);overflow:hidden;min-height:160px;
+}
+/* Static bridge SVG layer */
+.bridge-svg-base{position:absolute;bottom:0;left:0;right:0;height:70%;}
+/* Slots */
+.bridge-slot{
+  position:absolute;border:2px dashed rgba(0,212,255,0.4);border-radius:8px;
+  background:rgba(0,212,255,0.04);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-size:0.55rem;font-family:'Share Tech Mono',monospace;letter-spacing:1px;
+  color:rgba(0,212,255,0.5);transition:all 0.2s;cursor:default;
+  text-align:center;padding:3px;
+}
+.bridge-slot.drag-over{border-color:var(--amber);background:rgba(245,166,35,0.1);box-shadow:0 0 14px rgba(245,166,35,0.3);}
+.bridge-slot.filled{border-color:var(--green);background:rgba(57,255,110,0.08);border-style:solid;}
+.bridge-slot.wrong-fill{border-color:var(--red);background:rgba(255,59,59,0.08);border-style:solid;}
+
+.info-box{background:rgba(0,74,120,0.3);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:7px 10px;font-size:0.67rem;line-height:1.55;color:rgba(232,237,245,0.8);}
+
+/* ===== ACTIVITY 2 — POPSICLE BRIDGE ===== */
+#act2 .main{display:flex;gap:10px;flex:1;min-height:0;}
+#act2 .left{flex:1;display:flex;flex-direction:column;gap:7px;}
+#act2 .right{flex:0.85;display:flex;flex-direction:column;gap:7px;}
+
+/* Build area */
+.build-area{
+  flex:1;position:relative;border-radius:12px;
+  background:linear-gradient(180deg,rgba(5,15,30,0.6),rgba(10,30,60,0.5));
+  border:1.5px solid rgba(245,166,35,0.25);overflow:hidden;min-height:170px;
+}
+.ground-left{position:absolute;bottom:18%;left:0;width:18%;height:20%;background:linear-gradient(90deg,#3d2b1a,#5c3d22);border-radius:4px;border-top:3px solid var(--amber);}
+.ground-right{position:absolute;bottom:18%;right:0;width:18%;height:20%;background:linear-gradient(90deg,#5c3d22,#3d2b1a);border-radius:4px;border-top:3px solid var(--amber);}
+.gap-label{position:absolute;bottom:10%;left:50%;transform:translateX(-50%);font-family:'Share Tech Mono',monospace;font-size:0.55rem;color:rgba(245,166,35,0.7);letter-spacing:2px;white-space:nowrap;}
+.gap-arrow{position:absolute;bottom:14%;left:19%;right:19%;height:1px;background:rgba(245,166,35,0.4);}
+.gap-arrow::before,.gap-arrow::after{content:'';position:absolute;top:-4px;border:4px solid transparent;}
+.gap-arrow::before{left:0;border-right-color:var(--amber);}
+.gap-arrow::after{right:0;border-left-color:var(--amber);}
+.water-river{position:absolute;bottom:0;left:18%;right:18%;height:18%;background:linear-gradient(180deg,rgba(0,80,180,0.6),rgba(0,40,120,0.8));overflow:hidden;}
+.river-wave{position:absolute;bottom:0;left:0;right:0;height:6px;background:rgba(0,212,255,0.3);animation:riverWave 2s ease-in-out infinite;}
+@keyframes riverWave{0%,100%{transform:scaleX(1)}50%{transform:scaleX(1.05)}}
+
+/* Placed sticks on bridge */
+.placed-sticks{position:absolute;bottom:37%;left:18%;right:18%;top:15%;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:center;gap:1px;z-index:5;}
+.pstick{font-size:1.1rem;animation:stickPlace 0.3s cubic-bezier(.23,1.3,.5,1) both;}
+@keyframes stickPlace{from{transform:scale(0) rotate(20deg);opacity:0}to{transform:scale(1) rotate(0deg);opacity:1}}
+.placed-tape{font-size:0.9rem;}
+
+.build-counter{position:absolute;top:7px;right:10px;font-family:'Share Tech Mono',monospace;font-size:0.62rem;color:var(--amber);}
+.struct-hint{position:absolute;top:7px;left:10px;font-family:'Share Tech Mono',monospace;font-size:0.55rem;color:rgba(0,212,255,0.6);}
+
+/* materials */
+.mat-item{cursor:pointer;background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 8px;display:flex;align-items:center;gap:5px;font-size:0.68rem;transition:all 0.15s;font-weight:600;}
+.mat-item:hover{border-color:var(--amber);background:rgba(245,166,35,0.08);transform:scale(1.05);}
+.mat-item .mi{font-size:1.2rem;}
+.mat-item.depleted{opacity:0.3;pointer-events:none;}
+
+/* Stress meter */
+.stress-wrap{background:rgba(0,0,0,0.3);border-radius:8px;height:12px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);}
+.stress-bar{height:100%;border-radius:8px;transition:width 0.5s,background 0.5s;background:linear-gradient(90deg,var(--green),var(--amber));}
+.stress-bar.critical{background:linear-gradient(90deg,var(--amber),var(--red));}
+
+/* Activity 2 — multi-piece build zones */
+.act2-zone{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:1px;padding-top:3px;cursor:default;}
+.act2-zone .zn-label{font-size:0.5rem;letter-spacing:0.5px;}
+.act2-zone .zn-count{font-family:'Share Tech Mono',monospace;font-size:0.55rem;color:var(--amber);}
+.act2-zone .zn-pieces{display:flex;flex-wrap:wrap;gap:0px;justify-content:center;align-items:center;font-size:0.9rem;line-height:1;max-height:70%;overflow:hidden;}
+.act2-zone.filled .zn-count{color:var(--green);}
+@keyframes zoneShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.act2-zone.wrong-fill{animation:zoneShake 0.35s;}
+
+/* Triangle strength tester */
+.tri-test{background:rgba(0,74,120,0.25);border:1px solid rgba(0,212,255,0.2);border-radius:10px;padding:8px 10px;}
+.tri-test-lbl{font-family:'Share Tech Mono',monospace;font-size:0.56rem;letter-spacing:1px;color:var(--cyan);margin-bottom:6px;}
+.tri-test-row{display:flex;align-items:center;justify-content:space-between;gap:4px;}
+.tri-shape-btn{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;font-size:1.3rem;padding:4px 8px;border-radius:8px;border:1.5px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);transition:all 0.15s;}
+.tri-shape-btn:hover{border-color:var(--amber);transform:scale(1.08);}
+.tri-shape-btn span{font-size:0.48rem;font-weight:700;color:var(--muted);letter-spacing:0.5px;}
+.tri-demo{position:relative;width:52px;height:52px;display:flex;align-items:center;justify-content:center;font-size:1.7rem;}
+.tri-demo .tw{position:absolute;top:-22px;font-size:1rem;opacity:0;}
+.tri-demo .tw.drop{animation:twDrop 0.5s ease-in forwards;}
+@keyframes twDrop{0%{top:-22px;opacity:1}80%{top:8px;opacity:1}100%{top:6px;opacity:1}}
+.tri-demo .ts.crush{animation:tsCrush 0.4s ease-out 0.45s forwards;}
+@keyframes tsCrush{0%{transform:scale(1)}100%{transform:scaleY(0.3) scaleX(1.35);}}
+.tri-demo .ts.hold{animation:tsHold 0.4s ease-out 0.45s;}
+@keyframes tsHold{0%{transform:translateY(0)}30%{transform:translateY(4px)}60%{transform:translateY(0)}100%{transform:translateY(0)}}
+.tri-result{font-size:0.6rem;color:var(--muted);text-align:center;margin-top:6px;min-height:26px;line-height:1.35;}
+
+/* ===== ACTIVITY 3 — LOAD TEST ===== */
+#act3 .main{display:flex;gap:10px;flex:1;min-height:0;}
+#act3 .left{flex:1.3;display:flex;flex-direction:column;gap:7px;}
+#act3 .right{flex:0.7;display:flex;flex-direction:column;gap:7px;}
+
+/* Test bridge */
+.test-area{
+  flex:1;position:relative;border-radius:12px;
+  background:linear-gradient(180deg,rgba(5,10,25,0.7),rgba(10,25,55,0.6));
+  border:1.5px solid rgba(0,212,255,0.2);overflow:hidden;min-height:160px;
+}
+.test-left-bank{position:absolute;bottom:0;left:0;width:15%;height:30%;background:linear-gradient(90deg,#3d2b1a,#5c3d22);border-radius:0 6px 0 0;}
+.test-right-bank{position:absolute;bottom:0;right:0;width:15%;height:30%;background:linear-gradient(90deg,#5c3d22,#3d2b1a);border-radius:6px 0 0 0;}
+.test-water{position:absolute;bottom:0;left:15%;right:15%;height:28%;background:linear-gradient(180deg,rgba(0,100,220,0.5),rgba(0,40,130,0.8));}
+.test-water-surf{position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);animation:riverWave 2s ease-in-out infinite;}
+
+/* bridge deck */
+.bridge-deck{
+  position:absolute;left:14%;right:14%;
+  background:linear-gradient(180deg,#8B6914,#5C4A1A);
+  border-radius:4px;border:2px solid var(--amber);
+  transition:all 0.4s;transform-origin:center bottom;
+  z-index:5;
+}
+.bridge-deck.sag{animation:bridgeSag 0.5s ease-out forwards;}
+@keyframes bridgeSag{0%{transform:rotate(0deg)}25%{transform:scaleY(0.8) translateY(4px)}100%{transform:scaleY(1) translateY(0)}}
+.bridge-deck.collapse{animation:bridgeCollapse 1s forwards;}
+@keyframes bridgeCollapse{0%{transform:rotate(0deg);opacity:1}30%{transform:rotate(-8deg);opacity:0.8}100%{transform:rotate(-35deg) translateY(60px);opacity:0}}
+
+/* cables */
+.cable-left,.cable-right{
+  position:absolute;border-left:2px solid rgba(200,180,100,0.6);
+  transform-origin:top;
+}
+/* coins on bridge */
+.coin-on-bridge{position:absolute;font-size:1.1rem;bottom:100%;transition:all 0.3s;animation:coinLand 0.3s cubic-bezier(.23,1.3,.5,1) both;}
+@keyframes coinLand{from{transform:translateY(-30px) rotate(180deg);opacity:0}to{transform:translateY(0) rotate(0);opacity:1}}
+.crack-line{position:absolute;pointer-events:none;animation:crackAnim 0.4s ease-out forwards;font-size:0.7rem;z-index:10;}
+@keyframes crackAnim{0%{opacity:1;transform:scale(0.5)}50%{opacity:1;transform:scale(1.2)}100%{opacity:0;transform:scale(1.5)}}
+
+/* leaderboard */
+.leaderboard{background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:8px;overflow:hidden;}
+.lb-row{display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.68rem;}
+.lb-row:last-child{border:none;}
+.lb-rank{font-family:'Share Tech Mono',monospace;color:var(--muted);width:16px;}
+.lb-name{flex:1;font-weight:700;}
+.lb-score{font-family:'Share Tech Mono',monospace;color:var(--amber);font-weight:700;}
+.lb-bar{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--amber),var(--cyan));margin-top:2px;}
+
+/* coin tray */
+.coin-tray{display:flex;flex-wrap:wrap;gap:5px;}
+.coin-btn{
+  font-size:1.5rem;cursor:pointer;
+  background:rgba(255,255,255,0.05);border:1.5px solid rgba(245,166,35,0.3);
+  border-radius:50%;width:44px;height:44px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.15s;font-family:'Share Tech Mono',monospace;
+}
+.coin-btn:hover{border-color:var(--amber);transform:scale(1.15);box-shadow:0 0 12px rgba(245,166,35,0.4);}
+.coin-btn.used{opacity:0.25;pointer-events:none;}
+.weight-display{font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:var(--amber);}
+
+/* ===== POPUP ===== */
+#popup-bg{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity 0.3s;}
+#popup-bg.show{opacity:1;pointer-events:all;}
+.popup{
+  background:linear-gradient(135deg,rgba(10,20,36,0.99),rgba(6,12,24,0.99));
+  border:2px solid rgba(245,166,35,0.35);border-radius:20px;
+  padding:28px 36px;text-align:center;max-width:380px;width:90%;
+  box-shadow:0 0 60px rgba(245,166,35,0.15),0 20px 60px rgba(0,0,0,0.7);
+  animation:popIn 0.4s cubic-bezier(.23,1.4,.5,1) both;
+}
+@keyframes popIn{from{transform:scale(0.7) translateY(20px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+.popup .pe{font-size:2.8rem;margin-bottom:8px;}
+.popup h2{font-family:'Black Han Sans',sans-serif;font-size:1.15rem;color:var(--amber);letter-spacing:2px;margin-bottom:6px;}
+.popup p{font-size:0.8rem;color:rgba(232,237,245,0.8);line-height:1.55;margin-bottom:12px;}
+.popup .pscore{font-family:'Share Tech Mono',monospace;font-size:1.8rem;color:var(--amber-bright);margin:6px 0 14px;}
+
+/* ===== CONFETTI ===== */
+.conf{position:fixed;pointer-events:none;z-index:300;border-radius:3px;animation:confFall linear forwards;}
+@keyframes confFall{0%{transform:translateY(-10px) rotate(0);opacity:1}100%{transform:translateY(105vh) rotate(720deg);opacity:0}}
+
+/* ===== SCORE CHIP ===== */
+.chip{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;font-family:'Share Tech Mono',monospace;font-size:0.63rem;}
+.chip span{color:var(--amber-bright);font-weight:700;}
+.chips-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+
+<!-- ===== BACKGROUND ===== -->
+<div id="bg">
+  <canvas id="bg-canvas"></canvas>
+  <div class="bp-grid"></div>
+
+  <!-- Crane SVG -->
+  <div class="crane-wrap" style="width:220px;height:280px;">
+    <svg width="220" height="280" viewBox="0 0 220 280">
+      <!-- Tower -->
+      <rect x="78" y="80" width="14" height="200" fill="#5c7a9a" stroke="#7ba0c0" stroke-width="1"/>
+      <!-- Arm -->
+      <g class="crane-arm">
+        <rect x="20" y="28" width="165" height="10" fill="#5c7a9a" stroke="#7ba0c0" stroke-width="1" rx="2"/>
+        <rect x="82" y="28" width="6" height="55" fill="#4a6a8a"/>
+        <!-- Cables -->
+        <line x1="60" y1="38" x2="85" y2="80" stroke="#9ab0c0" stroke-width="1.5"/>
+        <line x1="100" y1="38" x2="85" y2="80" stroke="#9ab0c0" stroke-width="1.5"/>
+        <!-- Hook line -->
+        <g class="crane-hook">
+          <line x1="40" y1="38" x2="40" y2="90" stroke="#9ab0c0" stroke-width="1.5" stroke-dasharray="4,2"/>
+          <rect x="32" y="88" width="16" height="10" fill="#7a9aaa" rx="2"/>
+        </g>
+      </g>
+      <!-- Counterweight -->
+      <rect x="15" y="23" width="22" height="16" fill="#4a6070" rx="2"/>
+    </svg>
+  </div>
+
+  <!-- Gears -->
+  <div class="gear" style="left:2%;top:15%;"><svg width="80" height="80" viewBox="0 0 80 80" style="animation-duration:12s"><path d="M40 10 L44 22 L52 16 L52 28 L64 28 L58 36 L70 40 L58 44 L64 52 L52 52 L52 64 L44 58 L40 70 L36 58 L28 64 L28 52 L16 52 L22 44 L10 40 L22 36 L16 28 L28 28 L28 16 L36 22 Z" fill="none" stroke="rgba(0,212,255,0.6)" stroke-width="2"/><circle cx="40" cy="40" r="10" fill="none" stroke="rgba(0,212,255,0.6)" stroke-width="2"/></svg></div>
+  <div class="gear ccw" style="right:3%;bottom:20%;"><svg width="60" height="60" viewBox="0 0 60 60" style="animation-duration:8s"><path d="M30 6 L33 15 L39 11 L39 19 L47 19 L43 25 L51 30 L43 35 L47 41 L39 41 L39 49 L33 45 L30 54 L27 45 L21 49 L21 41 L13 41 L17 35 L9 30 L17 25 L13 19 L21 19 L21 11 L27 15 Z" fill="none" stroke="rgba(245,166,35,0.5)" stroke-width="1.5"/><circle cx="30" cy="30" r="7" fill="none" stroke="rgba(245,166,35,0.5)" stroke-width="1.5"/></svg></div>
+  <div class="gear" style="left:8%;bottom:10%;"><svg width="50" height="50" viewBox="0 0 50 50" style="animation-duration:15s"><path d="M25 4 L27.5 12 L33 8 L33 15 L40 15 L36 21 L44 25 L36 29 L40 35 L33 35 L33 42 L27.5 38 L25 46 L22.5 38 L17 42 L17 35 L10 35 L14 29 L6 25 L14 21 L10 15 L17 15 L17 8 L22.5 12 Z" fill="none" stroke="rgba(57,255,110,0.4)" stroke-width="1.5"/><circle cx="25" cy="25" r="6" fill="none" stroke="rgba(57,255,110,0.4)" stroke-width="1.5"/></svg></div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="app">
+  <div id="hdr">
+    <h1>🏗️ BRIDGE ENGINEERING CHALLENGE</h1>
+    <p>⚙️ JUNIOR ENGINEERS LAB · BUILD · TEST · IMPROVE</p>
+  </div>
+
+  <!-- Progress -->
+  <div class="prog-bar">
+    <div class="prog-step">
+      <div class="prog-num active" id="pn1">01</div>
+      <div class="prog-label active" id="pl1">ASSEMBLE</div>
+    </div>
+    <div class="prog-connector" id="pc1"></div>
+    <div class="prog-step">
+      <div class="prog-num" id="pn2">02</div>
+      <div class="prog-label" id="pl2">BUILD</div>
+    </div>
+    <div class="prog-connector" id="pc2"></div>
+    <div class="prog-step">
+      <div class="prog-num" id="pn3">03</div>
+      <div class="prog-label" id="pl3">LOAD TEST</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- ACTIVITY 1 — BRIDGE ASSEMBLY                                  -->
+  <!-- ============================================================ -->
+  <div class="act-card active" id="act1">
+    <div class="card-hdr">
+      <div class="act-tag">ACTIVITY 01</div>
+      <div class="act-name">🔩 Bridge Component Assembly</div>
+      <div class="act-tip">Drag each part to its correct position on the bridge diagram</div>
+    </div>
+    <div class="divider"></div>
+    <div class="main" id="act1-main">
+      <div class="left">
+        <div class="info-box" id="act1-info">
+          <strong style="color:var(--amber)">🏗️ How Bridges Work:</strong><br>
+          Every bridge has key parts working together. <strong>Supports</strong> (piers/abutments) carry the weight into the ground. <strong>Beams</strong> form the flat road deck. <strong>Trusses</strong> are triangular frames that resist bending. <strong>Cables</strong> pull the deck upward from towers. Drag the parts to the correct slots!
+        </div>
+        <div class="pool" id="act1-pool">
+          <div class="pool-lbl">🔧 COMPONENTS — DRAG TO BRIDGE</div>
+        </div>
+        <div id="act1-feedback" style="font-size:0.68rem;min-height:20px;color:var(--green);font-weight:700;"></div>
+      </div>
+      <div class="right">
+        <div class="bridge-diagram" id="bridge-diagram">
+          <!-- Slots positioned over SVG bridge -->
+          <svg style="position:absolute;bottom:0;left:0;right:0;width:100%;height:75%" viewBox="0 0 500 120" preserveAspectRatio="none">
+            <!-- Water -->
+            <rect x="0" y="80" width="500" height="40" fill="rgba(0,60,180,0.35)"/>
+            <rect x="0" y="80" width="500" height="4" fill="rgba(0,212,255,0.25)"/>
+            <!-- Bank left -->
+            <rect x="0" y="55" width="70" height="65" fill="#4a3010" rx="4"/>
+            <rect x="0" y="50" width="70" height="8" fill="#6a4820" rx="2"/>
+            <!-- Bank right -->
+            <rect x="430" y="55" width="70" height="65" fill="#4a3010" rx="4"/>
+            <rect x="430" y="50" width="70" height="8" fill="#6a4820" rx="2"/>
+            <!-- Piers -->
+            <rect x="155" y="30" width="18" height="50" fill="#7a8fa8" rx="3"/>
+            <rect x="327" y="30" width="18" height="50" fill="#7a8fa8" rx="3"/>
+            <!-- Deck -->
+            <rect x="65" y="28" width="370" height="12" fill="#8B6914" rx="4" stroke="#c8960a" stroke-width="1.5"/>
+            <!-- Truss lines -->
+            <g stroke="rgba(200,180,100,0.5)" stroke-width="1.5">
+              <line x1="70" y1="28" x2="155" y2="15"/>
+              <line x1="155" y1="15" x2="200" y2="28"/>
+              <line x1="200" y1="28" x2="250" y2="15"/>
+              <line x1="250" y1="15" x2="300" y2="28"/>
+              <line x1="300" y1="28" x2="345" y2="15"/>
+              <line x1="345" y1="15" x2="395" y2="28"/>
+              <line x1="395" y1="28" x2="430" y2="15"/>
+              <!-- top chord -->
+              <line x1="155" y1="15" x2="430" y2="15"/>
+              <line x1="70" y1="28" x2="155" y2="15"/>
+            </g>
+            <!-- Towers (cable-stay) -->
+            <rect x="175" y="0" width="6" height="32" fill="rgba(200,180,100,0.7)" rx="2"/>
+            <rect x="319" y="0" width="6" height="32" fill="rgba(200,180,100,0.7)" rx="2"/>
+            <!-- Cables -->
+            <g stroke="rgba(200,180,100,0.45)" stroke-width="1">
+              <line x1="178" y1="2" x2="100" y2="30"/>
+              <line x1="178" y1="2" x2="140" y2="30"/>
+              <line x1="178" y1="2" x2="210" y2="30"/>
+              <line x1="178" y1="2" x2="250" y2="30"/>
+              <line x1="322" y1="2" x2="250" y2="30"/>
+              <line x1="322" y1="2" x2="290" y2="30"/>
+              <line x1="322" y1="2" x2="360" y2="30"/>
+              <line x1="322" y1="2" x2="400" y2="30"/>
+            </g>
+            <!-- Road markings -->
+            <g stroke="rgba(255,255,200,0.4)" stroke-width="1" stroke-dasharray="20,12">
+              <line x1="70" y1="34" x2="430" y2="34"/>
+            </g>
+          </svg>
+          <!-- Drag slots -->
+          <div class="bridge-slot" id="slot-tower" style="left:31%;top:2%;width:11%;height:26%;" data-accepts="tower">
+            <span>TOWER</span>
+          </div>
+          <div class="bridge-slot" id="slot-cable" style="left:15%;top:5%;width:15%;height:30%;" data-accepts="cable">
+            <span>CABLES</span>
+          </div>
+          <div class="bridge-slot" id="slot-beam" style="left:12%;top:60%;width:76%;height:18%;" data-accepts="beam">
+            <span>BEAM DECK</span>
+          </div>
+          <div class="bridge-slot" id="slot-pier" style="left:29%;top:55%;width:8%;height:35%;" data-accepts="pier">
+            <span>PIER</span>
+          </div>
+          <div class="bridge-slot" id="slot-truss" style="left:13%;top:28%;width:72%;height:30%;" data-accepts="truss">
+            <span>TRUSS</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <span id="act1-counter" style="font-size:0.68rem;color:var(--muted);">Place all 5 components</span>
+      <button class="btn btn-ghost" onclick="resetAct1()" style="font-size:0.65rem;padding:6px 12px;">↺ Reset</button>
+      <button class="btn btn-gold" id="act1-next" disabled onclick="openPopup1()">Build Bridge →</button>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- ACTIVITY 2 — POPSICLE BRIDGE BUILD                            -->
+  <!-- ============================================================ -->
+  <div class="act-card" id="act2">
+    <div class="card-hdr">
+      <div class="act-tag">ACTIVITY 02</div>
+      <div class="act-name">🪵 Build Your Popsicle Bridge</div>
+      <div class="act-tip">Drag each piece into its matching zone — but watch out, a couple of materials don't belong at all!</div>
+    </div>
+    <div class="divider"></div>
+    <div class="main">
+      <div class="left">
+        <div class="build-area drop-zone" id="build-area">
+          <div class="struct-hint" id="struct-hint">🛠️ MATCH EACH PIECE TO ITS ZONE</div>
+          <div class="build-counter" id="build-counter">0/14 pieces placed</div>
+          <div class="ground-left"></div>
+          <div class="ground-right"></div>
+          <div class="gap-label">◄──── 30 cm gap ────►</div>
+          <div class="water-river"><div class="river-wave"></div></div>
+          <!-- zones injected by JS -->
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <div style="font-size:0.65rem;color:var(--muted);">Structural Integrity</div>
+          <div class="stress-wrap" style="flex:1;">
+            <div class="stress-bar" id="act2-integrity" style="width:0%;"></div>
+          </div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:0.63rem;color:var(--amber);" id="act2-int-pct">0%</div>
+        </div>
+      </div>
+      <div class="right">
+        <div class="tri-test">
+          <div class="tri-test-lbl">🧪 TRY IT: WHICH SHAPE IS STRONGER?</div>
+          <div class="tri-test-row">
+            <div class="tri-shape-btn" onclick="testShape('square')">⬜<span>SQUARE</span></div>
+            <div class="tri-demo" id="tri-demo">
+              <span class="ts" id="tri-shape">❔</span>
+              <span class="tw" id="tri-weight">🪨</span>
+            </div>
+            <div class="tri-shape-btn" onclick="testShape('triangle')">🔺<span>TRIANGLE</span></div>
+          </div>
+          <div class="tri-result" id="tri-result">Tap a shape to drop a heavy rock on it!</div>
+        </div>
+        <div style="font-size:0.65rem;color:var(--amber);font-weight:700;letter-spacing:1px;text-transform:uppercase;">🔧 Drag Materials → Matching Zone</div>
+        <div class="pool" id="mat-pool" style="gap:6px;max-height:96px;overflow-y:auto;">
+          <div class="pool-lbl">DRAG EACH PIECE TO ITS ZONE BELOW ↙</div>
+        </div>
+        <div class="chips-row">
+          <div class="chip">Sticks: <span id="s2-sticks">0</span>/7</div>
+          <div class="chip">Tape: <span id="s2-joints">0</span>/4</div>
+          <div class="chip">Truss: <span id="s2-trusses">0</span>/3</div>
+        </div>
+        <div class="btn-row" style="margin-top:auto;">
+          <button class="btn btn-ghost" onclick="resetAct2()" style="font-size:0.65rem;padding:6px 12px;">↺ Reset</button>
+          <button class="btn btn-gold" id="act2-next" disabled onclick="openPopup2()">Load Test →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- ACTIVITY 3 — LOAD TEST                                        -->
+  <!-- ============================================================ -->
+  <div class="act-card" id="act3">
+    <div class="card-hdr">
+      <div class="act-tag">ACTIVITY 03</div>
+      <div class="act-name">⚖️ Bridge Load Test</div>
+      <div class="act-tip">Add coin weights and see how much your bridge can hold!</div>
+    </div>
+    <div class="divider"></div>
+    <div class="main">
+      <div class="left">
+        <div class="test-area" id="test-area">
+          <div class="test-left-bank"></div>
+          <div class="test-right-bank"></div>
+          <div class="test-water"><div class="test-water-surf"></div></div>
+          <!-- Bridge deck -->
+          <div class="bridge-deck" id="bridge-deck" style="bottom:28%;height:10px;">
+            <div id="coins-on-bridge" style="position:absolute;bottom:100%;left:0;right:0;display:flex;justify-content:center;flex-wrap:wrap;gap:2px;padding:2px;"></div>
+          </div>
+          <!-- Cables from towers -->
+          <div style="position:absolute;left:14%;right:14%;bottom:36%;pointer-events:none;">
+            <svg width="100%" height="60" viewBox="0 0 300 60" preserveAspectRatio="none">
+              <line x1="60" y1="0" x2="0" y2="55" stroke="rgba(200,180,100,0.5)" stroke-width="1.5"/>
+              <line x1="60" y1="0" x2="30" y2="55" stroke="rgba(200,180,100,0.5)" stroke-width="1.5"/>
+              <line x1="60" y1="0" x2="90" y2="55" stroke="rgba(200,180,100,0.5)" stroke-width="1.5"/>
+              <line x1="240" y1="0" x2="300" y2="55" stroke="rgba(200,180,100,0.5)" stroke-width="1.5"/>
+              <line x1="240" y1="0" x2="270" y2="55" stroke="rgba(200,180,100,0.5)" stroke-width="1.5"/>
+              <line x1="240" y1="0" x2="210" y2="55" stroke="rgba(200,180,100,0.5)" stroke-width="1.5"/>
+              <rect x="55" y="0" width="8" height="55" fill="rgba(200,180,100,0.6)" rx="1"/>
+              <rect x="237" y="0" width="8" height="55" fill="rgba(200,180,100,0.6)" rx="1"/>
+            </svg>
+          </div>
+          <div id="test-status" style="position:absolute;top:7px;left:50%;transform:translateX(-50%);font-family:'Share Tech Mono',monospace;font-size:0.62rem;color:var(--amber);white-space:nowrap;">LOAD: 0g · CAPACITY: 0g</div>
+          <div id="stress-cracks" style="position:absolute;inset:0;pointer-events:none;z-index:8;"></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div style="font-size:0.65rem;color:var(--muted);white-space:nowrap;">Stress Level</div>
+          <div class="stress-wrap" style="flex:1;">
+            <div class="stress-bar" id="act3-stress" style="width:0%;"></div>
+          </div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:0.63rem;color:var(--amber);" id="act3-stress-pct">0%</div>
+        </div>
+      </div>
+      <div class="right">
+        <div style="font-size:0.65rem;color:var(--amber);font-weight:700;letter-spacing:1px;text-transform:uppercase;">🪙 Add Coin Weights</div>
+        <div class="coin-tray" id="coin-tray"></div>
+        <div class="weight-display">Total Load: <span id="total-load">0</span>g</div>
+        <div class="divider"></div>
+        <div style="font-size:0.65rem;color:var(--cyan);font-weight:700;letter-spacing:1px;text-transform:uppercase;">🏆 Design Leaderboard</div>
+        <div class="leaderboard" id="leaderboard">
+          <div class="lb-row">
+            <div class="lb-rank">—</div>
+            <div class="lb-name" style="color:var(--muted);font-size:0.62rem;">Complete load test to rank!</div>
+          </div>
+        </div>
+        <div class="btn-row" style="margin-top:auto;">
+          <button class="btn btn-ghost" onclick="resetAct3()" style="font-size:0.65rem;padding:6px 12px;">↺ Reset</button>
+          <button class="btn btn-red" onclick="collapseTest()" id="collapse-btn" style="font-size:0.65rem;padding:6px 12px;">💥 Collapse!</button>
+          <button class="btn btn-gold" id="act3-finish" onclick="finishAll()">🏅 Complete!</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== POPUP ===== -->
+<div id="popup-bg">
+  <div class="popup">
+    <div class="pe" id="pp-emoji">🎉</div>
+    <h2 id="pp-title">COMPLETE!</h2>
+    <p id="pp-msg">Great work!</p>
+    <div class="pscore" id="pp-score"></div>
+    <div style="display:flex;flex-direction:column;gap:10px;align-items:center;">
+      <button class="btn btn-gold" id="pp-btn" onclick="handlePopup()" style="width:100%;">Continue →</button>
+      <button class="btn btn-ghost" id="pp-play-again" onclick="handlePlayAgain()" style="width:100%;display:none;">🔁 Play Again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================= BACKGROUND ============================= */
+const bgCanvas = document.getElementById('bg-canvas');
+const bgCtx = bgCanvas.getContext('2d');
+let bgP = [];
+function initBg(){
+  bgCanvas.width = window.innerWidth;
+  bgCanvas.height = window.innerHeight;
+  bgP = [];
+  for(let i=0;i<50;i++){
+    const colors=['rgba(245,166,35,','rgba(0,212,255,','rgba(57,255,110,','rgba(255,255,255,'];
+    bgP.push({
+      x:Math.random()*bgCanvas.width, y:Math.random()*bgCanvas.height,
+      r:Math.random()*1.5+0.5, vx:(Math.random()-.5)*.4, vy:(Math.random()-.5)*.4,
+      c:colors[Math.floor(Math.random()*colors.length)], a:Math.random()*.3+.05
+    });
+  }
+}
+function drawBg(){
+  bgCtx.clearRect(0,0,bgCanvas.width,bgCanvas.height);
+  const g=bgCtx.createRadialGradient(bgCanvas.width/2,bgCanvas.height/2,0,bgCanvas.width/2,bgCanvas.height/2,bgCanvas.width*.7);
+  g.addColorStop(0,'rgba(22,36,60,1)');g.addColorStop(1,'rgba(8,14,26,1)');
+  bgCtx.fillStyle=g;bgCtx.fillRect(0,0,bgCanvas.width,bgCanvas.height);
+  bgP.forEach(p=>{
+    bgCtx.beginPath();bgCtx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    bgCtx.fillStyle=p.c+p.a+')';bgCtx.fill();
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0||p.x>bgCanvas.width)p.vx*=-1;
+    if(p.y<0||p.y>bgCanvas.height)p.vy*=-1;
+  });
+  requestAnimationFrame(drawBg);
+}
+window.addEventListener('resize',initBg);
+initBg();drawBg();
+
+/* Dust particles */
+(function spawnDust(){
+  setInterval(()=>{
+    const d=document.createElement('div');
+    d.className='dust';
+    const sz=Math.random()*4+1;
+    const colors=['rgba(245,166,35,0.6)','rgba(0,212,255,0.4)','rgba(255,255,255,0.3)','rgba(200,180,100,0.5)'];
+    d.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}vw;background:${colors[Math.floor(Math.random()*colors.length)]};animation-duration:${Math.random()*6+4}s;animation-delay:${Math.random()*2}s;`;
+    document.getElementById('bg').appendChild(d);
+    setTimeout(()=>d.remove(),10000);
+  },400);
+})();
+
+/* ============================= SHARED STATE ============================= */
+let currentAct = 1;
+let popupNextAction = null;
+
+/* ============================= ACTIVITY 1 ============================= */
+const A1_PARTS = [
+  {id:'tower',emoji:'🗼',label:'Tower',desc:'Vertical tower that anchors cables'},
+  {id:'cable',emoji:'〰️',label:'Cables',desc:'Steel cables under tension'},
+  {id:'beam',emoji:'━━',label:'Beam Deck',desc:'Flat road surface of bridge'},
+  {id:'pier',emoji:'🏛️',label:'Support Pier',desc:'Pillar that carries load to ground'},
+  {id:'truss',emoji:'📐',label:'Truss Frame',desc:'Triangle frame resisting bending'},
+];
+let a1Placed = {};
+let a1DragId = null;
+
+function setupAct1(){
+  a1Placed = {};
+  // Pool
+  const pool = document.getElementById('act1-pool');
+  [...pool.querySelectorAll('.di')].forEach(e=>e.remove());
+  A1_PARTS.forEach(p=>{
+    const el=document.createElement('div');
+    el.className='di'; el.id='a1di-'+p.id; el.dataset.id=p.id;
+    el.draggable=true;
+    el.innerHTML=`${p.emoji}<span class="dl">${p.label}</span>`;
+    el.title=p.desc;
+    el.addEventListener('dragstart',e=>{a1DragId=p.id;el.classList.add('dragging');});
+    el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+    pool.appendChild(el);
+  });
+  // Slots
+  document.querySelectorAll('.bridge-slot').forEach(slot=>{
+    slot.innerHTML=`<span>${slot.dataset.accepts.toUpperCase()}</span>`;
+    slot.className='bridge-slot';
+    slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('drag-over');});
+    slot.addEventListener('dragleave',()=>slot.classList.remove('drag-over'));
+    slot.addEventListener('drop',e=>{e.preventDefault();slot.classList.remove('drag-over');dropOnSlot(slot);});
+  });
+  document.getElementById('act1-next').disabled=true;
+  document.getElementById('act1-counter').textContent='Place all 5 components';
+  document.getElementById('act1-feedback').textContent='';
+}
+
+function dropOnSlot(slot){
+  if(!a1DragId) return;
+  const accepts=slot.dataset.accepts;
+  const partEl=document.getElementById('a1di-'+a1DragId);
+  if(a1DragId===accepts){
+    // Correct
+    a1Placed[a1DragId]=true;
+    slot.classList.add('filled');
+    const part=A1_PARTS.find(p=>p.id===a1DragId);
+    slot.innerHTML=`<span style="font-size:1.1rem">${part.emoji}</span><span style="font-size:0.5rem;color:var(--green)">${part.label}</span>`;
+    partEl&&(partEl.classList.add('placed'));
+    document.getElementById('act1-feedback').textContent=`✅ ${part.label}: ${part.desc}`;
+    document.getElementById('act1-feedback').style.color='var(--green)';
+  } else {
+    // Wrong
+    slot.classList.add('wrong-fill');
+    document.getElementById('act1-feedback').textContent=`❌ Not quite — try a different slot for this part!`;
+    document.getElementById('act1-feedback').style.color='var(--red)';
+    setTimeout(()=>slot.classList.remove('wrong-fill'),800);
+  }
+  const placed=Object.keys(a1Placed).length;
+  document.getElementById('act1-counter').textContent=`${placed}/5 components placed`;
+  if(placed===5){
+    document.getElementById('act1-next').disabled=false;
+    document.getElementById('act1-counter').style.color='var(--green)';
+  }
+  a1DragId=null;
+}
+
+function resetAct1(){
+  setupAct1();
+}
+
+function openPopup1(){
+  showPopup('🏗️','STRUCTURE COMPLETE!',
+    'Outstanding work, Junior Engineer! You correctly identified all 5 bridge components. Now let\'s build a real popsicle bridge and test its strength!',
+    '5/5 COMPONENTS ✓','Build the Bridge →','goAct2');
+}
+
+/* ============================= ACTIVITY 2 ============================= */
+let a2Sticks=0, a2Tape=0, a2Trusses=0;
+const MAX_STICKS=7, MAX_TAPE=4, MAX_TRUSSES=3;
+let a2DragType=null, a2DragTokenId=null;
+let zoneFilled={};
+
+// Build zones — each needs a specific material type and quantity.
+// Positioned over the bridge diagram so kids have to read & choose, not just spam-drag.
+const ACT2_ZONES = [
+  { id:'truss',      accepts:'truss', need:3, label:'TRUSS SUPPORT', style:'left:20%;top:3%;width:60%;height:20%;'  },
+  { id:'lefttower',  accepts:'stick', need:2, label:'LEFT TOWER',    style:'left:16%;top:25%;width:12%;height:26%;' },
+  { id:'righttower', accepts:'stick', need:2, label:'RIGHT TOWER',   style:'right:16%;top:25%;width:12%;height:26%;'},
+  { id:'deck',       accepts:'stick', need:3, label:'DECK PLANKS',   style:'left:30%;top:53%;width:40%;height:12%;' },
+  { id:'jointl',     accepts:'tape',  need:2, label:'JOINT',         style:'left:16%;top:53%;width:12%;height:12%;' },
+  { id:'jointr',     accepts:'tape',  need:2, label:'JOINT',         style:'right:16%;top:53%;width:12%;height:12%;'},
+];
+
+// Real materials plus two silly decoys that never fit anywhere — kids have to notice they don't belong.
+const MAT_DEFS = [
+  { type:'stick',  emoji:'🪵', label:'Stick',   count:7, decoy:false },
+  { type:'tape',   emoji:'🩹', label:'Tape',    count:4, decoy:false },
+  { type:'truss',  emoji:'📐', label:'Truss',   count:3, decoy:false },
+  { type:'noodle', emoji:'🍝', label:'Noodle',  count:1, decoy:true  },
+  { type:'crayon', emoji:'🖍️', label:'Crayon',  count:1, decoy:true  },
+];
+
+function setupAct2(){
+  a2Sticks=0; a2Tape=0; a2Trusses=0;
+  a2DragType=null; a2DragTokenId=null;
+  zoneFilled={};
+
+  document.getElementById('act2-next').disabled=true;
+  document.getElementById('act2-integrity').style.width='0%';
+  document.getElementById('act2-int-pct').textContent='0%';
+  document.getElementById('struct-hint').textContent='🛠️ MATCH EACH PIECE TO ITS ZONE';
+  document.getElementById('build-counter').textContent='0/14 pieces placed';
+
+  // Build the zone boxes over the bridge diagram
+  const buildArea = document.getElementById('build-area');
+  buildArea.querySelectorAll('.act2-zone').forEach(z=>z.remove());
+  ACT2_ZONES.forEach(z=>{
+    zoneFilled[z.id]=0;
+    const el=document.createElement('div');
+    el.className='bridge-slot act2-zone';
+    el.id='z-'+z.id;
+    el.style.cssText=z.style;
+    el.dataset.accepts=z.accepts;
+    el.dataset.zone=z.id;
+    el.innerHTML=`<span class="zn-label">${z.label}</span><span class="zn-count" id="zc-${z.id}">0/${z.need}</span><span class="zn-pieces" id="zp-${z.id}"></span>`;
+    el.addEventListener('dragover', e=>{ e.preventDefault(); el.classList.add('drag-over'); });
+    el.addEventListener('dragleave', ()=>el.classList.remove('drag-over'));
+    el.addEventListener('drop', e=>{
+      e.preventDefault(); el.classList.remove('drag-over');
+      const t = e.dataTransfer.getData('text/plain') || a2DragType;
+      if(t) placeMaterial(t, z.id, a2DragTokenId);
+      a2DragType=null; a2DragTokenId=null;
+    });
+    buildArea.appendChild(el);
+  });
+
+  // Rebuild the material pool with individual draggable tokens
+  const pool = document.getElementById('mat-pool');
+  pool.innerHTML='<div class="pool-lbl">DRAG EACH PIECE TO ITS ZONE BELOW ↙</div>';
+
+  MAT_DEFS.forEach(def => {
+    for(let i=0; i<def.count; i++){
+      const el = document.createElement('div');
+      el.className = 'di';
+      el.id = `mattoken-${def.type}-${i}`;
+      el.draggable = true;
+      el.dataset.type = def.type;
+      el.title = def.decoy ? `${def.label} — will it work anywhere?` : `Drag to the matching zone`;
+      el.innerHTML = `${def.emoji}<span class="dl">${def.label}</span>`;
+
+      el.addEventListener('dragstart', e => {
+        a2DragType = def.type;
+        a2DragTokenId = el.id;
+        el.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', def.type);
+      });
+      el.addEventListener('dragend', () => el.classList.remove('dragging'));
+
+      // Touch fallback: tap to auto-place into the first zone that still needs this type
+      el.addEventListener('click', () => {
+        if(el.classList.contains('used')) return;
+        const zone = ACT2_ZONES.find(z => z.accepts===def.type && zoneFilled[z.id] < z.need);
+        if(zone) placeMaterial(def.type, zone.id, el.id);
+        else flashWrong(null, def.decoy
+          ? `❌ The ${def.label.toLowerCase()} doesn't belong on a bridge at all!`
+          : `❌ No zone needs a ${def.label.toLowerCase()} right now.`);
+      });
+
+      pool.appendChild(el);
+    }
+  });
+
+  updateAct2UI();
+}
+
+function placeMaterial(type, zoneId, tokenId){
+  const zone = ACT2_ZONES.find(z=>z.id===zoneId);
+  const zoneEl = document.getElementById('z-'+zoneId);
+  if(!zone || !zoneEl) return;
+
+  if(zone.accepts !== type){
+    const decoyMsgs = { noodle:"❌ A noodle is way too soft to hold up a bridge!", crayon:"❌ A crayon will just snap — bridges need stronger stuff!" };
+    flashWrong(zoneEl, decoyMsgs[type] || `❌ That doesn't go in the ${zone.label} zone — check the label!`);
+    return;
+  }
+  if(zoneFilled[zoneId] >= zone.need){
+    flashWrong(zoneEl, `❌ The ${zone.label} zone is already full!`);
+    return;
+  }
+
+  const emojis = { stick:'🪵', tape:'🩹', truss:'📐' };
+  zoneFilled[zoneId]++;
+  if(type==='stick') a2Sticks++;
+  else if(type==='tape') a2Tape++;
+  else if(type==='truss') a2Trusses++;
+
+  const tokenEl = tokenId ? document.getElementById(tokenId) : null;
+  if(tokenEl) tokenEl.classList.add('used');
+
+  const piecesEl = document.getElementById('zp-'+zoneId);
+  if(piecesEl){
+    const span=document.createElement('span');
+    span.textContent=emojis[type];
+    span.style.animation='stickPlace 0.3s cubic-bezier(.23,1.3,.5,1) both';
+    piecesEl.appendChild(span);
+  }
+  document.getElementById('zc-'+zoneId).textContent = `${zoneFilled[zoneId]}/${zone.need}`;
+  if(zoneFilled[zoneId] >= zone.need) zoneEl.classList.add('filled');
+
+  updateAct2UI();
+}
+
+function flashWrong(zoneEl, msg){
+  document.getElementById('struct-hint').textContent = msg;
+  document.getElementById('struct-hint').style.color = 'var(--red)';
+  if(zoneEl){
+    zoneEl.classList.add('wrong-fill');
+    setTimeout(()=>zoneEl.classList.remove('wrong-fill'), 500);
+  }
+  setTimeout(()=>{
+    document.getElementById('struct-hint').style.color = '';
+    document.getElementById('struct-hint').textContent = '🛠️ MATCH EACH PIECE TO ITS ZONE';
+  }, 1600);
+}
+
+function updateAct2UI(){
+  document.getElementById('s2-sticks').textContent  = a2Sticks;
+  document.getElementById('s2-joints').textContent  = a2Tape;
+  document.getElementById('s2-trusses').textContent = a2Trusses;
+  const totalPlaced = a2Sticks + a2Tape + a2Trusses;
+  document.getElementById('build-counter').textContent = `${totalPlaced}/14 pieces placed`;
+
+  const integ = Math.min(100, Math.round(
+    (a2Sticks/MAX_STICKS*0.45 + a2Tape/MAX_TAPE*0.25 + a2Trusses/MAX_TRUSSES*0.3)*100
+  ));
+  document.getElementById('act2-integrity').style.width = integ+'%';
+  document.getElementById('act2-int-pct').textContent = integ+'%';
+  document.getElementById('act2-integrity').className = 'stress-bar'+(integ>70?' critical':'');
+
+  const allFull = ACT2_ZONES.every(z => zoneFilled[z.id] >= z.need);
+  document.getElementById('act2-next').disabled = !allFull;
+  if(allFull){
+    document.getElementById('struct-hint').style.color = 'var(--green)';
+    document.getElementById('struct-hint').textContent = '✅ ALL ZONES COMPLETE — GREAT WORK!';
+  }
+}
+
+function resetAct2(){ setupAct2(); }
+
+function openPopup2(){
+  const integ = Math.min(100, Math.round(
+    (a2Sticks/MAX_STICKS*.45 + a2Tape/MAX_TAPE*.25 + a2Trusses/MAX_TRUSSES*.3)*100
+  ));
+  showPopup('🪵','BRIDGE BUILT!',
+    `Your bridge uses ${a2Sticks} sticks, ${a2Tape} tape joints, and ${a2Trusses} truss frames — all in the right places! Structural integrity: ${integ}%. Now let\'s see how much weight it can hold!`,
+    integ+'% INTEGRITY', 'Start Load Test →', 'goAct3');
+}
+
+/* ---- Triangle vs Square strength tester (fun science aside) ---- */
+function testShape(kind){
+  const shapeEl = document.getElementById('tri-shape');
+  const weightEl = document.getElementById('tri-weight');
+  const resultEl = document.getElementById('tri-result');
+
+  shapeEl.className = 'ts';
+  weightEl.className = 'tw';
+  void shapeEl.offsetWidth; // restart animation
+
+  shapeEl.textContent = kind==='square' ? '⬜' : '🔺';
+  weightEl.classList.add('drop');
+
+  setTimeout(()=>{
+    if(kind==='square'){
+      shapeEl.classList.add('crush');
+      resultEl.textContent = '💥 The square squished flat! It bends easily under weight.';
+    } else {
+      shapeEl.classList.add('hold');
+      resultEl.textContent = '💪 The triangle held rock solid! That\'s why bridges use triangle trusses.';
+    }
+  }, 450);
+}
+
+/* ============================= ACTIVITY 3 ============================= */
+const COIN_TYPES=[
+  {id:'c1',emoji:'🪙',label:'1 Rupee',weight:5,count:4},
+  {id:'c2',emoji:'💰',label:'5 Rupee',weight:10,count:3},
+  {id:'c3',emoji:'🔵',label:'Steel Ball',weight:20,count:3},
+  {id:'c4',emoji:'🟡',label:'10g Weight',weight:10,count:4},
+  {id:'c5',emoji:'🔴',label:'20g Brick',weight:20,count:2},
+];
+let a3Load=0, a3Collapsed=false;
+let a3MaxCapacity=0;
+let leaderboardData=[
+  {name:'Arch Master',score:120,bar:100},
+  {name:'Cable King',score:95,bar:79},
+  {name:'Beam Builder',score:70,bar:58},
+];
+
+function setupAct3(){
+  a3Load=0; a3Collapsed=false;
+  // Calculate capacity based on act2 build
+  const integ=Math.min(100,Math.round((a2Sticks/MAX_STICKS*.45+a2Tape/MAX_TAPE*.25+a2Trusses/MAX_TRUSSES*.3)*100));
+  a3MaxCapacity=20+Math.round(integ*1.2);
+  document.getElementById('total-load').textContent='0';
+  document.getElementById('act3-stress').style.width='0%';
+  document.getElementById('act3-stress-pct').textContent='0%';
+  document.getElementById('test-status').textContent=`LOAD: 0g · CAPACITY: ${a3MaxCapacity}g`;
+  document.getElementById('coins-on-bridge').innerHTML='';
+  document.getElementById('stress-cracks').innerHTML='';
+  // Reset deck
+  const deck=document.getElementById('bridge-deck');
+  deck.className='bridge-deck';
+  deck.style.bottom='28%'; deck.style.transform='';
+  // Coin tray
+  const tray=document.getElementById('coin-tray');
+  tray.innerHTML='';
+  COIN_TYPES.forEach(ct=>{
+    for(let i=0;i<ct.count;i++){
+      const btn=document.createElement('div');
+      btn.className='coin-btn';
+      btn.id=`coin-${ct.id}-${i}`;
+      btn.title=`${ct.label} (${ct.weight}g)`;
+      btn.innerHTML=ct.emoji;
+      btn.onclick=()=>addCoin(ct,btn);
+      tray.appendChild(btn);
+    }
+  });
+}
+
+function addCoin(ct, btn){
+  if(a3Collapsed) return;
+  a3Load+=ct.weight;
+  btn.classList.add('used');
+  // Add to bridge display
+  const c=document.createElement('span');
+  c.className='coin-on-bridge';
+  c.textContent=ct.emoji; c.title=ct.label;
+  document.getElementById('coins-on-bridge').appendChild(c);
+  document.getElementById('total-load').textContent=a3Load;
+  document.getElementById('test-status').textContent=`LOAD: ${a3Load}g · CAPACITY: ${a3MaxCapacity}g`;
+  const stress=Math.min(100,Math.round(a3Load/a3MaxCapacity*100));
+  document.getElementById('act3-stress').style.width=stress+'%';
+  document.getElementById('act3-stress-pct').textContent=stress+'%';
+  document.getElementById('act3-stress').className='stress-bar'+(stress>65?' critical':'');
+  // Sag deck
+  const deck=document.getElementById('bridge-deck');
+  deck.classList.add('sag'); setTimeout(()=>deck.classList.remove('sag'),500);
+  const sagPx=Math.round(stress*0.15);
+  deck.style.bottom=(28-sagPx*.1)+'%';
+  // Crack effects above 60%
+  if(stress>60){
+    const crack=document.createElement('div');
+    crack.className='crack-line';
+    crack.style.left=(30+Math.random()*40)+'%';
+    crack.style.top=(30+Math.random()*30)+'%';
+    crack.textContent=['💥','⚡','🔥'][Math.floor(Math.random()*3)];
+    document.getElementById('stress-cracks').appendChild(crack);
+    setTimeout(()=>crack.remove(),600);
+  }
+  // Auto collapse if overloaded
+  if(a3Load>a3MaxCapacity) collapseTest();
+  updateLeaderboard();
+}
+
+function collapseTest(){
+  if(a3Collapsed) return;
+  a3Collapsed=true;
+  const deck=document.getElementById('bridge-deck');
+  deck.classList.add('collapse');
+  // Big crack effect
+  for(let i=0;i<5;i++){
+    setTimeout(()=>{
+      const c=document.createElement('div');
+      c.className='crack-line';
+      c.style.cssText=`left:${10+Math.random()*80}%;top:${20+Math.random()*50}%;font-size:1.5rem;`;
+      c.textContent='💥';
+      document.getElementById('stress-cracks').appendChild(c);
+      setTimeout(()=>c.remove(),800);
+    },i*120);
+  }
+  document.getElementById('test-status').textContent=`COLLAPSED AT ${a3Load}g!`;
+  document.getElementById('act3-stress').style.width='100%';
+  document.getElementById('act3-stress').className='stress-bar critical';
+  setTimeout(()=>updateLeaderboard(true),1000);
+}
+
+function updateLeaderboard(collapsed=false){
+  const score=collapsed?a3Load-20:a3Load;
+  const yourEntry={name:'Your Bridge',score:score,bar:Math.min(100,Math.round(score/a3MaxCapacity*100))};
+  const all=[...leaderboardData,yourEntry].sort((a,b)=>b.score-a.score);
+  const maxScore=all[0].score;
+  const lb=document.getElementById('leaderboard');
+  lb.innerHTML='';
+  all.slice(0,4).forEach((row,i)=>{
+    const medals=['🥇','🥈','🥉','4️⃣'];
+    const el=document.createElement('div');el.className='lb-row';
+    const isYou=row.name==='Your Bridge';
+    el.innerHTML=`<div class="lb-rank">${medals[i]||i+1}</div>
+      <div style="flex:1"><div class="lb-name" style="color:${isYou?'var(--amber-bright)':'var(--white)'}">${row.name}</div>
+      <div class="lb-bar" style="width:${Math.round(row.score/maxScore*100)}%;background:${isYou?'linear-gradient(90deg,var(--amber),var(--amber-bright))':'linear-gradient(90deg,var(--cyan),var(--green))'}"></div></div>
+      <div class="lb-score">${row.score}g</div>`;
+    lb.appendChild(el);
+  });
+}
+
+function resetAct3(){ setupAct3(); }
+function finishAll(){
+  confettiBlast(120);
+  const score=a3Load;
+  showPopup('🏅','ENGINEERING COMPLETE!',
+    `Incredible work, Junior Engineer! You assembled, built, and load-tested your bridge! It held ${score}g of weight. Real bridges like the Pamban Bridge and Chenab Rail Bridge use the same principles you just applied!`,
+    score+'g MAX LOAD','🔁 Play Again','startOver',false);
+  // Hide the main button and show play again as primary CTA
+  document.getElementById('pp-btn').style.display='none';
+  document.getElementById('pp-play-again').style.display='block';
+  document.getElementById('pp-play-again').className='btn btn-gold';
+  document.getElementById('pp-play-again').style.width='100%';
+}
+
+/* ============================= POPUP ============================= */
+function showPopup(emoji,title,msg,score,btnText,action,showPlayAgain=false){
+  document.getElementById('pp-emoji').textContent=emoji;
+  document.getElementById('pp-title').textContent=title;
+  document.getElementById('pp-msg').textContent=msg;
+  document.getElementById('pp-score').textContent=score;
+  document.getElementById('pp-btn').textContent=btnText;
+  document.getElementById('pp-play-again').style.display=showPlayAgain?'block':'none';
+  popupNextAction=action;
+  document.getElementById('popup-bg').classList.add('show');
+}
+function closePopup(){
+  document.getElementById('popup-bg').classList.remove('show');
+  // Reset button states for next popup
+  const ppBtn=document.getElementById('pp-btn');
+  ppBtn.style.display='';
+  ppBtn.className='btn btn-gold';
+  ppBtn.style.width='100%';
+  const paBtn=document.getElementById('pp-play-again');
+  paBtn.style.display='none';
+  paBtn.className='btn btn-ghost';
+  paBtn.style.width='100%';
+}
+function handlePopup(){
+  closePopup();
+  if(popupNextAction==='goAct2') goAct2();
+  else if(popupNextAction==='goAct3') goAct3();
+  else if(popupNextAction==='startOver') startOver();
+}
+function handlePlayAgain(){
+  closePopup();
+  startOver();
+}
+
+function goAct2(){
+  currentAct=2;
+  document.getElementById('act1').classList.remove('active');
+  document.getElementById('act2').classList.add('active');
+  updateProgress();
+  setupAct2();
+}
+function goAct3(){
+  currentAct=3;
+  document.getElementById('act2').classList.remove('active');
+  document.getElementById('act3').classList.add('active');
+  updateProgress();
+  setupAct3();
+}
+function startOver(){
+  currentAct=1;
+  document.getElementById('act3').classList.remove('active');
+  document.getElementById('act1').classList.add('active');
+  updateProgress();
+  setupAct1();
+}
+
+function updateProgress(){
+  for(let i=1;i<=3;i++){
+    const n=document.getElementById('pn'+i);
+    const l=document.getElementById('pl'+i);
+    const c=document.getElementById('pc'+i);
+    n.className='prog-num'+(i<currentAct?' done':i===currentAct?' active':'');
+    l.className='prog-label'+(i===currentAct?' active':'');
+    if(c) c.className='prog-connector'+(i<currentAct?' done':'');
+  }
+}
+
+/* ============================= CONFETTI ============================= */
+function confettiBlast(n=60){
+  const cols=['#f5a623','#ffc845','#00d4ff','#39ff6e','#ff3b3b','#ffffff'];
+  for(let i=0;i<n;i++){
+    setTimeout(()=>{
+      const el=document.createElement('div');
+      el.className='conf';
+      const sz=Math.random()*10+4;
+      el.style.cssText=`width:${sz}px;height:${sz}px;background:${cols[Math.floor(Math.random()*cols.length)]};left:${Math.random()*100}vw;top:-10px;animation-duration:${Math.random()*2+1.5}s;border-radius:${Math.random()>.5?'50%':'2px'};`;
+      document.body.appendChild(el);
+      setTimeout(()=>el.remove(),3500);
+    },i*20);
+  }
+}
+
+/* ============================= INIT ============================= */
+setupAct1();
+</script>
+</body>
+</html>

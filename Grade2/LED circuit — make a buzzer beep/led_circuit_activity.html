@@ -339,23 +339,17 @@ const acts=[
     ],
     required:['battery','led','buzzer','redwire','blackwire']
   },
-  // Activity 3 — Match use cases
+  // Activity 3 — Tap-to-pick quiz
   {
-    id:3,checkLogic:'match',
-    title:'🎯 Activity 3 — Where Does a Buzzer Help?',
-    desc:'Drag each situation to the right category!',
-    items:[
-      {id:'m1',emoji:'🏫',label:'School bell rings at 8 AM',color:'linear-gradient(135deg,#3498db,#2980b9)',cat:'alert'},
-      {id:'m2',emoji:'🚪',label:'Visitor presses the doorbell',color:'linear-gradient(135deg,#e67e22,#d35400)',cat:'notify'},
-      {id:'m3',emoji:'🔥',label:'Smoke detected in the kitchen',color:'linear-gradient(135deg,#e74c3c,#c0392b)',cat:'alarm'},
-      {id:'m4',emoji:'⏰',label:'Alarm wakes you up at 7 AM',color:'linear-gradient(135deg,#9b59b6,#8e44ad)',cat:'alarm'},
-      {id:'m5',emoji:'🏥',label:'Patient presses nurse call button',color:'linear-gradient(135deg,#1abc9c,#16a085)',cat:'alert'},
-      {id:'m6',emoji:'📦',label:'Delivery arrives at the door',color:'linear-gradient(135deg,#f1c40f,#d4ac0d)',cat:'notify'},
-    ],
-    cats:[
-      {id:'alarm',emoji:'🚨',label:'Danger Alarm'},
-      {id:'alert',emoji:'📣',label:'Important Alert'},
-      {id:'notify',emoji:'🔔',label:'Friendly Notify'},
+    id:3,checkLogic:'tapquiz',
+    title:'🎯 Activity 3 — Why Does the Buzzer Beep?',
+    desc:'Tap the correct reason for each buzzer situation!',
+    questions:[
+      {id:'q1',emoji:'🔥',situation:'Smoke is filling the kitchen!',choices:['To play music','To warn about danger!','To turn on the TV'],correct:1},
+      {id:'q2',emoji:'🚪',situation:'Someone rings your doorbell.',choices:['To tell you a visitor is here!','To charge your phone','To start the microwave'],correct:0},
+      {id:'q3',emoji:'⏰',situation:'Your alarm clock goes off at 7 AM.',choices:['To make breakfast','To wake you up!','To open the curtains'],correct:1},
+      {id:'q4',emoji:'🏫',situation:'The school bell rings at the end of class.',choices:['To call the teacher','To say class is over!','To start lunch'],correct:1},
+      {id:'q5',emoji:'🏥',situation:'A patient presses the nurse call button.',choices:['To order food','To change the channel','To call the nurse for help!'],correct:2},
     ]
   }
 ];
@@ -376,7 +370,7 @@ function render(){
 
   if(act.checkLogic==='sequence') renderSeq(act);
   else if(act.checkLogic==='circuit') renderCircuit(act);
-  else if(act.checkLogic==='match') renderMatch(act);
+  else if(act.checkLogic==='tapquiz') renderTapQuiz(act);
 }
 
 // ─── Activity 1: Sequence ───
@@ -422,25 +416,57 @@ function renderCircuit(act){
   wrap.appendChild(cArea);
 }
 
-// ─── Activity 3: Match ───
-function renderMatch(act){
+// ─── Activity 3: Tap Quiz ───
+function renderTapQuiz(act){
   const wrap=document.getElementById('dnd-wrap');
-  const bank=document.createElement('div');bank.className='item-bank';
-  bank.innerHTML='<div class="bank-title">Situations</div>';
-  const shuffled=[...act.items].sort(()=>Math.random()-.5);
-  shuffled.forEach(item=>bank.appendChild(makeDrag(item)));
-  wrap.appendChild(bank);
+  wrap.style.flexDirection='column';
+  wrap.style.overflowY='auto';
+  wrap.style.gap='8px';
 
-  const catArea=document.createElement('div');catArea.style.cssText='flex:1;display:flex;flex-direction:column;gap:6px;';
-  act.cats.forEach(cat=>{
-    placements[cat.id]=[];
-    const z=document.createElement('div');
-    z.className='dzone';z.id='cat-'+cat.id;z.dataset.cat=cat.id;
-    z.innerHTML=`<div style="display:flex;align-items:center;gap:6px;width:100%;"><div style="font-size:1.2rem">${cat.emoji}</div><div class="zone-label" style="text-align:left">${cat.label}</div></div>`;
-    setupDrop(z,cat.id,'cat');
-    catArea.appendChild(z);
+  act.questions.forEach((q,qi)=>{
+    placements[q.id]=null;
+
+    const qCard=document.createElement('div');
+    qCard.style.cssText='background:rgba(255,255,255,.1);border-radius:14px;padding:8px 10px;border:2px solid rgba(255,255,255,.2);flex-shrink:0;';
+
+    const sitRow=document.createElement('div');
+    sitRow.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:6px;';
+    sitRow.innerHTML=`<span style="font-size:1.5rem">${q.emoji}</span><span style="font-size:.7rem;font-weight:700;color:#fff;">${q.situation}</span>`;
+    qCard.appendChild(sitRow);
+
+    const choicesRow=document.createElement('div');
+    choicesRow.style.cssText='display:flex;flex-direction:column;gap:4px;';
+    q.choices.forEach((ch,ci)=>{
+      const btn=document.createElement('button');
+      btn.style.cssText='padding:5px 10px;border-radius:10px;border:2px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:rgba(255,255,255,.9);font-family:Nunito,sans-serif;font-size:.65rem;font-weight:700;cursor:pointer;text-align:left;transition:all .2s;';
+      btn.textContent=ch;
+      btn.dataset.qi=qi;btn.dataset.ci=ci;
+      btn.addEventListener('click',()=>{
+        if(placements[q.id]!==null)return; // already answered
+        placements[q.id]=ci;
+        const correct=(ci===q.correct);
+        // Style all buttons in this group
+        choicesRow.querySelectorAll('button').forEach((b,i)=>{
+          b.disabled=true;
+          if(i===q.correct){
+            b.style.background='rgba(39,174,96,.5)';b.style.borderColor='#27ae60';b.style.color='#fff';
+          } else if(i===ci&&!correct){
+            b.style.background='rgba(231,76,60,.5)';b.style.borderColor='#e74c3c';b.style.color='#fff';
+          } else {
+            b.style.opacity='.4';
+          }
+        });
+        // Badge
+        const badge=document.createElement('span');
+        badge.style.cssText='font-size:.75rem;margin-left:6px;';
+        badge.textContent=correct?'✅':'❌';
+        sitRow.appendChild(badge);
+      });
+      choicesRow.appendChild(btn);
+    });
+    qCard.appendChild(choicesRow);
+    wrap.appendChild(qCard);
   });
-  wrap.appendChild(catArea);
 }
 
 // =====================================================================
@@ -669,14 +695,14 @@ function checkAct(){
       triggerBeep(document.getElementById('cboard'));
     }
   }
-  else if(act.checkLogic==='match'){
-    let all=true;
-    act.items.forEach(item=>{
-      const zone=placements[item.cat]||[];
-      if(!zone.includes(item.id))all=false;
-    });
-    if(all) act.cats.forEach(c=>document.getElementById('cat-'+c.id)?.classList.add('correct'));
-    ok=all;
+  else if(act.checkLogic==='tapquiz'){
+    const allAnswered=act.questions.every(q=>placements[q.id]!==null);
+    if(!allAnswered){
+      const fb=document.getElementById('feedback');
+      fb.style.color='#FFD700';fb.textContent='👆 Please answer all 5 questions first!';
+      return;
+    }
+    ok=act.questions.every(q=>placements[q.id]===q.correct);
   }
 
   const fb=document.getElementById('feedback');

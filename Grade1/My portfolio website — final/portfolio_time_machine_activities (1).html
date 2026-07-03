@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Time Machine</title>
+</head>
+<body>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{overflow:hidden}
+#app{width:100%;height:100vh;min-height:600px;position:relative;background:#0a0520;overflow:hidden;font-family:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",var(--font-sans,sans-serif)}
+canvas#bg{position:absolute;inset:0;z-index:0}
+.screen{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px}
+.screen.hidden{display:none}
+.panel{background:rgba(15,5,40,0.92);border:1.5px solid rgba(150,80,255,0.5);border-radius:16px;padding:20px 24px;width:100%;max-width:780px;box-shadow:0 0 40px rgba(120,50,255,0.25)}
+h1{font-size:1.3rem;font-weight:600;color:#e8d5ff;text-align:center;margin-bottom:4px;text-transform:uppercase;letter-spacing:2px}
+.subtitle{font-size:0.8rem;color:#a87fff;text-align:center;margin-bottom:16px;letter-spacing:1px}
+.act-label{font-size:0.72rem;color:#ff9f3f;font-weight:600;letter-spacing:2px;text-align:center;margin-bottom:12px;text-transform:uppercase}
+.progress{display:flex;justify-content:center;gap:8px;margin-bottom:14px}
+.dot{width:10px;height:10px;border-radius:50%;background:rgba(150,80,255,0.3);border:1.5px solid rgba(150,80,255,0.4);transition:all .3s}
+.dot.active{background:#9f50ff;border-color:#c882ff;box-shadow:0 0 8px #9f50ff}
+.dot.done{background:#50c87f;border-color:#70e899}
+.instructions{font-size:0.78rem;color:#c4a8ff;text-align:center;margin-bottom:14px;line-height:1.5}
+.drop-zone{background:rgba(80,40,160,0.25);border:1.5px dashed rgba(150,80,255,0.5);border-radius:10px;padding:10px 12px;min-height:64px;position:relative;transition:all .3s;display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;align-content:flex-start}
+.drop-zone.over{background:rgba(100,50,200,0.4);border-color:#c882ff;box-shadow:0 0 12px rgba(150,80,255,0.4)}
+.drop-zone.correct{border-color:#50c87f;background:rgba(50,180,100,0.15);animation:pulse-g .5s ease}
+.drop-zone.wrong{border-color:#ff5050;background:rgba(255,60,60,0.15);animation:shake .35s ease}
+.zone-label{font-size:0.68rem;color:#a87fff;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;width:100%}
+.card{background:linear-gradient(135deg,rgba(100,50,200,0.8),rgba(60,20,120,0.9));border:1.5px solid rgba(180,100,255,0.6);border-radius:8px;padding:7px 12px;font-size:0.73rem;color:#e8d5ff;cursor:grab;user-select:none;white-space:nowrap;transition:transform .15s,box-shadow .15s;position:relative}
+.card:active{cursor:grabbing;transform:scale(1.05);box-shadow:0 4px 20px rgba(150,80,255,0.5)}
+.card.dragging{opacity:.5}
+.card.locked{cursor:default;background:linear-gradient(135deg,rgba(50,120,80,0.8),rgba(20,80,50,0.9));border-color:rgba(80,200,120,0.6)}
+.card-icon{margin-right:5px;font-size:0.9rem}
+.source-pool{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px;min-height:44px;padding:8px;background:rgba(0,0,0,0.2);border-radius:8px;border:1px solid rgba(150,80,255,0.2)}
+.grid2{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+.grid2b{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.btn{background:linear-gradient(135deg,#7030c8,#5020a0);border:none;color:#e8d5ff;border-radius:8px;padding:9px 22px;font-size:0.8rem;font-weight:600;cursor:pointer;letter-spacing:1px;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{background:linear-gradient(135deg,#8040e0,#6030b8);transform:translateY(-1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-row{display:flex;justify-content:center;gap:10px;margin-top:12px}
+.feedback{font-size:0.75rem;text-align:center;min-height:20px;margin-top:6px;font-weight:600;letter-spacing:.5px}
+.feedback.ok{color:#50e890}
+.feedback.err{color:#ff7070}
+.nav-item{background:rgba(60,20,120,0.7);border:1.5px solid rgba(150,80,255,0.5);border-radius:8px;padding:8px 14px;font-size:0.73rem;color:#c4a8ff;cursor:grab;user-select:none;white-space:nowrap}
+.dest-box{background:rgba(40,10,80,0.5);border:1.5px dashed rgba(150,80,255,0.35);border-radius:8px;padding:8px;min-height:50px;display:flex;flex-wrap:wrap;gap:5px;align-items:flex-start}
+.dest-box.over{background:rgba(100,50,200,0.35);border-color:#c882ff}
+.dest-box.correct{border-color:#50c87f;background:rgba(50,180,100,0.12)}
+.page-dest{background:rgba(30,10,70,0.6);border:1.5px solid rgba(150,80,255,0.3);border-radius:10px;padding:10px}
+.page-dest h3{font-size:0.72rem;color:#ff9f3f;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.structure{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.struct-zone{background:rgba(40,10,80,0.5);border:1.5px dashed rgba(150,80,255,0.35);border-radius:10px;padding:8px;min-height:55px}
+.struct-zone h3{font-size:0.68rem;color:#a87fff;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.struct-zone.correct{border-color:#50c87f;background:rgba(50,180,100,0.12)}
+.struct-zone.over{background:rgba(100,50,200,0.35);border-color:#c882ff}
+.celebration{position:fixed;inset:0;z-index:100;background:rgba(5,0,20,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.celebration.hidden{display:none}
+.cel-title{font-size:2rem;font-weight:700;color:#f0d080;text-transform:uppercase;letter-spacing:3px;margin-bottom:10px;animation:pop .5s ease}
+.cel-sub{font-size:1rem;color:#c4a8ff;margin-bottom:20px}
+.cel-badge{width:120px;height:120px;border-radius:50%;background:linear-gradient(135deg,#7030c8,#ff9f3f);display:flex;align-items:center;justify-content:center;font-size:3rem;margin:0 auto 20px;animation:spin-slow 4s linear infinite,pop .6s ease}
+canvas#confetti{position:absolute;inset:0;z-index:99;pointer-events:none}
+@keyframes pulse-g{0%,100%{box-shadow:none}50%{box-shadow:0 0 16px rgba(80,200,120,0.6)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@keyframes pop{0%{transform:scale(0.5);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes spin-slow{to{transform:rotate(360deg)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.float{animation:float 2s ease-in-out infinite}
+</style>
+<div id="app">
+<canvas id="bg"></canvas>
+
+<div id="s0" class="screen">
+  <div class="panel" style="max-width:520px;text-align:center">
+    <div style="font-size:3rem;margin-bottom:10px;animation:spin-slow 6s linear infinite;display:inline-block">⚙️</div>
+    <h1>My Portfolio Website</h1>
+    <div class="subtitle">Time Machine Builder — Final Session</div>
+    <p style="color:#c4a8ff;font-size:0.82rem;line-height:1.6;margin-bottom:20px">Travel through time to build your very own portfolio website! Complete 3 exciting missions to power up the time machine and launch your creation into the digital universe.</p>
+    <div style="display:flex;justify-content:center;gap:20px;margin-bottom:20px">
+      <div style="text-align:center"><div style="font-size:1.5rem">🏠</div><div style="font-size:0.68rem;color:#a87fff;margin-top:3px">Mission 1</div><div style="font-size:0.7rem;color:#e8d5ff">Sort Pages</div></div>
+      <div style="text-align:center"><div style="font-size:1.5rem">🔗</div><div style="font-size:0.68rem;color:#a87fff;margin-top:3px">Mission 2</div><div style="font-size:0.7rem;color:#e8d5ff">Link Pages</div></div>
+      <div style="text-align:center"><div style="font-size:1.5rem">🏗️</div><div style="font-size:0.68rem;color:#a87fff;margin-top:3px">Mission 3</div><div style="font-size:0.7rem;color:#e8d5ff">Build Layout</div></div>
+    </div>
+    <button class="btn" onclick="startAct(1)">⚡ Start Mission 1</button>
+  </div>
+</div>
+
+<div id="s1" class="screen hidden">
+  <div class="panel">
+    <div class="progress" id="p1"><div class="dot active"></div><div class="dot"></div><div class="dot"></div></div>
+    <div class="act-label">⏰ Mission 1 — Sort the Pages</div>
+    <h1 style="font-size:1rem;margin-bottom:4px">Drag each section card to the right page!</h1>
+    <div class="instructions">Every website has pages. Drag the cards below into the correct page folder. Each page needs 2 cards!</div>
+    <div class="source-pool" id="pool1"></div>
+    <div class="grid2" id="zones1"></div>
+    <div class="feedback" id="fb1"></div>
+    <div class="btn-row"><button class="btn" id="nextBtn1" disabled onclick="startAct(2)">Next Mission ⚡</button></div>
+  </div>
+</div>
+
+<div id="s2" class="screen hidden">
+  <div class="panel">
+    <div class="progress" id="p2"><div class="dot done"></div><div class="dot active"></div><div class="dot"></div></div>
+    <div class="act-label">🔗 Mission 2 — Connect the Pages</div>
+    <h1 style="font-size:1rem;margin-bottom:4px">Link menu buttons to the right pages!</h1>
+    <div class="instructions">A good website lets visitors jump between pages. Drag each menu link to the page it should open.</div>
+    <div class="source-pool" id="pool2"></div>
+    <div id="zones2" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"></div>
+    <div class="feedback" id="fb2"></div>
+    <div class="btn-row"><button class="btn" id="nextBtn2" disabled onclick="startAct(3)">Next Mission ⚡</button></div>
+  </div>
+</div>
+
+<div id="s3" class="screen hidden">
+  <div class="panel">
+    <div class="progress" id="p3"><div class="dot done"></div><div class="dot done"></div><div class="dot active"></div></div>
+    <div class="act-label">🏗️ Mission 3 — Build Your Portfolio!</div>
+    <h1 style="font-size:1rem;margin-bottom:4px">Arrange all the pieces to build your website!</h1>
+    <div class="instructions">Drag each piece into the correct spot to complete your portfolio website layout.</div>
+    <div class="source-pool" id="pool3"></div>
+    <div id="zones3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px"></div>
+    <div class="feedback" id="fb3"></div>
+    <div class="btn-row"><button class="btn" id="nextBtn3" disabled onclick="celebrate()">🚀 Launch My Website!</button></div>
+  </div>
+</div>
+
+<div id="cel" class="celebration hidden">
+  <canvas id="confetti"></canvas>
+  <div class="cel-badge float">🌟</div>
+  <div class="cel-title">Website Launched!</div>
+  <div class="cel-sub">You powered the time machine and built your portfolio!<br>Share your creation with the world!</div>
+  <div style="display:flex;gap:16px;margin:16px 0;flex-wrap:wrap;justify-content:center">
+    <div style="background:rgba(80,40,160,0.4);border:1px solid rgba(150,80,255,0.4);border-radius:10px;padding:10px 16px;font-size:0.75rem;color:#e8d5ff;text-align:center"><div style="font-size:1.3rem;margin-bottom:4px">✅</div>Pages sorted</div>
+    <div style="background:rgba(80,40,160,0.4);border:1px solid rgba(150,80,255,0.4);border-radius:10px;padding:10px 16px;font-size:0.75rem;color:#e8d5ff;text-align:center"><div style="font-size:1.3rem;margin-bottom:4px">✅</div>Pages linked</div>
+    <div style="background:rgba(80,40,160,0.4);border:1px solid rgba(150,80,255,0.4);border-radius:10px;padding:10px 16px;font-size:0.75rem;color:#e8d5ff;text-align:center"><div style="font-size:1.3rem;margin-bottom:4px">✅</div>Layout built</div>
+  </div>
+  <button class="btn" onclick="restartAll()">⟳ Play Again</button>
+</div>
+</div>
+
+<script>
+const BG = document.getElementById('bg');
+const ctx = BG.getContext('2d');
+let W,H,particles=[],gears=[],portals=[];
+
+function resize(){
+  W=BG.width=BG.parentElement.offsetWidth||window.innerWidth;
+  H=BG.height=BG.parentElement.offsetHeight||window.innerHeight;
+}
+resize(); window.addEventListener('resize',resize);
+
+for(let i=0;i<60;i++) particles.push({x:Math.random()*2000,y:Math.random()*1200,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*1.5+.3,a:Math.random()});
+const gearDefs=[{x:.15,y:.2,r:55,speed:.002,teeth:12},{x:.85,y:.15,r:40,speed:-.003,teeth:10},{x:.5,y:.9,r:70,speed:.0015,teeth:16},{x:.07,y:.75,r:35,speed:.004,teeth:8},{x:.92,y:.7,r:45,speed:-.002,teeth:10},{x:.55,y:.35,r:28,speed:.005,teeth:7}];
+gearDefs.forEach(g=>gears.push({...g,angle:Math.random()*Math.PI*2}));
+const portalDefs=[{x:.3,y:.5,r:80,phase:0},{x:.72,y:.5,r:60,phase:1.5}];
+portalDefs.forEach(p=>portals.push({...p,t:0}));
+
+function drawGear(cx,cy,outerR,innerR,teeth,angle,alpha){
+  ctx.save();ctx.globalAlpha=alpha;ctx.translate(cx,cy);ctx.rotate(angle);
+  ctx.beginPath();
+  for(let i=0;i<teeth*2;i++){
+    const a=i*Math.PI/teeth;
+    const r=i%2===0?outerR:innerR;
+    i===0?ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r):ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);
+  }
+  ctx.closePath();
+  ctx.strokeStyle='rgba(150,80,255,0.4)';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.beginPath();ctx.arc(0,0,innerR*.5,0,Math.PI*2);
+  ctx.strokeStyle='rgba(150,80,255,0.3)';ctx.lineWidth=1;ctx.stroke();
+  ctx.restore();
+}
+
+function drawClock(cx,cy,r,t,alpha){
+  ctx.save();ctx.globalAlpha=alpha;
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.strokeStyle='rgba(255,160,50,0.35)';ctx.lineWidth=1.5;ctx.stroke();
+  const hr=((t*.0001)%(Math.PI*2));
+  const mn=((t*.0008)%(Math.PI*2));
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(hr-Math.PI/2)*r*.55,cy+Math.sin(hr-Math.PI/2)*r*.55);
+  ctx.strokeStyle='rgba(255,160,50,0.5)';ctx.lineWidth=2;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(mn-Math.PI/2)*r*.75,cy+Math.sin(mn-Math.PI/2)*r*.75);
+  ctx.strokeStyle='rgba(255,200,80,0.5)';ctx.lineWidth=1;ctx.stroke();
+  ctx.restore();
+}
+
+function drawPortal(cx,cy,r,t,alpha){
+  ctx.save();ctx.globalAlpha=alpha;
+  for(let i=0;i<4;i++){
+    const rr=r*(1-i*.18)+Math.sin(t*.002+i)*.04*r;
+    const a=0.3-i*.06;
+    ctx.beginPath();ctx.arc(cx,cy,rr,0,Math.PI*2);
+    ctx.strokeStyle=`rgba(${100+i*30},${30+i*20},${200+i*15},${a})`;
+    ctx.lineWidth=1.5;ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawLightning(x1,y1,x2,y2,alpha){
+  ctx.save();ctx.globalAlpha=alpha;
+  ctx.beginPath();ctx.moveTo(x1,y1);
+  const steps=6;
+  for(let i=1;i<steps;i++){
+    const px=x1+(x2-x1)*i/steps+(Math.random()-.5)*30;
+    const py=y1+(y2-y1)*i/steps+(Math.random()-.5)*30;
+    ctx.lineTo(px,py);
+  }
+  ctx.lineTo(x2,y2);
+  ctx.strokeStyle='rgba(180,120,255,0.6)';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.restore();
+}
+
+let t=0;
+function animate(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#0a0520';ctx.fillRect(0,0,W,H);
+  t++;
+  particles.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;
+    ctx.beginPath();ctx.arc(p.x/2000*W,p.y/1200*H,p.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(180,120,255,${p.a*.5})`;ctx.fill();
+  });
+  gears.forEach(g=>{
+    g.angle+=g.speed;
+    drawGear(g.x*W,g.y*H,g.r*(W/800),g.r*.7*(W/800),g.teeth,g.angle,.22);
+  });
+  portals.forEach(p=>{drawPortal(p.x*W,p.y*H,p.r*(W/800),t,0.18)});
+  drawClock(W*.2,H*.8,30*(W/800),t,.25);
+  drawClock(W*.8,H*.25,25*(W/800),t,.2);
+  if(t%40<4) drawLightning(W*.1,H*.1,W*.35,H*.4,Math.random()*.4+.1);
+  if(t%55<4) drawLightning(W*.9,H*.05,W*.7,H*.35,Math.random()*.3+.1);
+  requestAnimationFrame(animate);
+}
+animate();
+
+const act1Cards=[
+  {id:'c1',icon:'🏷️',label:'My Name & Hello',page:'home'},
+  {id:'c2',icon:'🖼️',label:'My Photo Gallery',page:'home'},
+  {id:'c3',icon:'🎨',label:'Painting Project',page:'projects'},
+  {id:'c4',icon:'🤖',label:'Robot I Built',page:'projects'},
+  {id:'c5',icon:'⭐',label:'My Favourite Things',page:'about'},
+  {id:'c6',icon:'🌟',label:'My Hobbies',page:'about'},
+];
+const act2Links=[
+  {id:'l1',icon:'🏠',label:'Home Button',dest:'home'},
+  {id:'l2',icon:'📁',label:'Projects Button',dest:'projects'},
+  {id:'l3',icon:'😊',label:'About Me Button',dest:'about'},
+  {id:'l4',icon:'📬',label:'Contact Button',dest:'contact'},
+];
+const act2Dests=[
+  {id:'home',label:'🏠 Home Page',accepts:['l1']},
+  {id:'projects',label:'📁 Projects Page',accepts:['l2']},
+  {id:'about',label:'😊 About Me Page',accepts:['l3']},
+  {id:'contact',label:'📬 Contact Page',accepts:['l4']},
+];
+const act3Cards=[
+  {id:'s1',icon:'🏷️',label:'Header with Name',zone:'header'},
+  {id:'s2',icon:'🌈',label:'Colour Theme',zone:'style'},
+  {id:'s3',icon:'🖼️',label:'Project Card 1',zone:'projects'},
+  {id:'s4',icon:'🎯',label:'Project Card 2',zone:'projects'},
+  {id:'s5',icon:'👤',label:'Profile Photo',zone:'about'},
+  {id:'s6',icon:'📝',label:'Bio Paragraph',zone:'about'},
+];
+const act3Zones=[
+  {id:'header',label:'🏠 Header Section',accepts:['s1']},
+  {id:'style',label:'🎨 Style Panel',accepts:['s2']},
+  {id:'projects',label:'📁 Projects Area',accepts:['s3','s4']},
+  {id:'about',label:'👤 About Section',accepts:['s5','s6']},
+];
+
+let drag=null,dragSrc=null;
+
+function makeDraggable(el,cardId){
+  el.setAttribute('draggable','true');
+  el.dataset.id=cardId;
+  el.addEventListener('dragstart',e=>{
+    drag=cardId;dragSrc=el;
+    setTimeout(()=>el.classList.add('dragging'),0);
+    e.dataTransfer.effectAllowed='move';
+  });
+  el.addEventListener('dragend',()=>{el.classList.remove('dragging');drag=null;});
+}
+
+function makeDropZone(el,accepts,onDrop){
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('over'));
+  el.addEventListener('drop',e=>{
+    e.preventDefault();el.classList.remove('over');
+    if(drag) onDrop(drag,el,accepts);
+  });
+}
+
+function buildAct1(){
+  const pool=document.getElementById('pool1');
+  const zones=document.getElementById('zones1');
+  pool.innerHTML='';zones.innerHTML='';
+  const shuffled=[...act1Cards].sort(()=>Math.random()-.5);
+  shuffled.forEach(c=>{
+    const el=document.createElement('div');
+    el.className='card';el.id='card_'+c.id;
+    el.innerHTML=`<span class="card-icon">${c.icon}</span>${c.label}`;
+    makeDraggable(el,c.id);
+    pool.appendChild(el);
+  });
+  const pageDefs=[{id:'home',label:'🏠 Home Page'},{id:'projects',label:'📁 My Projects'},{id:'about',label:'😊 About Me'}];
+  pageDefs.forEach(p=>{
+    const zone=document.createElement('div');
+    zone.className='drop-zone';zone.id='zone_'+p.id;
+    zone.innerHTML=`<div class="zone-label">${p.label}</div>`;
+    makeDropZone(zone,[p.id],handleDrop1);
+    zones.appendChild(zone);
+  });
+}
+
+let placed1={};
+function handleDrop1(cardId,zoneEl,accepts){
+  const card=act1Cards.find(c=>c.id===cardId);
+  if(!card)return;
+  const zoneId=zoneEl.id.replace('zone_','');
+  if(card.page===zoneId){
+    const el=document.getElementById('card_'+cardId);
+    if(!el)return;
+    el.classList.add('locked');el.setAttribute('draggable','false');
+    el.removeEventListener('dragstart',()=>{});
+    const clone=el.cloneNode(true);clone.classList.add('locked');clone.setAttribute('draggable','false');
+    zoneEl.appendChild(clone);el.remove();
+    placed1[cardId]=true;
+    zoneEl.classList.add('correct');setTimeout(()=>zoneEl.classList.remove('correct'),800);
+    document.getElementById('fb1').className='feedback ok';
+    document.getElementById('fb1').textContent='Great job! Keep going!';
+    if(Object.keys(placed1).length===act1Cards.length){
+      document.getElementById('fb1').textContent='All sorted! Amazing work!';
+      document.getElementById('nextBtn1').disabled=false;
+    }
+  } else {
+    zoneEl.classList.add('wrong');setTimeout(()=>zoneEl.classList.remove('wrong'),400);
+    document.getElementById('fb1').className='feedback err';
+    document.getElementById('fb1').textContent='Oops! Try a different page!';
+  }
+}
+
+let placed2={};
+function buildAct2(){
+  const pool=document.getElementById('pool2');
+  const zones=document.getElementById('zones2');
+  pool.innerHTML='';zones.innerHTML='';placed2={};
+  act2Links.sort(()=>Math.random()-.5).forEach(l=>{
+    const el=document.createElement('div');
+    el.className='card';el.id='link_'+l.id;
+    el.innerHTML=`<span class="card-icon">${l.icon}</span>${l.label}`;
+    makeDraggable(el,l.id);
+    pool.appendChild(el);
+  });
+  act2Dests.forEach(d=>{
+    const box=document.createElement('div');
+    box.className='page-dest';
+    box.innerHTML=`<h3>${d.label}</h3>`;
+    const drop=document.createElement('div');
+    drop.className='dest-box';drop.id='dest_'+d.id;
+    makeDropZone(drop,d.accepts,handleDrop2);
+    box.appendChild(drop);
+    zones.appendChild(box);
+  });
+}
+
+function handleDrop2(linkId,zoneEl,accepts){
+  if(!accepts.includes(linkId)){
+    zoneEl.classList.add('wrong');setTimeout(()=>zoneEl.classList.remove('wrong'),400);
+    document.getElementById('fb2').className='feedback err';
+    document.getElementById('fb2').textContent='That link goes somewhere else!';
+    return;
+  }
+  const link=act2Links.find(l=>l.id===linkId);
+  if(!link)return;
+  const el=document.getElementById('link_'+linkId);
+  if(!el)return;
+  const clone=el.cloneNode(true);clone.classList.add('locked');clone.setAttribute('draggable','false');
+  zoneEl.appendChild(clone);el.remove();
+  placed2[linkId]=true;
+  zoneEl.classList.add('correct');setTimeout(()=>zoneEl.classList.remove('correct'),800);
+  document.getElementById('fb2').className='feedback ok';
+  document.getElementById('fb2').textContent='Connected! Well done!';
+  if(Object.keys(placed2).length===act2Links.length){
+    document.getElementById('fb2').textContent='All pages linked! You are a web star!';
+    document.getElementById('nextBtn2').disabled=false;
+  }
+}
+
+let placed3={};
+function buildAct3(){
+  const pool=document.getElementById('pool3');
+  const zones=document.getElementById('zones3');
+  pool.innerHTML='';zones.innerHTML='';placed3={};
+  act3Cards.sort(()=>Math.random()-.5).forEach(c=>{
+    const el=document.createElement('div');
+    el.className='card';el.id='sec_'+c.id;
+    el.innerHTML=`<span class="card-icon">${c.icon}</span>${c.label}`;
+    makeDraggable(el,c.id);
+    pool.appendChild(el);
+  });
+  act3Zones.forEach(z=>{
+    const box=document.createElement('div');
+    box.className='struct-zone';box.id='sz_'+z.id;
+    box.innerHTML=`<h3>${z.label}</h3>`;
+    const inner=document.createElement('div');
+    inner.style.cssText='display:flex;flex-wrap:wrap;gap:5px;min-height:32px';
+    inner.id='szin_'+z.id;
+    makeDropZone(inner,z.accepts,(cardId,el)=>handleDrop3(cardId,el,z));
+    box.appendChild(inner);
+    zones.appendChild(box);
+  });
+}
+
+function handleDrop3(cardId,zoneEl,zoneDef){
+  if(!zoneDef.accepts.includes(cardId)){
+    const box=document.getElementById('sz_'+zoneDef.id);
+    box.classList.add('wrong');setTimeout(()=>box.classList.remove('wrong'),400);
+    document.getElementById('fb3').className='feedback err';
+    document.getElementById('fb3').textContent='That piece goes somewhere else!';
+    return;
+  }
+  const card=act3Cards.find(c=>c.id===cardId);
+  if(!card)return;
+  const el=document.getElementById('sec_'+cardId);
+  if(!el)return;
+  const clone=el.cloneNode(true);clone.classList.add('locked');clone.setAttribute('draggable','false');
+  zoneEl.appendChild(clone);el.remove();
+  placed3[cardId]=true;
+  const box=document.getElementById('sz_'+zoneDef.id);
+  box.classList.add('correct');setTimeout(()=>box.classList.remove('correct'),800);
+  document.getElementById('fb3').className='feedback ok';
+  document.getElementById('fb3').textContent='Perfect fit! Looking great!';
+  if(Object.keys(placed3).length===act3Cards.length){
+    document.getElementById('fb3').textContent='Your portfolio is complete! Time to launch!';
+    document.getElementById('nextBtn3').disabled=false;
+  }
+}
+
+function showOnly(id){
+  ['s0','s1','s2','s3'].forEach(s=>document.getElementById(s).classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+function startAct(n){
+  showOnly('s'+n);
+  if(n===1){placed1={};buildAct1();}
+  if(n===2){placed2={};buildAct2();}
+  if(n===3){placed3={};buildAct3();}
+}
+
+function celebrate(){
+  document.getElementById('cel').classList.remove('hidden');
+  launchConfetti();
+}
+
+function launchConfetti(){
+  const cc=document.getElementById('confetti');
+  const cx=cc.getContext('2d');
+  cc.width=window.innerWidth;cc.height=window.innerHeight;
+  const bits=[];
+  const cols=['#ff9f3f','#c882ff','#50e890','#ff6060','#60c8ff','#f0d080'];
+  for(let i=0;i<120;i++) bits.push({x:Math.random()*cc.width,y:-20,vx:(Math.random()-.5)*5,vy:Math.random()*4+2,r:Math.random()*6+3,c:cols[Math.floor(Math.random()*cols.length)],a:1,spin:Math.random()*6,spinV:(Math.random()-.5)*.15});
+  let f=0;
+  function loop(){
+    cx.clearRect(0,0,cc.width,cc.height);
+    bits.forEach(b=>{
+      b.x+=b.vx;b.y+=b.vy;b.spin+=b.spinV;b.vy+=.08;
+      if(b.y>cc.height+10){b.y=-10;b.x=Math.random()*cc.width;}
+      cx.save();cx.translate(b.x,b.y);cx.rotate(b.spin);
+      cx.fillStyle=b.c;cx.globalAlpha=Math.max(0,1-f/200);
+      cx.fillRect(-b.r/2,-b.r/2,b.r,b.r);
+      cx.restore();
+    });
+    f++;
+    if(f<200) requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function restartAll(){
+  document.getElementById('cel').classList.add('hidden');
+  showOnly('s0');
+}
+
+showOnly('s0');
+</script>
+
+</body>
+</html>

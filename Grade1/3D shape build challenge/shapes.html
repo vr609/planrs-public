@@ -320,13 +320,13 @@ html,body{
 }
 .slot{
   position:absolute;
-  width:38px;height:38px;
+  width:46px;height:46px;
   border-radius:50%;
-  margin-left:-19px;margin-top:-19px;
-  border:2.5px dashed var(--ocean-deep);
-  opacity:0.55;
+  margin-left:-23px;margin-top:-23px;
+  border:3px dashed var(--ocean-deep);
+  opacity:0.6;
   display:flex;align-items:center;justify-content:center;
-  font-size:20px;
+  font-size:22px;
   background:rgba(255,251,240,0.7);
   transition:all .2s;
   cursor:default;
@@ -334,8 +334,8 @@ html,body{
 .slot:not(.filled){box-shadow:0 0 10px rgba(27,110,122,0.18);}
 .slot.edge-slot{
   border-radius:8px;
-  width:46px;height:16px;
-  margin-left:-23px;margin-top:-8px;
+  width:54px;height:18px;
+  margin-left:-27px;margin-top:-9px;
   font-size:13px;
 }
 .slot.filled{
@@ -786,18 +786,18 @@ resetBtn.addEventListener('click', ()=>{
    ============================================================ */
 function renderActivity1(){
   panelTitle.textContent = 'Activity 1 · Build the Cube Camp';
-  instructions.innerHTML = 'Drag <b>marshmallows</b> onto the glowing corner posts and <b>craft sticks</b> onto the edge paths to build a cube tent frame.';
   updateTrail();
 
-  // cube projection coordinates (isometric-ish), in % of build-zone box (0-100)
+  // Simple, kid-friendly cube drawing: a front square + a back square, offset.
+  // This is the classic way a cube is drawn, so kids instantly recognise the shape.
   const corners = [
-    {id:'c0', x:30,y:20},{id:'c1', x:62,y:14},{id:'c2', x:86,y:30},{id:'c3', x:54,y:36},
-    {id:'c4', x:30,y:58},{id:'c5', x:62,y:52},{id:'c6', x:86,y:68},{id:'c7', x:54,y:74}
+    {id:'c0', x:18,y:24},{id:'c1', x:55,y:24},{id:'c2', x:55,y:66},{id:'c3', x:18,y:66}, // front square
+    {id:'c4', x:38,y:8}, {id:'c5', x:75,y:8}, {id:'c6', x:75,y:50},{id:'c7', x:38,y:50}  // back square
   ];
   const edgeDefs = [
-    ['c0','c1'],['c1','c2'],['c2','c3'],['c3','c0'],
-    ['c4','c5'],['c5','c6'],['c6','c7'],['c7','c4'],
-    ['c0','c4'],['c1','c5'],['c2','c6'],['c3','c7']
+    ['c0','c1'],['c1','c2'],['c2','c3'],['c3','c0'],   // front face
+    ['c4','c5'],['c5','c6'],['c6','c7'],['c7','c4'],   // back face
+    ['c0','c4'],['c1','c5'],['c2','c6'],['c3','c7']    // connecting edges
   ];
   const cornerMap = {};
   corners.forEach(c=>cornerMap[c.id]=c);
@@ -806,28 +806,20 @@ function renderActivity1(){
     <div class="act1-wrap">
       <div class="build-zone"><div id="cubeStage"></div></div>
       <div class="tray">
-        <h3>Marshmallows (Corners) — need 8</h3>
+        <h3 id="trayHeading1">Step 1 — Yellow Dots (Corners) — need 8</h3>
         <div class="tray-items" id="marshTray"></div>
-        <h3>Craft Sticks (Edges) — need 12</h3>
-        <div class="tray-items" id="stickTray"></div>
+        <h3 id="trayHeading2" style="display:none;">Step 2 — Brown Sticks (Edges) — need 12</h3>
+        <div class="tray-items" id="stickTray" style="display:none;"></div>
       </div>
     </div>
   `;
 
+  instructions.innerHTML = 'Step 1: drag every <b>yellow dot</b> onto a glowing corner of the cube below.';
+
   const cubeStage = document.getElementById('cubeStage');
   const marshTray = document.getElementById('marshTray');
   const stickTray = document.getElementById('stickTray');
-
-  // svg for edge lines (drawn underneath, faint guide)
-  const svgNS = "http://www.w3.org/2000/svg";
-  const guideSvg = document.createElementNS(svgNS,'svg');
-  guideSvg.setAttribute('style','position:absolute;inset:0;width:100%;height:100%;');
-  cubeStage.appendChild(guideSvg);
-
-  function pctToPx(stageEl, xp, yp){
-    const r = stageEl.getBoundingClientRect();
-    return {x: xp/100*r.width, y: yp/100*r.height};
-  }
+  const trayHeading2 = document.getElementById('trayHeading2');
 
   // corner slots
   let filledCorners = 0, filledEdges = 0;
@@ -843,7 +835,9 @@ function renderActivity1(){
     addDropHandlers(slot, 'corner');
   });
 
-  // edge slots (midpoints)
+  // edge slots (midpoints) — built now but kept hidden until all corners are
+  // placed, so a Grade 1 child only deals with one set of pieces at a time.
+  const edgeSlots = [];
   edgeDefs.forEach(([a,b],i)=>{
     const ca = cornerMap[a], cb = cornerMap[b];
     const mx = (ca.x+cb.x)/2, my = (ca.y+cb.y)/2;
@@ -853,10 +847,12 @@ function renderActivity1(){
     slot.style.left = mx+'%';
     slot.style.top = my+'%';
     slot.style.transform = `translate(-50%,-50%) rotate(${angle}deg)`;
+    slot.style.visibility = 'hidden';
     slot.dataset.id = 'e'+i;
     slot.dataset.type='edge';
     cubeStage.appendChild(slot);
     addDropHandlers(slot,'edge');
+    edgeSlots.push(slot);
   });
 
   function addDropHandlers(slot, type){
@@ -872,7 +868,12 @@ function renderActivity1(){
         const draggedId = e.dataTransfer.getData('pieceId');
         const el = document.getElementById(draggedId);
         if(el) el.remove();
-        if(type==='corner') filledCorners++; else filledEdges++;
+        if(type==='corner'){
+          filledCorners++;
+          if(filledCorners===8) unlockEdges();
+        } else {
+          filledEdges++;
+        }
         checkComplete();
       } else {
         slot.classList.add('flash-bad');
@@ -881,7 +882,14 @@ function renderActivity1(){
     });
   }
 
-  // create draggable pieces, shuffled order, plus a couple decoys removed (exact counts only, just shuffled)
+  function unlockEdges(){
+    instructions.innerHTML = 'Great job! Now Step 2: drag every <b>brown stick</b> onto a glowing edge to finish the cube.';
+    trayHeading2.style.display = '';
+    stickTray.style.display = '';
+    edgeSlots.forEach(s=>s.style.visibility = 'visible');
+  }
+
+  // create draggable pieces, shuffled order
   const marshIds = corners.map((c,i)=>'m'+i);
   const stickIds = edgeDefs.map((e,i)=>'s'+i);
 
@@ -919,7 +927,7 @@ function renderActivity1(){
         showPopup({
           stamp:'🏕️',
           title:'Camp Frame Complete!',
-          text:'You placed all 8 corner marshmallows and 12 edge sticks. Your cube tent is standing tall! Onward to the next checkpoint.',
+          text:'You placed all 8 corner dots and 12 edge sticks. Your cube tent is standing tall! Onward to the next checkpoint.',
           btnLabel:'Continue Journey →',
           onContinue: ()=>{ currentActivity=2; renderActivity2(); }
         });

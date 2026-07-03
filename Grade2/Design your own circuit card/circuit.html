@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Design Your Own Circuit Card</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Quicksand:wght@500;600;700&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --pink:    #ff8ecb;
+  --lilac:   #c97bff;
+  --sky:     #87d9ff;
+  --mint:    #7fffd0;
+  --yellow:  #ffe566;
+  --peach:   #ffb570;
+  --white:   #fffaff;
+  --soft-bg: #fdf0ff;
+  --card-bg: rgba(255,250,255,0.88);
+  --wire-pos:#ff5577;
+  --wire-neg:#4488ff;
+  --shadow:  0 8px 32px rgba(180,80,220,0.18);
+  --radius:  22px;
+  --fd: 'Baloo 2', cursive;
+  --fb: 'Quicksand', sans-serif;
+}
+
+html,body{width:100%;height:100%;overflow:hidden;font-family:var(--fb);background:var(--soft-bg)}
+
+/* ══════════ ANIMATED BACKGROUND ══════════ */
+#bg{
+  position:fixed;inset:0;z-index:0;
+  background:linear-gradient(160deg,#ffe0f7 0%,#f0d9ff 30%,#d4f0ff 65%,#e0fff5 100%);
+  overflow:hidden;
+}
+
+/* Rainbow arc */
+.rainbow-arc{
+  position:absolute;
+  border-radius:50%;
+  border-style:solid;
+  border-color:transparent;
+  animation:arcPulse 6s ease-in-out infinite;
+}
+@keyframes arcPulse{0%,100%{opacity:.35}50%{opacity:.65}}
+
+/* Clouds */
+.cloud{
+  position:absolute;
+  background:#fff;
+  border-radius:60px;
+  opacity:.75;
+  filter:blur(1px);
+  animation:driftCloud ease-in-out infinite;
+}
+.cloud::before,.cloud::after{
+  content:'';position:absolute;background:#fff;border-radius:50%;
+}
+@keyframes driftCloud{
+  0%,100%{transform:translateX(0) translateY(0)}
+  50%{transform:translateX(18px) translateY(-6px)}
+}
+
+/* Stars */
+.star-bg{
+  position:absolute;
+  animation:twinkleStar ease-in-out infinite;
+}
+@keyframes twinkleStar{
+  0%,100%{opacity:.2;transform:scale(1)}
+  50%{opacity:1;transform:scale(1.5)}
+}
+
+/* Sparkles */
+.sparkle{
+  position:absolute;
+  font-size:16px;
+  animation:floatSparkle ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes floatSparkle{
+  0%{transform:translateY(0) rotate(0deg);opacity:.6}
+  50%{transform:translateY(-20px) rotate(180deg);opacity:1}
+  100%{transform:translateY(0) rotate(360deg);opacity:.6}
+}
+
+/* Unicorns */
+.unicorn{
+  position:absolute;
+  font-size:44px;
+  animation:floatUnicorn ease-in-out infinite;
+  filter:drop-shadow(0 4px 12px rgba(200,100,255,.3));
+}
+@keyframes floatUnicorn{
+  0%,100%{transform:translateY(0) rotate(-4deg)}
+  33%{transform:translateY(-14px) rotate(4deg)}
+  66%{transform:translateY(6px) rotate(-2deg)}
+}
+
+/* Ground flowers */
+.flower{position:absolute;font-size:22px;bottom:8px;}
+
+/* ══════════ HEADER ══════════ */
+#header{
+  position:fixed;top:0;left:0;right:0;z-index:50;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:7px 18px;
+  background:rgba(255,248,255,.82);
+  backdrop-filter:blur(12px);
+  border-bottom:2px solid rgba(200,120,255,.2);
+}
+#header h1{
+  font-family:var(--fd);
+  font-size:clamp(12px,2vw,19px);
+  background:linear-gradient(135deg,#c97bff,#ff8ecb,#ffb570);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  letter-spacing:.5px;white-space:nowrap;
+}
+.progress-row{display:flex;gap:7px;align-items:center;}
+.prog-pip{
+  width:30px;height:9px;border-radius:8px;
+  background:rgba(200,120,255,.15);
+  border:2px solid rgba(200,120,255,.3);
+  transition:all .4s;position:relative;overflow:hidden;
+}
+.prog-pip.active{background:var(--lilac);box-shadow:0 0 10px rgba(200,120,255,.6);}
+.prog-pip.active::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);
+  animation:shimmer 1.5s infinite;
+}
+@keyframes shimmer{to{transform:translateX(200%)}}
+.prog-pip.done{background:var(--mint);box-shadow:0 0 8px rgba(127,255,208,.6);}
+.pip-lbl{font-size:10px;font-weight:700;color:#c97bff;}
+
+/* ══════════ MAIN APP ══════════ */
+#app{
+  position:fixed;inset:0;z-index:20;
+  display:flex;align-items:center;justify-content:center;
+  padding-top:50px;
+}
+
+.act-card{
+  background:var(--card-bg);
+  backdrop-filter:blur(14px);
+  border-radius:var(--radius);
+  border:2px solid rgba(200,120,255,.25);
+  box-shadow:var(--shadow),0 0 0 1px rgba(255,255,255,.6);
+  width:min(96vw,820px);
+  max-height:calc(100vh - 68px);
+  padding:16px 20px 12px;
+  display:flex;flex-direction:column;gap:9px;
+  animation:cardIn .5s cubic-bezier(.34,1.56,.64,1) both;
+  position:relative;overflow:hidden;
+}
+@keyframes cardIn{
+  from{opacity:0;transform:scale(.88) translateY(28px)}
+  to{opacity:1;transform:none}
+}
+.card-shimmer{
+  position:absolute;top:0;left:-100%;width:60%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);
+  animation:cardShimmer 4s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes cardShimmer{0%,100%{left:-100%}50%{left:140%}}
+
+.act-title{
+  font-family:var(--fd);font-size:clamp(14px,2.2vw,20px);
+  text-align:center;
+  background:linear-gradient(135deg,#c97bff,#ff8ecb,#ff7043);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  font-weight:800;
+}
+.act-desc{
+  font-size:clamp(11px,1.4vw,13px);
+  color:#886;text-align:center;font-weight:600;
+}
+
+/* ══════════ TOOLBOX ══════════ */
+.toolbox{
+  background:rgba(200,120,255,.06);
+  border:2px dashed rgba(200,120,255,.25);
+  border-radius:14px;
+  padding:9px 8px;
+  display:flex;flex-direction:column;gap:6px;
+  min-width:115px;max-width:130px;flex-shrink:0;
+}
+.toolbox-title{
+  font-family:var(--fd);font-size:9px;
+  color:#c97bff;text-align:center;
+  letter-spacing:2px;
+  border-bottom:1px solid rgba(200,120,255,.2);
+  padding-bottom:4px;margin-bottom:2px;
+}
+
+/* ══════════ DRAG ITEMS ══════════ */
+.drag-item{
+  background:linear-gradient(135deg,rgba(255,250,255,.95),rgba(255,240,255,.9));
+  border:2px solid rgba(200,120,255,.3);
+  border-radius:11px;
+  padding:6px 10px;
+  font-size:11px;font-weight:700;
+  color:#8855aa;
+  cursor:grab;user-select:none;
+  display:flex;align-items:center;gap:5px;
+  transition:all .15s;
+  box-shadow:0 3px 8px rgba(200,120,255,.12);
+  white-space:nowrap;
+}
+.drag-item:hover{transform:translateX(3px) scale(1.03);border-color:var(--lilac);box-shadow:0 0 12px rgba(200,120,255,.3);}
+.drag-item.dragging{opacity:.35;}
+.drag-item.used{opacity:.3;cursor:not-allowed;filter:grayscale(.5);}
+
+/* ══════════ DROP ZONES ══════════ */
+.drop-zone{
+  background:rgba(200,120,255,.04);
+  border:2.5px dashed rgba(200,120,255,.25);
+  border-radius:14px;
+  padding:10px;min-height:80px;
+  transition:all .2s;
+  position:relative;
+  display:flex;flex-wrap:wrap;gap:7px;
+  align-content:flex-start;
+}
+.drop-zone.over{background:rgba(200,120,255,.12);border-color:var(--lilac);box-shadow:0 0 18px rgba(200,120,255,.2);}
+.drop-zone.zone-ok{border-color:var(--mint);background:rgba(127,255,208,.08);}
+.zone-tag{
+  position:absolute;top:-10px;left:12px;
+  background:linear-gradient(135deg,#c97bff,#ff8ecb);
+  color:#fff;font-family:var(--fd);font-size:8px;
+  padding:2px 10px;border-radius:20px;letter-spacing:1px;white-space:nowrap;
+}
+
+/* ══════════ PLACED CHIPS ══════════ */
+.placed-chip{
+  background:linear-gradient(135deg,rgba(255,240,255,.95),rgba(240,220,255,.9));
+  border:2px solid rgba(200,120,255,.4);
+  border-radius:10px;
+  padding:5px 9px;font-size:10px;font-weight:700;color:#8855aa;
+  display:flex;align-items:center;gap:4px;
+  box-shadow:0 2px 6px rgba(200,120,255,.15);
+  animation:chipPop .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes chipPop{from{transform:scale(0.6)}to{transform:scale(1)}}
+.placed-chip.correct{border-color:var(--mint);color:#2a8a6a;background:rgba(127,255,208,.15);}
+.placed-chip.wrong{border-color:#ff7baa;animation:wrongShake .35s ease;}
+@keyframes wrongShake{
+  0%,100%{transform:translateX(0)}
+  25%{transform:translateX(-6px)}75%{transform:translateX(6px)}
+}
+
+/* ══════════ CIRCUIT CARD CANVAS ══════════ */
+.card-canvas{
+  flex:1;
+  background:linear-gradient(145deg,#fff8ff,#fff0fb);
+  border:3px solid rgba(200,120,255,.3);
+  border-radius:18px;
+  position:relative;
+  overflow:hidden;
+  min-height:180px;
+  box-shadow:inset 0 2px 12px rgba(200,120,255,.08),0 4px 16px rgba(200,120,255,.1);
+}
+.card-canvas svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+
+/* Circuit wire animation */
+.wire-flow{
+  stroke-dasharray:10 6;
+  animation:wireFlow 1.2s linear infinite;
+}
+@keyframes wireFlow{to{stroke-dashoffset:-80}}
+
+/* LED component on canvas */
+.c-led{
+  position:absolute;
+  width:32px;height:32px;border-radius:50%;
+  border:3px solid rgba(255,200,0,.5);
+  background:rgba(200,200,200,.4);
+  transition:all .5s;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;
+}
+.c-led.lit{
+  background:radial-gradient(circle,#fffde7,#ffe600 50%,#ff9800);
+  box-shadow:0 0 14px 6px rgba(255,220,0,.65),0 0 28px rgba(255,180,0,.4);
+  animation:ledPulse 1.4s ease-in-out infinite;
+}
+@keyframes ledPulse{
+  0%,100%{box-shadow:0 0 14px 6px rgba(255,220,0,.65),0 0 28px rgba(255,180,0,.4)}
+  50%{box-shadow:0 0 22px 10px rgba(255,230,0,.9),0 0 44px rgba(255,200,0,.5)}
+}
+
+/* Battery on canvas */
+.c-battery{
+  position:absolute;
+  background:linear-gradient(135deg,#ffe0f7,#f0d4ff);
+  border:2.5px solid rgba(200,120,255,.5);
+  border-radius:10px;
+  padding:4px 8px;
+  font-size:10px;font-weight:700;color:#8855aa;
+  display:flex;align-items:center;gap:4px;white-space:nowrap;
+}
+
+/* Decorative sticker on canvas */
+.c-deco{
+  position:absolute;
+  font-size:22px;
+  cursor:grab;
+  animation:decoFloat ease-in-out infinite;
+  filter:drop-shadow(0 2px 6px rgba(200,120,255,.3));
+  user-select:none;
+}
+@keyframes decoFloat{
+  0%,100%{transform:rotate(-5deg) scale(1)}
+  50%{transform:rotate(5deg) scale(1.1)}
+}
+
+/* ══════════ BUTTONS ══════════ */
+.magic-btn{
+  background:linear-gradient(135deg,rgba(200,120,255,.15),rgba(255,142,203,.15));
+  border:2px solid rgba(200,120,255,.4);
+  color:#c97bff;border-radius:50px;
+  padding:9px 20px;
+  font-family:var(--fd);font-size:clamp(10px,1.5vw,13px);
+  font-weight:700;letter-spacing:.5px;
+  cursor:pointer;transition:all .2s;white-space:nowrap;
+}
+.magic-btn:hover{background:rgba(200,120,255,.25);box-shadow:0 0 20px rgba(200,120,255,.3);transform:translateY(-1px);}
+.magic-btn:disabled{opacity:.35;cursor:not-allowed;transform:none;}
+.magic-btn.green{border-color:rgba(127,255,208,.6);color:#2a8a6a;background:rgba(127,255,208,.12);}
+.magic-btn.green:hover{background:rgba(127,255,208,.25);box-shadow:0 0 20px rgba(127,255,208,.35);}
+.magic-btn.pink{border-color:rgba(255,142,203,.6);color:#cc4488;background:rgba(255,142,203,.12);}
+.magic-btn.pink:hover{background:rgba(255,142,203,.25);}
+.btn-row{display:flex;justify-content:center;gap:9px;flex-wrap:wrap;}
+
+/* ══════════ INFO PANEL ══════════ */
+.info-panel{
+  background:linear-gradient(135deg,rgba(200,120,255,.07),rgba(255,142,203,.07));
+  border:1.5px solid rgba(200,120,255,.2);
+  border-radius:12px;padding:7px 12px;
+  font-size:11px;color:#886;font-weight:600;
+  text-align:center;line-height:1.5;
+}
+.info-panel strong{color:#c97bff;}
+
+/* ══════════ TOAST ══════════ */
+#toast{
+  position:fixed;bottom:18px;left:50%;
+  transform:translateX(-50%) translateY(60px);
+  background:rgba(255,248,255,.95);
+  border:2px solid var(--lilac);
+  color:#c97bff;
+  padding:9px 22px;border-radius:50px;
+  font-family:var(--fd);font-size:11px;font-weight:700;
+  opacity:0;transition:all .35s cubic-bezier(.34,1.56,.64,1);
+  z-index:300;pointer-events:none;
+  box-shadow:0 4px 20px rgba(200,120,255,.3);
+  white-space:nowrap;
+}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+
+/* ══════════ POPUP ══════════ */
+.popup-ov{
+  position:fixed;inset:0;
+  background:rgba(60,0,80,.45);
+  backdrop-filter:blur(8px);
+  z-index:400;
+  display:flex;align-items:center;justify-content:center;
+  animation:fadeIn .3s ease;
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.popup-box{
+  background:linear-gradient(160deg,#fff8ff,#fff0fb,#f0f8ff);
+  border:2px solid rgba(200,120,255,.4);
+  border-radius:28px;
+  padding:28px 32px 24px;
+  max-width:min(92vw,460px);width:100%;
+  text-align:center;
+  box-shadow:0 20px 60px rgba(150,0,200,.18),0 0 0 1px rgba(255,255,255,.8);
+  animation:popIn .45s cubic-bezier(.34,1.56,.64,1) both;
+  position:relative;overflow:hidden;
+}
+@keyframes popIn{from{opacity:0;transform:scale(.7) rotate(-3deg)}to{opacity:1;transform:none}}
+.popup-emoji{font-size:58px;display:block;margin-bottom:8px;animation:bounce 1.2s ease infinite;}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.popup-title{font-family:var(--fd);font-size:clamp(18px,3.5vw,26px);margin-bottom:6px;
+  background:linear-gradient(135deg,#c97bff,#ff8ecb);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.popup-stars{font-size:26px;letter-spacing:4px;margin-bottom:10px;}
+.popup-body{font-size:13px;color:#886;font-weight:600;line-height:1.6;margin-bottom:18px;}
+.popup-body .hl{color:#c97bff;font-weight:800;}
+.conf-piece{position:absolute;width:7px;height:7px;animation:confFall linear forwards;}
+@keyframes confFall{0%{transform:translateY(-10px) rotate(0);opacity:1}100%{transform:translateY(320px) rotate(720deg);opacity:0}}
+
+/* ══════════ ACT2 DECO SHELF ══════════ */
+.deco-shelf{
+  display:flex;flex-wrap:wrap;gap:6px;
+  background:rgba(200,120,255,.05);
+  border:2px dashed rgba(200,120,255,.2);
+  border-radius:12px;padding:8px;
+  min-height:48px;align-content:flex-start;
+}
+.deco-chip{
+  font-size:22px;cursor:grab;user-select:none;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:38px;height:38px;border-radius:10px;
+  background:rgba(255,250,255,.9);
+  border:2px solid rgba(200,120,255,.25);
+  transition:all .15s;
+}
+.deco-chip:hover{transform:scale(1.15);border-color:var(--pink);}
+.deco-chip.dragging{opacity:.3;}
+
+/* ══════════ ACT3 FULL CARD ══════════ */
+.full-card-wrap{
+  flex:1;display:flex;align-items:center;justify-content:center;
+}
+.greeting-card{
+  width:min(260px,38vw);
+  aspect-ratio:3/4;
+  background:linear-gradient(145deg,#fff8ff 0%,#fff0fb 50%,#f8f0ff 100%);
+  border:3px solid rgba(200,120,255,.35);
+  border-radius:18px;
+  box-shadow:0 8px 28px rgba(200,120,255,.2);
+  position:relative;overflow:hidden;
+  transition:all .5s;
+}
+.greeting-card.lit-up{
+  box-shadow:0 0 40px 10px rgba(255,220,0,.4),0 8px 28px rgba(200,120,255,.3);
+  border-color:rgba(255,220,0,.6);
+}
+.card-slot{
+  position:absolute;
+  width:40px;height:40px;
+  border:2.5px dashed rgba(200,120,255,.35);
+  border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;color:rgba(200,120,255,.4);
+  transition:all .3s;cursor:pointer;
+}
+.card-slot.filled{border-style:solid;border-color:var(--mint);}
+.card-slot.glow-slot{
+  box-shadow:0 0 14px rgba(255,220,0,.7);
+  border-color:rgba(255,220,0,.8);
+}
+.card-wire{position:absolute;pointer-events:none;}
+.card-wire svg{width:100%;height:100%;}
+
+/* Comparison mini-table A3 */
+.mini-compare{width:100%;border-collapse:collapse;font-size:10px;}
+.mini-compare th{font-family:var(--fd);font-size:9px;padding:4px 8px;border-bottom:1px solid rgba(200,120,255,.2);color:#c97bff;letter-spacing:1px;}
+.mini-compare td{padding:4px 8px;border-bottom:1px solid rgba(200,120,255,.08);color:#886;text-align:center;}
+.mini-compare td.feat{text-align:left;color:#aaa;font-size:9px;}
+.mini-compare tr:last-child td{border-bottom:none;}
+
+@media(max-height:620px){
+  .act-card{padding:9px 14px 8px;gap:6px;}
+  .popup-box{padding:16px 20px 14px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════ BACKGROUND ══════════ -->
+<div id="bg"></div>
+
+<!-- ══════════ HEADER ══════════ -->
+<div id="header">
+  <h1>✨ Design Your Own Circuit Card</h1>
+  <div class="progress-row">
+    <span class="pip-lbl">STEP:</span>
+    <div class="prog-pip active" id="pip1"></div>
+    <div class="prog-pip" id="pip2"></div>
+    <div class="prog-pip" id="pip3"></div>
+  </div>
+</div>
+
+<!-- ══════════ APP ══════════ -->
+<div id="app">
+  <div class="act-card" id="act-card">
+    <div class="card-shimmer"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="popup-container"></div>
+
+<script>
+// ══════════════════════════════════
+// BACKGROUND BUILDER
+// ══════════════════════════════════
+(function buildBg(){
+  const bg=document.getElementById('bg');
+
+  // Rainbow arcs
+  const arcs=[
+    {w:700,h:400,top:'10%',left:'-8%',cols:['rgba(255,120,200,.35)','rgba(200,100,255,.3)','rgba(135,200,255,.25)']},
+    {w:500,h:280,top:'30%',right:'-5%',cols:['rgba(255,230,100,.3)','rgba(255,160,80,.25)','rgba(255,120,200,.2)']},
+  ];
+  arcs.forEach(a=>{
+    a.cols.forEach((col,i)=>{
+      const el=document.createElement('div');
+      el.className='rainbow-arc';
+      el.style.cssText=`width:${a.w-i*40}px;height:${a.h-i*22}px;
+        top:${a.top||''};left:${a.left||''};right:${a.right||''};
+        border-top-color:${col};border-width:${14-i*2}px;
+        animation-delay:${i*1.2}s;
+        position:absolute;z-index:1;`;
+      bg.appendChild(el);
+    });
+  });
+
+  // Clouds
+  const clouds=[
+    {w:160,h:55,top:'15%',left:'5%',dur:9},
+    {w:100,h:36,top:'22%',left:'42%',dur:12},
+    {w:190,h:64,top:'8%', left:'68%',dur:11},
+    {w:80, h:28,top:'38%',left:'18%',dur:8},
+    {w:130,h:44,top:'28%',left:'80%',dur:13},
+  ];
+  clouds.forEach(c=>{
+    const el=document.createElement('div');
+    el.className='cloud';
+    el.style.cssText=`width:${c.w}px;height:${c.h}px;top:${c.top};left:${c.left};animation-duration:${c.dur}s;animation-delay:${Math.random()*4}s;z-index:1;`;
+    const b1=document.createElement('div');b1.style.cssText=`width:${c.w*.5}px;height:${c.h*1.4}px;top:-${c.h*.5}px;left:${c.w*.15}px;border-radius:50%;background:#fff;position:absolute;`;
+    const b2=document.createElement('div');b2.style.cssText=`width:${c.w*.38}px;height:${c.h*1.2}px;top:-${c.h*.35}px;left:${c.w*.5}px;border-radius:50%;background:#fff;position:absolute;`;
+    el.appendChild(b1);el.appendChild(b2);
+    bg.appendChild(el);
+  });
+
+  // Stars
+  const starEmojis=['⭐','✨','💫','🌟'];
+  for(let i=0;i<20;i++){
+    const el=document.createElement('div');
+    el.className='star-bg';
+    el.textContent=starEmojis[i%4];
+    el.style.cssText=`font-size:${10+Math.random()*16}px;top:${Math.random()*85}%;left:${Math.random()*95}%;animation-duration:${2+Math.random()*3}s;animation-delay:${Math.random()*4}s;position:absolute;z-index:1;`;
+    bg.appendChild(el);
+  }
+
+  // Sparkles
+  const sparkles=['✦','✧','❋','❊'];
+  for(let i=0;i<14;i++){
+    const el=document.createElement('div');
+    el.className='sparkle';
+    el.textContent=sparkles[i%4];
+    el.style.cssText=`top:${10+Math.random()*80}%;left:${5+Math.random()*90}%;animation-duration:${3+Math.random()*4}s;animation-delay:${Math.random()*5}s;color:${['#c97bff','#ff8ecb','#ffe566','#87d9ff'][i%4]};position:absolute;z-index:1;`;
+    bg.appendChild(el);
+  }
+
+  // Unicorns
+  const unis=[
+    {top:'55%',left:'3%',dur:9},
+    {top:'62%',right:'3%',dur:11},
+    {top:'70%',left:'45%',dur:8},
+  ];
+  unis.forEach((u,i)=>{
+    const el=document.createElement('div');
+    el.className='unicorn';
+    el.textContent='🦄';
+    el.style.cssText=`top:${u.top};left:${u.left||''};right:${u.right||''};animation-duration:${u.dur}s;animation-delay:${i*2}s;z-index:2;position:absolute;`;
+    bg.appendChild(el);
+  });
+
+  // Ground flowers
+  const flowerEmojis=['🌸','🌺','🌼','🌻','🌹','🌷'];
+  for(let i=0;i<18;i++){
+    const el=document.createElement('div');
+    el.className='flower';
+    el.textContent=flowerEmojis[i%6];
+    el.style.cssText=`left:${i*(100/18)}%;font-size:${14+Math.random()*10}px;position:absolute;z-index:1;`;
+    bg.appendChild(el);
+  }
+})();
+
+// ══════════════════════════════════
+// UTILITIES
+// ══════════════════════════════════
+let dragObj=null,dragSrcEl=null;
+
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+
+function toast(msg,col='#c97bff'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.color=col;t.style.borderColor=col;
+  t.classList.add('show');clearTimeout(t._t);
+  t._t=setTimeout(()=>t.classList.remove('show'),2100);
+}
+
+function updatePips(n){
+  for(let i=1;i<=3;i++){
+    const p=document.getElementById('pip'+i);
+    p.className='prog-pip';
+    if(i<n) p.classList.add('done');
+    else if(i===n) p.classList.add('active');
+  }
+}
+
+function reanimCard(){
+  const c=document.getElementById('act-card');
+  c.style.animation='none';void c.offsetWidth;
+  c.style.animation='cardIn .5s cubic-bezier(.34,1.56,.64,1) both';
+}
+
+function spawnConf(el){
+  const cols=['#c97bff','#ff8ecb','#ffe566','#87d9ff','#7fffd0','#ffb570'];
+  for(let i=0;i<28;i++){
+    const p=document.createElement('div');p.className='conf-piece';
+    p.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*20}%;
+      background:${cols[i%cols.length]};border-radius:${Math.random()>.5?'50%':'3px'};
+      width:${5+Math.random()*7}px;height:${5+Math.random()*7}px;
+      animation-duration:${.8+Math.random()*1.4}s;animation-delay:${Math.random()*.5}s;`;
+    el.appendChild(p);
+  }
+}
+
+function showPopup(cfg){
+  const pc=document.getElementById('popup-container');
+  pc.innerHTML='';
+  const ov=document.createElement('div');ov.className='popup-ov';
+  const box=document.createElement('div');box.className='popup-box';
+  const cf=document.createElement('div');cf.style.cssText='position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:28px;';
+  box.appendChild(cf);if(cfg.confetti)spawnConf(cf);
+  box.innerHTML+=`<span class="popup-emoji">${cfg.emoji}</span>
+    <div class="popup-title">${cfg.title}</div>
+    <div class="popup-stars">${cfg.stars||'⭐⭐⭐'}</div>
+    <div class="popup-body">${cfg.body}</div>
+    <div class="btn-row"><button class="magic-btn green" id="pop-btn">${cfg.btnLabel}</button></div>`;
+  ov.appendChild(box);pc.appendChild(ov);
+  document.getElementById('pop-btn').addEventListener('click',()=>{
+    ov.style.opacity='0';ov.style.transition='opacity .3s';
+    setTimeout(()=>{pc.innerHTML='';cfg.onNext&&cfg.onNext();},300);
+  });
+}
+
+function makeDrag(el,data){
+  el.setAttribute('draggable','true');
+  el.addEventListener('dragstart',e=>{dragObj=data;dragSrcEl=el;el.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+  el.addEventListener('dragend',()=>{el.classList.remove('dragging');dragObj=null;});
+  let clone=null;
+  el.addEventListener('touchstart',e=>{
+    const t=e.touches[0];dragObj=data;dragSrcEl=el;
+    clone=el.cloneNode(true);
+    clone.style.cssText=`position:fixed;pointer-events:none;z-index:9999;opacity:.7;transform:scale(1.06);left:${t.clientX-el.offsetWidth/2}px;top:${t.clientY-el.offsetHeight/2}px;`;
+    document.body.appendChild(clone);e.preventDefault();
+  },{passive:false});
+  el.addEventListener('touchmove',e=>{
+    const t=e.touches[0];
+    if(clone){clone.style.left=t.clientX-el.offsetWidth/2+'px';clone.style.top=t.clientY-el.offsetHeight/2+'px';}
+    e.preventDefault();
+  },{passive:false});
+  el.addEventListener('touchend',e=>{
+    if(clone){clone.remove();clone=null;}
+    const t=e.changedTouches[0];
+    const tgt=document.elementFromPoint(t.clientX,t.clientY);
+    const z=tgt&&tgt.closest('[data-dz]');
+    if(z&&dragObj)z.dispatchEvent(new CustomEvent('itemDrop',{detail:{d:dragObj,clientX:t.clientX,clientY:t.clientY}}));
+    dragObj=null;
+  },{passive:false});
+}
+
+function makeZone(el,onDrop){
+  el.setAttribute('data-dz','1');
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('over'));
+  el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('over');if(dragObj)onDrop(dragObj,el,{clientX:e.clientX,clientY:e.clientY});});
+  el.addEventListener('itemDrop',e=>{el.classList.remove('over');onDrop(e.detail.d,el,e.detail);});
+}
+
+// ══════════════════════════════════
+// ACTIVITY 1 — Plan the Circuit
+// ══════════════════════════════════
+const ACT1_PARTS=[
+  {id:'led',   emoji:'💡', label:'LED Light',       type:'led',     needed:true,  hint:'The tiny light that glows!'},
+  {id:'bat',   emoji:'🔋', label:'Coin Battery',    type:'battery', needed:true,  hint:'The power station — our silver coin!'},
+  {id:'tape+', emoji:'🔴', label:'Plus Track (+)',  type:'wirepos', needed:true,  hint:'Red shiny path — plus side!'},
+  {id:'tape-', emoji:'🔵', label:'Minus Track (−)', type:'wireneg', needed:true,  hint:'Blue shiny path — minus side!'},
+  {id:'sw',    emoji:'🔌', label:'Switch Fold',     type:'switch',  needed:true,  hint:'The folded corner that turns it on!'},
+  {id:'deco1', emoji:'🌸', label:'Flower Deco',     type:'deco',    needed:false, hint:'Make it pretty!'},
+  {id:'deco2', emoji:'⭐', label:'Star Deco',       type:'deco',    needed:false, hint:'Add sparkle!'},
+];
+
+const ACT1_ZONES=[
+  {id:'z-power',   icon:'🔋', label:'POWER ZONE',   sub:'Drop the Battery here',          color:'#c97bff', accepts:['battery']},
+  {id:'z-path',    icon:'🔴🔵', label:'TRACK PATH', sub:'Drop BOTH Tracks (+ and −) here', color:'#ff8ecb', accepts:['wirepos','wireneg']},
+  {id:'z-light',   icon:'💡', label:'LIGHT ZONE',   sub:'Drop the LED here',               color:'#ffe566', accepts:['led']},
+  {id:'z-extras',  icon:'🔌', label:'SWITCH & EXTRAS', sub:'Drop the Switch + any decos here', color:'#87d9ff', accepts:['switch','deco']},
+];
+
+function renderAct1(){
+  updatePips(1);reanimCard();
+  const card=document.getElementById('act-card');
+  const parts=shuffle(ACT1_PARTS);
+  card.innerHTML=`<div class="card-shimmer"></div>
+    <div class="act-title">✨ Step 1: Plan Your Circuit!</div>
+    <div class="act-desc">Every circuit card needs 5 must-have parts. Read each zone's label, then drag the matching part into it — a wrong part will bounce back so you can try again!</div>
+    <div style="display:flex;gap:10px;align-items:flex-start;flex:1;">
+      <div class="toolbox" id="a1-box"><div class="toolbox-title">🧰 PARTS</div></div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:7px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">
+          ${ACT1_ZONES.map(z=>`
+            <div class="drop-zone" id="${z.id}" style="min-height:70px;">
+              <div class="zone-tag" style="background:linear-gradient(135deg,${z.color},${z.color}99)">${z.icon} ${z.label}</div>
+              <div class="zone-sub" style="font-size:9px;color:rgba(255,255,255,.6);text-align:center;padding:0 4px;">${z.sub}</div>
+            </div>`).join('')}
+        </div>
+        <div class="info-panel" id="a1-info">
+          <strong>💡 Circuit = Power Source + Track Path + LED Light!</strong><br>
+          Match every part to its labelled zone to complete your circuit plan!
+        </div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="magic-btn pink" id="a1-reset">↩ Reset</button>
+      <button class="magic-btn" id="a1-check" disabled>🌈 Check My Plan!</button>
+    </div>`;
+
+  const box=document.getElementById('a1-box');
+  const placed={};
+  const usedIds=new Set();
+
+  parts.forEach(p=>{
+    const el=document.createElement('div');el.className='drag-item';
+    el.id='a1i-'+p.id;el.innerHTML=`${p.emoji} ${p.label}`;el.title=p.hint;
+    box.appendChild(el);
+    makeDrag(el,{...p,srcId:'a1i-'+p.id});
+  });
+
+  ACT1_ZONES.forEach(z=>{
+    const zone=document.getElementById(z.id);
+    makeZone(zone,(data,zEl)=>{
+      if(usedIds.has(data.id)){toast('Already placed!','#ff8ecb');return;}
+      if(!z.accepts.includes(data.type)){
+        zEl.classList.add('zone-bad');
+        setTimeout(()=>zEl.classList.remove('zone-bad'),400);
+        toast(`🤔 ${data.emoji} doesn't belong in ${z.label} — read the zone label!`,'#ff7baa');
+        return;
+      }
+      usedIds.add(data.id);
+      placed[z.id]=placed[z.id]||[];
+      placed[z.id].push(data);
+      const src=document.getElementById(data.srcId);
+      if(src)src.classList.add('used');
+      const chip=document.createElement('div');
+      chip.className='placed-chip correct';
+      chip.innerHTML=`${data.emoji} ${data.label}`;
+      zEl.appendChild(chip);
+      zEl.classList.add('zone-ok');
+      toast(`✅ ${data.emoji} Placed in ${z.label}!`,'#c97bff');
+      // check enable
+      const needed=ACT1_PARTS.filter(p=>p.needed).map(p=>p.type);
+      const placedTypes=Object.values(placed).flat().map(p=>p.type);
+      const allNeeded=needed.every(t=>placedTypes.includes(t));
+      if(allNeeded)document.getElementById('a1-check').disabled=false;
+    });
+  });
+
+  document.getElementById('a1-reset').addEventListener('click',renderAct1);
+  document.getElementById('a1-check').addEventListener('click',()=>{
+    const placedTypes=Object.values(placed).flat().map(p=>p.type);
+    showPopup({
+      emoji:'🦄',
+      title:'Perfect Circuit Plan!',
+      stars:'⭐⭐⭐',
+      confetti:true,
+      body:`Wonderful! You know the 3 secrets of every circuit card:<br>
+          <span class="hl">🔋 Battery</span> = Power Station<br>
+          <span class="hl">🔴🔵 Tracks</span> = The Electricity Path<br>
+          <span class="hl">💡 LED</span> = The Light Maker!<br>Now let's decorate it!`,
+      btnLabel:'Next: Decorate! 🌈',
+      onNext:renderAct2
+    });
+  });
+}
+
+// ══════════════════════════════════
+// ACTIVITY 2 — Decorate Around Circuit
+// ══════════════════════════════════
+const DECOS=[
+  {id:'d-heart',  e:'💖', label:'Heart',   pos:['top-left','top-right']},
+  {id:'d-star',   e:'⭐', label:'Star',    pos:['top-center','bottom-right']},
+  {id:'d-flower', e:'🌸', label:'Flower',  pos:['bottom-left','bottom-right']},
+  {id:'d-rainbow',e:'🌈', label:'Rainbow', pos:['top-left','top-right']},
+  {id:'d-uni',    e:'🦄', label:'Unicorn', pos:['top-left','top-right']},
+  {id:'d-moon',   e:'🌙', label:'Moon',    pos:['top-right','top-center']},
+  {id:'d-cloud',  e:'☁️', label:'Cloud',   pos:['top-left','top-center']},
+  {id:'d-sparkle',e:'✨', label:'Sparkle', pos:['anywhere']},
+];
+
+const CIRCUIT_SLOTS_A2=[
+  {id:'s-bat',   label:'Battery',    x:'10%',y:'72%', type:'battery'},
+  {id:'s-led',   label:'LED',        x:'44%',y:'22%', type:'led'},
+  {id:'s-sw',    label:'Switch',     x:'75%',y:'72%', type:'switch'},
+];
+
+function renderAct2(){
+  updatePips(2);reanimCard();
+  const card=document.getElementById('act-card');
+  const decos=shuffle(DECOS);
+  card.innerHTML=`<div class="card-shimmer"></div>
+    <div class="act-title">🌈 Step 2: Decorate Around the Circuit!</div>
+    <div class="act-desc">Drop decorations onto the card — but keep them away from the circuit path slots! The path must stay clear!</div>
+    <div style="display:flex;gap:10px;align-items:stretch;flex:1;">
+      <div style="display:flex;flex-direction:column;gap:8px;width:130px;flex-shrink:0;">
+        <div class="toolbox-title" style="text-align:center;color:#c97bff;font-family:var(--fd);font-size:9px;letter-spacing:2px;">🎨 DECORATIONS</div>
+        <div class="deco-shelf" id="a2-shelf">${decos.map(d=>`<div class="deco-chip" id="a2d-${d.id}" title="${d.label}">${d.e}</div>`).join('')}</div>
+        <div class="info-panel" style="font-size:10px;">
+          <strong>🔴 Red zone = circuit path</strong><br>Don't block the path!<br>Decorate the empty spaces!
+        </div>
+      </div>
+      <div style="flex:1;position:relative;">
+        <div class="card-canvas" id="a2-canvas" style="height:100%;">
+          <svg id="a2-svg"></svg>
+          ${CIRCUIT_SLOTS_A2.map(s=>`
+            <div class="card-slot" id="${s.id}" style="left:${s.x};top:${s.y};transform:translate(-50%,-50%);"
+              title="Circuit: ${s.label}">
+              ${s.type==='battery'?'🔋':s.type==='led'?'💡':'🔌'}
+            </div>`).join('')}
+          <div id="a2-decos-placed"></div>
+          <svg id="a2-wire-svg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;"></svg>
+        </div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="magic-btn pink" id="a2-reset">↩ Reset</button>
+      <button class="magic-btn" id="a2-check" disabled>✨ Looks Amazing!</button>
+    </div>`;
+
+  // Draw circuit path lines on svg
+  setTimeout(()=>{
+    drawAct2Circuit();
+    // Make deco chips draggable
+    decos.forEach(d=>{
+      const el=document.getElementById('a2d-'+d.id);
+      if(el)makeDrag(el,{...d,srcId:'a2d-'+d.id});
+    });
+  },50);
+
+  const canvas=document.getElementById('a2-canvas');
+  let decoCount=0;
+
+  makeZone(canvas,(data)=>{
+    if(!data.e){return;}
+    if(document.getElementById('a2d-'+data.id))document.getElementById('a2d-'+data.id).classList.add('used');
+    // place randomly in card area avoiding circuit slots
+    const placed=document.getElementById('a2-decos-placed');
+    const el=document.createElement('div');
+    el.className='c-deco';
+    el.textContent=data.e;
+    // random position, biased to corners/edges away from center
+    const positions=[[10,10],[80,10],[10,80],[80,80],[45,50],[20,45],[75,45],[45,15]];
+    const pos=positions[decoCount%positions.length];
+    el.style.cssText=`left:${pos[0]}%;top:${pos[1]}%;animation-duration:${4+Math.random()*3}s;animation-delay:${Math.random()*2}s;`;
+    placed.appendChild(el);
+    decoCount++;
+    toast(`${data.e} Added to your card!`,'#c97bff');
+    if(decoCount>=2)document.getElementById('a2-check').disabled=false;
+  });
+
+  document.getElementById('a2-reset').addEventListener('click',renderAct2);
+  document.getElementById('a2-check').addEventListener('click',()=>{
+    showPopup({
+      emoji:'🌟',
+      title:'Card Looking Magical!',
+      stars:'🌟🌟🌟',
+      confetti:true,
+      body:`Your decorations look amazing and you kept the circuit path clear!<br><br>
+        Remember: the <span class="hl">electricity travels along the track</span> like a train on rails — never gets blocked by decorations!<br><br>
+        Now let's build the complete glowing card! 🦄`,
+      btnLabel:'Build My Glowing Card! 💡',
+      onNext:renderAct3
+    });
+  });
+}
+
+function drawAct2Circuit(){
+  const svg=document.getElementById('a2-wire-svg');
+  if(!svg)return;
+  const w=svg.parentElement.offsetWidth||300;
+  const h=svg.parentElement.offsetHeight||220;
+  // Simple triangular path: battery(bottom-left) → LED(top-center) → switch(bottom-right) → battery
+  const pts={
+    bat: {x:w*.10,y:h*.72},
+    led: {x:w*.44,y:h*.22},
+    sw:  {x:w*.75,y:h*.72},
+  };
+  svg.innerHTML=`
+    <line x1="${pts.bat.x}" y1="${pts.bat.y}" x2="${pts.led.x}" y2="${pts.led.y}" stroke="${'#ff5577'}" stroke-width="3" stroke-linecap="round" class="wire-flow"/>
+    <line x1="${pts.led.x}" y1="${pts.led.y}" x2="${pts.sw.x}"  y2="${pts.sw.y}"  stroke="${'#4488ff'}" stroke-width="3" stroke-linecap="round" class="wire-flow"/>
+    <line x1="${pts.sw.x}"  y1="${pts.sw.y}"  x2="${pts.bat.x}" y2="${pts.bat.y}" stroke="${'#c97bff'}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="6 4" class="wire-flow"/>
+    <circle cx="${pts.bat.x}" cy="${pts.bat.y}" r="8" fill="#ffe0f7" stroke="#c97bff" stroke-width="2"/>
+    <circle cx="${pts.led.x}" cy="${pts.led.y}" r="8" fill="#fff9e0" stroke="#ffaa00" stroke-width="2"/>
+    <circle cx="${pts.sw.x}"  cy="${pts.sw.y}"  r="8" fill="#e0fff0" stroke="#7fffd0" stroke-width="2"/>
+  `;
+}
+
+// ══════════════════════════════════
+// ACTIVITY 3 — Build Full Glowing Card
+// ══════════════════════════════════
+const ACT3_SLOTS=[
+  {id:'a3-bat',  x:12, y:75, type:'battery', label:'Battery', emoji:'🔋', required:true},
+  {id:'a3-led',  x:50, y:20, type:'led',     label:'LED',     emoji:'💡', required:true},
+  {id:'a3-sw',   x:82, y:75, type:'switch',  label:'Switch',  emoji:'🔌', required:true},
+  {id:'a3-d1',   x:15, y:20, type:'deco',    label:'Deco',    emoji:'🌸', required:false},
+  {id:'a3-d2',   x:82, y:20, type:'deco',    label:'Deco',    emoji:'⭐', required:false},
+  {id:'a3-d3',   x:50, y:80, type:'deco',    label:'Deco',    emoji:'🌈', required:false},
+];
+
+const ACT3_PARTS_ALL=[
+  {id:'p-bat',  emoji:'🔋', label:'Coin Battery',    type:'battery', forSlot:'a3-bat'},
+  {id:'p-led',  emoji:'💡', label:'LED Light',       type:'led',     forSlot:'a3-led'},
+  {id:'p-sw',   emoji:'🔌', label:'Switch Fold',     type:'switch',  forSlot:'a3-sw'},
+  {id:'p-tape', emoji:'🔴', label:'Plus Track',      type:'wirepos', forSlot:null},
+  {id:'p-tapn', emoji:'🔵', label:'Minus Track',     type:'wireneg', forSlot:null},
+  {id:'p-d1',   emoji:'🌸', label:'Flower',          type:'deco',    forSlot:'a3-d1'},
+  {id:'p-d2',   emoji:'⭐', label:'Star',            type:'deco',    forSlot:'a3-d2'},
+  {id:'p-d3',   emoji:'🌈', label:'Rainbow',         type:'deco',    forSlot:'a3-d3'},
+  {id:'p-uni',  emoji:'🦄', label:'Unicorn',         type:'deco',    forSlot:'a3-d1'},
+];
+
+function renderAct3(){
+  updatePips(3);reanimCard();
+  const card=document.getElementById('act-card');
+  const parts=shuffle(ACT3_PARTS_ALL);
+  card.innerHTML=`<div class="card-shimmer"></div>
+    <div class="act-title">💡 Step 3: Build Your Glowing Card!</div>
+    <div class="act-desc">Place every part in the right slot, then press "Light It Up!" to see your magical card glow! 🦄</div>
+    <div style="display:flex;gap:10px;align-items:stretch;flex:1;">
+      <div class="toolbox" id="a3-box" style="max-width:130px;"><div class="toolbox-title">✨ YOUR PARTS</div></div>
+      <div class="full-card-wrap" id="a3-card-wrap">
+        <div class="greeting-card" id="a3-greeting">
+          ${ACT3_SLOTS.map(s=>`
+            <div class="card-slot" id="${s.id}" data-type="${s.type}" data-req="${s.required}"
+              style="left:${s.x}%;top:${s.y}%;transform:translate(-50%,-50%);
+              ${s.type==='deco'?'border-color:rgba(200,120,255,.2);':''}"
+              title="Drop: ${s.label}">
+              <span style="opacity:.4">${s.emoji}</span>
+            </div>`).join('')}
+          <svg id="a3-wires" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;"></svg>
+          <div id="a3-celebration" style="display:none;position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:32px;animation:fadeIn .5s ease;"></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:7px;width:120px;flex-shrink:0;">
+        <div class="info-panel" id="a3-info" style="font-size:10px;flex:1;">
+          <strong>How to build:</strong><br>
+          1️⃣ Drop 🔋 Battery<br>
+          2️⃣ Drop 💡 LED<br>
+          3️⃣ Drop 🔌 Switch<br>
+          4️⃣ Add decorations!<br>
+          5️⃣ Press Light It Up!
+        </div>
+        <div id="a3-score" style="font-family:var(--fd);font-size:10px;color:#c97bff;text-align:center;padding:4px;">
+          0 / 3 required ✓
+        </div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="magic-btn pink" id="a3-reset">↩ Reset</button>
+      <button class="magic-btn green" id="a3-power" disabled>💡 Light It Up!</button>
+    </div>`;
+
+  const box=document.getElementById('a3-box');
+  parts.forEach(p=>{
+    const el=document.createElement('div');el.className='drag-item';
+    el.id='a3p-'+p.id;el.innerHTML=`${p.emoji} ${p.label}`;
+    box.appendChild(el);
+    makeDrag(el,{...p,srcId:'a3p-'+p.id});
+  });
+
+  setTimeout(drawAct3Wires,50);
+  const filledSlots={};
+
+  ACT3_SLOTS.forEach(s=>{
+    const slotEl=document.getElementById(s.id);
+    makeZone(slotEl,(data,zEl)=>{
+      if(filledSlots[s.id]){toast('Slot already filled!','#ff8ecb');return;}
+      // check compatibility
+      const compatible=(s.type==='deco'&&data.type==='deco')||(s.type===data.type)||(data.type==='wirepos'||data.type==='wireneg');
+      if(!compatible){
+        const chip=document.createElement('div');chip.className='placed-chip wrong';chip.innerHTML=`${data.emoji} Wrong slot!`;
+        zEl.appendChild(chip);setTimeout(()=>chip.remove(),700);
+        toast(`❌ ${data.label} doesn't go here!`,'#ff8ecb');return;
+      }
+      filledSlots[s.id]=data;
+      const src=document.getElementById(data.srcId);if(src)src.classList.add('used');
+      zEl.innerHTML=`<span style="font-size:${s.type==='deco'?'22':'18'}px">${data.emoji}</span>`;
+      zEl.style.borderStyle='solid';
+      zEl.style.borderColor='var(--mint)';
+      zEl.style.background='rgba(127,255,208,.15)';
+      zEl.classList.add('filled');
+      if(s.type==='led')zEl.style.boxShadow='0 0 10px rgba(255,200,0,.5)';
+      toast(`${data.emoji} Placed!`,'#c97bff');
+      // update score
+      const reqFilled=ACT3_SLOTS.filter(sl=>sl.required&&filledSlots[sl.id]).length;
+      const reqTotal=ACT3_SLOTS.filter(sl=>sl.required).length;
+      document.getElementById('a3-score').textContent=`${reqFilled} / ${reqTotal} required ✓`;
+      if(reqFilled===reqTotal){document.getElementById('a3-power').disabled=false;toast('🌟 All required parts placed! Press Light It Up!','#7fffd0');}
+    });
+  });
+
+  document.getElementById('a3-reset').addEventListener('click',renderAct3);
+  document.getElementById('a3-power').addEventListener('click',()=>activateCard3());
+}
+
+function drawAct3Wires(){
+  const svg=document.getElementById('a3-wires');
+  if(!svg)return;
+  const w=svg.parentElement.offsetWidth||200;
+  const h=svg.parentElement.offsetHeight||267;
+  const bat={x:w*.12,y:h*.75};
+  const led={x:w*.50,y:h*.20};
+  const sw ={x:w*.82,y:h*.75};
+  svg.innerHTML=`
+    <line x1="${bat.x}" y1="${bat.y}" x2="${led.x}" y2="${led.y}" stroke="#ff5577" stroke-width="2.5" stroke-linecap="round" class="wire-flow" stroke-dasharray="8 5"/>
+    <line x1="${led.x}" y1="${led.y}" x2="${sw.x}"  y2="${sw.y}"  stroke="#4488ff" stroke-width="2.5" stroke-linecap="round" class="wire-flow" stroke-dasharray="8 5"/>
+    <line x1="${sw.x}"  y1="${sw.y}"  x2="${bat.x}" y2="${bat.y}" stroke="#c97bff" stroke-width="2"   stroke-linecap="round" class="wire-flow" stroke-dasharray="5 4"/>
+  `;
+}
+
+function activateCard3(){
+  const greeting=document.getElementById('a3-greeting');
+  greeting.classList.add('lit-up');
+  // glow all circuit slots
+  ACT3_SLOTS.filter(s=>s.required).forEach(s=>{
+    const el=document.getElementById(s.id);
+    if(el){el.classList.add('glow-slot');}
+  });
+  // animate wires brighter
+  const svg=document.getElementById('a3-wires');
+  if(svg){
+    svg.querySelectorAll('line').forEach(l=>{
+      l.style.stroke=l.style.stroke==='#ff5577'||l.getAttribute('stroke')==='#ff5577'?'#ff5577':'#4488ff';
+      l.style.filter='drop-shadow(0 0 4px currentColor)';
+    });
+  }
+  toast('💡 YOUR CARD IS GLOWING! ✨','#ffe566');
+  setTimeout(()=>showFinalPopup(),800);
+}
+
+function showFinalPopup(){
+  const pc=document.getElementById('popup-container');pc.innerHTML='';
+  const ov=document.createElement('div');ov.className='popup-ov';
+  const box=document.createElement('div');box.className='popup-box';
+  box.style.maxWidth='min(94vw,500px)';
+  const cf=document.createElement('div');cf.style.cssText='position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:28px;';
+  box.appendChild(cf);spawnConf(cf);
+  box.innerHTML+=`
+    <span class="popup-emoji">🦄</span>
+    <div class="popup-title">Your Card Glows!</div>
+    <div class="popup-stars">🌟🌟🌟🌟🌟</div>
+    <div class="popup-body">
+      You just made a real glowing circuit card! You are a Hardware Engineer!<br><br>
+      <div style="background:rgba(200,120,255,.08);border:1.5px solid rgba(200,120,255,.2);border-radius:14px;padding:10px;margin:8px 0;text-align:left;font-size:12px;">
+        <strong style="color:#c97bff;">🔋 Battery</strong> → Power Station — pushes electricity out<br>
+        <strong style="color:#ff8ecb;">🔴🔵 Tracks</strong> → The Path — electricity travels along<br>
+        <strong style="color:#ffaa00;">💡 LED</strong> → Light Maker — glows when electricity arrives<br>
+        <strong style="color:#7fffd0;">🔌 Switch</strong> → The Folder — closes the loop to turn on!
+      </div>
+      <div style="background:rgba(255,200,0,.1);border:1.5px solid rgba(255,200,0,.3);border-radius:10px;padding:8px;font-size:11px;color:#aa8800;">
+        🛡️ <strong>Safety reminder:</strong> This card uses tiny safe coin batteries. Never put batteries in your mouth, and always use toy kits — never real wall plugs!
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="magic-btn pink" id="fin-restart">🔄 Make Another!</button>
+      <button class="magic-btn green" id="fin-cel">🦄 Celebrate!</button>
+    </div>`;
+  ov.appendChild(box);pc.appendChild(ov);
+  document.getElementById('fin-restart').addEventListener('click',()=>{
+    ov.style.opacity='0';ov.style.transition='opacity .3s';
+    setTimeout(()=>{pc.innerHTML='';renderAct1();},300);
+  });
+  document.getElementById('fin-cel').addEventListener('click',()=>{
+    spawnConf(cf);
+    toast('🦄 You are a Circuit Card Creator! ✨','#c97bff');
+    // burst emoji celebration in bg
+    launchCelebration();
+  });
+}
+
+function launchCelebration(){
+  const bg=document.getElementById('bg');
+  const emojis=['🦄','✨','🌈','💖','⭐','🌟','🌸','💫'];
+  for(let i=0;i<20;i++){
+    const el=document.createElement('div');
+    el.style.cssText=`position:absolute;font-size:${20+Math.random()*20}px;
+      left:${Math.random()*90}%;top:${Math.random()*70}%;z-index:5;
+      animation:unicornBurst .8s cubic-bezier(.34,1.56,.64,1) ${i*.08}s forwards;
+      pointer-events:none;`;
+    el.textContent=emojis[i%emojis.length];
+    bg.appendChild(el);
+    setTimeout(()=>el.remove(),2000);
+  }
+}
+
+// Dynamic keyframe
+const dynStyle=document.createElement('style');
+dynStyle.textContent=`@keyframes unicornBurst{
+  0%{opacity:0;transform:scale(0) rotate(0deg)}
+  60%{opacity:1;transform:scale(1.3) rotate(20deg)}
+  100%{opacity:0;transform:scale(0.8) rotate(-10deg) translateY(-30px)}
+}`;
+document.head.appendChild(dynStyle);
+
+// ══════════════════════════════════
+// INIT
+// ══════════════════════════════════
+renderAct1();
+</script>
+</body>
+</html>

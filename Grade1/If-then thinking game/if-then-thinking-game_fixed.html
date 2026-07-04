@@ -399,6 +399,33 @@
   #next-btn:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 10px 28px rgba(6,214,160,0.5); }
   #next-btn.visible { display: flex; animation: chipPop 0.4s cubic-bezier(.34,1.56,.64,1); }
 
+  /* ===== ACTION ROW / RESET BUTTON ===== */
+  #action-row {
+    display: flex; gap: 12px; justify-content: center;
+    margin-top: 10px; align-self: center; flex-wrap: wrap;
+  }
+  #action-row #next-btn { margin-top: 0; }
+  #reset-btn {
+    padding: 10px 30px;
+    background: linear-gradient(135deg, #FFB347, var(--orange));
+    color: #fff; font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem; border: none; border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(255,107,53,0.35);
+    transition: all 0.2s;
+    letter-spacing: 1px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  #reset-btn:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 10px 28px rgba(255,107,53,0.45); }
+
+  /* ===== WRONG-DROP FEEDBACK ===== */
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+  .wrong-flash {
+    animation: shake 0.4s ease;
+    border-color: var(--pink) !important;
+    background: rgba(239,71,111,0.14) !important;
+  }
+
   /* ===== FEEDBACK TOAST ===== */
   #toast {
     position: fixed; top: 80px; left: 50%; transform: translateX(-50%) translateY(-20px);
@@ -634,6 +661,14 @@ function nextActivity() {
   renderActivity();
 }
 
+// Pure JS reset (no location.reload — Edmingle iframe blocks navigation).
+// Re-renders the current activity only, which clears all state,
+// re-shuffles chips, and rebuilds drop zones from scratch.
+function resetCurrentActivity() {
+  showToast('🔄 Activity reset!','good');
+  renderActivity();
+}
+
 function updateProgress() {
   [1,2,3].forEach(i => {
     const d = document.getElementById('dot'+i);
@@ -700,33 +735,55 @@ function touchMove(e) {
 function touchEnd(e) {
   if (!_touchClone) return;
   const t = e.changedTouches[0];
-  let dropped = false;
+  let accepted = false;
   document.querySelectorAll('.drop-zone,.tree-slot,.flow-node.drop-node').forEach(dz => {
     dz.classList.remove('over');
     const r = dz.getBoundingClientRect();
     if (t.clientX > r.left && t.clientX < r.right && t.clientY > r.top && t.clientY < r.bottom) {
-      dz._dropHandler && dz._dropHandler(_touchEl._dragData || _touchData);
-      dropped = true;
+      const data = _touchEl._dragData || _touchData;
+      if (attemptDrop(dz, data, _touchEl)) accepted = true;
     }
   });
-  // If no drop zone caught it, restore the original element visibility
-  if (!dropped && _touchEl) _touchEl.style.visibility = '';
+  // If nothing accepted it (missed entirely, or rejected as wrong), restore the chip
+  if (!accepted && _touchEl) _touchEl.style.visibility = '';
   _touchClone.remove(); _touchClone = null;
 }
 
-function makeDropZone(el, handler) {
+// Tries to place `data` (the dragged chip) into drop zone `el`.
+// If `el` has a validator and it fails, the chip is kept fully visible/usable
+// in its original spot and a "wrong" flash + toast is shown — nothing is removed.
+// Only a validated-correct drop actually consumes the chip from the pool.
+function attemptDrop(el, data, sourceEl) {
+  if (el._dropValidate && !el._dropValidate(data)) {
+    _dragDropped = false;
+    if (sourceEl) {
+      sourceEl.style.visibility = '';
+      sourceEl.classList.add('wrong-flash');
+      setTimeout(() => sourceEl.classList.remove('wrong-flash'), 500);
+    }
+    el.classList.add('wrong-flash');
+    setTimeout(() => el.classList.remove('wrong-flash'), 500);
+    showToast('❌ Not quite — try again!', 'bad');
+    return false;
+  }
+  _dragDropped = true;
+  // Correct — remove the source element from the pool, it's now "placed"
+  if (sourceEl && sourceEl.parentNode) {
+    sourceEl.remove();
+  }
+  el._dropHandler(data);
+  return true;
+}
+
+function makeDropZone(el, handler, validate) {
   el._dropHandler = handler;
+  el._dropValidate = validate || null;
   el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('over'); });
   el.addEventListener('dragleave', () => el.classList.remove('over'));
   el.addEventListener('drop', e => {
     e.preventDefault();
     el.classList.remove('over');
-    _dragDropped = true;
-    // Remove the source element from the pool — it's now "placed"
-    if (_dragSourceEl && _dragSourceEl.parentNode) {
-      _dragSourceEl.remove();
-    }
-    handler(dragData);
+    attemptDrop(el, dragData, _dragSourceEl);
   });
 }
 
@@ -745,22 +802,22 @@ function renderActivity() {
 const act1Rules = [
   {
     emoji: '🌧️',
-    ifOptions:   ['it starts raining','the sun is bright','it is bedtime'],
-    thenOptions: ['we open umbrellas','we eat breakfast','we brush teeth'],
+    ifOptions:   ['it starts raining','the puppy barks'],
+    thenOptions: ['we open umbrellas','we tie our shoelaces'],
     correctIf:   'it starts raining',
     correctThen: 'we open umbrellas'
   },
   {
     emoji: '🔔',
-    ifOptions:   ['the school bell rings','the pot bubbles','it is night time'],
-    thenOptions: ['we line up in a row','we switch on TV','we play football'],
+    ifOptions:   ['the school bell rings','the kite flies high'],
+    thenOptions: ['we line up in a row','we colour a picture'],
     correctIf:   'the school bell rings',
     correctThen: 'we line up in a row'
   },
   {
     emoji: '🍲',
-    ifOptions:   ['the cooker whistles 3 times','it rains hard','we see a tiger'],
-    thenOptions: ['Mummy turns off the gas','we put on raincoats','we freeze still'],
+    ifOptions:   ['the cooker whistles 3 times','the bird sings a song'],
+    thenOptions: ['Mummy turns off the gas','we draw a circle'],
     correctIf:   'the cooker whistles 3 times',
     correctThen: 'Mummy turns off the gas'
   }
@@ -780,7 +837,10 @@ function renderAct1() {
     <div class="act-scroll">
       <div id="act1-area"></div>
     </div>
-    <button id="next-btn" onclick="checkAct1()">Check My Rules! ✅</button>
+    <div id="action-row">
+      <button id="next-btn" onclick="checkAct1()">Check My Rules! ✅</button>
+      <button id="reset-btn" onclick="resetCurrentActivity()">🔄 Reset</button>
+    </div>
   `;
   stage.appendChild(panel);
 
@@ -813,24 +873,20 @@ function renderAct1() {
     const thenDz = row.querySelector(`#then-dz-${ri}`);
 
     makeDropZone(ifDz, (data) => {
-      if (!data || data.act1row !== ri || data.type !== 'if') { showToast('🤔 Use the IF chip from this rule!','bad'); return; }
-      if (act1State.placed[ri].if) returnChipToPool(act1State.placed[ri].if, rulePool, 'if', ri);
       act1State.placed[ri].if = data.text;
       ifDz.innerHTML = `<span class="drag-chip if-chip placed">🔵 ${data.text} <span class="check-badge">✓</span></span>`;
       ifDz.classList.add('filled');
       showToast('👍 Nice IF condition!');
       checkAct1Auto();
-    });
+    }, (data) => !act1State.placed[ri].if && data && data.act1row === ri && data.type === 'if' && data.text === rule.correctIf);
 
     makeDropZone(thenDz, (data) => {
-      if (!data || data.act1row !== ri || data.type !== 'then') { showToast('🤔 Use the THEN chip from this rule!','bad'); return; }
-      if (act1State.placed[ri].then) returnChipToPool(act1State.placed[ri].then, rulePool, 'then', ri);
       act1State.placed[ri].then = data.text;
       thenDz.innerHTML = `<span class="drag-chip then-chip placed">🟣 ${data.text} <span class="check-badge">✓</span></span>`;
       thenDz.classList.add('filled');
       showToast('👍 Perfect THEN action!');
       checkAct1Auto();
-    });
+    }, (data) => !act1State.placed[ri].then && data && data.act1row === ri && data.type === 'then' && data.text === rule.correctThen);
 
     // Build shuffled chips for this rule only
     let ruleChips = [];
@@ -930,7 +986,10 @@ function renderAct2() {
         <div class="tree-right" id="tree-right"></div>
       </div>
     </div>
-    <button id="next-btn" onclick="checkAct2()">Check My Tree! 🌳</button>
+    <div id="action-row">
+      <button id="next-btn" onclick="checkAct2()">Check My Tree! 🌳</button>
+      <button id="reset-btn" onclick="resetCurrentActivity()">🔄 Reset</button>
+    </div>
   `;
   stage.appendChild(panel);
 
@@ -950,11 +1009,6 @@ function renderAct2() {
     slot.id = `tslot-${i}`;
     slot.innerHTML = `<div class="slot-num">${i+1}</div><div class="slot-placeholder">Drop step ${i+1} here…</div>`;
     makeDropZone(slot, (data) => {
-      if (!data || data.act !== 2) return;
-      // Return old chip if exists
-      if (act2State[i]) {
-        returnTreeChip(act2State[i], pool);
-      }
       act2State[i] = data.text;
       slot.classList.add('filled');
       const chipData = act2Steps.find(s => s.label === data.text);
@@ -963,7 +1017,7 @@ function renderAct2() {
           ${chipData ? chipData.icon : '📌'} ${data.text} <span class="check-badge">✓</span>
         </span>`;
       showToast('✅ Step placed!');
-    });
+    }, (data) => !act2State[i] && data && data.act === 2 && data.text === step.correct);
     treeRight.appendChild(slot);
   });
 
@@ -1056,7 +1110,10 @@ function renderAct3() {
         </div>
       </div>
     </div>
-    <button id="next-btn" onclick="checkAct3()">Complete the Chart! 🏁</button>
+    <div id="action-row">
+      <button id="next-btn" onclick="checkAct3()">Complete the Chart! 🏁</button>
+      <button id="reset-btn" onclick="resetCurrentActivity()">🔄 Reset</button>
+    </div>
   `;
   stage.appendChild(panel);
 
@@ -1137,15 +1194,13 @@ function renderAct3() {
       div.id = `fn-${cell.id}`;
       div.innerHTML = `<span style="font-size:0.65rem;color:#bbb;font-weight:700;">drop here</span>`;
       const dropId = cell.id;
+      const correctLabel = act3Data.nodes.find(n => n.id === dropId)?.correct;
       makeDropZone(div, (data) => {
-        if (!data || data.act !== 3) return;
-        const correct = act3Data.nodes.find(n => n.id === dropId)?.correct;
         act3State[dropId] = data.label;
         div.classList.add('filled');
         div.innerHTML = `<span style="font-size:0.68rem;font-weight:800;color:var(--purple)">${data.label} <span class="check-badge">✓</span></span>`;
-        if (data.label === correct) showToast('🎯 Correct action!');
-        else showToast('🤔 Hmm, is that the right action?','bad');
-      });
+        showToast('🎯 Correct action!');
+      }, (data) => !act3State[dropId] && data && data.act === 3 && data.label === correctLabel);
     } else if (cell.type === 'empty') {
       div.style.minHeight = '10px';
     }

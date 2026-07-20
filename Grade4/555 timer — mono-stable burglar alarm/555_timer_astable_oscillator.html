@@ -1,0 +1,2047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>555 TIMER IC — ASTABLE OSCILLATOR</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap');
+
+:root {
+  --steel: #1a1f2e;
+  --steel-mid: #232a3b;
+  --steel-light: #2e3850;
+  --amber: #f5a623;
+  --amber-glow: #ff8c00;
+  --cyan: #00d4ff;
+  --cyan-dim: #0099bb;
+  --green: #39ff14;
+  --green-dim: #1a7a0a;
+  --red: #ff3030;
+  --rust: #8b4513;
+  --iron: #4a5568;
+  --chrome: #718096;
+  --yellow-spark: #ffe066;
+  --blueprint: #0a1628;
+  --grid-line: rgba(0,212,255,0.08);
+  --panel: rgba(26,31,46,0.95);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; user-select:none; }
+
+html, body {
+  width:100vw; height:100vh; overflow:hidden;
+  font-family:'Rajdhani', sans-serif;
+  background: var(--steel);
+  color: #cdd6f4;
+}
+
+/* ═══════════════════════════════════════
+   FACTORY BACKGROUND
+═══════════════════════════════════════ */
+#factory-bg {
+  position:fixed; inset:0; z-index:0;
+  background: 
+    radial-gradient(ellipse 80% 60% at 50% 0%, #0d1a2e 0%, transparent 70%),
+    linear-gradient(180deg, #0a0f1a 0%, #111827 40%, #0d1520 100%);
+  overflow:hidden;
+}
+
+/* Blueprint Grid */
+.blueprint-grid {
+  position:absolute; inset:0;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: gridPulse 8s ease-in-out infinite;
+}
+@keyframes gridPulse {
+  0%,100%{opacity:0.6} 50%{opacity:1}
+}
+
+/* Conveyor Belt */
+.conveyor {
+  position:absolute; bottom:0; left:0; right:0; height:60px;
+  background: linear-gradient(180deg, #1a1f2e 0%, #0d1118 100%);
+  border-top: 3px solid var(--iron);
+}
+.conveyor-track {
+  position:absolute; top:8px; left:0; right:0; height:20px;
+  background: repeating-linear-gradient(90deg,
+    #2d3748 0px, #2d3748 30px,
+    #1a202c 30px, #1a202c 60px);
+  animation: conveyorMove 2s linear infinite;
+  border-top: 2px solid #4a5568;
+  border-bottom: 2px solid #4a5568;
+}
+@keyframes conveyorMove {
+  from{background-position:0 0} to{background-position:60px 0}
+}
+.conveyor-bolt {
+  position:absolute; top:50%; width:12px; height:12px;
+  background:radial-gradient(#718096, #4a5568);
+  border-radius:50%; border:1px solid #2d3748;
+  transform:translateY(-50%);
+}
+
+/* Gears */
+.gear {
+  position:absolute;
+  animation: spin linear infinite;
+}
+.gear svg { display:block; }
+@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+@keyframes spinReverse { from{transform:rotate(360deg)} to{transform:rotate(0deg)} }
+
+/* Sparks */
+.spark-container { position:absolute; inset:0; pointer-events:none; }
+.spark {
+  position:absolute;
+  width:3px; height:3px;
+  background:var(--yellow-spark);
+  border-radius:50%;
+  box-shadow:0 0 6px var(--amber);
+  animation: sparkFloat var(--dur,2s) ease-out infinite var(--delay,0s);
+}
+@keyframes sparkFloat {
+  0%{transform:translate(0,0) scale(1);opacity:1}
+  50%{transform:translate(var(--tx,20px),var(--ty,-40px)) scale(0.5);opacity:0.8}
+  100%{transform:translate(var(--tx2,40px),var(--ty2,-80px)) scale(0);opacity:0}
+}
+
+/* Robot Arm */
+.robot-arm {
+  position:absolute;
+  transform-origin: bottom center;
+}
+
+/* Pipe decorations */
+.pipe {
+  position:absolute;
+  background:linear-gradient(90deg, #2d3748, #4a5568, #2d3748);
+  border-radius:4px;
+}
+.pipe-v {
+  background:linear-gradient(180deg, #2d3748, #4a5568, #2d3748);
+}
+
+/* Warning stripes */
+.warning-stripe {
+  position:absolute;
+  background:repeating-linear-gradient(45deg,
+    #f5a623 0px, #f5a623 10px,
+    #1a1f2e 10px, #1a1f2e 20px);
+}
+
+/* ═══════════════════════════════════════
+   MAIN LAYOUT
+═══════════════════════════════════════ */
+#app {
+  position:relative; z-index:10;
+  width:100vw; height:100vh;
+  display:flex; flex-direction:column;
+}
+
+/* Header */
+#header {
+  height:64px; min-height:64px;
+  background:linear-gradient(90deg, 
+    rgba(10,22,40,0.98) 0%,
+    rgba(26,31,46,0.95) 50%,
+    rgba(10,22,40,0.98) 100%);
+  border-bottom: 2px solid var(--amber);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 24px;
+  box-shadow: 0 4px 30px rgba(245,166,35,0.2);
+  position:relative;
+  z-index:20;
+}
+#header::before {
+  content:'';position:absolute;bottom:-1px;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+  animation:scanLine 3s ease-in-out infinite;
+}
+@keyframes scanLine{0%,100%{opacity:0.3}50%{opacity:1}}
+
+.header-logo {
+  font-family:'Orbitron',monospace;
+  font-size:18px; font-weight:900;
+  color:var(--amber);
+  letter-spacing:2px;
+  text-shadow:0 0 20px var(--amber-glow);
+  display:flex;align-items:center;gap:10px;
+}
+.header-logo .ic-icon {
+  width:32px;height:32px;
+  background:var(--amber);
+  clip-path:polygon(20% 0%,80% 0%,100% 20%,100% 80%,80% 100%,20% 100%,0% 80%,0% 20%);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:#000;font-weight:900;
+  animation:icPulse 2s ease-in-out infinite;
+}
+@keyframes icPulse{0%,100%{box-shadow:0 0 10px var(--amber)}50%{box-shadow:0 0 25px var(--amber),0 0 50px rgba(245,166,35,0.3)}}
+
+.header-title {
+  font-family:'Orbitron',monospace;
+  font-size:11px; letter-spacing:4px;
+  color:var(--cyan);
+  text-align:center;
+  line-height:1.4;
+}
+.header-title span{
+  display:block;font-size:7px;color:var(--chrome);letter-spacing:3px;
+}
+
+.status-panel {
+  display:flex;align-items:center;gap:16px;
+}
+.status-dot {
+  width:8px;height:8px;border-radius:50%;
+  background:var(--green);
+  box-shadow:0 0 10px var(--green);
+  animation:blink 1s ease-in-out infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.status-text {
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px;color:var(--green);
+  letter-spacing:1px;
+}
+
+/* Progress Bar */
+#progress-bar {
+  height:6px; min-height:6px;
+  background:var(--steel-mid);
+  position:relative;overflow:hidden;
+  border-bottom:1px solid rgba(0,212,255,0.2);
+}
+#progress-fill {
+  height:100%;
+  background:linear-gradient(90deg,var(--amber),var(--amber-glow),var(--cyan));
+  transition:width 0.8s cubic-bezier(0.4,0,0.2,1);
+  width:0%;
+  box-shadow:0 0 10px var(--amber);
+}
+.progress-steps {
+  position:absolute;top:0;left:0;right:0;bottom:0;
+  display:flex;
+}
+.progress-step-mark {
+  flex:1;border-right:1px solid rgba(255,255,255,0.1);
+}
+
+/* Content Area */
+#content {
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:8px 20px;
+  position:relative;
+  overflow:hidden;
+}
+
+/* Activity Panel */
+.activity-panel {
+  display:none;
+  width:100%;
+  max-width:1100px;
+  height:100%;
+  flex-direction:column;
+  gap:8px;
+}
+.activity-panel.active { display:flex; }
+
+.activity-header {
+  display:flex;align-items:center;gap:16px;
+  padding:8px 16px;
+  background:rgba(26,31,46,0.9);
+  border:1px solid var(--amber);
+  border-radius:4px;
+  flex-shrink:0;
+}
+.activity-badge {
+  font-family:'Orbitron',monospace;
+  font-size:11px;font-weight:700;
+  color:#000;
+  background:var(--amber);
+  padding:4px 12px;
+  clip-path:polygon(6px 0%,calc(100% - 6px) 0%,100% 50%,calc(100% - 6px) 100%,6px 100%,0% 50%);
+  letter-spacing:1px;
+  white-space:nowrap;
+}
+.activity-title {
+  font-family:'Orbitron',monospace;
+  font-size:15px;font-weight:700;
+  color:var(--cyan);
+  letter-spacing:1px;
+}
+.activity-desc {
+  font-size:13px;color:var(--chrome);
+  line-height:1.3;flex:1;
+}
+.activity-hint {
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px;color:var(--amber);
+  background:rgba(245,166,35,0.1);
+  border:1px solid rgba(245,166,35,0.3);
+  padding:4px 10px;
+  border-radius:2px;
+  white-space:nowrap;
+}
+
+.activity-workspace {
+  flex:1;
+  background:rgba(10,22,40,0.85);
+  border:1px solid var(--steel-light);
+  border-radius:6px;
+  position:relative;
+  overflow:hidden;
+}
+.activity-workspace::before {
+  content:'';position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg,rgba(0,212,255,0.03) 1px, transparent 1px);
+  background-size:20px 20px;
+}
+
+/* ═══════════════════════════════════════
+   DRAGGABLE COMPONENTS
+═══════════════════════════════════════ */
+.component-tray {
+  position:absolute;
+  bottom:0;left:0;right:0;
+  height:90px;
+  background:linear-gradient(180deg,rgba(26,31,46,0.9),rgba(14,19,30,0.98));
+  border-top:2px solid var(--iron);
+  display:flex;align-items:center;justify-content:center;gap:20px;
+  padding:0 20px;
+  z-index:5;
+}
+.tray-label {
+  position:absolute;top:4px;left:12px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;color:var(--chrome);letter-spacing:2px;
+}
+
+.draggable-component {
+  cursor:grab;
+  position:relative;
+  transition:transform 0.2s,filter 0.2s;
+  flex-shrink:0;
+}
+.draggable-component:hover { transform:scale(1.08); }
+.draggable-component:active { cursor:grabbing; }
+.draggable-component.dragging {
+  opacity:0.7;
+  z-index:9999;
+  cursor:grabbing;
+  pointer-events:none;
+}
+.draggable-component.used { opacity:0.3; pointer-events:none; }
+
+/* Circuit Drop Zones */
+.drop-zone {
+  position:absolute;
+  border:2px dashed rgba(0,212,255,0.4);
+  border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.2s;
+  background:rgba(0,212,255,0.03);
+}
+.drop-zone.hover-active {
+  border-color:var(--amber);
+  background:rgba(245,166,35,0.1);
+  box-shadow:0 0 20px rgba(245,166,35,0.3);
+}
+.drop-zone.filled {
+  border-color:var(--green);
+  background:rgba(57,255,20,0.05);
+}
+.drop-zone-label {
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;color:rgba(0,212,255,0.5);
+  text-align:center;line-height:1.3;
+  pointer-events:none;
+}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 1 — ASSEMBLE CIRCUIT
+═══════════════════════════════════════ */
+
+/* 555 IC Visual */
+.ic-555-visual {
+  width:80px;height:60px;
+  background:linear-gradient(135deg,#1a252f,#2d3748);
+  border:2px solid #4a5568;
+  border-radius:4px;
+  position:relative;
+  display:flex;align-items:center;justify-content:center;
+}
+.ic-555-visual::before {
+  content:'555';
+  font-family:'Orbitron',monospace;
+  font-size:14px;font-weight:900;color:var(--amber);
+  text-shadow:0 0 10px var(--amber);
+}
+.ic-555-visual .ic-notch {
+  position:absolute;top:-4px;left:50%;transform:translateX(-50%);
+  width:14px;height:8px;
+  background:var(--steel-mid);
+  border:1px solid #718096;
+  border-radius:0 0 7px 7px;
+}
+.ic-pins-left,.ic-pins-right {
+  position:absolute;top:6px;bottom:6px;
+  display:flex;flex-direction:column;justify-content:space-between;
+}
+.ic-pins-left{left:-10px;}
+.ic-pins-right{right:-10px;}
+.ic-pin {
+  width:10px;height:3px;
+  background:linear-gradient(90deg,#718096,#a0aec0);
+}
+
+/* Resistor visual */
+.resistor-visual {
+  display:flex;align-items:center;
+}
+.res-lead { width:12px;height:3px;background:#a0aec0; }
+.res-body {
+  width:36px;height:14px;
+  background:linear-gradient(135deg,#d4a853,#b8860b);
+  border-radius:4px;
+  border:1px solid #8b6914;
+  position:relative;
+  display:flex;align-items:center;justify-content:center;
+}
+.res-bands {
+  display:flex;gap:4px;height:100%;align-items:center;
+}
+.res-band { width:4px;height:12px; }
+
+/* Capacitor visual */
+.cap-visual {
+  display:flex;flex-direction:column;align-items:center;
+}
+.cap-body {
+  width:20px;height:36px;
+  background:linear-gradient(135deg,#2b6cb0,#2c5282);
+  border-radius:3px;
+  border:2px solid #4299e1;
+  position:relative;
+  display:flex;align-items:center;justify-content:center;
+}
+.cap-body::after {
+  content:'+';color:#63b3ed;font-size:10px;font-weight:bold;
+  position:absolute;top:2px;
+}
+.cap-lead { width:3px;height:8px;background:#a0aec0; }
+
+/* LED visual */
+.led-visual {
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+}
+.led-lens {
+  width:20px;height:20px;
+  background:radial-gradient(circle at 35% 35%, #ff9999, #ff0000);
+  border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;
+  border:1px solid #cc0000;
+  box-shadow:0 0 8px rgba(255,0,0,0.5);
+}
+.led-base { width:14px;height:6px;background:#888;border-radius:0 0 2px 2px; }
+.led-leads { display:flex;gap:4px; }
+.led-lead { width:2px;height:10px;background:#a0aec0; }
+
+/* Battery visual */
+.battery-visual {
+  display:flex;flex-direction:column;align-items:center;
+}
+.batt-body {
+  width:24px;height:42px;
+  background:linear-gradient(135deg,#2d4a2d,#1a3a1a);
+  border:2px solid #48bb78;
+  border-radius:3px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Share Tech Mono',monospace;
+  font-size:8px;color:#68d391;
+  text-align:center;line-height:1.2;
+}
+.batt-top { width:10px;height:4px;background:#48bb78;border-radius:1px; }
+
+/* ═══════════════════════════════════════
+   CIRCUIT BOARD (Activity 1 workspace)
+═══════════════════════════════════════ */
+#a1-board {
+  position:absolute;
+  inset:10px 10px 100px 10px;
+}
+
+/* Blueprint circuit outline */
+.circuit-outline {
+  position:absolute;
+  background:rgba(0,212,255,0.05);
+  border:1px dashed rgba(0,212,255,0.2);
+  border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;
+  gap:2px;
+}
+.circuit-label {
+  font-family:'Share Tech Mono',monospace;
+  font-size:8px;color:rgba(0,212,255,0.4);
+  letter-spacing:1px;text-transform:uppercase;
+}
+
+/* Circuit trace lines (decorative) */
+.trace {
+  position:absolute;
+  background:rgba(0,212,255,0.15);
+}
+.trace-h { height:2px; }
+.trace-v { width:2px; }
+
+/* ═══════════════════════════════════════
+   ACTIVITY 2 — WIRING
+═══════════════════════════════════════ */
+.wire-endpoint {
+  position:absolute;
+  width:16px;height:16px;
+  border-radius:50%;
+  border:2px solid var(--cyan);
+  background:rgba(0,212,255,0.2);
+  cursor:crosshair;
+  z-index:10;
+  transition:all 0.2s;
+}
+.wire-endpoint.connected {
+  border-color:var(--green);
+  background:rgba(57,255,20,0.3);
+  box-shadow:0 0 10px var(--green);
+}
+.wire-endpoint:hover:not(.connected) {
+  background:rgba(0,212,255,0.4);
+  box-shadow:0 0 12px var(--cyan);
+}
+.wire-endpoint-label {
+  position:absolute;
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;color:var(--cyan);
+  white-space:nowrap;
+  pointer-events:none;
+}
+
+svg.wire-canvas {
+  position:absolute;inset:0;
+  width:100%;height:100%;
+  pointer-events:none;
+}
+svg.wire-canvas.interactive { pointer-events:all; }
+
+.wire-path {
+  fill:none;
+  stroke-width:3;
+  stroke-linecap:round;
+  filter:drop-shadow(0 0 4px currentColor);
+}
+.wire-path.wire-red { stroke:#ff4444; }
+.wire-path.wire-green { stroke:#39ff14; }
+.wire-path.wire-yellow { stroke:#ffe066; }
+.wire-path.wire-blue { stroke:#00d4ff; }
+.wire-path.wire-orange { stroke:#ff8c00; }
+.wire-path.wire-preview { stroke:rgba(255,255,255,0.5); stroke-dasharray:6,4; }
+
+/* ═══════════════════════════════════════
+   ACTIVITY 3 — FREQUENCY ADJUSTMENT
+═══════════════════════════════════════ */
+.freq-display {
+  position:absolute;
+  top:10px;right:10px;
+  width:200px;
+  background:rgba(10,22,40,0.95);
+  border:2px solid var(--amber);
+  border-radius:6px;
+  padding:12px;
+  z-index:10;
+}
+.freq-display-title {
+  font-family:'Orbitron',monospace;
+  font-size:10px;color:var(--amber);
+  letter-spacing:2px;margin-bottom:8px;
+  text-align:center;
+}
+.freq-value {
+  font-family:'Share Tech Mono',monospace;
+  font-size:28px;color:var(--green);
+  text-align:center;
+  text-shadow:0 0 15px var(--green);
+  letter-spacing:2px;
+}
+.freq-unit { font-size:12px;color:var(--chrome); }
+
+/* Oscilloscope display */
+.oscilloscope {
+  position:absolute;
+  top:10px;left:10px;
+  width:280px;
+  background:#000e00;
+  border:3px solid #2d4a2d;
+  border-radius:8px;
+  overflow:hidden;
+  box-shadow:0 0 30px rgba(57,255,20,0.2);
+}
+.scope-header {
+  background:#1a2d1a;
+  padding:4px 10px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;color:var(--green);
+  letter-spacing:1px;
+  border-bottom:1px solid #2d4a2d;
+}
+.scope-screen {
+  position:relative;
+  height:140px;
+  padding:4px;
+  background:
+    linear-gradient(rgba(57,255,20,0.03) 1px, transparent 1px),
+    linear-gradient(90deg,rgba(57,255,20,0.03) 1px, transparent 1px);
+  background-size:28px 28px;
+}
+.scope-canvas {
+  width:100%;height:100%;
+  display:block;
+}
+
+/* Value Drop Zones (Activity 3) */
+.value-slot {
+  position:absolute;
+  border:2px dashed rgba(245,166,35,0.4);
+  border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px;
+  color:rgba(245,166,35,0.5);
+  transition:all 0.2s;
+  cursor:default;
+  background:rgba(245,166,35,0.03);
+}
+.value-slot.hover-active {
+  border-color:var(--amber);
+  background:rgba(245,166,35,0.15);
+  box-shadow:0 0 15px rgba(245,166,35,0.3);
+}
+.value-slot.filled {
+  border-color:var(--green);
+  background:rgba(57,255,20,0.1);
+  color:var(--green);
+  font-size:12px;
+}
+
+.value-chip {
+  position:absolute;
+  background:linear-gradient(135deg,rgba(26,31,46,0.95),rgba(45,55,72,0.95));
+  border:1px solid var(--amber);
+  border-radius:4px;
+  padding:6px 12px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px;color:var(--amber);
+  cursor:grab;
+  transition:all 0.2s;
+  white-space:nowrap;
+  box-shadow:0 0 8px rgba(245,166,35,0.2);
+  z-index:5;
+}
+.value-chip:hover { 
+  border-color:var(--cyan);color:var(--cyan);
+  box-shadow:0 0 15px rgba(0,212,255,0.3);
+  transform:scale(1.05);
+}
+.value-chip.used { opacity:0.3;pointer-events:none; }
+
+/* Blinking LED in A3 */
+.demo-led {
+  position:absolute;
+  right:10px;bottom:100px;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.demo-led-label {
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;color:var(--chrome);letter-spacing:1px;
+}
+.demo-led-bulb {
+  width:40px;height:40px;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, #ffaaaa, #ff0000);
+  border:2px solid #cc0000;
+  box-shadow:none;
+  transition:box-shadow 0.05s, background 0.05s;
+}
+.demo-led-bulb.on {
+  background:radial-gradient(circle at 35% 35%, #ffffff, #ff4444);
+  box-shadow:0 0 20px #ff4444, 0 0 40px rgba(255,68,68,0.5);
+}
+
+/* ═══════════════════════════════════════
+   POPUP OVERLAY
+═══════════════════════════════════════ */
+#popup-overlay {
+  position:fixed;inset:0;
+  background:rgba(0,0,0,0.85);
+  z-index:1000;
+  display:none;
+  align-items:center;justify-content:center;
+  backdrop-filter:blur(4px);
+}
+#popup-overlay.visible { display:flex; }
+
+.popup-box {
+  background:linear-gradient(135deg, #0d1a2e, #1a2540);
+  border:2px solid var(--amber);
+  border-radius:12px;
+  padding:36px 40px;
+  max-width:480px;
+  width:90%;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+  box-shadow:0 0 60px rgba(245,166,35,0.3), 0 0 120px rgba(245,166,35,0.1);
+  animation:popupEntry 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+}
+@keyframes popupEntry {
+  from{transform:scale(0.7) translateY(30px);opacity:0}
+  to{transform:scale(1) translateY(0);opacity:1}
+}
+.popup-box::before {
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(245,166,35,0.05),transparent 60%);
+  pointer-events:none;
+}
+
+.popup-icon {
+  font-size:56px;margin-bottom:16px;
+  display:block;
+  animation:iconBounce 0.6s cubic-bezier(0.175,0.885,0.32,1.275) 0.3s both;
+}
+@keyframes iconBounce{from{transform:scale(0)}to{transform:scale(1)}}
+
+.popup-title {
+  font-family:'Orbitron',monospace;
+  font-size:22px;font-weight:900;
+  color:var(--amber);
+  letter-spacing:2px;
+  margin-bottom:8px;
+  text-shadow:0 0 20px var(--amber-glow);
+}
+.popup-subtitle {
+  font-size:13px;color:var(--cyan);
+  letter-spacing:2px;font-family:'Share Tech Mono',monospace;
+  margin-bottom:16px;
+}
+.popup-body {
+  font-size:14px;color:#a0b0c0;
+  line-height:1.7;margin-bottom:24px;
+}
+.popup-fact {
+  background:rgba(0,212,255,0.08);
+  border:1px solid rgba(0,212,255,0.3);
+  border-radius:6px;
+  padding:12px 16px;
+  margin-bottom:20px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px;color:var(--cyan);
+  line-height:1.6;
+  text-align:left;
+}
+
+.popup-btn {
+  font-family:'Orbitron',monospace;
+  font-size:13px;font-weight:700;
+  letter-spacing:2px;
+  color:#000;
+  background:linear-gradient(135deg,var(--amber),var(--amber-glow));
+  border:none;
+  padding:14px 32px;
+  border-radius:4px;
+  cursor:pointer;
+  clip-path:polygon(8px 0%,calc(100% - 8px) 0%,100% 50%,calc(100% - 8px) 100%,8px 100%,0% 50%);
+  transition:all 0.2s;
+  box-shadow:0 0 20px rgba(245,166,35,0.4);
+}
+.popup-btn:hover {
+  transform:scale(1.05);
+  box-shadow:0 0 35px rgba(245,166,35,0.7);
+}
+
+/* Success popup extras */
+.confetti-bit {
+  position:absolute;
+  width:6px;height:6px;
+  border-radius:2px;
+  animation:confettiFall 1.5s ease-in forwards;
+}
+@keyframes confettiFall {
+  0%{transform:translateY(-20px) rotate(0deg);opacity:1}
+  100%{transform:translateY(200px) rotate(720deg);opacity:0}
+}
+
+/* ═══════════════════════════════════════
+   CIRCUIT DIAGRAM (Activity 1 layout)
+═══════════════════════════════════════ */
+#circuit-diagram-svg {
+  position:absolute;
+  top:0;left:0;width:100%;height:100%;
+  pointer-events:none;
+}
+
+/* A1 Drop zones positioned */
+#dz-ic    { width:100px;height:70px; left:50%;top:30%; transform:translate(-50%,-50%); }
+#dz-ra    { width:70px;height:40px;  left:72%;top:18%; transform:translate(-50%,-50%); }
+#dz-rb    { width:70px;height:40px;  left:72%;top:42%; transform:translate(-50%,-50%); }
+#dz-cap   { width:50px;height:60px;  left:28%;top:35%; transform:translate(-50%,-50%); }
+#dz-led   { width:50px;height:60px;  left:72%;top:72%; transform:translate(-50%,-50%); }
+
+/* ═══════════════════════════════════════
+   UTILITY
+═══════════════════════════════════════ */
+.floating-label {
+  position:fixed;
+  background:rgba(245,166,35,0.9);
+  color:#000;padding:4px 8px;
+  border-radius:3px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;letter-spacing:1px;
+  pointer-events:none;z-index:9999;
+  transform:translate(-50%,-130%);
+  white-space:nowrap;
+  display:none;
+}
+
+/* Pin diagram in A1 */
+.pin-diagram {
+  position:absolute;
+  top:8px;right:8px;
+  width:220px;
+  background:rgba(10,22,40,0.9);
+  border:1px solid rgba(0,212,255,0.3);
+  border-radius:4px;
+  padding:8px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;
+  z-index:5;
+}
+.pin-diagram-title {
+  color:var(--cyan);letter-spacing:2px;
+  margin-bottom:6px;font-size:9px;text-align:center;
+}
+.pin-row {
+  display:flex;justify-content:space-between;
+  margin-bottom:2px;
+}
+.pin-num { color:var(--amber);width:16px; }
+.pin-name { color:var(--green);flex:1;text-align:center; }
+.pin-func { color:var(--chrome);width:80px;text-align:right;font-size:8px; }
+
+/* Feedback toast */
+.toast {
+  position:fixed;
+  bottom:80px;left:50%;transform:translateX(-50%);
+  background:rgba(57,255,20,0.9);
+  color:#000;
+  padding:8px 20px;
+  border-radius:4px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:12px;letter-spacing:1px;
+  z-index:500;
+  animation:toastIn 0.3s ease, toastOut 0.3s ease 1.5s forwards;
+  pointer-events:none;
+}
+.toast.error { background:rgba(255,48,48,0.9);color:#fff; }
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateX(-50%) translateY(10px)}}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 2 specific layout
+═══════════════════════════════════════ */
+#a2-circuit {
+  position:absolute;
+  inset:10px 10px 10px 10px;
+}
+
+.ic-block {
+  position:absolute;
+  background:linear-gradient(135deg,#1c2536,#243347);
+  border:2px solid #4a6080;
+  border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+}
+.ic-block-label {
+  font-family:'Orbitron',monospace;
+  font-weight:900;color:var(--amber);
+  text-shadow:0 0 10px var(--amber);
+}
+
+.node-point {
+  position:absolute;
+  width:12px;height:12px;
+  border-radius:50%;
+  border:2px solid;
+  cursor:pointer;
+  transition:all 0.2s;
+  z-index:20;
+}
+.node-point:hover { transform:scale(1.5); }
+
+/* A3 component cards */
+.component-card {
+  position:absolute;
+  background:rgba(26,31,46,0.9);
+  border:1px solid var(--steel-light);
+  border-radius:6px;
+  padding:10px 14px;
+}
+.card-title {
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;color:var(--chrome);
+  letter-spacing:2px;margin-bottom:6px;
+}
+.card-value-slot {
+  width:80px;height:28px;
+  border:2px dashed rgba(245,166,35,0.5);
+  border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Share Tech Mono',monospace;
+  font-size:12px;color:rgba(245,166,35,0.4);
+  transition:all 0.2s;
+  margin-bottom:4px;
+}
+.card-value-slot.filled {
+  border-color:var(--green);
+  color:var(--green);
+  background:rgba(57,255,20,0.08);
+}
+.card-value-slot.hover-active {
+  border-color:var(--amber);
+  background:rgba(245,166,35,0.15);
+  color:var(--amber);
+}
+.card-unit {
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;color:var(--chrome);
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════
+     FACTORY BACKGROUND
+═══════════════════════════════════════ -->
+<div id="factory-bg">
+  <div class="blueprint-grid"></div>
+
+  <!-- Pipes -->
+  <div class="pipe" style="left:0;top:120px;width:60px;height:12px;"></div>
+  <div class="pipe pipe-v" style="left:60px;top:60px;width:12px;height:72px;"></div>
+  <div class="pipe" style="right:0;top:180px;width:80px;height:10px;"></div>
+  <div class="pipe pipe-v" style="right:80px;top:120px;width:10px;height:70px;"></div>
+  <div class="pipe" style="left:80px;top:30px;width:120px;height:8px;"></div>
+  <div class="pipe pipe-v" style="right:160px;top:0;width:8px;height:40px;"></div>
+
+  <!-- Warning stripes -->
+  <div class="warning-stripe" style="left:0;bottom:60px;width:40px;height:20px;"></div>
+  <div class="warning-stripe" style="right:0;bottom:60px;width:40px;height:20px;"></div>
+
+  <!-- Gears (SVG inline) -->
+  <div class="gear" style="left:-20px;top:80px;width:80px;height:80px;animation-duration:8s;">
+    <svg viewBox="0 0 100 100" width="80" height="80">
+      <defs><filter id="glow"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      <g filter="url(#glow)">
+        <circle cx="50" cy="50" r="28" fill="#2d3748" stroke="#4a5568" stroke-width="3"/>
+        <circle cx="50" cy="50" r="12" fill="#1a202c" stroke="#718096" stroke-width="2"/>
+        <g fill="#3d4f63" stroke="#4a5568" stroke-width="1.5">
+          <rect x="46" y="12" width="8" height="16" rx="2"/>
+          <rect x="46" y="72" width="8" height="16" rx="2" transform="rotate(180,50,80)"/>
+          <rect x="12" y="46" width="16" height="8" rx="2"/>
+          <rect x="72" y="46" width="16" height="8" rx="2"/>
+          <rect x="24" y="24" width="8" height="16" rx="2" transform="rotate(45,28,32)"/>
+          <rect x="68" y="24" width="8" height="16" rx="2" transform="rotate(-45,72,32)"/>
+          <rect x="24" y="68" width="8" height="16" rx="2" transform="rotate(-45,28,68)"/>
+          <rect x="68" y="68" width="8" height="16" rx="2" transform="rotate(45,72,68)"/>
+        </g>
+      </g>
+    </svg>
+  </div>
+
+  <div class="gear" style="right:-15px;top:140px;width:70px;height:70px;animation-duration:6s;animation-direction:reverse;">
+    <svg viewBox="0 0 100 100" width="70" height="70">
+      <circle cx="50" cy="50" r="28" fill="#2d3748" stroke="#4a5568" stroke-width="3"/>
+      <circle cx="50" cy="50" r="12" fill="#1a202c" stroke="#718096" stroke-width="2"/>
+      <g fill="#3d4f63" stroke="#4a5568" stroke-width="1.5">
+        <rect x="46" y="12" width="8" height="16" rx="2"/>
+        <rect x="46" y="72" width="8" height="16" rx="2" transform="rotate(180,50,80)"/>
+        <rect x="12" y="46" width="16" height="8" rx="2"/>
+        <rect x="72" y="46" width="16" height="8" rx="2"/>
+        <rect x="24" y="24" width="8" height="16" rx="2" transform="rotate(45,28,32)"/>
+        <rect x="68" y="24" width="8" height="16" rx="2" transform="rotate(-45,72,32)"/>
+        <rect x="24" y="68" width="8" height="16" rx="2" transform="rotate(-45,28,68)"/>
+        <rect x="68" y="68" width="8" height="16" rx="2" transform="rotate(45,72,68)"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="gear" style="left:30%;bottom:50px;width:50px;height:50px;animation-duration:10s;">
+    <svg viewBox="0 0 100 100" width="50" height="50">
+      <circle cx="50" cy="50" r="28" fill="#1e2733" stroke="#4a5568" stroke-width="3"/>
+      <circle cx="50" cy="50" r="12" fill="#111820" stroke="#718096" stroke-width="2"/>
+      <g fill="#2a3647" stroke="#4a5568" stroke-width="1.5">
+        <rect x="46" y="12" width="8" height="16" rx="2"/>
+        <rect x="46" y="72" width="8" height="16" rx="2" transform="rotate(180,50,80)"/>
+        <rect x="12" y="46" width="16" height="8" rx="2"/>
+        <rect x="72" y="46" width="16" height="8" rx="2"/>
+        <rect x="24" y="24" width="8" height="16" rx="2" transform="rotate(45,28,32)"/>
+        <rect x="68" y="24" width="8" height="16" rx="2" transform="rotate(-45,72,32)"/>
+        <rect x="24" y="68" width="8" height="16" rx="2" transform="rotate(-45,28,68)"/>
+        <rect x="68" y="68" width="8" height="16" rx="2" transform="rotate(45,72,68)"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="gear" style="right:25%;bottom:48px;width:56px;height:56px;animation-duration:7s;animation-direction:reverse;">
+    <svg viewBox="0 0 100 100" width="56" height="56">
+      <circle cx="50" cy="50" r="28" fill="#1e2733" stroke="#556080" stroke-width="3"/>
+      <circle cx="50" cy="50" r="12" fill="#111820" stroke="#718096" stroke-width="2"/>
+      <g fill="#2a3647" stroke="#4a5568" stroke-width="1.5">
+        <rect x="46" y="12" width="8" height="16" rx="2"/>
+        <rect x="46" y="72" width="8" height="16" rx="2" transform="rotate(180,50,80)"/>
+        <rect x="12" y="46" width="16" height="8" rx="2"/>
+        <rect x="72" y="46" width="16" height="8" rx="2"/>
+        <rect x="24" y="24" width="8" height="16" rx="2" transform="rotate(45,28,32)"/>
+        <rect x="68" y="24" width="8" height="16" rx="2" transform="rotate(-45,72,32)"/>
+        <rect x="24" y="68" width="8" height="16" rx="2" transform="rotate(-45,28,68)"/>
+        <rect x="68" y="68" width="8" height="16" rx="2" transform="rotate(45,72,68)"/>
+      </g>
+    </svg>
+  </div>
+
+  <!-- Sparks -->
+  <div class="spark-container" id="spark-container"></div>
+
+  <!-- Robot arm (decorative SVG) -->
+  <svg style="position:absolute;right:10px;bottom:60px;opacity:0.25;" width="60" height="120" viewBox="0 0 60 120">
+    <rect x="25" y="0" width="10" height="50" rx="4" fill="#4a5568"/>
+    <rect x="20" y="48" width="20" height="8" rx="3" fill="#718096"/>
+    <rect x="28" y="56" width="6" height="40" rx="3" fill="#4a5568" transform="rotate(-20,31,56)"/>
+    <circle cx="28" cy="56" r="8" fill="#2d3748" stroke="#718096" stroke-width="2"/>
+    <rect x="32" y="88" width="16" height="6" rx="2" fill="#4a5568" transform="rotate(-20,40,91)"/>
+    <circle cx="44" cy="98" r="5" fill="#2d3748" stroke="#718096" stroke-width="1.5"/>
+  </svg>
+
+  <!-- Conveyor Belt -->
+  <div class="conveyor">
+    <div class="conveyor-track"></div>
+    <div class="conveyor-bolt" style="left:5%;"></div>
+    <div class="conveyor-bolt" style="left:15%;"></div>
+    <div class="conveyor-bolt" style="left:25%;"></div>
+    <div class="conveyor-bolt" style="left:35%;"></div>
+    <div class="conveyor-bolt" style="left:45%;"></div>
+    <div class="conveyor-bolt" style="left:55%;"></div>
+    <div class="conveyor-bolt" style="left:65%;"></div>
+    <div class="conveyor-bolt" style="left:75%;"></div>
+    <div class="conveyor-bolt" style="left:85%;"></div>
+    <div class="conveyor-bolt" style="left:95%;"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     MAIN APP
+═══════════════════════════════════════ -->
+<div id="app">
+
+  <!-- Header -->
+  <div id="header">
+    <div class="header-logo">
+      <div class="ic-icon">IC</div>
+      555 TIMER
+    </div>
+    <div class="header-title">
+      ASTABLE OSCILLATOR
+      <span>INTERACTIVE CIRCUIT LAB</span>
+    </div>
+    <div class="status-panel">
+      <div class="status-dot"></div>
+      <div class="status-text" id="status-text">SYS READY</div>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div id="progress-bar">
+    <div id="progress-fill"></div>
+    <div class="progress-steps">
+      <div class="progress-step-mark"></div>
+      <div class="progress-step-mark"></div>
+      <div class="progress-step-mark"></div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div id="content">
+
+    <!-- ═══ ACTIVITY 1 ═══ -->
+    <div class="activity-panel active" id="activity-1">
+      <div class="activity-header">
+        <div class="activity-badge">ACT 01</div>
+        <div style="display:flex;flex-direction:column;gap:2px;flex:1;">
+          <div class="activity-title">ASSEMBLE THE CIRCUIT</div>
+          <div class="activity-desc">Drag each component from the tray into its correct position on the circuit board</div>
+        </div>
+        <div class="activity-hint">⬡ DRAG COMPONENTS TO SLOTS</div>
+      </div>
+
+      <div class="activity-workspace" id="a1-workspace">
+        <!-- Blueprint circuit label -->
+        <div style="position:absolute;top:8px;left:8px;font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(0,212,255,0.4);letter-spacing:2px;">BLUEPRINT REV-03 // ASTABLE OSC</div>
+
+        <!-- Circuit board area -->
+        <div id="a1-board">
+
+          <!-- Decorative traces -->
+          <div class="trace trace-h" style="top:30%;left:55%;width:17%;"></div>
+          <div class="trace trace-v" style="top:18%;left:72%;height:12%;"></div>
+          <div class="trace trace-v" style="top:30%;left:72%;height:12%;"></div>
+          <div class="trace trace-h" style="top:42%;left:55%;width:17%;"></div>
+          <div class="trace trace-v" style="top:30%;left:27%;height:5%;"></div>
+          <div class="trace trace-h" style="top:35%;left:20%;width:7%;"></div>
+          <div class="trace trace-h" style="top:72%;left:55%;width:17%;"></div>
+          <div class="trace trace-v" style="top:42%;left:72%;height:30%;"></div>
+          <div class="trace trace-v" style="top:42%;left:27%;height:30%;"></div>
+
+          <!-- VCC / GND rails -->
+          <div style="position:absolute;top:8%;left:10%;right:10%;height:4px;background:linear-gradient(90deg,rgba(255,68,68,0.4),rgba(255,68,68,0.6),rgba(255,68,68,0.4));border-radius:2px;"></div>
+          <div style="position:absolute;top:8%;left:8%;font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(255,68,68,0.7);">+VCC</div>
+          <div style="position:absolute;bottom:95px;left:10%;right:10%;height:4px;background:linear-gradient(90deg,rgba(57,255,20,0.3),rgba(57,255,20,0.5),rgba(57,255,20,0.3));border-radius:2px;"></div>
+          <div style="position:absolute;bottom:97px;left:8%;font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(57,255,20,0.6);">GND</div>
+
+          <!-- Drop zones -->
+          <div class="drop-zone" id="dz-ic" data-accepts="ic555">
+            <div class="drop-zone-label">555 TIMER IC<br>⬡ DROP HERE</div>
+          </div>
+          <div class="drop-zone" id="dz-ra" data-accepts="ra">
+            <div class="drop-zone-label">RA<br>RESISTOR</div>
+          </div>
+          <div class="drop-zone" id="dz-rb" data-accepts="rb">
+            <div class="drop-zone-label">RB<br>RESISTOR</div>
+          </div>
+          <div class="drop-zone" id="dz-cap" data-accepts="cap">
+            <div class="drop-zone-label">CAPACITOR<br>C</div>
+          </div>
+          <div class="drop-zone" id="dz-led" data-accepts="led">
+            <div class="drop-zone-label">OUTPUT<br>LED</div>
+          </div>
+        </div>
+
+        <!-- Pin reference -->
+        <div class="pin-diagram">
+          <div class="pin-diagram-title">📋 555 PIN REFERENCE</div>
+          <div class="pin-row"><span class="pin-num">1</span><span class="pin-name">GND</span><span class="pin-func">Ground</span></div>
+          <div class="pin-row"><span class="pin-num">2</span><span class="pin-name">TRIG</span><span class="pin-func">Trigger</span></div>
+          <div class="pin-row"><span class="pin-num">3</span><span class="pin-name">OUT</span><span class="pin-func">Output ← LED</span></div>
+          <div class="pin-row"><span class="pin-num">4</span><span class="pin-name">RST</span><span class="pin-func">Reset (→VCC)</span></div>
+          <div class="pin-row"><span class="pin-num">5</span><span class="pin-name">CTRL</span><span class="pin-func">Control</span></div>
+          <div class="pin-row"><span class="pin-num">6</span><span class="pin-name">THR</span><span class="pin-func">Threshold</span></div>
+          <div class="pin-row"><span class="pin-num">7</span><span class="pin-name">DIS</span><span class="pin-func">Discharge</span></div>
+          <div class="pin-row"><span class="pin-num">8</span><span class="pin-name">VCC</span><span class="pin-func">Power (+9V)</span></div>
+        </div>
+
+        <!-- Component Tray -->
+        <div class="component-tray" id="a1-tray">
+          <div class="tray-label">◈ COMPONENT TRAY — DRAG TO ASSEMBLE</div>
+
+          <!-- 555 IC -->
+          <div class="draggable-component" id="comp-ic555" data-type="ic555" data-label="555 TIMER IC" draggable="true">
+            <div class="ic-555-visual">
+              <div class="ic-notch"></div>
+              <div class="ic-pins-left">
+                <div class="ic-pin"></div><div class="ic-pin"></div>
+                <div class="ic-pin"></div><div class="ic-pin"></div>
+              </div>
+              <div class="ic-pins-right">
+                <div class="ic-pin"></div><div class="ic-pin"></div>
+                <div class="ic-pin"></div><div class="ic-pin"></div>
+              </div>
+            </div>
+            <div style="text-align:center;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--amber);margin-top:2px;">555 IC</div>
+          </div>
+
+          <!-- RA Resistor -->
+          <div class="draggable-component" id="comp-ra" data-type="ra" data-label="RA RESISTOR (4.7kΩ)" draggable="true">
+            <div class="resistor-visual">
+              <div class="res-lead"></div>
+              <div class="res-body">
+                <div class="res-bands">
+                  <div class="res-band" style="background:#ffff00;"></div>
+                  <div class="res-band" style="background:#9900ff;"></div>
+                  <div class="res-band" style="background:#ff0000;"></div>
+                  <div class="res-band" style="background:#ffd700;margin-left:4px;"></div>
+                </div>
+              </div>
+              <div class="res-lead"></div>
+            </div>
+            <div style="text-align:center;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--amber);margin-top:2px;">RA 4.7kΩ</div>
+          </div>
+
+          <!-- RB Resistor -->
+          <div class="draggable-component" id="comp-rb" data-type="rb" data-label="RB RESISTOR (47kΩ)" draggable="true">
+            <div class="resistor-visual">
+              <div class="res-lead"></div>
+              <div class="res-body">
+                <div class="res-bands">
+                  <div class="res-band" style="background:#ffff00;"></div>
+                  <div class="res-band" style="background:#9900ff;"></div>
+                  <div class="res-band" style="background:#ff8800;"></div>
+                  <div class="res-band" style="background:#ffd700;margin-left:4px;"></div>
+                </div>
+              </div>
+              <div class="res-lead"></div>
+            </div>
+            <div style="text-align:center;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--amber);margin-top:2px;">RB 47kΩ</div>
+          </div>
+
+          <!-- Capacitor -->
+          <div class="draggable-component" id="comp-cap" data-type="cap" data-label="CAPACITOR (10μF)" draggable="true">
+            <div class="cap-visual">
+              <div class="cap-lead"></div>
+              <div class="cap-body"></div>
+              <div class="cap-lead"></div>
+            </div>
+            <div style="text-align:center;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--amber);margin-top:2px;">C 10μF</div>
+          </div>
+
+          <!-- LED -->
+          <div class="draggable-component" id="comp-led" data-type="led" data-label="OUTPUT LED" draggable="true">
+            <div class="led-visual">
+              <div class="led-lens"></div>
+              <div class="led-base"></div>
+              <div class="led-leads">
+                <div class="led-lead"></div>
+                <div class="led-lead"></div>
+              </div>
+            </div>
+            <div style="text-align:center;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--amber);margin-top:2px;">LED OUT</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ACTIVITY 2 ═══ -->
+    <div class="activity-panel" id="activity-2">
+      <div class="activity-header">
+        <div class="activity-badge">ACT 02</div>
+        <div style="display:flex;flex-direction:column;gap:2px;flex:1;">
+          <div class="activity-title">COMPLETE THE WIRING</div>
+          <div class="activity-desc">Click a source node then click its matching target to wire the astable oscillator circuit</div>
+        </div>
+        <div class="activity-hint">⬡ CLICK SOURCE → CLICK TARGET</div>
+      </div>
+
+      <div class="activity-workspace" id="a2-workspace">
+        <div id="a2-circuit">
+
+          <!-- Fixed IC block -->
+          <div class="ic-block" id="a2-ic" style="left:38%;top:28%;width:130px;height:90px;">
+            <div>
+              <div class="ic-notch" style="position:relative;margin:0 auto 4px;width:20px;height:10px;background:#1a252f;border-radius:0 0 10px 10px;border:1px solid #718096;"></div>
+              <div class="ic-block-label" style="font-size:20px;">555</div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--chrome);text-align:center;letter-spacing:1px;">TIMER IC</div>
+            </div>
+          </div>
+
+          <!-- Battery block -->
+          <div class="ic-block" style="left:5%;top:10%;width:60px;height:80px;flex-direction:column;">
+            <div class="batt-top" style="width:14px;height:5px;background:#48bb78;border-radius:1px;"></div>
+            <div style="width:32px;height:52px;background:linear-gradient(135deg,#2d4a2d,#1a3a1a);border:2px solid #48bb78;border-radius:3px;display:flex;align-items:center;justify-content:center;">
+              <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#68d391;text-align:center;line-height:1.3;">9V<br>DC</span>
+            </div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--chrome);margin-top:2px;">BATT</div>
+          </div>
+
+          <!-- Output LED block -->
+          <div class="ic-block" style="right:6%;top:20%;width:60px;height:60px;flex-direction:column;gap:4px;">
+            <div style="width:28px;height:28px;border-radius:50%;background:radial-gradient(circle at 35% 35%, #ffaaaa, #ff0000);border:2px solid #cc0000;box-shadow:0 0 10px rgba(255,0,0,0.4);" id="a2-led-display"></div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--chrome);">LED</div>
+          </div>
+
+          <!-- Capacitor block -->
+          <div class="ic-block" style="right:6%;bottom:20%;width:50px;height:70px;flex-direction:column;gap:4px;">
+            <div style="width:22px;height:44px;background:linear-gradient(135deg,#2b6cb0,#2c5282);border:2px solid #4299e1;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;color:#63b3ed;font-family:'Share Tech Mono',monospace;line-height:1;">C<br>10μ</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--chrome);">CAP</div>
+          </div>
+
+          <!-- RA/RB block -->
+          <div class="ic-block" style="left:5%;bottom:20%;width:70px;height:60px;flex-direction:column;gap:4px;">
+            <div style="display:flex;flex-direction:column;gap:3px;">
+              <div style="display:flex;align-items:center;gap:2px;">
+                <div style="width:8px;height:2px;background:#a0aec0;"></div>
+                <div style="width:28px;height:10px;background:linear-gradient(135deg,#d4a853,#b8860b);border-radius:3px;"></div>
+                <div style="width:8px;height:2px;background:#a0aec0;"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:2px;">
+                <div style="width:8px;height:2px;background:#a0aec0;"></div>
+                <div style="width:28px;height:10px;background:linear-gradient(135deg,#d4a853,#b8860b);border-radius:3px;"></div>
+                <div style="width:8px;height:2px;background:#a0aec0;"></div>
+              </div>
+            </div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--chrome);">RA+RB</div>
+          </div>
+
+          <!-- SVG wire canvas -->
+          <svg class="wire-canvas interactive" id="a2-svg" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="3" refY="2" orient="auto">
+                <polygon points="0 0, 6 2, 0 4" fill="rgba(255,255,255,0.5)"/>
+              </marker>
+            </defs>
+            <!-- Completed wires will be drawn here -->
+          </svg>
+
+          <!-- Connection nodes -->
+          <!-- Defined by JS -->
+        </div>
+
+        <!-- Wiring legend -->
+        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
+          display:flex;gap:16px;
+          background:rgba(10,22,40,0.9);border:1px solid var(--steel-light);
+          border-radius:4px;padding:6px 14px;">
+          <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--chrome);">WIRE COLORS:</span>
+          <span style="font-family:'Share Tech Mono',monospace;font-size:9px;"><span style="color:#ff4444;">■</span> VCC</span>
+          <span style="font-family:'Share Tech Mono',monospace;font-size:9px;"><span style="color:#39ff14;">■</span> GND</span>
+          <span style="font-family:'Share Tech Mono',monospace;font-size:9px;"><span style="color:#ffe066;">■</span> DISCHARGE</span>
+          <span style="font-family:'Share Tech Mono',monospace;font-size:9px;"><span style="color:#00d4ff;">■</span> TIMING</span>
+          <span style="font-family:'Share Tech Mono',monospace;font-size:9px;"><span style="color:#ff8c00;">■</span> OUTPUT</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ACTIVITY 3 ═══ -->
+    <div class="activity-panel" id="activity-3">
+      <div class="activity-header">
+        <div class="activity-badge">ACT 03</div>
+        <div style="display:flex;flex-direction:column;gap:2px;flex:1;">
+          <div class="activity-title">TUNE THE OSCILLATOR</div>
+          <div class="activity-desc">Drag resistor and capacitor values onto the component slots to set the blink frequency</div>
+        </div>
+        <div class="activity-hint">⬡ SET RA → RB → C TO UNLOCK</div>
+      </div>
+
+      <div class="activity-workspace" id="a3-workspace">
+
+        <!-- Oscilloscope -->
+        <div class="oscilloscope">
+          <div class="scope-header">◈ OSCILLOSCOPE — WAVEFORM MONITOR</div>
+          <div class="scope-screen">
+            <canvas class="scope-canvas" id="scope-canvas" width="280" height="130"></canvas>
+          </div>
+        </div>
+
+        <!-- Frequency display -->
+        <div class="freq-display">
+          <div class="freq-display-title">OUTPUT FREQUENCY</div>
+          <div class="freq-value" id="freq-readout">—.— <span class="freq-unit">Hz</span></div>
+          <div style="margin-top:8px;border-top:1px solid rgba(245,166,35,0.3);padding-top:8px;">
+            <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--chrome);margin-bottom:4px;">TIME PERIOD</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:16px;color:var(--cyan);" id="period-readout">—.— <span style="font-size:10px;">ms</span></div>
+          </div>
+          <div style="margin-top:8px;border-top:1px solid rgba(245,166,35,0.3);padding-top:8px;">
+            <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--chrome);margin-bottom:4px;">DUTY CYCLE</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:14px;color:var(--amber);" id="duty-readout">—%</div>
+          </div>
+        </div>
+
+        <!-- Component value cards -->
+        <!-- RA Card -->
+        <div class="component-card" style="left:10px;top:50%;transform:translateY(-50%);width:120px;">
+          <div class="card-title">RA RESISTOR</div>
+          <div class="card-value-slot" id="ra-slot" data-accepts="val-ra">DROP RA</div>
+          <div class="card-unit">Timing Resistor A</div>
+        </div>
+
+        <!-- RB Card -->
+        <div class="component-card" style="left:145px;top:50%;transform:translateY(-50%);width:120px;">
+          <div class="card-title">RB RESISTOR</div>
+          <div class="card-value-slot" id="rb-slot" data-accepts="val-rb">DROP RB</div>
+          <div class="card-unit">Timing Resistor B</div>
+        </div>
+
+        <!-- C Card -->
+        <div class="component-card" style="left:280px;top:50%;transform:translateY(-50%);width:120px;">
+          <div class="card-title">CAPACITOR C</div>
+          <div class="card-value-slot" id="c-slot" data-accepts="val-c">DROP C</div>
+          <div class="card-unit">Timing Capacitor</div>
+        </div>
+
+        <!-- Demo LED -->
+        <div class="demo-led">
+          <div class="demo-led-bulb" id="a3-led"></div>
+          <div class="demo-led-label">OUTPUT LED</div>
+        </div>
+
+        <!-- Formula -->
+        <div style="position:absolute;bottom:10px;left:10px;right:10px;
+          background:rgba(10,22,40,0.9);border:1px solid rgba(0,212,255,0.2);
+          border-radius:4px;padding:8px 14px;
+          font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--chrome);
+          display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+          <span style="color:var(--cyan);">FORMULA:</span>
+          <span>f = 1.44 / (RA + 2×RB) × C</span>
+          <span style="color:var(--amber);">|</span>
+          <span>t<sub>H</sub> = 0.693 × (RA+RB) × C</span>
+          <span style="color:var(--amber);">|</span>
+          <span>t<sub>L</sub> = 0.693 × RB × C</span>
+          <span style="color:var(--amber);">|</span>
+          <span>Units: Ω, F → Hz, s</span>
+        </div>
+
+        <!-- Value chips (draggable) -->
+        <!-- RA options -->
+        <div class="value-chip" id="val-ra-1" data-for="ra" data-value="1000" data-label="1kΩ" style="bottom:50px;left:420px;">RA = 1kΩ</div>
+        <div class="value-chip" id="val-ra-2" data-for="ra" data-value="4700" data-label="4.7kΩ" style="bottom:80px;left:520px;">RA = 4.7kΩ</div>
+        <div class="value-chip" id="val-ra-3" data-for="ra" data-value="10000" data-label="10kΩ" style="bottom:50px;left:620px;">RA = 10kΩ</div>
+        <!-- RB options -->
+        <div class="value-chip" id="val-rb-1" data-for="rb" data-value="10000" data-label="10kΩ" style="bottom:80px;left:430px;">RB = 10kΩ</div>
+        <div class="value-chip" id="val-rb-2" data-for="rb" data-value="47000" data-label="47kΩ" style="bottom:110px;left:530px;">RB = 47kΩ</div>
+        <div class="value-chip" id="val-rb-3" data-for="rb" data-value="100000" data-label="100kΩ" style="bottom:80px;left:640px;">RB = 100kΩ</div>
+        <!-- C options -->
+        <div class="value-chip" id="val-c-1" data-for="c" data-value="0.000001" data-label="1μF" style="bottom:140px;left:440px;">C = 1μF</div>
+        <div class="value-chip" id="val-c-2" data-for="c" data-value="0.000010" data-label="10μF" style="bottom:110px;left:550px;">C = 10μF</div>
+        <div class="value-chip" id="val-c-3" data-for="c" data-value="0.000047" data-label="47μF" style="bottom:140px;left:650px;">C = 47μF</div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+
+<!-- Floating drag label -->
+<div class="floating-label" id="drag-label"></div>
+
+<!-- ═══════════════════════════════════════
+     POPUP OVERLAY
+═══════════════════════════════════════ -->
+<div id="popup-overlay">
+  <div class="popup-box" id="popup-box">
+    <span class="popup-icon" id="popup-icon">✅</span>
+    <div class="popup-title" id="popup-title">ACTIVITY COMPLETE</div>
+    <div class="popup-subtitle" id="popup-subtitle">CIRCUIT ASSEMBLED</div>
+    <div class="popup-body" id="popup-body"></div>
+    <div class="popup-fact" id="popup-fact"></div>
+    <button class="popup-btn" id="popup-btn" onclick="closePopup()">CONTINUE →</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// FACTORY BACKGROUND — SPARKS
+// ═══════════════════════════════════════════════════════════
+(function createSparks() {
+  const container = document.getElementById('spark-container');
+  const sparkData = [
+    {x:12,y:15,tx:15,ty:-35,tx2:30,ty2:-70,dur:'2.1s',delay:'0s'},
+    {x:88,y:22,tx:-12,ty:-30,tx2:-25,ty2:-65,dur:'1.8s',delay:'0.5s'},
+    {x:25,y:60,tx:20,ty:-40,tx2:35,ty2:-80,dur:'2.4s',delay:'1.2s'},
+    {x:75,y:55,tx:-18,ty:-35,tx2:-30,ty2:-70,dur:'1.6s',delay:'0.8s'},
+    {x:50,y:35,tx:10,ty:-45,tx2:20,ty2:-85,dur:'2.2s',delay:'1.8s'},
+    {x:35,y:70,tx:-15,ty:-30,tx2:-25,ty2:-60,dur:'1.9s',delay:'2.5s'},
+    {x:65,y:40,tx:12,ty:-38,tx2:22,ty2:-72,dur:'2.0s',delay:'3.1s'},
+  ];
+  sparkData.forEach(d => {
+    const s = document.createElement('div');
+    s.className = 'spark';
+    s.style.cssText = `left:${d.x}%;top:${d.y}%;
+      --dur:${d.dur};--delay:${d.delay};
+      --tx:${d.tx}px;--ty:${d.ty}px;
+      --tx2:${d.tx2}px;--ty2:${d.ty2}px;`;
+    container.appendChild(s);
+  });
+})();
+
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+let currentActivity = 1;
+let a1Filled = { ic555:false, ra:false, rb:false, cap:false, led:false };
+let a2Connections = {}; // id -> true
+let a3Values = { ra:null, rb:null, c:null };
+let ledInterval = null;
+let scopeInterval = null;
+let scopePhase = 0;
+
+// ═══════════════════════════════════════════════════════════
+// ACTIVITY 1 — DRAG & DROP (component placement)
+// ═══════════════════════════════════════════════════════════
+(function initA1() {
+  const comps = document.querySelectorAll('#a1-tray .draggable-component');
+  const zones = document.querySelectorAll('#a1-board .drop-zone');
+  const label = document.getElementById('drag-label');
+  let dragging = null;
+
+  comps.forEach(comp => {
+    comp.addEventListener('dragstart', e => {
+      dragging = comp;
+      label.textContent = comp.dataset.label;
+      label.style.display = 'block';
+      setTimeout(() => comp.classList.add('dragging'), 0);
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', comp.dataset.type);
+    });
+    comp.addEventListener('dragend', () => {
+      comp.classList.remove('dragging');
+      label.style.display = 'none';
+      dragging = null;
+    });
+  });
+
+  document.addEventListener('dragover', e => {
+    e.preventDefault();
+    label.style.left = e.clientX + 'px';
+    label.style.top  = e.clientY + 'px';
+  });
+
+  zones.forEach(zone => {
+    zone.addEventListener('dragover', e => {
+      e.preventDefault();
+      const type = e.dataTransfer.getData('text/plain') || (dragging && dragging.dataset.type);
+      if (zone.dataset.accepts === type && !zone.classList.contains('filled')) {
+        zone.classList.add('hover-active');
+      }
+    });
+    zone.addEventListener('dragleave', () => zone.classList.remove('hover-active'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('hover-active');
+      const type = e.dataTransfer.getData('text/plain');
+      if (zone.dataset.accepts !== type) {
+        showToast('❌ Wrong slot! Check the pin reference.', true);
+        return;
+      }
+      if (zone.classList.contains('filled')) return;
+
+      // Place component
+      zone.classList.add('filled');
+      zone.innerHTML = getPlacedHTML(type);
+      a1Filled[type] = true;
+
+      // Mark source as used
+      const src = document.querySelector(`[data-type="${type}"]`);
+      if (src) src.classList.add('used');
+
+      showToast(`✔ ${zone.querySelector('.drop-zone-label') ? '' : ''}${getCompName(type)} placed!`);
+      checkA1Complete();
+    });
+  });
+
+  function getCompName(type) {
+    const n={ic555:'555 Timer IC',ra:'RA Resistor',rb:'RB Resistor',cap:'Capacitor',led:'Output LED'};
+    return n[type]||type;
+  }
+
+  function getPlacedHTML(type) {
+    if(type==='ic555') return `
+      <div class="ic-555-visual" style="transform:scale(0.8);">
+        <div class="ic-notch"></div>
+        <div class="ic-pins-left"><div class="ic-pin"></div><div class="ic-pin"></div><div class="ic-pin"></div><div class="ic-pin"></div></div>
+        <div class="ic-pins-right"><div class="ic-pin"></div><div class="ic-pin"></div><div class="ic-pin"></div><div class="ic-pin"></div></div>
+      </div>`;
+    if(type==='ra') return `<div class="resistor-visual" style="transform:rotate(90deg) scale(0.85);"><div class="res-lead"></div><div class="res-body" style="background:linear-gradient(135deg,#d4a853,#b8860b);"><div class="res-bands"><div class="res-band" style="background:#ffff00;"></div><div class="res-band" style="background:#9900ff;"></div><div class="res-band" style="background:#ff0000;"></div><div class="res-band" style="background:#ffd700;margin-left:4px;"></div></div></div><div class="res-lead"></div></div>`;
+    if(type==='rb') return `<div class="resistor-visual" style="transform:rotate(90deg) scale(0.85);"><div class="res-lead"></div><div class="res-body" style="background:linear-gradient(135deg,#d4a853,#b8860b);"><div class="res-bands"><div class="res-band" style="background:#ffff00;"></div><div class="res-band" style="background:#9900ff;"></div><div class="res-band" style="background:#ff8800;"></div><div class="res-band" style="background:#ffd700;margin-left:4px;"></div></div></div><div class="res-lead"></div></div>`;
+    if(type==='cap') return `<div class="cap-visual"><div class="cap-lead"></div><div class="cap-body" style="transform:scale(0.85);"></div><div class="cap-lead"></div></div>`;
+    if(type==='led') return `<div class="led-visual"><div class="led-lens" style="box-shadow:0 0 15px rgba(255,0,0,0.6);"></div><div class="led-base"></div><div class="led-leads"><div class="led-lead"></div><div class="led-lead"></div></div></div>`;
+    return '';
+  }
+
+  function checkA1Complete() {
+    if(Object.values(a1Filled).every(Boolean)) {
+      setTimeout(()=>showPopup(1), 400);
+    }
+  }
+})();
+
+// ═══════════════════════════════════════════════════════════
+// ACTIVITY 2 — CLICK-TO-WIRE
+// ═══════════════════════════════════════════════════════════
+(function initA2() {
+  const workspace = document.getElementById('a2-workspace');
+  const svg = document.getElementById('a2-svg');
+
+  // Define connection nodes: id, label, pos (% of workspace), color, connects-to
+  const nodes = [
+    { id:'vcc-batt', label:'VCC', x:12, y:18, color:'#ff4444', pair:'vcc-ic' },
+    { id:'vcc-ic',   label:'PIN 8', x:38, y:25, color:'#ff4444', pair:'vcc-batt' },
+    { id:'gnd-batt', label:'GND', x:12, y:78, color:'#39ff14', pair:'gnd-ic' },
+    { id:'gnd-ic',   label:'PIN 1', x:38, y:60, color:'#39ff14', pair:'gnd-batt' },
+    { id:'dis-ra',   label:'RA-DIS', x:24, y:50, color:'#ffe066', pair:'dis-ic' },
+    { id:'dis-ic',   label:'PIN 7', x:38, y:45, color:'#ffe066', pair:'dis-ra' },
+    { id:'thr-cap',  label:'THR', x:74, y:78, color:'#00d4ff', pair:'thr-ic' },
+    { id:'thr-ic',   label:'PIN 6', x:62, y:60, color:'#00d4ff', pair:'thr-cap' },
+    { id:'out-ic',   label:'PIN 3', x:62, y:30, color:'#ff8c00', pair:'out-led' },
+    { id:'out-led',  label:'LED+', x:83, y:30, color:'#ff8c00', pair:'out-ic' },
+  ];
+
+  // Pairs that must be connected
+  const pairs = [
+    ['vcc-batt','vcc-ic'],
+    ['gnd-batt','gnd-ic'],
+    ['dis-ra','dis-ic'],
+    ['thr-cap','thr-ic'],
+    ['out-ic','out-led'],
+  ];
+
+  const connected = {};
+  let selectedNode = null;
+  let previewLine = null;
+
+  // Create node elements
+  nodes.forEach(n => {
+    const el = document.createElement('div');
+    el.className = 'node-point';
+    el.id = 'node-' + n.id;
+    el.style.cssText = `left:calc(${n.x}% - 6px);top:calc(${n.y}% - 6px);border-color:${n.color};`;
+    el.title = n.label;
+    el.dataset.id = n.id;
+    el.dataset.color = n.color;
+    el.dataset.pair = n.pair;
+
+    const lbl = document.createElement('span');
+    lbl.className = 'wire-endpoint-label';
+    lbl.textContent = n.label;
+    lbl.style.cssText = `color:${n.color};opacity:0.7;font-size:8px;
+      top:-14px;left:50%;transform:translateX(-50%);`;
+    el.appendChild(lbl);
+
+    document.getElementById('a2-circuit').appendChild(el);
+
+    el.addEventListener('click', () => handleNodeClick(n.id, n.color, n.pair));
+  });
+
+  // Preview line tracking
+  svg.addEventListener('mousemove', e => {
+    if (!selectedNode) return;
+    const rect = svg.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    if (previewLine) previewLine.remove();
+    const srcEl = document.getElementById('node-' + selectedNode);
+    const srcRect = srcEl.getBoundingClientRect();
+    const sx = srcRect.left + 6 - rect.left;
+    const sy = srcRect.top + 6 - rect.top;
+    previewLine = makePath(sx, sy, mx, my, 'rgba(255,255,255,0.3)', 'wire-preview');
+    svg.appendChild(previewLine);
+  });
+
+  function handleNodeClick(nodeId, color, pairId) {
+    if (connected[nodeId]) return; // already wired
+
+    if (!selectedNode) {
+      selectedNode = nodeId;
+      document.getElementById('node-' + nodeId).style.background = 'rgba(255,255,255,0.4)';
+      updateStatus('SELECT TARGET NODE...');
+      return;
+    }
+
+    // Validate pair
+    if (selectedNode !== nodeId && pairId === selectedNode) {
+      // Valid connection
+      drawWire(selectedNode, nodeId, color);
+      connected[selectedNode] = true;
+      connected[nodeId] = true;
+      document.getElementById('node-' + selectedNode).classList.add('connected');
+      document.getElementById('node-' + nodeId).classList.add('connected');
+      if (previewLine) { previewLine.remove(); previewLine = null; }
+      selectedNode = null;
+      showToast(`✔ Wire connected!`);
+      checkA2Complete();
+    } else if (selectedNode === nodeId) {
+      // Deselect
+      document.getElementById('node-' + nodeId).style.background = 'rgba(0,212,255,0.2)';
+      selectedNode = null;
+      if (previewLine) { previewLine.remove(); previewLine = null; }
+    } else {
+      showToast('❌ Incorrect connection! Nodes must be a matching pair.', true);
+      document.getElementById('node-' + selectedNode).style.background = 'rgba(0,212,255,0.2)';
+      selectedNode = null;
+      if (previewLine) { previewLine.remove(); previewLine = null; }
+    }
+  }
+
+  function drawWire(id1, id2, color) {
+    const rect = svg.getBoundingClientRect();
+    const el1 = document.getElementById('node-' + id1);
+    const el2 = document.getElementById('node-' + id2);
+    const r1 = el1.getBoundingClientRect();
+    const r2 = el2.getBoundingClientRect();
+    const x1 = r1.left + 6 - rect.left;
+    const y1 = r1.top  + 6 - rect.top;
+    const x2 = r2.left + 6 - rect.left;
+    const y2 = r2.top  + 6 - rect.top;
+    const path = makePath(x1, y1, x2, y2, color, '');
+    path.style.strokeDasharray = '200';
+    path.style.strokeDashoffset = '200';
+    path.style.transition = 'stroke-dashoffset 0.5s ease';
+    svg.appendChild(path);
+    requestAnimationFrame(() => { path.style.strokeDashoffset = '0'; });
+
+    // Activate LED if output wire done
+    if ((id1==='out-ic'||id1==='out-led') && (id2==='out-ic'||id2==='out-led')) {
+      setTimeout(()=>{
+        const led = document.getElementById('a2-led-display');
+        led.style.boxShadow = '0 0 15px #ff4444, 0 0 30px rgba(255,68,68,0.4)';
+        led.style.background = 'radial-gradient(circle at 35% 35%, #fff, #ff4444)';
+      }, 600);
+    }
+  }
+
+  function makePath(x1,y1,x2,y2,color,cls) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    const cx1 = x1 + (x2-x1)*0.5;
+    const cy1 = y1;
+    const cx2 = x1 + (x2-x1)*0.5;
+    const cy2 = y2;
+    path.setAttribute('d', `M${x1},${y1} C${cx1},${cy1} ${cx2},${cy2} ${x2},${y2}`);
+    path.setAttribute('fill','none');
+    path.setAttribute('stroke', color);
+    path.setAttribute('stroke-width','3');
+    path.setAttribute('stroke-linecap','round');
+    path.style.filter = `drop-shadow(0 0 4px ${color})`;
+    if(cls) path.setAttribute('class', cls);
+    return path;
+  }
+
+  function checkA2Complete() {
+    const total = pairs.length;
+    const done = pairs.filter(([a,b]) => connected[a] && connected[b]).length;
+    if (done === total) {
+      setTimeout(() => showPopup(2), 600);
+    }
+  }
+})();
+
+// ═══════════════════════════════════════════════════════════
+// ACTIVITY 3 — FREQUENCY TUNING
+// ═══════════════════════════════════════════════════════════
+(function initA3() {
+  const chips = document.querySelectorAll('.value-chip');
+  const slots = {
+    ra: document.getElementById('ra-slot'),
+    rb: document.getElementById('rb-slot'),
+    c:  document.getElementById('c-slot'),
+  };
+  let draggingChip = null;
+
+  chips.forEach(chip => {
+    chip.setAttribute('draggable', 'true');
+    chip.addEventListener('dragstart', e => {
+      draggingChip = chip;
+      e.dataTransfer.setData('text/plain', chip.id);
+    });
+    chip.addEventListener('dragend', () => { draggingChip = null; });
+  });
+
+  Object.entries(slots).forEach(([key, slot]) => {
+    slot.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (draggingChip && draggingChip.dataset.for === key) {
+        slot.classList.add('hover-active');
+      }
+    });
+    slot.addEventListener('dragleave', () => slot.classList.remove('hover-active'));
+    slot.addEventListener('drop', e => {
+      e.preventDefault();
+      slot.classList.remove('hover-active');
+      if (!draggingChip || draggingChip.dataset.for !== key) {
+        showToast('❌ Wrong slot! Match R/C to correct position.', true);
+        return;
+      }
+      // Remove any previously placed chip for this slot
+      const oldChip = slot.dataset.chipId;
+      if (oldChip) {
+        const old = document.getElementById(oldChip);
+        if(old) old.classList.remove('used');
+      }
+      // Place value
+      slot.dataset.chipId = draggingChip.id;
+      slot.classList.add('filled');
+      slot.textContent = draggingChip.dataset.label;
+      draggingChip.classList.add('used');
+      a3Values[key] = parseFloat(draggingChip.dataset.value);
+      showToast(`✔ ${draggingChip.textContent} set!`);
+      updateFrequency();
+      checkA3Complete();
+    });
+  });
+
+  function updateFrequency() {
+    const { ra, rb, c } = a3Values;
+    if (!ra || !rb || !c) return;
+    const f = 1.44 / ((ra + 2*rb) * c);
+    const T = 1 / f;
+    const tH = 0.693 * (ra + rb) * c;
+    const tL = 0.693 * rb * c;
+    const duty = (tH / T * 100).toFixed(1);
+
+    document.getElementById('freq-readout').innerHTML =
+      f >= 1 ? `${f.toFixed(2)} <span class="freq-unit">Hz</span>` :
+               `${(f*1000).toFixed(2)} <span class="freq-unit">mHz</span>`;
+    document.getElementById('period-readout').innerHTML =
+      T < 1 ? `${(T*1000).toFixed(1)} <span style="font-size:10px;">ms</span>` :
+              `${T.toFixed(2)} <span style="font-size:10px;">s</span>`;
+    document.getElementById('duty-readout').textContent = duty + '%';
+
+    startLedBlink(f);
+    updateStatus('OSCILLATING @ ' + (f>=1 ? f.toFixed(2)+'Hz' : (f*1000).toFixed(2)+'mHz'));
+  }
+
+  window.updateFrequency = updateFrequency;
+})();
+
+// ═══════════════════════════════════════════════════════════
+// LED BLINK (Activity 3)
+// ═══════════════════════════════════════════════════════════
+function startLedBlink(freq) {
+  if (ledInterval) clearInterval(ledInterval);
+  const led = document.getElementById('a3-led');
+  const halfPeriod = Math.max(50, Math.min(2000, 500 / freq));
+  let on = false;
+  ledInterval = setInterval(() => {
+    on = !on;
+    led.classList.toggle('on', on);
+  }, halfPeriod);
+}
+
+// ═══════════════════════════════════════════════════════════
+// OSCILLOSCOPE (Activity 3)
+// ═══════════════════════════════════════════════════════════
+(function initScope() {
+  const canvas = document.getElementById('scope-canvas');
+  const ctx = canvas.getContext('2d');
+  let phase = 0;
+  let freq = 1;
+
+  function getFreq() {
+    const { ra, rb, c } = a3Values;
+    if (!ra || !rb || !c) return 1;
+    return Math.max(0.1, 1.44 / ((ra + 2*rb) * c));
+  }
+
+  function draw() {
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(57,255,20,0.08)';
+    ctx.lineWidth = 1;
+    for(let x=0;x<w;x+=28){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+    for(let y=0;y<h;y+=28){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+
+    // Center line
+    ctx.strokeStyle = 'rgba(57,255,20,0.2)';
+    ctx.beginPath();ctx.moveTo(0,h/2);ctx.lineTo(w,h/2);ctx.stroke();
+
+    freq = getFreq();
+    const speed = Math.min(8, Math.max(0.5, freq * 0.8));
+    phase += speed;
+    if (phase > w*2) phase = 0;
+
+    // Square wave
+    ctx.strokeStyle = '#39ff14';
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 6;
+    ctx.shadowColor = '#39ff14';
+    ctx.beginPath();
+
+    const period = Math.max(20, Math.min(200, 80 / freq));
+    const amp = h * 0.35;
+    const midY = h / 2;
+    let prevHigh = true;
+    let started = false;
+
+    for(let x=0; x<=w; x++) {
+      const t = (x + phase) % (period);
+      const high = t < period * 0.6;
+      const y = high ? midY - amp : midY + amp;
+      if(!started){ ctx.moveTo(x, y); started=true; }
+      else {
+        if(high !== prevHigh) {
+          ctx.lineTo(x, high ? midY - amp : midY + amp);
+        }
+        ctx.lineTo(x+1, y);
+      }
+      prevHigh = high;
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ═══════════════════════════════════════════════════════════
+// A3 COMPLETION CHECK
+// ═══════════════════════════════════════════════════════════
+function checkA3Complete() {
+  if (a3Values.ra && a3Values.rb && a3Values.c) {
+    setTimeout(() => showPopup(3), 800);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// POPUP SYSTEM
+// ═══════════════════════════════════════════════════════════
+const popupData = {
+  1: {
+    icon: '🔩',
+    title: 'CIRCUIT ASSEMBLED',
+    subtitle: '— ACTIVITY 1 COMPLETE —',
+    body: 'Outstanding work! You correctly placed the 555 Timer IC, resistors RA and RB, capacitor, and the output LED into their blueprint positions. The circuit board is ready for wiring.',
+    fact: '⚡ TECH FACT: The 555 Timer IC was designed by Hans Camenzind in 1971. It contains 25 transistors, 15 resistors, and 2 diodes — all packed into a single 8-pin chip. It costs just ₹5–10 at any local electronics shop!',
+    next: 2,
+    btnText: 'PROCEED TO WIRING →',
+    progress: 33
+  },
+  2: {
+    icon: '🔌',
+    title: 'WIRING COMPLETE',
+    subtitle: '— ACTIVITY 2 COMPLETE —',
+    body: 'Excellent! All five connections are wired correctly. VCC power line, GND return path, discharge resistor chain, timing threshold, and the output LED — all connected and ready to oscillate!',
+    fact: '⚡ TECH FACT: In astable mode, the 555 Timer has NO stable state. It continuously switches between HIGH and LOW — just like a dholak player who never stops drumming. The resistors and capacitor control the rhythm!',
+    next: 3,
+    btnText: 'PROCEED TO TUNING →',
+    progress: 66
+  },
+  3: {
+    icon: '🏆',
+    title: 'OSCILLATOR TUNED!',
+    subtitle: '— ALL ACTIVITIES COMPLETE —',
+    body: 'Brilliant engineering! You assembled, wired, and tuned a complete 555 Timer Astable Oscillator from scratch. Your circuit is now blinking at the exact frequency determined by f = 1.44 / (RA + 2×RB) × C.',
+    fact: '⚡ REAL WORLD: This exact circuit powers railway crossing flashers, bicycle tail-lights, emergency alarm beepers, and festival light strings across India. Every time you see a repeating blink — it might be a 555 Timer at work!',
+    next: null,
+    btnText: '🏆 MISSION COMPLETE',
+    progress: 100
+  }
+};
+
+function showPopup(actNum) {
+  const d = popupData[actNum];
+  document.getElementById('popup-icon').textContent = d.icon;
+  document.getElementById('popup-title').textContent = d.title;
+  document.getElementById('popup-subtitle').textContent = d.subtitle;
+  document.getElementById('popup-body').textContent = d.body;
+  document.getElementById('popup-fact').textContent = d.fact;
+  const btn = document.getElementById('popup-btn');
+  btn.textContent = d.btnText;
+  btn.onclick = () => {
+    if(d.next) {
+      closePopupAndAdvance(d.next);
+    } else {
+      showFinalCelebration();
+    }
+  };
+
+  // Confetti for success
+  if(actNum === 3) spawnConfetti();
+
+  document.getElementById('popup-overlay').classList.add('visible');
+  updateProgress(d.progress);
+}
+
+function closePopup() {
+  document.getElementById('popup-overlay').classList.remove('visible');
+}
+
+function closePopupAndAdvance(next) {
+  closePopup();
+  setTimeout(() => activateActivity(next), 300);
+}
+
+function activateActivity(num) {
+  document.querySelectorAll('.activity-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('activity-' + num).classList.add('active');
+  currentActivity = num;
+  updateStatus('ACTIVITY 0' + num + ' ACTIVE');
+}
+
+function showFinalCelebration() {
+  closePopup();
+  updateStatus('MISSION ACCOMPLISHED ✓');
+  // Flash the background
+  document.body.style.transition = 'background 0.3s';
+  const orig = document.body.style.background;
+  [0,200,400,600].forEach(t => {
+    setTimeout(() => {
+      document.body.style.background = t%400===0 ? 'rgba(245,166,35,0.1)' : orig;
+    }, t);
+  });
+}
+
+function spawnConfetti() {
+  const box = document.getElementById('popup-box');
+  const colors = ['#f5a623','#00d4ff','#39ff14','#ff3030','#ffe066','#ff8c00'];
+  for(let i=0;i<20;i++){
+    const bit = document.createElement('div');
+    bit.className = 'confetti-bit';
+    bit.style.cssText = `
+      left:${Math.random()*100}%;top:-10px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-delay:${Math.random()*0.8}s;
+      transform:rotate(${Math.random()*360}deg);
+    `;
+    box.appendChild(bit);
+    setTimeout(()=>bit.remove(), 2500);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// PROGRESS
+// ═══════════════════════════════════════════════════════════
+function updateProgress(pct) {
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+function updateStatus(text) {
+  document.getElementById('status-text').textContent = text;
+}
+
+// ═══════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════
+function showToast(msg, isError=false) {
+  const existing = document.querySelector('.toast');
+  if(existing) existing.remove();
+  const t = document.createElement('div');
+  t.className = 'toast' + (isError ? ' error' : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2000);
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+updateProgress(0);
+updateStatus('ACT 01 — ASSEMBLE CIRCUIT');
+
+// Show intro popup on load
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    document.getElementById('popup-icon').textContent = '⚙️';
+    document.getElementById('popup-title').textContent = 'WELCOME TO THE LAB';
+    document.getElementById('popup-subtitle').textContent = '— 555 TIMER IC FACTORY —';
+    document.getElementById('popup-body').textContent = 'You are a circuit engineer at the oscillator factory. Complete 3 hands-on activities to build and tune a real 555 Timer Astable Oscillator — the heartbeat of countless electronic devices.';
+    document.getElementById('popup-fact').textContent = '📋 MISSION BRIEF:\n① Assemble → Place all components in correct positions\n② Wire → Connect the circuit nodes to complete the path\n③ Tune → Set R and C values to control the blink frequency';
+    document.getElementById('popup-btn').textContent = 'START MISSION →';
+    document.getElementById('popup-btn').onclick = closePopup;
+    document.getElementById('popup-overlay').classList.add('visible');
+  }, 500);
+});
+</script>
+</body>
+</html>

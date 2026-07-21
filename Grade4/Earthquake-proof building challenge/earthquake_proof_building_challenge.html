@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>EARTHQUAKE-PROOF BUILDING CHALLENGE</title>
+<style>
+  :root{
+    --navy:#0A2540;
+    --navy-deep:#071B33;
+    --grid-line:rgba(159,180,199,0.16);
+    --paper:#F3EEDF;
+    --paper-edge:#E4DBC2;
+    --amber:#FDB927;
+    --amber-deep:#D89000;
+    --orange:#FF6B35;
+    --steel:#9FB4C7;
+    --success:#3FAE79;
+    --danger:#E85D5D;
+    --white:#FFFFFF;
+    --ink:#0A2540;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;width:100%;height:100%;overflow:hidden;
+    background:var(--navy);
+    font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;
+    color:var(--ink);
+    -webkit-user-select:none;user-select:none;
+  }
+  #app{
+    position:relative;
+    width:100vw;height:100vh;
+    display:flex;flex-direction:column;
+    overflow:hidden;
+  }
+
+  /* ===================== BACKGROUND SCENE ===================== */
+  .scene-bg{
+    position:absolute;inset:0;z-index:0;
+    background:
+      linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0/38px 38px,
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0/38px 38px,
+      radial-gradient(ellipse at 30% 20%, #113A5C 0%, var(--navy) 55%, var(--navy-deep) 100%);
+  }
+  .dust{
+    position:absolute;border-radius:50%;
+    background:rgba(253,185,39,0.35);
+    animation:drift linear infinite;
+    pointer-events:none;
+  }
+  @keyframes drift{
+    0%{transform:translateY(0) translateX(0);opacity:0;}
+    10%{opacity:0.7;}
+    90%{opacity:0.5;}
+    100%{transform:translateY(-120vh) translateX(30px);opacity:0;}
+  }
+
+  .blueprint-sheet{
+    position:absolute;
+    width:150px;height:110px;
+    background:repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0 2px, transparent 2px 14px),
+                repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0 2px, transparent 2px 14px),
+                rgba(18,58,94,0.55);
+    border:1px solid rgba(159,180,199,0.4);
+    border-radius:4px;
+    opacity:0.55;
+    animation:sheetDrift 26s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes sheetDrift{
+    0%{transform:translate(0,0) rotate(-4deg);}
+    50%{transform:translate(20px,-24px) rotate(3deg);}
+    100%{transform:translate(0,0) rotate(-4deg);}
+  }
+
+  /* crane */
+  .crane{
+    position:absolute; top:2%; left:0;
+    width:260px; height:220px;
+    animation:craneMove 22s ease-in-out infinite;
+    pointer-events:none;
+    z-index:1;
+  }
+  @keyframes craneMove{
+    0%{transform:translateX(0);}
+    50%{transform:translateX(120px);}
+    100%{transform:translateX(0);}
+  }
+  .hook{
+    transform-origin:top center;
+    animation:swing 3.2s ease-in-out infinite;
+  }
+  @keyframes swing{
+    0%,100%{transform:rotate(-6deg);}
+    50%{transform:rotate(6deg);}
+  }
+  .light-blink{ animation:blink 1.6s ease-in-out infinite; }
+  .light-blink.delay{ animation-delay:0.8s; }
+  @keyframes blink{
+    0%,45%{opacity:1;}
+    50%,95%{opacity:0.15;}
+    100%{opacity:1;}
+  }
+
+  /* rising building */
+  .site{
+    position:absolute; right:2%; bottom:0;
+    width:220px; z-index:1;
+    display:flex; flex-direction:column-reverse;
+    align-items:center;
+    pointer-events:none;
+  }
+  .floor{
+    width:170px; height:0px;
+    background:linear-gradient(180deg,#3E5A78,#28405A);
+    border:2px solid #16324D;
+    border-bottom:none;
+    position:relative;
+    overflow:hidden;
+    transition:height 1.1s cubic-bezier(.2,.9,.3,1.2);
+    flex-shrink:0;
+  }
+  .floor.grown{height:46px;}
+  .floor .win{
+    position:absolute; width:14px;height:14px; background:var(--amber);
+    top:8px; border-radius:2px;
+  }
+  .roof{
+    width:0;height:0;
+    border-left:95px solid transparent;
+    border-right:95px solid transparent;
+    border-bottom:34px solid #16324D;
+    opacity:0; transform:translateY(20px);
+    transition:all 1s ease .3s;
+  }
+  .roof.grown{opacity:1; transform:translateY(0);}
+  .flag{
+    position:absolute; top:-58px; left:50%;
+    width:3px;height:44px;background:#cfd8e0;
+    opacity:0; transition:opacity .6s ease .8s;
+  }
+  .flag.grown{opacity:1;}
+  .flag::after{
+    content:"";position:absolute;top:0;left:3px;
+    width:22px;height:15px;background:var(--orange);
+    clip-path:polygon(0 0,100% 50%,0 100%);
+    animation:wave 1.4s ease-in-out infinite;
+  }
+  @keyframes wave{0%,100%{transform:skewY(0deg);}50%{transform:skewY(6deg);}}
+
+  /* ===================== HEADER ===================== */
+  header{
+    position:relative; z-index:5;
+    text-align:center;
+    padding:14px 10px 8px;
+    flex-shrink:0;
+  }
+  h1{
+    margin:0;
+    font-family:"Arial Black","Segoe UI",sans-serif;
+    font-weight:900;
+    letter-spacing:2px;
+    font-size:clamp(20px,3.2vw,34px);
+    color:var(--amber);
+    text-shadow:2px 2px 0 var(--navy-deep), 0 0 18px rgba(253,185,39,0.35);
+  }
+  .subtitle{
+    margin-top:4px;
+    color:var(--steel);
+    font-size:clamp(11px,1.3vw,14px);
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+  }
+
+  /* progress bar */
+  .progress-track{
+    position:relative; z-index:5;
+    display:flex; justify-content:center; gap:26px;
+    margin:6px auto 2px;
+  }
+  .p-step{
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    opacity:0.45; transition:opacity .3s ease;
+  }
+  .p-step.active,.p-step.done{opacity:1;}
+  .p-dot{
+    width:30px;height:30px;border-radius:50%;
+    background:var(--navy-deep); border:2px solid var(--steel);
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px; color:var(--steel); font-weight:700;
+  }
+  .p-step.active .p-dot{border-color:var(--amber); color:var(--amber); box-shadow:0 0 12px rgba(253,185,39,0.5);}
+  .p-step.done .p-dot{background:var(--success); border-color:var(--success); color:white;}
+  .p-label{font-size:10px; color:var(--steel); letter-spacing:1px; text-transform:uppercase;}
+
+  /* ===================== MAIN STAGE ===================== */
+  main{
+    position:relative; z-index:5;
+    flex:1; display:flex; align-items:center; justify-content:center;
+    padding:6px 16px 16px;
+    min-height:0;
+  }
+  .panel{
+    background:var(--paper);
+    border:3px solid var(--paper-edge);
+    border-radius:14px;
+    box-shadow:0 18px 40px rgba(0,0,0,0.4), inset 0 0 0 6px rgba(255,255,255,0.4);
+    width:min(920px,94%);
+    height:100%;
+    max-height:100%;
+    padding:16px 22px;
+    display:flex; flex-direction:column;
+    position:relative;
+    overflow:hidden;
+  }
+  .activity-title{
+    font-family:"Arial Black",sans-serif;
+    color:var(--navy);
+    font-size:clamp(15px,2vw,20px);
+    letter-spacing:0.5px;
+    margin:0 0 2px;
+  }
+  .activity-instructions{
+    font-size:clamp(11px,1.3vw,13.5px);
+    color:#3C5670;
+    margin:0 0 10px;
+  }
+
+  .tray{
+    display:flex; gap:14px; flex-wrap:wrap;
+    justify-content:center;
+    padding:10px;
+    background:rgba(255,255,255,0.5);
+    border:2px dashed var(--steel);
+    border-radius:10px;
+    min-height:78px;
+    margin-bottom:12px;
+  }
+  .drag-item{
+    touch-action:none; cursor:grab;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    padding:8px 10px;
+    background:var(--white);
+    border:2px solid var(--navy);
+    border-radius:8px;
+    font-size:11px; font-weight:700; color:var(--navy);
+    box-shadow:0 3px 0 rgba(0,0,0,0.15);
+    transition:transform .15s ease, box-shadow .15s ease;
+    z-index:20;
+    min-width:74px;
+    text-align:center;
+  }
+  .drag-item:active{cursor:grabbing;}
+  .drag-item.dragging{
+    position:fixed; z-index:999; box-shadow:0 10px 24px rgba(0,0,0,0.35);
+    transform:scale(1.08) rotate(-2deg);
+  }
+  .drag-item.placed{
+    opacity:0.35; pointer-events:none; filter:grayscale(0.6);
+  }
+  .drag-item.shake{ animation:shakeItem .45s; }
+  @keyframes shakeItem{
+    0%,100%{transform:translateX(0);}
+    20%{transform:translateX(-8px);}
+    40%{transform:translateX(8px);}
+    60%{transform:translateX(-6px);}
+    80%{transform:translateX(6px);}
+  }
+
+  .icon-box{width:30px;height:30px;display:flex;align-items:center;justify-content:center;}
+  .ic-stick{width:5px;height:26px;background:#D9A441;border-radius:2px;}
+  .ic-marsh{width:20px;height:20px;background:#FFFDF6;border:2px solid #C7B98E;border-radius:50%;}
+  .ic-base{width:28px;height:8px;background:#7C8C9B;border-radius:2px;}
+  .ic-brace{width:5px;height:26px;background:var(--orange);border-radius:2px;transform:rotate(35deg);}
+
+  .zones-wrap{
+    display:flex; gap:16px; justify-content:center; flex-wrap:wrap;
+    flex:1; align-content:center;
+  }
+  .drop-zone{
+    width:150px; min-height:66px;
+    border:3px dashed var(--steel);
+    border-radius:10px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:4px; padding:8px;
+    background:rgba(255,255,255,0.35);
+    transition:background .2s ease, border-color .2s ease, transform .15s ease;
+    position:relative;
+  }
+  .drop-zone .zlabel{font-size:10.5px; font-weight:700; color:#3C5670; text-transform:uppercase; letter-spacing:0.4px;}
+  .drop-zone.over{border-color:var(--amber); background:rgba(253,185,39,0.18);}
+  .drop-zone.correct{border-style:solid; border-color:var(--success); background:rgba(63,174,121,0.18);}
+  .drop-zone.wrong{border-color:var(--danger); animation:shakeItem .45s;}
+  .zone-check{
+    position:absolute; top:4px; right:6px; font-size:15px; color:var(--success); opacity:0;
+  }
+  .drop-zone.correct .zone-check{opacity:1;}
+
+  /* order slots (activities 2 & 3) */
+  .slots-row{
+    display:flex; gap:12px; justify-content:center; flex-wrap:wrap;
+    flex:1; align-content:center;
+  }
+  .slot{
+    width:158px; min-height:58px;
+    border:3px dashed var(--steel);
+    border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    gap:6px; padding:6px 8px;
+    background:rgba(255,255,255,0.35);
+    position:relative;
+    transition:background .2s ease,border-color .2s ease;
+  }
+  .slot .snum{
+    position:absolute; top:-10px; left:-10px;
+    width:22px;height:22px;border-radius:50%;
+    background:var(--navy); color:var(--amber);
+    font-size:11px; font-weight:800;
+    display:flex;align-items:center;justify-content:center;
+    border:2px solid var(--amber);
+  }
+  .slot.over{border-color:var(--amber); background:rgba(253,185,39,0.18);}
+  .slot.correct{border-style:solid; border-color:var(--success); background:rgba(63,174,121,0.18);}
+  .slot.wrong{border-color:var(--danger); animation:shakeItem .45s;}
+  .slot .drag-item{min-width:110px;}
+
+  .feedback-msg{
+    text-align:center; font-size:12.5px; font-weight:700; min-height:18px;
+    margin-top:8px;
+  }
+  .feedback-msg.ok{color:var(--success);}
+  .feedback-msg.bad{color:var(--danger);}
+
+  .panel-footer{
+    display:flex; justify-content:center; margin-top:10px;
+  }
+  .btn{
+    font-family:inherit; font-weight:800; letter-spacing:0.5px;
+    padding:9px 22px; border-radius:24px; border:none; cursor:pointer;
+    background:var(--navy); color:var(--amber);
+    box-shadow:0 4px 0 var(--navy-deep);
+    transition:transform .12s ease;
+    font-size:12.5px; text-transform:uppercase;
+  }
+  .btn:active{transform:translateY(3px); box-shadow:0 1px 0 var(--navy-deep);}
+  .btn.primary{background:var(--amber); color:var(--navy); box-shadow:0 4px 0 var(--amber-deep);}
+
+  /* ===================== MODAL ===================== */
+  .modal-overlay{
+    position:fixed; inset:0; z-index:100;
+    background:rgba(7,27,51,0.72);
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none;
+    transition:opacity .25s ease;
+  }
+  .modal-overlay.show{opacity:1; pointer-events:auto;}
+  .modal-card{
+    background:var(--paper);
+    border:3px solid var(--amber);
+    border-radius:16px;
+    padding:26px 30px;
+    width:min(400px,86%);
+    text-align:center;
+    box-shadow:0 20px 50px rgba(0,0,0,0.5);
+    transform:scale(0.85) translateY(10px);
+    transition:transform .3s ease;
+  }
+  .modal-overlay.show .modal-card{transform:scale(1) translateY(0);}
+  .modal-icon{font-size:40px; margin-bottom:6px;}
+  .modal-title{
+    font-family:"Arial Black",sans-serif; color:var(--navy);
+    font-size:19px; margin:0 0 8px; letter-spacing:0.5px;
+  }
+  .modal-text{color:#3C5670; font-size:13.5px; margin:0 0 18px; line-height:1.5;}
+
+  .confetti{
+    position:absolute; top:-20px; font-size:20px;
+    animation:fall linear forwards;
+  }
+  @keyframes fall{
+    0%{transform:translateY(0) rotate(0deg); opacity:1;}
+    100%{transform:translateY(115vh) rotate(360deg); opacity:0.9;}
+  }
+
+  @media (max-width:760px){
+    .site{width:150px;}
+    .floor{width:120px;}
+    .floor.grown{height:34px;}
+    .crane{width:180px;height:150px;}
+    .drop-zone{width:120px;}
+    .slot{width:130px;}
+  }
+  @media (max-height:560px){
+    .panel{padding:10px 16px;}
+    h1{font-size:18px;}
+    .subtitle{display:none;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="scene-bg" id="sceneBg"></div>
+
+  <!-- Crane -->
+  <svg class="crane" viewBox="0 0 260 220" xmlns="http://www.w3.org/2000/svg">
+    <rect x="122" y="90" width="10" height="120" fill="#7C8C9B"/>
+    <polygon points="127,10 250,90 4,90" fill="none" stroke="#FDB927" stroke-width="6"/>
+    <rect x="105" y="90" width="44" height="12" fill="var(--orange)"/>
+    <circle cx="30" cy="86" r="5" fill="var(--amber)" class="light-blink"/>
+    <circle cx="230" cy="86" r="5" fill="var(--orange)" class="light-blink delay"/>
+    <g class="hook">
+      <line x1="60" y1="90" x2="60" y2="150" stroke="#5B6B78" stroke-width="3"/>
+      <rect x="50" y="150" width="20" height="14" rx="3" fill="#5B6B78"/>
+    </g>
+  </svg>
+
+  <!-- Rising building -->
+  <div class="site" id="siteBuilding">
+    <div class="roof" id="roofEl"></div>
+    <div class="flag" id="flagEl"></div>
+    <div class="floor" data-f="4" id="floor4"><span class="win light-blink" style="left:14px;"></span><span class="win light-blink delay" style="right:14px;left:auto;"></span></div>
+    <div class="floor" data-f="3" id="floor3"><span class="win light-blink delay" style="left:14px;"></span><span class="win light-blink" style="right:14px;left:auto;"></span></div>
+    <div class="floor" data-f="2" id="floor2"><span class="win light-blink" style="left:14px;"></span><span class="win light-blink delay" style="right:14px;left:auto;"></span></div>
+    <div class="floor grown" data-f="1" id="floor1"><span class="win light-blink delay" style="left:14px;"></span><span class="win light-blink" style="right:14px;left:auto;"></span></div>
+  </div>
+
+  <header>
+    <h1>EARTHQUAKE-PROOF BUILDING CHALLENGE</h1>
+    <div class="subtitle">Design it strong. Build it smart. Make it stand.</div>
+  </header>
+
+  <div class="progress-track">
+    <div class="p-step" id="pstep1"><div class="p-dot">1</div><div class="p-label">Assemble</div></div>
+    <div class="p-step" id="pstep2"><div class="p-dot">2</div><div class="p-label">Sequence</div></div>
+    <div class="p-step" id="pstep3"><div class="p-dot">3</div><div class="p-label">Reinforce</div></div>
+  </div>
+
+  <main>
+    <div class="panel">
+
+      <!-- ACTIVITY 1 -->
+      <div class="activity" id="activity1">
+        <h2 class="activity-title">Activity 1 — Assemble the Tower</h2>
+        <p class="activity-instructions">Drag each material into the part of the tower where it belongs.</p>
+        <div class="tray" id="tray1"></div>
+        <div class="zones-wrap" id="zones1"></div>
+        <div class="feedback-msg" id="feedback1">&nbsp;</div>
+        <div class="panel-footer"><button class="btn" id="reset1">Reset</button></div>
+      </div>
+
+      <!-- ACTIVITY 2 -->
+      <div class="activity" id="activity2" style="display:none;">
+        <h2 class="activity-title">Activity 2 — Order the Engineering Steps</h2>
+        <p class="activity-instructions">Drag the steps into the correct building order, left to right.</p>
+        <div class="tray" id="tray2"></div>
+        <div class="slots-row" id="slots2"></div>
+        <div class="feedback-msg" id="feedback2">&nbsp;</div>
+        <div class="panel-footer"><button class="btn" id="reset2">Reset</button></div>
+      </div>
+
+      <!-- ACTIVITY 3 -->
+      <div class="activity" id="activity3" style="display:none;">
+        <h2 class="activity-title">Activity 3 — Reinforce Against the Shake</h2>
+        <p class="activity-instructions">Arrange the earthquake-engineering sequence in the correct order.</p>
+        <div class="tray" id="tray3"></div>
+        <div class="slots-row" id="slots3"></div>
+        <div class="feedback-msg" id="feedback3">&nbsp;</div>
+        <div class="panel-footer"><button class="btn" id="reset3">Reset</button></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-card">
+    <div class="modal-icon" id="modalIcon">🏗️</div>
+    <h3 class="modal-title" id="modalTitle">Great work!</h3>
+    <p class="modal-text" id="modalText">On to the next challenge.</p>
+    <button class="btn primary" id="modalBtn">Continue</button>
+  </div>
+</div>
+
+<script>
+(function(){
+
+  /* ---------- background ambience: dust + blueprint sheets ---------- */
+  const sceneBg = document.getElementById('sceneBg');
+  for(let i=0;i<16;i++){
+    const d=document.createElement('div');
+    d.className='dust';
+    const size=2+Math.random()*4;
+    d.style.width=size+'px'; d.style.height=size+'px';
+    d.style.left=(Math.random()*100)+'vw';
+    d.style.bottom='-10px';
+    d.style.animationDuration=(10+Math.random()*14)+'s';
+    d.style.animationDelay=(Math.random()*10)+'s';
+    document.getElementById('app').appendChild(d);
+  }
+  const sheetPositions=[{top:'12%',left:'8%'},{top:'62%',left:'4%'},{top:'70%',left:'55%'},{top:'8%',left:'60%'}];
+  sheetPositions.forEach((p,i)=>{
+    const s=document.createElement('div');
+    s.className='blueprint-sheet';
+    s.style.top=p.top; s.style.left=p.left;
+    s.style.animationDelay=(i*3)+'s';
+    document.getElementById('app').appendChild(s);
+  });
+
+  /* ---------- utility ---------- */
+  function shuffle(arr){
+    const a=arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+  }
+
+  function iconFor(id){
+    const map={
+      spaghetti:'<div class="icon-box"><div class="ic-stick"></div></div>',
+      marshmallow:'<div class="icon-box"><div class="ic-marsh"></div></div>',
+      base:'<div class="icon-box"><div class="ic-base"></div></div>',
+      brace:'<div class="icon-box"><div class="ic-brace"></div></div>'
+    };
+    return map[id] || '';
+  }
+
+  /* ============================================================
+     Generic drag engine (pointer events, mouse + touch)
+     ============================================================ */
+  function makeDraggable(item, getZones, onDrop){
+    let startX,startY,origParent,origNext,ghostRect;
+    item.addEventListener('pointerdown', (e)=>{
+      if(item.classList.contains('placed')) return;
+      e.preventDefault();
+      item.setPointerCapture(e.pointerId);
+      const rect=item.getBoundingClientRect();
+      origParent=item.parentNode; origNext=item.nextSibling;
+      startX=e.clientX - rect.left; startY=e.clientY - rect.top;
+      item.classList.add('dragging');
+      item.style.width=rect.width+'px';
+      item.style.left=rect.left+'px';
+      item.style.top=rect.top+'px';
+      document.body.appendChild(item);
+
+      function move(ev){
+        item.style.left=(ev.clientX-startX)+'px';
+        item.style.top=(ev.clientY-startY)+'px';
+        const zones=getZones();
+        zones.forEach(z=>z.el.classList.remove('over'));
+        item.style.pointerEvents='none';
+        const under=document.elementFromPoint(ev.clientX,ev.clientY);
+        item.style.pointerEvents='';
+        const zone=zones.find(z=>z.el.contains(under));
+        if(zone) zone.el.classList.add('over');
+      }
+      function up(ev){
+        document.removeEventListener('pointermove',move);
+        document.removeEventListener('pointerup',up);
+        item.classList.remove('dragging');
+        item.style.position=''; item.style.left=''; item.style.top=''; item.style.width='';
+        const zones=getZones();
+        zones.forEach(z=>z.el.classList.remove('over'));
+        item.style.pointerEvents='none';
+        const under=document.elementFromPoint(ev.clientX,ev.clientY);
+        item.style.pointerEvents='';
+        const zone=zones.find(z=>z.el.contains(under));
+        if(zone){
+          onDrop(item, zone);
+        } else {
+          origParent.insertBefore(item, origNext);
+        }
+      }
+      document.addEventListener('pointermove',move);
+      document.addEventListener('pointerup',up);
+    });
+  }
+
+  function returnToTray(item, trayEl){
+    trayEl.appendChild(item);
+  }
+
+  function bounceWrong(zoneEl, item, trayEl){
+    zoneEl.classList.add('wrong');
+    item.classList.add('shake');
+    setTimeout(()=>{
+      zoneEl.classList.remove('wrong');
+      item.classList.remove('shake');
+      returnToTray(item, trayEl);
+    },420);
+  }
+
+  /* ============================================================
+     ACTIVITY 1 — match parts to zones
+     ============================================================ */
+  const A1_ITEMS=[
+    {id:'spaghetti',label:'Spaghetti Stick'},
+    {id:'marshmallow',label:'Marshmallow'},
+    {id:'base',label:'Base Support'},
+    {id:'brace',label:'Diagonal Brace'}
+  ];
+  const A1_ZONES=[
+    {id:'base',label:'Foundation'},
+    {id:'spaghetti',label:'Vertical Beams'},
+    {id:'marshmallow',label:'Joints'},
+    {id:'brace',label:'Cross-Bracing'}
+  ];
+
+  const tray1=document.getElementById('tray1');
+  const zonesWrap1=document.getElementById('zones1');
+  const feedback1=document.getElementById('feedback1');
+  let a1Correct=0;
+
+  function buildActivity1(){
+    tray1.innerHTML=''; zonesWrap1.innerHTML=''; a1Correct=0;
+    feedback1.textContent='\u00A0'; feedback1.className='feedback-msg';
+
+    shuffle(A1_ITEMS).forEach(it=>{
+      const el=document.createElement('div');
+      el.className='drag-item'; el.dataset.id=it.id;
+      el.innerHTML=iconFor(it.id)+'<span>'+it.label+'</span>';
+      tray1.appendChild(el);
+      makeDraggable(el, getZones1, onDrop1);
+    });
+
+    shuffle(A1_ZONES).forEach(z=>{
+      const zEl=document.createElement('div');
+      zEl.className='drop-zone'; zEl.dataset.accepts=z.id;
+      zEl.innerHTML='<div class="zlabel">'+z.label+'</div><span class="zone-check">&#10003;</span>';
+      zonesWrap1.appendChild(zEl);
+    });
+  }
+  function getZones1(){
+    return Array.from(zonesWrap1.querySelectorAll('.drop-zone')).map(el=>({el}));
+  }
+  function onDrop1(item, zone){
+    const zEl=zone.el;
+    if(zEl.classList.contains('correct')){
+      returnToTray(item, tray1);
+      return;
+    }
+    if(zEl.dataset.accepts===item.dataset.id){
+      zEl.classList.add('correct');
+      zEl.appendChild(item);
+      item.classList.add('placed');
+      a1Correct++;
+      feedback1.textContent='Nice! That piece fits perfectly.';
+      feedback1.className='feedback-msg ok';
+      if(a1Correct===A1_ZONES.length){
+        setTimeout(()=>completeActivity(1),500);
+      }
+    }else{
+      feedback1.textContent='Not quite — try another spot.';
+      feedback1.className='feedback-msg bad';
+      bounceWrong(zEl, item, tray1);
+    }
+  }
+  document.getElementById('reset1').addEventListener('click', buildActivity1);
+
+  /* ============================================================
+     ACTIVITY 2 & 3 — ordering engines (shared logic)
+     ============================================================ */
+  function buildOrderingActivity(config){
+    const {items, trayEl, slotsEl, feedbackEl, onComplete} = config;
+    let filled = new Array(items.length).fill(null);
+
+    function render(){
+      trayEl.innerHTML=''; slotsEl.innerHTML='';
+      feedbackEl.textContent='\u00A0'; feedbackEl.className='feedback-msg';
+      filled = new Array(items.length).fill(null);
+
+      const order = shuffle(items.map((it,idx)=>({...it, correctIndex:idx})));
+      order.forEach(it=>{
+        const el=document.createElement('div');
+        el.className='drag-item'; el.dataset.correctIndex=it.correctIndex;
+        el.innerHTML='<span>'+it.label+'</span>';
+        trayEl.appendChild(el);
+        el.__slotsGetter = getSlots;
+        makeDraggable(el, getSlots, onDropHandler);
+      });
+
+      items.forEach((it,idx)=>{
+        const s=document.createElement('div');
+        s.className='slot'; s.dataset.index=idx;
+        s.innerHTML='<div class="snum">'+(idx+1)+'</div>';
+        slotsEl.appendChild(s);
+      });
+    }
+    function getSlots(){
+      return Array.from(slotsEl.querySelectorAll('.slot')).map(el=>({el}));
+    }
+    function onDropHandler(item, slot){
+      const sEl=slot.el;
+      const idx=parseInt(sEl.dataset.index,10);
+      if(sEl.classList.contains('correct')){
+        trayEl.appendChild(item);
+        return;
+      }
+      if(parseInt(item.dataset.correctIndex,10)===idx){
+        sEl.classList.add('correct');
+        sEl.appendChild(item);
+        item.classList.add('placed');
+        filled[idx]=true;
+        feedbackEl.textContent='Correct position!';
+        feedbackEl.className='feedback-msg ok';
+        if(filled.every(Boolean)){
+          setTimeout(onComplete,500);
+        }
+      }else{
+        feedbackEl.textContent='That step belongs somewhere else.';
+        feedbackEl.className='feedback-msg bad';
+        bounceWrong(sEl, item, trayEl);
+      }
+    }
+    render();
+    return { reset: render };
+  }
+
+  const A2_ITEMS=[
+    {label:'Plan the design'},
+    {label:'Build the structure'},
+    {label:'Test on the shake table'},
+    {label:'Improve the design'}
+  ];
+  const a2 = buildOrderingActivity({
+    items:A2_ITEMS,
+    trayEl:document.getElementById('tray2'),
+    slotsEl:document.getElementById('slots2'),
+    feedbackEl:document.getElementById('feedback2'),
+    onComplete:()=>completeActivity(2)
+  });
+  document.getElementById('reset2').addEventListener('click', a2.reset);
+
+  const A3_ITEMS=[
+    {label:'Strong Foundation'},
+    {label:'Balanced Frame'},
+    {label:'Flexible Joints'},
+    {label:'Shake Test'},
+    {label:'Final Evaluation'}
+  ];
+  const a3 = buildOrderingActivity({
+    items:A3_ITEMS,
+    trayEl:document.getElementById('tray3'),
+    slotsEl:document.getElementById('slots3'),
+    feedbackEl:document.getElementById('feedback3'),
+    onComplete:()=>completeActivity(3)
+  });
+  document.getElementById('reset3').addEventListener('click', a3.reset);
+
+  /* ============================================================
+     FLOW CONTROL: progress, modals, building growth
+     ============================================================ */
+  const modal=document.getElementById('modal');
+  const modalIcon=document.getElementById('modalIcon');
+  const modalTitle=document.getElementById('modalTitle');
+  const modalText=document.getElementById('modalText');
+  const modalBtn=document.getElementById('modalBtn');
+
+  function showModal(icon,title,text,btnLabel,onClick){
+    modalIcon.textContent=icon;
+    modalTitle.textContent=title;
+    modalText.textContent=text;
+    modalBtn.textContent=btnLabel;
+    modal.classList.add('show');
+    modalBtn.onclick=()=>{ modal.classList.remove('show'); onClick(); };
+  }
+
+  function setProgress(step){
+    for(let i=1;i<=3;i++){
+      const el=document.getElementById('pstep'+i);
+      el.classList.remove('active','done');
+      if(i<step) el.classList.add('done');
+      else if(i===step) el.classList.add('active');
+    }
+  }
+
+  function growFloor(n){
+    const f=document.getElementById('floor'+n);
+    if(f) f.classList.add('grown');
+    if(n===4){
+      document.getElementById('roofEl').classList.add('grown');
+      document.getElementById('flagEl').classList.add('grown');
+    }
+  }
+
+  function completeActivity(num){
+    if(num===1){
+      growFloor(2);
+      showModal('🧱','Foundation & Frame Ready!','Your tower parts are assembled correctly. Next, put the build process in order.','Next Challenge',()=>{
+        document.getElementById('activity1').style.display='none';
+        document.getElementById('activity2').style.display='';
+        setProgress(2);
+      });
+    } else if(num===2){
+      growFloor(3);
+      document.getElementById('pstep2').classList.add('done');
+      showModal('📋','Process Mastered!','You sequenced the engineering steps perfectly. One more challenge — reinforce it against the shake!','Final Challenge',()=>{
+        document.getElementById('activity2').style.display='none';
+        document.getElementById('activity3').style.display='';
+        setProgress(3);
+      });
+    } else if(num===3){
+      growFloor(4);
+      document.getElementById('pstep3').classList.add('done');
+      launchCelebration();
+    }
+  }
+
+  function launchCelebration(){
+    const emojis=['🏗️','🏢','⚙️','🧱','🚧','🎉'];
+    const app=document.getElementById('app');
+    const pieces=[];
+    for(let i=0;i<26;i++){
+      const c=document.createElement('div');
+      c.className='confetti';
+      c.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+      c.style.left=(Math.random()*100)+'vw';
+      c.style.animationDuration=(2.4+Math.random()*2)+'s';
+      c.style.animationDelay=(Math.random()*1.2)+'s';
+      app.appendChild(c);
+      pieces.push(c);
+    }
+    setTimeout(()=>{
+      showModal('🏆','Structure Complete!','Your building stands strong through the shake test. Every engineer learns by testing, failing, and improving — you did it all!','Play Again',()=>{
+        pieces.forEach(p=>p.remove());
+        resetEverything();
+      });
+    },300);
+  }
+
+  function resetEverything(){
+    // reset floors
+    [2,3,4].forEach(n=>document.getElementById('floor'+n).classList.remove('grown'));
+    document.getElementById('roofEl').classList.remove('grown');
+    document.getElementById('flagEl').classList.remove('grown');
+
+    document.getElementById('activity3').style.display='none';
+    document.getElementById('activity2').style.display='none';
+    document.getElementById('activity1').style.display='';
+    setProgress(1);
+
+    buildActivity1();
+    a2.reset();
+    a3.reset();
+  }
+
+  /* ---------- init ---------- */
+  buildActivity1();
+  setProgress(1);
+
+})();
+</script>
+</body>
+</html>

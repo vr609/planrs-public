@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DIODE — ONE-WAY VALVE FOR CURRENT</title>
+<style>
+  :root{
+    --bg:#05060F;
+    --bg2:#0A0E1F;
+    --grid-line:rgba(0,240,255,0.10);
+    --cyan:#00F0FF;
+    --magenta:#FF2E9A;
+    --green:#39FF88;
+    --amber:#FFD23F;
+    --panel:#0D1226;
+    --panel-edge:#1E2A4A;
+    --ink:#DCEBFF;
+    --muted:#7C93B8;
+    --danger:#FF4D5E;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;width:100%;height:100%;overflow:hidden;
+    background:var(--bg);
+    font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;
+    color:var(--ink);
+    -webkit-user-select:none;user-select:none;
+  }
+  #app{ position:relative; width:100vw; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+
+  /* ===================== BACKGROUND SCENE ===================== */
+  .scene-bg{
+    position:absolute;inset:0;z-index:0;
+    background:
+      linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0/34px 34px,
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0/34px 34px,
+      radial-gradient(ellipse at 25% 15%, #131C3C 0%, var(--bg2) 45%, var(--bg) 100%);
+  }
+  .grid-floor{
+    position:absolute; left:0; right:0; bottom:0; height:42%;
+    background:
+      linear-gradient(90deg, rgba(0,240,255,0.16) 1px, transparent 1px) 0 0/44px 100%,
+      linear-gradient(0deg, rgba(0,240,255,0.06), transparent);
+    transform:perspective(280px) rotateX(58deg);
+    transform-origin:bottom;
+    animation:floorScroll 5s linear infinite;
+    opacity:0.55;
+    pointer-events:none;
+  }
+  @keyframes floorScroll{ 0%{background-position:0 0;} 100%{background-position:44px 0;} }
+
+  .particle{
+    position:absolute; border-radius:2px;
+    background:var(--cyan);
+    box-shadow:0 0 8px 2px var(--cyan);
+    animation:floatUp linear infinite;
+    pointer-events:none;
+  }
+  @keyframes floatUp{
+    0%{transform:translateY(0);opacity:0;}
+    12%{opacity:0.9;}
+    88%{opacity:0.6;}
+    100%{transform:translateY(-115vh);opacity:0;}
+  }
+
+  .neon-sign{
+    position:absolute;
+    font-family:"Consolas","Courier New",monospace;
+    font-weight:700; letter-spacing:3px;
+    opacity:0.5;
+    animation:neonPulse 2.4s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes neonPulse{
+    0%,100%{opacity:0.35; filter:brightness(1);}
+    50%{opacity:0.85; filter:brightness(1.3);}
+  }
+
+  .trace-line{
+    position:absolute; height:2px;
+    background:linear-gradient(90deg, transparent, var(--cyan), transparent);
+    opacity:0.5;
+    animation:tracePulse 3s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes tracePulse{
+    0%,100%{opacity:0.15;}
+    50%{opacity:0.7;}
+  }
+
+  /* ===================== SIDE CIRCUIT STRIP (signature) ===================== */
+  .circuit-strip{
+    position:absolute; right:1.2%; top:50%; transform:translateY(-50%);
+    width:150px; z-index:1;
+    pointer-events:none;
+  }
+  .circuit-strip svg{width:100%; height:auto; overflow:visible;}
+  .node-label{ font-size:7px; fill:var(--muted); font-family:"Consolas",monospace; letter-spacing:0.5px;}
+  .trace{ stroke:#1E2A4A; stroke-width:3; fill:none; transition:stroke 0.6s ease, filter 0.6s ease; }
+  .trace.lit{ stroke:var(--cyan); filter:drop-shadow(0 0 5px var(--cyan)); }
+  .comp-glow{ opacity:0.25; transition:opacity 0.6s ease, filter 0.6s ease; }
+  .comp-glow.lit{ opacity:1; filter:drop-shadow(0 0 6px currentColor); }
+  .led-bulb{ fill:#3A0E18; transition:fill 0.5s ease, filter 0.5s ease; }
+  .led-bulb.glow{ fill:var(--magenta); filter:drop-shadow(0 0 10px var(--magenta)); animation:ledBlink 1s ease-in-out infinite; }
+  @keyframes ledBlink{ 0%,100%{opacity:1;} 50%{opacity:0.7;} }
+
+  /* ===================== HEADER ===================== */
+  header{ position:relative; z-index:5; text-align:center; padding:14px 10px 6px; flex-shrink:0; }
+  h1{
+    margin:0; font-family:"Consolas","Courier New",monospace; font-weight:900;
+    letter-spacing:2px; font-size:clamp(18px,3vw,32px);
+    color:var(--cyan);
+    text-shadow:0 0 8px rgba(0,240,255,0.7), 0 0 22px rgba(0,240,255,0.35);
+  }
+  .subtitle{
+    margin-top:4px; color:var(--muted); font-size:clamp(10px,1.2vw,13px);
+    letter-spacing:1.5px; text-transform:uppercase;
+  }
+
+  .progress-track{ position:relative; z-index:5; display:flex; justify-content:center; gap:26px; margin:6px auto 2px; }
+  .p-step{ display:flex; flex-direction:column; align-items:center; gap:4px; opacity:0.4; transition:opacity .3s ease; }
+  .p-step.active,.p-step.done{opacity:1;}
+  .p-dot{
+    width:30px;height:30px;border-radius:50%;
+    background:var(--bg2); border:2px solid var(--muted);
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px; color:var(--muted); font-weight:700; font-family:"Consolas",monospace;
+  }
+  .p-step.active .p-dot{ border-color:var(--cyan); color:var(--cyan); box-shadow:0 0 12px rgba(0,240,255,0.6); }
+  .p-step.done .p-dot{ background:var(--green); border-color:var(--green); color:#03130A; }
+  .p-label{ font-size:9.5px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
+
+  /* ===================== MAIN PANEL ===================== */
+  main{ position:relative; z-index:5; flex:1; display:flex; align-items:center; justify-content:center; padding:6px 16px 16px; min-height:0; }
+  .panel{
+    background:linear-gradient(180deg, rgba(13,18,38,0.92), rgba(10,14,31,0.96));
+    border:2px solid var(--panel-edge);
+    border-radius:14px;
+    box-shadow:0 0 0 1px rgba(0,240,255,0.15), 0 20px 50px rgba(0,0,0,0.6), inset 0 0 40px rgba(0,240,255,0.03);
+    width:min(920px,94%); height:100%; max-height:100%;
+    padding:16px 22px; display:flex; flex-direction:column; position:relative; overflow:hidden;
+  }
+  .activity-title{
+    font-family:"Consolas","Courier New",monospace; color:var(--cyan);
+    font-size:clamp(14px,1.9vw,19px); letter-spacing:0.5px; margin:0 0 2px;
+    text-shadow:0 0 6px rgba(0,240,255,0.4);
+  }
+  .activity-instructions{ font-size:clamp(11px,1.3vw,13.5px); color:var(--muted); margin:0 0 10px; }
+
+  .tray{
+    display:flex; gap:12px; flex-wrap:wrap; justify-content:center; padding:10px;
+    background:rgba(0,240,255,0.04);
+    border:2px dashed var(--panel-edge); border-radius:10px; min-height:76px; margin-bottom:12px;
+  }
+  .drag-item{
+    touch-action:none; cursor:grab; display:flex; flex-direction:column; align-items:center; gap:4px;
+    padding:8px 10px; background:#111A34; border:2px solid var(--cyan); border-radius:8px;
+    font-size:10.5px; font-weight:700; color:var(--ink);
+    box-shadow:0 0 8px rgba(0,240,255,0.25);
+    transition:transform .15s ease, box-shadow .15s ease;
+    z-index:20; min-width:78px; text-align:center;
+  }
+  .drag-item:active{cursor:grabbing;}
+  .drag-item.dragging{ position:fixed; z-index:999; box-shadow:0 0 20px rgba(0,240,255,0.6); transform:scale(1.08) rotate(-2deg); }
+  .drag-item.placed{ opacity:0.3; pointer-events:none; filter:grayscale(0.5); }
+  .drag-item.shake{ animation:shakeItem .45s; }
+  @keyframes shakeItem{
+    0%,100%{transform:translateX(0);} 20%{transform:translateX(-8px);} 40%{transform:translateX(8px);}
+    60%{transform:translateX(-6px);} 80%{transform:translateX(6px);}
+  }
+
+  .icon-box{width:32px;height:32px;display:flex;align-items:center;justify-content:center;}
+  .ic-battery{ width:22px;height:14px;border:2px solid var(--amber); border-radius:2px; position:relative; }
+  .ic-battery::after{ content:"";position:absolute;right:-5px;top:3px;width:3px;height:6px;background:var(--amber);}
+  .ic-diode{ width:0;height:0;border-top:9px solid transparent;border-bottom:9px solid transparent;border-left:16px solid var(--magenta); position:relative;}
+  .ic-diode::after{content:"";position:absolute;left:16px;top:-9px;width:3px;height:18px;background:var(--magenta);}
+  .ic-resistor{ width:26px;height:10px; background:repeating-linear-gradient(115deg, var(--amber) 0 3px, transparent 3px 6px); border:1px solid var(--amber); border-radius:2px;}
+  .ic-led{ width:18px;height:18px;border-radius:50%;background:var(--green); box-shadow:0 0 8px var(--green);}
+  .ic-wire{ width:26px;height:3px;background:var(--cyan); box-shadow:0 0 6px var(--cyan);}
+
+  .zones-wrap{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; flex:1; align-content:center; }
+  .drop-zone{
+    width:140px; min-height:64px; border:3px dashed var(--panel-edge); border-radius:10px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:8px;
+    background:rgba(255,255,255,0.02); transition:background .2s ease, border-color .2s ease; position:relative;
+  }
+  .drop-zone .zlabel{ font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.3px; text-align:center;}
+  .drop-zone.over{ border-color:var(--cyan); background:rgba(0,240,255,0.08); }
+  .drop-zone.correct{ border-style:solid; border-color:var(--green); background:rgba(57,255,136,0.1); }
+  .drop-zone.wrong{ border-color:var(--danger); animation:shakeItem .45s; }
+  .zone-check{ position:absolute; top:4px; right:6px; font-size:14px; color:var(--green); opacity:0; }
+  .drop-zone.correct .zone-check{opacity:1;}
+
+  .slots-row{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; flex:1; align-content:center; }
+  .slot{
+    width:150px; min-height:56px; border:3px dashed var(--panel-edge); border-radius:10px;
+    display:flex; align-items:center; justify-content:center; gap:6px; padding:6px 8px;
+    background:rgba(255,255,255,0.02); position:relative; transition:background .2s ease, border-color .2s ease;
+  }
+  .slot .snum{
+    position:absolute; top:-10px; left:-10px; width:21px;height:21px;border-radius:50%;
+    background:var(--bg2); color:var(--cyan); font-size:10.5px; font-weight:800;
+    display:flex;align-items:center;justify-content:center; border:2px solid var(--cyan);
+    font-family:"Consolas",monospace;
+  }
+  .slot.over{ border-color:var(--cyan); background:rgba(0,240,255,0.08); }
+  .slot.correct{ border-style:solid; border-color:var(--green); background:rgba(57,255,136,0.1); }
+  .slot.wrong{ border-color:var(--danger); animation:shakeItem .45s; }
+  .slot .drag-item{min-width:106px;}
+
+  .feedback-msg{ text-align:center; font-size:12px; font-weight:700; min-height:18px; margin-top:8px; font-family:"Consolas",monospace;}
+  .feedback-msg.ok{color:var(--green);}
+  .feedback-msg.bad{color:var(--danger);}
+
+  .panel-footer{ display:flex; justify-content:center; gap:10px; margin-top:10px; }
+  .btn{
+    font-family:"Consolas","Courier New",monospace; font-weight:800; letter-spacing:0.5px;
+    padding:9px 22px; border-radius:22px; border:2px solid var(--cyan); cursor:pointer;
+    background:transparent; color:var(--cyan);
+    box-shadow:0 0 10px rgba(0,240,255,0.25);
+    transition:transform .12s ease, background .2s ease;
+    font-size:12px; text-transform:uppercase;
+  }
+  .btn:active{transform:translateY(2px);}
+  .btn.primary{ background:var(--cyan); color:#03131A; box-shadow:0 0 16px rgba(0,240,255,0.6); }
+
+  .sub-note{
+    text-align:center; font-size:11px; color:var(--amber); margin:6px 0 0; font-family:"Consolas",monospace;
+  }
+
+  /* ===================== MODAL ===================== */
+  .modal-overlay{
+    position:fixed; inset:0; z-index:100; background:rgba(2,4,12,0.82);
+    display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none;
+    transition:opacity .25s ease;
+  }
+  .modal-overlay.show{opacity:1; pointer-events:auto;}
+  .modal-card{
+    background:var(--panel); border:2px solid var(--cyan); border-radius:16px; padding:26px 30px;
+    width:min(400px,86%); text-align:center;
+    box-shadow:0 0 40px rgba(0,240,255,0.35), 0 20px 50px rgba(0,0,0,0.6);
+    transform:scale(0.85) translateY(10px); transition:transform .3s ease;
+  }
+  .modal-overlay.show .modal-card{transform:scale(1) translateY(0);}
+  .modal-icon{font-size:38px; margin-bottom:6px;}
+  .modal-title{ font-family:"Consolas",monospace; color:var(--cyan); font-size:18px; margin:0 0 8px; letter-spacing:0.5px; text-shadow:0 0 8px rgba(0,240,255,0.5);}
+  .modal-text{color:var(--muted); font-size:13.5px; margin:0 0 18px; line-height:1.5;}
+
+  .confetti{ position:absolute; top:-20px; font-size:20px; animation:fall linear forwards; }
+  @keyframes fall{
+    0%{transform:translateY(0) rotate(0deg); opacity:1;}
+    100%{transform:translateY(115vh) rotate(360deg); opacity:0.9;}
+  }
+
+  @media (max-width:760px){
+    .circuit-strip{width:100px;}
+    .drop-zone{width:112px;}
+    .slot{width:126px;}
+  }
+  @media (max-height:560px){
+    .panel{padding:10px 16px;}
+    h1{font-size:17px;}
+    .subtitle{display:none;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="scene-bg"></div>
+  <div class="grid-floor"></div>
+
+  <header>
+    <h1>DIODE — ONE-WAY VALVE FOR CURRENT</h1>
+    <div class="subtitle">Forward it flows. Reverse it stops.</div>
+  </header>
+
+  <!-- signature circuit strip -->
+  <div class="circuit-strip">
+    <svg viewBox="0 0 150 260">
+      <path class="trace" id="traceA" d="M75 30 L75 90" />
+      <path class="trace" id="traceB" d="M75 90 L75 150" />
+      <path class="trace" id="traceC" d="M75 150 L75 210" />
+
+      <g class="comp-glow lit" style="color:var(--amber)">
+        <rect x="55" y="12" width="40" height="20" rx="3" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <rect x="93" y="18" width="6" height="8" fill="var(--amber)"/>
+      </g>
+      <text x="75" y="8" text-anchor="middle" class="node-label">BATTERY</text>
+
+      <g class="comp-glow" id="glowDiode" style="color:var(--magenta)">
+        <polygon points="60,90 90,90 75,112" fill="none" stroke="var(--magenta)" stroke-width="2"/>
+        <line x1="60" y1="112" x2="90" y2="112" stroke="var(--magenta)" stroke-width="2"/>
+      </g>
+      <text x="75" y="128" text-anchor="middle" class="node-label">DIODE</text>
+
+      <g class="comp-glow" id="glowResistor" style="color:var(--amber)">
+        <rect x="55" y="150" width="40" height="14" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <path d="M55 157 h6 l4 -7 l6 14 l6 -14 l6 14 l6 -14 l6 7 h5" stroke="var(--amber)" stroke-width="1.5" fill="none"/>
+      </g>
+      <text x="75" y="178" text-anchor="middle" class="node-label">RESISTOR</text>
+
+      <circle id="ledBulb" class="led-bulb" cx="75" cy="212" r="16"/>
+      <text x="75" y="242" text-anchor="middle" class="node-label">LED</text>
+    </svg>
+  </div>
+
+  <div class="progress-track">
+    <div class="p-step" id="pstep1"><div class="p-dot">1</div><div class="p-label">Build</div></div>
+    <div class="p-step" id="pstep2"><div class="p-dot">2</div><div class="p-label">Bias Logic</div></div>
+    <div class="p-step" id="pstep3"><div class="p-dot">3</div><div class="p-label">Operate</div></div>
+  </div>
+
+  <main>
+    <div class="panel">
+
+      <!-- ACTIVITY 1 -->
+      <div class="activity" id="activity1">
+        <h2 class="activity-title">Activity 1 — Build the Forward-Bias Circuit</h2>
+        <p class="activity-instructions">Drag each component into its correct role in the circuit.</p>
+        <div class="tray" id="tray1"></div>
+        <div class="zones-wrap" id="zones1"></div>
+        <div class="feedback-msg" id="feedback1">&nbsp;</div>
+        <div class="panel-footer"><button class="btn" id="reset1">Reset</button></div>
+      </div>
+
+      <!-- ACTIVITY 2 -->
+      <div class="activity" id="activity2" style="display:none;">
+        <div id="a2-order">
+          <h2 class="activity-title">Activity 2 — Trace the Bias Logic</h2>
+          <p class="activity-instructions">Drag the events into the correct order, left to right.</p>
+          <div class="tray" id="tray2"></div>
+          <div class="slots-row" id="slots2"></div>
+          <div class="feedback-msg" id="feedback2">&nbsp;</div>
+          <div class="panel-footer"><button class="btn" id="reset2">Reset</button></div>
+        </div>
+        <div id="a2-diode" style="display:none;">
+          <h2 class="activity-title">Activity 2 — Place the Protection Diode</h2>
+          <p class="activity-instructions">Drag the protection diode into the correctly oriented gate.</p>
+          <div class="tray" id="tray2b"></div>
+          <div class="zones-wrap" id="zones2b"></div>
+          <div class="feedback-msg" id="feedback2b">&nbsp;</div>
+          <div class="panel-footer"><button class="btn" id="reset2b">Reset</button></div>
+        </div>
+      </div>
+
+      <!-- ACTIVITY 3 -->
+      <div class="activity" id="activity3" style="display:none;">
+        <h2 class="activity-title">Activity 3 — Run the Full Circuit Operation</h2>
+        <p class="activity-instructions">Arrange the complete circuit-operation sequence in order.</p>
+        <div class="tray" id="tray3"></div>
+        <div class="slots-row" id="slots3"></div>
+        <div class="feedback-msg" id="feedback3">&nbsp;</div>
+        <div class="panel-footer"><button class="btn" id="reset3">Reset</button></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-card">
+    <div class="modal-icon" id="modalIcon">⚡</div>
+    <h3 class="modal-title" id="modalTitle">Gate Open!</h3>
+    <p class="modal-text" id="modalText">Current is flowing correctly.</p>
+    <button class="btn primary" id="modalBtn">Continue</button>
+  </div>
+</div>
+
+<script>
+(function(){
+
+  /* ---------- background ambience ---------- */
+  const app=document.getElementById('app');
+  for(let i=0;i<20;i++){
+    const p=document.createElement('div');
+    p.className='particle';
+    const size=2+Math.random()*3;
+    p.style.width=size+'px'; p.style.height=size+'px';
+    p.style.left=(Math.random()*100)+'vw';
+    p.style.bottom='-10px';
+    p.style.animationDuration=(8+Math.random()*12)+'s';
+    p.style.animationDelay=(Math.random()*10)+'s';
+    if(Math.random()>0.6){ p.style.background='var(--magenta)'; p.style.boxShadow='0 0 8px 2px var(--magenta)'; }
+    app.appendChild(p);
+  }
+  const signs=[
+    {text:'CURRENT', top:'14%', left:'6%', color:'var(--cyan)'},
+    {text:'ANODE',   top:'68%', left:'8%', color:'var(--magenta)'},
+    {text:'VOLT',    top:'20%', left:'70%', color:'var(--green)'}
+  ];
+  signs.forEach((s,i)=>{
+    const el=document.createElement('div');
+    el.className='neon-sign';
+    el.textContent=s.text;
+    el.style.top=s.top; el.style.left=s.left; el.style.color=s.color;
+    el.style.fontSize='13px';
+    el.style.textShadow='0 0 8px '+s.color+', 0 0 18px '+s.color;
+    el.style.animationDelay=(i*0.7)+'s';
+    app.appendChild(el);
+  });
+  const traceLines=[
+    {top:'30%',left:'12%',width:'110px',rot:'-8deg'},
+    {top:'78%',left:'40%',width:'160px',rot:'4deg'},
+    {top:'46%',left:'20%',width:'90px',rot:'10deg'}
+  ];
+  traceLines.forEach((t,i)=>{
+    const el=document.createElement('div');
+    el.className='trace-line';
+    el.style.top=t.top; el.style.left=t.left; el.style.width=t.width;
+    el.style.transform='rotate('+t.rot+')';
+    el.style.animationDelay=(i*0.9)+'s';
+    app.appendChild(el);
+  });
+
+  /* ---------- utility ---------- */
+  function shuffle(arr){
+    const a=arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+  }
+  function iconFor(id){
+    const map={
+      battery:'<div class="icon-box"><div class="ic-battery"></div></div>',
+      diode:'<div class="icon-box"><div class="ic-diode"></div></div>',
+      resistor:'<div class="icon-box"><div class="ic-resistor"></div></div>',
+      led:'<div class="icon-box"><div class="ic-led"></div></div>',
+      wire:'<div class="icon-box"><div class="ic-wire"></div></div>'
+    };
+    return map[id] || '';
+  }
+
+  /* ============================================================
+     Generic drag engine (pointer events, mouse + touch)
+     ============================================================ */
+  function makeDraggable(item, getZones, onDrop){
+    let startX,startY,origParent,origNext;
+    item.addEventListener('pointerdown', (e)=>{
+      if(item.classList.contains('placed')) return;
+      e.preventDefault();
+      item.setPointerCapture(e.pointerId);
+      const rect=item.getBoundingClientRect();
+      origParent=item.parentNode; origNext=item.nextSibling;
+      startX=e.clientX - rect.left; startY=e.clientY - rect.top;
+      item.classList.add('dragging');
+      item.style.width=rect.width+'px';
+      item.style.left=rect.left+'px';
+      item.style.top=rect.top+'px';
+      document.body.appendChild(item);
+
+      function move(ev){
+        item.style.left=(ev.clientX-startX)+'px';
+        item.style.top=(ev.clientY-startY)+'px';
+        const zones=getZones();
+        zones.forEach(z=>z.el.classList.remove('over'));
+        item.style.pointerEvents='none';
+        const under=document.elementFromPoint(ev.clientX,ev.clientY);
+        item.style.pointerEvents='';
+        const zone=zones.find(z=>z.el.contains(under));
+        if(zone) zone.el.classList.add('over');
+      }
+      function up(ev){
+        document.removeEventListener('pointermove',move);
+        document.removeEventListener('pointerup',up);
+        item.classList.remove('dragging');
+        item.style.position=''; item.style.left=''; item.style.top=''; item.style.width='';
+        const zones=getZones();
+        zones.forEach(z=>z.el.classList.remove('over'));
+        item.style.pointerEvents='none';
+        const under=document.elementFromPoint(ev.clientX,ev.clientY);
+        item.style.pointerEvents='';
+        const zone=zones.find(z=>z.el.contains(under));
+        if(zone){ onDrop(item, zone); }
+        else{ origParent.insertBefore(item, origNext); }
+      }
+      document.addEventListener('pointermove',move);
+      document.addEventListener('pointerup',up);
+    });
+  }
+  function returnToTray(item, trayEl){ trayEl.appendChild(item); }
+  function bounceWrong(zoneEl, item, trayEl){
+    zoneEl.classList.add('wrong');
+    item.classList.add('shake');
+    setTimeout(()=>{
+      zoneEl.classList.remove('wrong');
+      item.classList.remove('shake');
+      returnToTray(item, trayEl);
+    },420);
+  }
+
+  /* ============================================================
+     ACTIVITY 1 — match circuit parts to zones
+     ============================================================ */
+  const A1_ITEMS=[
+    {id:'battery',label:'Battery'},
+    {id:'led',label:'LED'},
+    {id:'diode',label:'Diode'},
+    {id:'resistor',label:'Resistor'},
+    {id:'wire',label:'Wire'}
+  ];
+  const A1_ZONES=[
+    {id:'battery',label:'Power Source'},
+    {id:'diode',label:'One-Way Gate'},
+    {id:'resistor',label:'Current Limiter'},
+    {id:'led',label:'Light Output'},
+    {id:'wire',label:'Connector'}
+  ];
+  const tray1=document.getElementById('tray1');
+  const zonesWrap1=document.getElementById('zones1');
+  const feedback1=document.getElementById('feedback1');
+  let a1Correct=0;
+
+  function buildActivity1(){
+    tray1.innerHTML=''; zonesWrap1.innerHTML=''; a1Correct=0;
+    feedback1.textContent='\u00A0'; feedback1.className='feedback-msg';
+    shuffle(A1_ITEMS).forEach(it=>{
+      const el=document.createElement('div');
+      el.className='drag-item'; el.dataset.id=it.id;
+      el.innerHTML=iconFor(it.id)+'<span>'+it.label+'</span>';
+      tray1.appendChild(el);
+      makeDraggable(el, getZones1, onDrop1);
+    });
+    shuffle(A1_ZONES).forEach(z=>{
+      const zEl=document.createElement('div');
+      zEl.className='drop-zone'; zEl.dataset.accepts=z.id;
+      zEl.innerHTML='<div class="zlabel">'+z.label+'</div><span class="zone-check">&#10003;</span>';
+      zonesWrap1.appendChild(zEl);
+    });
+  }
+  function getZones1(){ return Array.from(zonesWrap1.querySelectorAll('.drop-zone')).map(el=>({el})); }
+  function onDrop1(item, zone){
+    const zEl=zone.el;
+    if(zEl.classList.contains('correct')){ returnToTray(item, tray1); return; }
+    if(zEl.dataset.accepts===item.dataset.id){
+      zEl.classList.add('correct'); zEl.appendChild(item); item.classList.add('placed');
+      a1Correct++;
+      feedback1.textContent='Connected! Current path confirmed.';
+      feedback1.className='feedback-msg ok';
+      if(a1Correct===A1_ZONES.length){ setTimeout(()=>completeActivity(1),500); }
+    }else{
+      feedback1.textContent='Wrong slot — that component belongs elsewhere.';
+      feedback1.className='feedback-msg bad';
+      bounceWrong(zEl, item, tray1);
+    }
+  }
+  document.getElementById('reset1').addEventListener('click', buildActivity1);
+
+  /* ============================================================
+     Ordering engine (shared by activity 2's order phase & activity 3)
+     ============================================================ */
+  function buildOrderingActivity(config){
+    const {items, trayEl, slotsEl, feedbackEl, onComplete} = config;
+    let filled = new Array(items.length).fill(null);
+    function render(){
+      trayEl.innerHTML=''; slotsEl.innerHTML='';
+      feedbackEl.textContent='\u00A0'; feedbackEl.className='feedback-msg';
+      filled = new Array(items.length).fill(null);
+      const order = shuffle(items.map((it,idx)=>({...it, correctIndex:idx})));
+      order.forEach(it=>{
+        const el=document.createElement('div');
+        el.className='drag-item'; el.dataset.correctIndex=it.correctIndex;
+        el.innerHTML='<span>'+it.label+'</span>';
+        trayEl.appendChild(el);
+        makeDraggable(el, getSlots, onDropHandler);
+      });
+      items.forEach((it,idx)=>{
+        const s=document.createElement('div');
+        s.className='slot'; s.dataset.index=idx;
+        s.innerHTML='<div class="snum">'+(idx+1)+'</div>';
+        slotsEl.appendChild(s);
+      });
+    }
+    function getSlots(){ return Array.from(slotsEl.querySelectorAll('.slot')).map(el=>({el})); }
+    function onDropHandler(item, slot){
+      const sEl=slot.el;
+      const idx=parseInt(sEl.dataset.index,10);
+      if(sEl.classList.contains('correct')){ trayEl.appendChild(item); return; }
+      if(parseInt(item.dataset.correctIndex,10)===idx){
+        sEl.classList.add('correct'); sEl.appendChild(item); item.classList.add('placed');
+        filled[idx]=true;
+        feedbackEl.textContent='Correct sequence step!';
+        feedbackEl.className='feedback-msg ok';
+        if(filled.every(Boolean)){ setTimeout(onComplete,500); }
+      }else{
+        feedbackEl.textContent='Not the right moment for that step.';
+        feedbackEl.className='feedback-msg bad';
+        bounceWrong(sEl, item, trayEl);
+      }
+    }
+    render();
+    return { reset: render };
+  }
+
+  /* ---------------- Activity 2 : order phase ---------------- */
+  const A2_ITEMS=[
+    {label:'Forward Connection'},
+    {label:'Reverse Connection'},
+    {label:'Current Flow'},
+    {label:'LED Lights'},
+    {label:'LED Does Not Light'}
+  ];
+  const a2 = buildOrderingActivity({
+    items:A2_ITEMS,
+    trayEl:document.getElementById('tray2'),
+    slotsEl:document.getElementById('slots2'),
+    feedbackEl:document.getElementById('feedback2'),
+    onComplete:()=>{
+      document.getElementById('a2-order').style.display='none';
+      document.getElementById('a2-diode').style.display='';
+      buildActivity2b();
+    }
+  });
+  document.getElementById('reset2').addEventListener('click', a2.reset);
+
+  /* ---------------- Activity 2 : protection diode placement ---------------- */
+  const tray2b=document.getElementById('tray2b');
+  const zonesWrap2b=document.getElementById('zones2b');
+  const feedback2b=document.getElementById('feedback2b');
+  function buildActivity2b(){
+    tray2b.innerHTML=''; zonesWrap2b.innerHTML='';
+    feedback2b.textContent='\u00A0'; feedback2b.className='feedback-msg';
+
+    const el=document.createElement('div');
+    el.className='drag-item'; el.dataset.id='protection';
+    el.innerHTML=iconFor('diode')+'<span>Protection Diode</span>';
+    tray2b.appendChild(el);
+    makeDraggable(el, getZones2b, onDrop2b);
+
+    const zonesData=shuffle([
+      {id:'correct',label:'Anode → Positive (Correct)'},
+      {id:'wrong',label:'Anode → Negative (Wrong)'}
+    ]);
+    zonesData.forEach(z=>{
+      const zEl=document.createElement('div');
+      zEl.className='drop-zone'; zEl.dataset.zone=z.id;
+      zEl.innerHTML='<div class="zlabel">'+z.label+'</div><span class="zone-check">&#10003;</span>';
+      zonesWrap2b.appendChild(zEl);
+    });
+  }
+  function getZones2b(){ return Array.from(zonesWrap2b.querySelectorAll('.drop-zone')).map(el=>({el})); }
+  function onDrop2b(item, zone){
+    const zEl=zone.el;
+    if(zEl.dataset.zone==='correct'){
+      zEl.classList.add('correct'); zEl.appendChild(item); item.classList.add('placed');
+      feedback2b.textContent='Gate open — diode protects the circuit!';
+      feedback2b.className='feedback-msg ok';
+      setTimeout(()=>completeActivity(2),600);
+    }else{
+      feedback2b.textContent='That orientation blocks the current — try the other gate.';
+      feedback2b.className='feedback-msg bad';
+      bounceWrong(zEl, item, tray2b);
+    }
+  }
+  document.getElementById('reset2b').addEventListener('click', buildActivity2b);
+
+  /* ---------------- Activity 3 ---------------- */
+  const A3_ITEMS=[
+    {label:'Power Source'},
+    {label:'Diode Orientation'},
+    {label:'Current Flow Direction'},
+    {label:'LED Protection'},
+    {label:'Circuit Operation'}
+  ];
+  const a3 = buildOrderingActivity({
+    items:A3_ITEMS,
+    trayEl:document.getElementById('tray3'),
+    slotsEl:document.getElementById('slots3'),
+    feedbackEl:document.getElementById('feedback3'),
+    onComplete:()=>completeActivity(3)
+  });
+  document.getElementById('reset3').addEventListener('click', a3.reset);
+
+  /* ============================================================
+     FLOW CONTROL: progress, modals, circuit strip lighting
+     ============================================================ */
+  const modal=document.getElementById('modal');
+  const modalIcon=document.getElementById('modalIcon');
+  const modalTitle=document.getElementById('modalTitle');
+  const modalText=document.getElementById('modalText');
+  const modalBtn=document.getElementById('modalBtn');
+
+  function showModal(icon,title,text,btnLabel,onClick){
+    modalIcon.textContent=icon; modalTitle.textContent=title; modalText.textContent=text; modalBtn.textContent=btnLabel;
+    modal.classList.add('show');
+    modalBtn.onclick=()=>{ modal.classList.remove('show'); onClick(); };
+  }
+  function setProgress(step){
+    for(let i=1;i<=3;i++){
+      const el=document.getElementById('pstep'+i);
+      el.classList.remove('active','done');
+      if(i<step) el.classList.add('done');
+      else if(i===step) el.classList.add('active');
+    }
+  }
+  function lightTrace(id){ document.getElementById(id).classList.add('lit'); }
+  function lightComp(id){ document.getElementById(id).classList.add('lit'); }
+
+  function completeActivity(num){
+    if(num===1){
+      lightTrace('traceA'); lightComp('glowDiode');
+      showModal('🔌','Circuit Assembled!','All components are wired correctly. Next, trace the bias logic.','Next Challenge',()=>{
+        document.getElementById('activity1').style.display='none';
+        document.getElementById('activity2').style.display='';
+        setProgress(2);
+      });
+    } else if(num===2){
+      lightTrace('traceB'); lightComp('glowResistor');
+      showModal('🛡️','Protection Confirmed!','The diode blocks reverse current and shields the LED. Final step — run full circuit operation.','Final Challenge',()=>{
+        document.getElementById('activity2').style.display='none';
+        document.getElementById('activity3').style.display='';
+        setProgress(3);
+      });
+    } else if(num===3){
+      lightTrace('traceC');
+      document.getElementById('ledBulb').classList.add('glow');
+      launchCelebration();
+    }
+  }
+
+  function launchCelebration(){
+    const emojis=['⚡','💡','🔷','🔋','🌐','✨'];
+    const pieces=[];
+    for(let i=0;i<26;i++){
+      const c=document.createElement('div');
+      c.className='confetti';
+      c.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+      c.style.left=(Math.random()*100)+'vw';
+      c.style.animationDuration=(2.4+Math.random()*2)+'s';
+      c.style.animationDelay=(Math.random()*1.2)+'s';
+      app.appendChild(c);
+      pieces.push(c);
+    }
+    setTimeout(()=>{
+      showModal('🏆','Current Flows Perfectly!','Forward bias open, reverse bias blocked, LED protected. Your circuit runs exactly as engineered!','Play Again',()=>{
+        pieces.forEach(p=>p.remove());
+        resetEverything();
+      });
+    },300);
+  }
+
+  function resetEverything(){
+    ['traceA','traceB','traceC'].forEach(id=>document.getElementById(id).classList.remove('lit'));
+    document.getElementById('glowDiode').classList.remove('lit');
+    document.getElementById('glowResistor').classList.remove('lit');
+    document.getElementById('ledBulb').classList.remove('glow');
+
+    document.getElementById('activity3').style.display='none';
+    document.getElementById('activity2').style.display='none';
+    document.getElementById('activity1').style.display='';
+    document.getElementById('a2-order').style.display='';
+    document.getElementById('a2-diode').style.display='none';
+    setProgress(1);
+
+    buildActivity1();
+    a2.reset();
+    a3.reset();
+  }
+
+  /* ---------- init ---------- */
+  buildActivity1();
+  setProgress(1);
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pie Charts — Draw &amp; Interpret</title>
+<style>
+  :root{
+    --gold:#ffd166;
+    --teal:#4ecdc4;
+    --coral:#ff6b6b;
+    --mint:#8effc1;
+    --violet:#a78bfa;
+    --panel:rgba(18,20,45,0.72);
+    --panel-border:rgba(255,255,255,0.14);
+    --text:#eef1ff;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;width:100%;height:100%;overflow:hidden;
+    font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;
+    background:radial-gradient(ellipse at 20% 10%, #1b1440 0%, #0a0a20 45%, #050510 100%);
+    color:var(--text);
+  }
+  #space{
+    position:fixed;inset:0;overflow:hidden;z-index:0;pointer-events:none;
+  }
+  .nebula{
+    position:absolute;border-radius:50%;filter:blur(50px);opacity:0.35;
+    animation:drift 40s ease-in-out infinite alternate;
+  }
+  .neb1{width:420px;height:420px;background:radial-gradient(circle,#7b2ff7,transparent 70%);top:-80px;left:-60px;}
+  .neb2{width:380px;height:380px;background:radial-gradient(circle,#ff6b6b,transparent 70%);bottom:-100px;right:-40px;animation-duration:55s;}
+  .neb3{width:300px;height:300px;background:radial-gradient(circle,#4ecdc4,transparent 70%);top:35%;right:15%;animation-duration:48s;}
+  @keyframes drift{
+    0%{transform:translate(0,0) scale(1);}
+    100%{transform:translate(40px,-30px) scale(1.15);}
+  }
+  .star{
+    position:absolute;background:#fff;border-radius:50%;
+    animation:twinkle var(--dur,3s) ease-in-out infinite;
+    opacity:0.6;
+  }
+  @keyframes twinkle{
+    0%,100%{opacity:0.15;transform:scale(0.8);}
+    50%{opacity:1;transform:scale(1.3);}
+  }
+  .planet{
+    position:absolute;border-radius:50%;box-shadow:inset -12px -12px 24px rgba(0,0,0,0.5), 0 0 25px rgba(255,255,255,0.08);
+  }
+  .orbit-wrap{
+    position:absolute;border-radius:50%;border:1px dashed rgba(255,255,255,0.06);
+    animation:spin linear infinite;
+  }
+  @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+  .satellite{
+    position:absolute;width:14px;height:14px;
+    animation:orbit2 22s linear infinite;
+  }
+  .satellite .body{width:8px;height:8px;background:#cfd6ff;border-radius:2px;position:absolute;top:3px;left:3px;box-shadow:0 0 6px #cfd6ff;}
+  .satellite .wing{position:absolute;width:14px;height:2px;background:#8aa2ff;top:6px;}
+  @keyframes orbit2{
+    from{transform:rotate(0deg) translateX(220px) rotate(0deg);}
+    to{transform:rotate(360deg) translateX(220px) rotate(-360deg);}
+  }
+  .asteroid{
+    position:absolute;background:#8b8397;border-radius:40% 60% 55% 45%;opacity:0.7;
+    animation:driftAcross linear infinite;
+  }
+  @keyframes driftAcross{
+    from{transform:translate(-10vw,0) rotate(0deg);}
+    to{transform:translate(110vw,40px) rotate(340deg);}
+  }
+  .shootingstar{
+    position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;
+    box-shadow:0 0 8px 2px #fff;
+    opacity:0;
+    animation:shoot 6s linear infinite;
+  }
+  .shootingstar::after{
+    content:'';position:absolute;top:0;left:0;width:90px;height:1px;
+    background:linear-gradient(90deg,#fff,transparent);
+    transform:translateX(-90px) rotate(0deg);
+  }
+  @keyframes shoot{
+    0%{opacity:0;transform:translate(0,0);}
+    3%{opacity:1;}
+    18%{opacity:0;transform:translate(340px,180px);}
+    100%{opacity:0;}
+  }
+
+  #app{position:relative;z-index:1;width:100vw;height:100vh;display:flex;flex-direction:column;padding:10px 22px 14px;}
+
+  header{display:flex;align-items:center;justify-content:space-between;flex:0 0 auto;}
+  h1{
+    font-size:clamp(18px,2.6vw,28px);margin:4px 0;letter-spacing:1px;
+    background:linear-gradient(90deg,var(--gold),var(--teal),var(--violet));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 0 30px rgba(255,209,102,0.15);
+  }
+  .progress{display:flex;gap:10px;align-items:center;}
+  .dot{
+    width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,0.15);
+    border:2px solid rgba(255,255,255,0.3);transition:all .3s;
+  }
+  .dot.done{background:var(--mint);border-color:var(--mint);box-shadow:0 0 10px var(--mint);}
+  .dot.active{background:var(--gold);border-color:var(--gold);box-shadow:0 0 12px var(--gold);transform:scale(1.2);}
+  .dot-label{font-size:12px;opacity:0.7;}
+
+  main{flex:1 1 auto;min-height:0;position:relative;}
+  .activity{
+    position:absolute;inset:0;display:none;flex-direction:column;gap:10px;
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:18px;
+    padding:16px 22px;backdrop-filter:blur(6px);
+    box-shadow:0 10px 40px rgba(0,0,0,0.4);
+  }
+  .activity.show{display:flex;}
+  .activity h2{margin:0 0 2px 0;font-size:19px;color:var(--gold);}
+  .activity p.instructions{margin:0;font-size:13.5px;opacity:0.85;line-height:1.4;}
+  .toolbar{display:flex;justify-content:flex-end;gap:8px;}
+  button.reset-btn, button.action-btn{
+    background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.25);
+    color:var(--text);padding:6px 14px;border-radius:20px;font-size:12.5px;cursor:pointer;
+    transition:all .2s;
+  }
+  button.reset-btn:hover, button.action-btn:hover{background:rgba(255,255,255,0.2);}
+  button.action-btn.primary{background:linear-gradient(90deg,var(--gold),#ffb703);color:#241a00;font-weight:700;border:none;}
+
+  /* ---------- Activity 1 ---------- */
+  .a1-body{flex:1;display:flex;gap:18px;min-height:0;}
+  .a1-cards{flex:1;display:flex;flex-direction:column;gap:8px;justify-content:center;}
+  .a1-card{
+    display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:8px 12px;
+  }
+  .a1-card .swatch{width:34px;height:34px;border-radius:50%;flex:0 0 auto;}
+  .a1-card .info{flex:1;font-size:13.5px;}
+  .a1-card .calc{font-size:11.5px;opacity:0.65;}
+  .a1-card .dropzone{
+    width:76px;height:40px;border:2px dashed rgba(255,255,255,0.3);border-radius:10px;
+    display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;
+    transition:all .2s;flex:0 0 auto;
+  }
+  .a1-card .dropzone.correct{border-color:var(--mint);background:rgba(142,255,193,0.18);color:var(--mint);}
+  .a1-card .dropzone.wrong{border-color:var(--coral);background:rgba(255,107,107,0.18);}
+  .a1-pool{width:150px;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;
+    border-left:1px dashed rgba(255,255,255,0.15);padding-left:14px;}
+  .tile{
+    width:78px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,var(--violet),#6d5bd0);font-weight:700;font-size:14px;
+    cursor:grab;user-select:none;touch-action:none;box-shadow:0 3px 10px rgba(0,0,0,0.35);
+  }
+  .tile.dragging{opacity:0.35;}
+  .tile.placed{visibility:hidden;}
+
+  /* ---------- Activity 2 ---------- */
+  .a2-body{flex:1;display:flex;gap:16px;min-height:0;}
+  .a2-left{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:8px;}
+  .a2-mid{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0;}
+  .a2-right{flex:0 0 220px;display:flex;flex-direction:column;gap:8px;}
+  .datatable{font-size:12px;background:rgba(255,255,255,0.05);border-radius:10px;padding:8px 10px;border:1px solid rgba(255,255,255,0.15);}
+  .datatable div{display:flex;justify-content:space-between;gap:10px;padding:2px 0;}
+  .stepline{font-size:12.5px;opacity:0.8;margin:0;}
+  .stepline b{color:var(--teal);}
+  .swatchpool, .labelpool{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+  .swatch-tile{
+    width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:13px;cursor:grab;touch-action:none;color:#0c0c14;
+    box-shadow:0 3px 10px rgba(0,0,0,0.35);
+  }
+  .label-tile{
+    padding:6px 12px;border-radius:20px;background:linear-gradient(135deg,var(--teal),#2e9c95);
+    font-weight:700;font-size:12.5px;cursor:grab;touch-action:none;box-shadow:0 3px 10px rgba(0,0,0,0.3);
+  }
+  .invisible{visibility:hidden;}
+  #a2-mcq{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+  .mcq-opt{
+    padding:6px 12px;border-radius:10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);
+    font-size:12.5px;cursor:pointer;
+  }
+  .mcq-opt.correct{background:rgba(142,255,193,0.25);border-color:var(--mint);}
+  .mcq-opt.wrong{background:rgba(255,107,107,0.25);border-color:var(--coral);}
+
+  /* ---------- Activity 3 ---------- */
+  .a3-body{flex:1;display:flex;gap:18px;min-height:0;}
+  .a3-pool{flex:1;display:flex;flex-direction:column;gap:8px;justify-content:center;}
+  .a3-seq{width:280px;display:flex;flex-direction:column;gap:6px;justify-content:center;border-left:1px dashed rgba(255,255,255,0.15);padding-left:16px;}
+  .a3-slot{
+    height:38px;border:2px dashed rgba(255,255,255,0.3);border-radius:10px;display:flex;align-items:center;
+    padding:0 10px;font-size:12.5px;color:rgba(255,255,255,0.5);
+  }
+  .a3-slot.filled{border-style:solid;border-color:var(--teal);color:var(--text);background:rgba(78,205,196,0.12);}
+  .a3-slot.wrong{border-color:var(--coral);background:rgba(255,107,107,0.15);}
+  .step-tile{
+    padding:8px 12px;border-radius:10px;background:linear-gradient(135deg,var(--coral),#c14848);
+    font-size:13px;cursor:grab;touch-action:none;box-shadow:0 3px 10px rgba(0,0,0,0.3);
+  }
+
+  .drag-ghost{position:fixed;z-index:999;pointer-events:none;opacity:0.9;transform:translate(-50%,-50%);}
+
+  /* Popups */
+  .overlay{
+    position:fixed;inset:0;background:rgba(4,4,14,0.72);display:none;align-items:center;justify-content:center;
+    z-index:50;backdrop-filter:blur(3px);
+  }
+  .overlay.show{display:flex;}
+  .popup{
+    background:linear-gradient(160deg,#1a1640,#0d0c26);border:1px solid rgba(255,255,255,0.2);
+    border-radius:20px;padding:26px 34px;text-align:center;max-width:420px;
+    box-shadow:0 0 60px rgba(167,139,250,0.35);
+    animation:popIn .35s ease;
+  }
+  @keyframes popIn{from{transform:scale(0.7);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .popup h3{margin:0 0 8px;font-size:22px;color:var(--gold);}
+  .popup p{font-size:14px;opacity:0.85;margin:0 0 16px;}
+  .popup .emoji{font-size:44px;margin-bottom:8px;}
+
+  #celebration .popup{max-width:460px;}
+  .confetti-wrap{position:absolute;inset:0;overflow:hidden;pointer-events:none;}
+  .confetti{position:absolute;top:-20px;border-radius:2px;animation:fall linear forwards;}
+  @keyframes fall{
+    to{transform:translateY(110vh) rotate(540deg);opacity:0.3;}
+  }
+</style>
+</head>
+<body>
+
+<div id="space"></div>
+
+<div id="app">
+  <header>
+    <h1>PIE CHARTS — DRAW &amp; INTERPRET</h1>
+    <div class="progress">
+      <div class="dot active" id="dot1"></div>
+      <div class="dot" id="dot2"></div>
+      <div class="dot" id="dot3"></div>
+    </div>
+  </header>
+
+  <main>
+    <!-- ACTIVITY 1 -->
+    <section class="activity show" id="activity1">
+      <h2>Activity 1 · Percentage → Central Angle</h2>
+      <p class="instructions">A full circle is 360°. To find a slice's central angle, calculate <b>360° × percentage</b>. Drag the correct angle onto each category.</p>
+      <div class="toolbar"><button class="reset-btn" onclick="resetActivity(1)">Reset Activity</button></div>
+      <div class="a1-body">
+        <div class="a1-cards" id="a1-cards"></div>
+        <div class="a1-pool" id="a1-pool"></div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 2 -->
+    <section class="activity" id="activity2">
+      <h2>Activity 2 · Build &amp; Read an Election Chart</h2>
+      <p class="instructions">Step 1: drag each colour swatch onto the wedge of matching size. Step 2: drag each name onto its coloured wedge. Step 3: answer the question below.</p>
+      <div class="toolbar"><button class="reset-btn" onclick="resetActivity(2)">Reset Activity</button></div>
+      <div class="a2-body">
+        <div class="a2-left">
+          <svg id="a2-svg" width="230" height="230" viewBox="0 0 230 230"></svg>
+        </div>
+        <div class="a2-mid">
+          <div class="datatable" id="a2-table"></div>
+          <p class="stepline"><b>Step 1 — Swatches:</b></p>
+          <div class="swatchpool" id="a2-swatchpool"></div>
+          <p class="stepline"><b>Step 2 — Labels:</b></p>
+          <div class="labelpool" id="a2-labelpool"></div>
+        </div>
+        <div class="a2-right">
+          <p class="stepline"><b>Step 3 — Interpret:</b> Who received the most votes?</p>
+          <div id="a2-mcq"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 3 -->
+    <section class="activity" id="activity3">
+      <h2>Activity 3 · The Full Pie-Chart Process</h2>
+      <p class="instructions">Drag the steps into the correct working order, from first to last.</p>
+      <div class="toolbar"><button class="reset-btn" onclick="resetActivity(3)">Reset Activity</button></div>
+      <div class="a3-body">
+        <div class="a3-pool" id="a3-pool"></div>
+        <div class="a3-seq" id="a3-seq"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Intro / transition popups -->
+<div class="overlay" id="overlay-transition">
+  <div class="popup">
+    <div class="emoji" id="tp-emoji">🚀</div>
+    <h3 id="tp-title">Activity Complete!</h3>
+    <p id="tp-text">Great work, space explorer.</p>
+    <button class="action-btn primary" id="tp-btn" onclick="advance()">Continue</button>
+  </div>
+</div>
+
+<!-- Final celebration -->
+<div class="overlay" id="celebration">
+  <div class="popup">
+    <div class="confetti-wrap" id="confetti-wrap"></div>
+    <div class="emoji">🌟🪐🌟</div>
+    <h3>Mission Complete!</h3>
+    <p>You have mastered reading, calculating, and drawing pie charts across the galaxy.</p>
+    <button class="action-btn primary" onclick="playAgain()">Play Again</button>
+  </div>
+</div>
+
+<script>
+/* ================= SPACE BACKGROUND ================= */
+(function buildSpace(){
+  const space = document.getElementById('space');
+  // nebulas
+  ['neb1','neb2','neb3'].forEach(c=>{
+    const d=document.createElement('div');
+    d.className='nebula '+c;
+    space.appendChild(d);
+  });
+  // stars
+  for(let i=0;i<130;i++){
+    const s=document.createElement('div');
+    s.className='star';
+    const size=Math.random()*2.4+0.6;
+    s.style.width=size+'px';s.style.height=size+'px';
+    s.style.top=Math.random()*100+'%';
+    s.style.left=Math.random()*100+'%';
+    s.style.setProperty('--dur',(Math.random()*3+2)+'s');
+    s.style.animationDelay=(Math.random()*4)+'s';
+    space.appendChild(s);
+  }
+  // planets with orbit wrappers
+  const planetDefs=[
+    {size:46,color:'radial-gradient(circle at 30% 30%,#ffb86c,#c9660c)',orbit:0,top:'8%',left:'6%'},
+    {size:30,color:'radial-gradient(circle at 30% 30%,#8effc1,#1c7a52)',orbit:0,bottom:'10%',right:'8%'},
+    {size:22,color:'radial-gradient(circle at 30% 30%,#a78bfa,#4b2fa8)',orbit:0,top:'55%',left:'2%'}
+  ];
+  planetDefs.forEach((p,i)=>{
+    const wrap=document.createElement('div');
+    wrap.className='orbit-wrap';
+    const wsize = p.size+60;
+    wrap.style.width=wsize+'px';wrap.style.height=wsize+'px';
+    if(p.top)wrap.style.top=p.top; if(p.left)wrap.style.left=p.left;
+    if(p.bottom)wrap.style.bottom=p.bottom; if(p.right)wrap.style.right=p.right;
+    wrap.style.animationDuration=(60+i*25)+'s';
+    const pl=document.createElement('div');
+    pl.className='planet';
+    pl.style.width=p.size+'px';pl.style.height=p.size+'px';
+    pl.style.background=p.color;
+    pl.style.top='4px';pl.style.left='4px';
+    wrap.appendChild(pl);
+    space.appendChild(wrap);
+  });
+  // satellite
+  const sat=document.createElement('div');
+  sat.className='satellite';
+  sat.style.top='40%';sat.style.left='45%';
+  sat.innerHTML='<div class="body"></div><div class="wing" style="left:-6px;"></div><div class="wing" style="left:8px;"></div>';
+  space.appendChild(sat);
+  // asteroids
+  for(let i=0;i<6;i++){
+    const a=document.createElement('div');
+    a.className='asteroid';
+    const size=Math.random()*14+8;
+    a.style.width=size+'px';a.style.height=size*0.8+'px';
+    a.style.top=(Math.random()*80+5)+'%';
+    a.style.animationDuration=(Math.random()*20+18)+'s';
+    a.style.animationDelay=(Math.random()*10)+'s';
+    space.appendChild(a);
+  }
+  // shooting stars
+  for(let i=0;i<3;i++){
+    const sh=document.createElement('div');
+    sh.className='shootingstar';
+    sh.style.top=(Math.random()*40+5)+'%';
+    sh.style.left=(Math.random()*30)+'%';
+    sh.style.animationDelay=(Math.random()*8+i*4)+'s';
+    space.appendChild(sh);
+  }
+})();
+
+/* ================= UTIL ================= */
+function shuffle(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+/* ================= DRAG MANAGER (pointer events, mouse+touch) ================= */
+let dragState=null;
+function makeDraggable(el, onDropCallback){
+  el.addEventListener('pointerdown', (e)=>{
+    if(el.classList.contains('placed')) return;
+    e.preventDefault();
+    const rect=el.getBoundingClientRect();
+    const ghost=el.cloneNode(true);
+    ghost.classList.add('drag-ghost');
+    ghost.style.width=rect.width+'px';
+    ghost.style.height=rect.height+'px';
+    document.body.appendChild(ghost);
+    el.classList.add('dragging');
+    dragState={el, ghost, onDropCallback};
+    moveGhost(e.clientX,e.clientY);
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  });
+}
+function moveGhost(x,y){
+  if(dragState){
+    dragState.ghost.style.left=x+'px';
+    dragState.ghost.style.top=y+'px';
+  }
+}
+function onMove(e){ moveGhost(e.clientX,e.clientY); }
+function onUp(e){
+  document.removeEventListener('pointermove', onMove);
+  document.removeEventListener('pointerup', onUp);
+  if(!dragState) return;
+  const {el, ghost, onDropCallback}=dragState;
+  ghost.style.display='none';
+  const target=document.elementFromPoint(e.clientX,e.clientY);
+  ghost.remove();
+  el.classList.remove('dragging');
+  const zone = target ? target.closest('.dropzone') : null;
+  dragState=null;
+  onDropCallback(el, zone);
+}
+
+/* ================= ACTIVITY 1 ================= */
+const a1Data=[
+  {name:'Sports', pct:40, angle:144, color:'#ff6b6b'},
+  {name:'Music', pct:30, angle:108, color:'#4ecdc4'},
+  {name:'Art', pct:20, angle:72, color:'#ffd166'},
+  {name:'Reading', pct:10, angle:36, color:'#a78bfa'}
+];
+let a1Correct=0;
+
+function buildActivity1(){
+  a1Correct=0;
+  const cardsWrap=document.getElementById('a1-cards');
+  const poolWrap=document.getElementById('a1-pool');
+  cardsWrap.innerHTML='';
+  poolWrap.innerHTML='';
+  a1Data.forEach((d,i)=>{
+    const card=document.createElement('div');
+    card.className='a1-card';
+    card.innerHTML=`
+      <div class="swatch" style="background:${d.color}"></div>
+      <div class="info">${d.name} — ${d.pct}%<div class="calc">360° × ${d.pct}% = ?</div></div>
+      <div class="dropzone" data-answer="${d.angle}" data-idx="${i}"></div>`;
+    cardsWrap.appendChild(card);
+  });
+  const shuffled=shuffle(a1Data);
+  shuffled.forEach(d=>{
+    const tile=document.createElement('div');
+    tile.className='tile';
+    tile.textContent=d.angle+'°';
+    tile.dataset.value=d.angle;
+    poolWrap.appendChild(tile);
+    makeDraggable(tile, handleA1Drop);
+  });
+}
+function handleA1Drop(tile, zone){
+  if(!zone){ return; }
+  if(zone.classList.contains('correct')) return; // already solved
+  const val=tile.dataset.value;
+  if(zone.dataset.answer===val){
+    zone.textContent=val+'°';
+    zone.classList.add('correct');
+    zone.classList.remove('wrong');
+    tile.classList.add('placed');
+    a1Correct++;
+    if(a1Correct===a1Data.length){
+      setTimeout(()=>showTransition(1),500);
+    }
+  } else {
+    zone.classList.add('wrong');
+    setTimeout(()=>zone.classList.remove('wrong'),500);
+  }
+}
+
+/* ================= ACTIVITY 2 ================= */
+const a2Data=[
+  {name:'Candidate A', pct:45, color:'#ff6b6b'},
+  {name:'Candidate B', pct:30, color:'#4ecdc4'},
+  {name:'Candidate C', pct:15, color:'#ffd166'},
+  {name:'Candidate D', pct:10, color:'#a78bfa'}
+];
+let a2SwatchesDone=0, a2LabelsDone=0, a2McqDone=false;
+
+function polarToCartesian(cx,cy,r,angleDeg){
+  const rad=(angleDeg-90)*Math.PI/180;
+  return {x:cx+r*Math.cos(rad), y:cy+r*Math.sin(rad)};
+}
+function arcPath(cx,cy,r,startAngle,endAngle){
+  const start=polarToCartesian(cx,cy,r,endAngle);
+  const end=polarToCartesian(cx,cy,r,startAngle);
+  const largeArc = endAngle-startAngle<=180 ? 0 : 1;
+  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 0 ${end.x} ${end.y} Z`;
+}
+function buildActivity2(){
+  a2SwatchesDone=0; a2LabelsDone=0; a2McqDone=false;
+  const svg=document.getElementById('a2-svg');
+  svg.innerHTML='';
+  const table=document.getElementById('a2-table');
+  table.innerHTML = a2Data.map(d=>`<div><span>${d.name}</span><span>${d.pct}%</span></div>`).join('');
+
+  let cumulative=0;
+  a2Data.forEach((d,i)=>{
+    const start=cumulative;
+    const end=cumulative + d.pct/100*360;
+    cumulative=end;
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', arcPath(115,115,100,start,end));
+    path.setAttribute('fill', '#2c2c46');
+    path.setAttribute('stroke', 'rgba(255,255,255,0.25)');
+    path.setAttribute('stroke-width','1.5');
+    path.classList.add('dropzone');
+    path.dataset.pct=d.pct;
+    path.dataset.color=d.color;
+    path.dataset.name=d.name;
+    path.dataset.filled='0';
+    svg.appendChild(path);
+    // label element (hidden until step2)
+    const mid=(start+end)/2;
+    const pos=polarToCartesian(115,115,65,mid);
+    const label=document.createElementNS('http://www.w3.org/2000/svg','text');
+    label.setAttribute('x',pos.x); label.setAttribute('y',pos.y);
+    label.setAttribute('text-anchor','middle');
+    label.setAttribute('font-size','9');
+    label.setAttribute('fill','#ffffff');
+    label.setAttribute('opacity','0');
+    label.textContent='';
+    label.classList.add('slicelabel');
+    label.dataset.name=d.name;
+    svg.appendChild(label);
+  });
+
+  // swatch pool (draggable, matched by pct -> to wedge with same pct via SVG dropzone hit test)
+  const swatchPool=document.getElementById('a2-swatchpool');
+  swatchPool.innerHTML='';
+  shuffle(a2Data).forEach(d=>{
+    const sw=document.createElement('div');
+    sw.className='swatch-tile';
+    sw.style.background=d.color;
+    sw.textContent=d.pct+'%';
+    sw.dataset.pct=d.pct;
+    sw.dataset.color=d.color;
+    swatchPool.appendChild(sw);
+    makeSwatchDraggable(sw);
+  });
+
+  // label pool (hidden until swatches done)
+  const labelPool=document.getElementById('a2-labelpool');
+  labelPool.innerHTML='';
+  shuffle(a2Data).forEach(d=>{
+    const lb=document.createElement('div');
+    lb.className='label-tile';
+    lb.textContent=d.name;
+    lb.dataset.name=d.name;
+    labelPool.appendChild(lb);
+    makeLabelDraggable(lb);
+  });
+
+  // mcq
+  const mcq=document.getElementById('a2-mcq');
+  mcq.innerHTML='';
+  shuffle(a2Data).forEach(d=>{
+    const opt=document.createElement('div');
+    opt.className='mcq-opt';
+    opt.textContent=d.name;
+    opt.onclick=()=>{
+      if(a2McqDone) return;
+      if(d.pct===Math.max(...a2Data.map(x=>x.pct))){
+        opt.classList.add('correct');
+        a2McqDone=true;
+        checkActivity2Done();
+      } else {
+        opt.classList.add('wrong');
+        setTimeout(()=>opt.classList.remove('wrong'),500);
+      }
+    };
+    mcq.appendChild(opt);
+  });
+}
+
+function makeSwatchDraggable(sw){
+  sw.addEventListener('pointerdown',(e)=>{
+    e.preventDefault();
+    const rect=sw.getBoundingClientRect();
+    const ghost=sw.cloneNode(true);
+    ghost.classList.add('drag-ghost');
+    ghost.style.width=rect.width+'px';ghost.style.height=rect.height+'px';
+    ghost.style.borderRadius='50%';
+    document.body.appendChild(ghost);
+    sw.style.opacity='0.35';
+    const move=(ev)=>{ghost.style.left=ev.clientX+'px';ghost.style.top=ev.clientY+'px';};
+    move(e);
+    const up=(ev)=>{
+      document.removeEventListener('pointermove',move);
+      document.removeEventListener('pointerup',up);
+      ghost.style.display='none';
+      const target=document.elementFromPoint(ev.clientX,ev.clientY);
+      ghost.remove();
+      sw.style.opacity='1';
+      if(target && target.tagName && target.tagName.toLowerCase()==='path' && target.classList.contains('dropzone')){
+        if(target.dataset.filled==='0' && String(target.dataset.pct)===String(sw.dataset.pct)){
+          target.setAttribute('fill', sw.dataset.color);
+          target.dataset.filled='1';
+          sw.remove();
+          a2SwatchesDone++;
+          if(a2SwatchesDone===a2Data.length){
+            checkActivity2Done();
+          }
+        }
+      }
+    };
+    document.addEventListener('pointermove',move);
+    document.addEventListener('pointerup',up);
+  });
+}
+
+function makeLabelDraggable(lb){
+  lb.addEventListener('pointerdown',(e)=>{
+    e.preventDefault();
+    const rect=lb.getBoundingClientRect();
+    const ghost=lb.cloneNode(true);
+    ghost.classList.add('drag-ghost');
+    ghost.style.width=rect.width+'px';ghost.style.height=rect.height+'px';
+    document.body.appendChild(ghost);
+    lb.style.opacity='0.35';
+    const move=(ev)=>{ghost.style.left=ev.clientX+'px';ghost.style.top=ev.clientY+'px';};
+    move(e);
+    const up=(ev)=>{
+      document.removeEventListener('pointermove',move);
+      document.removeEventListener('pointerup',up);
+      ghost.style.display='none';
+      const target=document.elementFromPoint(ev.clientX,ev.clientY);
+      ghost.remove();
+      lb.style.opacity='1';
+      if(target && target.tagName && target.tagName.toLowerCase()==='path' && target.classList.contains('dropzone') && target.dataset.filled==='1'){
+        if(target.dataset.name===lb.dataset.name && !target.dataset.labeled){
+          target.dataset.labeled='1';
+          const svg=document.getElementById('a2-svg');
+          const lab=[...svg.querySelectorAll('.slicelabel')].find(l=>l.dataset.name===lb.dataset.name);
+          if(lab){ lab.textContent=lb.dataset.name.replace('Candidate ',''); lab.setAttribute('opacity','1'); }
+          lb.remove();
+          a2LabelsDone++;
+          if(a2LabelsDone===a2Data.length){
+            checkActivity2Done();
+          }
+        }
+      }
+    };
+    document.addEventListener('pointermove',move);
+    document.addEventListener('pointerup',up);
+  });
+}
+function checkActivity2Done(){
+  if(a2SwatchesDone===a2Data.length && a2LabelsDone===a2Data.length && a2McqDone){
+    setTimeout(()=>showTransition(2),500);
+  }
+}
+
+/* ================= ACTIVITY 3 ================= */
+const a3Steps=[
+  'Identify the percentages',
+  'Calculate the central angles',
+  'Draw the pie chart',
+  'Label the categories',
+  'Interpret the results'
+];
+let a3Placed=[];
+
+function buildActivity3(){
+  a3Placed=new Array(a3Steps.length).fill(null);
+  const pool=document.getElementById('a3-pool');
+  const seq=document.getElementById('a3-seq');
+  pool.innerHTML=''; seq.innerHTML='';
+  a3Steps.forEach((s,i)=>{
+    const slot=document.createElement('div');
+    slot.className='a3-slot';
+    slot.dataset.idx=i;
+    slot.dataset.answer=s;
+    slot.textContent='Step '+(i+1);
+    slot.classList.add('dropzone');
+    seq.appendChild(slot);
+  });
+  shuffle(a3Steps).forEach(s=>{
+    const tile=document.createElement('div');
+    tile.className='step-tile';
+    tile.textContent=s;
+    tile.dataset.value=s;
+    pool.appendChild(tile);
+    makeDraggable(tile, handleA3Drop);
+  });
+}
+function handleA3Drop(tile, zone){
+  if(!zone || !zone.classList.contains('a3-slot')) return;
+  if(zone.classList.contains('filled')) return;
+  if(zone.dataset.answer===tile.dataset.value){
+    zone.textContent=tile.dataset.value;
+    zone.classList.add('filled');
+    tile.classList.add('placed');
+    const idx=parseInt(zone.dataset.idx);
+    a3Placed[idx]=tile.dataset.value;
+    if(a3Placed.every(v=>v)){
+      setTimeout(()=>showTransition(3),500);
+    }
+  } else {
+    zone.classList.add('wrong');
+    setTimeout(()=>zone.classList.remove('wrong'),500);
+  }
+}
+
+/* ================= FLOW CONTROL ================= */
+let current=1;
+function showActivity(n){
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('show'));
+  document.getElementById('activity'+n).classList.add('show');
+  for(let i=1;i<=3;i++){
+    const dot=document.getElementById('dot'+i);
+    dot.classList.remove('active','done');
+    if(i<n) dot.classList.add('done');
+    if(i===n) dot.classList.add('active');
+  }
+  current=n;
+}
+function showTransition(fromActivity){
+  const overlay=document.getElementById('overlay-transition');
+  const title=document.getElementById('tp-title');
+  const text=document.getElementById('tp-text');
+  const emoji=document.getElementById('tp-emoji');
+  if(fromActivity===1){
+    emoji.textContent='🛰️'; title.textContent='Activity 1 Complete!';
+    text.textContent='All central angles calculated correctly. On to building a real chart.';
+  } else if(fromActivity===2){
+    emoji.textContent='🪐'; title.textContent='Activity 2 Complete!';
+    text.textContent='Chart assembled, labelled, and interpreted. One challenge remains.';
+  } else if(fromActivity===3){
+    overlay.classList.remove('show');
+    launchCelebration();
+    return;
+  }
+  overlay.dataset.next=fromActivity+1;
+  overlay.classList.add('show');
+}
+function advance(){
+  const overlay=document.getElementById('overlay-transition');
+  overlay.classList.remove('show');
+  const next=parseInt(overlay.dataset.next);
+  showActivity(next);
+}
+function resetActivity(n){
+  if(n===1) buildActivity1();
+  if(n===2) buildActivity2();
+  if(n===3) buildActivity3();
+}
+
+/* ================= CELEBRATION ================= */
+function launchCelebration(){
+  const wrap=document.getElementById('confetti-wrap');
+  wrap.innerHTML='';
+  const colors=['#ffd166','#4ecdc4','#ff6b6b','#a78bfa','#8effc1'];
+  for(let i=0;i<40;i++){
+    const c=document.createElement('div');
+    c.className='confetti';
+    c.style.left=Math.random()*100+'%';
+    c.style.width='6px';c.style.height='10px';
+    c.style.background=colors[Math.floor(Math.random()*colors.length)];
+    c.style.animationDuration=(Math.random()*2+2)+'s';
+    c.style.animationDelay=(Math.random()*1.5)+'s';
+    wrap.appendChild(c);
+  }
+  document.getElementById('celebration').classList.add('show');
+}
+
+/* ================= FULL RESET (LMS-safe, no location.reload) ================= */
+function playAgain(){
+  document.getElementById('celebration').classList.remove('show');
+  buildActivity1();
+  buildActivity2();
+  buildActivity3();
+  showActivity(1);
+}
+
+/* ================= INIT ================= */
+function initAll(){
+  buildActivity1();
+  buildActivity2();
+  buildActivity3();
+  showActivity(1);
+}
+initAll();
+</script>
+</body>
+</html>

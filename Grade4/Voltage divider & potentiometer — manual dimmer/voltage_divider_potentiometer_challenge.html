@@ -202,6 +202,29 @@
   .slot.wrong{ border-color:var(--danger); animation:shakeItem .45s; }
   .slot .drag-item{min-width:104px;}
 
+  .quiz-progress{
+    text-align:center; font-size:10.5px; letter-spacing:1px; text-transform:uppercase;
+    color:var(--muted); margin-bottom:6px; font-family:"Georgia",serif;
+  }
+  .quiz-question{
+    text-align:center; font-size:clamp(13px,1.7vw,16px); color:var(--ink);
+    font-family:"Georgia",serif; margin:0 0 14px; line-height:1.4;
+  }
+  .quiz-options{
+    display:flex; flex-direction:column; gap:10px; flex:1; justify-content:center;
+    max-width:520px; margin:0 auto; width:100%;
+  }
+  .quiz-option{
+    font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif; text-align:left;
+    padding:12px 16px; border-radius:10px; border:2px solid var(--panel-edge);
+    background:rgba(138,92,255,0.05); color:var(--ink); font-size:13px; font-weight:600;
+    cursor:pointer; transition:border-color .15s ease, background .15s ease, transform .1s ease;
+  }
+  .quiz-option:active{ transform:translateY(1px); }
+  .quiz-option:disabled{ cursor:default; }
+  .quiz-option.correct{ border-color:var(--success); background:rgba(76,217,123,0.15); color:var(--success); }
+  .quiz-option.wrong{ border-color:var(--danger); background:rgba(255,92,122,0.15); color:var(--danger); animation:shakeItem .45s; }
+
   .feedback-msg{ text-align:center; font-size:12px; font-weight:700; min-height:18px; margin-top:8px; font-family:"Georgia",serif;}
   .feedback-msg.ok{color:var(--success);}
   .feedback-msg.bad{color:var(--danger);}
@@ -317,10 +340,11 @@
 
       <!-- ACTIVITY 3 -->
       <div class="activity" id="activity3" style="display:none;">
-        <h2 class="activity-title">Activity 3 — Run the Full Dimmer Operation</h2>
-        <p class="activity-instructions">Arrange the complete operation sequence in order.</p>
-        <div class="tray" id="tray3"></div>
-        <div class="slots-row" id="slots3"></div>
+        <h2 class="activity-title">Activity 3 — Final Questionnaire: Full Dimmer Operation</h2>
+        <p class="activity-instructions">Answer each question correctly to complete the operation.</p>
+        <div class="quiz-progress" id="quizProgress">Question 1 of 5</div>
+        <div class="quiz-question" id="quizQuestion"></div>
+        <div class="quiz-options" id="quizOptions"></div>
         <div class="feedback-msg" id="feedback3">&nbsp;</div>
         <div class="panel-footer"><button class="btn" id="reset3">Reset</button></div>
       </div>
@@ -604,20 +628,89 @@
   });
   document.getElementById('reset2').addEventListener('click', a2.reset);
 
-  const A3_ITEMS=[
-    {label:'Power Source'},
-    {label:'Voltage Divider'},
-    {label:'Potentiometer Adjustment'},
-    {label:'LED Brightness Control'},
-    {label:'Final Output'}
+  /* ============================================================
+     ACTIVITY 3 — final questionnaire
+     ============================================================ */
+  const A3_QUESTIONS=[
+    {
+      q:'What supplies the energy that drives current through the whole circuit?',
+      options:['The LED','The Battery','The Potentiometer','The Wire'],
+      correct:1
+    },
+    {
+      q:'In a basic voltage divider, what determines the voltage at the midpoint between the two resistors?',
+      options:['The color of the wire','The ratio of the two resistances','The brightness of the LED','The length of the circuit'],
+      correct:1
+    },
+    {
+      q:'What does turning the potentiometer knob actually change?',
+      options:['The supply voltage from the battery','The resistance between its wiper and its ends','The color of the LED','The number of components in the circuit'],
+      correct:1
+    },
+    {
+      q:'As the potentiometer\'s resistance in the divider changes, what happens to the voltage delivered to the LED?',
+      options:['It stays exactly the same','It disappears completely','It rises or falls, dimming or brightening the LED','It reverses polarity'],
+      correct:2
+    },
+    {
+      q:'What is the final observable result of the whole dimmer operation?',
+      options:['The battery recharges itself','The wire changes shape','The LED\'s brightness is smoothly controlled by hand','The resistors swap positions'],
+      correct:2
+    }
   ];
-  const a3 = buildOrderingActivity({
-    items:A3_ITEMS,
-    trayEl:document.getElementById('tray3'),
-    slotsEl:document.getElementById('slots3'),
-    feedbackEl:document.getElementById('feedback3'),
-    onComplete:()=>completeActivity(3)
-  });
+  const quizProgress=document.getElementById('quizProgress');
+  const quizQuestion=document.getElementById('quizQuestion');
+  const quizOptions=document.getElementById('quizOptions');
+  const feedback3=document.getElementById('feedback3');
+  let a3Index=0;
+
+  function renderQuiz(){
+    a3Index=0;
+    feedback3.textContent='\u00A0'; feedback3.className='feedback-msg';
+    showQuestion();
+  }
+  function showQuestion(){
+    feedback3.textContent='\u00A0'; feedback3.className='feedback-msg';
+    const item=A3_QUESTIONS[a3Index];
+    quizProgress.textContent='Question '+(a3Index+1)+' of '+A3_QUESTIONS.length;
+    quizQuestion.textContent=item.q;
+    quizOptions.innerHTML='';
+    shuffleOptionsAndRender(item);
+  }
+  function shuffleOptionsAndRender(item){
+    const idxs=shuffle(item.options.map((_,i)=>i));
+    idxs.forEach(optIdx=>{
+      const btn=document.createElement('button');
+      btn.className='quiz-option';
+      btn.textContent=item.options[optIdx];
+      btn.addEventListener('click', ()=>onAnswer(optIdx===item.correct, btn));
+      quizOptions.appendChild(btn);
+    });
+  }
+  function onAnswer(isCorrect, btn){
+    const allBtns=Array.from(quizOptions.querySelectorAll('.quiz-option'));
+    allBtns.forEach(b=>b.disabled=true);
+    if(isCorrect){
+      btn.classList.add('correct');
+      feedback3.textContent='Correct — the operation proceeds.';
+      feedback3.className='feedback-msg ok';
+      setTimeout(()=>{
+        a3Index++;
+        if(a3Index>=A3_QUESTIONS.length){ completeActivity(3); }
+        else{ showQuestion(); }
+      },650);
+    }else{
+      btn.classList.add('wrong');
+      feedback3.textContent='Not quite — try again.';
+      feedback3.className='feedback-msg bad';
+      setTimeout(()=>{
+        btn.classList.remove('wrong');
+        allBtns.forEach(b=>b.disabled=false);
+        feedback3.textContent='\u00A0'; feedback3.className='feedback-msg';
+      },550);
+    }
+  }
+  const a3 = { reset: renderQuiz };
   document.getElementById('reset3').addEventListener('click', a3.reset);
 
   /* ============================================================
@@ -658,6 +751,7 @@
         document.getElementById('activity2').style.display='none';
         document.getElementById('activity3').style.display='';
         setProgress(3);
+        renderQuiz();
       });
     } else if(num===3){
       lightRing('ringC');

@@ -979,6 +979,12 @@ document.querySelectorAll('.drag-item').forEach(el=>{
   origY[el.id] = el.offsetTop;
 });
 
+// Store each drop zone's original (empty) markup so restartAll() can restore it
+const dropZoneOriginalHTML = {};
+document.querySelectorAll('.drop-zone').forEach(z=>{
+  dropZoneOriginalHTML[z.id] = z.innerHTML;
+});
+
 function startDrag(e){
   const item = e.currentTarget;
   if(item.classList.contains('placed')) return;
@@ -1183,7 +1189,76 @@ function checkActivityComplete(){
 }
 
 function restartAll(){
-  location.reload();
+  // Close any open popups
+  document.querySelectorAll('.popup-overlay').forEach(p => p.classList.remove('show'));
+
+  // Cancel any drag currently in progress
+  if (dragEl) {
+    dragEl.classList.remove('dragging');
+    dragEl = null;
+  }
+
+  // Reset score & activity counters
+  score = 0;
+  act1Correct = 0; act2Correct = 0; act3Correct = 0;
+  currentActivity = 1;
+  if (scoreEl) scoreEl.textContent = '0';
+
+  // Put every draggable item back at its original spot, unplaced
+  document.querySelectorAll('.drag-item').forEach(el => {
+    el.classList.remove('placed', 'dragging');
+    el.style.left = (origX[el.id] || 0) + 'px';
+    el.style.top  = (origY[el.id] || 0) + 'px';
+  });
+
+  // Reset every drop zone: clear state classes and restore its original markup
+  document.querySelectorAll('.drop-zone').forEach(z => {
+    z.classList.remove('correct', 'wrong', 'filled', 'hovered');
+    if (dropZoneOriginalHTML[z.id] !== undefined) {
+      z.innerHTML = dropZoneOriginalHTML[z.id];
+    }
+  });
+
+  // Reset Activity 2's wire + bubble-label visuals
+  const wireL = document.getElementById('wire-l-path');
+  const wireR = document.getElementById('wire-r-path');
+  if (wireL) wireL.style.opacity = '0';
+  if (wireR) wireR.style.opacity = '0';
+  const bubLblL = document.getElementById('a2-bubble-label-l');
+  const bubLblR = document.getElementById('a2-bubble-label-r');
+  if (bubLblL) bubLblL.style.opacity = '0';
+  if (bubLblR) bubLblR.style.opacity = '0';
+
+  // Clear every animated bubble container, then respawn the ambient Activity 1 bubbles
+  ['a1-bubbles','a2-bubbles-l','a2-bubbles-r','a3-bubbles-l','a3-bubbles-r'].forEach(id=>{
+    const c = document.getElementById(id);
+    if (c) c.innerHTML = '';
+  });
+  spawnBubbles('a1-bubbles','rgba(0,150,255,0.5)', 6, 3.5);
+
+  // Hide feedback labels and the next button
+  ['fb1','fb2','fb3'].forEach(id=>{
+    const fb = document.getElementById(id);
+    if (fb) fb.className = 'fb-label';
+  });
+  const nextBtn = document.getElementById('next-btn');
+  if (nextBtn) nextBtn.classList.remove('show');
+
+  // Reset the progress bar back to step 1
+  ['ps1','ps2','ps3'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('active','done');
+    if (i === 0) el.classList.add('active');
+  });
+  ['pl1','pl2'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('done');
+  });
+
+  // Show only Activity 1
+  document.querySelectorAll('.activity').forEach(a => a.classList.remove('active'));
+  document.getElementById('activity1').classList.add('active');
 }
 
 // ═══════════════════════════════════════════════════════════════════

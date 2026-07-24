@@ -1484,6 +1484,9 @@ let scopePhase = 0;
   const label = document.getElementById('drag-label');
   let dragging = null;
 
+  const zoneOriginalHTML = new Map();
+  zones.forEach(z => zoneOriginalHTML.set(z, z.innerHTML));
+
   comps.forEach(comp => {
     comp.addEventListener('dragstart', e => {
       dragging = comp;
@@ -1563,6 +1566,16 @@ let scopePhase = 0;
       setTimeout(()=>showPopup(1), 400);
     }
   }
+
+  function resetA1() {
+    zones.forEach(z => {
+      z.classList.remove('filled');
+      z.innerHTML = zoneOriginalHTML.get(z);
+    });
+    comps.forEach(c => c.classList.remove('used'));
+    Object.keys(a1Filled).forEach(k => a1Filled[k] = false);
+  }
+  window.resetA1 = resetA1;
 })();
 
 // ═══════════════════════════════════════════════════════════
@@ -1571,6 +1584,8 @@ let scopePhase = 0;
 (function initA2() {
   const workspace = document.getElementById('a2-workspace');
   const svg = document.getElementById('a2-svg');
+  const ledDisplay = document.getElementById('a2-led-display');
+  const ledDisplayOriginalStyle = ledDisplay.getAttribute('style');
 
   // Define connection nodes: id, label, pos (% of workspace), color, connects-to
   const nodes = [
@@ -1722,6 +1737,20 @@ let scopePhase = 0;
       setTimeout(() => showPopup(2), 600);
     }
   }
+
+  function resetA2() {
+    svg.querySelectorAll('path').forEach(p => p.remove());
+    previewLine = null;
+    selectedNode = null;
+    Object.keys(connected).forEach(k => delete connected[k]);
+    nodes.forEach(n => {
+      const el = document.getElementById('node-' + n.id);
+      el.classList.remove('connected');
+      el.style.background = '';
+    });
+    ledDisplay.setAttribute('style', ledDisplayOriginalStyle);
+  }
+  window.resetA2 = resetA2;
 })();
 
 // ═══════════════════════════════════════════════════════════
@@ -1735,6 +1764,12 @@ let scopePhase = 0;
     c:  document.getElementById('c-slot'),
   };
   let draggingChip = null;
+
+  const slotOriginalText = {};
+  Object.entries(slots).forEach(([key, slot]) => { slotOriginalText[key] = slot.textContent; });
+  const freqReadoutOriginal = document.getElementById('freq-readout').innerHTML;
+  const periodReadoutOriginal = document.getElementById('period-readout').innerHTML;
+  const dutyReadoutOriginal = document.getElementById('duty-readout').textContent;
 
   chips.forEach(chip => {
     chip.setAttribute('draggable', 'true');
@@ -1800,6 +1835,23 @@ let scopePhase = 0;
   }
 
   window.updateFrequency = updateFrequency;
+
+  function resetA3() {
+    chips.forEach(c => c.classList.remove('used'));
+    Object.entries(slots).forEach(([key, slot]) => {
+      slot.classList.remove('filled');
+      slot.textContent = slotOriginalText[key];
+      delete slot.dataset.chipId;
+      a3Values[key] = null;
+    });
+    document.getElementById('freq-readout').innerHTML = freqReadoutOriginal;
+    document.getElementById('period-readout').innerHTML = periodReadoutOriginal;
+    document.getElementById('duty-readout').textContent = dutyReadoutOriginal;
+    if (ledInterval) { clearInterval(ledInterval); ledInterval = null; }
+    const led = document.getElementById('a3-led');
+    if (led) led.classList.remove('on');
+  }
+  window.resetA3 = resetA3;
 })();
 
 // ═══════════════════════════════════════════════════════════
@@ -1980,6 +2032,29 @@ function showFinalCelebration() {
       document.body.style.background = t%400===0 ? 'rgba(245,166,35,0.1)' : orig;
     }, t);
   });
+  setTimeout(showPlayAgainPopup, 900);
+}
+
+function showPlayAgainPopup() {
+  document.getElementById('popup-icon').textContent = '🔁';
+  document.getElementById('popup-title').textContent = 'FACTORY RESET';
+  document.getElementById('popup-subtitle').textContent = '— READY FOR ANOTHER RUN —';
+  document.getElementById('popup-body').textContent = 'Your oscillator is built, wired, and tuned. Reset the factory floor and assemble a fresh circuit from scratch.';
+  document.getElementById('popup-fact').textContent = '🔧 TIP: Every component returns to the tray, every wire clears, and the tuning dial resets to zero.';
+  const btn = document.getElementById('popup-btn');
+  btn.textContent = 'PLAY AGAIN ↻';
+  btn.onclick = playAgain;
+  document.getElementById('popup-overlay').classList.add('visible');
+}
+
+function playAgain() {
+  closePopup();
+  if (typeof window.resetA1 === 'function') window.resetA1();
+  if (typeof window.resetA2 === 'function') window.resetA2();
+  if (typeof window.resetA3 === 'function') window.resetA3();
+  updateProgress(0);
+  activateActivity(1);
+  updateStatus('ACT 01 — ASSEMBLE CIRCUIT');
 }
 
 function spawnConfetti() {

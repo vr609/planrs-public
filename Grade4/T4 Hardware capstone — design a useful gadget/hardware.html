@@ -279,6 +279,25 @@
   .drag-item .icon {
     font-size: 1.1rem; flex-shrink: 0;
   }
+  .drag-item.shake-wrong {
+    animation: shakeWrong 0.45s ease;
+    border-color: var(--magenta) !important;
+    box-shadow: var(--glow-m) !important;
+  }
+  @keyframes shakeWrong {
+    0%, 100% { transform: translateX(0); }
+    20%      { transform: translateX(-6px); }
+    40%      { transform: translateX(6px); }
+    60%      { transform: translateX(-4px); }
+    80%      { transform: translateX(4px); }
+  }
+  .target-zone.shake-wrong, .bp-slot.shake-wrong {
+    animation: shakeWrong 0.45s ease;
+  }
+  .bp-slot.shake-wrong {
+    border-color: var(--magenta) !important;
+    background: rgba(255,0,204,0.1) !important;
+  }
 
   /* ── DROP SLOTS ── */
   .drop-slot {
@@ -346,7 +365,7 @@
     flex: 1;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
     gap: 6px;
     min-height: 0;
   }
@@ -629,7 +648,7 @@
     <div class="act-header">
       <div class="act-badge">Activity 1 of 3</div>
       <div class="act-title">🔍 Choose Your Problem</div>
-      <div class="act-subtitle">Drag 3 real-world problems into the Problem Portal!</div>
+      <div class="act-subtitle">Drag 3 problems that a hardware gadget can actually solve!</div>
     </div>
 
     <div class="dnd-layout">
@@ -669,7 +688,7 @@
     <div class="act-header">
       <div class="act-badge">Activity 2 of 3</div>
       <div class="act-title">⚙️ Design Your Gadget</div>
-      <div class="act-subtitle">Drag hardware parts into the Gadget Blueprint!</div>
+      <div class="act-subtitle">Drag the matching hardware part into each labeled slot!</div>
     </div>
 
     <div class="dnd-layout">
@@ -692,12 +711,10 @@
       <div class="target-zone" id="act2-target" style="flex:1.2;">
         <div class="zone-label">Gadget Blueprint (fill 4 slots)</div>
         <div class="blueprint-grid" id="act2-blueprint">
-          <div class="bp-slot" data-slot="0"><span>⬡</span><span>Core Component</span></div>
-          <div class="bp-slot" data-slot="1"><span>⬡</span><span>Power Source</span></div>
-          <div class="bp-slot" data-slot="2"><span>⬡</span><span>Input/Sensor</span></div>
-          <div class="bp-slot" data-slot="3"><span>⬡</span><span>Output/Action</span></div>
-          <div class="bp-slot" data-slot="4"><span>⬡</span><span>Control Unit</span></div>
-          <div class="bp-slot" data-slot="5"><span>⬡</span><span>Connection</span></div>
+          <div class="bp-slot" data-slot="0" data-correct="c7"><span>⬡</span><span>Core Component</span></div>
+          <div class="bp-slot" data-slot="1" data-correct="c2"><span>⬡</span><span>Power Source</span></div>
+          <div class="bp-slot" data-slot="2" data-correct="c4"><span>⬡</span><span>Input/Sensor</span></div>
+          <div class="bp-slot" data-slot="3" data-correct="c3"><span>⬡</span><span>Output/Action</span></div>
         </div>
         <div class="reset-btn" onclick="resetActivity(2)">↺ Reset</div>
       </div>
@@ -712,7 +729,7 @@
     <div class="act-header">
       <div class="act-badge">Activity 3 of 3</div>
       <div class="act-title">🚀 Build &amp; Present</div>
-      <div class="act-subtitle">Arrange the steps to build and show your gadget idea!</div>
+      <div class="act-subtitle">Drag the steps in the exact right build order!</div>
     </div>
 
     <div class="dnd-layout">
@@ -861,10 +878,11 @@
 let currentActivity = 1;
 let currentPopupActivity = 0;
 
-// Act 1 state
-const act1State = { slots: [null, null, null] };
-// Act 2 state
-const act2State = { slots: [null, null, null, null, null, null], filled: 0 };
+// Act 1 state — only these problems are correct (solvable by the gadgets in Act 2)
+const act1Correct = ['p1', 'p2', 'p5'];
+const act1State = { slots: [null, null, null], correctCount: 0 };
+// Act 2 state — each of the 4 blueprint slots requires a specific matching component
+const act2State = { slots: [null, null, null, null], filled: 0 };
 // Act 3 state
 const correctOrder = ['s1','s2','s3','s4','s5','s6','s7'];
 const act3State = { slots: Array(7).fill(null) };
@@ -903,30 +921,6 @@ document.addEventListener('dragover', e => {
 });
 
 /* ═══════════════════════════════════════════════════════════
-   ACTIVITY 3 — ORDER VALIDATION (shared by mouse + touch)
-   ═══════════════════════════════════════════════════════════ */
-function checkAct3Order() {
-  const slots = document.querySelectorAll('#act3-sequence .seq-slot');
-  let rightCount = 0;
-  act3State.slots.forEach((s, i) => {
-    const isRight = (s === correctOrder[i]);
-    if (isRight) rightCount++;
-    slots[i].classList.remove('correct', 'wrong');
-    slots[i].classList.add(isRight ? 'correct' : 'wrong');
-  });
-
-  const isCorrect = rightCount === 7;
-  if (isCorrect) {
-    setFeedback('feedback-msg-3', '🏆 Perfect sequence! You\'re a real inventor!', 'good');
-    document.getElementById('proceed-btn-3').style.display = 'block';
-  } else {
-    setFeedback('feedback-msg-3', `⚠️ ${rightCount} of 7 steps in the right spot — hit Reset and try again!`, 'error');
-    document.getElementById('proceed-btn-3').style.display = 'none';
-  }
-  return isCorrect;
-}
-
-/* ═══════════════════════════════════════════════════════════
    ACTIVITY 1 — CHOOSE A PROBLEM
    ═══════════════════════════════════════════════════════════ */
 function initAct1() {
@@ -945,6 +939,14 @@ function initAct1() {
 
     // Check if already placed
     if (act1State.slots.includes(draggingId)) return;
+
+    // Reject wrong answers — only gadget-solvable problems count
+    if (!act1Correct.includes(draggingId)) {
+      setFeedback('feedback-msg', '❌ Not a gadget-solvable problem — try another!', 'error');
+      draggingEl.classList.add('shake-wrong');
+      setTimeout(() => draggingEl.classList.remove('shake-wrong'), 450);
+      return;
+    }
 
     // Find empty slot
     const emptyIdx = act1State.slots.findIndex(s => s === null);
@@ -965,7 +967,7 @@ function initAct1() {
 
     if (act1State.slots.every(s => s !== null)) {
       document.getElementById('proceed-btn').style.display = 'block';
-      setFeedback('feedback-msg', '🎯 All 3 problems chosen! Proceed when ready.', 'good');
+      setFeedback('feedback-msg', '🎯 All 3 correct problems chosen! Proceed when ready.', 'good');
     }
   });
 }
@@ -976,36 +978,53 @@ function initAct1() {
 function initAct2() {
   setupDrag('#act2-source .drag-item');
 
-  const target = document.getElementById('act2-target');
-  target.addEventListener('dragover', e => { e.preventDefault(); target.classList.add('drag-over'); });
-  target.addEventListener('dragleave', () => target.classList.remove('drag-over'));
-  target.addEventListener('drop', e => {
-    e.preventDefault();
-    target.classList.remove('drag-over');
-    if (!draggingId) return;
-    if (act2State.slots.includes(draggingId)) return;
+  // Each blueprint slot is its own drop zone that only accepts its matching component
+  document.querySelectorAll('#act2-blueprint .bp-slot').forEach(slot => {
+    const slotIdx = parseInt(slot.dataset.slot, 10);
 
-    const emptyIdx = act2State.slots.findIndex(s => s === null);
-    if (emptyIdx === -1) {
-      setFeedback('feedback-msg-2', '⚠️ Blueprint full! Reset to rearrange.', 'warn');
-      return;
-    }
-
-    act2State.slots[emptyIdx] = draggingId;
-    act2State.filled++;
-    draggingEl.classList.add('placed');
-
-    const slot = document.querySelector(`#act2-blueprint .bp-slot[data-slot="${emptyIdx}"]`);
-    slot.classList.add('filled');
-    slot.innerHTML = `<span class="bp-icon">${draggingEl.querySelector('.icon').textContent}</span><span>${draggingEl.childNodes[1].textContent.trim()}</span>`;
-
-    setFeedback('feedback-msg-2', `⚙️ Component ${act2State.filled} added to blueprint!`, 'good');
-
-    if (act2State.filled >= 4) {
-      document.getElementById('proceed-btn-2').style.display = 'block';
-      setFeedback('feedback-msg-2', '🔩 Gadget blueprint taking shape! Lock it in!', 'good');
-    }
+    slot.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (!slot.classList.contains('filled')) slot.classList.add('drag-over');
+    });
+    slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
+    slot.addEventListener('drop', e => {
+      e.preventDefault();
+      slot.classList.remove('drag-over');
+      handleAct2Drop(slotIdx, slot);
+    });
   });
+}
+
+function handleAct2Drop(slotIdx, slotEl) {
+  if (!draggingId) return;
+  if (act2State.slots[slotIdx] !== null) return; // slot already filled
+  if (act2State.slots.includes(draggingId)) return; // component already used
+
+  const correctId = slotEl.dataset.correct;
+  if (draggingId !== correctId) {
+    setFeedback('feedback-msg-2', "❌ Wrong part for this slot — check what it needs!", 'error');
+    draggingEl.classList.add('shake-wrong');
+    slotEl.classList.add('shake-wrong');
+    setTimeout(() => {
+      draggingEl.classList.remove('shake-wrong');
+      slotEl.classList.remove('shake-wrong');
+    }, 450);
+    return;
+  }
+
+  act2State.slots[slotIdx] = draggingId;
+  act2State.filled++;
+  draggingEl.classList.add('placed');
+
+  slotEl.classList.add('filled');
+  slotEl.innerHTML = `<span class="bp-icon">${draggingEl.querySelector('.icon').textContent}</span><span>${draggingEl.childNodes[1].textContent.trim()}</span>`;
+
+  setFeedback('feedback-msg-2', `⚙️ Correct component locked in! (${act2State.filled}/4)`, 'good');
+
+  if (act2State.filled >= 4) {
+    document.getElementById('proceed-btn-2').style.display = 'block';
+    setFeedback('feedback-msg-2', '🔩 Gadget blueprint complete!', 'good');
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1020,36 +1039,42 @@ function initAct3() {
   target.addEventListener('drop', e => {
     e.preventDefault();
     target.classList.remove('drag-over');
-    if (!draggingId) return;
-    if (act3State.slots.includes(draggingId)) return;
-
-    const emptyIdx = act3State.slots.findIndex(s => s === null);
-    if (emptyIdx === -1) {
-      setFeedback('feedback-msg-3', '⚠️ All slots filled! Reset to change order.', 'warn');
-      return;
-    }
-
-    act3State.slots[emptyIdx] = draggingId;
-    draggingEl.classList.add('placed');
-
-    const slot = document.querySelector(`#act3-sequence .seq-slot[data-slot="${emptyIdx}"]`);
-    slot.classList.add('filled');
-    slot.querySelector('.seq-text').innerHTML = `<span>${draggingEl.querySelector('.icon').textContent}</span> ${draggingEl.childNodes[1].textContent.trim()}`;
-
-    const filled = act3State.slots.filter(s => s !== null).length;
-    setFeedback('feedback-msg-3', `✔ Step ${filled} placed!`, 'good');
-
-    if (filled === 7) {
-      // Check order
-      const isCorrect = act3State.slots.every((s, i) => s === correctOrder[i]);
-      if (isCorrect) {
-        setFeedback('feedback-msg-3', '🏆 Perfect sequence! You\'re a real inventor!', 'good');
-      } else {
-        setFeedback('feedback-msg-3', '✔ All steps placed! Every inventor has their own way!', 'good');
-      }
-      document.getElementById('proceed-btn-3').style.display = 'block';
-    }
+    handleAct3Drop();
   });
+}
+
+function handleAct3Drop() {
+  if (!draggingId) return;
+  if (act3State.slots.includes(draggingId)) return;
+
+  const emptyIdx = act3State.slots.findIndex(s => s === null);
+  if (emptyIdx === -1) {
+    setFeedback('feedback-msg-3', '⚠️ All slots filled! Reset to change order.', 'warn');
+    return;
+  }
+
+  // Reject the card unless it's actually the next correct step
+  if (draggingId !== correctOrder[emptyIdx]) {
+    setFeedback('feedback-msg-3', `❌ Not the next step — what happens right after step ${emptyIdx}?`, 'error');
+    draggingEl.classList.add('shake-wrong');
+    setTimeout(() => draggingEl.classList.remove('shake-wrong'), 450);
+    return;
+  }
+
+  act3State.slots[emptyIdx] = draggingId;
+  draggingEl.classList.add('placed');
+
+  const slot = document.querySelector(`#act3-sequence .seq-slot[data-slot="${emptyIdx}"]`);
+  slot.classList.add('filled', 'correct');
+  slot.querySelector('.seq-text').innerHTML = `<span>${draggingEl.querySelector('.icon').textContent}</span> ${draggingEl.childNodes[1].textContent.trim()}`;
+
+  const filled = act3State.slots.filter(s => s !== null).length;
+  setFeedback('feedback-msg-3', `✔ Step ${filled} placed correctly!`, 'good');
+
+  if (filled === 7) {
+    setFeedback('feedback-msg-3', '🏆 Perfect sequence! You\'re a real inventor!', 'good');
+    document.getElementById('proceed-btn-3').style.display = 'block';
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1076,12 +1101,12 @@ function resetActivity(n) {
     setFeedback('feedback-msg', '', '');
   }
   if (n === 2) {
-    act2State.slots = [null, null, null, null, null, null];
+    act2State.slots = [null, null, null, null];
     act2State.filled = 0;
     document.querySelectorAll('#act2-source .drag-item').forEach(el => el.classList.remove('placed', 'dragging'));
     document.querySelectorAll('#act2-blueprint .bp-slot').forEach((sl, i) => {
       sl.classList.remove('filled');
-      const labels = ['Core Component','Power Source','Input/Sensor','Output/Action','Control Unit','Connection'];
+      const labels = ['Core Component','Power Source','Input/Sensor','Output/Action'];
       sl.innerHTML = `<span>⬡</span><span>${labels[i]}</span>`;
     });
     document.getElementById('proceed-btn-2').style.display = 'none';
@@ -1289,7 +1314,7 @@ function addTouchDrag(selector, dropTargetId, onDrop) {
       const rect = dropTarget.getBoundingClientRect();
       if (t.clientX >= rect.left && t.clientX <= rect.right &&
           t.clientY >= rect.top  && t.clientY <= rect.bottom) {
-        onDrop();
+        onDrop(e);
       }
       touchClone.remove(); touchClone = null;
       el.classList.remove('dragging');
@@ -1298,9 +1323,17 @@ function addTouchDrag(selector, dropTargetId, onDrop) {
   });
 }
 
-// Touch drops for each activity
+// Touch drops for each activity — reuse the same validated logic as mouse drag
 addTouchDrag('#act1-source .drag-item', 'act1-target', () => {
   if (!draggingId || act1State.slots.includes(draggingId)) return;
+
+  if (!act1Correct.includes(draggingId)) {
+    setFeedback('feedback-msg', '❌ Not a gadget-solvable problem — try another!', 'error');
+    draggingEl.classList.add('shake-wrong');
+    setTimeout(() => draggingEl.classList.remove('shake-wrong'), 450);
+    return;
+  }
+
   const emptyIdx = act1State.slots.findIndex(s => s === null);
   if (emptyIdx === -1) return;
   act1State.slots[emptyIdx] = draggingId;
@@ -1311,35 +1344,24 @@ addTouchDrag('#act1-source .drag-item', 'act1-target', () => {
   setFeedback('feedback-msg', `✔ Problem ${emptyIdx + 1} locked in!`, 'good');
   if (act1State.slots.every(s => s !== null)) {
     document.getElementById('proceed-btn').style.display = 'block';
+    setFeedback('feedback-msg', '🎯 All 3 correct problems chosen! Proceed when ready.', 'good');
   }
 });
 
-addTouchDrag('#act2-source .drag-item', 'act2-target', () => {
-  if (!draggingId || act2State.slots.includes(draggingId)) return;
-  const emptyIdx = act2State.slots.findIndex(s => s === null);
-  if (emptyIdx === -1) return;
-  act2State.slots[emptyIdx] = draggingId;
-  act2State.filled++;
-  draggingEl.classList.add('placed');
-  const slot = document.querySelector(`#act2-blueprint .bp-slot[data-slot="${emptyIdx}"]`);
-  slot.classList.add('filled');
-  slot.innerHTML = `<span class="bp-icon">${draggingEl.querySelector('.icon').textContent}</span><span>${draggingEl.childNodes[1].textContent.trim()}</span>`;
-  setFeedback('feedback-msg-2', `⚙️ Component ${act2State.filled} added!`, 'good');
-  if (act2State.filled >= 4) document.getElementById('proceed-btn-2').style.display = 'block';
+// Touch drop for act2 finds which specific blueprint slot the finger released over
+addTouchDrag('#act2-source .drag-item', 'act2-target', (e) => {
+  const t = e.changedTouches[0];
+  document.querySelectorAll('#act2-blueprint .bp-slot').forEach(slotEl => {
+    const rect = slotEl.getBoundingClientRect();
+    if (t.clientX >= rect.left && t.clientX <= rect.right &&
+        t.clientY >= rect.top  && t.clientY <= rect.bottom) {
+      handleAct2Drop(parseInt(slotEl.dataset.slot, 10), slotEl);
+    }
+  });
 });
 
 addTouchDrag('#act3-source .drag-item', 'act3-target', () => {
-  if (!draggingId || act3State.slots.includes(draggingId)) return;
-  const emptyIdx = act3State.slots.findIndex(s => s === null);
-  if (emptyIdx === -1) return;
-  act3State.slots[emptyIdx] = draggingId;
-  draggingEl.classList.add('placed');
-  const slot = document.querySelector(`#act3-sequence .seq-slot[data-slot="${emptyIdx}"]`);
-  slot.classList.add('filled');
-  slot.querySelector('.seq-text').innerHTML = `${draggingEl.querySelector('.icon').textContent} ${draggingEl.childNodes[1].textContent.trim()}`;
-  const filled = act3State.slots.filter(s => s !== null).length;
-  setFeedback('feedback-msg-3', `✔ Step ${filled} placed!`, 'good');
-  if (filled === 7) document.getElementById('proceed-btn-3').style.display = 'block';
+  handleAct3Drop();
 });
 
 /* ═══════════════════════════════════════════════════════════

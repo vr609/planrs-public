@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PYTHON — WEB SCRAPING WITH BEAUTIFULSOUP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Quicksand:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --canvas:#faf1e0;
+    --canvas2:#f2e2c4;
+    --card:#fffaf1;
+    --frame:#d8bd8e;
+    --ink:#2c2620;
+    --ink-dim:#7a6f5d;
+    --coral:#ff6b6b;
+    --gold:#ffc93c;
+    --teal:#2ec4b6;
+    --violet:#9b5de5;
+    --pink:#f15bb5;
+    --success:#2fae64;
+    --danger:#e8483b;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--canvas); color:var(--ink);
+    font-family:'Quicksand',sans-serif; touch-action:none; user-select:none;}
+  #app{position:relative; width:100vw; height:100vh; display:flex; flex-direction:column; overflow:hidden;
+    background:
+      radial-gradient(circle at 10% 15%, rgba(255,107,107,.10), transparent 40%),
+      radial-gradient(circle at 90% 85%, rgba(155,93,229,.12), transparent 42%),
+      radial-gradient(circle at 85% 12%, rgba(46,196,182,.10), transparent 38%),
+      repeating-linear-gradient(45deg, rgba(0,0,0,.015) 0 2px, transparent 2px 6px),
+      linear-gradient(160deg, var(--canvas), var(--canvas2));
+  }
+  #bg-fx{position:absolute; inset:0; overflow:hidden; z-index:0; pointer-events:none;}
+  .splash{position:absolute; border-radius:42% 58% 65% 35% / 45% 40% 60% 55%; opacity:.28; filter:blur(.5px);
+    animation:splashDrift linear infinite;}
+  @keyframes splashDrift{
+    0%{transform:translate(0,0) rotate(0deg) scale(1);}
+    50%{transform:translate(var(--dx,30px), var(--dy,-24px)) rotate(160deg) scale(1.12);}
+    100%{transform:translate(0,0) rotate(320deg) scale(1);}
+  }
+  .brush{position:absolute; font-size:1.6rem; opacity:.4; animation:brushDrift linear infinite;}
+  @keyframes brushDrift{
+    0%{transform:translate(0,0) rotate(-15deg);}
+    50%{transform:translate(var(--dx,60px), var(--dy,40px)) rotate(20deg);}
+    100%{transform:translate(0,0) rotate(-15deg);}
+  }
+  .sparkle{position:absolute; font-size:.9rem; opacity:0; animation:twinkle ease-in-out infinite;}
+  @keyframes twinkle{0%,100%{opacity:0; transform:scale(.5);} 50%{opacity:.9; transform:scale(1.15);}}
+  .wheel-fx{position:absolute; border-radius:50%; animation:spinWheel linear infinite;
+    background:conic-gradient(from 0deg,#ff6b6b,#ffc93c,#2ec4b6,#9b5de5,#f15bb5,#ff6b6b); opacity:.16; filter:blur(1px);}
+  @keyframes spinWheel{from{transform:rotate(0deg);} to{transform:rotate(360deg);}}
+  .glowblob{position:absolute; border-radius:50%; filter:blur(55px); animation:pulseGlow 6s ease-in-out infinite; z-index:0;}
+  @keyframes pulseGlow{0%,100%{opacity:.30; transform:scale(1);} 50%{opacity:.55; transform:scale(1.22);}}
+
+  header{position:relative; z-index:2; text-align:center; padding:1.1vh 2vw .5vh; flex:0 0 auto;}
+  h1{font-family:'Kalam',cursive; font-weight:700; font-size:clamp(1.05rem,2.5vw,1.9rem); margin:0; letter-spacing:.3px;
+    background:linear-gradient(90deg,var(--coral),var(--gold),var(--violet)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .subtitle{font-size:clamp(.6rem,1.05vw,.82rem); color:var(--ink-dim); letter-spacing:2px; text-transform:uppercase; font-weight:700;}
+  .progress-track{display:flex; justify-content:center; gap:14px; margin-top:.5vh;}
+  .prog-dot{font-size:clamp(1rem,1.7vw,1.35rem); opacity:.3; filter:grayscale(1); transition:.4s;}
+  .prog-dot.active{opacity:1; filter:none; transform:scale(1.25);}
+  .prog-dot.done{opacity:1; filter:none;}
+
+  #stage{position:relative; z-index:2; flex:1 1 auto; min-height:0; display:flex; align-items:stretch; justify-content:center; padding:0 2vw 1.3vh;}
+  .activity{display:none; width:100%; max-width:1180px; height:100%; flex-direction:column; min-height:0;}
+  .activity.active{display:flex;}
+  .a-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:.5vh; flex:0 0 auto;}
+  .a-title{font-family:'Kalam',cursive; font-size:clamp(.92rem,1.6vw,1.3rem); font-weight:700;}
+  .a-title small{display:block; font-family:'Quicksand',sans-serif; font-weight:600; color:var(--ink-dim); font-size:.58em; letter-spacing:.3px;}
+  .reset-btn{font-family:'Quicksand',sans-serif; font-weight:700; font-size:clamp(.62rem,1vw,.78rem);
+    background:#fff; border:2px solid var(--frame); color:var(--ink); padding:6px 14px; border-radius:20px;
+    cursor:pointer; display:flex; align-items:center; gap:6px; transition:.2s;}
+  .reset-btn:hover{background:var(--gold); border-color:var(--gold); transform:translateY(-1px);}
+  .a-body{flex:1 1 auto; min-height:0; display:flex; gap:1.3vw;}
+
+  /* ============ ACTIVITY 1 — PALETTE ROW ============ */
+  #activity1 .a-body{flex-direction:column; gap:.8vh;}
+  .palette-board{
+    background:linear-gradient(180deg,#f3e3c2,#e9d3a6); border:3px solid var(--frame); border-radius:26px 26px 60px 26px;
+    box-shadow:0 12px 28px rgba(60,40,10,.18), inset 0 1px 0 rgba(255,255,255,.5);
+    flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:.8vh; padding:1.3vh 1.6vw;
+  }
+  .wells-row{display:flex; justify-content:space-around; align-items:center; flex:1 1 auto; min-height:0;}
+  .well-wrap{display:flex; flex-direction:column; align-items:center; gap:5px;}
+  .well{
+    width:clamp(58px,7.6vw,92px); height:clamp(58px,7.6vw,92px); border-radius:50%;
+    border:3px solid #cbb082; background:radial-gradient(circle at 35% 30%, #fffdf8, #ede0c4 75%);
+    display:flex; align-items:center; justify-content:center; font-size:clamp(1.2rem,2vw,1.7rem);
+    box-shadow:inset 0 4px 10px rgba(0,0,0,.12); transition:.2s;
+  }
+  .well.dropzone-hot{transform:scale(1.08); box-shadow:0 0 0 4px rgba(255,201,60,.5);}
+  .well.filled{background:var(--fill,#fff);}
+  .well-num{font-family:'Space Mono',monospace; font-size:.62rem; color:var(--ink-dim); font-weight:700;}
+  .tube-tray{display:flex; justify-content:center; gap:1.2vw; flex-wrap:wrap; flex:0 0 auto; padding-top:2px; border-top:2px dashed var(--frame);}
+  .tube-card{
+    cursor:grab; display:flex; align-items:center; gap:6px; padding:7px 12px; border-radius:24px;
+    background:#fff; border:2px solid var(--frame); font-family:'Space Mono',monospace; font-weight:700;
+    font-size:clamp(.56rem,.95vw,.72rem); transition:.2s;
+  }
+  .tube-card:hover{transform:translateY(-2px); border-color:var(--coral);}
+  .tube-card .tico{font-size:1.1rem;}
+  .tube-card.placed{display:none;}
+
+  /* ============ ACTIVITY 2 — COLOR WHEEL ============ */
+  #activity2 .a-body{flex-direction:column; align-items:center; gap:.8vh;}
+  .wheel-stage{position:relative; flex:1 1 auto; min-height:0; width:min(58vh,60vw); margin:0 auto; display:flex; align-items:center; justify-content:center;}
+  .colorwheel{position:absolute; width:64%; height:64%; border-radius:50%;
+    background:conic-gradient(from 0deg,#ff6b6b,#ffc93c,#2ec4b6,#9b5de5,#f15bb5,#ff6b6b);
+    opacity:.85; box-shadow:0 0 40px rgba(0,0,0,.15), inset 0 0 30px rgba(255,255,255,.35);
+    animation:spinWheel 40s linear infinite;}
+  .colorwheel::after{content:""; position:absolute; inset:18%; border-radius:50%; background:var(--card); box-shadow:inset 0 0 12px rgba(0,0,0,.1);}
+  .wheel-slot{
+    position:absolute; width:clamp(50px,7vw,78px); height:clamp(50px,7vw,78px); border-radius:50%;
+    border:3px dashed var(--frame); background:#fffaf1; display:flex; align-items:center; justify-content:center;
+    font-size:1.3rem; transform:translate(-50%,-50%); transition:.2s; box-shadow:0 4px 10px rgba(0,0,0,.1);
+  }
+  .wheel-slot.dropzone-hot{transform:translate(-50%,-50%) scale(1.12); border-color:var(--gold);}
+  .wheel-slot.filled{border-style:solid; border-color:var(--success);}
+  .wheel-tray{display:flex; gap:1vw; flex-wrap:wrap; justify-content:center; flex:0 0 auto;}
+  .wheel-card{
+    cursor:grab; display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 10px; border-radius:14px;
+    background:#fff; border:2px solid var(--frame); font-size:.6rem; font-weight:700; text-align:center; max-width:96px; transition:.2s;
+  }
+  .wheel-card .wico{font-size:1.15rem;}
+  .wheel-card:hover{transform:translateY(-2px);}
+  .wheel-card.placed{display:none;}
+
+  /* ============ ACTIVITY 3 — GALLERY WALL ============ */
+  #activity3 .a-body{flex-direction:column; gap:.8vh;}
+  .gallery-wall{
+    background:linear-gradient(180deg,#3a3128,#2c261f); border-radius:20px; padding:1.2vh 1.4vw;
+    flex:1 1 auto; min-height:0; box-shadow:0 12px 30px rgba(0,0,0,.4); position:relative; overflow:hidden;
+    display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(2,1fr); gap:1vw;
+  }
+  .frame-slot{
+    border:6px solid #c9a45c; border-radius:8px; background:#463c30; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:4px; position:relative; box-shadow:0 6px 14px rgba(0,0,0,.35), inset 0 0 0 2px #7a6335;
+    transition:.25s; min-height:0;
+  }
+  .frame-slot .fnum{position:absolute; top:4px; left:6px; font-family:'Space Mono',monospace; font-size:.6rem; color:#d8bd8e;}
+  .frame-slot .flabel{font-size:clamp(.55rem,.95vw,.74rem); color:#f3e6cf; font-weight:700; text-align:center; padding:0 6px;}
+  .frame-slot.filled{border-color:var(--success); box-shadow:0 0 16px rgba(47,174,100,.5), inset 0 0 0 2px #2fae64;}
+  .gallery-tray{display:flex; gap:.8vw; flex-wrap:wrap; justify-content:center; flex:0 0 auto;}
+  .frame-card{
+    cursor:grab; padding:7px 11px; border-radius:10px; background:#fffaf1; border:2px solid var(--frame);
+    font-size:clamp(.56rem,.95vw,.72rem); font-weight:700; text-align:center; max-width:150px; transition:.2s;
+  }
+  .frame-card:hover{transform:translateY(-2px);}
+  .frame-card.placed{display:none;}
+  .celebrate-burst{position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:5;}
+
+  /* feedback */
+  .shake{animation:shakeX .45s;}
+  @keyframes shakeX{10%,90%{transform:translateX(-4px);} 20%,80%{transform:translateX(6px);}
+    30%,50%,70%{transform:translateX(-10px);} 40%,60%{transform:translateX(10px);}}
+  .flash-good{animation:flashGood .5s;}
+  @keyframes flashGood{0%{filter:brightness(1.7);} 100%{filter:brightness(1);}}
+
+  .overlay{position:fixed; inset:0; background:rgba(30,20,10,.72); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:50;}
+  .overlay.show{display:flex;}
+  .modal{background:linear-gradient(180deg,#fffaf1,#f6e9cf); border:3px solid var(--frame); border-radius:24px;
+    padding:3.2vh 3.2vw; text-align:center; max-width:min(90vw,480px); box-shadow:0 0 60px rgba(255,201,60,.3), 0 20px 50px rgba(0,0,0,.4);
+    animation:modalPop .4s cubic-bezier(.2,1.6,.4,1);}
+  @keyframes modalPop{from{transform:scale(.6); opacity:0;} to{transform:scale(1); opacity:1;}}
+  .modal .emoji{font-size:clamp(2.2rem,6vw,3.4rem); margin-bottom:6px; display:block;}
+  .modal h2{font-family:'Kalam',cursive; margin:.2em 0; font-size:clamp(1.1rem,2.6vw,1.6rem); color:var(--ink);}
+  .modal p{color:var(--ink-dim); font-size:clamp(.75rem,1.4vw,.95rem); margin-bottom:1.2em; font-weight:600;}
+  .next-btn{font-family:'Kalam',cursive; font-weight:700; font-size:clamp(.9rem,1.6vw,1.15rem); cursor:pointer;
+    background:linear-gradient(90deg,var(--coral),var(--violet)); border:none; color:#fff; padding:12px 30px; border-radius:30px;
+    box-shadow:0 8px 20px rgba(155,93,229,.35); transition:.2s;}
+  .next-btn:hover{transform:translateY(-2px) scale(1.03);}
+  .confetti{position:absolute; top:-5%; border-radius:40% 60% 60% 40%/50% 40% 60% 50%; animation:confettiFall 2.4s ease-in forwards;}
+  @keyframes confettiFall{to{transform:translateY(115vh) rotate(540deg); opacity:0;}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="bg-fx"></div>
+  <div class="glowblob" style="width:320px;height:320px;left:-70px;top:-70px;background:radial-gradient(circle,var(--coral),transparent 70%);"></div>
+  <div class="glowblob" style="width:300px;height:300px;right:-60px;bottom:-60px;background:radial-gradient(circle,var(--violet),transparent 70%); animation-delay:2s;"></div>
+
+  <header>
+    <h1>🎨 PYTHON — WEB SCRAPING WITH BEAUTIFULSOUP</h1>
+    <div class="subtitle">Creative Coding Studio</div>
+    <div class="progress-track">
+      <span class="prog-dot" id="dot1">🎨</span>
+      <span class="prog-dot" id="dot2">🎨</span>
+      <span class="prog-dot" id="dot3">🎨</span>
+    </div>
+  </header>
+
+  <main id="stage">
+
+    <!-- ACTIVITY 1 -->
+    <section class="activity" id="activity1">
+      <div class="a-head">
+        <div class="a-title">Activity 1 · Sequence The Workflow<small>Drag each step onto the palette well, in order</small></div>
+        <button class="reset-btn" onclick="resetActivity1()">↺ Reset</button>
+      </div>
+      <div class="a-body">
+        <div class="palette-board">
+          <div class="wells-row" id="wellsRow"></div>
+          <div class="tube-tray" id="tubeTray"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 2 -->
+    <section class="activity" id="activity2">
+      <div class="a-head">
+        <div class="a-title">Activity 2 · Complete The Pipeline<small>Place each piece around the color wheel to extract five paragraphs</small></div>
+        <button class="reset-btn" onclick="resetActivity2()">↺ Reset</button>
+      </div>
+      <div class="a-body">
+        <div class="wheel-stage" id="wheelStage">
+          <div class="colorwheel"></div>
+        </div>
+        <div class="wheel-tray" id="wheelTray"></div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 3 -->
+    <section class="activity" id="activity3">
+      <div class="a-head">
+        <div class="a-title">Activity 3 · Hang The Final Gallery<small>Arrange all six steps on the wall in the correct order</small></div>
+        <button class="reset-btn" onclick="resetActivity3()">↺ Reset</button>
+      </div>
+      <div class="a-body">
+        <div class="gallery-wall" id="galleryWall">
+          <div class="celebrate-burst" id="celebrateBurst"></div>
+        </div>
+      </div>
+      <div class="gallery-tray" id="galleryTray"></div>
+    </section>
+
+  </main>
+
+  <div class="overlay" id="popup">
+    <div class="modal">
+      <span class="emoji" id="popupEmoji">🎨</span>
+      <h2 id="popupTitle">Activity Complete!</h2>
+      <p id="popupText">Great work, artist-coder.</p>
+      <button class="next-btn" id="popupBtn" onclick="advanceFromPopup()">Next Activity →</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="finalPopup">
+    <div class="modal">
+      <span class="emoji">🖼️</span>
+      <h2>Masterpiece Complete!</h2>
+      <p>You've scraped, parsed, and displayed your data like a true creative coder!</p>
+      <button class="next-btn" onclick="playAgain()">🔁 Play Again</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ================= helpers ================= */
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+function rand(min,max){return Math.random()*(max-min)+min;}
+
+/* ================= background FX ================= */
+function buildBgFx(){
+  const fx=document.getElementById('bg-fx');
+  fx.innerHTML='';
+  const splashColors=['#ff6b6b','#ffc93c','#2ec4b6','#9b5de5','#f15bb5'];
+  for(let i=0;i<13;i++){
+    const s=document.createElement('div'); s.className='splash';
+    const size=rand(30,80);
+    s.style.width=size+'px'; s.style.height=size+'px';
+    s.style.left=rand(0,95)+'%'; s.style.top=rand(0,95)+'%';
+    s.style.background=splashColors[i%splashColors.length];
+    s.style.setProperty('--dx', rand(-50,50)+'px');
+    s.style.setProperty('--dy', rand(-40,40)+'px');
+    s.style.animationDuration=rand(10,20)+'s';
+    s.style.animationDelay=rand(0,10)+'s';
+    fx.appendChild(s);
+  }
+  const brushes=['🖌️','🖍️','🖊️'];
+  for(let i=0;i<6;i++){
+    const b=document.createElement('div'); b.className='brush'; b.textContent=brushes[i%brushes.length];
+    b.style.left=rand(2,92)+'%'; b.style.top=rand(4,90)+'%';
+    b.style.setProperty('--dx', rand(-70,70)+'px');
+    b.style.setProperty('--dy', rand(-50,50)+'px');
+    b.style.animationDuration=rand(11,19)+'s';
+    b.style.animationDelay=rand(0,8)+'s';
+    fx.appendChild(b);
+  }
+  for(let i=0;i<12;i++){
+    const sp=document.createElement('div'); sp.className='sparkle'; sp.textContent='✨';
+    sp.style.left=rand(2,96)+'%'; sp.style.top=rand(4,94)+'%';
+    sp.style.animationDuration=rand(2.5,5)+'s';
+    sp.style.animationDelay=rand(0,4)+'s';
+    fx.appendChild(sp);
+  }
+  const wheelSpots=[{l:'6%',t:'8%'},{l:'92%',t:'14%'},{l:'8%',t:'85%'},{l:'90%',t:'88%'}];
+  wheelSpots.forEach((pos,i)=>{
+    const w=document.createElement('div'); w.className='wheel-fx';
+    const size=rand(60,110);
+    w.style.width=size+'px'; w.style.height=size+'px';
+    w.style.left=pos.l; w.style.top=pos.t;
+    w.style.animationDuration=rand(18,30)+'s';
+    fx.appendChild(w);
+  });
+}
+buildBgFx();
+
+/* ================= generic drag core ================= */
+function makeDraggable(el, zoneSelector, onDrop){
+  el.addEventListener('pointerdown', function(e){
+    if(el.classList.contains('placed')) return;
+    e.preventDefault();
+    const rect=el.getBoundingClientRect();
+    const offsetX=e.clientX-rect.left, offsetY=e.clientY-rect.top;
+    const ghost=el.cloneNode(true);
+    ghost.style.position='fixed';
+    ghost.style.zIndex='999';
+    ghost.style.width=rect.width+'px';
+    ghost.style.height=rect.height+'px';
+    ghost.style.left=rect.left+'px';
+    ghost.style.top=rect.top+'px';
+    ghost.style.pointerEvents='none';
+    ghost.style.opacity='.95';
+    ghost.style.transform='scale(1.08) rotate(-3deg)';
+    ghost.style.boxShadow='0 12px 26px rgba(0,0,0,.4)';
+    document.body.appendChild(ghost);
+    el.style.visibility='hidden';
+
+    function move(ev){
+      ghost.style.left=(ev.clientX-offsetX)+'px';
+      ghost.style.top=(ev.clientY-offsetY)+'px';
+      const under=document.elementFromPoint(ev.clientX,ev.clientY);
+      const zone=under ? under.closest(zoneSelector) : null;
+      document.querySelectorAll(zoneSelector+'.dropzone-hot').forEach(z=>z.classList.remove('dropzone-hot'));
+      if(zone) zone.classList.add('dropzone-hot');
+    }
+    function up(ev){
+      document.removeEventListener('pointermove',move);
+      document.removeEventListener('pointerup',up);
+      const under=document.elementFromPoint(ev.clientX,ev.clientY);
+      const zone=under ? under.closest(zoneSelector) : null;
+      document.querySelectorAll(zoneSelector+'.dropzone-hot').forEach(z=>z.classList.remove('dropzone-hot'));
+      ghost.remove();
+      const accepted=onDrop(el, zone);
+      if(!accepted){
+        el.style.visibility='visible';
+        el.classList.add('shake');
+        setTimeout(()=>el.classList.remove('shake'),450);
+      }
+    }
+    document.addEventListener('pointermove',move);
+    document.addEventListener('pointerup',up);
+  });
+}
+
+/* ================= progress / popups ================= */
+let currentActivity=1;
+const completedSet=new Set();
+function updateDots(){
+  for(let i=1;i<=3;i++){
+    const d=document.getElementById('dot'+i);
+    d.classList.toggle('active', i===currentActivity);
+    d.classList.toggle('done', completedSet.has(i));
+    d.textContent = completedSet.has(i) ? '✅' : '🎨';
+  }
+}
+function showActivity(n){
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.getElementById('activity'+n).classList.add('active');
+  currentActivity=n; updateDots();
+}
+let pendingNext=null;
+function openPopup(emoji,title,text,btnLabel,next){
+  document.getElementById('popupEmoji').textContent=emoji;
+  document.getElementById('popupTitle').textContent=title;
+  document.getElementById('popupText').textContent=text;
+  document.getElementById('popupBtn').textContent=btnLabel;
+  pendingNext=next;
+  document.getElementById('popup').classList.add('show');
+}
+function advanceFromPopup(){
+  document.getElementById('popup').classList.remove('show');
+  if(pendingNext) pendingNext();
+}
+
+/* ================= ACTIVITY 1 — palette row ================= */
+const WELL_COLORS=['#ffb3b3','#ffe4a3','#a9ecdf','#d3bdf5','#f7bfe0'];
+const STEPS1=[
+  {order:1, icon:'🌐', code:'requests.get()', desc:'Send request to the website'},
+  {order:2, icon:'📄', code:'Receive HTML', desc:'Website sends back raw HTML'},
+  {order:3, icon:'🍲', code:'BeautifulSoup', desc:'Create a BeautifulSoup object'},
+  {order:4, icon:'🔍', code:'Parse HTML', desc:'Read through the HTML structure'},
+  {order:5, icon:'📝', code:'Extract Data', desc:'Pull out the exact text you need'}
+];
+let a1Count=0;
+function resetActivity1(){
+  a1Count=0;
+  const row=document.getElementById('wellsRow'); row.innerHTML='';
+  for(let i=1;i<=5;i++){
+    const wrap=document.createElement('div'); wrap.className='well-wrap';
+    wrap.innerHTML=`<div class="well" data-order="${i}" style="--fill:${WELL_COLORS[i-1]}"></div><div class="well-num">Step ${i}</div>`;
+    row.appendChild(wrap);
+  }
+  const tray=document.getElementById('tubeTray'); tray.innerHTML='';
+  shuffle(STEPS1).forEach(st=>{
+    const card=document.createElement('div'); card.className='tube-card'; card.dataset.order=st.order;
+    card.innerHTML=`<span class="tico">${st.icon}</span><span>${st.code}</span>`;
+    card.title=st.desc;
+    tray.appendChild(card);
+    makeDraggable(card, '.well', (el,zone)=>{
+      if(!zone) return false;
+      if(zone.classList.contains('filled')) return false;
+      if(zone.dataset.order!==el.dataset.order) return false;
+      zone.classList.add('filled','flash-good');
+      zone.textContent='';
+      const icon=document.createElement('span'); icon.textContent=STEPS1[el.dataset.order-1].icon;
+      icon.style.fontSize='1.4rem';
+      zone.appendChild(icon);
+      el.classList.add('placed');
+      a1Count++;
+      if(a1Count===5){
+        completedSet.add(1);
+        setTimeout(()=>openPopup('🎨','Activity 1 Complete!','The workflow is painted in the right order, step by step.','Next: Complete the Pipeline →', ()=>{ resetActivity2(); showActivity(2); }),400);
+      }
+      return true;
+    });
+  });
+}
+
+/* ================= ACTIVITY 2 — color wheel ================= */
+const STEPS2=[
+  {order:1, icon:'🔗', label:'URL', desc:'The web address to visit'},
+  {order:2, icon:'📄', label:'HTML Document', desc:'The raw page content'},
+  {order:3, icon:'🍲', label:'BeautifulSoup Parser', desc:'Organizes the messy HTML'},
+  {order:4, icon:'¶', label:'Paragraph Tags', desc:'The five <p> elements'},
+  {order:5, icon:'✅', label:'Extracted Text', desc:'The clean paragraph text'}
+];
+let a2Count=0;
+function resetActivity2(){
+  a2Count=0;
+  const stage=document.getElementById('wheelStage');
+  stage.querySelectorAll('.wheel-slot').forEach(n=>n.remove());
+  const R=38;
+  for(let i=1;i<=5;i++){
+    const angle=(-90 + (i-1)*72) * Math.PI/180;
+    const x=50+R*Math.cos(angle), y=50+R*Math.sin(angle);
+    const slot=document.createElement('div'); slot.className='wheel-slot'; slot.dataset.order=i;
+    slot.style.left=x+'%'; slot.style.top=y+'%';
+    stage.appendChild(slot);
+  }
+  const tray=document.getElementById('wheelTray'); tray.innerHTML='';
+  shuffle(STEPS2).forEach(st=>{
+    const card=document.createElement('div'); card.className='wheel-card'; card.dataset.order=st.order;
+    card.innerHTML=`<span class="wico">${st.icon}</span><span>${st.label}</span>`;
+    card.title=st.desc;
+    tray.appendChild(card);
+    makeDraggable(card, '.wheel-slot', (el,zone)=>{
+      if(!zone) return false;
+      if(zone.classList.contains('filled')) return false;
+      if(zone.dataset.order!==el.dataset.order) return false;
+      zone.classList.add('filled','flash-good');
+      zone.textContent='';
+      const icon=document.createElement('span'); icon.textContent=STEPS2[el.dataset.order-1].icon; icon.style.fontSize='1.2rem';
+      zone.appendChild(icon);
+      el.classList.add('placed');
+      a2Count++;
+      if(a2Count===5){
+        completedSet.add(2);
+        setTimeout(()=>openPopup('🎡','Activity 2 Complete!','Your pipeline wheel is complete — five paragraphs, extracted!','Next: Hang the Final Gallery →', ()=>{ resetActivity3(); showActivity(3); }),400);
+      }
+      return true;
+    });
+  });
+}
+
+/* ================= ACTIVITY 3 — gallery wall ================= */
+const STEPS3=[
+  {order:1, icon:'📤', label:'Send HTTP Request'},
+  {order:2, icon:'📥', label:'Receive Webpage'},
+  {order:3, icon:'🧵', label:'Parse HTML'},
+  {order:4, icon:'📌', label:'Locate Paragraph Elements'},
+  {order:5, icon:'✂️', label:'Extract First Five Paragraphs'},
+  {order:6, icon:'🖼️', label:'Display The Results'}
+];
+let a3Count=0;
+function resetActivity3(){
+  a3Count=0;
+  const wall=document.getElementById('galleryWall');
+  wall.querySelectorAll('.frame-slot').forEach(n=>n.remove());
+  const burst=document.getElementById('celebrateBurst');
+  for(let i=1;i<=6;i++){
+    const slot=document.createElement('div'); slot.className='frame-slot'; slot.dataset.order=i;
+    slot.innerHTML=`<span class="fnum">#${i}</span>`;
+    wall.appendChild(slot);
+  }
+  wall.appendChild(burst);
+  const tray=document.getElementById('galleryTray'); tray.innerHTML='';
+  shuffle(STEPS3).forEach(st=>{
+    const card=document.createElement('div'); card.className='frame-card'; card.dataset.order=st.order;
+    card.innerHTML=`${st.icon} ${st.label}`;
+    tray.appendChild(card);
+    makeDraggable(card, '.frame-slot', (el,zone)=>{
+      if(!zone) return false;
+      if(zone.classList.contains('filled')) return false;
+      if(zone.dataset.order!==el.dataset.order) return false;
+      zone.classList.add('filled','flash-good');
+      const lbl=document.createElement('span'); lbl.className='flabel';
+      lbl.textContent=STEPS3[el.dataset.order-1].icon+' '+STEPS3[el.dataset.order-1].label;
+      zone.appendChild(lbl);
+      el.classList.add('placed');
+      a3Count++;
+      if(a3Count===6){
+        completedSet.add(3);
+        celebrateBurst();
+        setTimeout(()=>{ document.getElementById('finalPopup').classList.add('show'); }, 1400);
+      }
+      return true;
+    });
+  });
+}
+
+function celebrateBurst(){
+  const layer=document.getElementById('celebrateBurst');
+  layer.innerHTML='';
+  const colors=['#ff6b6b','#ffc93c','#2ec4b6','#9b5de5','#f15bb5'];
+  for(let i=0;i<40;i++){
+    const c=document.createElement('div'); c.className='confetti';
+    const size=rand(6,12);
+    c.style.width=size+'px'; c.style.height=size*1.3+'px';
+    c.style.left=rand(0,100)+'%';
+    c.style.background=colors[i%colors.length];
+    c.style.animationDelay=rand(0,.6)+'s';
+    c.style.animationDuration=rand(1.6,2.6)+'s';
+    layer.appendChild(c);
+  }
+}
+
+/* ================= play again ================= */
+function playAgain(){
+  document.getElementById('finalPopup').classList.remove('show');
+  completedSet.clear();
+  resetActivity1();
+  resetActivity2();
+  resetActivity3();
+  showActivity(1);
+}
+
+/* ================= init ================= */
+resetActivity1();
+resetActivity2();
+resetActivity3();
+showActivity(1);
+</script>
+</body>
+</html>

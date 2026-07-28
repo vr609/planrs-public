@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Algorithms — Binary Search</title>
+<style>
+:root{
+  --night:#0a0e1a;
+  --deep:#0d1526;
+  --mountain:#1a2744;
+  --pine:#0d3320;
+  --pine2:#143d28;
+  --river:#1a4a6e;
+  --rivergl:#4ac2ff;
+  --mist:rgba(180,210,255,0.06);
+  --gold:#f7c948;
+  --amber:#e8933a;
+  --leaf:#3ecf8e;
+  --sky:#a8d8f0;
+  --snow:#e8f4fd;
+  --ink:#d8eeff;
+  --panel:rgba(10,20,40,0.78);
+  --panelb:rgba(255,255,255,0.07);
+  --good:#39e08a;
+  --bad:#ff5d6c;
+  --glow:rgba(74,194,255,0.25);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',Verdana,sans-serif;background:var(--night);color:var(--ink);user-select:none;touch-action:none;}
+#app{position:relative;width:100vw;height:100vh;overflow:hidden;}
+
+/* ===== BACKGROUND SCENE ===== */
+#scene{position:absolute;inset:0;z-index:0;pointer-events:none;}
+
+/* Stars */
+.star{position:absolute;border-radius:50%;background:#fff;animation:twinkle ease-in-out infinite;}
+@keyframes twinkle{0%,100%{opacity:.15;transform:scale(1);}50%{opacity:1;transform:scale(1.4);}}
+
+/* Mountains */
+#mountains{position:absolute;bottom:0;left:0;width:100%;height:60%;}
+.mtn-layer{position:absolute;bottom:0;width:100%;}
+
+/* Pine trees */
+.pine{position:absolute;bottom:0;pointer-events:none;animation:pineSway ease-in-out infinite;}
+@keyframes pineSway{0%,100%{transform-origin:bottom center;transform:rotate(-1.5deg);}50%{transform-origin:bottom center;transform:rotate(1.5deg);}}
+
+/* River */
+#river-wrap{position:absolute;bottom:0;left:0;width:100%;height:28px;overflow:hidden;}
+.river-shimmer{position:absolute;bottom:0;height:100%;width:200%;background:linear-gradient(90deg,transparent 0%,rgba(74,194,255,.18) 30%,rgba(74,194,255,.35) 50%,rgba(74,194,255,.18) 70%,transparent 100%);animation:riverFlow 4s linear infinite;}
+@keyframes riverFlow{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+
+/* Fireflies */
+.fly{position:absolute;width:4px;height:4px;border-radius:50%;background:#ffe066;box-shadow:0 0 6px 3px rgba(255,224,102,.7);animation:flyFloat ease-in-out infinite, flyBlink ease-in-out infinite;}
+@keyframes flyFloat{0%{transform:translate(0,0);}25%{transform:translate(14px,-18px);}50%{transform:translate(-8px,-30px);}75%{transform:translate(18px,-12px);}100%{transform:translate(0,0);}}
+@keyframes flyBlink{0%,100%{opacity:0;}40%,60%{opacity:1;}}
+
+/* Falling leaves */
+.leaf-fall{position:absolute;top:-30px;font-size:14px;animation:leafDrift linear infinite;opacity:.7;}
+@keyframes leafDrift{0%{transform:translateY(0) rotate(0deg) translateX(0);}25%{transform:translateY(25vh) rotate(90deg) translateX(18px);}50%{transform:translateY(50vh) rotate(180deg) translateX(-12px);}75%{transform:translateY(75vh) rotate(270deg) translateX(20px);}100%{transform:translateY(110vh) rotate(360deg) translateX(0);opacity:0;}}
+
+/* Mist */
+.mist-band{position:absolute;height:30px;width:120%;background:rgba(180,210,255,.05);border-radius:50%;animation:mistDrift ease-in-out infinite;}
+@keyframes mistDrift{0%,100%{transform:translateX(-5%) scaleX(1);}50%{transform:translateX(5%) scaleX(1.08);}}
+
+/* Deer */
+#deer{position:absolute;bottom:6%;font-size:32px;animation:deerWalk 18s ease-in-out infinite;}
+@keyframes deerWalk{0%,100%{left:8%;transform:scaleX(-1);}49%{left:80%;transform:scaleX(-1);}50%{left:80%;transform:scaleX(1);}99%{left:8%;transform:scaleX(1);}}
+
+/* ===== HEADER ===== */
+header{position:relative;z-index:10;text-align:center;padding:8px 12px 4px;}
+header h1{font-size:clamp(14px,2.5vw,22px);font-weight:900;letter-spacing:2px;color:var(--snow);text-shadow:0 0 20px rgba(74,194,255,.5),0 0 8px rgba(248,201,72,.4);}
+header p{font-size:clamp(10px,1.4vw,13px);color:var(--gold);letter-spacing:.5px;margin-top:2px;}
+
+#trail{display:flex;justify-content:center;gap:14px;margin-top:5px;}
+.tdot{width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.3);transition:.3s;}
+.tdot.active{background:var(--leaf);border-color:var(--leaf);box-shadow:0 0 10px var(--leaf);}
+.tdot.done{background:var(--gold);border-color:var(--gold);}
+
+/* ===== MAIN ===== */
+main{position:relative;z-index:10;width:100%;height:calc(100vh - 78px);display:flex;align-items:center;justify-content:center;}
+.activity{display:none;width:97%;max-width:1160px;height:100%;flex-direction:column;align-items:center;justify-content:center;animation:fadeUp .45s ease;}
+.activity.active{display:flex;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+
+.act-title{font-size:clamp(12px,1.8vw,16px);color:var(--ink);background:var(--panel);border:1px solid var(--panelb);padding:5px 18px;border-radius:22px;margin-bottom:8px;text-align:center;backdrop-filter:blur(6px);}
+.act-title b{color:var(--gold);}
+
+.reset-btn{position:absolute;top:6px;right:10px;z-index:20;background:var(--panel);border:1px solid var(--amber);color:var(--amber);padding:5px 13px;border-radius:14px;font-size:11px;cursor:pointer;font-weight:700;transition:.2s;}
+.reset-btn:hover{background:var(--amber);color:#1a0a00;}
+
+/* ===== DRAG COMMON ===== */
+.dragging{z-index:200;opacity:.88;}
+
+/* ===== ACTIVITY 1 — Stone Step Sequencer ===== */
+#act1-wrap{display:flex;flex-direction:column;align-items:center;width:100%;gap:10px;}
+#act1-path{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:nowrap;}
+.step-stone{width:110px;height:80px;border-radius:16px;border:2px dashed rgba(255,255,255,.25);background:rgba(15,30,55,.6);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;text-align:center;padding:6px;font-size:10px;color:rgba(255,255,255,.4);position:relative;backdrop-filter:blur(3px);transition:.2s;}
+.step-stone .sn{position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:20px;height:20px;border-radius:50%;background:var(--mountain);border:2px solid var(--rivergl);color:var(--rivergl);font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:2;}
+.step-stone.filled{border-style:solid;border-color:var(--good);background:rgba(57,224,138,.08);}
+.step-stone.wrong-f{animation:shake .35s;border-color:var(--bad);}
+@keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-5px);}75%{transform:translateX(5px);}}
+#act1-pool{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:900px;}
+.step-card{cursor:grab;touch-action:none;background:linear-gradient(155deg,#0f2440,#07182e);border:1.5px solid var(--rivergl);border-radius:12px;padding:9px 11px;width:130px;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-size:10.5px;font-weight:600;gap:3px;box-shadow:0 3px 10px rgba(0,0,0,.5);transition:.15s;}
+.step-card .ic{font-size:18px;}
+.step-card.placed{opacity:0;pointer-events:none;}
+.step-card.dragging{box-shadow:0 0 16px var(--rivergl);}
+
+/* ===== ACTIVITY 2 — Search Simulation Panel ===== */
+#act2-outer{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;}
+#sim-board{width:100%;max-width:760px;background:rgba(10,20,38,.7);border:1px solid var(--panelb);border-radius:18px;padding:12px 14px 8px;backdrop-filter:blur(4px);overflow:visible;}
+.ptr-row{margin-top:18px;}
+.sim-row{display:flex;align-items:center;gap:6px;margin-bottom:7px;}
+.sim-label{font-size:10px;color:var(--gold);font-weight:700;letter-spacing:.5px;min-width:80px;text-align:right;}
+.sim-cells{display:flex;gap:4px;flex:1;}
+.sim-cell{width:46px;height:52px;border-radius:9px;border:2px dashed rgba(255,255,255,.2);background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:rgba(255,255,255,.3);flex-direction:column;gap:1px;transition:.2s;position:relative;overflow:visible;}
+.sim-cell.filled{border-style:solid;border-color:var(--leaf);color:var(--ink);background:rgba(57,224,138,.1);}
+.sim-cell.ptr-cell{border-color:var(--gold);}
+.sim-cell.target-cell{border-color:var(--amber);}
+.sim-cell.mid-found{border-color:var(--gold);background:rgba(247,201,72,.18);animation:midPulse .6s ease;}
+@keyframes midPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
+.ptr-tag{font-size:6.5px;color:var(--gold);position:absolute;top:-16px;left:50%;transform:translateX(-50%);white-space:nowrap;font-weight:800;background:rgba(10,20,40,.9);padding:1px 4px;border-radius:4px;border:1px solid var(--gold);}
+#act2-pool{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:820px;}
+.chip2{cursor:grab;touch-action:none;background:linear-gradient(155deg,#112038,#0a1828);border:1.5px solid var(--amber);border-radius:18px;padding:8px 14px;font-size:12px;font-weight:700;text-align:center;box-shadow:0 3px 8px rgba(0,0,0,.4);min-width:52px;}
+.chip2.placed{opacity:0;pointer-events:none;}
+.chip2.dragging{box-shadow:0 0 14px var(--amber);}
+#steps-compare{display:flex;gap:18px;justify-content:center;margin-top:4px;}
+.cmp-box{background:var(--panel);border:1px solid var(--panelb);border-radius:12px;padding:6px 16px;text-align:center;font-size:10px;}
+.cmp-box .big{font-size:22px;font-weight:900;color:var(--gold);}
+.cmp-box.hl .big{color:var(--good);}
+
+/* ===== ACTIVITY 3 — Glowing Flowchart Connector ===== */
+#act3-outer{display:flex;gap:14px;align-items:flex-start;justify-content:center;width:100%;height:100%;max-height:calc(100vh - 130px);padding-top:4px;}
+#act3-flow{display:flex;flex-direction:column;align-items:center;gap:0;position:relative;flex-shrink:0;}
+.flow-node{width:148px;min-height:56px;border-radius:12px;border:2px dashed rgba(255,255,255,.2);background:rgba(10,22,42,.75);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;text-align:center;padding:6px 8px;font-size:9px;color:rgba(255,255,255,.32);position:relative;backdrop-filter:blur(4px);transition:.25s;cursor:default;}
+.flow-node.diamond{border-radius:4px;transform:rotate(0deg);background:rgba(14,24,48,.8);border-color:rgba(247,201,72,.3);}
+.flow-node.filled{border-style:solid;border-color:var(--good);background:rgba(57,224,138,.09);color:var(--ink);}
+.flow-node.diamond.filled{border-color:var(--gold);}
+.flow-node.wrong-f{animation:shake .35s;border-color:var(--bad);}
+.flow-node .fnode-num{position:absolute;left:-28px;top:50%;transform:translateY(-50%);width:20px;height:20px;border-radius:50%;background:var(--night);border:2px solid var(--rivergl);color:var(--rivergl);font-size:8px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+.flow-node .fnode-icon{font-size:15px;line-height:1;}
+.flow-node .fnode-label{font-size:8.5px;font-weight:600;line-height:1.3;}
+.flow-node .fnode-type{font-size:7px;color:var(--gold);font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:1px;}
+/* Connector arrows between nodes */
+.flow-arrow{width:2px;height:16px;background:linear-gradient(180deg,rgba(74,194,255,.5),rgba(74,194,255,.15));margin:0 auto;position:relative;}
+.flow-arrow::after{content:'▼';position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);color:rgba(74,194,255,.5);font-size:8px;}
+/* Right panel: draggable label cards */
+#act3-labels{display:flex;flex-direction:column;gap:7px;width:170px;flex-shrink:0;}
+.flow-card{cursor:grab;touch-action:none;background:linear-gradient(155deg,#0e2038,#091628);border:1.5px solid var(--amber);border-radius:10px;padding:8px 10px;width:100%;display:flex;align-items:center;gap:7px;font-size:9.5px;font-weight:600;color:var(--ink);box-shadow:0 3px 10px rgba(0,0,0,.5);transition:.15s;}
+.flow-card .fc-ic{font-size:16px;flex-shrink:0;}
+.flow-card.placed{opacity:0;pointer-events:none;height:0;margin:0;padding:0;border:none;}
+.flow-card.dragging{box-shadow:0 0 14px var(--amber);opacity:.9;}
+/* Legend / hint strip */
+#act3-hint{font-size:9px;color:rgba(255,255,255,.4);text-align:center;margin-top:4px;}
+
+/* ===== OVERLAYS & POPUPS ===== */
+.overlay{position:absolute;inset:0;background:rgba(5,10,22,.8);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;z-index:300;}
+.overlay.show{display:flex;}
+.popup{background:linear-gradient(160deg,#0e2240,#071628);border:2px solid var(--leaf);border-radius:22px;padding:26px 32px;text-align:center;max-width:400px;width:90%;box-shadow:0 0 50px rgba(57,224,138,.35);animation:popIn .4s ease;}
+@keyframes popIn{from{transform:scale(.7);opacity:0;}to{transform:scale(1);opacity:1;}}
+.popup .pe{font-size:46px;margin-bottom:4px;}
+.popup h2{margin:4px 0;color:var(--gold);font-size:19px;}
+.popup p{font-size:13px;color:var(--ink);opacity:.9;margin-bottom:14px;line-height:1.5;}
+.btn-main{background:var(--leaf);color:#062014;border:none;padding:10px 28px;border-radius:22px;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 4px 14px rgba(57,224,138,.45);transition:.15s;display:inline-block;}
+.btn-main:hover{transform:translateY(-2px);}
+
+/* celebration */
+.cel{position:absolute;top:-20px;font-size:20px;animation:celFall linear forwards;pointer-events:none;z-index:310;}
+@keyframes celFall{to{transform:translateY(110vh) rotate(540deg);opacity:.1;}}
+
+/* firefly celebration burst */
+.cel-fly{position:absolute;width:6px;height:6px;border-radius:50%;background:#ffe066;box-shadow:0 0 8px 4px rgba(255,224,102,.8);animation:celFlyBurst ease-out forwards;pointer-events:none;z-index:310;}
+@keyframes celFlyBurst{0%{opacity:1;transform:translate(0,0);}100%{opacity:0;transform:translate(var(--dx),var(--dy));}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="scene"></div>
+
+  <header>
+    <h1>🏔️ ALGORITHMS — BINARY SEARCH 🌲</h1>
+    <p>Find the target in the fewest steps — like a mountain ranger!</p>
+    <div id="trail">
+      <div class="tdot" id="dot1"></div>
+      <div class="tdot" id="dot2"></div>
+      <div class="tdot" id="dot3"></div>
+    </div>
+  </header>
+
+  <button class="reset-btn" id="globalReset">🔄 Reset Activity</button>
+
+  <main>
+    <!-- ACTIVITY 1 -->
+    <section class="activity" id="activity1">
+      <div class="act-title">🪨 Activity 1 — Drag each step onto the correct <b>Stone</b> in order</div>
+      <div id="act1-wrap">
+        <div id="act1-path"></div>
+        <div id="act1-pool"></div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 2 -->
+    <section class="activity" id="activity2">
+      <div class="act-title">🔍 Activity 2 — Build the Binary Search <b>Simulation</b> by placing values</div>
+      <div id="act2-outer">
+        <div id="sim-board"></div>
+        <div id="act2-pool"></div>
+        <div id="steps-compare">
+          <div class="cmp-box"><div>Linear Search Steps</div><div class="big" id="lin-steps">?</div></div>
+          <div class="cmp-box hl"><div>Binary Search Steps</div><div class="big" id="bin-steps">?</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 3 -->
+    <section class="activity" id="activity3">
+      <div class="act-title">✨ Activity 3 — Drag the correct label onto each <b>Flowchart Node</b></div>
+      <div id="act3-outer">
+        <div id="act3-flow"></div>
+        <div id="act3-labels"></div>
+      </div>
+      <div id="act3-hint">Match each glowing node with the right step label from the right panel</div>
+    </section>
+  </main>
+
+  <div class="overlay" id="popupOverlay">
+    <div class="popup" id="popupBox">
+      <div class="pe" id="popupEmoji">🌲</div>
+      <h2 id="popupTitle">Well done!</h2>
+      <p id="popupText">Keep going!</p>
+      <button class="btn-main" id="popupBtn">Continue</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ========== SCENE BUILDER ========== */
+const scene=document.getElementById('scene');
+function rand(a,b){return Math.random()*(b-a)+a;}
+
+// Stars
+for(let i=0;i<90;i++){
+  const s=document.createElement('div');s.className='star';
+  s.style.cssText=`left:${rand(0,100)}%;top:${rand(0,65)}%;width:${rand(1,3)}px;height:${rand(1,3)}px;animation-duration:${rand(2,5)}s;animation-delay:${rand(0,4)}s;`;
+  scene.appendChild(s);
+}
+
+// SVG Mountains
+const svgNS='http://www.w3.org/2000/svg';
+const mtnSvg=document.createElementNS(svgNS,'svg');
+mtnSvg.setAttribute('viewBox','0 0 1200 400');
+mtnSvg.setAttribute('preserveAspectRatio','none');
+mtnSvg.style.cssText='position:absolute;bottom:0;left:0;width:100%;height:55%;';
+mtnSvg.innerHTML=`
+  <polygon points="0,400 120,160 240,400" fill="#0f1e36"/>
+  <polygon points="80,400 260,80 440,400" fill="#142238"/>
+  <polygon points="200,400 400,50 600,400" fill="#1a2a44"/>
+  <polygon points="380,400 580,110 760,400" fill="#0f1e36"/>
+  <polygon points="560,400 740,70 920,400" fill="#142238"/>
+  <polygon points="720,400 950,95 1200,400" fill="#1a2a44"/>
+  <polygon points="950,400 1100,150 1200,280 1200,400" fill="#0f1e36"/>
+  <!-- Snow caps -->
+  <polygon points="120,160 150,210 90,215" fill="rgba(232,244,253,0.55)"/>
+  <polygon points="260,80 295,145 225,148" fill="rgba(232,244,253,0.6)"/>
+  <polygon points="400,50 440,125 360,128" fill="rgba(232,244,253,0.65)"/>
+  <polygon points="580,110 615,175 545,178" fill="rgba(232,244,253,0.55)"/>
+  <polygon points="740,70 778,142 702,146" fill="rgba(232,244,253,0.6)"/>
+  <polygon points="950,95 986,160 914,163" fill="rgba(232,244,253,0.55)"/>
+`;
+scene.appendChild(mtnSvg);
+
+// Pine trees (SVG based)
+const pineData=[
+  {x:3,h:90,spd:3.2},{x:7,h:70,spd:4.1},{x:11,h:100,spd:3.6},
+  {x:16,h:75,spd:4.8},{x:82,h:85,spd:3.9},{x:87,h:95,spd:3.3},
+  {x:91,h:68,spd:4.5},{x:95,h:88,spd:3.7},{x:24,h:65,spd:4.2},
+  {x:72,h:72,spd:3.5},{x:77,h:90,spd:4.0}
+];
+pineData.forEach(p=>{
+  const pin=document.createElement('div');
+  pin.className='pine';
+  pin.style.cssText=`position:absolute;bottom:0;left:${p.x}%;animation-duration:${p.spd}s;animation-delay:${rand(0,2)}s;`;
+  const w=p.h*0.45;
+  pin.innerHTML=`<svg width="${w}" height="${p.h}" viewBox="0 0 ${w} ${p.h}" style="display:block;">
+    <polygon points="${w/2},0 ${w},${p.h*.55} 0,${p.h*.55}" fill="#0c3020"/>
+    <polygon points="${w/2},${p.h*.2} ${w*.9},${p.h*.7} ${w*.1},${p.h*.7}" fill="#0e3a25"/>
+    <polygon points="${w/2},${p.h*.38} ${w*.85},${p.h*.85} ${w*.15},${p.h*.85}" fill="#103d28"/>
+    <rect x="${w/2-4}" y="${p.h*.82}" width="8" height="${p.h*.18}" fill="#3a1f0a"/>
+  </svg>`;
+  scene.appendChild(pin);
+});
+
+// River
+const rw=document.createElement('div');rw.id='river-wrap';
+rw.innerHTML='<div class="river-shimmer"></div>';
+scene.appendChild(rw);
+
+// Fireflies
+for(let i=0;i<28;i++){
+  const f=document.createElement('div');f.className='fly';
+  f.style.cssText=`left:${rand(5,90)}%;bottom:${rand(5,45)}%;animation-duration:${rand(4,9)}s,${rand(1.5,3.5)}s;animation-delay:${rand(0,5)}s,${rand(0,3)}s;`;
+  scene.appendChild(f);
+}
+
+// Falling leaves
+const leafChars=['🍃','🍂'];
+for(let i=0;i<8;i++){
+  const l=document.createElement('div');l.className='leaf-fall';
+  l.textContent=leafChars[i%2];
+  l.style.cssText=`left:${rand(0,95)}%;animation-duration:${rand(10,18)}s;animation-delay:${rand(0,12)}s;`;
+  scene.appendChild(l);
+}
+
+// Mist bands
+[{b:'28%',d:'8s'},{b:'20%',d:'12s'}].forEach(m=>{
+  const mb=document.createElement('div');mb.className='mist-band';
+  mb.style.cssText=`bottom:${m.b};left:-10%;animation-duration:${m.d};`;
+  scene.appendChild(mb);
+});
+
+// Deer
+const deer=document.createElement('div');deer.id='deer';deer.textContent='🦌';
+scene.appendChild(deer);
+
+/* ========== UTILS ========== */
+function shuffle(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+
+function elemUnder(x,y,skip){
+  skip.style.pointerEvents='none';
+  const el=document.elementFromPoint(x,y);
+  skip.style.pointerEvents='';
+  return el;
+}
+
+function makeDraggable(el,{onDrop}){
+  let startX,startY,origX,origY,dragging=false,lastX=0,lastY=0,pid=null;
+  el.addEventListener('pointerdown',e=>{
+    if(el.classList.contains('placed')) return;
+    dragging=true; pid=e.pointerId;
+    const r=el.getBoundingClientRect();
+    origX=r.left; origY=r.top; startX=e.clientX; startY=e.clientY;
+    lastX=e.clientX; lastY=e.clientY;
+    el.style.cssText+=`;position:fixed;left:${origX}px;top:${origY}px;width:${r.width}px;`;
+    el.classList.add('dragging');
+    document.body.appendChild(el);
+    try{el.setPointerCapture(e.pointerId);}catch(err){}
+    e.preventDefault();
+  });
+  el.addEventListener('pointermove',e=>{
+    if(!dragging||(pid!==null&&e.pointerId!==pid)) return;
+    lastX=e.clientX; lastY=e.clientY;
+    el.style.left=(origX+e.clientX-startX)+'px';
+    el.style.top=(origY+e.clientY-startY)+'px';
+  });
+  function end(e){
+    if(!dragging) return; dragging=false;
+    const cx=e&&e.clientX!=null?e.clientX:lastX;
+    const cy=e&&e.clientY!=null?e.clientY:lastY;
+    el.classList.remove('dragging');
+    el.style.position=''; el.style.left=''; el.style.top=''; el.style.width='';
+    try{if(pid!==null)el.releasePointerCapture(pid);}catch(err){}
+    pid=null;
+    onDrop(el,elemUnder(cx,cy,el));
+  }
+  el.addEventListener('pointerup',end);
+  el.addEventListener('pointercancel',end);
+  el.addEventListener('lostpointercapture',end);
+  window.addEventListener('pointerup',e=>{if(dragging)end(e);});
+}
+
+/* ========== POPUP ========== */
+const overlay=document.getElementById('popupOverlay');
+const pEmoji=document.getElementById('popupEmoji');
+const pTitle=document.getElementById('popupTitle');
+const pText=document.getElementById('popupText');
+const pBtn=document.getElementById('popupBtn');
+
+function showPopup({emoji,title,text,btnLabel,onBtn,celebrate}){
+  pEmoji.textContent=emoji; pTitle.textContent=title;
+  pText.textContent=text; pBtn.textContent=btnLabel;
+  overlay.classList.add('show');
+  if(celebrate) burstCelebrate();
+  pBtn.onclick=()=>{overlay.classList.remove('show');overlay.querySelectorAll('.cel,.cel-fly').forEach(c=>c.remove());if(onBtn)onBtn();};
+}
+
+function burstCelebrate(){
+  const items=['🌲','⭐','🦌','✨','🌿','🏔️','🔍','💫'];
+  for(let i=0;i<40;i++){
+    const c=document.createElement('div');c.className='cel';
+    c.textContent=items[Math.floor(Math.random()*items.length)];
+    c.style.left=rand(0,100)+'vw';
+    c.style.animationDuration=rand(2.5,4.5)+'s';
+    c.style.fontSize=rand(14,28)+'px';
+    overlay.appendChild(c);
+    setTimeout(()=>c.remove(),5000);
+  }
+  // firefly burst
+  for(let i=0;i<20;i++){
+    const f=document.createElement('div');f.className='cel-fly';
+    const angle=rand(0,Math.PI*2);const dist=rand(60,200);
+    f.style.cssText=`left:50%;top:50%;--dx:${Math.cos(angle)*dist}px;--dy:${Math.sin(angle)*dist}px;animation-duration:${rand(.8,1.6)}s;animation-delay:${rand(0,.4)}s;`;
+    overlay.appendChild(f);
+    setTimeout(()=>f.remove(),2000);
+  }
+}
+
+/* ========== TRAIL / ACTIVITY SWITCH ========== */
+const actIds=['activity1','activity2','activity3'];
+const dots={1:document.getElementById('dot1'),2:document.getElementById('dot2'),3:document.getElementById('dot3')};
+let currentAct=1;
+
+function goToActivity(n){
+  currentAct=n;
+  actIds.forEach((id,idx)=>document.getElementById(id).classList.toggle('active',idx===n-1));
+  for(let k=1;k<=3;k++){
+    dots[k].classList.remove('active','done');
+    if(k<n)dots[k].classList.add('done');
+    else if(k===n)dots[k].classList.add('active');
+  }
+}
+
+/* ==========================================
+   ACTIVITY 1 — Stone Step Sequencer
+   Drag binary search steps onto numbered stones
+   ========================================== */
+const A1_ITEMS=[
+  {id:'set',     label:'Set LOW to 1st item, HIGH to last',  ic:'📌'},
+  {id:'mid',     label:'Find MID = (LOW + HIGH) ÷ 2',       ic:'🎯'},
+  {id:'check',   label:'Is MID the Target?',                 ic:'❓'},
+  {id:'left',    label:'If Target < MID, search left half',  ic:'⬅️'},
+  {id:'right',   label:'If Target > MID, search right half', ic:'➡️'},
+  {id:'repeat',  label:'Repeat until Target found',          ic:'🔁'},
+];
+const A1_ORDER=['set','mid','check','left','right','repeat'];
+
+const a1Path=document.getElementById('act1-path');
+const a1Pool=document.getElementById('act1-pool');
+let a1Filled=[];
+
+function buildActivity1(){
+  a1Filled=new Array(A1_ORDER.length).fill(null);
+  a1Path.innerHTML=''; a1Pool.innerHTML='';
+  A1_ORDER.forEach((id,i)=>{
+    const s=document.createElement('div');s.className='step-stone';s.dataset.index=i;
+    s.innerHTML=`<div class="sn">${i+1}</div><span>drop here</span>`;
+    a1Path.appendChild(s);
+  });
+  shuffle(A1_ITEMS).forEach(item=>{
+    const c=document.createElement('div');c.className='step-card';c.dataset.id=item.id;
+    c.innerHTML=`<span class="ic">${item.ic}</span><span>${item.label}</span>`;
+    a1Pool.appendChild(c);
+    makeDraggable(c,{onDrop:(el,target)=>{
+      const stone=target&&target.closest('.step-stone');
+      if(stone){
+        const idx=parseInt(stone.dataset.index);
+        if(A1_ORDER[idx]===el.dataset.id && !a1Filled[idx]){
+          a1Filled[idx]=el.dataset.id;
+          stone.classList.add('filled');
+          stone.innerHTML=`<div class="sn">${idx+1}</div><span style="font-size:16px">${item.ic}</span><span>${item.label}</span>`;
+          el.classList.add('placed'); el.remove();
+          if(a1Filled.every(v=>v)){
+            setTimeout(()=>showPopup({
+              emoji:'🎯',title:'Sequence Complete!',
+              text:'You placed all 6 Binary Search steps in the perfect order — a ranger never gets lost!',
+              btnLabel:'On to Activity 2 ▶',
+              onBtn:()=>{goToActivity(2);buildActivity2();}
+            }),300);
+          }
+          return;
+        }
+        stone.classList.add('wrong-f');setTimeout(()=>stone.classList.remove('wrong-f'),400);
+      }
+      a1Pool.appendChild(el); el.style.cssText='';
+    }});
+  });
+}
+
+/* ==========================================
+   ACTIVITY 2 — Binary Search Simulation Panel
+   Place sorted numbers + pointers + target
+   into the correct cells on a visual board
+   ========================================== */
+// We'll use a fixed small sorted array and simulate one search
+const A2_ARRAY=[3,8,14,21,30,37,45,56];
+const A2_TARGET=30;
+// For the sim, the target is at index 4 (30)
+// Binary steps: low=0,high=7 -> mid=3 (21, <30 -> low=4) -> mid=5 (37, >30 -> high=4) -> mid=4 (30, found!)
+// We'll present: array row, left pointer, right pointer, mid pointer, target slot
+// Slots: 8 array cells + L ptr + R ptr + M ptr + Target = multiple rows
+
+const simBoard=document.getElementById('sim-board');
+const a2Pool=document.getElementById('act2-pool');
+const linStepsEl=document.getElementById('lin-steps');
+const binStepsEl=document.getElementById('bin-steps');
+
+// We'll create a simplified 2-row layout:
+// Row 1: Array cells (8 slots labelled pos 1–8)
+// Row 2: Pointer row (L, M, R under correct positions) — fixed labels, drag the VALUE
+// Row 3: Target (one slot for the target number)
+// Draggables: numbers [3,8,14,21,30,37,45,56] + target (30) + L=1, M=4, R=8 (1-indexed positions)
+
+let a2Filled={arr:[],l:false,m:false,r:false,tgt:false};
+let a2CorrectArr=[]; // track which array cells are filled
+
+const A2_PTR_L=1; // 1-indexed slot where L pointer should go (under index 0)
+const A2_PTR_M=4; // mid = (0+7)/2 = 3, 1-indexed = 4
+const A2_PTR_R=8;
+
+function buildActivity2(){
+  a2Filled={arr:new Array(8).fill(false),l:false,m:false,r:false,tgt:false};
+  linStepsEl.textContent='?'; binStepsEl.textContent='?';
+  simBoard.innerHTML=''; a2Pool.innerHTML='';
+
+  // Row: Array
+  const arrRow=document.createElement('div');arrRow.className='sim-row';
+  const al=document.createElement('div');al.className='sim-label';al.textContent='SORTED LIST';
+  arrRow.appendChild(al);
+  const arrCells=document.createElement('div');arrCells.className='sim-cells';
+  A2_ARRAY.forEach((v,i)=>{
+    const cell=document.createElement('div');cell.className='sim-cell';
+    cell.dataset.type='arr';cell.dataset.index=i;cell.dataset.val=v;
+    cell.innerHTML='<span style="font-size:8px;color:rgba(255,255,255,.3)">'+(i+1)+'</span><span>?</span>';
+    arrCells.appendChild(cell);
+  });
+  arrRow.appendChild(arrCells);simBoard.appendChild(arrRow);
+
+  // Row: Pointers (L, M, R under slots)
+  const ptrRow=document.createElement('div');ptrRow.className='sim-row ptr-row';
+  const pl=document.createElement('div');pl.className='sim-label';pl.textContent='POINTERS';
+  ptrRow.appendChild(pl);
+  const ptrCells=document.createElement('div');ptrCells.className='sim-cells';
+  // 3 pointer slots placed at positions 1, 4, 8 (match 8 array cols spacing)
+  // We'll create 8 slots but only 3 are active targets
+  A2_ARRAY.forEach((_,i)=>{
+    const cell=document.createElement('div');cell.className='sim-cell';
+    const slot=i+1;
+    if(slot===A2_PTR_L){
+      cell.classList.add('ptr-cell');cell.dataset.type='ptr';cell.dataset.ptr='l';
+      cell.innerHTML='<span class="ptr-tag">Left Ptr</span><span>?</span>';
+    } else if(slot===A2_PTR_M){
+      cell.classList.add('ptr-cell');cell.dataset.type='ptr';cell.dataset.ptr='m';
+      cell.innerHTML='<span class="ptr-tag">Mid Ptr</span><span>?</span>';
+    } else if(slot===A2_PTR_R){
+      cell.classList.add('ptr-cell');cell.dataset.type='ptr';cell.dataset.ptr='r';
+      cell.innerHTML='<span class="ptr-tag">Right Ptr</span><span>?</span>';
+    } else {
+      cell.style.opacity='.15';cell.style.pointerEvents='none';
+    }
+    ptrCells.appendChild(cell);
+  });
+  ptrRow.appendChild(ptrCells);simBoard.appendChild(ptrRow);
+
+  // Row: Target
+  const tgtRow=document.createElement('div');tgtRow.className='sim-row';
+  const tl=document.createElement('div');tl.className='sim-label';tl.textContent='TARGET';
+  tgtRow.appendChild(tl);
+  const tgtCells=document.createElement('div');tgtCells.className='sim-cells';
+  const tgtCell=document.createElement('div');tgtCell.className='sim-cell target-cell';
+  tgtCell.dataset.type='tgt';tgtCell.innerHTML='<span class="ptr-tag" style="color:var(--amber);border-color:var(--amber);">Target</span><span>?</span>';
+  tgtCells.appendChild(tgtCell);
+  // fill rest as spacers
+  for(let i=0;i<7;i++){const sp=document.createElement('div');sp.style.cssText='flex:1;opacity:0;';tgtCells.appendChild(sp);}
+  tgtRow.appendChild(tgtCells);simBoard.appendChild(tgtRow);
+
+  // Build draggables: array numbers + target + ptr positions
+  const draggables=[
+    ...A2_ARRAY.map(v=>({label:String(v),type:'arr',val:v})),
+    {label:'30',type:'tgt',val:30},
+    {label:'Pos 1',type:'ptr',ptr:'l',val:'l'},
+    {label:'Pos 4',type:'ptr',ptr:'m',val:'m'},
+    {label:'Pos 8',type:'ptr',ptr:'r',val:'r'},
+  ];
+  shuffle(draggables).forEach(d=>{
+    const c=document.createElement('div');c.className='chip2';
+    c.dataset.type=d.type;c.dataset.val=d.val;
+    if(d.ptr)c.dataset.ptr=d.ptr;
+    c.textContent=d.label;
+    a2Pool.appendChild(c);
+    makeDraggable(c,{onDrop:(el,target)=>{
+      const cell=target&&target.closest('.sim-cell');
+      let accepted=false;
+      if(cell){
+        const ct=cell.dataset.type, et=el.dataset.type;
+        // Array cell accepts matching arr value
+        if(ct==='arr' && et==='arr' && parseInt(cell.dataset.val)===parseInt(el.dataset.val) && !a2Filled.arr[parseInt(cell.dataset.index)]){
+          a2Filled.arr[parseInt(cell.dataset.index)]=true;
+          cell.classList.add('filled');cell.innerHTML=`<span style="font-size:8px;color:var(--rivergl)">${parseInt(cell.dataset.index)+1}</span><span>${el.dataset.val}</span>`;
+          accepted=true;
+        }
+        // Ptr cell
+        else if(ct==='ptr' && et==='ptr' && cell.dataset.ptr===el.dataset.ptr && !a2Filled[el.dataset.ptr]){
+          a2Filled[el.dataset.ptr]=true;
+          cell.classList.add('filled','mid-found');
+          const labels={l:'L = 1',m:'M = 4',r:'R = 8'};
+          cell.innerHTML=`<span class="ptr-tag">${cell.dataset.ptr==='l'?'Left Ptr':cell.dataset.ptr==='m'?'Mid Ptr':'Right Ptr'}</span><span>${labels[el.dataset.ptr]}</span>`;
+          accepted=true;
+        }
+        // Target cell
+        else if(ct==='tgt' && et==='tgt' && !a2Filled.tgt && parseInt(el.dataset.val)===A2_TARGET){
+          a2Filled.tgt=true;
+          cell.classList.add('filled');
+          cell.innerHTML='<span class="ptr-tag" style="color:var(--amber);border-color:var(--amber);">Target</span><span>30</span>';
+          accepted=true;
+        }
+        if(!accepted){
+          cell.classList.add('wrong-f');setTimeout(()=>cell.classList.remove('wrong-f'),400);
+        }
+      }
+      if(!accepted){a2Pool.appendChild(el);el.style.cssText='';}
+      else{el.classList.add('placed');el.remove();}
+      checkActivity2Done();
+    }});
+  });
+}
+
+function checkActivity2Done(){
+  if(a2Filled.arr.every(Boolean)&&a2Filled.l&&a2Filled.m&&a2Filled.r&&a2Filled.tgt){
+    linStepsEl.textContent=A2_ARRAY.indexOf(A2_TARGET)+1; // linear needs 5 steps
+    binStepsEl.textContent='3'; // binary needs 3 steps
+    setTimeout(()=>showPopup({
+      emoji:'🔍',title:'Simulation Built!',
+      text:`Amazing! Linear search needed ${A2_ARRAY.indexOf(A2_TARGET)+1} steps. Binary Search found it in just 3 steps — over half the work eliminated!`,
+      btnLabel:'Final Challenge ▶',
+      onBtn:()=>{goToActivity(3);buildActivity3();}
+    }),400);
+  }
+}
+
+/* ==========================================
+   ACTIVITY 3 — Glowing Flowchart Connector
+   Nodes are shown on the left as a vertical flow diagram.
+   Students drag label cards from the right panel onto the correct node.
+   Each node shows its shape/type hint but not its label.
+   ========================================== */
+const A3_NODES=[
+  {id:'sort',    type:'PROCESS',   icon:'📋', label:'Sort the List',              hint:'Start',   diamond:false},
+  {id:'init',    type:'PROCESS',   icon:'📌', label:'Set LOW & HIGH Pointers',    hint:'Init',    diamond:false},
+  {id:'findmid', type:'CALCULATE', icon:'🔢', label:'Find MID = (LOW+HIGH) ÷ 2', hint:'Math',    diamond:false},
+  {id:'compare', type:'DECISION',  icon:'❓', label:'Is MID = Target?',           hint:'Choose',  diamond:true},
+  {id:'found',   type:'OUTPUT',    icon:'✅', label:'Target Found! Return MID',   hint:'Success', diamond:false},
+  {id:'half',    type:'PROCESS',   icon:'✂️', label:'Narrow Search Half',         hint:'Trim',    diamond:false},
+  {id:'repeat',  type:'LOOP',      icon:'🔁', label:'Repeat Until Found',         hint:'Loop',    diamond:false},
+];
+const A3_ORDER=['sort','init','findmid','compare','found','half','repeat'];
+
+const a3Flow=document.getElementById('act3-flow');
+const a3Labels=document.getElementById('act3-labels');
+let a3Filled=[];
+
+function buildActivity3(){
+  a3Filled=new Array(A3_ORDER.length).fill(null);
+  a3Flow.innerHTML=''; a3Labels.innerHTML='';
+
+  A3_ORDER.forEach((id,i)=>{
+    const node=A3_NODES.find(n=>n.id===id);
+    const nd=document.createElement('div');
+    nd.className='flow-node'+(node.diamond?' diamond':'');
+    nd.dataset.index=i; nd.dataset.id=id;
+    nd.innerHTML=`<div class="fnode-num">${i+1}</div><div class="fnode-type">${node.type}</div><div class="fnode-icon">⬜</div><div class="fnode-label" style="color:rgba(255,255,255,.25)">${node.hint}</div>`;
+    a3Flow.appendChild(nd);
+    if(i<A3_ORDER.length-1){
+      const arr=document.createElement('div');arr.className='flow-arrow';
+      a3Flow.appendChild(arr);
+    }
+  });
+
+  shuffle(A3_NODES).forEach(item=>{
+    const fc=document.createElement('div');fc.className='flow-card';fc.dataset.id=item.id;
+    fc.innerHTML=`<span class="fc-ic">${item.icon}</span><span>${item.label}</span>`;
+    a3Labels.appendChild(fc);
+    makeDraggable(fc,{onDrop:(el,target)=>{
+      const node=target&&target.closest('.flow-node');
+      if(node){
+        const idx=parseInt(node.dataset.index);
+        if(A3_ORDER[idx]===el.dataset.id && !a3Filled[idx]){
+          a3Filled[idx]=el.dataset.id;
+          const nd=A3_NODES.find(n=>n.id===el.dataset.id);
+          node.classList.add('filled');
+          node.innerHTML=`<div class="fnode-num">${idx+1}</div><div class="fnode-type">${nd.type}</div><div class="fnode-icon">${nd.icon}</div><div class="fnode-label">${nd.label}</div>`;
+          el.classList.add('placed');
+          el.style.cssText='';
+          if(a3Filled.every(v=>v)){
+            setTimeout(()=>showPopup({
+              emoji:'🏔️',title:'Mountain Conquered!',
+              text:'You completed the full Binary Search flowchart — from sorting the list to the final result. The mountain ranger salutes you! 🌲✨',
+              btnLabel:'🎉 Play Again',
+              celebrate:true,
+              onBtn:()=>resetAll()
+            }),400);
+          }
+          return;
+        }
+        node.classList.add('wrong-f');setTimeout(()=>node.classList.remove('wrong-f'),400);
+      }
+      a3Labels.appendChild(el);el.style.cssText='';
+    }});
+  });
+}
+
+/* ========== RESET ========== */
+function resetAll(){
+  buildActivity1();buildActivity2();buildActivity3();goToActivity(1);
+}
+document.getElementById('globalReset').addEventListener('click',()=>{
+  if(currentAct===1)buildActivity1();
+  else if(currentAct===2)buildActivity2();
+  else buildActivity3();
+});
+
+/* ========== INIT ========== */
+buildActivity1();buildActivity2();buildActivity3();
+goToActivity(1);
+
+})();
+</script>
+</body>
+</html>
+HTMLEOF

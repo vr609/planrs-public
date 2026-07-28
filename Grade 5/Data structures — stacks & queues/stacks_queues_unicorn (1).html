@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Data Structures — Stacks &amp; Queues</title>
+<style>
+:root{
+  --sky1:#e8d5f5;--sky2:#d0e8ff;--sky3:#fde8f5;
+  --cloud:#fff;--star:#ffe066;
+  --stack:#c084fc;--stackd:#a855f7;--stackbg:rgba(192,132,252,.13);
+  --queue:#34d399;--queued:#059669;--queuebg:rgba(52,211,153,.13);
+  --gold:#f59e0b;--pink:#f472b6;--blue:#60a5fa;
+  --ink:#2d1b5e;--inkl:#4c1d95;
+  --panel:rgba(255,255,255,0.72);--panelb:rgba(200,180,255,0.35);
+  --good:#22c55e;--bad:#ef4444;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;
+  font-family:'Segoe UI',Verdana,sans-serif;
+  background:linear-gradient(135deg,var(--sky1) 0%,var(--sky2) 50%,var(--sky3) 100%);
+  color:var(--ink);user-select:none;touch-action:none;}
+#app{position:relative;width:100vw;height:100vh;overflow:hidden;}
+
+/* ===== SCENE ===== */
+#scene{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+
+/* Clouds */
+.cloud{position:absolute;background:white;border-radius:50px;opacity:.85;animation:cloudDrift linear infinite;}
+.cloud::before,.cloud::after{content:'';position:absolute;background:white;border-radius:50%;}
+@keyframes cloudDrift{0%{transform:translateX(-18vw);}100%{transform:translateX(115vw);}}
+
+/* Stars / sparkles */
+.spark{position:absolute;width:6px;height:6px;border-radius:50%;background:var(--star);
+  box-shadow:0 0 6px 3px rgba(255,224,102,.6);animation:sparkTwinkle ease-in-out infinite;}
+@keyframes sparkTwinkle{0%,100%{opacity:.1;transform:scale(.6);}50%{opacity:1;transform:scale(1.4);}}
+
+/* Magic dust particles */
+.dust{position:absolute;width:4px;height:4px;border-radius:50%;animation:dustFloat linear infinite;}
+@keyframes dustFloat{0%{transform:translateY(0) rotate(0deg);opacity:.9;}100%{transform:translateY(-100vh) rotate(720deg);opacity:0;}}
+
+/* Rainbow arcs */
+#rainbow-scene{position:absolute;top:-60px;left:50%;transform:translateX(-50%);width:700px;height:340px;opacity:.28;animation:rbGlow 8s ease-in-out infinite;}
+@keyframes rbGlow{0%,100%{opacity:.18;}50%{opacity:.38;}}
+.rband{position:absolute;left:50%;border-radius:50%;border-style:solid;border-bottom:none;transform:translateX(-50%);}
+
+/* Unicorn emoji floats */
+.unicorn{position:absolute;font-size:28px;animation:unicornFloat ease-in-out infinite, unicornDrift linear infinite;filter:drop-shadow(0 0 8px rgba(244,114,182,.5));}
+@keyframes unicornFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-18px);}}
+@keyframes unicornDrift{0%{left:-8%;}100%{left:110%;}}
+
+/* Twinkling stars (small) */
+.tstar{position:absolute;font-size:10px;animation:tstarAnim ease-in-out infinite;}
+@keyframes tstarAnim{0%,100%{opacity:.2;transform:scale(.7) rotate(0deg);}50%{opacity:1;transform:scale(1.3) rotate(180deg);}}
+
+/* ===== HEADER ===== */
+header{position:relative;z-index:10;text-align:center;padding:8px 12px 4px;}
+header h1{margin:0;font-size:clamp(14px,2.6vw,24px);font-weight:900;letter-spacing:1.5px;
+  background:linear-gradient(90deg,var(--stackd),var(--pink),var(--queued));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 2px 6px rgba(168,85,247,.3));}
+header p{font-size:clamp(10px,1.4vw,13px);color:var(--inkl);letter-spacing:.5px;margin-top:1px;}
+#trail{display:flex;justify-content:center;gap:14px;margin-top:5px;}
+.tdot{width:14px;height:14px;border-radius:50%;background:rgba(168,85,247,.18);border:2px solid rgba(168,85,247,.35);transition:.3s;}
+.tdot.active{background:var(--stackd);border-color:var(--stackd);box-shadow:0 0 10px var(--stackd);}
+.tdot.done{background:var(--gold);border-color:var(--gold);}
+
+/* ===== MAIN ===== */
+main{position:relative;z-index:10;width:100%;height:calc(100vh - 80px);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;overflow-x:hidden;}
+.activity{display:none;width:97%;max-width:1160px;min-height:100%;flex-direction:column;align-items:center;justify-content:center;animation:fadeUp .45s ease;padding-top:6px;}
+.activity.active{display:flex;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+
+.act-title{font-size:clamp(11px,1.7vw,15px);color:var(--inkl);background:var(--panel);
+  border:1.5px solid var(--panelb);padding:5px 18px;border-radius:22px;margin-bottom:8px;
+  text-align:center;backdrop-filter:blur(6px);font-weight:700;}
+.act-title b{color:var(--stackd);}
+.act-title b.q{color:var(--queued);}
+
+.reset-btn{position:absolute;top:6px;right:10px;z-index:20;background:var(--panel);
+  border:1.5px solid var(--pink);color:var(--pink);padding:5px 13px;border-radius:14px;
+  font-size:11px;cursor:pointer;font-weight:800;transition:.2s;backdrop-filter:blur(4px);}
+.reset-btn:hover{background:var(--pink);color:#fff;}
+
+/* ===== SHARED DRAG ===== */
+.dragging{z-index:500;opacity:.88;}
+@keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
+.wrong-f{animation:shake .35s;outline:2.5px solid var(--bad);outline-offset:2px;}
+
+/* ===========================
+   ACTIVITY 1
+   Two-column card matcher:
+   Left col = Stack ops (purple)
+   Right col = Queue ops (green)
+   Draggable "operation gems" fall into labelled slots
+   =========================== */
+#act1-wrap{display:flex;gap:18px;align-items:flex-start;justify-content:center;width:100%;}
+.a1-col{display:flex;flex-direction:column;align-items:center;gap:8px;width:220px;}
+.a1-col-head{font-size:12px;font-weight:900;letter-spacing:1px;padding:4px 18px;border-radius:18px;text-transform:uppercase;}
+.a1-col-head.stack{background:linear-gradient(135deg,var(--stackd),#9333ea);color:#fff;box-shadow:0 3px 12px rgba(168,85,247,.4);}
+.a1-col-head.queue{background:linear-gradient(135deg,var(--queued),#10b981);color:#fff;box-shadow:0 3px 12px rgba(52,211,153,.4);}
+.op-slot{width:100%;min-height:54px;border-radius:14px;border:2px dashed rgba(0,0,0,.18);
+  background:rgba(255,255,255,.45);display:flex;flex-direction:column;align-items:center;
+  justify-content:center;text-align:center;padding:6px 8px;font-size:10px;font-weight:600;
+  color:rgba(45,27,94,.4);position:relative;backdrop-filter:blur(3px);transition:.2s;gap:2px;}
+.op-slot.stack-slot{border-color:rgba(168,85,247,.35);}
+.op-slot.queue-slot{border-color:rgba(52,211,153,.35);}
+.op-slot.filled.stack-slot{border-style:solid;border-color:var(--stackd);background:var(--stackbg);}
+.op-slot.filled.queue-slot{border-style:solid;border-color:var(--queued);background:var(--queuebg);}
+.op-slot .slot-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.6;}
+.op-slot .slot-hint{font-size:9px;opacity:.5;font-style:italic;}
+/* Gem cards pool */
+#act1-pool{display:flex;flex-direction:column;align-items:center;gap:7px;width:180px;}
+#act1-pool-head{font-size:10px;font-weight:700;color:var(--inkl);text-align:center;opacity:.7;margin-bottom:2px;}
+.gem{cursor:grab;touch-action:none;border-radius:14px;padding:10px 12px;width:160px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;font-size:11px;font-weight:700;gap:3px;
+  box-shadow:0 4px 14px rgba(0,0,0,.15);transition:.15s;position:relative;}
+.gem .gem-ic{font-size:17px;}
+.gem.s-gem{background:linear-gradient(155deg,#f5f0ff,#ede0ff);border:1.5px solid var(--stack);color:var(--inkl);}
+.gem.q-gem{background:linear-gradient(155deg,#edfff6,#d1fae5);border:1.5px solid var(--queue);color:var(--inkl);}
+.gem.placed{opacity:0;pointer-events:none;height:0;padding:0;border:none;margin:0;}
+.gem.dragging{box-shadow:0 0 18px rgba(168,85,247,.5);}
+
+/* ===========================
+   ACTIVITY 2
+   Split-screen simulation:
+   Left half = STACK (Undo History)  — vertical tower of items
+   Right half = QUEUE (Print Queue)  — horizontal conveyor
+   Drag chips into the right zone and perform operations
+   =========================== */
+#act2-wrap{display:flex;gap:14px;align-items:stretch;justify-content:center;width:100%;max-width:1020px;}
+.a2-panel{flex:1;border-radius:18px;backdrop-filter:blur(5px);padding:10px 12px;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;}
+.a2-panel.sp{background:rgba(248,240,255,.7);border:2px solid rgba(168,85,247,.3);}
+.a2-panel.qp{background:rgba(236,255,248,.7);border:2px solid rgba(52,211,153,.3);}
+.a2-panel-head{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;padding:3px 12px;border-radius:14px;}
+.a2-panel-head.sh{background:linear-gradient(135deg,var(--stackd),#9333ea);color:#fff;}
+.a2-panel-head.qh{background:linear-gradient(135deg,var(--queued),#10b981);color:#fff;}
+.a2-sub{font-size:9px;color:var(--inkl);opacity:.65;font-weight:600;}
+
+/* Stack tower */
+#stack-tower{display:flex;flex-direction:column-reverse;align-items:center;gap:4px;min-height:120px;width:100%;justify-content:flex-end;}
+.stack-item{width:90%;max-width:160px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;color:#fff;text-align:center;padding:4px;
+  animation:itemSlide .25s ease;position:relative;}
+@keyframes itemSlide{from{opacity:0;transform:scaleY(0);}to{opacity:1;transform:scaleY(1);}}
+.si-bg{background:linear-gradient(135deg,var(--stackd),#9333ea);}
+.stack-top-badge{position:absolute;right:-28px;top:50%;transform:translateY(-50%);font-size:7px;
+  background:var(--gold);color:#3a1a00;padding:2px 5px;border-radius:6px;font-weight:800;white-space:nowrap;}
+
+/* Queue conveyor */
+#queue-belt{display:flex;align-items:center;gap:4px;min-height:42px;width:100%;overflow:hidden;
+  background:rgba(52,211,153,.08);border-radius:10px;padding:4px 6px;border:1.5px dashed rgba(52,211,153,.3);position:relative;}
+.front-badge{font-size:7px;background:var(--queued);color:#fff;padding:2px 5px;border-radius:6px;
+  font-weight:800;position:absolute;left:6px;top:-12px;}
+.rear-badge{font-size:7px;background:var(--blue);color:#fff;padding:2px 5px;border-radius:6px;
+  font-weight:800;position:absolute;right:6px;top:-12px;}
+.queue-item{flex-shrink:0;height:34px;min-width:50px;border-radius:8px;
+  background:linear-gradient(135deg,var(--queued),#10b981);
+  display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;padding:3px 6px;
+  animation:itemSlide .25s ease;}
+
+/* Drop zones */
+.drop-zone{width:100%;min-height:44px;border-radius:12px;border:2px dashed;
+  display:flex;align-items:center;justify-content:center;font-size:10px;
+  font-weight:600;opacity:.7;transition:.2s;margin-top:2px;}
+.drop-zone.sz{border-color:var(--stackd);color:var(--stackd);background:var(--stackbg);}
+.drop-zone.qz{border-color:var(--queued);color:var(--queued);background:var(--queuebg);}
+.drop-zone.flash{background:rgba(34,197,94,.2);border-color:var(--good);}
+
+/* Chips for act2 */
+#act2-pool{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;max-width:900px;}
+.chip{cursor:grab;touch-action:none;border-radius:18px;padding:7px 13px;
+  font-size:11px;font-weight:700;text-align:center;box-shadow:0 3px 10px rgba(0,0,0,.12);transition:.15s;}
+.chip.sc{background:linear-gradient(135deg,#f5f0ff,#ede0ff);border:1.5px solid var(--stack);color:var(--inkl);}
+.chip.qc{background:linear-gradient(135deg,#edfff6,#d1fae5);border:1.5px solid var(--queue);color:var(--inkl);}
+.chip.placed{opacity:0;pointer-events:none;}
+.chip.dragging{box-shadow:0 0 14px rgba(168,85,247,.5);}
+#act2-ops{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+.op-chip{cursor:grab;touch-action:none;border-radius:18px;padding:7px 14px;font-size:11px;font-weight:800;
+  box-shadow:0 3px 10px rgba(0,0,0,.12);transition:.15s;}
+.op-chip.pop-chip{background:linear-gradient(135deg,#fdf2ff,#f5e0ff);border:1.5px solid var(--stackd);color:var(--inkl);}
+.op-chip.deq-chip{background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1.5px solid var(--queued);color:var(--inkl);}
+.op-chip.placed{opacity:0;pointer-events:none;}
+.op-chip.dragging{box-shadow:0 0 14px rgba(168,85,247,.4);}
+
+/* Compare panel */
+#act2-result{display:flex;gap:10px;justify-content:center;margin-top:4px;}
+.res-box{background:var(--panel);border:1.5px solid var(--panelb);border-radius:12px;
+  padding:5px 14px;text-align:center;font-size:10px;font-weight:700;color:var(--inkl);backdrop-filter:blur(4px);}
+.res-box .big{font-size:20px;font-weight:900;}
+.res-box.sh .big{color:var(--stackd);}
+.res-box.qh .big{color:var(--queued);}
+
+/* ===========================
+   ACTIVITY 3
+   Dual-lane waterfall:
+   LEFT lane = full Stack flow (7 nodes)
+   RIGHT lane = full Queue flow (7 nodes)
+   Each node is blank — drag the label tile from the pool below onto it
+   Nodes are shown with type hints but not labels
+   =========================== */
+#act3-wrap{display:flex;gap:18px;align-items:flex-start;justify-content:center;width:100%;height:calc(100% - 80px);}
+.a3-lane{display:flex;flex-direction:column;align-items:center;gap:0;flex:1;max-width:240px;}
+.a3-lane-head{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;
+  padding:4px 16px;border-radius:16px;margin-bottom:6px;}
+.a3-lane-head.sl{background:linear-gradient(135deg,var(--stackd),#9333ea);color:#fff;}
+.a3-lane-head.ql{background:linear-gradient(135deg,var(--queued),#10b981);color:#fff;}
+.wf-node{width:100%;min-height:46px;border-radius:11px;border:2px dashed rgba(0,0,0,.15);
+  background:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;
+  flex-direction:column;text-align:center;padding:5px 6px;font-size:8.5px;
+  color:rgba(45,27,94,.3);position:relative;backdrop-filter:blur(4px);transition:.2s;cursor:default;gap:1px;}
+.wf-node.sn{border-color:rgba(168,85,247,.3);}
+.wf-node.qn{border-color:rgba(52,211,153,.3);}
+.wf-node.filled.sn{border-style:solid;border-color:var(--stackd);background:var(--stackbg);color:var(--inkl);}
+.wf-node.filled.qn{border-style:solid;border-color:var(--queued);background:var(--queuebg);color:var(--inkl);}
+.wf-node .wn-step{font-size:7px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;opacity:.55;}
+.wf-node .wn-ic{font-size:13px;}
+.wf-node .wn-label{font-size:8.5px;font-weight:700;line-height:1.25;}
+.wf-arrow{width:2px;height:10px;background:linear-gradient(180deg,rgba(168,85,247,.4),rgba(168,85,247,.1));
+  margin:0 auto;position:relative;}
+.wf-arrow.qa{background:linear-gradient(180deg,rgba(52,211,153,.4),rgba(52,211,153,.1));}
+.wf-arrow::after{content:'▼';position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);
+  font-size:7px;color:rgba(168,85,247,.4);}
+.wf-arrow.qa::after{color:rgba(52,211,153,.4);}
+
+/* Middle pool column */
+#act3-pool-col{display:flex;flex-direction:column;align-items:center;gap:5px;width:150px;flex-shrink:0;padding-top:28px;}
+#act3-pool-head{font-size:9px;font-weight:800;color:var(--inkl);text-transform:uppercase;letter-spacing:.5px;opacity:.7;margin-bottom:2px;}
+.tile{cursor:grab;touch-action:none;border-radius:10px;padding:7px 8px;width:100%;
+  display:flex;align-items:center;gap:6px;font-size:9px;font-weight:700;color:var(--inkl);
+  box-shadow:0 2px 8px rgba(0,0,0,.1);transition:.15s;}
+.tile .tile-ic{font-size:13px;flex-shrink:0;}
+.tile.st{background:linear-gradient(135deg,#f5f0ff,#ede0ff);border:1.5px solid var(--stack);}
+.tile.qt{background:linear-gradient(135deg,#edfff6,#d1fae5);border:1.5px solid var(--queue);}
+.tile.placed{opacity:0;pointer-events:none;height:0;margin:0;padding:0;border:none;}
+.tile.dragging{box-shadow:0 0 14px rgba(168,85,247,.5);}
+
+/* ===== OVERLAYS ===== */
+.overlay{position:absolute;inset:0;background:rgba(200,180,255,.35);backdrop-filter:blur(8px);
+  display:none;align-items:center;justify-content:center;z-index:400;}
+.overlay.show{display:flex;}
+.popup{background:linear-gradient(155deg,#fff5ff,#f0faff);border:2.5px solid var(--stackd);
+  border-radius:24px;padding:26px 32px;text-align:center;max-width:400px;width:90%;
+  box-shadow:0 0 50px rgba(168,85,247,.35),0 0 100px rgba(244,114,182,.2);animation:popIn .4s ease;}
+@keyframes popIn{from{transform:scale(.7);opacity:0;}to{transform:scale(1);opacity:1;}}
+.popup .pe{font-size:50px;margin-bottom:4px;}
+.popup h2{margin:4px 0;font-size:20px;background:linear-gradient(90deg,var(--stackd),var(--pink));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.popup p{font-size:13px;color:var(--inkl);opacity:.9;margin-bottom:16px;line-height:1.55;}
+.btn-main{background:linear-gradient(135deg,var(--stackd),#9333ea);color:#fff;border:none;
+  padding:11px 30px;border-radius:24px;font-weight:800;font-size:14px;cursor:pointer;
+  box-shadow:0 4px 16px rgba(168,85,247,.45);transition:.15s;display:inline-block;}
+.btn-main:hover{transform:translateY(-2px);}
+/* Celebration bits */
+.cel{position:absolute;top:-20px;font-size:20px;animation:celFall linear forwards;pointer-events:none;z-index:410;}
+@keyframes celFall{to{transform:translateY(110vh) rotate(540deg);opacity:.1;}}
+.cel-spark{position:absolute;width:7px;height:7px;border-radius:50%;
+  animation:csSplode ease-out forwards;pointer-events:none;z-index:410;}
+@keyframes csSplode{0%{opacity:1;transform:translate(0,0) scale(1);}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.3);}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="scene"></div>
+
+  <header>
+    <h1>🦄 DATA STRUCTURES — STACKS &amp; QUEUES 🌈</h1>
+    <p>Master LIFO &amp; FIFO — the magical order of data!</p>
+    <div id="trail">
+      <div class="tdot" id="dot1"></div>
+      <div class="tdot" id="dot2"></div>
+      <div class="tdot" id="dot3"></div>
+    </div>
+  </header>
+
+  <button class="reset-btn" id="globalReset">🔄 Reset Activity</button>
+
+  <main>
+    <!-- ACTIVITY 1 -->
+    <section class="activity" id="activity1">
+      <div class="act-title">💎 Activity 1 — Drop each <b>Operation Gem</b> into the correct <b class="q">Stack</b> or <b>Queue</b> column</div>
+      <div id="act1-wrap">
+        <!-- Stack column -->
+        <div class="a1-col">
+          <div class="a1-col-head stack">🗂️ Stack — LIFO</div>
+          <div class="op-slot stack-slot" data-col="stack" data-slot="push">
+            <div class="slot-label">PUSH</div><div class="slot-hint">Add to top</div>
+          </div>
+          <div class="op-slot stack-slot" data-col="stack" data-slot="pop">
+            <div class="slot-label">POP</div><div class="slot-hint">Remove from top</div>
+          </div>
+          <div class="op-slot stack-slot" data-col="stack" data-slot="peek">
+            <div class="slot-label">PEEK</div><div class="slot-hint">View top item</div>
+          </div>
+          <div class="op-slot stack-slot" data-col="stack" data-slot="overflow">
+            <div class="slot-label">OVERFLOW</div><div class="slot-hint">Stack is full!</div>
+          </div>
+        </div>
+        <!-- Gem pool -->
+        <div id="act1-pool">
+          <div id="act1-pool-head">✨ Drag gems to the right column</div>
+        </div>
+        <!-- Queue column -->
+        <div class="a1-col">
+          <div class="a1-col-head queue">🚂 Queue — FIFO</div>
+          <div class="op-slot queue-slot" data-col="queue" data-slot="enqueue">
+            <div class="slot-label">ENQUEUE</div><div class="slot-hint">Add to back</div>
+          </div>
+          <div class="op-slot queue-slot" data-col="queue" data-slot="dequeue">
+            <div class="slot-label">DEQUEUE</div><div class="slot-hint">Remove from front</div>
+          </div>
+          <div class="op-slot queue-slot" data-col="queue" data-slot="front">
+            <div class="slot-label">FRONT</div><div class="slot-hint">Who's next?</div>
+          </div>
+          <div class="op-slot queue-slot" data-col="queue" data-slot="rear">
+            <div class="slot-label">REAR</div><div class="slot-hint">Last in line</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 2 -->
+    <section class="activity" id="activity2">
+      <div class="act-title">🎭 Activity 2 — Drag items into the <b>Stack Undo History</b> and <b class="q">Print Queue</b>, then perform operations</div>
+      <div id="act2-wrap">
+        <!-- Stack panel -->
+        <div class="a2-panel sp">
+          <div class="a2-panel-head sh">🗂️ Stack — Undo History</div>
+          <div class="a2-sub">Drag items to PUSH · Drag POP to undo</div>
+          <div id="stack-tower"></div>
+          <div class="drop-zone sz" id="stack-push-zone">⬆️ Drop item here to PUSH</div>
+          <div id="act2-pop-slot" class="drop-zone sz" style="margin-top:4px;">🔼 Drop POP here to undo last action</div>
+        </div>
+        <!-- Queue panel -->
+        <div class="a2-panel qp">
+          <div class="a2-panel-head qh">🖨️ Queue — Print Queue</div>
+          <div class="a2-sub">Drag docs to ENQUEUE · Drag DEQUEUE to print</div>
+          <div style="position:relative;width:100%;margin-top:4px;">
+            <div class="front-badge">FRONT</div>
+            <div class="rear-badge">REAR</div>
+            <div id="queue-belt"></div>
+          </div>
+          <div class="drop-zone qz" id="queue-enq-zone" style="margin-top:14px;">➕ Drop document here to ENQUEUE</div>
+          <div id="act2-deq-slot" class="drop-zone qz" style="margin-top:4px;">🖨️ Drop DEQUEUE here to print next</div>
+        </div>
+      </div>
+      <div id="act2-pool" style="margin-top:8px;"></div>
+      <div id="act2-ops" style="margin-top:6px;"></div>
+      <div id="act2-result" style="margin-top:4px;">
+        <div class="res-box sh">Stack Top<div class="big" id="s-top">—</div></div>
+        <div class="res-box qh">Queue Front<div class="big" id="q-front">—</div></div>
+        <div class="res-box"><span>Ops Done</span><div class="big" id="ops-count" style="color:var(--pink)">0</div></div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 3 -->
+    <section class="activity" id="activity3">
+      <div class="act-title">🌈 Activity 3 — Match each <b>tile</b> to the correct step in the <b class="q">Stack</b> or <b>Queue</b> flow</div>
+      <div id="act3-wrap">
+        <div class="a3-lane" id="a3-stack-lane">
+          <div class="a3-lane-head sl">🗂️ Stack Flow</div>
+        </div>
+        <div id="act3-pool-col">
+          <div id="act3-pool-head">Drag tiles →</div>
+        </div>
+        <div class="a3-lane" id="a3-queue-lane">
+          <div class="a3-lane-head ql">🚂 Queue Flow</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="overlay" id="popupOverlay">
+    <div class="popup">
+      <div class="pe" id="popupEmoji">🦄</div>
+      <h2 id="popupTitle">Magical!</h2>
+      <p id="popupText">Keep going!</p>
+      <button class="btn-main" id="popupBtn">Continue</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ===== SCENE ===== */
+const scene=document.getElementById('scene');
+function rand(a,b){return Math.random()*(b-a)+a;}
+
+// Rainbow arcs
+const rb=document.createElement('div');rb.id='rainbow-scene';
+const rbColors=['#ff6b8a','#ff9a3c','#ffe066','#6bff8a','#60c8ff','#a07cff','#ff80d5'];
+let rbW=580;
+rbColors.forEach(col=>{
+  const b=document.createElement('div');b.className='rband';
+  b.style.cssText=`width:${rbW}px;height:${rbW}px;border-width:10px;border-color:${col};bottom:${-(rbW/2-150)}px;`;
+  rb.appendChild(b); rbW-=24;
+});
+scene.appendChild(rb);
+
+// Clouds
+[[3,'12s','0s',60,30],[20,'16s','4s',90,40],[50,'20s','2s',110,45],[70,'14s','7s',75,32]].forEach(([t,d,del,w,h])=>{
+  const c=document.createElement('div');c.className='cloud';
+  c.style.cssText=`top:${t}%;width:${w}px;height:${h}px;animation-duration:${d};animation-delay:${del};`;
+  c.style.borderRadius='50px';
+  const b1=document.createElement('div');b1.style.cssText=`width:${w*.5}px;height:${h*.7}px;border-radius:50%;background:white;top:-${h*.35}px;left:${w*.18}px;position:absolute;`;
+  const b2=document.createElement('div');b2.style.cssText=`width:${w*.38}px;height:${h*.6}px;border-radius:50%;background:white;top:-${h*.28}px;left:${w*.52}px;position:absolute;`;
+  c.appendChild(b1);c.appendChild(b2);
+  scene.appendChild(c);
+});
+
+// Sparkles
+const sparkColors=['#ffe066','#f472b6','#a78bfa','#34d399','#60a5fa'];
+for(let i=0;i<55;i++){
+  const s=document.createElement('div');s.className='spark';
+  s.style.cssText=`left:${rand(0,100)}%;top:${rand(0,90)}%;width:${rand(3,7)}px;height:${rand(3,7)}px;background:${sparkColors[Math.floor(rand(0,sparkColors.length))]};animation-duration:${rand(2,5)}s;animation-delay:${rand(0,4)}s;`;
+  scene.appendChild(s);
+}
+
+// Magic dust
+const dustColors=['rgba(168,85,247,.7)','rgba(244,114,182,.7)','rgba(52,211,153,.7)','rgba(96,165,250,.7)'];
+for(let i=0;i<30;i++){
+  const d=document.createElement('div');d.className='dust';
+  d.style.cssText=`left:${rand(0,100)}%;bottom:${rand(0,30)}%;background:${dustColors[Math.floor(rand(0,4))]};animation-duration:${rand(6,14)}s;animation-delay:${rand(0,8)}s;width:${rand(3,6)}px;height:${rand(3,6)}px;border-radius:50%;`;
+  scene.appendChild(d);
+}
+
+// Twinkling star emojis
+['⭐','✨','💫','🌟'].forEach((e,i)=>{
+  for(let j=0;j<3;j++){
+    const ts=document.createElement('div');ts.className='tstar';ts.textContent=e;
+    ts.style.cssText=`left:${rand(0,100)}%;top:${rand(0,70)}%;animation-duration:${rand(2.5,5)}s;animation-delay:${rand(0,4)}s;font-size:${rand(10,18)}px;`;
+    scene.appendChild(ts);
+  }
+});
+
+// Unicorns drifting
+[['12s','2s','70%'],['20s','8s','55%'],['15s','14s','78%']].forEach(([d,del,top])=>{
+  const u=document.createElement('div');u.className='unicorn';u.textContent='🦄';
+  u.style.cssText=`top:${top};animation-duration:${d},${d};animation-delay:${del},${del};`;
+  scene.appendChild(u);
+});
+
+/* ===== UTILS ===== */
+function shuffle(arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function elemUnder(x,y,skip){skip.style.pointerEvents='none';const el=document.elementFromPoint(x,y);skip.style.pointerEvents='';return el;}
+function makeDraggable(el,{onDrop}){
+  let sx,sy,ox,oy,dragging=false,lx=0,ly=0,pid=null;
+  el.addEventListener('pointerdown',e=>{
+    if(el.classList.contains('placed')) return;
+    dragging=true;pid=e.pointerId;
+    const r=el.getBoundingClientRect();ox=r.left;oy=r.top;sx=e.clientX;sy=e.clientY;lx=e.clientX;ly=e.clientY;
+    el.style.cssText+=`;position:fixed;left:${ox}px;top:${oy}px;width:${r.width}px;`;
+    el.classList.add('dragging');document.body.appendChild(el);
+    try{el.setPointerCapture(e.pointerId);}catch(err){}e.preventDefault();
+  });
+  el.addEventListener('pointermove',e=>{
+    if(!dragging||(pid!==null&&e.pointerId!==pid))return;
+    lx=e.clientX;ly=e.clientY;
+    el.style.left=(ox+e.clientX-sx)+'px';el.style.top=(oy+e.clientY-sy)+'px';
+  });
+  function end(e){
+    if(!dragging)return;dragging=false;
+    const cx=e&&e.clientX!=null?e.clientX:lx,cy=e&&e.clientY!=null?e.clientY:ly;
+    el.classList.remove('dragging');
+    el.style.position='';el.style.left='';el.style.top='';el.style.width='';
+    try{if(pid!==null)el.releasePointerCapture(pid);}catch(err){}pid=null;
+    onDrop(el,elemUnder(cx,cy,el));
+  }
+  el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
+  el.addEventListener('lostpointercapture',end);
+  window.addEventListener('pointerup',e=>{if(dragging)end(e);});
+}
+
+/* ===== POPUP ===== */
+const overlay=document.getElementById('popupOverlay');
+const pEmoji=document.getElementById('popupEmoji'),pTitle=document.getElementById('popupTitle');
+const pText=document.getElementById('popupText'),pBtn=document.getElementById('popupBtn');
+function showPopup({emoji,title,text,btnLabel,onBtn,celebrate}){
+  pEmoji.textContent=emoji;pTitle.textContent=title;pText.textContent=text;pBtn.textContent=btnLabel;
+  overlay.classList.add('show');
+  if(celebrate)burstCelebrate();
+  pBtn.onclick=()=>{overlay.classList.remove('show');overlay.querySelectorAll('.cel,.cel-spark').forEach(c=>c.remove());if(onBtn)onBtn();};
+}
+function burstCelebrate(){
+  const items=['🦄','🌈','⭐','✨','💫','🌟','💎','🎉','💜','💚'];
+  for(let i=0;i<45;i++){
+    const c=document.createElement('div');c.className='cel';
+    c.textContent=items[Math.floor(Math.random()*items.length)];
+    c.style.left=rand(0,100)+'vw';c.style.animationDuration=rand(2.5,4.8)+'s';c.style.fontSize=rand(14,28)+'px';
+    overlay.appendChild(c);setTimeout(()=>c.remove(),5000);
+  }
+  const cols=['#a855f7','#f472b6','#34d399','#60a5fa','#ffe066'];
+  for(let i=0;i<24;i++){
+    const sp=document.createElement('div');sp.className='cel-spark';
+    const angle=rand(0,Math.PI*2),dist=rand(60,220);
+    sp.style.cssText=`left:50%;top:50%;background:${cols[Math.floor(rand(0,5))]};--dx:${Math.cos(angle)*dist}px;--dy:${Math.sin(angle)*dist}px;animation-duration:${rand(.7,1.5)}s;animation-delay:${rand(0,.3)}s;`;
+    overlay.appendChild(sp);setTimeout(()=>sp.remove(),2000);
+  }
+}
+
+/* ===== TRAIL / NAV ===== */
+const actIds=['activity1','activity2','activity3'];
+const dots={1:document.getElementById('dot1'),2:document.getElementById('dot2'),3:document.getElementById('dot3')};
+let currentAct=1;
+function goToActivity(n){
+  currentAct=n;
+  actIds.forEach((id,i)=>document.getElementById(id).classList.toggle('active',i===n-1));
+  for(let k=1;k<=3;k++){dots[k].classList.remove('active','done');if(k<n)dots[k].classList.add('done');else if(k===n)dots[k].classList.add('active');}
+}
+
+/* ==========================================
+   ACTIVITY 1 — Operation Gem Matcher
+   8 gems (4 Stack, 4 Queue) drop into labelled slots
+   ========================================== */
+const A1_GEMS=[
+  {id:'push',     col:'stack', ic:'⬆️', label:'Push',     desc:'Add to top of Stack'},
+  {id:'pop',      col:'stack', ic:'⬇️', label:'Pop',      desc:'Remove from top'},
+  {id:'peek',     col:'stack', ic:'👁️', label:'Peek',     desc:'View top item'},
+  {id:'overflow', col:'stack', ic:'⚠️', label:'Overflow', desc:'Stack is full!'},
+  {id:'enqueue',  col:'queue', ic:'➡️', label:'Enqueue',  desc:'Add to Queue back'},
+  {id:'dequeue',  col:'queue', ic:'⬅️', label:'Dequeue',  desc:'Remove from front'},
+  {id:'front',    col:'queue', ic:'🏁', label:'Front',    desc:'Check who is next'},
+  {id:'rear',     col:'queue', ic:'🔚', label:'Rear',     desc:'Where new items join'},
+];
+const a1Pool=document.getElementById('act1-pool');
+let a1Filled={};
+
+function buildActivity1(){
+  a1Filled={};
+  a1Pool.querySelectorAll('.gem').forEach(g=>g.remove());
+  document.querySelectorAll('.op-slot').forEach(s=>{
+    s.classList.remove('filled','wrong-f');
+    const slot=s.dataset.slot;
+    s.innerHTML=`<div class="slot-label">${slot.toUpperCase()}</div><div class="slot-hint">${s.querySelector('.slot-hint')?s.querySelector('.slot-hint').textContent:''}</div>`;
+    // Restore hint text
+    const hints={push:'Add to top',pop:'Remove from top',peek:'View top item',overflow:'Stack is full!',
+      enqueue:'Add to back',dequeue:'Remove from front',front:'Who\'s next?',rear:'Last in line'};
+    s.innerHTML=`<div class="slot-label">${slot.toUpperCase()}</div><div class="slot-hint">${hints[slot]||''}</div>`;
+  });
+  shuffle(A1_GEMS).forEach(gem=>{
+    const g=document.createElement('div');g.className='gem '+(gem.col==='stack'?'s-gem':'q-gem');
+    g.dataset.id=gem.id;g.dataset.col=gem.col;
+    g.innerHTML=`<span class="gem-ic">${gem.ic}</span><span>${gem.label}</span><span style="font-size:8.5px;opacity:.65">${gem.desc}</span>`;
+    a1Pool.appendChild(g);
+    makeDraggable(g,{onDrop:(el,target)=>{
+      const slot=target&&target.closest('.op-slot');
+      if(slot&&slot.dataset.slot===el.dataset.id&&!a1Filled[el.dataset.id]){
+        a1Filled[el.dataset.id]=true;
+        slot.classList.add('filled');
+        const gd=A1_GEMS.find(x=>x.id===el.dataset.id);
+        slot.innerHTML=`<span style="font-size:16px">${gd.ic}</span><div class="slot-label">${gd.label}</div><div class="slot-hint">${gd.desc}</div>`;
+        el.classList.add('placed');el.remove();
+        if(Object.keys(a1Filled).length===A1_GEMS.length){
+          setTimeout(()=>showPopup({emoji:'💎',title:'All Gems Matched!',
+            text:'You correctly sorted all Stack (LIFO) and Queue (FIFO) operations — a true data structures wizard!',
+            btnLabel:'Activity 2 ▶',onBtn:()=>{goToActivity(2);buildActivity2();}}),320);
+        }
+        return;
+      }
+      if(slot){slot.classList.add('wrong-f');setTimeout(()=>slot.classList.remove('wrong-f'),400);}
+      a1Pool.appendChild(el);el.style.cssText='';
+    }});
+  });
+}
+
+/* ==========================================
+   ACTIVITY 2 — Dual Simulation
+   LEFT: Stack (Undo History) — drag items to PUSH, drag POP chip to pop
+   RIGHT: Queue (Print Queue) — drag docs to ENQUEUE, drag DEQUEUE to dequeue
+   Complete condition: 3 stack pushes + 1 pop + 3 enqueues + 1 dequeue, all correct
+   ========================================== */
+const A2_STACK_ITEMS=[
+  {id:'s1',label:'Type Document',   emoji:'📝',color:'#a855f7'},
+  {id:'s2',label:'Bold Text',       emoji:'✏️',color:'#9333ea'},
+  {id:'s3',label:'Insert Image',    emoji:'🖼️',color:'#7c3aed'},
+];
+const A2_QUEUE_ITEMS=[
+  {id:'q1',label:'Math Sheet',      emoji:'📐'},
+  {id:'q2',label:'Science Notes',   emoji:'🔬'},
+  {id:'q3',label:'Art Project',     emoji:'🎨'},
+];
+
+let stackArr=[],queueArr=[],a2StackPushCount=0,a2StackPopDone=false,a2QueueEnqCount=0,a2QueueDeqDone=false,opsCount=0;
+
+const stackTower=document.getElementById('stack-tower');
+const queueBelt=document.getElementById('queue-belt');
+const sTopEl=document.getElementById('s-top');
+const qFrontEl=document.getElementById('q-front');
+const opsCountEl=document.getElementById('ops-count');
+const a2Pool=document.getElementById('act2-pool');
+const a2OpsRow=document.getElementById('act2-ops');
+
+function renderStack(){
+  stackTower.innerHTML='';
+  stackArr.forEach((item,i)=>{
+    const d=document.createElement('div');d.className='stack-item si-bg';
+    d.style.background=`linear-gradient(135deg,${item.color},${item.color}cc)`;
+    d.textContent=item.emoji+' '+item.label;
+    if(i===stackArr.length-1){
+      const badge=document.createElement('div');badge.className='stack-top-badge';badge.textContent='TOP';
+      d.appendChild(badge);
+    }
+    stackTower.appendChild(d);
+  });
+  sTopEl.textContent=stackArr.length?stackArr[stackArr.length-1].emoji:'—';
+}
+function renderQueue(){
+  queueBelt.innerHTML='';
+  queueArr.forEach((item,i)=>{
+    const d=document.createElement('div');d.className='queue-item';
+    d.textContent=item.emoji+' '+item.label.split(' ')[0];
+    queueBelt.appendChild(d);
+  });
+  qFrontEl.textContent=queueArr.length?queueArr[0].emoji:'—';
+}
+
+function buildActivity2(){
+  stackArr=[];queueArr=[];a2StackPushCount=0;a2StackPopDone=false;a2QueueEnqCount=0;a2QueueDeqDone=false;opsCount=0;
+  renderStack();renderQueue();opsCountEl.textContent='0';sTopEl.textContent='—';qFrontEl.textContent='—';
+  a2Pool.innerHTML='';a2OpsRow.innerHTML='';
+
+  const pushZone=document.getElementById('stack-push-zone');
+  const popSlot=document.getElementById('act2-pop-slot');
+  const enqZone=document.getElementById('queue-enq-zone');
+  const deqSlot=document.getElementById('act2-deq-slot');
+  [pushZone,popSlot,enqZone,deqSlot].forEach(z=>{z.classList.remove('flash','wrong-f');});
+
+  // Build stack item chips
+  shuffle(A2_STACK_ITEMS).forEach(item=>{
+    const c=document.createElement('div');c.className='chip sc';c.dataset.id=item.id;c.dataset.kind='stack-item';
+    c.innerHTML=item.emoji+' '+item.label;
+    a2Pool.appendChild(c);
+    makeDraggable(c,{onDrop:(el,target)=>{
+      const zone=target&&target.closest('#stack-push-zone');
+      if(zone&&!stackArr.find(x=>x.id===el.dataset.id)){
+        const si=A2_STACK_ITEMS.find(x=>x.id===el.dataset.id);
+        stackArr.push(si);a2StackPushCount++;opsCount++;
+        renderStack();opsCountEl.textContent=opsCount;
+        el.classList.add('placed');el.style.cssText='';
+        zone.classList.add('flash');setTimeout(()=>zone.classList.remove('flash'),600);
+        checkActivity2Done();return;
+      }
+      a2Pool.appendChild(el);el.style.cssText='';
+    }});
+  });
+
+  // Build queue item chips
+  shuffle(A2_QUEUE_ITEMS).forEach(item=>{
+    const c=document.createElement('div');c.className='chip qc';c.dataset.id=item.id;c.dataset.kind='queue-item';
+    c.innerHTML=item.emoji+' '+item.label;
+    a2Pool.appendChild(c);
+    makeDraggable(c,{onDrop:(el,target)=>{
+      const zone=target&&target.closest('#queue-enq-zone');
+      if(zone&&!queueArr.find(x=>x.id===el.dataset.id)){
+        const qi=A2_QUEUE_ITEMS.find(x=>x.id===el.dataset.id);
+        queueArr.push(qi);a2QueueEnqCount++;opsCount++;
+        renderQueue();opsCountEl.textContent=opsCount;
+        el.classList.add('placed');el.style.cssText='';
+        zone.classList.add('flash');setTimeout(()=>zone.classList.remove('flash'),600);
+        checkActivity2Done();return;
+      }
+      a2Pool.appendChild(el);el.style.cssText='';
+    }});
+  });
+
+  // POP operation chip
+  const popChip=document.createElement('div');popChip.className='op-chip pop-chip';popChip.id='pop-chip';
+  popChip.innerHTML='🔼 POP (Undo last)';
+  a2OpsRow.appendChild(popChip);
+  makeDraggable(popChip,{onDrop:(el,target)=>{
+    const zone=target&&target.closest('#act2-pop-slot');
+    if(zone&&stackArr.length>0&&!a2StackPopDone){
+      const popped=stackArr.pop();
+      a2StackPopDone=true;opsCount++;
+      renderStack();opsCountEl.textContent=opsCount;
+      el.classList.add('placed');el.style.cssText='';
+      zone.innerHTML='✅ Popped: '+popped.emoji+' '+popped.label;
+      zone.classList.add('flash');
+      checkActivity2Done();return;
+    }
+    if(stackArr.length===0){zone&&(zone.classList.add('wrong-f'),setTimeout(()=>zone&&zone.classList.remove('wrong-f'),400));}
+    a2OpsRow.appendChild(el);el.style.cssText='';
+  }});
+
+  // DEQUEUE operation chip
+  const deqChip=document.createElement('div');deqChip.className='op-chip deq-chip';deqChip.id='deq-chip';
+  deqChip.innerHTML='🖨️ DEQUEUE (Print next)';
+  a2OpsRow.appendChild(deqChip);
+  makeDraggable(deqChip,{onDrop:(el,target)=>{
+    const zone=target&&target.closest('#act2-deq-slot');
+    if(zone&&queueArr.length>0&&!a2QueueDeqDone){
+      const deqd=queueArr.shift();
+      a2QueueDeqDone=true;opsCount++;
+      renderQueue();opsCountEl.textContent=opsCount;
+      el.classList.add('placed');el.style.cssText='';
+      zone.innerHTML='✅ Printed: '+deqd.emoji+' '+deqd.label;
+      zone.classList.add('flash');
+      checkActivity2Done();return;
+    }
+    if(queueArr.length===0){zone&&(zone.classList.add('wrong-f'),setTimeout(()=>zone&&zone.classList.remove('wrong-f'),400));}
+    a2OpsRow.appendChild(el);el.style.cssText='';
+  }});
+}
+
+function checkActivity2Done(){
+  if(a2StackPushCount>=3&&a2StackPopDone&&a2QueueEnqCount>=3&&a2QueueDeqDone){
+    setTimeout(()=>showPopup({emoji:'🎭',title:'Simulation Complete!',
+      text:'You pushed & popped the Undo Stack, and enqueued & dequeued the Print Queue — both LIFO and FIFO in action!',
+      btnLabel:'Final Challenge ▶',onBtn:()=>{goToActivity(3);buildActivity3();}}),400);
+  }
+}
+
+/* ==========================================
+   ACTIVITY 3 — Dual-Lane Waterfall Flowchart
+   Left lane = Stack flow (7 nodes), Right lane = Queue flow (7 nodes)
+   Middle column = shuffled tile labels to drag onto blank nodes
+   Each node shows its STEP TYPE but not label
+   ========================================== */
+const A3_STACK_NODES=[
+  {id:'s_create', step:'Step 1', type:'CREATE',    ic:'🏗️', label:'Create an empty Stack'},
+  {id:'s_push1',  step:'Step 2', type:'PUSH',      ic:'⬆️', label:'Push first item (Idli 1)'},
+  {id:'s_push2',  step:'Step 3', type:'PUSH',      ic:'⬆️', label:'Push second item (Idli 2)'},
+  {id:'s_peek',   step:'Step 4', type:'PEEK',      ic:'👁️', label:'Peek at top item'},
+  {id:'s_pop',    step:'Step 5', type:'POP',       ic:'⬇️', label:'Pop top item (LIFO)'},
+  {id:'s_check',  step:'Step 6', type:'CHECK',     ic:'❓', label:'Is Stack empty?'},
+  {id:'s_output', step:'Step 7', type:'OUTPUT',    ic:'✅', label:'Display final Stack'},
+];
+const A3_QUEUE_NODES=[
+  {id:'q_create', step:'Step 1', type:'CREATE',    ic:'🏗️', label:'Create an empty Queue'},
+  {id:'q_enq1',   step:'Step 2', type:'ENQUEUE',   ic:'➡️', label:'Enqueue first person'},
+  {id:'q_enq2',   step:'Step 3', type:'ENQUEUE',   ic:'➡️', label:'Enqueue second person'},
+  {id:'q_front',  step:'Step 4', type:'FRONT',     ic:'🏁', label:'Check who is at Front'},
+  {id:'q_deq',    step:'Step 5', type:'DEQUEUE',   ic:'⬅️', label:'Dequeue front person (FIFO)'},
+  {id:'q_check',  step:'Step 6', type:'CHECK',     ic:'❓', label:'Is Queue empty?'},
+  {id:'q_output', step:'Step 7', type:'OUTPUT',    ic:'✅', label:'Display final Queue'},
+];
+
+const a3StackLane=document.getElementById('a3-stack-lane');
+const a3QueueLane=document.getElementById('a3-queue-lane');
+const a3PoolCol=document.getElementById('act3-pool-col');
+let a3Filled={};
+
+function buildActivity3(){
+  a3Filled={};
+  // Rebuild lanes (keep heading)
+  a3StackLane.innerHTML='<div class="a3-lane-head sl">🗂️ Stack Flow</div>';
+  a3QueueLane.innerHTML='<div class="a3-lane-head ql">🚂 Queue Flow</div>';
+  a3PoolCol.innerHTML='<div id="act3-pool-head">Drag tiles to nodes →</div>';
+
+  // Build stack lane nodes
+  A3_STACK_NODES.forEach((nd,i)=>{
+    const n=document.createElement('div');n.className='wf-node sn';n.dataset.id=nd.id;
+    n.innerHTML=`<div class="wn-step">${nd.type}</div><div class="wn-ic">⬜</div><div class="wn-label" style="color:rgba(168,85,247,.3)">${nd.step}</div>`;
+    a3StackLane.appendChild(n);
+    if(i<A3_STACK_NODES.length-1){const arr=document.createElement('div');arr.className='wf-arrow';a3StackLane.appendChild(arr);}
+  });
+
+  // Build queue lane nodes
+  A3_QUEUE_NODES.forEach((nd,i)=>{
+    const n=document.createElement('div');n.className='wf-node qn';n.dataset.id=nd.id;
+    n.innerHTML=`<div class="wn-step">${nd.type}</div><div class="wn-ic">⬜</div><div class="wn-label" style="color:rgba(52,211,153,.3)">${nd.step}</div>`;
+    a3QueueLane.appendChild(n);
+    if(i<A3_QUEUE_NODES.length-1){const arr=document.createElement('div');arr.className='wf-arrow qa';a3QueueLane.appendChild(arr);}
+  });
+
+  // All tiles shuffled into pool
+  const allNodes=[...A3_STACK_NODES,...A3_QUEUE_NODES];
+  shuffle(allNodes).forEach(nd=>{
+    const isStack=nd.id.startsWith('s_');
+    const t=document.createElement('div');t.className='tile '+(isStack?'st':'qt');t.dataset.id=nd.id;
+    t.innerHTML=`<span class="tile-ic">${nd.ic}</span><span>${nd.label}</span>`;
+    a3PoolCol.appendChild(t);
+    makeDraggable(t,{onDrop:(el,target)=>{
+      const node=target&&target.closest('.wf-node');
+      if(node&&node.dataset.id===el.dataset.id&&!a3Filled[el.dataset.id]){
+        a3Filled[el.dataset.id]=true;
+        const nd2=allNodes.find(x=>x.id===el.dataset.id);
+        node.classList.add('filled');
+        node.innerHTML=`<div class="wn-step">${nd2.type}</div><div class="wn-ic">${nd2.ic}</div><div class="wn-label">${nd2.label}</div>`;
+        el.classList.add('placed');el.style.cssText='';
+        if(Object.keys(a3Filled).length===allNodes.length){
+          setTimeout(()=>showPopup({emoji:'🌈',title:'Unicorn Champion!',
+            text:'You completed BOTH the full Stack flow and Queue flow from scratch to output — the magical world of data structures bows to you! 🦄✨',
+            btnLabel:'🎉 Play Again',celebrate:true,onBtn:()=>resetAll()}),400);
+        }
+        return;
+      }
+      if(node){node.classList.add('wrong-f');setTimeout(()=>node.classList.remove('wrong-f'),400);}
+      a3PoolCol.appendChild(el);el.style.cssText='';
+    }});
+  });
+}
+
+/* ===== RESET ===== */
+function resetAll(){buildActivity1();buildActivity2();buildActivity3();goToActivity(1);}
+document.getElementById('globalReset').addEventListener('click',()=>{
+  if(currentAct===1)buildActivity1();
+  else if(currentAct===2)buildActivity2();
+  else buildActivity3();
+});
+
+/* ===== INIT ===== */
+buildActivity1();buildActivity2();buildActivity3();
+goToActivity(1);
+
+})();
+</script>
+</body>
+</html>

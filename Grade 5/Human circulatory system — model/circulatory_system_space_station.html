@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Human Circulatory System — Model</title>
+<style>
+  :root{
+    --space-1:#050814;
+    --space-2:#0c1230;
+    --space-3:#161b4a;
+    --nebula:#3d2a70;
+    --cyan:#4fd9e8;
+    --cyan-dark:#1c7d8a;
+    --amber:#ffb347;
+    --panel:#0e1a3a;
+    --panel-edge:#4fd9e8;
+    --ink:#eaf6ff;
+    --oxy-rich:#e14b4b;
+    --oxy-rich-dark:#8f2323;
+    --oxy-poor:#3b7fd6;
+    --oxy-poor-dark:#1f4a8a;
+    --good:#4fe07f;
+    --bad:#ff5a5a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    font-family:'Trebuchet MS','Segoe UI',sans-serif; color:var(--ink);
+    touch-action:none; user-select:none;
+  }
+
+  /* ===================== SCENE / BACKGROUND ===================== */
+  #scene{
+    position:fixed; inset:0; z-index:0; overflow:hidden;
+    background:radial-gradient(ellipse at 70% 20%, var(--nebula) 0%, transparent 55%),
+               linear-gradient(180deg, var(--space-1) 0%, var(--space-2) 55%, var(--space-3) 100%);
+  }
+  .star{ position:absolute; border-radius:50%; background:#fff; animation-name:twinkle; animation-timing-function:ease-in-out; animation-iteration-count:infinite; }
+  @keyframes twinkle{ 0%,100%{opacity:.25;} 50%{opacity:1;} }
+  .star.drift{ animation-name:twinkleDrift; }
+  @keyframes twinkleDrift{
+    0%{opacity:.2; transform:translateY(0);}
+    50%{opacity:.9; transform:translateY(1vh);}
+    100%{opacity:.2; transform:translateY(0);}
+  }
+
+  #earth-wrap{ position:absolute; left:-8vmin; bottom:-10vmin; width:34vmin; height:34vmin; z-index:1; }
+  #earth{
+    width:100%; height:100%; border-radius:50%;
+    background:
+      radial-gradient(circle at 30% 30%, #6fd0ff, #1c6fb0 45%, #0a3a66 80%);
+    box-shadow:0 0 5vmin 1.5vmin rgba(79,217,232,.35), inset -2vmin -2vmin 4vmin rgba(0,0,0,.5);
+    position:relative; overflow:hidden;
+    animation:earthSpin 60s linear infinite;
+  }
+  #earth::before{
+    content:""; position:absolute; inset:0; border-radius:50%;
+    background:
+      radial-gradient(circle at 60% 25%, rgba(255,255,255,.5) 0 6%, transparent 7%),
+      radial-gradient(circle at 25% 60%, rgba(120,220,140,.55) 0 12%, transparent 13%),
+      radial-gradient(circle at 75% 70%, rgba(120,220,140,.5) 0 9%, transparent 10%),
+      radial-gradient(circle at 40% 80%, rgba(255,255,255,.4) 0 5%, transparent 6%);
+  }
+  @keyframes earthSpin{ from{background-position:0 0;} to{background-position:200% 0;} }
+
+  .orbit{ position:absolute; left:9vmin; bottom:9vmin; width:36vmin; height:36vmin; z-index:1; animation:spinOrbit linear infinite; }
+  .orbit.o1{ animation-duration:22s; }
+  .orbit.o2{ animation-duration:34s; animation-direction:reverse; width:46vmin; height:46vmin; left:4vmin; bottom:4vmin; }
+  @keyframes spinOrbit{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+  .satellite{ position:absolute; top:0; left:50%; transform:translateX(-50%); font-size:2.6vmin; filter:drop-shadow(0 0 .6vmin var(--cyan)); }
+
+  .astronaut{ position:absolute; font-size:6vmin; z-index:3; animation-timing-function:ease-in-out; animation-iteration-count:infinite; filter:drop-shadow(0 0 1vmin rgba(79,217,232,.4)); }
+  @keyframes floatA{ 0%,100%{transform:translate(0,0) rotate(-4deg);} 50%{transform:translate(1.5vw,-3vh) rotate(4deg);} }
+  @keyframes floatB{ 0%,100%{transform:translate(0,0) rotate(5deg);} 50%{transform:translate(-2vw,-2.4vh) rotate(-5deg);} }
+
+  .panel-light{
+    position:absolute; z-index:2; display:flex; gap:.6vmin; padding:.6vh 1vw; border-radius:1vh;
+    background:rgba(14,26,58,.6); border:1px solid rgba(79,217,232,.4);
+  }
+  .panel-light span{ width:1vmin; height:1vmin; border-radius:50%; background:var(--amber); animation:blink 1.6s infinite; }
+  .panel-light span:nth-child(2){ background:var(--cyan); animation-delay:.4s; }
+  .panel-light span:nth-child(3){ background:var(--oxy-rich); animation-delay:.8s; }
+  @keyframes blink{ 0%,100%{opacity:.25;} 50%{opacity:1;} }
+
+  /* ===================== APP LAYER ===================== */
+  #app{
+    position:fixed; inset:0; z-index:10; display:flex; flex-direction:column;
+    align-items:center; padding:1.6vh 2vw 1.4vh; height:100%; width:100%;
+  }
+  header{ text-align:center; margin-bottom:.4vh; flex:0 0 auto; }
+  header h1{
+    margin:0; font-size:clamp(18px,3.2vmin,36px); letter-spacing:.05em;
+    color:#eaf6ff; text-shadow:0 0 1.4vh rgba(79,217,232,.7), 0 .3vh 0 #08243a;
+    font-weight:800;
+  }
+  header .sub{ color:#bfe9ff; font-size:clamp(11px,1.4vmin,15px); margin-top:.2vh; opacity:.85; }
+
+  #progress{ display:flex; gap:1.2vw; margin:.6vh 0 1vh; flex:0 0 auto; }
+  .prog-dot{ width:2.2vmin; height:2.2vmin; border-radius:50%; background:rgba(255,255,255,.2); border:2px solid var(--cyan); transition:all .3s; }
+  .prog-dot.active{ background:var(--cyan); box-shadow:0 0 1.6vmin var(--cyan); }
+  .prog-dot.done{ background:var(--good); border-color:var(--good); }
+
+  .stage{
+    flex:1 1 auto; width:min(1200px,96vw); display:none;
+    background:rgba(10,18,42,.88); border:.3vmin solid rgba(79,217,232,.5);
+    border-radius:2vmin; box-shadow:0 0 4vh rgba(79,217,232,.15), 0 1.5vh 3vh rgba(0,0,0,.5);
+    padding:1.5vh 2vw; overflow:hidden; position:relative; flex-direction:column;
+  }
+  .stage.active{ display:flex; }
+  .stage h2{ margin:0 0 .3vh; font-size:clamp(14px,2vmin,21px); color:var(--cyan); text-align:center; text-shadow:0 0 1vh rgba(79,217,232,.5); }
+  .stage .instructions{ text-align:center; font-size:clamp(10.5px,1.3vmin,13.5px); color:#bfe9ff; margin-bottom:.7vh; opacity:.9; }
+
+  .reset-btn{
+    position:absolute; top:1vh; right:1vw; background:linear-gradient(160deg,var(--oxy-rich),var(--oxy-rich-dark)); color:#fff;
+    border:1px solid rgba(255,255,255,.3); padding:.7vh 1.4vw; border-radius:1vh; font-weight:700; cursor:pointer;
+    font-size:clamp(10px,1.2vmin,13px); box-shadow:0 .3vh 0 #5a1414;
+  }
+  .reset-btn:active{ transform:translateY(.3vh); box-shadow:0 .1vh 0 #5a1414; }
+
+  /* ---------- Draggable base ---------- */
+  .drag-tile{
+    cursor:grab; touch-action:none; user-select:none; position:relative;
+    background:linear-gradient(160deg,#122250,#0a1533); border:2px solid var(--cyan);
+    border-radius:1.2vh; box-shadow:0 .3vh 0 var(--cyan-dark), 0 0 1.6vh rgba(79,217,232,.25);
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    font-weight:700; color:var(--ink); transition:box-shadow .15s, transform .15s;
+  }
+  .drag-tile.dragging{ opacity:.3; }
+  .drag-ghost{ position:fixed; z-index:999; pointer-events:none; opacity:.95; transform:translate(-50%,-50%) scale(1.08); filter:drop-shadow(0 1vh 1.4vh rgba(0,0,0,.5)); }
+  .flash-good{ animation:flashGood .5s ease; }
+  .flash-bad{ animation:flashBad .45s ease; }
+  @keyframes flashGood{ 0%{box-shadow:0 0 0 0 rgba(79,224,127,.9);} 100%{box-shadow:0 0 2.6vh 1vh rgba(79,224,127,0);} }
+  @keyframes flashBad{ 0%,100%{transform:translateX(0);} 25%{transform:translateX(-.8vw);} 75%{transform:translateX(.8vw);} }
+
+  /* ---------- ACTIVITY 1: BUILD BAY ---------- */
+  #a1-body{ flex:1; display:flex; flex-direction:column; gap:1vh; min-height:0; }
+  #a1-slots{
+    flex:1 1 auto; display:grid; grid-template-columns:repeat(5,1fr); gap:1vw; min-height:0;
+  }
+  .slot-card{
+    background:radial-gradient(circle at 50% 20%, #17275a, #0a1533); border:2px dashed var(--cyan);
+    border-radius:1.4vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:1vh .6vw; text-align:center; gap:.5vh; transition:transform .15s, box-shadow .15s;
+  }
+  .slot-card .slot-icon{ font-size:clamp(16px,2.6vmin,28px); opacity:.5; }
+  .slot-card .slot-desc{ font-size:clamp(9px,1.05vmin,11.5px); color:#bfe9ff; line-height:1.25; }
+  .slot-card.hover{ transform:scale(1.04); box-shadow:0 0 3vh rgba(79,217,232,.6); }
+  .slot-card.filled{ border-style:solid; border-color:var(--good); background:radial-gradient(circle at 50% 20%, #143a24,#0a1533); }
+  #a1-tray{ display:flex; flex-wrap:wrap; gap:.8vh .8vw; justify-content:center; padding-top:.6vh; border-top:1px dashed rgba(79,217,232,.4); flex:0 0 auto; }
+  .a1-tile{ width:min(15vw,175px); min-height:6vh; font-size:clamp(11px,1.4vmin,14px); padding:.6vh .6vw; }
+
+  /* ---------- ACTIVITY 2: MISSION LADDER ---------- */
+  #a2-body{ flex:1; display:flex; gap:1.2vw; min-height:0; }
+  #a2-ladder{ flex:0 0 40%; display:flex; flex-direction:column; gap:.8vh; overflow:auto; padding-right:.4vw; }
+  .rung{
+    flex:1; min-height:0; display:flex; align-items:center; gap:.8vw; background:rgba(18,34,80,.6);
+    border:2px dashed var(--cyan); border-radius:1.2vh; padding:.6vh 1vw; position:relative;
+  }
+  .rung .rung-num{ width:3vh; height:3vh; border-radius:50%; background:var(--panel); border:2px solid var(--cyan); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:clamp(10px,1.3vmin,13px); flex:0 0 auto; }
+  .rung .rung-text{ font-size:clamp(10px,1.25vmin,13px); color:#bfe9ff; flex:1; }
+  .rung.filled{ border-style:solid; border-color:var(--good); background:rgba(20,58,36,.55); }
+  .rung.wrong{ border-color:var(--bad); background:rgba(70,20,20,.5); }
+  #a2-pool{ flex:1; display:flex; flex-wrap:wrap; gap:.8vh .8vw; align-content:flex-start; overflow:auto; padding:.4vh; border-left:1px dashed rgba(79,217,232,.4); padding-left:1vw; }
+  .a2-step{ width:min(15vw,180px); min-height:8vh; font-size:clamp(10px,1.25vmin,13px); padding:.6vh .8vw; line-height:1.25; }
+
+  /* ---------- ACTIVITY 3: GAUGE PANEL ---------- */
+  #a3-body{ flex:1; display:flex; flex-direction:column; gap:1vh; min-height:0; }
+  #a3-gauges{ flex:1; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(2,1fr); gap:1vh 1vw; min-height:0; }
+  .gauge{
+    border-radius:1.6vh; border:2px solid rgba(79,217,232,.5); background:radial-gradient(circle at 50% 0%, #16255a, #0a1230);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:.8vh .8vw; gap:.5vh;
+    position:relative; overflow:hidden;
+  }
+  .gauge::before{ content:""; position:absolute; inset:0; border-radius:50%; opacity:.12; background:conic-gradient(var(--cyan) 0deg, transparent 90deg); animation:spinRing 6s linear infinite; }
+  @keyframes spinRing{ to{ transform:rotate(360deg); } }
+  .gauge .g-desc{ font-size:clamp(9px,1.05vmin,11.5px); color:#bfe9ff; line-height:1.3; z-index:1; }
+  .gauge .g-slot{ width:90%; min-height:4vh; border:2px dashed var(--amber); border-radius:1vh; display:flex; align-items:center; justify-content:center; font-size:clamp(9.5px,1.15vmin,12px); font-weight:700; color:#ffd9a0; z-index:1; }
+  .gauge.filled .g-slot{ border-style:solid; border-color:var(--good); color:#c9ffdd; background:rgba(79,224,127,.12); }
+  #a3-tray{ display:flex; flex-wrap:wrap; gap:.7vh .7vw; justify-content:center; padding-top:.5vh; border-top:1px dashed rgba(79,217,232,.4); flex:0 0 auto; }
+  .a3-tile{ width:min(15vw,170px); min-height:5.4vh; font-size:clamp(10px,1.25vmin,13px); padding:.5vh .6vw; }
+
+  /* ---------- POPUPS ---------- */
+  #overlay{ position:fixed; inset:0; z-index:100; display:none; align-items:center; justify-content:center; background:rgba(3,6,18,.72); backdrop-filter:blur(2px); }
+  #overlay.show{ display:flex; }
+  .popup{
+    background:linear-gradient(160deg,#12224e,#0a1230); border:.4vh solid var(--cyan); border-radius:2.4vh;
+    padding:3vh 4vw; max-width:min(560px,88vw); text-align:center; box-shadow:0 0 6vh rgba(79,217,232,.35), 0 2vh 4vh rgba(0,0,0,.6);
+    animation:popIn .35s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes popIn{ from{transform:scale(.6); opacity:0;} to{transform:scale(1); opacity:1;} }
+  .popup .emoji{ font-size:8vmin; margin-bottom:1vh; }
+  .popup h2{ margin:.2vh 0; color:var(--cyan); font-size:clamp(18px,2.6vmin,26px); text-shadow:0 0 1.2vh rgba(79,217,232,.5); }
+  .popup p{ color:#bfe9ff; font-size:clamp(12px,1.6vmin,15px); }
+  .go-btn{
+    margin-top:1.6vh; background:linear-gradient(160deg,var(--good),#1f7a44); color:#062412; border:none;
+    padding:1.4vh 3vw; border-radius:1.6vh; font-size:clamp(13px,1.7vmin,17px); font-weight:800; cursor:pointer;
+    box-shadow:0 .6vh 0 #123a24;
+  }
+  .go-btn:active{ transform:translateY(.4vh); box-shadow:0 .2vh 0 #123a24; }
+  .go-btn.play-again{ background:linear-gradient(160deg,var(--amber),#a35f0e); box-shadow:0 .6vh 0 #6b3d08; color:#331d02; }
+
+  #confetti-layer{ position:fixed; inset:0; z-index:95; pointer-events:none; overflow:hidden; display:none; }
+  #confetti-layer.show{ display:block; }
+  .confetti-piece{ position:absolute; top:-5vh; font-size:2.4vmin; animation:confettiFall linear forwards; }
+  @keyframes confettiFall{ to{ transform:translateY(115vh) rotate(540deg); opacity:.2; } }
+
+  @media (max-width:760px){
+    #a1-slots{ grid-template-columns:repeat(2,1fr); }
+    #a2-body{ flex-direction:column; }
+    #a2-ladder{ flex:0 0 auto; }
+    #a3-gauges{ grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(3,1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div id="scene">
+  <div id="earth-wrap"><div id="earth"></div></div>
+  <div class="orbit o1"><div class="satellite">🛰️</div></div>
+  <div class="orbit o2"><div class="satellite">🛸</div></div>
+</div>
+
+<div id="confetti-layer"></div>
+
+<div id="app">
+  <header>
+    <h1>🚀 HUMAN CIRCULATORY SYSTEM — MODEL 🪐</h1>
+    <div class="sub">Build, sequence, and command the fluid-pump model aboard the station</div>
+  </header>
+
+  <div id="progress">
+    <div class="prog-dot" data-p="1"></div>
+    <div class="prog-dot" data-p="2"></div>
+    <div class="prog-dot" data-p="3"></div>
+  </div>
+
+  <!-- ACTIVITY 1 -->
+  <section class="stage" id="stage1">
+    <button class="reset-btn" onclick="resetActivity(1)">🔄 Reset</button>
+    <h2>Activity 1 — Model Build Bay</h2>
+    <div class="instructions">Drag each part into the docking slot that matches its job in the model.</div>
+    <div id="a1-body">
+      <div id="a1-slots"></div>
+      <div id="a1-tray"></div>
+    </div>
+  </section>
+
+  <!-- ACTIVITY 2 -->
+  <section class="stage" id="stage2">
+    <button class="reset-btn" onclick="resetActivity(2)">🔄 Reset</button>
+    <h2>Activity 2 — Mission Sequence Ladder</h2>
+    <div class="instructions">Drag each mission step into the ladder, from first to last.</div>
+    <div id="a2-body">
+      <div id="a2-ladder"></div>
+      <div id="a2-pool"></div>
+    </div>
+  </section>
+
+  <!-- ACTIVITY 3 -->
+  <section class="stage" id="stage3">
+    <button class="reset-btn" onclick="resetActivity(3)">🔄 Reset</button>
+    <h2>Activity 3 — Command Console Match-Up</h2>
+    <div class="instructions">Drag the correct term onto each glowing gauge.</div>
+    <div id="a3-body">
+      <div id="a3-gauges"></div>
+      <div id="a3-tray"></div>
+    </div>
+  </section>
+</div>
+
+<div id="overlay">
+  <div class="popup" id="popup-inner"></div>
+</div>
+
+<script>
+/* =========================================================
+   SCENE DECORATION
+   ========================================================= */
+function rnd(min,max){ return Math.random()*(max-min)+min; }
+
+function buildScene(){
+  const scene = document.getElementById('scene');
+
+  // starfield
+  for(let i=0;i<70;i++){
+    const s = document.createElement('div');
+    s.className = 'star'+(Math.random()<.4?' drift':'');
+    const size = rnd(.15,.5);
+    s.style.width = size+'vmin';
+    s.style.height = size+'vmin';
+    s.style.left = rnd(0,100)+'vw';
+    s.style.top = rnd(0,100)+'vh';
+    s.style.animationDuration = rnd(1.6,4.2)+'s';
+    s.style.animationDelay = rnd(0,3)+'s';
+    scene.appendChild(s);
+  }
+
+  // astronauts floating
+  const astroConfigs = [
+    {left:14, top:14, anim:'floatA', dur:7},
+    {left:80, top:22, anim:'floatB', dur:8.5},
+    {left:55, top:8, anim:'floatA', dur:9.5},
+  ];
+  astroConfigs.forEach((c,i)=>{
+    const a = document.createElement('div');
+    a.className = 'astronaut';
+    a.textContent = '🧑\u200d🚀';
+    a.style.left = c.left+'vw';
+    a.style.top = c.top+'vh';
+    a.style.animationName = c.anim;
+    a.style.animationDuration = c.dur+'s';
+    a.style.animationDelay = (i*0.6)+'s';
+    scene.appendChild(a);
+  });
+
+  // control panel light strips (corners)
+  const corners = [
+    {top:'2vh', left:'2vw'},
+    {top:'2vh', right:'2vw'},
+  ];
+  corners.forEach(pos=>{
+    const p = document.createElement('div');
+    p.className = 'panel-light';
+    Object.keys(pos).forEach(k=> p.style[k]=pos[k]);
+    p.innerHTML = '<span></span><span></span><span></span>';
+    scene.appendChild(p);
+  });
+}
+buildScene();
+
+/* =========================================================
+   GENERIC POINTER-BASED DRAG & DROP (mouse + touch)
+   ========================================================= */
+let ghostEl = null;
+function enableDrag(tile, opts){
+  tile.style.touchAction = 'none';
+  tile.addEventListener('pointerdown', (e)=>{
+    if(tile.dataset.locked === '1') return;
+    e.preventDefault();
+    const rect = tile.getBoundingClientRect();
+    tile.classList.add('dragging');
+    ghostEl = tile.cloneNode(true);
+    ghostEl.classList.add('drag-ghost');
+    ghostEl.classList.remove('dragging');
+    ghostEl.style.width = rect.width+'px';
+    ghostEl.style.height = rect.height+'px';
+    ghostEl.style.left = e.clientX+'px';
+    ghostEl.style.top = e.clientY+'px';
+    document.body.appendChild(ghostEl);
+
+    function move(ev){
+      ghostEl.style.left = ev.clientX+'px';
+      ghostEl.style.top = ev.clientY+'px';
+      document.querySelectorAll(opts.dropzoneSelector).forEach(z=>z.classList.remove('hover'));
+      ghostEl.style.display='none';
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      ghostEl.style.display='';
+      const zone = under ? under.closest(opts.dropzoneSelector) : null;
+      if(zone) zone.classList.add('hover');
+    }
+    function up(ev){
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      tile.classList.remove('dragging');
+      ghostEl.style.display='none';
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      ghostEl.style.display='';
+      const zone = under ? under.closest(opts.dropzoneSelector) : null;
+      document.querySelectorAll(opts.dropzoneSelector).forEach(z=>z.classList.remove('hover'));
+      if(ghostEl){ ghostEl.remove(); ghostEl=null; }
+      if(zone){ opts.onDrop(tile, zone); }
+      else if(opts.onMiss){ opts.onMiss(tile); }
+    }
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+  });
+}
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+/* =========================================================
+   PROGRESS / STAGE NAVIGATION
+   ========================================================= */
+function showStage(n){
+  document.querySelectorAll('.stage').forEach(s=>s.classList.remove('active'));
+  document.getElementById('stage'+n).classList.add('active');
+  document.querySelectorAll('.prog-dot').forEach(d=>{
+    const p = +d.dataset.p;
+    d.classList.toggle('active', p===n);
+    d.classList.toggle('done', p<n);
+  });
+}
+
+function showPopup({emoji, title, text, btnLabel, onGo, playAgain}){
+  const inner = document.getElementById('popup-inner');
+  inner.innerHTML = `
+    <div class="emoji">${emoji}</div>
+    <h2>${title}</h2>
+    <p>${text}</p>
+    <button class="go-btn ${playAgain?'play-again':''}" id="popup-go">${btnLabel}</button>
+  `;
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('popup-go').onclick = ()=>{
+    document.getElementById('overlay').classList.remove('show');
+    onGo && onGo();
+  };
+}
+
+function resetActivity(n){
+  if(n===1) buildActivity1();
+  if(n===2) buildActivity2();
+  if(n===3) buildActivity3();
+}
+
+/* =========================================================
+   ACTIVITY 1 — MODEL BUILD BAY
+   ========================================================= */
+const A1_PARTS = [
+  {id:'heart', label:'❤️ Heart Box'},
+  {id:'balloon', label:'🎈 Balloons'},
+  {id:'tube', label:'🧵 Tubes'},
+  {id:'water', label:'💧 Coloured Water'},
+  {id:'pump', label:'⚙️ Pump'},
+];
+const A1_SLOTS = [
+  {accept:'heart', icon:'❤️', desc:'Sits at the centre with two chambers that push fluid in and out'},
+  {accept:'balloon', icon:'🎈', desc:'Stretchy chamber that inflates and deflates like a lung'},
+  {accept:'tube', icon:'🧵', desc:'Clear pipeline connecting every part of the model'},
+  {accept:'water', icon:'💧', desc:'Coloured liquid that flows through the pipeline'},
+  {accept:'pump', icon:'⚙️', desc:'Drives the whole system by pushing the plungers'},
+];
+let a1Correct = 0;
+
+function buildActivity1(){
+  a1Correct = 0;
+  const slotsWrap = document.getElementById('a1-slots');
+  slotsWrap.innerHTML = '';
+  A1_SLOTS.forEach(s=>{
+    const el = document.createElement('div');
+    el.className = 'slot-card';
+    el.dataset.accept = s.accept;
+    el.innerHTML = `<div class="slot-icon">${s.icon}</div><div class="slot-desc">${s.desc}</div>`;
+    slotsWrap.appendChild(el);
+  });
+
+  const tray = document.getElementById('a1-tray');
+  tray.innerHTML = '';
+  const parts = shuffle(A1_PARTS.slice());
+  parts.forEach(p=>{
+    const el = document.createElement('div');
+    el.className = 'drag-tile a1-tile';
+    el.textContent = p.label;
+    el.dataset.part = p.id;
+    tray.appendChild(el);
+    enableDrag(el, {
+      dropzoneSelector: '.slot-card',
+      onDrop:(tile, zone)=>{
+        if(zone.classList.contains('filled')) return;
+        if(zone.dataset.accept === tile.dataset.part){
+          zone.classList.add('filled','flash-good');
+          zone.querySelector('.slot-icon').style.opacity = 1;
+          tile.dataset.locked='1';
+          tile.style.opacity='0';
+          tile.style.pointerEvents='none';
+          a1Correct++;
+          if(a1Correct === A1_PARTS.length){
+            setTimeout(()=>{
+              showPopup({
+                emoji:'🛰️❤️',
+                title:'Model Bay Complete!',
+                text:'Every part is docked in the right position. Time to sequence the experiment steps in Mission Control.',
+                btnLabel:'Start Activity 2 ➜',
+                onGo:()=>{ buildActivity2(); showStage(2); }
+              });
+            }, 400);
+          }
+        } else {
+          zone.classList.add('flash-bad');
+          tile.classList.add('flash-bad');
+          setTimeout(()=>{ zone.classList.remove('flash-bad'); tile.classList.remove('flash-bad'); }, 450);
+        }
+      }
+    });
+  });
+}
+
+/* =========================================================
+   ACTIVITY 2 — MISSION SEQUENCE LADDER
+   ========================================================= */
+const A2_STEPS = [
+  {order:1, label:'Assemble the model'},
+  {order:2, label:'Fill with coloured water'},
+  {order:3, label:'Pump the balloons'},
+  {order:4, label:'Observe circulation'},
+  {order:5, label:'Measure the flow rate'},
+  {order:6, label:'Record the results'},
+];
+let a2Filled = 0;
+
+function buildActivity2(){
+  a2Filled = 0;
+  const ladder = document.getElementById('a2-ladder');
+  ladder.innerHTML = '';
+  A2_STEPS.forEach(s=>{
+    const el = document.createElement('div');
+    el.className = 'rung';
+    el.dataset.order = s.order;
+    el.innerHTML = `<div class="rung-num">${s.order}</div><div class="rung-text">Awaiting step ${s.order}...</div>`;
+    ladder.appendChild(el);
+  });
+
+  const pool = document.getElementById('a2-pool');
+  pool.innerHTML = '';
+  const steps = shuffle(A2_STEPS.slice());
+  steps.forEach(s=>{
+    const el = document.createElement('div');
+    el.className = 'drag-tile a2-step';
+    el.textContent = s.label;
+    el.dataset.order = s.order;
+    pool.appendChild(el);
+    enableDrag(el, {
+      dropzoneSelector: '.rung',
+      onDrop:(tile, zone)=>{
+        if(zone.classList.contains('filled')) return;
+        if(+zone.dataset.order === +tile.dataset.order){
+          zone.classList.add('filled','flash-good');
+          zone.querySelector('.rung-text').textContent = tile.textContent;
+          tile.remove();
+          a2Filled++;
+          if(a2Filled === A2_STEPS.length){
+            setTimeout(()=>{
+              showPopup({
+                emoji:'🧑\u200d🚀📋',
+                title:'Sequence Locked In!',
+                text:'Every step is in the correct order. Now head to the Command Console for the final matching challenge.',
+                btnLabel:'Start Activity 3 ➜',
+                onGo:()=>{ buildActivity3(); showStage(3); }
+              });
+            }, 400);
+          }
+        } else {
+          zone.classList.add('wrong');
+          tile.classList.add('flash-bad');
+          setTimeout(()=>{ zone.classList.remove('wrong'); tile.classList.remove('flash-bad'); }, 500);
+        }
+      }
+    });
+  });
+}
+
+/* =========================================================
+   ACTIVITY 3 — COMMAND CONSOLE MATCH-UP
+   ========================================================= */
+const A3_TERMS = [
+  {id:'chambers', label:'Heart Chambers'},
+  {id:'vessels', label:'Blood Vessels'},
+  {id:'direction', label:'Blood Flow Direction'},
+  {id:'oxyrich', label:'Oxygen-Rich Blood'},
+  {id:'oxypoor', label:'Oxygen-Poor Blood'},
+  {id:'pumpaction', label:'Pump Action'},
+];
+const A3_GAUGES = [
+  {accept:'chambers', desc:'Upper and lower spaces where blood collects before being pumped out'},
+  {accept:'vessels', desc:'The network of tubes carrying blood all around the body'},
+  {accept:'direction', desc:'Body → Heart → Lungs → Heart → Body'},
+  {accept:'oxyrich', desc:'Shown in red — carries fuel out to the cells'},
+  {accept:'oxypoor', desc:'Shown in blue — heading back to get refuelled'},
+  {accept:'pumpaction', desc:'Pushing the plunger to move fluid without any backflow'},
+];
+let a3Correct = 0;
+
+function buildActivity3(){
+  a3Correct = 0;
+  const gauges = document.getElementById('a3-gauges');
+  gauges.innerHTML = '';
+  A3_GAUGES.forEach(g=>{
+    const el = document.createElement('div');
+    el.className = 'gauge';
+    el.dataset.accept = g.accept;
+    el.innerHTML = `<div class="g-desc">${g.desc}</div><div class="g-slot">drop term here</div>`;
+    gauges.appendChild(el);
+  });
+
+  const tray = document.getElementById('a3-tray');
+  tray.innerHTML = '';
+  const terms = shuffle(A3_TERMS.slice());
+  terms.forEach(t=>{
+    const el = document.createElement('div');
+    el.className = 'drag-tile a3-tile';
+    el.textContent = t.label;
+    el.dataset.term = t.id;
+    tray.appendChild(el);
+    enableDrag(el, {
+      dropzoneSelector: '.gauge',
+      onDrop:(tile, zone)=>{
+        if(zone.classList.contains('filled')) return;
+        if(zone.dataset.accept === tile.dataset.term){
+          zone.classList.add('filled','flash-good');
+          zone.querySelector('.g-slot').textContent = tile.textContent;
+          tile.dataset.locked='1';
+          tile.style.opacity='0';
+          tile.style.pointerEvents='none';
+          a3Correct++;
+          if(a3Correct === A3_TERMS.length){
+            setTimeout(finishAll, 500);
+          }
+        } else {
+          zone.classList.add('flash-bad');
+          tile.classList.add('flash-bad');
+          setTimeout(()=>{ zone.classList.remove('flash-bad'); tile.classList.remove('flash-bad'); }, 450);
+        }
+      }
+    });
+  });
+}
+
+/* =========================================================
+   FINAL CELEBRATION
+   ========================================================= */
+function launchConfetti(){
+  const layer = document.getElementById('confetti-layer');
+  layer.innerHTML = '';
+  layer.classList.add('show');
+  const emojis = ['🚀','🪐','⭐','🛰️','🧑\u200d🚀','✨','🌍'];
+  for(let i=0;i<40;i++){
+    const p = document.createElement('div');
+    p.className='confetti-piece';
+    p.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+    p.style.left = rnd(0,100)+'vw';
+    p.style.animationDuration = rnd(2.5,4.5)+'s';
+    p.style.animationDelay = rnd(0,1.2)+'s';
+    p.style.fontSize = rnd(2,4)+'vmin';
+    layer.appendChild(p);
+  }
+  setTimeout(()=>{ layer.classList.remove('show'); layer.innerHTML=''; }, 5200);
+}
+
+function finishAll(){
+  launchConfetti();
+  showPopup({
+    emoji:'🏆🚀',
+    title:'Mission Complete, Commander!',
+    text:'You built the model, sequenced the experiment, and matched every circulatory concept correctly. The whole crew is celebrating!',
+    btnLabel:'🔁 Play Again',
+    playAgain:true,
+    onGo:()=>{ playAgainReset(); }
+  });
+}
+
+function playAgainReset(){
+  buildActivity1();
+  buildActivity2();
+  buildActivity3();
+  showStage(1);
+}
+
+/* =========================================================
+   INIT
+   ========================================================= */
+buildActivity1();
+buildActivity2();
+buildActivity3();
+showStage(1);
+</script>
+</body>
+</html>

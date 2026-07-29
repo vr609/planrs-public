@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Arduino — Servo Motor Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-top:#3a2150;
+    --sky-hi:#6c2f5c;
+    --sky-mid:#e0532f;
+    --sky-low:#ffb24a;
+    --horizon:#ffe29a;
+    --sun-core:#fff2c0;
+    --savanna-gold:#caa24b;
+    --savanna-dry:#9c7a35;
+    --trunk:#3d2413;
+    --canopy:#5c3a20;
+    --panel:#331e1a;
+    --panel-light:#4a2e26;
+    --ink:#fff6e9;
+    --ink-dim:#e8c9a0;
+    --teal:#3fd6c6;
+    --teal-deep:#1f9e92;
+    --coral:#ff7a5c;
+    --gold:#f4c25a;
+    --leaf:#8fbf5e;
+    --correct:#8bd17c;
+    --wrong:#ff7a7a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    height:100%; margin:0; overflow:hidden;
+    font-family:'Nunito',sans-serif; color:var(--ink);
+    background:#1a0f14;
+    touch-action:none;
+    user-select:none;
+  }
+  h1,h2,h3,.display{font-family:'Fredoka',sans-serif;}
+
+  /* ================= BACKGROUND SCENE ================= */
+  #bg{position:fixed; inset:0; overflow:hidden; z-index:0;}
+  .sky{position:absolute; inset:0;
+    background:
+      radial-gradient(ellipse 60% 40% at 72% 30%, rgba(255,210,140,.55) 0%, transparent 60%),
+      linear-gradient(180deg, var(--sky-top) 0%, var(--sky-hi) 24%, var(--sky-mid) 52%, var(--sky-low) 78%, var(--horizon) 100%);
+  }
+  .sun{position:absolute; top:16%; right:16%; width:min(9vw,80px); height:min(9vw,80px); border-radius:50%;
+    background:radial-gradient(circle at 40% 35%, var(--sun-core), #ffcf6b 55%, #ff9a4a 100%);
+    box-shadow:0 0 60px 18px rgba(255,178,74,.45);
+    animation:glow 5s ease-in-out infinite alternate;}
+  @keyframes glow{from{box-shadow:0 0 40px 10px rgba(255,178,74,.35);} to{box-shadow:0 0 75px 22px rgba(255,178,74,.6);}}
+
+  .cloud{position:absolute; opacity:.5; filter:blur(.3px);
+    background:linear-gradient(90deg, rgba(255,225,190,.5), rgba(255,180,140,.35));
+    border-radius:50px;
+    animation:driftCloud linear infinite;}
+  @keyframes driftCloud{0%{transform:translateX(-8vw);} 100%{transform:translateX(10vw);}}
+
+  .bird{position:absolute; font-size:12px; color:#20101a; opacity:.75;
+    animation:birdFly linear infinite;}
+  .bird span{display:inline-block; animation:flap .6s ease-in-out infinite;}
+  @keyframes flap{0%,100%{transform:scaleY(1);} 50%{transform:scaleY(.55);}}
+  @keyframes birdFly{0%{transform:translate(-6vw,0);} 100%{transform:translate(106vw,-3vh);}}
+
+  .savanna-ground{position:absolute; bottom:0; left:0; width:100%; height:26%;
+    background:linear-gradient(180deg, var(--savanna-gold) 0%, var(--savanna-dry) 100%);
+    clip-path:polygon(0% 40%, 12% 30%, 30% 42%, 50% 26%, 68% 40%, 84% 28%, 100% 38%, 100% 100%, 0% 100%);}
+
+  .baobab{position:absolute; bottom:20%;}
+  .baobab svg{width:100%; height:100%; display:block; animation:baobabSway 7s ease-in-out infinite;}
+  @keyframes baobabSway{0%,100%{transform:rotate(-.6deg);} 50%{transform:rotate(.6deg);}}
+
+  .grass-row{position:absolute; bottom:19%; left:0; width:100%; height:9%; display:flex; align-items:flex-end;}
+  .blade{width:.6%; height:100%; background:linear-gradient(180deg,#c9a24b,#8a6a2c); margin-right:.15%;
+    border-radius:40% 40% 0 0; transform-origin:bottom center; animation:swayBlade 2.6s ease-in-out infinite;}
+  @keyframes swayBlade{0%,100%{transform:rotate(-6deg);} 50%{transform:rotate(6deg);}}
+
+  .elephant{position:absolute; bottom:19.5%; width:min(8vw,68px); opacity:.88; filter:brightness(.55) saturate(0);
+    animation:walkAcross 34s linear infinite, elephBob .9s ease-in-out infinite;}
+  .elephant svg{width:100%; display:block;}
+  @keyframes walkAcross{0%{transform:translateX(-15vw) scaleX(1);} 48%{transform:translateX(112vw) scaleX(1);}
+    50%{transform:translateX(112vw) scaleX(-1);} 98%{transform:translateX(-15vw) scaleX(-1);} 100%{transform:translateX(-15vw) scaleX(1);}}
+  @keyframes elephBob{0%,100%{margin-bottom:0;} 50%{margin-bottom:3px;}}
+
+  .giraffe{position:absolute; bottom:19.5%; left:10%; width:min(7vw,58px); opacity:.85; filter:brightness(.5) saturate(0);
+    transform-origin:60% 92%;
+    animation:graze 4.5s ease-in-out infinite;}
+  .giraffe svg{width:100%; display:block;}
+  @keyframes graze{0%,100%{transform:rotate(0deg);} 45%{transform:rotate(14deg);} 55%{transform:rotate(14deg);}}
+
+  .leaf{position:absolute; top:-5%; font-size:13px; opacity:.75;
+    animation:leafFall linear infinite;}
+  @keyframes leafFall{
+    0%{transform:translate(0,0) rotate(0deg); opacity:0;}
+    10%{opacity:.85;}
+    100%{transform:translate(46px,115vh) rotate(360deg); opacity:0;}
+  }
+
+  /* ================= APP LAYOUT ================= */
+  #app{position:relative; z-index:2; height:100vh; width:100vw; display:flex; flex-direction:column; padding:clamp(8px,1.4vh,16px) clamp(10px,2vw,26px);}
+  header{display:flex; align-items:center; justify-content:space-between; flex:0 0 auto; gap:10px;}
+  .title-wrap{display:flex; flex-direction:column; gap:2px;}
+  h1{margin:0; font-size:clamp(15px,2.3vh,26px); letter-spacing:.4px;
+    color:var(--gold); text-shadow:0 0 18px rgba(244,194,90,.4);}
+  .subtitle{font-size:clamp(9px,1.1vh,13px); color:var(--ink-dim); font-weight:700;}
+
+  .progress{display:flex; gap:10px; align-items:center;}
+  .dot{width:clamp(10px,1.6vh,16px); height:clamp(10px,1.6vh,16px); border-radius:50%;
+    background:rgba(255,255,255,0.14); border:2px solid rgba(255,255,255,0.28);
+    transition:.35s;}
+  .dot.active{background:var(--gold); border-color:var(--gold); box-shadow:0 0 12px rgba(244,194,90,.7); transform:scale(1.15);}
+  .dot.done{background:var(--correct); border-color:var(--correct);}
+
+  #stage{flex:1 1 auto; min-height:0; position:relative; margin-top:clamp(4px,1vh,10px);}
+  .activity{position:absolute; inset:0; display:none; flex-direction:column; gap:8px;}
+  .activity.active{display:flex;}
+
+  .act-header{display:flex; justify-content:space-between; align-items:center; flex:0 0 auto;}
+  .act-title{font-size:clamp(12px,1.7vh,18px); color:var(--ink); font-weight:700; display:flex; align-items:center; gap:8px;}
+  .act-title .tag{font-family:'Fredoka'; padding:2px 10px; border-radius:20px; font-size:clamp(10px,1.3vh,13px);
+    background:rgba(244,194,90,.16); border:1px solid rgba(244,194,90,.4); color:var(--gold);}
+  .act-body{flex:1 1 auto; min-height:0; display:flex; gap:clamp(8px,1.4vw,18px);}
+
+  button{font-family:'Nunito',sans-serif; font-weight:800; cursor:pointer; border:none; border-radius:12px;}
+  .btn{padding:7px 16px; font-size:clamp(10px,1.3vh,13px); background:rgba(255,255,255,0.1);
+    color:var(--ink); border:1px solid rgba(255,255,255,0.22); transition:.2s;}
+  .btn:hover{background:rgba(255,255,255,0.18);}
+  .btn.gold{background:linear-gradient(135deg,var(--gold),#d99a2e); color:#2a1706; border:none; box-shadow:0 3px 10px rgba(217,154,46,.4);}
+  .btn.gold:hover{filter:brightness(1.08);}
+
+  /* ============ DRAGGABLE base ============ */
+  .drag-pool{display:flex; flex-wrap:wrap; gap:8px; align-content:flex-start;}
+  .chip{
+    padding:7px 12px; border-radius:10px; font-size:clamp(9px,1.2vh,12.5px); font-weight:800;
+    cursor:grab; touch-action:none; position:relative; z-index:5; white-space:nowrap;
+    box-shadow:0 3px 8px rgba(0,0,0,.4); transition:box-shadow .15s, transform .1s;
+    border:1px solid rgba(255,255,255,0.28);
+  }
+  .chip:active{cursor:grabbing;}
+  .chip.dragging{z-index:999; box-shadow:0 10px 24px rgba(0,0,0,.6); transform:scale(1.06);}
+  .chip.placed{cursor:default; opacity:.55; filter:grayscale(.3);}
+  .chip.shake{animation:shake .4s;}
+  @keyframes shake{0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px);} 75%{transform:translateX(6px);}}
+
+  .slot{
+    border:2px dashed rgba(255,255,255,0.32); border-radius:10px;
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    font-size:clamp(8px,1.05vh,11.5px); color:var(--ink-dim); font-weight:700; padding:4px;
+    transition:.2s; position:relative;
+  }
+  .slot.over{border-color:var(--teal); background:rgba(63,214,198,.14);}
+  .slot.correct{border-style:solid; border-color:var(--correct); background:rgba(139,209,124,.16); color:var(--correct);}
+  .slot.wrong-flash{border-color:var(--wrong); background:rgba(255,122,122,.16);}
+
+  /* ============ MODAL ============ */
+  #modalOverlay{position:fixed; inset:0; z-index:50; display:none; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 40%, rgba(50,20,25,.78), rgba(15,6,10,.93));
+    backdrop-filter:blur(3px);}
+  #modalOverlay.show{display:flex;}
+  .modal-box{
+    background:linear-gradient(160deg, var(--panel-light), var(--panel));
+    border:1px solid rgba(244,194,90,.4); border-radius:20px;
+    padding:clamp(16px,3vh,30px) clamp(18px,3.5vw,36px); max-width:min(560px,88vw);
+    text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.6);
+    animation:popIn .35s cubic-bezier(.2,1.4,.4,1);
+  }
+  @keyframes popIn{0%{transform:scale(.7); opacity:0;} 100%{transform:scale(1); opacity:1;}}
+  .modal-box h2{margin:0 0 8px; color:var(--gold); font-size:clamp(17px,2.6vh,26px);}
+  .modal-box p{margin:0 0 16px; font-size:clamp(11px,1.6vh,15px); color:var(--ink-dim); line-height:1.5;}
+  .modal-emoji{font-size:clamp(30px,5vh,52px); margin-bottom:6px;}
+
+  /* ============ ACTIVITY 1 : Wire the Safari Control Panel ============ */
+  #a1-diagram{flex:1 1 58%; position:relative; background:radial-gradient(circle at 50% 50%, rgba(63,214,198,.08), transparent 70%);
+    border-radius:16px; border:1px solid rgba(63,214,198,.22); overflow:hidden;}
+  #a1-svg-wrap{position:absolute; inset:0;}
+  .a1-slot{position:absolute; width:16%; min-width:70px; height:11%; min-height:34px;}
+  .a1-pool{flex:1 1 42%; display:flex; flex-direction:column; justify-content:center; gap:8px;}
+  .a1-slot{background:rgba(51,30,26,.5);}
+  .chip.c1{background:linear-gradient(135deg,#3fd6c6,#1f9e92); color:#062522;}
+
+  /* ============ ACTIVITY 2 : Herd the Sequence (savanna trail) ============ */
+  #a2-trail{flex:1 1 auto; position:relative; display:flex; align-items:flex-end; justify-content:space-around;
+    padding:0 1%;
+    background:
+      repeating-linear-gradient(90deg, transparent, transparent 8%, rgba(255,255,255,.03) 8%, rgba(255,255,255,.03) 9%),
+      linear-gradient(180deg, transparent 55%, rgba(202,164,75,.14) 100%);
+    border-radius:16px; border:1px solid rgba(202,164,75,.3);}
+  .track-col{display:flex; flex-direction:column-reverse; align-items:center; gap:6px; flex:1; max-width:13.5%;}
+  .track-num{font-family:'Fredoka'; color:var(--gold); font-size:clamp(10px,1.4vh,14px);}
+  .paw{
+    width:100%; aspect-ratio:1.3/1; border-radius:38% 38% 45% 45%/55% 55% 45% 45%;
+    background:linear-gradient(160deg,#5a4026,#3a2b1a);
+    border:2px dashed rgba(255,255,255,.28);
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    font-size:clamp(7px,.9vh,10px); font-weight:800; color:var(--ink-dim); padding:3px;
+  }
+  .paw.correct{border-style:solid; border-color:var(--correct); background:linear-gradient(160deg,#2f4a2c,#1e321e); color:var(--correct);}
+  .paw.over{border-color:var(--gold);}
+  #a2-pool{flex:0 0 auto; display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding-top:6px;}
+  .footcard{
+    padding:8px 12px; border-radius:14px 4px 14px 4px; font-size:clamp(9px,1.1vh,12px); font-weight:800;
+    background:linear-gradient(135deg,#caa24b,#8a6a2c); border:1px solid rgba(255,255,255,.24); color:#2a1c06;
+    cursor:grab; touch-action:none; box-shadow:0 3px 8px rgba(0,0,0,.4);
+  }
+
+  /* ============ ACTIVITY 3 : Match the Savanna Signals ============ */
+  #a3-dials{flex:1 1 60%; display:grid; grid-template-columns:1fr 1fr 1fr; grid-auto-rows:1fr; gap:8px;}
+  .sundial{
+    border-radius:50%/34%; border:2px dashed rgba(255,122,92,.45); background:rgba(255,122,92,.08);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:6px; text-align:center;
+    position:relative;
+  }
+  .sundial .lbl{font-family:'Fredoka'; color:var(--coral); font-size:clamp(9px,1.1vh,12px);}
+  .sundial .val{font-size:clamp(7.5px,.95vh,10.5px); color:var(--ink-dim); font-weight:700;}
+  .sundial.correct{border-style:solid; border-color:var(--correct); background:rgba(139,209,124,.14);}
+  .sundial.over{border-color:var(--gold);}
+  #a3-pool{flex:1 1 38%; display:flex; flex-direction:column; gap:7px; justify-content:center;}
+  .leafcard2{
+    padding:10px 15px; border-radius:22px 6px 22px 6px; font-size:clamp(11px,1.3vh,14px); font-weight:900; text-align:center;
+    letter-spacing:.3px; line-height:1.25;
+    background:#ff5722; border:3px solid #fff; color:#1a0500;
+    text-shadow:0 1px 0 rgba(255,255,255,.35);
+    cursor:grab; touch-action:none; box-shadow:0 4px 14px rgba(0,0,0,.55), 0 0 0 3px rgba(255,87,34,.35);
+  }
+
+  .floating-drag{position:fixed; z-index:1000; pointer-events:none;}
+
+  @media (max-width:720px){
+    .act-body{flex-direction:column;}
+    #a1-diagram, .a1-pool{flex:1 1 50%;}
+    #a3-dials{grid-template-columns:1fr 1fr;}
+  }
+</style>
+</head>
+<body>
+
+<div id="bg">
+  <div class="sky"></div>
+  <div class="sun"></div>
+  <div id="cloudsLayer"></div>
+  <div id="birdsLayer"></div>
+  <div class="savanna-ground"></div>
+  <div id="baobabLayer"></div>
+  <div class="giraffe">
+    <svg viewBox="0 0 60 100" fill="#20101a">
+      <rect x="26" y="10" width="7" height="42" rx="3"/>
+      <ellipse cx="30" cy="8" rx="7" ry="6"/>
+      <rect x="16" y="46" width="7" height="40" rx="3"/>
+      <rect x="34" y="46" width="7" height="40" rx="3"/>
+      <rect x="16" y="83" width="7" height="6" rx="2"/>
+      <rect x="34" y="83" width="7" height="6" rx="2"/>
+      <path d="M26 10 q-10 -6 -14 2" stroke="#20101a" stroke-width="4" fill="none" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="elephant" style="animation-delay:-4s;">
+    <svg viewBox="0 0 100 70" fill="#20101a">
+      <ellipse cx="45" cy="42" rx="34" ry="22"/>
+      <circle cx="78" cy="30" r="16"/>
+      <path d="M88 32 q10 4 8 22 q-2 8 -8 4 q-4 -14 0 -26 Z"/>
+      <rect x="24" y="58" width="8" height="12" rx="2"/>
+      <rect x="42" y="58" width="8" height="12" rx="2"/>
+      <rect x="58" y="58" width="8" height="12" rx="2"/>
+      <ellipse cx="72" cy="20" rx="6" ry="8"/>
+    </svg>
+  </div>
+  <div class="grass-row" id="grassRow"></div>
+  <div id="leavesLayer"></div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="title-wrap">
+      <h1>🦒 Arduino — Servo Motor Control</h1>
+      <div class="subtitle">SG90 Servo · Potentiometer · Building Smart Savanna Gates</div>
+    </div>
+    <div class="progress">
+      <div class="dot" id="dot1"></div>
+      <div class="dot" id="dot2"></div>
+      <div class="dot" id="dot3"></div>
+    </div>
+  </header>
+
+  <div id="stage">
+
+    <!-- ACTIVITY 1 -->
+    <section class="activity active" id="activity1">
+      <div class="act-header">
+        <div class="act-title"><span class="tag">Activity 1</span> Wire the Safari Control Panel</div>
+        <button class="btn" id="reset1">↺ Reset Activity</button>
+      </div>
+      <div class="act-body">
+        <div id="a1-diagram">
+          <div id="a1-svg-wrap"></div>
+        </div>
+        <div class="a1-pool">
+          <div style="font-size:clamp(9px,1.1vh,12px); color:var(--ink-dim); margin-bottom:2px;">Drag each part onto its matching spot on the control panel 🐘</div>
+          <div class="drag-pool" id="a1-pool"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 2 -->
+    <section class="activity" id="activity2">
+      <div class="act-header">
+        <div class="act-title"><span class="tag">Activity 2</span> Herd the Sequence — Servo Workflow</div>
+        <button class="btn" id="reset2">↺ Reset Activity</button>
+      </div>
+      <div class="act-body" style="flex-direction:column;">
+        <div id="a2-trail"></div>
+        <div id="a2-pool"></div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 3 -->
+    <section class="activity" id="activity3">
+      <div class="act-header">
+        <div class="act-title"><span class="tag">Activity 3</span> Match the Savanna Signals</div>
+        <button class="btn" id="reset3">↺ Reset Activity</button>
+      </div>
+      <div class="act-body">
+        <div id="a3-dials"></div>
+        <div id="a3-pool"></div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<div id="modalOverlay">
+  <div class="modal-box" id="modalBox"></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ================= UTIL ================= */
+function shuffle(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function rand(min,max){return Math.random()*(max-min)+min;}
+function el(tag,cls,html){const e=document.createElement(tag); if(cls)e.className=cls; if(html!==undefined)e.innerHTML=html; return e;}
+
+/* ================= BACKGROUND GENERATION ================= */
+function buildClouds(){
+  const layer=document.getElementById('cloudsLayer');
+  let html='';
+  for(let i=0;i<6;i++){
+    const w=rand(60,140), h=w*0.4;
+    html+=`<div class="cloud" style="left:${rand(0,90)}%; top:${rand(4,26)}%; width:${w}px; height:${h}px; animation-duration:${rand(30,55)}s; animation-delay:${rand(-30,0)}s;"></div>`;
+  }
+  layer.innerHTML=html;
+}
+function buildBirds(){
+  const layer=document.getElementById('birdsLayer');
+  let html='';
+  for(let i=0;i<5;i++){
+    html+=`<div class="bird" style="top:${rand(8,32)}%; animation-duration:${rand(16,26)}s; animation-delay:${rand(-20,0)}s;"><span>^^</span></div>`;
+  }
+  layer.innerHTML=html;
+}
+function buildBaobabs(){
+  const layer=document.getElementById('baobabLayer');
+  const positions=[{left:'2%',w:'11%',h:'34%',delay:'0s'},{left:'86%',w:'13%',h:'40%',delay:'-2s'},{left:'46%',w:'8%',h:'24%',delay:'-4s'}];
+  let html='';
+  positions.forEach(p=>{
+    html+=`<div class="baobab" style="left:${p.left}; width:${p.w}; height:${p.h};">
+      <svg viewBox="0 0 60 100" style="animation-delay:${p.delay};">
+        <rect x="22" y="40" width="16" height="60" rx="6" fill="#3d2413"/>
+        <ellipse cx="30" cy="34" rx="26" ry="20" fill="#5c3a20"/>
+        <ellipse cx="14" cy="26" rx="10" ry="8" fill="#4a2e19"/>
+        <ellipse cx="46" cy="24" rx="9" ry="7" fill="#4a2e19"/>
+        <path d="M12 40 q-8 -14 -2 -24" stroke="#2e1c0e" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M48 40 q10 -12 6 -26" stroke="#2e1c0e" stroke-width="3" fill="none" stroke-linecap="round"/>
+      </svg>
+    </div>`;
+  });
+  layer.innerHTML=html;
+}
+function buildGrass(){
+  const row=document.getElementById('grassRow');
+  let html='';
+  const n=60;
+  for(let i=0;i<n;i++){
+    html+=`<div class="blade" style="animation-delay:${rand(0,2.6)}s; height:${rand(70,100)}%;"></div>`;
+  }
+  row.innerHTML=html;
+}
+function buildLeaves(){
+  const layer=document.getElementById('leavesLayer');
+  const emojis=['🍃','🍂'];
+  let html='';
+  for(let i=0;i<9;i++){
+    html+=`<div class="leaf" style="left:${rand(0,96)}%; animation-duration:${rand(11,19)}s; animation-delay:${rand(0,15)}s;">${emojis[i%2]}</div>`;
+  }
+  layer.innerHTML=html;
+}
+buildClouds(); buildBirds(); buildBaobabs(); buildGrass(); buildLeaves();
+
+/* ================= GENERIC POINTER DRAG ENGINE ================= */
+/*
+  setupDrag(container, dropSelector, onDropCheck)
+  container MUST enclose both the draggable pool AND the drop zones,
+  since pointerdown is listened for on the container itself.
+*/
+function setupDrag(container, dropSelector, onDropCheck){
+  let dragging=null, offsetX=0, offsetY=0, startParent=null, startNext=null;
+
+  container.addEventListener('pointerdown', (e)=>{
+    const item=e.target.closest('.draggable-item');
+    if(!item || item.classList.contains('placed')) return;
+    dragging=item;
+    startParent=item.parentElement;
+    startNext=item.nextSibling;
+    const r=item.getBoundingClientRect();
+    offsetX=e.clientX-r.left;
+    offsetY=e.clientY-r.top;
+    item.style.width=r.width+'px';
+    document.body.appendChild(item);
+    item.classList.add('dragging');
+    item.style.position='fixed';
+    item.style.left=r.left+'px';
+    item.style.top=r.top+'px';
+    item.setPointerCapture && item.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  window.addEventListener('pointermove',(e)=>{
+    if(!dragging) return;
+    dragging.style.left=(e.clientX-offsetX)+'px';
+    dragging.style.top=(e.clientY-offsetY)+'px';
+    document.querySelectorAll(dropSelector).forEach(z=>z.classList.remove('over'));
+    dragging.style.visibility='hidden';
+    const under=document.elementFromPoint(e.clientX,e.clientY);
+    dragging.style.visibility='visible';
+    const zone=under && under.closest(dropSelector);
+    if(zone) zone.classList.add('over');
+  },{passive:true});
+
+  window.addEventListener('pointerup',(e)=>{
+    if(!dragging) return;
+    const item=dragging;
+    dragging=null;
+    document.querySelectorAll(dropSelector).forEach(z=>z.classList.remove('over'));
+
+    item.style.visibility='hidden';
+    const under=document.elementFromPoint(e.clientX,e.clientY);
+    item.style.visibility='visible';
+    const zone=under && under.closest(dropSelector);
+
+    item.classList.remove('dragging');
+    item.style.position='';
+    item.style.left=''; item.style.top=''; item.style.width='';
+
+    let handled=false;
+    if(zone){
+      handled=onDropCheck(zone,item);
+    }
+    if(!handled){
+      if(startNext) startParent.insertBefore(item,startNext);
+      else startParent.appendChild(item);
+      item.classList.add('shake');
+      setTimeout(()=>item.classList.remove('shake'),400);
+    }
+  });
+}
+
+/* ================= MODAL SYSTEM ================= */
+const overlay=document.getElementById('modalOverlay');
+const modalBox=document.getElementById('modalBox');
+function showModal({emoji,title,text,buttonText,onButton}){
+  modalBox.innerHTML='';
+  if(emoji) modalBox.appendChild(el('div','modal-emoji',emoji));
+  modalBox.appendChild(el('h2',null,title));
+  modalBox.appendChild(el('p',null,text));
+  const btnRow=el('div',null,'');
+  btnRow.style.display='flex'; btnRow.style.gap='10px'; btnRow.style.justifyContent='center'; btnRow.style.flexWrap='wrap';
+  const b=el('button','btn gold',buttonText);
+  b.onclick=()=>{ hideModal(); onButton && onButton(); };
+  btnRow.appendChild(b);
+  modalBox.appendChild(btnRow);
+  overlay.classList.add('show');
+}
+function hideModal(){ overlay.classList.remove('show'); }
+
+/* ================= PROGRESS DOTS ================= */
+function setProgress(activeIdx){
+  for(let i=1;i<=3;i++){
+    const d=document.getElementById('dot'+i);
+    d.classList.remove('active','done');
+    if(i<activeIdx) d.classList.add('done');
+    else if(i===activeIdx) d.classList.add('active');
+  }
+}
+function goToActivity(n){
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.getElementById('activity'+n).classList.add('active');
+  setProgress(n);
+}
+
+/* =========================================================
+   ACTIVITY 1 — Wire the Safari Control Panel
+   ========================================================= */
+const A1_ITEMS=[
+  {id:'arduino', label:'Arduino UNO Board'},
+  {id:'servo',   label:'SG90 Servo Motor'},
+  {id:'pot',     label:'Potentiometer'},
+  {id:'power',   label:'Power (VCC / 5V)'},
+  {id:'ground',  label:'Ground (GND)'},
+  {id:'signal',  label:'Signal Wire (Pin 9)'},
+];
+const A1_POS={
+  arduino:{left:'37%', top:'30%', width:'27%', height:'42%'},
+  servo:  {left:'70%', top:'10%', width:'26%', height:'26%'},
+  pot:    {left:'70%', top:'62%', width:'26%', height:'26%'},
+  power:  {left:'4%',  top:'8%',  width:'27%', height:'16%'},
+  ground: {left:'4%',  top:'28%', width:'27%', height:'16%'},
+  signal: {left:'4%',  top:'48%', width:'27%', height:'16%'},
+};
+let a1Correct=0;
+function buildActivity1(){
+  const wrap=document.getElementById('a1-svg-wrap');
+  wrap.innerHTML=`
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%;">
+      <line x1="31" y1="16" x2="50" y2="40" stroke="#f4c25a" stroke-width="0.6" stroke-dasharray="2,1.5"/>
+      <line x1="31" y1="36" x2="50" y2="48" stroke="#8bd17c" stroke-width="0.6" stroke-dasharray="2,1.5"/>
+      <line x1="31" y1="56" x2="50" y2="56" stroke="#3fd6c6" stroke-width="0.6" stroke-dasharray="2,1.5"/>
+      <line x1="64" y1="40" x2="72" y2="23" stroke="#ff7a5c" stroke-width="0.6" stroke-dasharray="2,1.5"/>
+      <line x1="64" y1="58" x2="72" y2="70" stroke="#ff7a5c" stroke-width="0.6" stroke-dasharray="2,1.5"/>
+    </svg>
+  `;
+  Object.entries(A1_POS).forEach(([id,pos])=>{
+    const slot=el('div','slot a1-slot');
+    slot.dataset.id=id;
+    slot.style.left=pos.left; slot.style.top=pos.top; slot.style.width=pos.width; slot.style.height=pos.height;
+    slot.textContent = id==='arduino' ? '🔲 Arduino Board' : id==='servo' ? '🦾 Servo Motor' : id==='pot' ? '🎚️ Potentiometer' : '• wire •';
+    wrap.appendChild(slot);
+  });
+
+  const pool=document.getElementById('a1-pool');
+  pool.innerHTML='';
+  a1Correct=0;
+  shuffle(A1_ITEMS).forEach(item=>{
+    const chip=el('div','chip c1 draggable-item',item.label);
+    chip.dataset.id=item.id;
+    pool.appendChild(chip);
+  });
+
+  setupDrag(document.getElementById('activity1'), '.a1-slot', (zone,item)=>{
+    if(zone.classList.contains('correct')) return false;
+    if(zone.dataset.id===item.dataset.id){
+      zone.classList.add('correct');
+      zone.textContent='✓ '+item.textContent;
+      item.classList.add('placed');
+      zone.appendChild(item);
+      a1Correct++;
+      if(a1Correct===A1_ITEMS.length){
+        setTimeout(()=>showModal({
+          emoji:'🔌🦒',
+          title:'Control Panel Wired Up!',
+          text:'The servo, potentiometer, power, ground and signal are all connected — just like the control box behind a society boom barrier!',
+          buttonText:'Next: Servo Workflow →',
+          onButton:()=>goToActivity(2)
+        }),500);
+      }
+      return true;
+    } else {
+      zone.classList.add('wrong-flash');
+      setTimeout(()=>zone.classList.remove('wrong-flash'),400);
+      return false;
+    }
+  });
+}
+document.getElementById('reset1').onclick=buildActivity1;
+
+/* =========================================================
+   ACTIVITY 2 — Herd the Sequence
+   ========================================================= */
+const A2_STEPS=[
+  {id:1, label:'#include <Servo.h>'},
+  {id:2, label:'Attach the servo'},
+  {id:3, label:'Sweep from 0° to 180°'},
+  {id:4, label:'Return to 0°'},
+  {id:5, label:'Read the potentiometer value'},
+  {id:6, label:'Map it to the servo angle'},
+  {id:7, label:'Move the servo like a manual robot arm'},
+];
+let a2Correct=0;
+function buildActivity2(){
+  const trail=document.getElementById('a2-trail');
+  trail.innerHTML='';
+  for(let i=1;i<=7;i++){
+    const col=el('div','track-col');
+    const paw=el('div','paw');
+    paw.dataset.id=i;
+    paw.textContent='drop here';
+    col.appendChild(paw);
+    col.appendChild(el('div','track-num','Step '+i));
+    trail.appendChild(col);
+  }
+  const pool=document.getElementById('a2-pool');
+  pool.innerHTML='';
+  a2Correct=0;
+  shuffle(A2_STEPS).forEach(step=>{
+    const card=el('div','footcard draggable-item',step.label);
+    card.dataset.id=step.id;
+    pool.appendChild(card);
+  });
+
+  setupDrag(document.getElementById('activity2'), '.paw', (zone,item)=>{
+    if(zone.classList.contains('correct')) return false;
+    if(String(zone.dataset.id)===String(item.dataset.id)){
+      zone.classList.add('correct');
+      zone.textContent='';
+      item.classList.add('placed');
+      item.style.width='92%';
+      zone.appendChild(item);
+      a2Correct++;
+      if(a2Correct===A2_STEPS.length){
+        setTimeout(()=>showModal({
+          emoji:'🐾🌅',
+          title:'You Herded the Sequence!',
+          text:'From including the library to moving the arm like a robot, the servo workflow is complete — smooth as a giraffe crossing the savanna.',
+          buttonText:'Next: Match the Signals →',
+          onButton:()=>goToActivity(3)
+        }),500);
+      }
+      return true;
+    } else {
+      zone.classList.add('wrong-flash');
+      setTimeout(()=>zone.classList.remove('wrong-flash'),400);
+      return false;
+    }
+  });
+}
+document.getElementById('reset2').onclick=buildActivity2;
+
+/* =========================================================
+   ACTIVITY 3 — Match the Savanna Signals
+   ========================================================= */
+const A3_ITEMS=[
+  {id:'angle',   term:'Servo Angle',              value:'90° — gate arm halfway open'},
+  {id:'pot',     term:'Potentiometer Position',   value:'Mid-turn dial reading (0–1023 range)'},
+  {id:'mapped',  term:'Mapped Value',              value:'map() converts the reading to 0–180°'},
+  {id:'arm',     term:'Robot Arm Movement',       value:'Arm swings smoothly to the matching angle'},
+  {id:'code',    term:'Arduino Code Block',        value:'myServo.write(angle);'},
+  {id:'app',     term:'Real-World Application',    value:'FASTag toll barrier lifting for a car'},
+];
+let a3Correct=0;
+function buildActivity3(){
+  const panel=document.getElementById('a3-dials');
+  panel.innerHTML='';
+  A3_ITEMS.forEach(it=>{
+    const dial=el('div','sundial');
+    dial.dataset.id=it.id;
+    dial.innerHTML=`<div class="lbl">${it.term}</div><div class="val">drop the matching card</div>`;
+    panel.appendChild(dial);
+  });
+  const pool=document.getElementById('a3-pool');
+  pool.innerHTML='';
+  a3Correct=0;
+  shuffle(A3_ITEMS).forEach(it=>{
+    const card=el('div','leafcard2 draggable-item',it.value);
+    card.dataset.id=it.id;
+    pool.appendChild(card);
+  });
+
+  setupDrag(document.getElementById('activity3'), '.sundial', (zone,item)=>{
+    if(zone.classList.contains('correct')) return false;
+    if(zone.dataset.id===item.dataset.id){
+      zone.classList.add('correct');
+      const lbl=zone.querySelector('.lbl').textContent;
+      zone.innerHTML=`<div class="lbl">✓ ${lbl}</div>`;
+      item.classList.add('placed');
+      item.style.width='94%';
+      zone.appendChild(item);
+      a3Correct++;
+      if(a3Correct===A3_ITEMS.length){
+        setTimeout(()=>finishAll(),500);
+      }
+      return true;
+    } else {
+      zone.classList.add('wrong-flash');
+      setTimeout(()=>zone.classList.remove('wrong-flash'),400);
+      return false;
+    }
+  });
+}
+document.getElementById('reset3').onclick=buildActivity3;
+
+/* ================= FINAL CELEBRATION ================= */
+function finishAll(){
+  setProgress(4);
+  burstLeaves();
+  showModal({
+    emoji:'🦒🌅🐘',
+    title:'Mission Complete!',
+    text:'You wired the control panel, herded the full servo workflow, and matched every signal — the smart savanna gate is ready to open for every visitor!',
+    buttonText:'🔁 Play Again',
+    onButton:resetEverything
+  });
+}
+function burstLeaves(){
+  const layer=document.getElementById('leavesLayer');
+  const emojis=['🍃','🍂','✨'];
+  for(let i=0;i<22;i++){
+    const f=el('div','leaf',emojis[i%3]);
+    f.style.left=rand(10,90)+'%';
+    f.style.top='-5%';
+    f.style.animationDuration=rand(3,5)+'s';
+    f.style.fontSize=rand(12,20)+'px';
+    layer.appendChild(f);
+    setTimeout(()=>f.remove(),6000);
+  }
+}
+
+/* ================= RESET EVERYTHING ================= */
+function resetEverything(){
+  buildActivity1();
+  buildActivity2();
+  buildActivity3();
+  goToActivity(1);
+}
+
+/* ================= INIT ================= */
+function init(){
+  buildActivity1();
+  buildActivity2();
+  buildActivity3();
+  goToActivity(1);
+  showModal({
+    emoji:'🌅🦒',
+    title:'Welcome, Safari Engineer!',
+    text:'Servo motors are the smart muscles behind toll barriers, boom gates and robot arms. Wire the control panel, herd the workflow into order, and match every signal — all in three savanna activities!',
+    buttonText:'Start Activity 1 →'
+  });
+}
+init();
+
+})();
+</script>
+</body>
+</html>

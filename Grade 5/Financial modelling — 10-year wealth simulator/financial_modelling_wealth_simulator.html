@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Financial Modelling — 10-Year Wealth Simulator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --pine:      #1b4332;
+  --pine-mid:  #2d6a4f;
+  --pine-lite: #52b788;
+  --mist:      #d8f3dc;
+  --sky-night: #0d1b2a;
+  --sky-dawn:  #1b3a5c;
+  --sky-mid:   #2a5298;
+  --river:     #48cae4;
+  --river-dark:#0077b6;
+  --gold:      #f4a261;
+  --gold-lite: #ffd166;
+  --ember:     #e76f51;
+  --snow:      #f1faee;
+  --firefly:   #ccff00;
+  --deer:      #c9884a;
+  --text-light:#e8f5e9;
+  --text-dim:  rgba(232,245,233,0.65);
+  --panel-bg:  rgba(13,27,42,0.88);
+  --panel-bdr: rgba(82,183,136,0.35);
+}
+
+html,body{width:100%;height:100%;overflow:hidden;font-family:'DM Sans',sans-serif}
+body{background:var(--sky-night);display:flex;flex-direction:column;position:relative}
+
+/* ══════════════════════════════════════
+   MOUNTAIN / FOREST BACKGROUND
+══════════════════════════════════════ */
+#bg{position:fixed;inset:0;z-index:0;overflow:hidden}
+
+/* Sky gradient */
+#bg::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(180deg,
+    #060d14 0%,#0d1b2a 30%,#1b3a5c 60%,#2a5298 80%,#1e7d4e 90%,#155d36 100%);
+}
+
+/* Stars */
+.star{position:absolute;border-radius:50%;background:#fff;animation:twinkle ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:.2;transform:scale(1)}50%{opacity:1;transform:scale(1.5)}}
+
+/* Moon */
+.moon{
+  position:absolute;top:6%;right:12%;
+  width:52px;height:52px;border-radius:50%;
+  background:radial-gradient(circle at 38% 38%,#fffde7 0%,#fff9c4 50%,#f9a825 100%);
+  box-shadow:0 0 30px 10px rgba(255,249,196,.35),0 0 60px 20px rgba(249,168,37,.15);
+  animation:moonGlow 4s ease-in-out infinite;
+}
+@keyframes moonGlow{0%,100%{box-shadow:0 0 30px 10px rgba(255,249,196,.35),0 0 60px 20px rgba(249,168,37,.15)}
+  50%{box-shadow:0 0 40px 16px rgba(255,249,196,.5),0 0 80px 30px rgba(249,168,37,.22)}}
+
+/* Mountain layers */
+.mountain{position:absolute;bottom:0;width:0;height:0;border-style:solid}
+
+/* Mist bands */
+.mist-band{
+  position:absolute;left:-5%;width:110%;height:40px;border-radius:50%;
+  background:rgba(216,243,220,.06);
+  animation:mistDrift ease-in-out infinite;
+}
+@keyframes mistDrift{0%,100%{transform:translateX(0) scaleY(1);opacity:.6}
+  50%{transform:translateX(30px) scaleY(1.3);opacity:.9}}
+
+/* Pine trees (SVG via clip-path) */
+.pine-tree{position:absolute;bottom:0;display:flex;flex-direction:column;align-items:center}
+.pine-layer{width:0;height:0;border-style:solid;border-color:transparent transparent var(--pine) transparent;margin-bottom:-4px}
+.pine-trunk{background:#5d4037;border-radius:2px}
+
+/* River */
+.river-svg{position:absolute;bottom:0;left:0;width:100%}
+
+/* Fireflies */
+.firefly{
+  position:absolute;width:4px;height:4px;border-radius:50%;
+  background:var(--firefly);
+  box-shadow:0 0 8px 3px rgba(204,255,0,.7);
+  animation:fireflyFloat ease-in-out infinite, fireflyFade ease-in-out infinite;
+}
+@keyframes fireflyFloat{
+  0%{transform:translate(0,0)}25%{transform:translate(12px,-18px)}
+  50%{transform:translate(-8px,-30px)}75%{transform:translate(16px,-12px)}100%{transform:translate(0,0)}}
+@keyframes fireflyFade{0%,100%{opacity:0}30%,70%{opacity:1}}
+
+/* Falling leaves */
+.leaf{
+  position:absolute;top:-20px;font-size:14px;opacity:.7;
+  animation:leafFall linear infinite;
+}
+@keyframes leafFall{
+  0%{transform:translateY(0) rotate(0deg) translateX(0);opacity:.7}
+  100%{transform:translateY(100vh) rotate(720deg) translateX(60px);opacity:0}}
+
+/* Deer (simple SVG) */
+.deer-wrap{position:absolute;bottom:72px;animation:deerWalk linear infinite}
+@keyframes deerWalk{0%{transform:translateX(-80px)}100%{transform:translateX(110vw)}}
+
+/* ══════════════════════════════════════
+   HEADER
+══════════════════════════════════════ */
+#header{
+  position:relative;z-index:10;
+  padding:9px 22px 7px;
+  background:linear-gradient(180deg,rgba(6,13,20,.96) 0%,rgba(13,27,42,.82) 100%);
+  border-bottom:2px solid rgba(82,183,136,.35);
+  text-align:center;flex-shrink:0;
+}
+#header h1{
+  font-family:'Playfair Display',serif;
+  font-size:clamp(14px,1.9vw,22px);letter-spacing:1.5px;
+  background:linear-gradient(90deg,var(--pine-lite),var(--gold-lite),var(--pine-lite));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  background-size:200% 100%;animation:titleShine 5s linear infinite;
+}
+@keyframes titleShine{0%{background-position:0%}100%{background-position:200%}}
+#header .sub{font-size:10px;color:var(--text-dim);letter-spacing:3px;text-transform:uppercase;margin-top:2px}
+
+/* Progress */
+#prog-bar{display:flex;justify-content:center;align-items:center;gap:14px;margin-top:6px}
+.p-step{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:rgba(200,230,200,.4);transition:all .4s}
+.p-step.active{color:var(--pine-lite)}
+.p-step.done{color:var(--gold-lite)}
+.p-dot{
+  width:22px;height:22px;border-radius:50%;
+  border:2px solid rgba(200,230,200,.2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:800;transition:all .4s;
+}
+.p-step.active .p-dot{border-color:var(--pine-lite);background:rgba(82,183,136,.15);box-shadow:0 0 10px var(--pine-lite);color:var(--pine-lite)}
+.p-step.done .p-dot{border-color:var(--gold-lite);background:rgba(255,209,102,.15);color:var(--gold-lite)}
+.p-line{width:38px;height:2px;background:rgba(200,230,200,.15);transition:background .4s}
+.p-line.done{background:var(--gold-lite)}
+
+/* ══════════════════════════════════════
+   MAIN
+══════════════════════════════════════ */
+#main{
+  position:relative;z-index:10;flex:1;
+  display:flex;align-items:center;justify-content:center;
+  padding:8px 18px;overflow:hidden;
+}
+
+/* Activity panel */
+.act-panel{
+  background:var(--panel-bg);
+  border:1.5px solid var(--panel-bdr);
+  border-radius:18px;
+  backdrop-filter:blur(14px);
+  box-shadow:0 0 50px rgba(82,183,136,.12),0 20px 60px rgba(0,0,0,.4);
+  padding:16px 20px;
+  width:100%;max-width:880px;
+  max-height:calc(100vh - 136px);
+  display:none;flex-direction:column;gap:10px;
+}
+.act-panel.active{display:flex}
+
+/* Panel header */
+.act-hdr{display:flex;align-items:center;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid rgba(82,183,136,.18)}
+.act-title{font-family:'Playfair Display',serif;font-size:clamp(13px,1.6vw,18px);color:var(--pine-lite);display:flex;align-items:center;gap:8px}
+.act-badge{background:linear-gradient(135deg,var(--pine-mid),var(--pine));color:var(--mist);font-size:9px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:1px;font-family:'DM Sans',sans-serif}
+.act-instr{font-size:clamp(10px,1.1vw,12px);color:var(--text-dim);line-height:1.4;margin-top:3px}
+
+/* Buttons */
+.btn-reset{
+  background:rgba(231,111,81,.12);border:1.5px solid var(--ember);
+  color:var(--ember);font-family:'DM Sans',sans-serif;
+  font-weight:700;font-size:11px;padding:5px 13px;border-radius:20px;cursor:pointer;
+  transition:all .22s;display:flex;align-items:center;gap:4px;white-space:nowrap;
+}
+.btn-reset:hover{background:var(--ember);color:#fff;box-shadow:0 0 10px rgba(231,111,81,.4)}
+
+.btn-check{
+  background:linear-gradient(135deg,var(--pine-mid),var(--pine));
+  border:none;color:var(--mist);font-family:'DM Sans',sans-serif;
+  font-weight:700;font-size:12px;padding:8px 22px;border-radius:20px;cursor:pointer;
+  transition:all .22s;box-shadow:0 4px 14px rgba(45,106,79,.35);
+}
+.btn-check:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(45,106,79,.5)}
+
+/* Score */
+.score-lbl{font-size:11px;font-weight:700;color:var(--text-dim)}
+.score-lbl span{color:var(--gold-lite);font-size:14px}
+
+/* Shake */
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+/* ══════════════════════════════════════
+   ACTIVITY 1 — HORIZONTAL PIPELINE SORT
+   Cards snap into numbered pipeline nodes
+══════════════════════════════════════ */
+#act1-body{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0}
+
+/* Card pool — horizontal wrap */
+.a1-pool{
+  display:flex;flex-wrap:wrap;gap:8px;
+  padding:10px 12px;
+  background:rgba(255,255,255,.03);border:1px solid rgba(82,183,136,.12);
+  border-radius:12px;min-height:54px;
+}
+.a1-pool-label{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin-bottom:2px}
+
+.a1-card{
+  background:linear-gradient(135deg,rgba(82,183,136,.18) 0%,rgba(45,106,79,.1) 100%);
+  border:1.5px solid rgba(82,183,136,.35);
+  border-radius:10px;padding:7px 14px;
+  font-size:11px;font-weight:600;color:var(--text-light);
+  cursor:grab;user-select:none;transition:all .2s;
+  display:flex;align-items:center;gap:6px;white-space:nowrap;
+}
+.a1-card:hover{border-color:var(--pine-lite);background:rgba(82,183,136,.28);transform:translateY(-2px)}
+.a1-card.dragging{opacity:.35;cursor:grabbing}
+.a1-card .ci{font-size:16px}
+
+/* Pipeline row */
+.a1-pipeline{display:flex;align-items:center;gap:0;overflow-x:auto;padding:4px 2px}
+.a1-pipeline::-webkit-scrollbar{height:4px}
+.a1-pipeline::-webkit-scrollbar-thumb{background:rgba(82,183,136,.3);border-radius:4px}
+
+.a1-node{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  flex:1;min-width:105px;position:relative;
+}
+.a1-node-label{
+  font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  color:rgba(82,183,136,.6);text-align:center;
+}
+.a1-drop{
+  border:2px dashed rgba(82,183,136,.28);border-radius:12px;
+  width:100%;min-height:58px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;position:relative;
+}
+.a1-drop .ph{font-size:10px;color:rgba(255,255,255,.2);font-style:italic;pointer-events:none}
+.a1-drop.drag-over{border-color:var(--pine-lite);background:rgba(82,183,136,.12);box-shadow:0 0 12px rgba(82,183,136,.3)}
+.a1-drop.correct{border-color:var(--pine-lite);background:rgba(82,183,136,.12)}
+.a1-drop.wrong{border-color:var(--ember);animation:shake .4s ease}
+
+/* Arrow between nodes */
+.a1-arrow{font-size:18px;color:rgba(82,183,136,.35);flex-shrink:0;margin:0 -2px;margin-top:24px;align-self:flex-start}
+
+.a1-bottom{display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+
+/* ══════════════════════════════════════
+   ACTIVITY 2 — LEDGER / TABLE FILL
+   Drop cards into table cells
+══════════════════════════════════════ */
+#act2-body{display:grid;grid-template-columns:190px 1fr;grid-template-rows:1fr auto;gap:12px;flex:1;min-height:0}
+
+.a2-pool{
+  grid-column:1;grid-row:1/3;
+  display:flex;flex-direction:column;gap:5px;
+  overflow-y:auto;overflow-x:hidden;padding-right:4px;
+}
+.a2-pool::-webkit-scrollbar{width:3px}
+.a2-pool::-webkit-scrollbar-thumb{background:rgba(244,162,97,.3);border-radius:3px}
+.a2-pool-label{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin-bottom:2px;flex-shrink:0}
+
+.a2-card{
+  background:linear-gradient(135deg,rgba(244,162,97,.15) 0%,rgba(231,111,81,.07) 100%);
+  border:1.5px solid rgba(244,162,97,.35);
+  border-radius:9px;padding:8px 11px;
+  font-size:11px;font-weight:600;color:var(--text-light);
+  cursor:grab;user-select:none;transition:all .2s;
+  display:flex;align-items:center;gap:6px;flex-shrink:0;
+}
+.a2-card:hover{border-color:var(--gold);background:rgba(244,162,97,.22);transform:translateX(2px)}
+.a2-card.dragging{opacity:.35}
+.a2-card .ci{font-size:14px;flex-shrink:0}
+
+/* Ledger table */
+.a2-table-wrap{grid-column:2;grid-row:1;overflow-y:auto;overflow-x:hidden;min-height:0}
+.a2-table-wrap::-webkit-scrollbar{width:3px}
+.a2-table-wrap::-webkit-scrollbar-thumb{background:rgba(244,162,97,.25);border-radius:3px}
+
+.a2-table{width:100%;border-collapse:separate;border-spacing:0 4px}
+.a2-table thead tr th{
+  font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--text-dim);padding:4px 10px;text-align:left;
+}
+.a2-row{background:rgba(255,255,255,.03);border-radius:8px}
+.a2-row td{padding:5px 10px;vertical-align:middle}
+.a2-row td:first-child{
+  font-size:10px;font-weight:700;color:rgba(244,162,97,.8);
+  width:26px;text-align:center;border-radius:8px 0 0 8px;
+}
+.a2-row td:last-child{border-radius:0 8px 8px 0}
+.a2-row td.a2-concept{font-size:11px;font-weight:600;color:var(--text-light);width:150px}
+
+.a2-drop{
+  border:1.5px dashed rgba(244,162,97,.22);border-radius:8px;
+  min-height:36px;padding:3px 8px;
+  display:flex;align-items:center;
+  font-size:10px;color:rgba(255,255,255,.2);font-style:italic;
+  transition:all .2s;position:relative;
+}
+.a2-drop.drag-over{border-color:var(--gold);background:rgba(244,162,97,.1)}
+.a2-drop.correct{border-color:var(--pine-lite);background:rgba(82,183,136,.08);color:var(--text-light)}
+.a2-drop.wrong{border-color:var(--ember);animation:shake .4s ease}
+
+.a2-bottom{grid-column:2;grid-row:2;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;padding-top:2px}
+
+/* ══════════════════════════════════════
+   ACTIVITY 3 — VERTICAL FLOWCHART SORT
+   Numbered circular steps in a timeline
+══════════════════════════════════════ */
+#act3-body{display:grid;grid-template-columns:175px 1fr;grid-template-rows:1fr auto;gap:12px;flex:1;min-height:0}
+
+.a3-pool{
+  grid-column:1;grid-row:1/3;
+  display:flex;flex-direction:column;gap:6px;
+  overflow-y:auto;overflow-x:hidden;padding-right:4px;
+}
+.a3-pool::-webkit-scrollbar{width:3px}
+.a3-pool::-webkit-scrollbar-thumb{background:rgba(72,202,228,.3);border-radius:3px}
+.a3-pool-label{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin-bottom:2px;flex-shrink:0}
+
+.a3-card{
+  background:linear-gradient(135deg,rgba(72,202,228,.13) 0%,rgba(0,119,182,.07) 100%);
+  border:1.5px solid rgba(72,202,228,.3);
+  border-radius:9px;padding:8px 11px;
+  font-size:10px;font-weight:600;color:var(--text-light);
+  cursor:grab;user-select:none;transition:all .2s;
+  display:flex;align-items:center;gap:6px;flex-shrink:0;
+}
+.a3-card:hover{border-color:var(--river);background:rgba(72,202,228,.2);transform:translateX(2px)}
+.a3-card.dragging{opacity:.35}
+.a3-card .ci{font-size:14px;flex-shrink:0}
+
+/* Flowchart */
+.a3-flow-wrap{grid-column:2;grid-row:1;overflow-y:auto;overflow-x:hidden;min-height:0;padding-right:4px}
+.a3-flow-wrap::-webkit-scrollbar{width:3px}
+.a3-flow-wrap::-webkit-scrollbar-thumb{background:rgba(72,202,228,.25);border-radius:3px}
+
+.a3-flow{display:flex;flex-direction:column;gap:0;position:relative}
+/* vertical line */
+.a3-flow::before{
+  content:'';position:absolute;left:20px;top:12px;bottom:12px;width:2px;
+  background:linear-gradient(180deg,rgba(72,202,228,.5) 0%,rgba(72,202,228,.1) 100%);
+  border-radius:2px;z-index:0;
+}
+
+.a3-step{display:flex;align-items:center;gap:10px;padding:4px 0;position:relative;z-index:1}
+
+.a3-step-num{
+  width:40px;height:40px;border-radius:50%;flex-shrink:0;
+  border:2px solid rgba(72,202,228,.35);
+  background:rgba(13,27,42,.9);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;color:rgba(72,202,228,.7);
+  z-index:2;
+}
+
+.a3-drop{
+  flex:1;border:2px dashed rgba(72,202,228,.2);border-radius:10px;
+  min-height:44px;padding:6px 12px;
+  display:flex;align-items:center;gap:8px;
+  font-size:10px;color:rgba(255,255,255,.2);font-style:italic;
+  transition:all .2s;position:relative;
+}
+.a3-drop.drag-over{border-color:var(--river);background:rgba(72,202,228,.1)}
+.a3-drop.correct{border-color:var(--pine-lite);background:rgba(82,183,136,.08);color:var(--text-light);font-style:normal}
+.a3-drop.wrong{border-color:var(--ember);animation:shake .4s ease}
+
+/* connector between steps */
+.a3-conn{height:8px;margin-left:20px;width:2px;background:rgba(72,202,228,.2)}
+
+.a3-bottom{grid-column:2;grid-row:2;display:flex;align-items:center;justify-content:space-between;padding-top:2px;flex-shrink:0}
+
+/* ══════════════════════════════════════
+   POPUPS
+══════════════════════════════════════ */
+.pop-overlay{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.72);backdrop-filter:blur(5px);
+  display:flex;align-items:center;justify-content:center;
+  animation:fadeIn .3s ease;
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.pop-box{
+  background:linear-gradient(145deg,rgba(10,20,35,.98),rgba(13,40,28,.98));
+  border:2px solid rgba(82,183,136,.4);
+  border-radius:22px;padding:30px 34px;
+  max-width:400px;width:90%;text-align:center;
+  box-shadow:0 0 60px rgba(82,183,136,.18),0 20px 80px rgba(0,0,0,.5);
+  animation:popIn .4s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes popIn{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.pop-emoji{font-size:50px;display:block;margin-bottom:10px}
+.pop-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--pine-lite);margin-bottom:8px}
+.pop-msg{font-size:13px;color:var(--text-light);line-height:1.55;opacity:.85;margin-bottom:20px}
+.pop-btn{
+  background:linear-gradient(135deg,var(--pine-mid),var(--pine));
+  border:none;color:var(--mist);font-family:'DM Sans',sans-serif;
+  font-weight:700;font-size:14px;padding:10px 28px;
+  border-radius:24px;cursor:pointer;transition:all .25s;
+  box-shadow:0 4px 18px rgba(45,106,79,.4);
+}
+.pop-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(45,106,79,.6)}
+.pop-btn.gold-btn{
+  background:linear-gradient(135deg,var(--gold),#d97706);
+  box-shadow:0 4px 18px rgba(244,162,97,.35);
+}
+.pop-btn.gold-btn:hover{box-shadow:0 8px 24px rgba(244,162,97,.55)}
+
+.hidden{display:none!important}
+
+/* celebration icons row */
+.cel-icons{font-size:26px;letter-spacing:6px;margin:8px 0}
+.cel-stars{display:flex;justify-content:center;gap:6px;font-size:28px;animation:starBounce .6s ease-in-out infinite alternate}
+@keyframes starBounce{from{transform:translateY(0)}to{transform:translateY(-8px)}}
+
+/* confetti */
+.confetti-p{position:fixed;z-index:300;pointer-events:none;border-radius:2px;animation:cfFall linear forwards}
+@keyframes cfFall{0%{transform:translateY(-10px) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
+
+/* feedback tick */
+.fb-tick{
+  position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;
+  box-shadow:0 0 8px rgba(0,0,0,.3);z-index:5;
+}
+.fb-tick.ok{background:var(--pine-lite);color:#fff}
+.fb-tick.no{background:var(--ember);color:#fff}
+
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════ BACKGROUND ══════════════════════════════════ -->
+<div id="bg">
+  <div class="moon"></div>
+  <!-- mountains, trees, river, fireflies, leaves built by JS -->
+</div>
+
+<!-- ══════════════════════════════════ HEADER ══════════════════════════════════ -->
+<div id="header">
+  <h1>⛰️ Financial Modelling — 10-Year Wealth Simulator 💰</h1>
+  <div class="sub">Planrs Academy · Mountain Explorer Edition</div>
+  <div id="prog-bar">
+    <div class="p-step active" id="ps1"><div class="p-dot">1</div><span>Pipeline</span></div>
+    <div class="p-line" id="pl1"></div>
+    <div class="p-step" id="ps2"><div class="p-dot">2</div><span>Ledger</span></div>
+    <div class="p-line" id="pl2"></div>
+    <div class="p-step" id="ps3"><div class="p-dot">3</div><span>Flowchart</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ MAIN ══════════════════════════════════ -->
+<div id="main">
+
+  <!-- ACTIVITY 1 -->
+  <div class="act-panel active" id="act1">
+    <div class="act-hdr">
+      <div>
+        <div class="act-title"><span class="act-badge">ACTIVITY 1</span>📊 Financial Pipeline Sort</div>
+        <div class="act-instr">Drag each financial step and drop it into the correct position in the wealth-building pipeline!</div>
+      </div>
+      <button class="btn-reset" onclick="resetAct1()">↺ Reset</button>
+    </div>
+    <div id="act1-body">
+      <div>
+        <div class="a1-pool-label">🎒 Step Cards — drag into the pipeline below</div>
+        <div class="a1-pool" id="a1-pool"></div>
+      </div>
+      <div class="a1-pipeline" id="a1-pipeline"></div>
+      <div class="a1-bottom">
+        <div class="score-lbl" id="a1-score">Placed: <span>0</span>/5</div>
+        <button class="btn-check" onclick="checkAct1()">Check Pipeline 🌲</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 2 -->
+  <div class="act-panel" id="act2">
+    <div class="act-hdr">
+      <div>
+        <div class="act-title"><span class="act-badge">ACTIVITY 2</span>📋 Wealth Simulator Ledger</div>
+        <div class="act-instr">Complete the 10-year financial model by dragging each value or concept into the correct cell of the ledger!</div>
+      </div>
+      <button class="btn-reset" onclick="resetAct2()">↺ Reset</button>
+    </div>
+    <div id="act2-body">
+      <div class="a2-pool" id="a2-pool">
+        <div class="a2-pool-label">💼 Value Cards</div>
+        <div id="a2-cards"></div>
+      </div>
+      <div class="a2-table-wrap">
+        <table class="a2-table">
+          <thead><tr>
+            <th>#</th><th>Financial Component</th>
+            <th>Your Answer (Drop Here)</th>
+            <th>Indian Example</th>
+          </tr></thead>
+          <tbody id="a2-tbody"></tbody>
+        </table>
+      </div>
+      <div class="a2-bottom">
+        <div class="score-lbl" id="a2-score">Filled: <span>0</span>/6</div>
+        <button class="btn-check" onclick="checkAct2()">Check Ledger 🦌</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 3 -->
+  <div class="act-panel" id="act3">
+    <div class="act-hdr">
+      <div>
+        <div class="act-title"><span class="act-badge">ACTIVITY 3</span>🔁 Wealth Flowchart</div>
+        <div class="act-instr">Build the complete financial modelling flowchart by dragging each step into the correct numbered position!</div>
+      </div>
+      <button class="btn-reset" onclick="resetAct3()">↺ Reset</button>
+    </div>
+    <div id="act3-body">
+      <div class="a3-pool" id="a3-pool">
+        <div class="a3-pool-label">🗂️ Process Steps</div>
+        <div id="a3-cards"></div>
+      </div>
+      <div class="a3-flow-wrap">
+        <div class="a3-flow" id="a3-flow"></div>
+      </div>
+      <div class="a3-bottom">
+        <div class="score-lbl" id="a3-score">Placed: <span>0</span>/6</div>
+        <button class="btn-check" onclick="checkAct3()">Submit Flowchart 🏔️</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ══════════════════════════════════ POPUPS ══════════════════════════════════ -->
+<div class="pop-overlay hidden" id="pop1">
+  <div class="pop-box">
+    <span class="pop-emoji">🌲</span>
+    <div class="pop-title">Pipeline Complete!</div>
+    <div class="pop-msg">You've correctly arranged every step of the wealth-building pipeline. Money flows like a mountain river — from income all the way to net worth! 💧</div>
+    <button class="pop-btn" onclick="goAct2()">Next: Fill the Ledger →</button>
+  </div>
+</div>
+
+<div class="pop-overlay hidden" id="pop2">
+  <div class="pop-box">
+    <span class="pop-emoji">🦌</span>
+    <div class="pop-title">Ledger Mastered!</div>
+    <div class="pop-msg">Every cell of the 10-year financial model is perfectly filled. Your money intuition is as sharp as a mountain peak! ⛰️</div>
+    <button class="pop-btn" onclick="goAct3()">Final Challenge! 🏆</button>
+  </div>
+</div>
+
+<div class="pop-overlay hidden" id="pop3">
+  <div class="pop-box" style="border-color:rgba(244,162,97,.45)">
+    <div class="cel-stars">⭐⭐⭐</div>
+    <span class="pop-emoji">🏆</span>
+    <div class="pop-title" style="color:var(--gold-lite)">Wealth Simulator Champion!</div>
+    <div class="cel-icons">⛰️💰🌲🦌🔥</div>
+    <div class="pop-msg">Outstanding! You've mastered the complete financial modelling flowchart. From income to net worth in 10 years — you're thinking like a future financial planner! 🎉</div>
+    <button class="pop-btn gold-btn" onclick="playAgain()">🔄 Play Again</button>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════
+   BUILD BACKGROUND
+══════════════════════════════════════════════ */
+(function buildBg(){
+  const bg = document.getElementById('bg');
+
+  // Stars
+  for(let i=0;i<60;i++){
+    const s=document.createElement('div'); s.className='star';
+    const sz=Math.random()*2.5+.8;
+    s.style.cssText=`width:${sz}px;height:${sz}px;top:${Math.random()*65}%;left:${Math.random()*100}%;
+      animation-duration:${2+Math.random()*4}s;animation-delay:${Math.random()*5}s`;
+    bg.appendChild(s);
+  }
+
+  // Mountains (far → near) — built as canvas for performance
+  const cvs=document.createElement('canvas');
+  cvs.style.cssText='position:absolute;inset:0;width:100%;height:100%';
+  cvs.width=1400;cvs.height=600;
+  bg.appendChild(cvs);
+  const ctx=cvs.getContext('2d');
+
+  function mtn(peaks,color,alpha){
+    ctx.beginPath();
+    ctx.moveTo(0,600);
+    peaks.forEach(([x,y])=>ctx.lineTo(x,y));
+    ctx.lineTo(1400,600);ctx.closePath();
+    ctx.fillStyle=color;ctx.globalAlpha=alpha;ctx.fill();ctx.globalAlpha=1;
+  }
+  // far mountains
+  mtn([[0,420],[100,320],[250,260],[400,310],[550,250],[700,200],[850,255],[1000,210],[1150,270],[1300,230],[1400,290],[1400,600]],'#0d2b1a',.9);
+  // snow caps
+  ctx.fillStyle='rgba(241,250,238,.55)';ctx.globalAlpha=1;
+  [[250,260],[700,200],[1000,210],[1300,230]].forEach(([px,py])=>{
+    ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px-22,py+35);ctx.lineTo(px+22,py+35);ctx.closePath();ctx.fill();
+  });
+  // mid mountains
+  mtn([[0,480],[150,390],[300,340],[500,370],[650,310],[800,350],[1000,290],[1200,340],[1400,360],[1400,600]],'#1b4332',.95);
+  // near hills
+  mtn([[0,540],[200,480],[450,510],[700,470],[900,500],[1100,475],[1400,510],[1400,600]],'#2d6a4f',1);
+  // ground / grass
+  mtn([[0,570],[1400,570],[1400,600],[0,600]],'#1b4332',1);
+
+  // River
+  const river=document.createElement('canvas');
+  river.style.cssText='position:absolute;bottom:0;left:0;width:100%;height:80px;opacity:.7';
+  river.width=1400;river.height=80;
+  const rc=river.getContext('2d');
+  const rg=rc.createLinearGradient(0,0,1400,0);
+  rg.addColorStop(0,'transparent');rg.addColorStop(.2,'#48cae4');
+  rg.addColorStop(.5,'#90e0ef');rg.addColorStop(.8,'#48cae4');rg.addColorStop(1,'transparent');
+  rc.beginPath();
+  rc.moveTo(0,70);rc.bezierCurveTo(300,50,600,65,900,55);rc.bezierCurveTo(1100,48,1200,60,1400,58);
+  rc.lineTo(1400,80);rc.lineTo(0,80);rc.closePath();
+  rc.fillStyle=rg;rc.fill();
+  bg.appendChild(river);
+
+  // Animate river shimmer with a separate animated div
+  const rShimmer=document.createElement('div');
+  rShimmer.style.cssText=`position:absolute;bottom:0;left:0;width:100%;height:35px;
+    background:linear-gradient(90deg,transparent 0%,rgba(144,224,239,.25) 30%,rgba(72,202,228,.4) 50%,rgba(144,224,239,.25) 70%,transparent 100%);
+    animation:riverShimmer 3s linear infinite;`;
+  bg.appendChild(rShimmer);
+  if(!document.getElementById('riverKf')){
+    const st=document.createElement('style');st.id='riverKf';
+    st.textContent='@keyframes riverShimmer{0%{background-position:-100% 0}100%{background-position:200% 0}}';
+    document.head.appendChild(st);
+  }
+
+  // Pine trees (foreground)
+  const treePositions=[4,9,15,20,28,34,41,48,54,60,66,72,78,84,90,96];
+  treePositions.forEach((lp,i)=>{
+    const h=55+Math.random()*40;const w=h*.55;
+    const wrap=document.createElement('div');wrap.className='pine-tree';
+    wrap.style.cssText=`left:${lp+Math.random()*3}%;animation:treeSway ${3+Math.random()*2}s ease-in-out infinite;animation-delay:${Math.random()*3}s`;
+    // 3 layers
+    [1,.75,.55].forEach((f,li)=>{
+      const l=document.createElement('div');l.className='pine-layer';
+      const lw=w*f;const lh=h*.35*(1-li*.15);
+      l.style.cssText=`border-width:0 ${lw/2}px ${lh}px ${lw/2}px;border-bottom-color:${i%3===0?'#155d36':i%3===1?'#1b4332':'#2d6a4f'}`;
+      wrap.appendChild(l);
+    });
+    const trunk=document.createElement('div');trunk.className='pine-trunk';
+    trunk.style.cssText=`width:${w*.12}px;height:${h*.2}px`;
+    wrap.appendChild(trunk);
+    bg.appendChild(wrap);
+  });
+  if(!document.getElementById('treeKf')){
+    const st=document.createElement('style');st.id='treeKf';
+    st.textContent='@keyframes treeSway{0%,100%{transform:rotate(-2deg) translateX(0)}50%{transform:rotate(2deg) translateX(2px)}}';
+    document.head.appendChild(st);
+  }
+
+  // Mist bands
+  [18,22,26].forEach((b,i)=>{
+    const m=document.createElement('div');m.className='mist-band';
+    m.style.cssText=`bottom:${b}%;animation-duration:${7+i*2}s;animation-delay:${i*1.5}s`;
+    bg.appendChild(m);
+  });
+
+  // Fireflies
+  for(let i=0;i<22;i++){
+    const f=document.createElement('div');f.className='firefly';
+    f.style.cssText=`left:${Math.random()*90}%;bottom:${10+Math.random()*55}%;
+      animation-duration:${4+Math.random()*4}s,${2+Math.random()*3}s;
+      animation-delay:${Math.random()*5}s,${Math.random()*4}s`;
+    bg.appendChild(f);
+  }
+
+  // Falling leaves
+  const leafEmojis=['🍂','🍁','🌿','🍃'];
+  for(let i=0;i<10;i++){
+    const lf=document.createElement('div');lf.className='leaf';
+    lf.textContent=leafEmojis[Math.floor(Math.random()*leafEmojis.length)];
+    lf.style.cssText=`left:${Math.random()*100}%;
+      animation-duration:${8+Math.random()*6}s;animation-delay:${Math.random()*8}s`;
+    bg.appendChild(lf);
+  }
+
+  // Deer (simple SVG, walks across periodically)
+  function spawnDeer(){
+    const dw=document.createElement('div');dw.className='deer-wrap';
+    const dur=18+Math.random()*10;
+    dw.style.cssText=`left:0;animation-duration:${dur}s;animation-delay:0s`;
+    dw.innerHTML=`<svg width="55" height="40" viewBox="0 0 55 40">
+      <ellipse cx="28" cy="28" rx="14" ry="8" fill="#c9884a"/>
+      <rect x="22" y="28" width="3" height="10" rx="2" fill="#a0673a"/>
+      <rect x="28" y="28" width="3" height="10" rx="2" fill="#a0673a"/>
+      <rect x="34" y="27" width="3" height="10" rx="2" fill="#a0673a"/>
+      <rect x="38" y="27" width="3" height="10" rx="2" fill="#a0673a"/>
+      <ellipse cx="42" cy="22" rx="8" ry="7" fill="#c9884a"/>
+      <circle cx="45" cy="18" r="4" fill="#c9884a"/>
+      <circle cx="47" cy="17" r="1.5" fill="#2d1b0e"/>
+      <line x1="44" y1="14" x2="40" y2="8" stroke="#8b5e3c" stroke-width="1.5"/>
+      <line x1="46" y1="13" x2="50" y2="7" stroke="#8b5e3c" stroke-width="1.5"/>
+      <line x1="40" y1="8" x2="37" y2="4" stroke="#8b5e3c" stroke-width="1"/>
+      <line x1="40" y1="8" x2="43" y2="4" stroke="#8b5e3c" stroke-width="1"/>
+      <line x1="50" y1="7" x2="47" y2="3" stroke="#8b5e3c" stroke-width="1"/>
+      <line x1="50" y1="7" x2="53" y2="3" stroke="#8b5e3c" stroke-width="1"/>
+    </svg>`;
+    bg.appendChild(dw);
+    setTimeout(()=>{ dw.remove(); spawnDeer(); },(dur+2)*1000);
+  }
+  setTimeout(spawnDeer, 3000);
+})();
+
+/* ══════════════════════════════════════════════
+   DATA
+══════════════════════════════════════════════ */
+const A1_STEPS = [
+  {id:'a1s0', icon:'💵', label:'Monthly Income',    pos:0},
+  {id:'a1s1', icon:'🛒', label:'Expenses',          pos:1},
+  {id:'a1s2', icon:'🐷', label:'Savings',           pos:2},
+  {id:'a1s3', icon:'📈', label:'Investment Return', pos:3},
+  {id:'a1s4', icon:'🏆', label:'Net Worth',         pos:4},
+];
+
+const A1_NODES = [
+  'Monthly Income', 'Expenses', 'Savings', 'Investment Return', 'Net Worth'
+];
+
+const A2_ROWS = [
+  {num:'01', concept:'Monthly Income',       example:'₹500 allowance + ₹200 gift',   answer:{id:'c-income',  icon:'💵', label:'Monthly Income',       hint:'What money comes IN every month'}},
+  {num:'02', concept:'Monthly Expenses',     example:'Snacks, stationery, fun spends', answer:{id:'c-expense', icon:'🛒', label:'Monthly Expenses',      hint:'What money goes OUT every month'}},
+  {num:'03', concept:'Savings Rate',         example:'Save ₹200 out of ₹500',        answer:{id:'c-savrate', icon:'%',  label:'Savings Rate (%)',       hint:'What % of income you keep'}},
+  {num:'04', concept:'Investment Return',    example:'10% per year in a Mutual Fund', answer:{id:'c-return',  icon:'📈', label:'Investment Return (%)',   hint:'Annual growth rate of your investment'}},
+  {num:'05', concept:'Yearly Growth Amount', example:'₹2,400 saved × 10% = ₹240',   answer:{id:'c-growth',  icon:'🌱', label:'Yearly Growth Amount',   hint:'Extra money earned from investing'}},
+  {num:'06', concept:'Net Worth at Age 21',  example:'₹1,000/mo × 10 yrs = ₹17,500',answer:{id:'c-nw',      icon:'🏆', label:'Net Worth at Age 21',    hint:'Total wealth after 10 years'}},
+];
+
+const A3_STEPS = [
+  {id:'a3s0', icon:'💵', label:'Enter Monthly Income',       pos:0},
+  {id:'a3s1', icon:'➖', label:'Subtract Expenses',          pos:1},
+  {id:'a3s2', icon:'🐷', label:'Calculate Savings',          pos:2},
+  {id:'a3s3', icon:'📈', label:'Apply Investment Returns',   pos:3},
+  {id:'a3s4', icon:'🌱', label:'Project Yearly Growth',      pos:4},
+  {id:'a3s5', icon:'🏆', label:'View Final Net Worth',       pos:5},
+];
+
+/* ══════════════════════════════════════════════
+   DRAG HELPERS (no stale dragSource global)
+══════════════════════════════════════════════ */
+let _dragged = null;
+
+function makeDrag(el){
+  el.setAttribute('draggable','true');
+  el.addEventListener('dragstart', e=>{
+    _dragged = el; el.classList.add('dragging');
+    e.dataTransfer.effectAllowed='move';
+    e.dataTransfer.setData('text/plain', el.id);
+  });
+  el.addEventListener('dragend', ()=>{
+    el.classList.remove('dragging');
+    document.querySelectorAll('.drag-over').forEach(z=>z.classList.remove('drag-over'));
+  });
+}
+
+function makeDrop(zone, onDrop){
+  zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', ()=> zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e=>{
+    e.preventDefault(); zone.classList.remove('drag-over');
+    if(_dragged) onDrop(zone, _dragged);
+  });
+}
+
+function shuffle(a){ const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];} return b; }
+
+function removeFb(el){ el.querySelectorAll('.fb-tick').forEach(f=>f.remove()); el.classList.remove('correct','wrong','a1-drop--correct'); }
+function addFb(el, ok){
+  const t=document.createElement('div'); t.className=`fb-tick ${ok?'ok':'no'}`; t.textContent=ok?'✓':'✗'; el.appendChild(t);
+}
+
+/* ══════════════════════════════════════════════
+   ACTIVITY 1
+══════════════════════════════════════════════ */
+function initAct1(){
+  const pool = document.getElementById('a1-pool');
+  const pipeline = document.getElementById('a1-pipeline');
+  pool.innerHTML=''; pipeline.innerHTML='';
+
+  // Create shuffled cards in pool
+  shuffle(A1_STEPS).forEach(step=>{
+    const c=document.createElement('div'); c.className='a1-card'; c.id='a1c-'+step.id;
+    c.dataset.pos=step.pos;
+    c.innerHTML=`<span class="ci">${step.icon}</span>${step.label}`;
+    pool.appendChild(c);
+    makeDrag(c);
+  });
+  // Make pool a drop target (return zone)
+  makeDrop(pool, (zone, card)=>{
+    if(!card.classList.contains('a1-card')) return;
+    const prevParent=card.parentElement;
+    if(prevParent && prevParent.classList.contains('a1-drop')){
+      prevParent.innerHTML='<span class="ph">Drop here</span>';
+      prevParent.classList.remove('correct','wrong');
+    }
+    pool.appendChild(card);
+    updateA1Score();
+  });
+
+  // Build pipeline nodes
+  A1_NODES.forEach((lbl, i)=>{
+    if(i>0){
+      const arr=document.createElement('div'); arr.className='a1-arrow'; arr.textContent='→';
+      pipeline.appendChild(arr);
+    }
+    const node=document.createElement('div'); node.className='a1-node';
+    node.innerHTML=`<div class="a1-node-label">${lbl}</div>
+      <div class="a1-drop" id="a1d-${i}" data-idx="${i}"><span class="ph">Drop here</span></div>`;
+    pipeline.appendChild(node);
+    const dz=node.querySelector('.a1-drop');
+    makeDrop(dz, (zone, card)=>{
+      if(!card.classList.contains('a1-card')) return;
+      // Return existing card to pool
+      const existing=zone.querySelector('.a1-card');
+      if(existing){ pool.appendChild(existing); }
+      // Return card from another drop zone
+      const prevParent=card.parentElement;
+      if(prevParent && prevParent.classList.contains('a1-drop') && prevParent!==zone){
+        prevParent.innerHTML='<span class="ph">Drop here</span>';
+        prevParent.classList.remove('correct','wrong');
+        removeFb(prevParent);
+      }
+      zone.innerHTML='';
+      zone.appendChild(card);
+      updateA1Score();
+    });
+  });
+  updateA1Score();
+}
+
+function updateA1Score(){
+  let n=0;
+  document.querySelectorAll('.a1-drop .a1-card').forEach(()=>n++);
+  document.querySelector('#a1-score span').textContent=n;
+}
+
+function checkAct1(){
+  let ok=0;
+  document.querySelectorAll('.a1-drop').forEach(dz=>{
+    removeFb(dz); dz.classList.remove('correct','wrong');
+    const card=dz.querySelector('.a1-card');
+    const idx=parseInt(dz.dataset.idx);
+    if(card){
+      const pos=parseInt(card.dataset.pos);
+      if(pos===idx){ dz.classList.add('correct'); addFb(dz,true); ok++; card.style.cursor='default'; card.setAttribute('draggable','false'); }
+      else{ dz.classList.add('wrong'); addFb(dz,false); setTimeout(()=>{dz.classList.remove('wrong');removeFb(dz);},700); }
+    }
+  });
+  document.querySelector('#a1-score span').textContent=ok;
+  if(ok===5) setTimeout(()=>document.getElementById('pop1').classList.remove('hidden'),600);
+}
+function resetAct1(){ initAct1(); }
+
+/* ══════════════════════════════════════════════
+   ACTIVITY 2
+══════════════════════════════════════════════ */
+function initAct2(){
+  const cardsWrap=document.getElementById('a2-cards');
+  const tbody=document.getElementById('a2-tbody');
+  cardsWrap.innerHTML=''; tbody.innerHTML='';
+  cardsWrap.style.cssText='display:flex;flex-direction:column;gap:5px';
+
+  // Shuffled cards
+  shuffle(A2_ROWS.map(r=>r.answer)).forEach(ans=>{
+    const c=document.createElement('div'); c.className='a2-card'; c.id='a2c-'+ans.id;
+    c.dataset.aid=ans.id;
+    c.innerHTML=`<span class="ci">${ans.icon}</span>${ans.label}`;
+    cardsWrap.appendChild(c);
+    makeDrag(c);
+  });
+  // Pool as return zone
+  makeDrop(cardsWrap, (zone, card)=>{
+    if(!card.classList.contains('a2-card')) return;
+    const prev=card.parentElement;
+    if(prev && prev.classList.contains('a2-drop')){
+      prev.textContent=prev.dataset.hint||'Drop here…';
+      prev.classList.remove('correct','wrong');
+      removeFb(prev);
+    }
+    cardsWrap.appendChild(card);
+    updateA2Score();
+  });
+
+  // Table rows
+  A2_ROWS.forEach((row, i)=>{
+    const tr=document.createElement('tr'); tr.className='a2-row';
+    tr.innerHTML=`<td>${row.num}</td>
+      <td class="a2-concept">${row.concept}</td>
+      <td><div class="a2-drop" id="a2d-${i}" data-idx="${i}" data-aid="${row.answer.id}" data-hint="Drop here…">Drop here…</div></td>
+      <td style="font-size:10px;color:var(--text-dim)">${row.example}</td>`;
+    tbody.appendChild(tr);
+    const dz=tr.querySelector('.a2-drop');
+    makeDrop(dz,(zone,card)=>{
+      if(!card.classList.contains('a2-card')) return;
+      const existing=zone.querySelector('.a2-card');
+      if(existing){ cardsWrap.appendChild(existing); }
+      const prev=card.parentElement;
+      if(prev && prev.classList.contains('a2-drop') && prev!==zone){
+        prev.textContent=prev.dataset.hint||'Drop here…';
+        prev.classList.remove('correct','wrong'); removeFb(prev);
+      }
+      zone.innerHTML='';
+      zone.appendChild(card);
+      updateA2Score();
+    });
+  });
+  updateA2Score();
+}
+
+function updateA2Score(){
+  let n=0; document.querySelectorAll('.a2-drop .a2-card').forEach(()=>n++);
+  document.querySelector('#a2-score span').textContent=n;
+}
+
+function checkAct2(){
+  let ok=0;
+  document.querySelectorAll('.a2-drop').forEach(dz=>{
+    removeFb(dz); dz.classList.remove('correct','wrong');
+    const card=dz.querySelector('.a2-card');
+    if(card){
+      if(card.dataset.aid===dz.dataset.aid){ dz.classList.add('correct'); addFb(dz,true); ok++; card.style.cursor='default'; card.setAttribute('draggable','false'); }
+      else{ dz.classList.add('wrong'); addFb(dz,false); setTimeout(()=>{dz.classList.remove('wrong');removeFb(dz);},700); }
+    }
+  });
+  document.querySelector('#a2-score span').textContent=ok;
+  if(ok===6) setTimeout(()=>document.getElementById('pop2').classList.remove('hidden'),600);
+}
+function resetAct2(){ initAct2(); }
+
+/* ══════════════════════════════════════════════
+   ACTIVITY 3
+══════════════════════════════════════════════ */
+function initAct3(){
+  const cardsWrap=document.getElementById('a3-cards');
+  const flow=document.getElementById('a3-flow');
+  cardsWrap.innerHTML=''; flow.innerHTML='';
+  cardsWrap.style.cssText='display:flex;flex-direction:column;gap:6px';
+
+  // Shuffled cards
+  shuffle(A3_STEPS).forEach(step=>{
+    const c=document.createElement('div'); c.className='a3-card'; c.id='a3c-'+step.id;
+    c.dataset.pos=step.pos;
+    c.innerHTML=`<span class="ci">${step.icon}</span>${step.label}`;
+    cardsWrap.appendChild(c);
+    makeDrag(c);
+  });
+  // Pool as return zone
+  makeDrop(cardsWrap,(zone,card)=>{
+    if(!card.classList.contains('a3-card')) return;
+    const prev=card.parentElement;
+    if(prev && prev.classList.contains('a3-drop')){
+      prev.innerHTML='<span style="font-size:10px;color:rgba(255,255,255,.2);font-style:italic">Drop step here…</span>';
+      prev.classList.remove('correct','wrong'); removeFb(prev);
+    }
+    cardsWrap.appendChild(card);
+    updateA3Score();
+  });
+
+  // Flow steps
+  A3_STEPS.forEach((step, i)=>{
+    if(i>0){
+      const conn=document.createElement('div'); conn.className='a3-conn'; flow.appendChild(conn);
+    }
+    const stepDiv=document.createElement('div'); stepDiv.className='a3-step';
+    stepDiv.innerHTML=`<div class="a3-step-num">${i+1}</div>
+      <div class="a3-drop" id="a3d-${i}" data-idx="${i}">
+        <span style="font-size:10px;color:rgba(255,255,255,.2);font-style:italic">Drop step here…</span>
+      </div>`;
+    flow.appendChild(stepDiv);
+    const dz=stepDiv.querySelector('.a3-drop');
+    makeDrop(dz,(zone,card)=>{
+      if(!card.classList.contains('a3-card')) return;
+      const existing=zone.querySelector('.a3-card');
+      if(existing){ cardsWrap.appendChild(existing); }
+      const prev=card.parentElement;
+      if(prev && prev.classList.contains('a3-drop') && prev!==zone){
+        prev.innerHTML='<span style="font-size:10px;color:rgba(255,255,255,.2);font-style:italic">Drop step here…</span>';
+        prev.classList.remove('correct','wrong'); removeFb(prev);
+      }
+      zone.innerHTML='';
+      zone.appendChild(card);
+      updateA3Score();
+    });
+  });
+  updateA3Score();
+}
+
+function updateA3Score(){
+  let n=0; document.querySelectorAll('#a3-flow .a3-drop .a3-card').forEach(()=>n++);
+  document.querySelector('#a3-score span').textContent=n;
+}
+
+function checkAct3(){
+  let ok=0;
+  document.querySelectorAll('#a3-flow .a3-drop').forEach(dz=>{
+    removeFb(dz); dz.classList.remove('correct','wrong');
+    const card=dz.querySelector('.a3-card');
+    const idx=parseInt(dz.dataset.idx);
+    if(card){
+      if(parseInt(card.dataset.pos)===idx){ dz.classList.add('correct'); addFb(dz,true); ok++; card.style.cursor='default'; card.setAttribute('draggable','false'); }
+      else{ dz.classList.add('wrong'); addFb(dz,false); setTimeout(()=>{dz.classList.remove('wrong');removeFb(dz);},700); }
+    }
+  });
+  document.querySelector('#a3-score span').textContent=ok;
+  if(ok===6){ launchConfetti(); setTimeout(()=>document.getElementById('pop3').classList.remove('hidden'),700); }
+}
+function resetAct3(){ initAct3(); }
+
+/* ══════════════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════════════ */
+function setProgress(step){
+  [1,2,3].forEach(i=>{
+    const p=document.getElementById('ps'+i);
+    p.classList.remove('active','done');
+    if(i<step) p.classList.add('done');
+    else if(i===step) p.classList.add('active');
+  });
+  [1,2].forEach(i=>{
+    document.getElementById('pl'+i).classList.toggle('done', i<step);
+  });
+}
+function goAct2(){
+  document.getElementById('pop1').classList.add('hidden');
+  document.getElementById('act1').classList.remove('active');
+  document.getElementById('act2').classList.add('active');
+  setProgress(2); initAct2();
+}
+function goAct3(){
+  document.getElementById('pop2').classList.add('hidden');
+  document.getElementById('act2').classList.remove('active');
+  document.getElementById('act3').classList.add('active');
+  setProgress(3); initAct3();
+}
+function playAgain(){
+  document.querySelectorAll('.pop-overlay').forEach(p=>p.classList.add('hidden'));
+  document.querySelectorAll('.confetti-p').forEach(c=>c.remove());
+  document.getElementById('act3').classList.remove('active');
+  document.getElementById('act1').classList.add('active');
+  setProgress(1); initAct1();
+}
+
+/* ══════════════════════════════════════════════
+   CONFETTI
+══════════════════════════════════════════════ */
+function launchConfetti(){
+  const cols=['#52b788','#ffd166','#f4a261','#e76f51','#48cae4','#ccff00','#1b4332'];
+  for(let i=0;i<90;i++){
+    const c=document.createElement('div'); c.className='confetti-p';
+    const sz=5+Math.random()*8;
+    c.style.cssText=`left:${8+Math.random()*84}%;top:0;width:${sz}px;height:${sz}px;
+      background:${cols[Math.floor(Math.random()*cols.length)]};
+      animation-duration:${1.5+Math.random()*2}s;animation-delay:${Math.random()*.6}s;
+      border-radius:${Math.random()>.5?'50%':'2px'}`;
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(),3800);
+  }
+}
+
+/* INIT */
+initAct1();
+</script>
+</body>
+</html>

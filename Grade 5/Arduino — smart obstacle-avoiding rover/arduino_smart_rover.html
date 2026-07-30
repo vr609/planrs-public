@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARDUINO — SMART OBSTACLE-AVOIDING ROVER</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+
+:root {
+  --pink:    #ff6eb4;
+  --purple:  #a855f7;
+  --blue:    #60a5fa;
+  --mint:    #34d399;
+  --yellow:  #fbbf24;
+  --peach:   #fb923c;
+  --lavender:#c084fc;
+  --sky:     #e0f2fe;
+  --white:   #ffffff;
+  --softbg:  #fdf4ff;
+  --text:    #4a1d6b;
+  --dim:     #9d6bb5;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif;background:var(--softbg);color:var(--text);}
+
+/* ── MAGIC CANVAS ── */
+#magic-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;}
+
+/* ── APP SHELL ── */
+#app{position:relative;z-index:1;width:100vw;height:100vh;display:flex;flex-direction:column;}
+
+/* ── HEADER ── */
+#header{
+  flex-shrink:0;padding:8px 20px 6px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(90deg,rgba(255,110,180,.18),rgba(168,85,247,.18),rgba(96,165,250,.18));
+  border-bottom:2px solid rgba(168,85,247,.2);
+  backdrop-filter:blur(4px);
+}
+#header h1{
+  font-family:'Fredoka One',cursive;
+  font-size:clamp(11px,1.7vw,19px);
+  letter-spacing:.06em;
+  background:linear-gradient(90deg,var(--pink),var(--purple),var(--blue));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+#progress-dots{display:flex;gap:8px;align-items:center;}
+.dot{width:30px;height:8px;border-radius:4px;background:rgba(168,85,247,.15);transition:background .4s,box-shadow .4s;}
+.dot.active{background:var(--purple);box-shadow:0 0 8px var(--purple);}
+.dot.done{background:var(--mint);box-shadow:0 0 8px var(--mint);}
+
+/* ── STAGE ── */
+#stage{flex:1;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 14px;}
+
+.activity{display:none;width:100%;height:100%;flex-direction:column;align-items:center;}
+.activity.active{display:flex;}
+
+.act-title{font-family:'Fredoka One',cursive;font-size:clamp(14px,2vw,22px);color:var(--purple);letter-spacing:.05em;margin-bottom:4px;text-align:center;}
+.act-sub{font-size:clamp(10px,1.2vw,13px);color:var(--dim);margin-bottom:8px;text-align:center;max-width:620px;line-height:1.4;}
+
+/* ── RESET BTN ── */
+.reset-btn{
+  position:absolute;bottom:8px;right:14px;
+  padding:5px 14px;border-radius:20px;
+  border:1.5px solid var(--lavender);background:rgba(192,132,252,.08);
+  color:var(--purple);font-family:'Nunito',sans-serif;font-size:11px;font-weight:700;
+  cursor:pointer;transition:background .2s,box-shadow .2s;letter-spacing:.04em;
+}
+.reset-btn:hover{background:rgba(168,85,247,.15);box-shadow:0 0 10px rgba(168,85,247,.3);}
+
+/* ── GHOST ── */
+#drag-ghost{position:fixed;pointer-events:none;z-index:9999;opacity:.88;transform:translate(-50%,-50%) scale(1.08) rotate(-2deg);display:none;}
+
+/* ════════════════════════════════════════
+   ACTIVITY 1 — SNAP-TO-BOARD
+════════════════════════════════════════ */
+#act1-arena{display:flex;gap:14px;align-items:flex-start;justify-content:center;width:100%;flex:1;}
+
+#parts-tray{display:flex;flex-direction:column;gap:6px;justify-content:center;width:110px;flex-shrink:0;}
+
+.part-chip{
+  padding:7px 8px;border-radius:10px;font-size:10px;font-weight:700;
+  text-align:center;cursor:grab;user-select:none;touch-action:none;
+  transition:transform .15s,box-shadow .15s,opacity .2s;
+  border:1.5px solid transparent;
+  line-height:1.3;
+}
+.part-chip:hover{transform:scale(1.05);box-shadow:0 4px 14px rgba(0,0,0,.18);}
+.part-chip.dragging-active{opacity:.35;transform:scale(.95);}
+.part-chip.used{opacity:.2;pointer-events:none;}
+
+.pc-arduino {background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-color:#60a5fa;color:#1d4ed8;}
+.pc-sensor  {background:linear-gradient(135deg,#fce7f3,#fbcfe8);border-color:#f472b6;color:#9d174d;}
+.pc-driver  {background:linear-gradient(135deg,#ede9fe,#ddd6fe);border-color:#a78bfa;color:#5b21b6;}
+.pc-motor   {background:linear-gradient(135deg,#d1fae5,#a7f3d0);border-color:#34d399;color:#065f46;}
+.pc-battery {background:linear-gradient(135deg,#fef9c3,#fef08a);border-color:#fbbf24;color:#92400e;}
+.pc-chassis {background:linear-gradient(135deg,#ffe4e6,#fecdd3);border-color:#fb7185;color:#9f1239;}
+
+/* Rover board */
+#rover-board{
+  position:relative;
+  width:clamp(290px,50vw,560px);height:clamp(250px,40vh,400px);
+  background:linear-gradient(135deg,#fdf4ff,#f5f0ff);
+  border:2px solid rgba(168,85,247,.25);border-radius:16px;
+  box-shadow:0 4px 30px rgba(168,85,247,.1),inset 0 0 40px rgba(192,132,252,.05);
+  flex-shrink:0;
+}
+/* pastel grid */
+#rover-board::before{
+  content:'';position:absolute;inset:0;
+  background-image:linear-gradient(rgba(168,85,247,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(168,85,247,.06) 1px,transparent 1px);
+  background-size:24px 24px;border-radius:16px;
+}
+
+.slot{
+  position:absolute;width:72px;height:32px;border-radius:8px;
+  border:2px dashed rgba(168,85,247,.35);background:rgba(255,255,255,.4);
+  display:flex;align-items:center;justify-content:center;
+  font-size:8.5px;color:rgba(100,60,140,.5);text-align:center;line-height:1.2;
+  transition:border-color .2s,background .2s,box-shadow .2s;
+}
+.slot.hover-glow{border-color:var(--purple);background:rgba(168,85,247,.1);box-shadow:0 0 12px rgba(168,85,247,.3);}
+.slot.filled{border-style:solid;border-color:var(--mint);background:rgba(52,211,153,.08);}
+.slot.wrong{border-color:var(--pink);background:rgba(255,110,180,.08);animation:shake .3s;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+/* ════════════════════════════════════════
+   ACTIVITY 2 — LOGIC FLOW PUZZLE
+════════════════════════════════════════ */
+#act2-arena{display:flex;gap:16px;width:100%;flex:1;align-items:center;justify-content:center;}
+
+#logic-pool{display:flex;flex-direction:column;gap:6px;width:190px;flex-shrink:0;}
+
+.logic-card{
+  padding:8px 12px;border-radius:10px;font-size:10.5px;font-weight:700;
+  cursor:grab;user-select:none;touch-action:none;
+  border:1.5px solid rgba(168,85,247,.3);
+  background:linear-gradient(135deg,rgba(253,244,255,.95),rgba(245,240,255,.95));
+  color:var(--text);transition:transform .15s,box-shadow .15s,opacity .2s;
+  display:flex;align-items:center;gap:8px;letter-spacing:.02em;
+}
+.logic-card:hover{transform:scale(1.03);box-shadow:0 4px 14px rgba(168,85,247,.25);}
+.logic-card.dragging-active{opacity:.3;}
+.logic-card.used{opacity:.18;pointer-events:none;}
+.lc-icon{font-size:16px;flex-shrink:0;}
+
+/* Pipeline */
+#logic-pipeline{
+  display:flex;flex-direction:column;align-items:center;gap:0;
+  flex-shrink:0;
+}
+
+.pipe-row{display:flex;align-items:center;gap:6px;}
+
+.pipe-slot{
+  width:200px;height:36px;border-radius:10px;
+  border:2px dashed rgba(168,85,247,.35);
+  background:rgba(255,255,255,.5);
+  display:flex;align-items:center;padding:0 10px;
+  font-size:10px;color:rgba(100,60,140,.4);
+  transition:border-color .2s,background .2s,box-shadow .2s;
+  font-weight:600;
+}
+.pipe-slot.hover-glow{border-color:var(--purple);background:rgba(168,85,247,.08);box-shadow:0 0 12px rgba(168,85,247,.25);}
+.pipe-slot.filled{border-style:solid;border-color:var(--mint);color:var(--text);font-size:10.5px;}
+.pipe-slot.wrong-slot{border-color:var(--pink);color:var(--pink);animation:shake .3s;}
+
+.pipe-arrow{
+  width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  font-size:18px;color:var(--lavender);opacity:.7;flex-shrink:0;
+}
+.pipe-connector{width:2px;height:10px;background:linear-gradient(var(--lavender),var(--blue));margin:0 auto;opacity:.5;}
+
+/* Branch lines for if/else */
+.branch-group{display:flex;flex-direction:column;align-items:center;gap:0;}
+.branch-row{display:flex;gap:8px;align-items:center;}
+.branch-label{
+  font-family:'Fredoka One',cursive;font-size:10px;
+  padding:2px 8px;border-radius:10px;
+  color:#fff;white-space:nowrap;
+}
+.bl-if{background:var(--pink);}
+.bl-else{background:var(--blue);}
+
+/* ════════════════════════════════════════
+   ACTIVITY 3 — RAINBOW QUIZ WHEEL
+════════════════════════════════════════ */
+#act3-arena{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  flex:1;width:100%;justify-content:center;overflow:hidden;
+}
+
+#quiz-status{font-family:'Fredoka One',cursive;font-size:13px;color:var(--purple);letter-spacing:.05em;flex-shrink:0;}
+
+/* Main 3-column layout: questions | arrow | bins+tokens stacked */
+#quiz-container{
+  display:flex;gap:10px;align-items:stretch;justify-content:center;
+  width:100%;flex:1;overflow:hidden;min-height:0;
+}
+
+/* Left: question cards column */
+#question-panel{
+  width:clamp(160px,24vw,240px);flex-shrink:0;
+  display:flex;flex-direction:column;gap:4px;justify-content:center;
+}
+.question-card{
+  padding:6px 10px;border-radius:10px;
+  border:1.5px solid rgba(168,85,247,.25);
+  background:linear-gradient(135deg,rgba(253,244,255,.9),rgba(245,240,255,.9));
+  font-size:clamp(8px,1.05vw,10px);font-weight:700;color:var(--text);line-height:1.3;
+  position:relative;flex:1;display:flex;align-items:center;
+  transition:border-color .3s,box-shadow .3s;
+}
+.question-card.answered{border-color:var(--mint);background:rgba(52,211,153,.06);}
+.question-card .q-num{
+  font-family:'Fredoka One',cursive;font-size:10px;color:var(--purple);
+  margin-right:5px;flex-shrink:0;
+}
+.question-card .q-badge{
+  position:absolute;top:4px;right:6px;font-size:12px;
+}
+
+/* Middle: right-arrow column */
+#quiz-arrows{
+  display:flex;flex-direction:column;justify-content:space-around;
+  align-items:center;flex-shrink:0;padding:0 2px;
+  font-size:12px;color:var(--lavender);gap:0;
+}
+.q-arrow{flex:1;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--lavender);opacity:.7;}
+
+/* Right: bins on top, tokens below */
+#bins-tokens{
+  display:flex;flex-direction:column;gap:6px;flex:1;min-width:0;overflow:hidden;
+  justify-content:center;
+}
+
+/* Answer bins grid 4x2 */
+#answer-bins{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:5px;width:100%;
+}
+.answer-bin{
+  border-radius:10px;
+  border:2px dashed rgba(168,85,247,.3);
+  background:rgba(255,255,255,.45);
+  display:flex;align-items:center;justify-content:center;
+  padding:4px 3px;text-align:center;
+  font-size:clamp(7.5px,0.95vw,9px);font-weight:700;
+  color:rgba(100,60,140,.4);
+  transition:border-color .2s,background .2s,box-shadow .2s;
+  flex-direction:column;gap:2px;
+  min-height:0;aspect-ratio:unset;height:clamp(36px,5.5vh,52px);
+}
+.answer-bin.hover-glow{border-color:var(--purple);background:rgba(168,85,247,.08);box-shadow:0 0 12px rgba(168,85,247,.25);}
+.answer-bin.bin-filled{border-style:solid;border-color:var(--mint);background:rgba(52,211,153,.06);color:var(--text);}
+.answer-bin.bin-wrong{border-color:var(--pink);background:rgba(255,110,180,.06);animation:shake .3s;}
+
+/* Divider label */
+#bins-label{
+  font-family:'Fredoka One',cursive;font-size:10px;color:var(--dim);
+  text-align:center;letter-spacing:.04em;flex-shrink:0;
+}
+
+/* Answer tokens grid 4x2 */
+#answer-pool{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:5px;width:100%;
+}
+.ans-token{
+  padding:5px 4px;border-radius:9px;
+  font-size:clamp(7.5px,0.95vw,9px);font-weight:700;
+  text-align:center;cursor:grab;user-select:none;touch-action:none;
+  transition:transform .15s,box-shadow .15s,opacity .2s;
+  border:1.5px solid transparent;
+  line-height:1.3;color:var(--white);
+  height:clamp(34px,5vh,48px);
+  display:flex;align-items:center;justify-content:center;
+}
+.ans-token:hover{transform:scale(1.06);box-shadow:0 4px 12px rgba(0,0,0,.2);}
+.ans-token.dragging-active{opacity:.3;}
+.ans-token.used{opacity:.15;pointer-events:none;}
+
+.at-0{background:linear-gradient(135deg,#f472b6,#ec4899);}
+.at-1{background:linear-gradient(135deg,#a78bfa,#8b5cf6);}
+.at-2{background:linear-gradient(135deg,#60a5fa,#3b82f6);}
+.at-3{background:linear-gradient(135deg,#34d399,#10b981);}
+.at-4{background:linear-gradient(135deg,#fbbf24,#f59e0b);}
+.at-5{background:linear-gradient(135deg,#fb923c,#f97316);}
+.at-6{background:linear-gradient(135deg,#e879f9,#d946ef);}
+.at-7{background:linear-gradient(135deg,#38bdf8,#0ea5e9);}
+
+/* ── POPUP ── */
+#popup-overlay{position:fixed;inset:0;background:rgba(240,220,255,.82);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:100;}
+#popup-overlay.show{display:flex;}
+#popup-box{
+  background:linear-gradient(145deg,#fff0ff,#fdf4ff);
+  border:2px solid rgba(168,85,247,.3);border-radius:20px;
+  padding:34px 44px;text-align:center;max-width:460px;
+  box-shadow:0 8px 40px rgba(168,85,247,.2),0 0 80px rgba(255,110,180,.1);
+}
+#popup-icon{font-size:54px;margin-bottom:10px;}
+#popup-title{font-family:'Fredoka One',cursive;font-size:24px;letter-spacing:.08em;color:var(--purple);margin-bottom:8px;}
+#popup-body{font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:22px;}
+#popup-btn{
+  padding:11px 32px;border-radius:30px;border:none;
+  background:linear-gradient(90deg,var(--pink),var(--purple));
+  color:#fff;font-family:'Fredoka One',cursive;font-size:15px;letter-spacing:.08em;
+  cursor:pointer;transition:transform .15s,box-shadow .15s;
+  box-shadow:0 4px 18px rgba(168,85,247,.35);
+}
+#popup-btn:hover{transform:scale(1.04);box-shadow:0 6px 26px rgba(168,85,247,.5);}
+#play-again-btn{
+  display:none;margin-top:12px;padding:9px 26px;border-radius:30px;
+  border:2px solid var(--mint);background:transparent;color:var(--mint);
+  font-family:'Fredoka One',cursive;font-size:13px;letter-spacing:.06em;
+  cursor:pointer;transition:background .2s,box-shadow .2s;
+}
+#play-again-btn:hover{background:rgba(52,211,153,.12);box-shadow:0 0 14px rgba(52,211,153,.35);}
+#play-again-btn.show{display:inline-block;}
+
+/* sparkle confetti */
+.sparkle-piece{position:fixed;pointer-events:none;z-index:200;font-size:18px;animation:sparkleFall linear forwards;}
+@keyframes sparkleFall{0%{transform:translateY(-20px) rotate(0deg) scale(1);opacity:1;}100%{transform:translateY(110vh) rotate(540deg) scale(.3);opacity:0;}}
+</style>
+</head>
+<body>
+<canvas id="magic-canvas"></canvas>
+
+<div id="app">
+  <div id="header">
+    <h1>🦄 ARDUINO — SMART OBSTACLE-AVOIDING ROVER</h1>
+    <div id="progress-dots">
+      <div class="dot active" id="dot-1"></div>
+      <div class="dot" id="dot-2"></div>
+      <div class="dot" id="dot-3"></div>
+    </div>
+  </div>
+
+  <div id="stage">
+
+    <!-- ══ ACTIVITY 1: SNAP-TO-BOARD ══ -->
+    <div class="activity active" id="activity-1">
+      <div class="act-title">🔧 QUEST 1: BUILD YOUR ROVER!</div>
+      <div class="act-sub">Drag each component and snap it onto its correct position on the rover board. Get all six right to power it up!</div>
+      <div id="act1-arena">
+        <div id="parts-tray"></div>
+        <div id="rover-board">
+          <div class="slot" id="sl-arduino"  style="left:10%;top:8%"><span>🧠 Brain<br/>Unit</span></div>
+          <div class="slot" id="sl-sensor"   style="left:38%;top:8%"><span>👁️ Eyes<br/>Sensor</span></div>
+          <div class="slot" id="sl-driver"   style="left:66%;top:8%"><span>🔌 Motor<br/>Driver</span></div>
+          <div class="slot" id="sl-motor"    style="left:10%;top:53%"><span>⚙️ Drive<br/>Motors</span></div>
+          <div class="slot" id="sl-battery"  style="left:38%;top:53%"><span>🔋 Power<br/>Source</span></div>
+          <div class="slot" id="sl-chassis"  style="left:66%;top:53%"><span>🚗 Rover<br/>Chassis</span></div>
+        </div>
+      </div>
+      <button class="reset-btn" onclick="resetAct1()">↺ RESET</button>
+    </div>
+
+    <!-- ══ ACTIVITY 2: LOGIC FLOW PUZZLE ══ -->
+    <div class="activity" id="activity-2">
+      <div class="act-title">🧩 QUEST 2: PROGRAM THE ROVER BRAIN!</div>
+      <div class="act-sub">Drag the code blocks into the correct slots to build the obstacle-avoidance logic flow!</div>
+      <div id="act2-arena">
+        <div id="logic-pool"></div>
+        <div id="logic-pipeline"></div>
+      </div>
+      <button class="reset-btn" onclick="resetAct2()">↺ RESET</button>
+    </div>
+
+    <!-- ══ ACTIVITY 3: RAINBOW QUIZ MATCH ══ -->
+    <div class="activity" id="activity-3">
+      <div class="act-title">🌈 QUEST 3: ROVER KNOWLEDGE CHALLENGE!</div>
+      <div class="act-sub">Drag the correct answer token onto each question card. Match them all to complete the mission!</div>
+      <div id="act3-arena">
+        <div id="quiz-status">Answered: 0 / 8</div>
+        <div id="quiz-container">
+          <div id="question-panel"></div>
+          <div id="answer-bins"></div>
+        </div>
+        <div id="answer-pool"></div>
+      </div>
+      <button class="reset-btn" onclick="resetAct3()">↺ RESET</button>
+    </div>
+
+  </div>
+</div>
+
+<div id="drag-ghost"></div>
+
+<div id="popup-overlay">
+  <div id="popup-box">
+    <div id="popup-icon">🦄</div>
+    <div id="popup-title">MAGIC UNLOCKED!</div>
+    <div id="popup-body">Amazing work, Rover Engineer!</div>
+    <button id="popup-btn" onclick="popupNext()">NEXT QUEST ✨</button><br>
+    <button id="play-again-btn" onclick="playAgain()">↺ PLAY AGAIN</button>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   MAGIC CANVAS — Unicorn / Rainbow World
+══════════════════════════════════════════ */
+(function(){
+  const c=document.getElementById('magic-canvas');
+  const ctx=c.getContext('2d');
+  let W,H;
+  const clouds=[],stars=[],sparkles=[],rainbows=[];
+
+  function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
+  window.addEventListener('resize',resize);resize();
+
+  // Clouds
+  for(let i=0;i<7;i++) clouds.push({x:Math.random()*W,y:Math.random()*H*.55,w:Math.random()*100+60,h:Math.random()*40+24,vx:Math.random()*.25+.08,alpha:Math.random()*.4+.25});
+
+  // Stars
+  for(let i=0;i<120;i++) stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*2.2+.4,phase:Math.random()*Math.PI*2,speed:Math.random()*.04+.015});
+
+  // Sparkles (magic dust)
+  for(let i=0;i<45;i++) sparkles.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.4,vy:(Math.random()-.5)*.4,size:Math.random()*6+3,alpha:Math.random(),phase:Math.random()*Math.PI*2,hue:Math.random()*80+280});
+
+  // Rainbows (arcs)
+  for(let i=0;i<3;i++) rainbows.push({cx:Math.random()*W,cy:H*.3+Math.random()*H*.4,r:Math.random()*120+80,alpha:.06+Math.random()*.08,phase:Math.random()*Math.PI*2,speed:.006+Math.random()*.006});
+
+  let t=0;
+  function draw(){
+    t+=.016;
+    ctx.clearRect(0,0,W,H);
+
+    // Gradient sky
+    const sky=ctx.createLinearGradient(0,0,W,H);
+    sky.addColorStop(0,'#fff0ff');
+    sky.addColorStop(.4,'#fdf4ff');
+    sky.addColorStop(1,'#f0f9ff');
+    ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+
+    // Rainbows
+    const rbColors=['#ff6eb4','#ff9f3f','#fbbf24','#4ade80','#60a5fa','#a78bfa','#e879f9'];
+    rainbows.forEach(rb=>{
+      rb.phase+=rb.speed;
+      const pulse=.85+.15*Math.sin(rb.phase);
+      for(let i=0;i<rbColors.length;i++){
+        ctx.beginPath();
+        ctx.arc(rb.cx,rb.cy,(rb.r+i*9)*pulse,Math.PI,2*Math.PI);
+        ctx.strokeStyle=rbColors[i]+(Math.round(rb.alpha*255).toString(16).padStart(2,'0'));
+        ctx.lineWidth=7;ctx.stroke();
+      }
+    });
+
+    // Stars twinkle
+    stars.forEach(s=>{
+      const tw=.5+.5*Math.sin(t*s.speed*60+s.phase);
+      ctx.save();
+      ctx.translate(s.x,s.y);
+      // 4-point star
+      ctx.beginPath();
+      for(let i=0;i<8;i++){
+        const angle=i*(Math.PI/4);
+        const r=i%2===0?s.r*(1+tw*.5):s.r*.4;
+        i===0?ctx.moveTo(Math.cos(angle)*r,Math.sin(angle)*r):ctx.lineTo(Math.cos(angle)*r,Math.sin(angle)*r);
+      }
+      ctx.closePath();
+      ctx.fillStyle=`rgba(192,132,252,${.25+tw*.45})`;
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // Clouds
+    clouds.forEach(cl=>{
+      cl.x+=cl.vx;
+      if(cl.x>W+cl.w*1.5) cl.x=-cl.w*1.5;
+      ctx.save();
+      ctx.globalAlpha=cl.alpha;
+      const drawBump=(x,y,r)=>{ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();};
+      ctx.fillStyle='#ffffff';
+      drawBump(cl.x,cl.y,cl.h*.55);
+      drawBump(cl.x+cl.w*.22,cl.y-cl.h*.2,cl.h*.38);
+      drawBump(cl.x+cl.w*.55,cl.y-cl.h*.05,cl.h*.45);
+      drawBump(cl.x+cl.w*.8,cl.y,cl.h*.35);
+      ctx.restore();
+    });
+
+    // Sparkles (magic dust)
+    sparkles.forEach(sp=>{
+      sp.x+=sp.vx;sp.y+=sp.vy;sp.phase+=.06;
+      if(sp.x<0)sp.x=W;if(sp.x>W)sp.x=0;
+      if(sp.y<0)sp.y=H;if(sp.y>H)sp.y=0;
+      const glow=.4+.6*Math.abs(Math.sin(sp.phase));
+      ctx.save();
+      ctx.globalAlpha=glow*.7;
+      ctx.translate(sp.x,sp.y);
+      ctx.beginPath();
+      ctx.arc(0,0,sp.size*.5,0,Math.PI*2);
+      ctx.fillStyle=`hsl(${sp.hue},80%,70%)`;
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // Floating unicorn emojis (simple)
+    if(Math.floor(t*20)%240===0){/* handled outside */}
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ══════════════════════════════════════════
+   GLOBAL STATE
+══════════════════════════════════════════ */
+let currentActivity=1;
+let dragData=null;
+const ghost=document.getElementById('drag-ghost');
+
+/* ══════════════════════════════════════════
+   DRAG ENGINE
+══════════════════════════════════════════ */
+function startDrag(e,el,meta){
+  e.preventDefault();
+  const clone=el.cloneNode(true);
+  clone.style.cssText='pointer-events:none;margin:0;';
+  ghost.innerHTML='';ghost.appendChild(clone);
+  ghost.style.display='block';
+  moveGhost(e);
+  dragData={source:el,meta};
+  el.classList.add('dragging-active');
+  document.body.appendChild(ghost);
+  el.setPointerCapture(e.pointerId);
+  el.addEventListener('pointermove',onPMove);
+  el.addEventListener('pointerup',onPUp);
+  el.addEventListener('pointercancel',cancelDrag);
+}
+function moveGhost(e){ghost.style.left=e.clientX+'px';ghost.style.top=e.clientY+'px';}
+function onPMove(e){
+  moveGhost(e);
+  document.querySelectorAll('.slot,.pipe-slot,.answer-bin').forEach(s=>s.classList.remove('hover-glow'));
+  document.elementsFromPoint(e.clientX,e.clientY).forEach(el=>{
+    if(el.classList.contains('slot')||el.classList.contains('pipe-slot')||el.classList.contains('answer-bin'))
+      el.classList.add('hover-glow');
+  });
+}
+function onPUp(e){
+  if(!dragData)return;
+  ghost.style.display='none';
+  dragData.source.classList.remove('dragging-active');
+  document.querySelectorAll('.slot,.pipe-slot,.answer-bin').forEach(s=>s.classList.remove('hover-glow'));
+  let target=null;
+  document.elementsFromPoint(e.clientX,e.clientY).forEach(el=>{
+    if(!target&&(el.classList.contains('slot')||el.classList.contains('pipe-slot')||el.classList.contains('answer-bin')))
+      target=el;
+  });
+  if(target){
+    if(currentActivity===1) handleDrop1(target,dragData);
+    else if(currentActivity===2) handleDrop2(target,dragData);
+    else if(currentActivity===3) handleDrop3(target,dragData);
+  }
+  dragData.source.removeEventListener('pointermove',onPMove);
+  dragData.source.removeEventListener('pointerup',onPUp);
+  dragData.source.removeEventListener('pointercancel',cancelDrag);
+  dragData=null;
+}
+function cancelDrag(){
+  if(!dragData)return;
+  ghost.style.display='none';
+  dragData.source.classList.remove('dragging-active');
+  dragData.source.removeEventListener('pointermove',onPMove);
+  dragData.source.removeEventListener('pointerup',onPUp);
+  dragData.source.removeEventListener('pointercancel',cancelDrag);
+  dragData=null;
+}
+
+/* ══════════════════════════════════════════
+   ACTIVITY 1 — SNAP TO BOARD
+══════════════════════════════════════════ */
+const PARTS=[
+  {id:'arduino',label:'Arduino UNO',icon:'🧠',cls:'pc-arduino',slotId:'sl-arduino'},
+  {id:'sensor', label:'HC-SR04 Sensor',icon:'📡',cls:'pc-sensor', slotId:'sl-sensor'},
+  {id:'driver', label:'L298N Driver',icon:'🔌',cls:'pc-driver', slotId:'sl-driver'},
+  {id:'motor',  label:'DC Motors',icon:'⚙️',cls:'pc-motor',  slotId:'sl-motor'},
+  {id:'battery',label:'9V Battery',icon:'🔋',cls:'pc-battery',slotId:'sl-battery'},
+  {id:'chassis',label:'Rover Chassis',icon:'🚗',cls:'pc-chassis',slotId:'sl-chassis'},
+];
+let act1Done={};
+
+function buildAct1(){
+  act1Done={};
+  const tray=document.getElementById('parts-tray');
+  tray.innerHTML='';
+  document.querySelectorAll('.slot').forEach(s=>{
+    s.classList.remove('filled','wrong');
+    const orig=PARTS.find(p=>p.slotId===s.id);
+    s.innerHTML=orig?`<span>${orig.icon} ${orig.id==='arduino'?'Brain Unit':orig.id==='sensor'?'Eyes Sensor':orig.id==='driver'?'Motor Driver':orig.id==='motor'?'Drive Motors':orig.id==='battery'?'Power Source':'Rover Chassis'}</span>`:'';
+  });
+  shuffle([...PARTS]).forEach(p=>{
+    const el=document.createElement('div');
+    el.className='part-chip '+p.cls;
+    el.id='pchip-'+p.id;
+    el.textContent=p.icon+' '+p.label;
+    el.style.touchAction='none';
+    el.addEventListener('pointerdown',e=>startDrag(e,el,{...p}));
+    tray.appendChild(el);
+  });
+}
+
+function handleDrop1(slot,dd){
+  const p=dd.meta;
+  const correct=document.getElementById(p.slotId);
+  if(slot===correct&&!slot.classList.contains('filled')){
+    slot.classList.add('filled');
+    slot.innerHTML=`<span style="font-size:9px;font-weight:800;color:#065f46">${p.icon} ${p.label}</span>`;
+    dd.source.classList.add('used');
+    act1Done[p.id]=true;
+    if(Object.keys(act1Done).length===PARTS.length){
+      setTimeout(()=>showPopup('🦄','ROVER ASSEMBLED!','Brilliant! You\'ve connected all components to the rover. The Arduino brain is wired to the HC-SR04 eyes and L298N motor driver!','START QUEST 2 ✨',2),500);
+    }
+  } else if(slot!==correct){
+    slot.classList.add('wrong');setTimeout(()=>slot.classList.remove('wrong'),600);
+  }
+}
+function resetAct1(){buildAct1();}
+
+/* ══════════════════════════════════════════
+   ACTIVITY 2 — LOGIC FLOW PUZZLE
+══════════════════════════════════════════ */
+// 6 logic steps in the correct order
+const LOGIC_STEPS=[
+  {id:'l1',icon:'📡',text:'Measure distance with HC-SR04',order:1},
+  {id:'l2',icon:'🤔',text:'Check: distance < 15 cm?',order:2},
+  {id:'l3',icon:'🛑',text:'Stop all motors immediately',order:3},
+  {id:'l4',icon:'⏪',text:'Reverse for 500ms',order:4},
+  {id:'l5',icon:'↪️',text:'Turn right to avoid obstacle',order:5},
+  {id:'l6',icon:'🚀',text:'Continue moving forward!',order:6},
+];
+let act2Done={};
+
+function buildAct2(){
+  act2Done={};
+  const pool=document.getElementById('logic-pool');
+  const pipeline=document.getElementById('logic-pipeline');
+  pool.innerHTML='';pipeline.innerHTML='';
+
+  shuffle([...LOGIC_STEPS]).forEach(step=>{
+    const el=document.createElement('div');
+    el.className='logic-card';
+    el.id='lcard-'+step.id;
+    el.innerHTML=`<span class="lc-icon">${step.icon}</span><span>${step.text}</span>`;
+    el.style.touchAction='none';
+    el.addEventListener('pointerdown',e=>startDrag(e,el,{...step}));
+    pool.appendChild(el);
+  });
+
+  for(let i=1;i<=6;i++){
+    if(i>1){
+      const conn=document.createElement('div');
+      conn.className='pipe-connector';
+      pipeline.appendChild(conn);
+    }
+    const row=document.createElement('div');
+    row.className='pipe-row';
+    const slot=document.createElement('div');
+    slot.className='pipe-slot';
+    slot.id='pslot-'+i;
+    slot.dataset.order=i;
+    // Labels for if/else visually
+    if(i===2){
+      slot.style.borderColor='rgba(244,114,182,.5)';
+      slot.style.background='rgba(244,114,182,.05)';
+    }
+    slot.textContent='Step '+i+' — drop here…';
+    const arrow=document.createElement('div');
+    arrow.className='pipe-arrow';
+    arrow.textContent=i===2?'❓':i<6?'⬇':'🏁';
+    row.appendChild(slot);row.appendChild(arrow);
+    pipeline.appendChild(row);
+  }
+}
+
+function handleDrop2(slot,dd){
+  if(!slot.classList.contains('pipe-slot'))return;
+  if(slot.classList.contains('filled'))return;
+  const step=dd.meta;
+  const slotOrder=parseInt(slot.dataset.order);
+  if(step.order===slotOrder){
+    slot.classList.add('filled');
+    slot.innerHTML=`${step.icon} ${step.text}`;
+    dd.source.classList.add('used');
+    act2Done[step.id]=true;
+    if(Object.keys(act2Done).length===LOGIC_STEPS.length){
+      setTimeout(()=>showPopup('🌈','LOGIC COMPLETE!','Perfect! You\'ve programmed the obstacle-avoidance brain. Measure → Detect → Stop → Reverse → Turn → Forward!','START QUEST 3 🌟',3),500);
+    }
+  } else {
+    slot.classList.add('wrong-slot');setTimeout(()=>slot.classList.remove('wrong-slot'),600);
+  }
+}
+function resetAct2(){buildAct2();}
+
+/* ══════════════════════════════════════════
+   ACTIVITY 3 — QUIZ MATCH (drag token → question)
+══════════════════════════════════════════ */
+const QA=[
+  {q:'What does the HC-SR04 sensor measure?',a:'Distance to objects'},
+  {q:'Which pin sends sound waves in HC-SR04?',a:'Trig Pin'},
+  {q:'What does the Echo pin detect?',a:'Returning sound wave'},
+  {q:'What happens if distance < 15 cm?',a:'Rover stops & turns'},
+  {q:'What is the L298N module used for?',a:'Motor speed & direction'},
+  {q:'What Arduino function controls a pin?',a:'digitalWrite()'},
+  {q:'Which logic block checks a condition?',a:'if-else statement'},
+  {q:'What powers the rover\'s movement?',a:'DC Motors'},
+];
+let act3Done={};
+let act3Answers=[];
+
+function buildAct3(){
+  act3Done={};
+  act3Answers=[];
+  document.getElementById('quiz-status').textContent='Answered: 0 / 8';
+
+  const qPanel=document.getElementById('question-panel');
+  const bins=document.getElementById('answer-bins');
+  const pool=document.getElementById('answer-pool');
+  qPanel.innerHTML='';bins.innerHTML='';pool.innerHTML='';
+
+  const shuffledQA=shuffle([...QA]);
+  const tokenColors=['at-0','at-1','at-2','at-3','at-4','at-5','at-6','at-7'];
+
+  shuffledQA.forEach((qa,i)=>{
+    // Question card
+    const qc=document.createElement('div');
+    qc.className='question-card';
+    qc.id='qcard-'+i;
+    qc.dataset.answer=qa.a;
+    qc.innerHTML=`<span class="q-num">Q${i+1}</span>${qa.q}<span class="q-badge"></span>`;
+    qPanel.appendChild(qc);
+
+    // Answer bin (drop target)
+    const bin=document.createElement('div');
+    bin.className='answer-bin';
+    bin.id='bin-'+i;
+    bin.dataset.qidx=i;
+    bin.textContent='Drop here';
+    bins.appendChild(bin);
+  });
+
+  // Tokens (shuffled answers)
+  const answerList=shuffledQA.map((qa,i)=>({text:qa.a,qidx:i,cls:tokenColors[i]}));
+  shuffle(answerList).forEach((ans,i)=>{
+    const tok=document.createElement('div');
+    tok.className='ans-token '+ans.cls;
+    tok.id='tok-'+i;
+    tok.textContent=ans.text;
+    tok.style.touchAction='none';
+    tok.addEventListener('pointerdown',e=>startDrag(e,tok,{...ans}));
+    pool.appendChild(tok);
+    act3Answers.push(tok);
+  });
+}
+
+function handleDrop3(bin,dd){
+  if(!bin.classList.contains('answer-bin'))return;
+  if(bin.classList.contains('bin-filled'))return;
+
+  const qidx=parseInt(bin.dataset.qidx);
+  const qcard=document.getElementById('qcard-'+qidx);
+  const correctAnswer=qcard.dataset.answer;
+
+  if(dd.meta.text===correctAnswer){
+    bin.classList.add('bin-filled');
+    bin.innerHTML=`✅ ${dd.meta.text}`;
+    qcard.classList.add('answered');
+    qcard.querySelector('.q-badge').textContent='✅';
+    dd.source.classList.add('used');
+    act3Done[qidx]=true;
+    const done=Object.keys(act3Done).length;
+    document.getElementById('quiz-status').textContent=`Answered: ${done} / 8`;
+    if(done===8){
+      setTimeout(()=>showPopup('🏆','ALL QUESTS COMPLETE!','You\'re a true Rover Wizard! You assembled the hardware, coded the logic, and aced the knowledge challenge. Your rover is ready to explore!',null,null,true),500);
+    }
+  } else {
+    bin.classList.add('bin-wrong');setTimeout(()=>bin.classList.remove('bin-wrong'),600);
+  }
+}
+function resetAct3(){buildAct3();}
+
+/* ══════════════════════════════════════════
+   POPUP & NAVIGATION
+══════════════════════════════════════════ */
+let popupTarget=null;
+
+function showPopup(icon,title,body,btnText,next,isFinal=false){
+  document.getElementById('popup-icon').textContent=icon;
+  document.getElementById('popup-title').textContent=title;
+  document.getElementById('popup-body').textContent=body;
+  const btn=document.getElementById('popup-btn');
+  const pab=document.getElementById('play-again-btn');
+  if(isFinal){
+    btn.style.display='none';pab.classList.add('show');
+    launchSparkles();
+  } else {
+    btn.textContent=btnText;btn.style.display='';pab.classList.remove('show');
+  }
+  popupTarget=next;
+  document.getElementById('popup-overlay').classList.add('show');
+}
+
+function popupNext(){
+  document.getElementById('popup-overlay').classList.remove('show');
+  if(popupTarget) goTo(popupTarget);
+}
+
+function goTo(n){
+  currentActivity=n;
+  document.querySelectorAll('.activity').forEach((a,i)=>a.classList.toggle('active',i+1===n));
+  updateDots(n);
+  if(n===2) buildAct2();
+  if(n===3) buildAct3();
+}
+
+function updateDots(n){
+  for(let i=1;i<=3;i++){
+    const d=document.getElementById('dot-'+i);
+    d.classList.remove('active','done');
+    if(i<n) d.classList.add('done');
+    else if(i===n) d.classList.add('active');
+  }
+}
+
+function playAgain(){
+  document.getElementById('popup-overlay').classList.remove('show');
+  document.getElementById('play-again-btn').classList.remove('show');
+  document.getElementById('popup-btn').style.display='';
+  document.querySelectorAll('.sparkle-piece').forEach(s=>s.remove());
+
+  // Reset to activity 1 directly
+  document.querySelectorAll('.activity').forEach((a,i)=>{
+    a.classList.remove('active');
+    if(i===0) a.classList.add('active');
+  });
+  currentActivity=1;
+  updateDots(1);
+  buildAct1();buildAct2();buildAct3();
+}
+
+/* ══════════════════════════════════════════
+   CELEBRATION
+══════════════════════════════════════════ */
+function launchSparkles(){
+  const emojis=['🦄','🌈','✨','⭐','💫','🌟','🎉','🌸','💜','🌺'];
+  for(let i=0;i<70;i++){
+    const p=document.createElement('div');
+    p.className='sparkle-piece';
+    p.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+    p.style.cssText=`left:${Math.random()*100}vw;top:-10px;animation-duration:${Math.random()*2.5+2}s;animation-delay:${Math.random()*1.4}s;`;
+    document.body.appendChild(p);
+    p.addEventListener('animationend',()=>p.remove());
+  }
+}
+
+/* ══════════════════════════════════════════
+   UTILITY
+══════════════════════════════════════════ */
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+
+/* ══════════════════════════════════════════
+   INIT
+══════════════════════════════════════════ */
+buildAct1();buildAct2();buildAct3();updateDots(1);
+</script>
+</body>
+</html>

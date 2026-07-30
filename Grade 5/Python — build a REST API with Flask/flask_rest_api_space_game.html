@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Python — Build a REST API with Flask</title>
+<style>
+  :root{
+    --cyan:#4cf3ff;
+    --magenta:#ff4cd6;
+    --gold:#ffd24c;
+    --green:#4cff9a;
+    --red:#ff5c6c;
+    --panel:rgba(20,14,50,0.55);
+    --panel-border:rgba(140,160,255,0.35);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0;padding:0;width:100%;height:100%;overflow:hidden;
+    font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+    background:radial-gradient(ellipse at 50% 0%,#1b0c46 0%,#0a0620 45%,#040212 100%);
+    color:#eaf0ff;
+    touch-action:none;
+    user-select:none;
+  }
+  /* ============ BACKGROUND ============ */
+  .space-bg{position:fixed;inset:0;overflow:hidden;z-index:0;pointer-events:none;}
+  .star{position:absolute;background:#fff;border-radius:50%;animation:twinkle 3s ease-in-out infinite;}
+  @keyframes twinkle{0%,100%{opacity:.15;}50%{opacity:1;}}
+  .particle{position:absolute;bottom:-10px;border-radius:50%;background:rgba(140,200,255,0.55);animation:floatUp linear infinite;}
+  @keyframes floatUp{
+    0%{transform:translateY(0) translateX(0);opacity:0;}
+    10%{opacity:.9;}
+    90%{opacity:.5;}
+    100%{transform:translateY(-110vh) translateX(20px);opacity:0;}
+  }
+  .pivot{position:absolute;top:50%;left:50%;width:0;height:0;}
+  .planet{position:absolute;border-radius:50%;box-shadow:inset -10px -10px 20px rgba(0,0,0,0.5), 0 0 25px rgba(140,160,255,0.35);}
+  .planet-1{width:60px;height:60px;background:radial-gradient(circle at 35% 30%,#ff9d6c,#c94b3b 70%);}
+  .planet-2{width:34px;height:34px;background:radial-gradient(circle at 35% 30%,#7de3ff,#2e6fb8 70%);}
+  @keyframes spinA{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+  @keyframes spinB{from{transform:rotate(360deg);}to{transform:rotate(0deg);}}
+  .bg-sat{position:absolute;font-size:22px;filter:drop-shadow(0 0 8px var(--cyan));animation:pulseGlow 2.4s ease-in-out infinite;}
+  @keyframes pulseGlow{0%,100%{filter:drop-shadow(0 0 4px var(--cyan));}50%{filter:drop-shadow(0 0 16px var(--cyan));}}
+  .asteroid{position:absolute;font-size:20px;opacity:0.85;animation:drift linear infinite;}
+  @keyframes drift{
+    0%{transform:translate(-10vw,0) rotate(0deg);}
+    100%{transform:translate(110vw,40px) rotate(360deg);}
+  }
+  .shooting-star{position:fixed;width:2px;height:2px;background:#fff;border-radius:50%;box-shadow:0 0 6px 2px #fff;z-index:1;pointer-events:none;}
+  @keyframes shoot{
+    0%{transform:translate(0,0) scaleX(1);opacity:1;}
+    100%{transform:translate(-320px,320px) scaleX(0.3);opacity:0;}
+  }
+
+  /* ============ LAYOUT ============ */
+  .hud{position:relative;z-index:2;text-align:center;padding:10px 10px 4px;}
+  .title{
+    margin:0;font-size:clamp(14px,2.6vw,26px);letter-spacing:1px;
+    background:linear-gradient(90deg,var(--cyan),var(--magenta),var(--gold));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 0 20px rgba(120,140,255,0.25);
+    font-weight:800;
+  }
+  .progress-track{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px;}
+  .progress-dot{
+    width:26px;height:26px;border-radius:50%;border:2px solid var(--panel-border);
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;
+    background:rgba(10,6,30,0.6);color:#aeb8ff;transition:all .4s;
+  }
+  .progress-dot.active{border-color:var(--cyan);color:#fff;box-shadow:0 0 12px var(--cyan);}
+  .progress-dot.done{border-color:var(--green);background:var(--green);color:#04150a;}
+  .progress-line{width:34px;height:2px;background:var(--panel-border);}
+
+  .stage{position:relative;z-index:2;height:calc(100vh - 62px);display:flex;align-items:stretch;justify-content:center;padding:2px 10px 8px;}
+  .activity{width:100%;max-width:1100px;display:flex;flex-direction:column;align-items:center;gap:4px;}
+  .activity h2{margin:2px 0 0;font-size:clamp(13px,1.9vw,19px);color:#fff;text-align:center;}
+  .instructions{margin:0 0 2px;font-size:clamp(10px,1.3vw,13px);color:#c7cdff;text-align:center;}
+
+  .reset-btn{
+    margin-top:2px;padding:6px 18px;border-radius:20px;border:1px solid var(--panel-border);
+    background:rgba(255,255,255,0.08);color:#fff;font-size:12px;cursor:pointer;font-weight:600;
+    transition:all .2s;
+  }
+  .reset-btn:hover{background:rgba(255,255,255,0.18);}
+
+  .tray{
+    display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;
+    min-height:44px;padding:6px;width:100%;max-width:900px;
+  }
+  .draggable{
+    padding:7px 12px;border-radius:12px;font-size:clamp(9px,1.3vw,12px);font-weight:600;
+    background:linear-gradient(135deg,rgba(76,243,255,0.18),rgba(255,76,214,0.14));
+    border:1px solid var(--panel-border);color:#fff;cursor:grab;white-space:nowrap;
+    box-shadow:0 2px 8px rgba(0,0,0,0.35);touch-action:none;
+  }
+  .draggable.dragging{cursor:grabbing;box-shadow:0 0 20px var(--cyan);opacity:0.95;}
+  .draggable.placed{cursor:default;}
+  .shake{animation:shakeAnim .4s;}
+  @keyframes shakeAnim{
+    0%,100%{transform:translateX(0);}
+    20%{transform:translateX(-8px);}
+    40%{transform:translateX(8px);}
+    60%{transform:translateX(-6px);}
+    80%{transform:translateX(6px);}
+  }
+  .flash-red{box-shadow:0 0 0 3px var(--red) !important;}
+  .flash-green{box-shadow:0 0 0 3px var(--green) !important;}
+
+  /* ---- Activity 1: Launch Pad (horizontal sequence) ---- */
+  .launchpad{display:flex;gap:10px;justify-content:center;align-items:center;width:100%;max-width:820px;margin:4px 0;flex-wrap:wrap;}
+  .slot{
+    position:relative;flex:1;min-width:110px;max-width:200px;height:56px;border-radius:12px;
+    border:2px dashed var(--panel-border);display:flex;align-items:center;justify-content:center;
+    background:rgba(255,255,255,0.04);
+  }
+  .slot .slot-num{position:absolute;top:-10px;left:-10px;width:22px;height:22px;border-radius:50%;
+    background:var(--gold);color:#231600;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+  .slot.filled{border-style:solid;border-color:var(--green);background:rgba(76,255,154,0.12);}
+  .slot .draggable{width:92%;text-align:center;}
+
+  /* ---- Activity 2: Console Grid (matching) ---- */
+  .console-grid{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;max-width:900px;margin:4px 0;
+  }
+  .station-card{
+    border:1px solid var(--panel-border);border-radius:12px;padding:6px;background:var(--panel);
+    display:flex;flex-direction:column;align-items:center;gap:5px;min-height:64px;justify-content:space-between;
+  }
+  .station-label{font-size:clamp(9px,1.15vw,11px);text-align:center;color:#d7e0ff;font-weight:600;}
+  .station-drop{
+    width:100%;min-height:30px;border-radius:8px;border:2px dashed rgba(140,160,255,0.4);
+    display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);
+  }
+  .station-drop.filled{border-style:solid;border-color:var(--green);background:rgba(76,255,154,0.12);}
+  .station-drop .draggable{width:92%;text-align:center;}
+
+  /* ---- Activity 3: Docking Ring (circular sequence) ---- */
+  .dock-ring{position:relative;width:min(58vh,86vw);height:min(58vh,86vw);margin:2px auto;}
+  .hub-station{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    font-size:clamp(18px,3.2vh,28px);filter:drop-shadow(0 0 12px var(--cyan));
+  }
+  .dock{
+    position:absolute;width:min(13vh,17vw);min-width:70px;max-width:100px;height:58px;
+    transform:translate(-50%,-50%);
+    border:2px dashed var(--panel-border);border-radius:10px;
+    background:rgba(3,1,15,0.55);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    padding:3px;overflow:hidden;z-index:1;
+  }
+  .dock .dock-num{font-size:8px;color:var(--gold);font-weight:800;line-height:1;flex:0 0 auto;}
+  .dock.filled{border-style:solid;border-color:var(--green);background:rgba(76,255,154,0.14);z-index:5;}
+  .dock .draggable{
+    width:96%;text-align:center;font-size:clamp(6.5px,0.95vw,8.5px);line-height:1.1;
+    padding:3px 4px;white-space:normal;word-break:break-word;overflow:hidden;
+    display:flex;align-items:center;justify-content:center;flex:1 1 auto;min-height:0;
+  }
+
+  /* ============ POPUP ============ */
+  .popup-overlay{
+    position:fixed;inset:0;z-index:50;background:rgba(3,1,15,0.78);
+    display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px);
+  }
+  .popup-overlay.show{display:flex;}
+  .popup-box{
+    background:linear-gradient(160deg,rgba(30,18,70,0.95),rgba(10,6,28,0.95));
+    border:1px solid var(--panel-border);border-radius:18px;padding:26px 30px;text-align:center;
+    max-width:420px;box-shadow:0 0 40px rgba(120,140,255,0.35);
+    animation:popIn .35s ease;
+  }
+  @keyframes popIn{from{transform:scale(0.8);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .popup-box h2{margin:0 0 10px;color:var(--gold);font-size:clamp(16px,2.4vw,22px);}
+  .popup-box p{margin:0 0 16px;color:#dfe4ff;font-size:clamp(12px,1.6vw,15px);}
+  .popup-btn{
+    padding:10px 24px;border-radius:24px;border:none;font-weight:800;font-size:14px;
+    background:linear-gradient(90deg,var(--cyan),var(--magenta));color:#0a0620;cursor:pointer;
+    box-shadow:0 0 20px rgba(76,243,255,0.5);
+  }
+  .popup-btn:hover{filter:brightness(1.1);}
+  .confetti{position:absolute;width:8px;height:8px;top:-10px;border-radius:2px;animation:fall linear forwards;}
+  @keyframes fall{to{transform:translateY(110vh) rotate(400deg);opacity:0.2;}}
+</style>
+</head>
+<body>
+
+<div class="space-bg" id="spaceBg">
+  <div id="starsLayer"></div>
+  <div id="particlesLayer"></div>
+  <div class="pivot" style="animation:spinA 46s linear infinite;">
+    <div class="planet planet-1" style="left:170px;top:-30px;"></div>
+  </div>
+  <div class="pivot" style="animation:spinB 30s linear infinite;">
+    <div class="planet planet-2" style="left:-140px;top:60px;"></div>
+  </div>
+  <div class="pivot" style="animation:spinA 20s linear infinite;">
+    <div class="bg-sat" style="left:210px;top:100px;">🛰️</div>
+  </div>
+  <div class="pivot" style="animation:spinB 26s linear infinite;">
+    <div class="bg-sat" style="left:-190px;top:-70px;">🛰️</div>
+  </div>
+  <div class="asteroid" style="top:12%;animation-duration:22s;animation-delay:0s;">🪨</div>
+  <div class="asteroid" style="top:55%;animation-duration:30s;animation-delay:4s;">☄️</div>
+  <div class="asteroid" style="top:75%;animation-duration:26s;animation-delay:9s;">🪨</div>
+  <div id="shootingLayer"></div>
+</div>
+
+<div class="hud">
+  <h1 class="title">PYTHON — BUILD A REST API WITH FLASK</h1>
+  <div class="progress-track">
+    <div class="progress-dot active" id="dot1">1</div>
+    <div class="progress-line"></div>
+    <div class="progress-dot" id="dot2">2</div>
+    <div class="progress-line"></div>
+    <div class="progress-dot" id="dot3">3</div>
+  </div>
+</div>
+
+<main class="stage">
+
+  <!-- ACTIVITY 1 -->
+  <section class="activity" id="activity1">
+    <h2>🚀 Launch Pad — Build the Flask Workflow</h2>
+    <p class="instructions">Drag the mission steps into the correct ignition order (left to right).</p>
+    <div class="launchpad" id="launchpad">
+      <div class="slot" data-order="0"><span class="slot-num">1</span></div>
+      <div class="slot" data-order="1"><span class="slot-num">2</span></div>
+      <div class="slot" data-order="2"><span class="slot-num">3</span></div>
+      <div class="slot" data-order="3"><span class="slot-num">4</span></div>
+    </div>
+    <div class="tray" id="tray1"></div>
+    <button class="reset-btn" onclick="resetActivity(1)">🔄 Reset Activity</button>
+  </section>
+
+  <!-- ACTIVITY 2 -->
+  <section class="activity" id="activity2" style="display:none;">
+    <h2>🪐 Mission Console — Match the Operation</h2>
+    <p class="instructions">Drag each term onto the console card describing its job.</p>
+    <div class="console-grid" id="consoleGrid"></div>
+    <div class="tray" id="tray2"></div>
+    <button class="reset-btn" onclick="resetActivity(2)">🔄 Reset Activity</button>
+  </section>
+
+  <!-- ACTIVITY 3 -->
+  <section class="activity" id="activity3" style="display:none;">
+    <h2>🛰️ Docking Ring — Sequence the Full API</h2>
+    <p class="instructions">Dock each satellite in the correct mission order around the ring.</p>
+    <div class="dock-ring" id="dockRing">
+      <div class="hub-station">🛰️</div>
+    </div>
+    <div class="tray" id="tray3"></div>
+    <button class="reset-btn" onclick="resetActivity(3)">🔄 Reset Activity</button>
+  </section>
+
+</main>
+
+<div class="popup-overlay" id="popupOverlay">
+  <div class="popup-box" id="popupBox">
+    <h2 id="popupTitle"></h2>
+    <p id="popupText"></p>
+    <button class="popup-btn" id="popupBtn">Continue</button>
+  </div>
+</div>
+
+<script>
+/* ================= BACKGROUND GENERATION ================= */
+function buildBackground(){
+  const starsLayer = document.getElementById('starsLayer');
+  starsLayer.innerHTML='';
+  for(let i=0;i<70;i++){
+    const s=document.createElement('div');
+    s.className='star';
+    const size = Math.random()*2+1;
+    s.style.width=size+'px';s.style.height=size+'px';
+    s.style.left=Math.random()*100+'vw';
+    s.style.top=Math.random()*100+'vh';
+    s.style.animationDuration=(Math.random()*3+2)+'s';
+    s.style.animationDelay=(Math.random()*3)+'s';
+    starsLayer.appendChild(s);
+  }
+  const particlesLayer = document.getElementById('particlesLayer');
+  particlesLayer.innerHTML='';
+  for(let i=0;i<24;i++){
+    const p=document.createElement('div');
+    p.className='particle';
+    const size=Math.random()*3+2;
+    p.style.width=size+'px';p.style.height=size+'px';
+    p.style.left=Math.random()*100+'vw';
+    p.style.animationDuration=(Math.random()*10+10)+'s';
+    p.style.animationDelay=(Math.random()*10)+'s';
+    particlesLayer.appendChild(p);
+  }
+}
+function spawnShootingStar(){
+  const layer=document.getElementById('shootingLayer');
+  const s=document.createElement('div');
+  s.className='shooting-star';
+  s.style.top=(Math.random()*40)+'vh';
+  s.style.left=(50+Math.random()*45)+'vw';
+  s.style.animation='shoot '+(0.8+Math.random()*0.6)+'s linear forwards';
+  layer.appendChild(s);
+  setTimeout(()=>s.remove(),1600);
+}
+setInterval(spawnShootingStar, 3200);
+buildBackground();
+
+/* ================= UTIL ================= */
+function shuffle(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+/* ================= DRAG CORE ================= */
+let dragEl=null, offsetX=0, offsetY=0;
+
+function attachDrag(el){
+  el.addEventListener('pointerdown', dragStart);
+}
+function dragStart(e){
+  const el = e.currentTarget;
+  if(el.classList.contains('placed')) return;
+  dragEl = el;
+  try{ dragEl.setPointerCapture(e.pointerId); }catch(err){}
+  const rect = dragEl.getBoundingClientRect();
+  offsetX = e.clientX - rect.left;
+  offsetY = e.clientY - rect.top;
+  dragEl.dataset.origWidth = rect.width+'px';
+  dragEl.style.position='fixed';
+  dragEl.style.left=rect.left+'px';
+  dragEl.style.top=rect.top+'px';
+  dragEl.style.width=rect.width+'px';
+  dragEl.style.zIndex=1000;
+  document.body.appendChild(dragEl);
+  dragEl.classList.add('dragging');
+  document.addEventListener('pointermove', dragMove);
+  document.addEventListener('pointerup', dragEnd);
+  e.preventDefault();
+}
+function dragMove(e){
+  if(!dragEl) return;
+  dragEl.style.left=(e.clientX-offsetX)+'px';
+  dragEl.style.top=(e.clientY-offsetY)+'px';
+}
+function dragEnd(e){
+  if(!dragEl) return;
+  document.removeEventListener('pointermove', dragMove);
+  document.removeEventListener('pointerup', dragEnd);
+  dragEl.classList.remove('dragging');
+  dragEl.style.pointerEvents='none';
+  const under = document.elementFromPoint(e.clientX, e.clientY);
+  dragEl.style.pointerEvents='';
+  const zone = under ? under.closest('.dropzone') : null;
+  let handled=false;
+  if(zone && !zone.classList.contains('filled') && window.currentDropHandler){
+    handled = window.currentDropHandler(dragEl, zone);
+  }
+  if(!handled){
+    returnToTray(dragEl);
+  }
+  dragEl=null;
+}
+function returnToTray(el){
+  el.style.position='static';
+  el.style.left='';el.style.top='';el.style.width='';el.style.zIndex='';
+  el.classList.add('shake');
+  el.classList.add('flash-red');
+  const tray = document.getElementById(el.dataset.tray);
+  tray.appendChild(el);
+  setTimeout(()=>{el.classList.remove('shake');el.classList.remove('flash-red');}, 420);
+}
+function placeInZone(el, zone){
+  el.style.position='static';
+  el.style.left='';el.style.top='';el.style.width='100%';el.style.zIndex='';
+  el.classList.add('placed');
+  el.classList.add('flash-green');
+  zone.classList.add('filled','dropzone-filled');
+  zone.appendChild(el);
+}
+
+/* ================= ACTIVITY 1: LAUNCH PAD ================= */
+const act1Data = [
+  {id:'f1', text:'Create the Flask app', order:0},
+  {id:'f2', text:'Define the route', order:1},
+  {id:'f3', text:'Handle the request', order:2},
+  {id:'f4', text:'Return JSON response', order:3}
+];
+let act1Filled=0;
+
+function loadActivity1(){
+  act1Filled=0;
+  document.querySelectorAll('#launchpad .slot').forEach(s=>{
+    s.classList.remove('filled');
+    s.classList.add('dropzone');
+    const numSpan = s.querySelector('.slot-num');
+    s.innerHTML='';
+    s.appendChild(numSpan);
+  });
+  const tray=document.getElementById('tray1');
+  tray.innerHTML='';
+  shuffle(act1Data).forEach(item=>{
+    const chip=document.createElement('div');
+    chip.className='draggable';
+    chip.textContent=item.text;
+    chip.dataset.order=item.order;
+    chip.dataset.tray='tray1';
+    tray.appendChild(chip);
+    attachDrag(chip);
+  });
+}
+function act1DropHandler(el, zone){
+  if(String(zone.dataset.order) === String(el.dataset.order)){
+    placeInZone(el, zone);
+    act1Filled++;
+    if(act1Filled === act1Data.length){
+      setTimeout(()=>completeActivity(1), 500);
+    }
+    return true;
+  } else {
+    zone.classList.add('shake');
+    setTimeout(()=>zone.classList.remove('shake'), 400);
+    return false;
+  }
+}
+
+/* ================= ACTIVITY 2: CONSOLE GRID ================= */
+const act2Items = [
+  {id:'g1', text:'GET /students', answer:'get'},
+  {id:'g2', text:'POST /students', answer:'post'},
+  {id:'g3', text:"DELETE /students/:id", answer:'delete'},
+  {id:'g4', text:'JSON response', answer:'json'},
+  {id:'g5', text:'student record', answer:'record'},
+  {id:'g6', text:'Postman request', answer:'tool'}
+];
+const act2Stations = [
+  {answer:'get', label:'Fetch all student data'},
+  {answer:'post', label:'Add a new student'},
+  {answer:'delete', label:'Remove a student by its ID'},
+  {answer:'json', label:'Format the API sends back'},
+  {answer:'record', label:"One student's data entry"},
+  {answer:'tool', label:'Tool used to test the API'}
+];
+let act2Filled=0;
+
+function loadActivity2(){
+  act2Filled=0;
+  const grid=document.getElementById('consoleGrid');
+  grid.innerHTML='';
+  shuffle(act2Stations).forEach(st=>{
+    const card=document.createElement('div');
+    card.className='station-card';
+    card.innerHTML='<div class="station-label">'+st.label+'</div>';
+    const drop=document.createElement('div');
+    drop.className='station-drop dropzone';
+    drop.dataset.answer=st.answer;
+    card.appendChild(drop);
+    grid.appendChild(card);
+  });
+  const tray=document.getElementById('tray2');
+  tray.innerHTML='';
+  shuffle(act2Items).forEach(item=>{
+    const chip=document.createElement('div');
+    chip.className='draggable';
+    chip.textContent=item.text;
+    chip.dataset.answer=item.answer;
+    chip.dataset.tray='tray2';
+    tray.appendChild(chip);
+    attachDrag(chip);
+  });
+}
+function act2DropHandler(el, zone){
+  if(zone.dataset.answer === el.dataset.answer){
+    placeInZone(el, zone);
+    act2Filled++;
+    if(act2Filled === act2Items.length){
+      setTimeout(()=>completeActivity(2), 500);
+    }
+    return true;
+  } else {
+    zone.classList.add('shake');
+    setTimeout(()=>zone.classList.remove('shake'), 400);
+    return false;
+  }
+}
+
+/* ================= ACTIVITY 3: DOCKING RING ================= */
+const act3Data = [
+  {id:'s1', text:'Create the Flask app', order:0},
+  {id:'s2', text:'Define API routes', order:1},
+  {id:'s3', text:'Process GET requests', order:2},
+  {id:'s4', text:'Add records with POST', order:3},
+  {id:'s5', text:'Remove records with DELETE', order:4},
+  {id:'s6', text:'Test endpoints using Postman', order:5},
+  {id:'s7', text:'Return JSON responses', order:6}
+];
+let act3Filled=0;
+
+function loadActivity3(){
+  act3Filled=0;
+  const ring=document.getElementById('dockRing');
+  ring.querySelectorAll('.dock').forEach(d=>d.remove());
+  const total = act3Data.length;
+  for(let i=0;i<total;i++){
+    const angle = (i * (360/total) - 90) * Math.PI/180;
+    const x = 50 + Math.cos(angle) * 44;
+    const y = 50 + Math.sin(angle) * 44;
+    const dock=document.createElement('div');
+    dock.className='dock dropzone';
+    dock.dataset.order=i;
+    dock.style.left=x+'%';
+    dock.style.top=y+'%';
+    dock.innerHTML='<span class="dock-num">Dock '+(i+1)+'</span>';
+    ring.appendChild(dock);
+  }
+  const tray=document.getElementById('tray3');
+  tray.innerHTML='';
+  shuffle(act3Data).forEach(item=>{
+    const chip=document.createElement('div');
+    chip.className='draggable';
+    chip.textContent=item.text;
+    chip.dataset.order=item.order;
+    chip.dataset.tray='tray3';
+    tray.appendChild(chip);
+    attachDrag(chip);
+  });
+}
+function act3DropHandler(el, zone){
+  if(String(zone.dataset.order) === String(el.dataset.order)){
+    const numLabel = zone.querySelector('.dock-num');
+    placeInZone(el, zone);
+    if(numLabel) zone.insertBefore(numLabel, zone.firstChild);
+    act3Filled++;
+    if(act3Filled === act3Data.length){
+      setTimeout(()=>completeActivity(3), 500);
+    }
+    return true;
+  } else {
+    zone.classList.add('shake');
+    setTimeout(()=>zone.classList.remove('shake'), 400);
+    return false;
+  }
+}
+
+/* ================= ACTIVITY SWITCHING ================= */
+function showOnly(n){
+  [1,2,3].forEach(i=>{
+    document.getElementById('activity'+i).style.display = (i===n) ? 'flex' : 'none';
+    const dot = document.getElementById('dot'+i);
+    dot.classList.remove('active','done');
+    if(i<n) dot.classList.add('done');
+    if(i===n) dot.classList.add('active');
+  });
+}
+function loadActivity(n){
+  showOnly(n);
+  if(n===1){ window.currentDropHandler = act1DropHandler; loadActivity1(); }
+  if(n===2){ window.currentDropHandler = act2DropHandler; loadActivity2(); }
+  if(n===3){ window.currentDropHandler = act3DropHandler; requestAnimationFrame(loadActivity3); }
+}
+function resetActivity(n){
+  loadActivity(n);
+}
+
+/* ================= POPUPS ================= */
+const overlay=document.getElementById('popupOverlay');
+const popupTitle=document.getElementById('popupTitle');
+const popupText=document.getElementById('popupText');
+const popupBtn=document.getElementById('popupBtn');
+
+function completeActivity(n){
+  if(n===1){
+    openPopup('🚀 Stage One Cleared!', 'The Flask workflow is assembled and ready for launch. Onward to the next mission!', 'Next Mission', ()=>{ closePopup(); loadActivity(2); });
+  } else if(n===2){
+    openPopup('🪐 Stations Synced!', 'Every operation is docked at the right console. One ring left to complete the mission!', 'Final Mission', ()=>{ closePopup(); loadActivity(3); });
+  } else if(n===3){
+    openPopup('🌌 MISSION ACCOMPLISHED!', 'You built and sequenced a complete Flask REST API across the galaxy. Incredible work, Commander!', 'Play Again', ()=>{ closePopup(); launchConfetti(); playAgain(); });
+    launchConfetti();
+  }
+}
+function openPopup(title, text, btnLabel, onClick){
+  popupTitle.textContent=title;
+  popupText.textContent=text;
+  popupBtn.textContent=btnLabel;
+  popupBtn.onclick=onClick;
+  overlay.classList.add('show');
+}
+function closePopup(){
+  overlay.classList.remove('show');
+}
+function playAgain(){
+  loadActivity(1);
+}
+function launchConfetti(){
+  const colors=['#4cf3ff','#ff4cd6','#ffd24c','#4cff9a'];
+  for(let i=0;i<40;i++){
+    const c=document.createElement('div');
+    c.className='confetti';
+    c.style.left=Math.random()*100+'vw';
+    c.style.background=colors[Math.floor(Math.random()*colors.length)];
+    c.style.animationDuration=(Math.random()*2+2)+'s';
+    c.style.animationDelay=(Math.random()*0.6)+'s';
+    document.getElementById('spaceBg').appendChild(c);
+    setTimeout(()=>c.remove(), 5000);
+  }
+}
+
+/* ================= INIT ================= */
+loadActivity(1);
+</script>
+</body>
+</html>

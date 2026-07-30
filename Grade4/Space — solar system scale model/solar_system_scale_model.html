@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SPACE — SOLAR SYSTEM SCALE MODEL</title>
+<style>
+  :root{
+    --bg-deep:#050915;
+    --bg-panel:#0b1330;
+    --bg-panel-2:#101c40;
+    --line:#25336b;
+    --sun-gold:#ffc257;
+    --terran-turquoise:#3fe3c8;
+    --jovian-ochre:#e6975a;
+    --neptune-azure:#5b8cff;
+    --danger:#ff6b6b;
+    --success:#4be3a0;
+    --text-hi:#f3f6ff;
+    --text-lo:#a9b4dd;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    height:100%;
+    margin:0;
+    overflow:hidden;
+    background:var(--bg-deep);
+    font-family:'Segoe UI',Verdana,Tahoma,sans-serif;
+    color:var(--text-hi);
+    user-select:none;
+  }
+  #universe{
+    position:fixed;inset:0;overflow:hidden;z-index:0;
+    background:
+      radial-gradient(ellipse at 15% 20%, rgba(91,140,255,0.16), transparent 55%),
+      radial-gradient(ellipse at 85% 75%, rgba(155,93,229,0.14), transparent 55%),
+      radial-gradient(ellipse at 50% 100%, rgba(63,227,200,0.08), transparent 60%),
+      linear-gradient(180deg,#050915 0%, #060a1c 45%, #04060f 100%);
+  }
+  .star{position:absolute;border-radius:50%;background:#fff;opacity:.6;
+    animation:twinkle linear infinite;}
+  @keyframes twinkle{
+    0%,100%{opacity:.15;transform:scale(0.8);}
+    50%{opacity:1;transform:scale(1.3);}
+  }
+  .nebula{position:absolute;border-radius:50%;filter:blur(40px);mix-blend-mode:screen;
+    animation:drift 26s ease-in-out infinite;}
+  .nebula.n1{width:420px;height:320px;top:-60px;left:-80px;background:radial-gradient(circle,rgba(155,93,229,.35),transparent 70%);animation-duration:30s;}
+  .nebula.n2{width:380px;height:380px;bottom:-100px;right:-60px;background:radial-gradient(circle,rgba(91,140,255,.3),transparent 70%);animation-duration:34s;animation-delay:-8s;}
+  .nebula.n3{width:300px;height:260px;top:40%;left:60%;background:radial-gradient(circle,rgba(63,227,200,.22),transparent 70%);animation-duration:22s;animation-delay:-4s;}
+  @keyframes drift{
+    0%,100%{transform:translate(0,0) scale(1);}
+    50%{transform:translate(30px,-20px) scale(1.12);}
+  }
+  .deco-orbit{position:absolute;border:1px dashed rgba(255,255,255,.12);border-radius:50%;
+    animation:spin linear infinite;}
+  .deco-orbit .body{position:absolute;border-radius:50%;box-shadow:0 0 10px 2px currentColor;}
+  .deco-orbit.o1{width:150px;height:150px;top:-30px;right:-30px;animation-duration:18s;color:var(--jovian-ochre);}
+  .deco-orbit.o1 .body{width:14px;height:14px;background:var(--jovian-ochre);top:-7px;left:68px;}
+  .deco-orbit.o2{width:230px;height:230px;top:-70px;right:-70px;animation-duration:34s;animation-direction:reverse;color:var(--neptune-azure);}
+  .deco-orbit.o2 .body{width:9px;height:9px;background:var(--neptune-azure);top:-4.5px;left:110px;}
+  .deco-orbit.o3{width:120px;height:120px;bottom:-30px;left:-30px;animation-duration:14s;color:var(--terran-turquoise);}
+  .deco-orbit.o3 .body{width:10px;height:10px;background:var(--terran-turquoise);top:-5px;left:55px;}
+  @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+  .asteroid{position:absolute;background:#6b7396;border-radius:40% 60% 55% 45%/50% 40% 60% 50%;
+    box-shadow:inset -3px -3px 4px rgba(0,0,0,.4);opacity:.55;
+    animation:driftX linear infinite;}
+  @keyframes driftX{
+    from{transform:translateX(-6vw) rotate(0deg);}
+    to{transform:translateX(106vw) rotate(360deg);}
+  }
+  .satellite{position:absolute;font-size:18px;filter:drop-shadow(0 0 6px rgba(255,255,255,.5));
+    animation:satpath 22s linear infinite;opacity:.85;}
+  @keyframes satpath{
+    0%{top:8%;left:-5%;transform:rotate(20deg);}
+    50%{top:55%;left:55%;transform:rotate(200deg);}
+    100%{top:8%;left:-5%;transform:rotate(380deg);}
+  }
+  .comet{position:absolute;width:6px;height:6px;border-radius:50%;background:#fff;
+    box-shadow:0 0 12px 3px #fff;animation:cometpath 16s linear infinite;}
+  .comet::after{content:'';position:absolute;right:4px;top:2px;width:70px;height:2px;
+    background:linear-gradient(90deg,rgba(255,255,255,.7),transparent);transform:translateX(4px) rotate(180deg);}
+  @keyframes cometpath{
+    0%{top:-5%;left:110%;}
+    100%{top:100%;left:-15%;}
+  }
+  .shooting-star{position:fixed;height:2px;width:120px;
+    background:linear-gradient(90deg,#fff,transparent);
+    border-radius:2px;opacity:0;z-index:1;pointer-events:none;
+    animation:shoot 1.1s ease-out forwards;}
+  @keyframes shoot{
+    0%{opacity:0;transform:translate(0,0) rotate(-20deg) scaleX(.3);}
+    10%{opacity:1;}
+    90%{opacity:1;}
+    100%{opacity:0;transform:translate(-380px,220px) rotate(-20deg) scaleX(1);}
+  }
+
+  /* ---------- layout shell ---------- */
+  #app{position:relative;z-index:2;height:100vh;display:flex;flex-direction:column;}
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:clamp(8px,1.6vh,16px) clamp(14px,3vw,34px);
+    background:linear-gradient(180deg, rgba(11,19,48,.85), rgba(11,19,48,.35));
+    border-bottom:1px solid var(--line);
+    flex:0 0 auto;
+  }
+  .topbar h1{
+    margin:0;font-size:clamp(15px,2.1vw,26px);letter-spacing:.06em;font-weight:800;
+    background:linear-gradient(90deg,var(--sun-gold),var(--terran-turquoise),var(--neptune-azure));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .progress-dots{display:flex;gap:10px;align-items:center;}
+  .progress-dots .step{
+    display:flex;align-items:center;gap:6px;font-size:clamp(10px,1.1vw,13px);color:var(--text-lo);
+  }
+  .progress-dots .dot{
+    width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    background:var(--bg-panel-2);border:2px solid var(--line);font-weight:700;font-size:11px;color:var(--text-lo);
+    transition:all .3s;
+  }
+  .progress-dots .dot.active{border-color:var(--sun-gold);color:var(--sun-gold);box-shadow:0 0 10px rgba(255,194,87,.5);}
+  .progress-dots .dot.done{background:var(--success);border-color:var(--success);color:#04220f;}
+  .progress-dots .seg{width:18px;height:2px;background:var(--line);}
+
+  #stage{flex:1 1 auto;position:relative;overflow:hidden;padding:clamp(8px,1.4vh,16px) clamp(12px,2.6vw,30px);}
+  .activity{
+    position:absolute;inset:clamp(8px,1.4vh,16px) clamp(12px,2.6vw,30px);
+    display:none;flex-direction:column;gap:clamp(6px,1vh,12px);
+    background:rgba(9,14,34,.55);border:1px solid var(--line);border-radius:16px;
+    padding:clamp(10px,1.6vh,20px) clamp(14px,2.2vw,26px);
+    backdrop-filter:blur(3px);
+    overflow:auto;
+  }
+  .activity.active{display:flex;animation:fadeIn .45s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+  .activity-head{flex:0 0 auto;}
+  .activity-tag{
+    display:inline-block;font-size:11px;letter-spacing:.14em;color:var(--sun-gold);
+    background:rgba(255,194,87,.12);border:1px solid rgba(255,194,87,.35);
+    padding:2px 10px;border-radius:20px;font-weight:700;margin-bottom:4px;
+  }
+  .activity-head h2{margin:2px 0 4px;font-size:clamp(15px,2vw,22px);}
+  .activity-sub{margin:0;color:var(--text-lo);font-size:clamp(11px,1.2vw,14px);}
+  .activity-sub strong{color:var(--terran-turquoise);}
+
+  .activity-footer{
+    flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+    margin-top:auto;padding-top:6px;
+  }
+  .counter{font-size:clamp(11px,1.2vw,13px);color:var(--text-lo);font-weight:600;}
+  .counter.complete{color:var(--success);}
+  .reset-btn{
+    background:transparent;border:1px solid var(--line);color:var(--text-lo);
+    padding:6px 16px;border-radius:20px;font-size:12px;cursor:pointer;font-weight:600;
+    transition:all .2s;
+  }
+  .reset-btn:hover{border-color:var(--neptune-azure);color:var(--text-hi);background:rgba(91,140,255,.1);}
+
+  /* ---------- chips & drag ---------- */
+  .chip-pool{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start;}
+  .chip{
+    display:flex;align-items:center;gap:6px;
+    background:var(--bg-panel-2);border:1px solid var(--line);border-radius:10px;
+    padding:6px 12px;font-size:clamp(10px,1.1vw,13px);font-weight:600;cursor:grab;
+    touch-action:none;transition:opacity .15s, transform .15s;color:var(--text-hi);
+  }
+  .chip .chip-dot{width:10px;height:10px;border-radius:50%;background:var(--pc,#fff);flex:0 0 auto;
+    box-shadow:0 0 6px var(--pc,#fff);}
+  .chip.dragging-source{opacity:.25;}
+  .chip.placed{cursor:default;opacity:1;}
+  .drag-ghost{
+    position:fixed;z-index:999;pointer-events:none;opacity:.95;
+    box-shadow:0 6px 22px rgba(0,0,0,.5);transform:scale(1.06);
+    border-radius:10px;
+  }
+  .dropzone{transition:box-shadow .2s, background .2s, border-color .2s;}
+  .dropzone.hover{box-shadow:0 0 0 3px rgba(91,140,255,.5) inset;background:rgba(91,140,255,.12);}
+  .dropzone.correct{animation:popCorrect .4s ease;}
+  @keyframes popCorrect{0%{transform:scale(1);}40%{transform:scale(1.08);}100%{transform:scale(1);}}
+  .dropzone.wrong{animation:shakeWrong .35s ease;}
+  @keyframes shakeWrong{
+    0%,100%{transform:translateX(0);}
+    25%{transform:translateX(-6px);}
+    75%{transform:translateX(6px);}
+  }
+
+  /* ---------- Activity 1: track ---------- */
+  #activity1{flex:1;}
+  .track-wrap{position:relative;flex:1;min-height:100px;display:flex;align-items:center;padding:0 6px;}
+  .track-line{
+    position:relative;width:100%;height:6px;background:linear-gradient(90deg,var(--sun-gold),var(--line) 6%, var(--line) 96%, var(--neptune-azure));
+    border-radius:4px;
+  }
+  .sun-marker{
+    position:absolute;left:-6px;top:50%;transform:translate(-50%,-50%);
+    width:44px;height:44px;border-radius:50%;
+    background:radial-gradient(circle at 35% 35%,#fff2c4,var(--sun-gold) 60%, #a9660c 100%);
+    box-shadow:0 0 22px 6px rgba(255,194,87,.6);
+    display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#3a2000;
+    text-align:center;
+  }
+  .track-slot{
+    position:absolute;top:50%;transform:translate(-50%,-50%);
+    width:clamp(46px,5.4vw,64px);height:clamp(46px,5.4vw,64px);border-radius:50%;
+    background:var(--bg-panel-2);border:2px dashed var(--line);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:9px;color:var(--text-lo);gap:2px;
+  }
+  .track-slot .slot-dist{font-weight:700;font-size:10px;}
+  .track-slot.filled{border-style:solid;border-color:var(--success);background:rgba(75,227,160,.12);}
+  .track-slot .chip{padding:2px 4px;background:transparent;border:none;font-size:9px;flex-direction:column;gap:1px;}
+  .track-slot .chip .chip-dot{width:14px;height:14px;}
+
+  /* ---------- Activity 2: layout table ---------- */
+  #activity2{flex:1;}
+  .layout-table{display:flex;flex-direction:column;gap:3px;flex:0 0 auto;}
+  .layout-row{
+    display:grid;grid-template-columns:64px 1fr 1fr 1fr;gap:6px;align-items:center;
+    background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:8px;padding:3px 8px;
+  }
+  .layout-row .pos-label{font-size:11px;font-weight:800;color:var(--sun-gold);}
+  .layout-row .dropzone{
+    min-height:24px;border:1px dashed var(--line);border-radius:6px;
+    display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-lo);
+    padding:2px 4px;
+  }
+  .layout-row .dropzone.filled{border-style:solid;border-color:var(--success);color:var(--text-hi);background:rgba(75,227,160,.1);}
+  .layout-row .dropzone .chip{padding:2px 8px;background:transparent;border:none;}
+  .pools-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:2px;}
+  .pool-col{flex:1;min-width:160px;background:rgba(255,255,255,.02);border:1px solid var(--line);
+    border-radius:10px;padding:6px 8px;}
+  .pool-col h4{margin:0 0 4px;font-size:10px;letter-spacing:.08em;color:var(--text-lo);text-transform:uppercase;}
+  .pool-col .chip-pool{min-height:26px;}
+  .pool-col .chip{padding:4px 9px;font-size:10px;}
+
+  /* ---------- Activity 3: sequence ---------- */
+  #activity3{flex:1;}
+  .sequence-slots{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;flex:0 0 auto;}
+  .seq-slot{
+    flex:1;min-width:110px;min-height:64px;border:2px dashed var(--line);border-radius:12px;
+    background:var(--bg-panel-2);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:4px;padding:6px;position:relative;
+  }
+  .seq-slot .seq-num{
+    position:absolute;top:-10px;left:-10px;width:22px;height:22px;border-radius:50%;
+    background:var(--neptune-azure);color:#fff;font-size:11px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 0 8px rgba(91,140,255,.6);
+  }
+  .seq-slot.filled{border-style:solid;border-color:var(--success);}
+  .seq-slot .chip{background:transparent;border:none;font-size:11px;text-align:center;white-space:normal;}
+  .seq-arrow{align-self:center;color:var(--text-lo);font-size:16px;}
+  #poolSteps{margin-top:4px;justify-content:center;}
+  #poolSteps .chip{font-size:12px;padding:8px 16px;}
+
+  /* ---------- modal ---------- */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(2,4,12,.72);backdrop-filter:blur(4px);
+    display:flex;align-items:center;justify-content:center;z-index:50;
+    opacity:0;pointer-events:none;transition:opacity .3s;
+  }
+  .modal-overlay.show{opacity:1;pointer-events:auto;}
+  .modal-card{
+    background:linear-gradient(160deg,var(--bg-panel),#080d22);
+    border:1px solid rgba(255,194,87,.4);border-radius:18px;
+    padding:26px 32px;max-width:min(90vw,440px);text-align:center;
+    box-shadow:0 0 40px rgba(91,140,255,.25);
+    transform:scale(.85);transition:transform .3s;
+  }
+  .modal-overlay.show .modal-card{transform:scale(1);}
+  .modal-card .emoji{font-size:42px;margin-bottom:6px;}
+  .modal-card h3{margin:0 0 8px;font-size:20px;color:var(--sun-gold);}
+  .modal-card p{margin:0 0 18px;color:var(--text-lo);font-size:13px;line-height:1.5;}
+  .modal-btn{
+    background:linear-gradient(90deg,var(--terran-turquoise),var(--neptune-azure));
+    border:none;color:#04122a;font-weight:800;padding:11px 26px;border-radius:24px;
+    font-size:13px;cursor:pointer;letter-spacing:.03em;
+    box-shadow:0 4px 16px rgba(63,227,200,.35);transition:transform .15s;
+  }
+  .modal-btn:hover{transform:translateY(-2px);}
+  .modal-btn.gold{background:linear-gradient(90deg,var(--sun-gold),var(--jovian-ochre));box-shadow:0 4px 16px rgba(255,194,87,.4);}
+
+  .burst{position:absolute;font-size:22px;pointer-events:none;animation:burstUp 1.4s ease-out forwards;}
+  @keyframes burstUp{
+    0%{transform:translate(0,0) scale(.4) rotate(0deg);opacity:1;}
+    100%{transform:translate(var(--tx),var(--ty)) scale(1.2) rotate(200deg);opacity:0;}
+  }
+
+  @media (max-width:720px){
+    .layout-row{grid-template-columns:44px 1fr 1fr 1fr;}
+    .progress-dots .step span{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div id="universe">
+  <div class="nebula n1"></div>
+  <div class="nebula n2"></div>
+  <div class="nebula n3"></div>
+  <div class="deco-orbit o1"><div class="body"></div></div>
+  <div class="deco-orbit o2"><div class="body"></div></div>
+  <div class="deco-orbit o3"><div class="body"></div></div>
+  <div class="satellite">🛰️</div>
+  <div class="comet"></div>
+  <div id="starsHolder"></div>
+  <div id="asteroidHolder"></div>
+  <div id="shootingHolder"></div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <h1>SPACE — SOLAR SYSTEM SCALE MODEL</h1>
+    <div class="progress-dots" id="progressDots">
+      <div class="step"><div class="dot active" id="dot1">1</div><span>Distance Track</span></div>
+      <div class="seg"></div>
+      <div class="step"><div class="dot" id="dot2">2</div><span>Build Layout</span></div>
+      <div class="seg"></div>
+      <div class="step"><div class="dot" id="dot3">3</div><span>Mission Sequence</span></div>
+    </div>
+  </div>
+
+  <div id="stage">
+
+    <!-- ACTIVITY 1 -->
+    <section id="activity1" class="activity active">
+      <div class="activity-head">
+        <span class="activity-tag">Activity 1</span>
+        <h2>Place the Planets on the Distance Track</h2>
+        <p class="activity-sub">Model scale: <strong>1 AU = 10 meters</strong>. Drag each planet to the spot that matches its true scaled distance from the Sun.</p>
+      </div>
+      <div class="track-wrap">
+        <div class="track-line" id="trackLine">
+          <div class="sun-marker">SUN<br>0 m</div>
+        </div>
+      </div>
+      <div class="chip-pool" id="pool1"></div>
+      <div class="activity-footer">
+        <div class="counter" id="counter1">0 / 8 placed</div>
+        <button class="reset-btn" onclick="resetActivity1()">Reset Activity</button>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 2 -->
+    <section id="activity2" class="activity">
+      <div class="activity-head">
+        <span class="activity-tag">Activity 2</span>
+        <h2>Build the Scale Model Layout</h2>
+        <p class="activity-sub">For every position out from the Sun, drag in the correct <strong>planet name</strong>, <strong>scaled distance</strong>, and <strong>model object</strong>.</p>
+      </div>
+      <div class="layout-table" id="layoutTable"></div>
+      <div class="pools-row">
+        <div class="pool-col"><h4>Planet Names</h4><div class="chip-pool" id="poolNames"></div></div>
+        <div class="pool-col"><h4>Scaled Distances</h4><div class="chip-pool" id="poolDist"></div></div>
+        <div class="pool-col"><h4>Model Objects</h4><div class="chip-pool" id="poolObj"></div></div>
+      </div>
+      <div class="activity-footer">
+        <div class="counter" id="counter2">0 / 24 matched</div>
+        <button class="reset-btn" onclick="resetActivity2()">Reset Activity</button>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 3 -->
+    <section id="activity3" class="activity">
+      <div class="activity-head">
+        <span class="activity-tag">Activity 3</span>
+        <h2>Mission Sequence Challenge</h2>
+        <p class="activity-sub">Drag the mission steps into the correct order to complete a solar system scale model, start to finish.</p>
+      </div>
+      <div class="sequence-slots" id="seqSlots"></div>
+      <div class="chip-pool" id="poolSteps"></div>
+      <div class="activity-footer">
+        <div class="counter" id="counter3">0 / 5 in order</div>
+        <button class="reset-btn" onclick="resetActivity3()">Reset Activity</button>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-card" id="modalCard"></div>
+</div>
+
+<script>
+/* ============ DATA ============ */
+const PLANETS = [
+  {id:'mercury', name:'Mercury', color:'#b7b7c2', dist:4,   obj:'Mustard seed',  order:1},
+  {id:'venus',   name:'Venus',   color:'#e8c39e', dist:7,   obj:'Black peppercorn', order:2},
+  {id:'earth',   name:'Earth',   color:'#3fe3c8', dist:10,  obj:'Small dried pea', order:3},
+  {id:'mars',    name:'Mars',    color:'#c1440e', dist:15,  obj:'Chickpea',       order:4},
+  {id:'jupiter', name:'Jupiter', color:'#e6975a', dist:52,  obj:'Sweet lime',     order:5},
+  {id:'saturn',  name:'Saturn',  color:'#e8d9a0', dist:95,  obj:'Orange',         order:6},
+  {id:'uranus',  name:'Uranus',  color:'#7fdbda', dist:192, obj:'Gooseberry',     order:7},
+  {id:'neptune', name:'Neptune', color:'#5b8cff', dist:301, obj:'Small lime',     order:8},
+];
+function trackPos(d){
+  const s=Math.sqrt(d), lo=Math.sqrt(4), hi=Math.sqrt(301);
+  return 5 + ((s-lo)/(hi-lo))*90;
+}
+const SEQ_STEPS = [
+  {id:'s1', label:'Choose the Scale', order:1},
+  {id:'s2', label:'Calculate the Scaled Distances', order:2},
+  {id:'s3', label:'Position the Planets', order:3},
+  {id:'s4', label:'Compare the Relative Spacing', order:4},
+  {id:'s5', label:'Complete the Solar System Model', order:5},
+];
+
+/* ============ UTIL ============ */
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function el(tag, cls, html){
+  const e=document.createElement(tag);
+  if(cls) e.className=cls;
+  if(html!==undefined) e.innerHTML=html;
+  return e;
+}
+
+/* ============ DRAG ENGINE (pointer-based) ============ */
+let dragState=null;
+function makeChipDraggable(chip){
+  chip.addEventListener('pointerdown', (e)=>{
+    if(chip.classList.contains('placed')) return;
+    e.preventDefault();
+    const rect=chip.getBoundingClientRect();
+    const ghost=chip.cloneNode(true);
+    ghost.classList.add('drag-ghost');
+    ghost.style.width=rect.width+'px';
+    ghost.style.left=rect.left+'px';
+    ghost.style.top=rect.top+'px';
+    document.body.appendChild(ghost);
+    chip.classList.add('dragging-source');
+    dragState={chip, ghost, offsetX:e.clientX-rect.left, offsetY:e.clientY-rect.top};
+    document.addEventListener('pointermove', onDragMove);
+    document.addEventListener('pointerup', onDragEnd);
+  });
+}
+function onDragMove(e){
+  if(!dragState) return;
+  dragState.ghost.style.left=(e.clientX-dragState.offsetX)+'px';
+  dragState.ghost.style.top=(e.clientY-dragState.offsetY)+'px';
+  document.querySelectorAll('.dropzone.hover').forEach(z=>z.classList.remove('hover'));
+  const under=document.elementFromPoint(e.clientX,e.clientY);
+  const zone=under && under.closest('.dropzone');
+  if(zone) zone.classList.add('hover');
+}
+function onDragEnd(e){
+  if(!dragState) return;
+  document.removeEventListener('pointermove', onDragMove);
+  document.removeEventListener('pointerup', onDragEnd);
+  const under=document.elementFromPoint(e.clientX,e.clientY);
+  const zone=under && under.closest('.dropzone');
+  document.querySelectorAll('.dropzone.hover').forEach(z=>z.classList.remove('hover'));
+  dragState.ghost.remove();
+  const chip=dragState.chip;
+  chip.classList.remove('dragging-source');
+  dragState=null;
+  if(zone){
+    const actEl=chip.closest('.activity');
+    if(actEl){
+      if(actEl.id==='activity1') handleDrop1(chip, zone);
+      else if(actEl.id==='activity2') handleDrop2(chip, zone);
+      else if(actEl.id==='activity3') handleDrop3(chip, zone);
+    }
+  }
+}
+function flashWrong(zone){
+  zone.classList.add('wrong');
+  setTimeout(()=>zone.classList.remove('wrong'),350);
+}
+function flashCorrect(zone){
+  zone.classList.add('correct');
+  setTimeout(()=>zone.classList.remove('correct'),400);
+}
+
+/* ============ ACTIVITY 1 ============ */
+let a1Placed=0;
+function buildActivity1(){
+  const track=document.getElementById('trackLine');
+  track.querySelectorAll('.track-slot').forEach(n=>n.remove());
+  PLANETS.forEach(p=>{
+    const slot=el('div','dropzone track-slot');
+    slot.dataset.planet=p.id;
+    slot.style.left=trackPos(p.dist)+'%';
+    slot.innerHTML=`<span class="slot-dist">${p.dist} m</span>`;
+    track.appendChild(slot);
+  });
+  const pool=document.getElementById('pool1');
+  pool.innerHTML='';
+  shuffle(PLANETS).forEach(p=>{
+    const chip=el('div','chip planet-chip');
+    chip.dataset.planet=p.id;
+    chip.style.setProperty('--pc', p.color);
+    chip.innerHTML=`<span class="chip-dot"></span>${p.name}`;
+    makeChipDraggable(chip);
+    pool.appendChild(chip);
+  });
+  a1Placed=0;
+  updateCounter1();
+}
+function handleDrop1(chip, zone){
+  if(zone.classList.contains('filled')){ flashWrong(zone); return; }
+  if(zone.dataset.planet===chip.dataset.planet){
+    zone.classList.add('filled');
+    flashCorrect(zone);
+    chip.classList.add('placed');
+    const distHTML=zone.querySelector('.slot-dist').outerHTML;
+    zone.innerHTML='';
+    chip.remove();
+    zone.appendChild(chip);
+    zone.insertAdjacentHTML('beforeend', distHTML);
+    a1Placed++;
+    updateCounter1();
+    if(a1Placed===PLANETS.length){
+      setTimeout(()=>showActivityComplete(1),450);
+    }
+  } else {
+    flashWrong(zone);
+  }
+}
+function updateCounter1(){
+  const c=document.getElementById('counter1');
+  c.textContent=`${a1Placed} / ${PLANETS.length} placed`;
+  c.classList.toggle('complete', a1Placed===PLANETS.length);
+}
+function resetActivity1(){ buildActivity1(); }
+
+/* ============ ACTIVITY 2 ============ */
+let a2Matched=0;
+const A2_TOTAL = PLANETS.length*3;
+function buildActivity2(){
+  const table=document.getElementById('layoutTable');
+  table.innerHTML='';
+  PLANETS.forEach(p=>{
+    const row=el('div','layout-row');
+    row.innerHTML=`<div class="pos-label">Pos ${p.order}</div>`;
+    const zName=el('div','dropzone'); zName.dataset.type='name'; zName.dataset.planet=p.id; zName.textContent='name';
+    const zDist=el('div','dropzone'); zDist.dataset.type='dist'; zDist.dataset.planet=p.id; zDist.textContent='distance';
+    const zObj=el('div','dropzone'); zObj.dataset.type='obj'; zObj.dataset.planet=p.id; zObj.textContent='object';
+    row.appendChild(zName); row.appendChild(zDist); row.appendChild(zObj);
+    table.appendChild(row);
+  });
+  const poolNames=document.getElementById('poolNames');
+  const poolDist=document.getElementById('poolDist');
+  const poolObj=document.getElementById('poolObj');
+  poolNames.innerHTML=''; poolDist.innerHTML=''; poolObj.innerHTML='';
+  shuffle(PLANETS).forEach(p=>{
+    const c=el('div','chip'); c.dataset.type='name'; c.dataset.planet=p.id; c.textContent=p.name;
+    c.style.setProperty('--pc', p.color);
+    makeChipDraggable(c); poolNames.appendChild(c);
+  });
+  shuffle(PLANETS).forEach(p=>{
+    const c=el('div','chip'); c.dataset.type='dist'; c.dataset.planet=p.id; c.textContent=p.dist+' m';
+    makeChipDraggable(c); poolDist.appendChild(c);
+  });
+  shuffle(PLANETS).forEach(p=>{
+    const c=el('div','chip'); c.dataset.type='obj'; c.dataset.planet=p.id; c.textContent=p.obj;
+    makeChipDraggable(c); poolObj.appendChild(c);
+  });
+  a2Matched=0;
+  updateCounter2();
+}
+function handleDrop2(chip, zone){
+  if(zone.classList.contains('filled')){ flashWrong(zone); return; }
+  if(zone.dataset.type!==chip.dataset.type){ flashWrong(zone); return; }
+  if(zone.dataset.planet===chip.dataset.planet){
+    zone.classList.add('filled');
+    flashCorrect(zone);
+    chip.classList.add('placed');
+    zone.textContent='';
+    chip.remove();
+    zone.appendChild(chip);
+    a2Matched++;
+    updateCounter2();
+    if(a2Matched===A2_TOTAL){
+      setTimeout(()=>showActivityComplete(2),450);
+    }
+  } else {
+    flashWrong(zone);
+  }
+}
+function updateCounter2(){
+  const c=document.getElementById('counter2');
+  c.textContent=`${a2Matched} / ${A2_TOTAL} matched`;
+  c.classList.toggle('complete', a2Matched===A2_TOTAL);
+}
+function resetActivity2(){ buildActivity2(); }
+
+/* ============ ACTIVITY 3 ============ */
+let a3Placed=0;
+function buildActivity3(){
+  const slots=document.getElementById('seqSlots');
+  slots.innerHTML='';
+  SEQ_STEPS.forEach((s,i)=>{
+    const zone=el('div','dropzone seq-slot');
+    zone.dataset.order=s.order;
+    zone.innerHTML=`<div class="seq-num">${s.order}</div>`;
+    slots.appendChild(zone);
+  });
+  const pool=document.getElementById('poolSteps');
+  pool.innerHTML='';
+  shuffle(SEQ_STEPS).forEach(s=>{
+    const c=el('div','chip'); c.dataset.order=s.order; c.textContent=s.label;
+    makeChipDraggable(c); pool.appendChild(c);
+  });
+  a3Placed=0;
+  updateCounter3();
+}
+function handleDrop3(chip, zone){
+  if(zone.classList.contains('filled')){ flashWrong(zone); return; }
+  if(zone.dataset.order===chip.dataset.order){
+    zone.classList.add('filled');
+    flashCorrect(zone);
+    chip.classList.add('placed');
+    chip.remove();
+    zone.appendChild(chip);
+    a3Placed++;
+    updateCounter3();
+    if(a3Placed===SEQ_STEPS.length){
+      setTimeout(()=>showFinalCelebration(),450);
+    }
+  } else {
+    flashWrong(zone);
+  }
+}
+function updateCounter3(){
+  const c=document.getElementById('counter3');
+  c.textContent=`${a3Placed} / ${SEQ_STEPS.length} in order`;
+  c.classList.toggle('complete', a3Placed===SEQ_STEPS.length);
+}
+function resetActivity3(){ buildActivity3(); }
+
+/* ============ MODALS / PROGRESSION ============ */
+function setActive(n){
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.getElementById('activity'+n).classList.add('active');
+  for(let i=1;i<=3;i++){
+    const dot=document.getElementById('dot'+i);
+    dot.classList.remove('active','done');
+    if(i<n) dot.classList.add('done');
+    else if(i===n) dot.classList.add('active');
+  }
+}
+function showModal(html){
+  const overlay=document.getElementById('modalOverlay');
+  document.getElementById('modalCard').innerHTML=html;
+  overlay.classList.add('show');
+}
+function hideModal(){
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+function showActivityComplete(n){
+  const msgs={
+    1:{title:'Activity 1 Complete!', body:'Every planet is sitting at its true scaled distance from the Sun. Space really is mostly empty!', next:2},
+    2:{title:'Activity 2 Complete!', body:'You built the full scale model layout — names, distances, and model objects all matched.', next:3},
+  };
+  const m=msgs[n];
+  showModal(`
+    <div class="emoji">🪐</div>
+    <h3>${m.title}</h3>
+    <p>${m.body}</p>
+    <button class="modal-btn" onclick="goNext(${m.next})">Continue: Activity ${m.next} →</button>
+  `);
+}
+function goNext(n){
+  hideModal();
+  setActive(n);
+}
+function showFinalCelebration(){
+  showModal(`
+    <div class="emoji">🚀🌌</div>
+    <h3>Mission Complete!</h3>
+    <p>You've mastered planet order, real scaled distances, and the full model-building sequence. The Solar System never looked so accurately huge.</p>
+    <button class="modal-btn gold" onclick="playAgain()">Play Again</button>
+  `);
+  launchBurst();
+}
+function launchBurst(){
+  const icons=['✨','🌟','☄️','🪐','⭐','💫'];
+  for(let i=0;i<24;i++){
+    const b=el('div','burst', icons[Math.floor(Math.random()*icons.length)]);
+    const angle=Math.random()*Math.PI*2;
+    const dist=80+Math.random()*160;
+    b.style.setProperty('--tx', Math.cos(angle)*dist+'px');
+    b.style.setProperty('--ty', Math.sin(angle)*dist+'px');
+    b.style.left=(48+Math.random()*4)+'vw';
+    b.style.top=(45+Math.random()*4)+'vh';
+    document.body.appendChild(b);
+    setTimeout(()=>b.remove(),1500);
+  }
+}
+function playAgain(){
+  hideModal();
+  restartAll();
+}
+function restartAll(){
+  buildActivity1();
+  buildActivity2();
+  buildActivity3();
+  setActive(1);
+}
+
+/* ============ AMBIENT BACKGROUND ============ */
+function buildStars(){
+  const holder=document.getElementById('starsHolder');
+  holder.innerHTML='';
+  for(let i=0;i<70;i++){
+    const s=el('div','star');
+    const size=(Math.random()*2+1).toFixed(1);
+    s.style.width=size+'px';
+    s.style.height=size+'px';
+    s.style.left=Math.random()*100+'vw';
+    s.style.top=Math.random()*100+'vh';
+    s.style.animationDuration=(2+Math.random()*3).toFixed(1)+'s';
+    s.style.animationDelay=(Math.random()*3).toFixed(1)+'s';
+    holder.appendChild(s);
+  }
+}
+function buildAsteroids(){
+  const holder=document.getElementById('asteroidHolder');
+  holder.innerHTML='';
+  for(let i=0;i<6;i++){
+    const a=el('div','asteroid');
+    const size=6+Math.random()*10;
+    a.style.width=size+'px';
+    a.style.height=size*0.8+'px';
+    a.style.top=(60+Math.random()*30)+'vh';
+    a.style.animationDuration=(14+Math.random()*14)+'s';
+    a.style.animationDelay=(-Math.random()*20)+'s';
+    holder.appendChild(a);
+  }
+}
+function spawnShootingStar(){
+  const holder=document.getElementById('shootingHolder');
+  const s=el('div','shooting-star');
+  s.style.top=(Math.random()*40)+'vh';
+  s.style.left=(50+Math.random()*40)+'vw';
+  holder.appendChild(s);
+  setTimeout(()=>s.remove(),1300);
+  setTimeout(spawnShootingStar, 4000+Math.random()*5000);
+}
+
+/* ============ INIT ============ */
+buildStars();
+buildAsteroids();
+setTimeout(spawnShootingStar, 2500);
+buildActivity1();
+buildActivity2();
+buildActivity3();
+setActive(1);
+</script>
+</body>
+</html>

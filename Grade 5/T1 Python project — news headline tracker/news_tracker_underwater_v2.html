@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>T1 Python Project — News Headline Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Quicksand:wght@500;600;700&display=swap');
+
+  :root{
+    --abyss-deep:#031c2e;
+    --abyss-mid:#093b57;
+    --ocean-blue:#0e5a78;
+    --lagoon:#17c3c2;
+    --bio-glow:#5be7e0;
+    --coral:#ff7a5c;
+    --gold:#ffd166;
+    --foam:#eafcff;
+    --danger:#ff5c6c;
+    --ok:#5be86e;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    overflow:hidden;
+    background:var(--abyss-deep);
+    font-family:'Quicksand', sans-serif;
+    color:var(--foam);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ---------------- BACKGROUND ---------------- */
+  .ocean-bg{
+    position:fixed; inset:0; z-index:0; overflow:hidden;
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(23,195,194,0.20), transparent 55%),
+      radial-gradient(ellipse at 85% 100%, rgba(255,122,92,0.10), transparent 50%),
+      linear-gradient(180deg, #04283f 0%, #052033 35%, #031524 70%, #010b14 100%);
+  }
+  .light-rays{
+    position:absolute; inset:0; opacity:0.5; pointer-events:none;
+    background:
+      linear-gradient(100deg, transparent 10%, rgba(255,255,255,0.05) 12%, transparent 16%),
+      linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.04) 33%, transparent 38%),
+      linear-gradient(100deg, transparent 55%, rgba(255,255,255,0.05) 58%, transparent 64%),
+      linear-gradient(100deg, transparent 75%, rgba(255,255,255,0.035) 78%, transparent 84%);
+    animation: rayShift 14s ease-in-out infinite alternate;
+  }
+  @keyframes rayShift{
+    0%{ transform: translateX(-3%) rotate(0deg); }
+    100%{ transform: translateX(3%) rotate(1deg); }
+  }
+
+  .bubble{
+    position:absolute; bottom:-40px; border-radius:50%;
+    background:radial-gradient(circle at 30% 30%, rgba(255,255,255,0.85), rgba(190,240,240,0.15) 60%, rgba(190,240,240,0.05));
+    box-shadow: inset 0 0 6px rgba(255,255,255,0.4);
+    animation-name: riseBubble;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    opacity:0.85;
+  }
+  @keyframes riseBubble{
+    0%{ transform: translate(0,0) scale(1); opacity:0.0; }
+    8%{ opacity:0.85; }
+    50%{ transform: translate(18px, -55vh) scale(1.05); }
+    100%{ transform: translate(-14px, -112vh) scale(0.9); opacity:0; }
+  }
+
+  .fish{
+    position:absolute; will-change:transform; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35));
+    animation-name: swimAcross; animation-timing-function: linear; animation-iteration-count: infinite;
+  }
+  @keyframes swimAcross{
+    0%{ transform: translateX(-12vw) translateY(0) scaleX(1); }
+    48%{ transform: translateX(58vw) translateY(-14px) scaleX(1); }
+    50%{ transform: translateX(60vw) translateY(-14px) scaleX(-1); }
+    98%{ transform: translateX(-8vw) translateY(6px) scaleX(-1); }
+    100%{ transform: translateX(-12vw) translateY(0) scaleX(1); }
+  }
+
+  .jelly{
+    position:absolute; animation-name: jellyFloat, jellyGlow; animation-timing-function: ease-in-out, ease-in-out;
+    animation-iteration-count: infinite, infinite; opacity:0.85;
+  }
+  @keyframes jellyFloat{
+    0%,100%{ transform: translateY(0px) rotate(-3deg); }
+    50%{ transform: translateY(-26px) rotate(3deg); }
+  }
+  @keyframes jellyGlow{
+    0%,100%{ filter: drop-shadow(0 0 4px rgba(91,231,224,0.5)); }
+    50%{ filter: drop-shadow(0 0 16px rgba(91,231,224,0.95)); }
+  }
+
+  .coin{
+    position:absolute; animation-name: coinDrift; animation-timing-function: ease-in-out; animation-iteration-count: infinite;
+    filter: drop-shadow(0 0 4px rgba(255,209,102,0.6));
+  }
+  @keyframes coinDrift{
+    0%{ transform: translate(0,0) rotateY(0deg); }
+    50%{ transform: translate(10px,-18px) rotateY(180deg); }
+    100%{ transform: translate(0,0) rotateY(360deg); }
+  }
+
+  .seaweed-row{ position:absolute; bottom:0; left:0; width:100%; height:16vh; display:flex; justify-content:space-around; align-items:flex-end; pointer-events:none;}
+  .seaweed{ transform-origin:bottom center; animation-name: sway; animation-timing-function: ease-in-out; animation-iteration-count: infinite; opacity:0.9;}
+  @keyframes sway{
+    0%,100%{ transform: rotate(-6deg); }
+    50%{ transform: rotate(6deg); }
+  }
+
+  .coral-silhouette{
+    position:absolute; bottom:0; left:0; width:100%; height:10vh;
+    background: radial-gradient(circle at 8% 100%, rgba(255,122,92,0.25), transparent 60%),
+                radial-gradient(circle at 92% 100%, rgba(255,122,92,0.2), transparent 55%);
+    pointer-events:none;
+  }
+
+  /* ---------------- APP LAYOUT ---------------- */
+  .app{
+    position:relative; z-index:2; width:100%; height:100%;
+    display:flex; flex-direction:column;
+    padding: 1.4vh 2.2vw 1.6vh;
+  }
+
+  .topbar{ text-align:center; flex:0 0 auto; }
+  .topbar h1{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:800;
+    font-size: clamp(1.05rem, 2.6vw, 2.05rem);
+    letter-spacing:0.5px;
+    margin: 0 0 0.6vh 0;
+    color: var(--foam);
+    text-shadow: 0 0 18px rgba(91,231,224,0.55), 0 2px 0 rgba(0,0,0,0.3);
+  }
+  .subtitle{
+    margin:0 0 0.8vh 0; font-size: clamp(0.7rem,1.2vw,0.95rem); color:#bfeef0; opacity:0.85;
+  }
+  .progress-dots{ display:flex; gap:10px; justify-content:center; align-items:center; margin-bottom:0.4vh;}
+  .progress-dots .dot{
+    width:11px; height:11px; border-radius:50%; background:rgba(255,255,255,0.18);
+    border:2px solid rgba(255,255,255,0.35); transition: all .35s ease;
+  }
+  .progress-dots .dot.active{ background:var(--lagoon); border-color:var(--bio-glow); box-shadow:0 0 10px var(--bio-glow); }
+  .progress-dots .dot.done{ background:var(--gold); border-color:var(--gold); }
+
+  .stage{ flex:1 1 auto; position:relative; min-height:0; }
+  .activity{
+    position:absolute; inset:0; display:none; flex-direction:column; align-items:center;
+    justify-content:flex-start; gap:1vh;
+    background: rgba(4,32,50,0.35);
+    border: 1px solid rgba(91,231,224,0.25);
+    border-radius: 22px;
+    padding: 1.6vh 2vw;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.35), inset 0 0 40px rgba(23,195,194,0.06);
+    overflow-y:auto;
+  }
+  .activity.active{ display:flex; animation: fadeUp .5s ease; }
+  @keyframes fadeUp{ from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);} }
+
+  .activity h2{
+    font-family:'Baloo 2', sans-serif; font-size: clamp(0.95rem,1.9vw,1.5rem);
+    margin:0.2vh 0; color:var(--gold); text-shadow:0 0 10px rgba(255,209,102,0.4);
+  }
+  .instructions{
+    margin:0; text-align:center; max-width:780px; font-size: clamp(0.72rem,1.15vw,0.98rem);
+    color:#dffcfb; opacity:0.9; line-height:1.35;
+  }
+
+  /* ---------------- ACTIVITY 1 : DRAG INTO SLOTS ---------------- */
+  .slots{
+    display:flex; gap: clamp(6px,1vw,16px); flex-wrap:wrap; justify-content:center;
+    width:100%; max-width:1100px; margin-top:0.4vh;
+  }
+  .slot{
+    flex: 1 1 150px; max-width:190px; min-height: clamp(58px,9vh,84px);
+    border:2px dashed rgba(234,252,255,0.4); border-radius:14px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:6px 8px; text-align:center; position:relative;
+    background:rgba(255,255,255,0.03);
+    transition: border-color .25s, background .25s, transform .15s;
+  }
+  .slot .slot-index{
+    position:absolute; top:4px; left:8px; font-size:0.65rem; opacity:0.55; font-weight:700;
+  }
+  .slot .slot-hint{
+    font-size: clamp(0.6rem,0.95vw,0.78rem); opacity:0.75; font-weight:600; line-height:1.15;
+  }
+  .slot .slot-filled{
+    font-family:'Baloo 2',sans-serif; font-weight:700; font-size: clamp(0.68rem,1.05vw,0.9rem);
+    color:var(--abyss-deep); background:var(--ok); border-radius:10px; padding:6px 8px; width:100%;
+  }
+  .slot.correct{ border-color:var(--ok); box-shadow:0 0 14px rgba(91,232,110,0.55); background:rgba(91,232,110,0.08); }
+  .slot.wrong{ animation: shake .4s ease; border-color:var(--danger); }
+  .slot.dragover{ border-color:var(--bio-glow); background:rgba(91,231,224,0.12); transform:scale(1.03); }
+  @keyframes shake{
+    0%,100%{ transform:translateX(0); }
+    20%{ transform:translateX(-8px); }
+    40%{ transform:translateX(8px); }
+    60%{ transform:translateX(-6px); }
+    80%{ transform:translateX(6px); }
+  }
+
+  .chips-pool{
+    display:flex; gap: clamp(6px,1vw,14px); flex-wrap:wrap; justify-content:center;
+    width:100%; max-width:1100px; margin-top:0.2vh; min-height: clamp(50px,8vh,70px);
+  }
+  .chip{
+    font-family:'Baloo 2', sans-serif; font-weight:700;
+    font-size: clamp(0.66rem,1.05vw,0.9rem);
+    padding: 9px 14px; border-radius:12px; cursor:grab; user-select:none;
+    background: linear-gradient(160deg, var(--coral), #e8543a);
+    color:#1c0a05; box-shadow: 0 4px 10px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.35);
+    touch-action:none; position:relative; z-index:5;
+    transition: transform .15s, box-shadow .15s, opacity .2s;
+  }
+  .chip:active{ cursor:grabbing; }
+  .chip.dragging{ opacity:0.35; }
+  .chip small{ display:block; font-family:'Quicksand',sans-serif; font-weight:600; font-size:0.62em; opacity:0.75; }
+  .chip.floating{
+    position:fixed; z-index:999; pointer-events:none; transform:scale(1.08) rotate(-2deg);
+    box-shadow:0 10px 24px rgba(0,0,0,0.45);
+  }
+
+  /* ---------------- ACTIVITY 2 : SHELL MEMORY MATCH ---------------- */
+  .match-grid{
+    display:grid; grid-template-columns:repeat(5, minmax(90px,1fr)); gap: clamp(8px,1.2vw,16px);
+    width:100%; max-width:920px; margin-top:0.6vh;
+  }
+  .match-card{
+    height: clamp(64px,10vh,96px); border-radius:14px; cursor:pointer; perspective:700px;
+  }
+  .match-card-inner{
+    position:relative; width:100%; height:100%; transition: transform .5s cubic-bezier(.3,.9,.4,1);
+    transform-style:preserve-3d;
+  }
+  .match-card.flipped .match-card-inner,
+  .match-card.matched .match-card-inner{ transform: rotateY(180deg); }
+  .match-card-face{
+    position:absolute; inset:0; backface-visibility:hidden; border-radius:14px;
+    display:flex; align-items:center; justify-content:center; padding:6px 8px; text-align:center;
+    font-weight:700; line-height:1.2;
+  }
+  .match-card-back{
+    background: linear-gradient(160deg, var(--ocean-blue), var(--abyss-mid));
+    border:2px solid rgba(91,231,224,0.4); font-size: clamp(1.4rem,2.6vw,2rem);
+    box-shadow: inset 0 0 14px rgba(0,0,0,0.35);
+  }
+  .match-card-front{
+    background: linear-gradient(160deg, var(--lagoon), #0d8e8c);
+    color:#032a2a; transform: rotateY(180deg);
+    font-family:'Baloo 2',sans-serif; font-size: clamp(0.6rem,1vw,0.82rem);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.35);
+  }
+  .match-card.matched .match-card-front{
+    background: linear-gradient(160deg, var(--ok), #2fae49);
+    box-shadow: 0 0 14px rgba(91,232,110,0.6);
+  }
+  .match-card.wrong .match-card-inner{ animation: shake .4s ease; }
+  .match-card.matched{ cursor:default; }
+
+  /* ---------------- ACTIVITY 3 : TREASURE-TRAIL QUIZ ---------------- */
+  .quiz-wrap{
+    width:100%; max-width:640px; display:flex; flex-direction:column; align-items:center;
+    gap: clamp(8px,1.4vh,16px); margin-top:0.6vh;
+  }
+  .quiz-progress-track{
+    width:100%; height:9px; border-radius:6px; background:rgba(255,255,255,0.12); overflow:hidden;
+    border:1px solid rgba(255,255,255,0.15);
+  }
+  .quiz-progress-fill{
+    height:100%; width:0%; background:linear-gradient(90deg, var(--lagoon), var(--gold));
+    transition: width .45s ease; box-shadow:0 0 8px rgba(91,231,224,0.6);
+  }
+  .quiz-question-card{
+    background: rgba(255,255,255,0.05); border:1px solid rgba(255,209,102,0.35);
+    border-radius:18px; padding: 14px 20px; text-align:center; width:100%;
+  }
+  .quiz-question-card .q-label{
+    font-size:0.68rem; opacity:0.7; text-transform:uppercase; letter-spacing:1.5px; font-weight:700;
+  }
+  .quiz-question-card .q-text{
+    font-family:'Baloo 2',sans-serif; font-size: clamp(0.88rem,1.7vw,1.2rem);
+    color:var(--gold); margin-top:5px; text-shadow:0 0 8px rgba(255,209,102,0.3);
+  }
+  .quiz-options{
+    display:grid; grid-template-columns:1fr 1fr; gap: clamp(8px,1.2vw,14px); width:100%;
+  }
+  .quiz-option{
+    font-family:'Baloo 2', sans-serif; font-weight:700; font-size: clamp(0.7rem,1.15vw,0.94rem);
+    padding: 13px 10px; border-radius:14px; border:2px solid rgba(234,252,255,0.35);
+    background: rgba(255,255,255,0.04); color:var(--foam); cursor:pointer;
+    transition: all .2s;
+  }
+  .quiz-option:hover:not(.disabled){ border-color:var(--bio-glow); background:rgba(91,231,224,0.12); transform:translateY(-2px); }
+  .quiz-option.correct{ background: rgba(91,232,110,0.28); border-color:var(--ok); box-shadow:0 0 14px rgba(91,232,110,0.4); }
+  .quiz-option.wrong{ background: rgba(255,92,108,0.22); border-color:var(--danger); animation: shake .4s ease; }
+  .quiz-option.disabled{ pointer-events:none; opacity:0.55; }
+
+  /* ---------------- SHARED ---------------- */
+  .reset-btn{
+    margin-top:0.3vh; font-family:'Baloo 2', sans-serif; font-weight:700; font-size:clamp(0.68rem,1vw,0.85rem);
+    background:transparent; color:var(--foam); border:2px solid rgba(234,252,255,0.5);
+    padding:6px 18px; border-radius:20px; cursor:pointer; transition:all .2s;
+  }
+  .reset-btn:hover{ background:rgba(234,252,255,0.12); border-color:var(--bio-glow); }
+
+  /* ---------------- POPUP ---------------- */
+  .popup-overlay{
+    position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center;
+    background:rgba(2,14,22,0.72); opacity:0; pointer-events:none; transition:opacity .3s;
+  }
+  .popup-overlay.show{ opacity:1; pointer-events:auto; }
+  .popup-card{
+    background: linear-gradient(160deg, #0c4a63, #072e40);
+    border:2px solid var(--bio-glow); border-radius:24px;
+    padding: 26px 34px; text-align:center; max-width:420px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(91,231,224,0.35);
+    transform: scale(0.85) translateY(20px); transition: transform .35s cubic-bezier(.2,1.4,.4,1);
+  }
+  .popup-overlay.show .popup-card{ transform: scale(1) translateY(0); }
+  .popup-icon{ font-size:2.6rem; margin-bottom:6px; animation: bob 1.6s ease-in-out infinite; }
+  @keyframes bob{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-8px);} }
+  .popup-card h2{ font-family:'Baloo 2',sans-serif; margin:4px 0 8px; color:var(--gold); font-size:1.3rem; }
+  .popup-card p{ margin:0 0 16px; font-size:0.9rem; opacity:0.9; }
+  .popup-btn{
+    font-family:'Baloo 2', sans-serif; font-weight:700; font-size:0.95rem;
+    background: linear-gradient(160deg, var(--lagoon), #0d8e8c);
+    color:#032a2a; border:none; padding:10px 26px; border-radius:22px; cursor:pointer;
+    box-shadow:0 6px 16px rgba(23,195,194,0.4);
+    transition: transform .15s;
+  }
+  .popup-btn:hover{ transform: translateY(-2px) scale(1.03); }
+
+  .popup-overlay.celebration .popup-card{ border-color:var(--gold); box-shadow:0 20px 60px rgba(0,0,0,0.5), 0 0 50px rgba(255,209,102,0.45); }
+  .popup-overlay.celebration .popup-btn{ background:linear-gradient(160deg, var(--gold), #e8a53a); color:#3a2400; }
+
+  .confetti-coin{ position:fixed; z-index:49; pointer-events:none; animation: fall linear forwards; }
+  @keyframes fall{
+    0%{ transform: translateY(-10vh) rotate(0deg); opacity:1; }
+    100%{ transform: translateY(110vh) rotate(720deg); opacity:0.9; }
+  }
+
+  @media (max-width: 720px){
+    .slot{ flex-basis:42%; }
+    .activity h2{ margin-top:0; }
+    .match-grid{ grid-template-columns:repeat(2, minmax(90px,1fr)); }
+    .quiz-options{ grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="ocean-bg" id="oceanBg">
+  <div class="light-rays"></div>
+  <div class="coral-silhouette"></div>
+  <div class="seaweed-row" id="seaweedRow"></div>
+</div>
+
+<div class="app">
+  <div class="topbar">
+    <h1>🌊 T1 PYTHON PROJECT — NEWS HEADLINE TRACKER 🐠</h1>
+    <p class="subtitle">Dive in and build the news tracker pipeline, one activity at a time</p>
+    <div class="progress-dots">
+      <span class="dot active" id="dot1"></span>
+      <span class="dot" id="dot2"></span>
+      <span class="dot" id="dot3"></span>
+    </div>
+  </div>
+
+  <div class="stage">
+    <section class="activity active" id="activity1">
+      <h2>Activity 1 · Arrange the Workflow</h2>
+      <p class="instructions">Drag each card into the correct spot to build the news tracker pipeline in order.</p>
+      <div class="slots" id="slots1"></div>
+      <div class="chips-pool" id="chips1"></div>
+      <button class="reset-btn" data-target="1">🔄 Reset Activity</button>
+    </section>
+
+    <section class="activity" id="activity2">
+      <h2>Activity 2 · Match the Pairs</h2>
+      <p class="instructions">Flip two shells at a time. Match each project piece with what it actually does — find all 5 pairs!</p>
+      <div class="match-grid" id="matchGrid"></div>
+      <button class="reset-btn" data-target="2">🔄 Reset Activity</button>
+    </section>
+
+    <section class="activity" id="activity3">
+      <h2>Activity 3 · The Full Project Challenge</h2>
+      <p class="instructions">Answer each question correctly to rebuild the whole news tracker project, start to finish.</p>
+      <div class="quiz-wrap" id="quizWrap">
+        <div class="quiz-progress-track"><div class="quiz-progress-fill" id="quizFill"></div></div>
+        <div class="quiz-question-card">
+          <div class="q-label" id="quizQLabel">Step 1 of 6</div>
+          <div class="q-text" id="quizQText">What is the very first step of the project?</div>
+        </div>
+        <div class="quiz-options" id="quizOptions"></div>
+      </div>
+      <button class="reset-btn" data-target="3">🔄 Reset Activity</button>
+    </section>
+  </div>
+</div>
+
+<div class="popup-overlay" id="popupOverlay">
+  <div class="popup-card">
+    <div class="popup-icon" id="popupIcon">🐠</div>
+    <h2 id="popupTitle">Great work!</h2>
+    <p id="popupText">You completed the activity.</p>
+    <button class="popup-btn" id="popupBtn">Continue</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- BACKGROUND DECOR ---------------- */
+  const oceanBg = document.getElementById('oceanBg');
+
+  function rand(min,max){ return Math.random()*(max-min)+min; }
+
+  function makeBubbles(n){
+    for(let i=0;i<n;i++){
+      const b = document.createElement('div');
+      b.className='bubble';
+      const size = rand(6,26);
+      b.style.width = size+'px';
+      b.style.height = size+'px';
+      b.style.left = rand(0,98)+'vw';
+      b.style.animationDuration = rand(9,20)+'s';
+      b.style.animationDelay = rand(0,16)+'s';
+      oceanBg.appendChild(b);
+    }
+  }
+
+  function makeFish(n){
+    const colors = ['#ff9f68','#ffd166','#5be7e0','#7fd8ff','#ff8fa3'];
+    for(let i=0;i<n;i++){
+      const wrap = document.createElement('div');
+      wrap.className='fish';
+      const c = colors[i % colors.length];
+      const scale = rand(0.7,1.3);
+      wrap.innerHTML = `<svg width="${52*scale}" height="${28*scale}" viewBox="0 0 52 28" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="24" cy="14" rx="18" ry="10" fill="${c}"/>
+        <polygon points="4,14 -8,4 -8,24" fill="${c}"/>
+        <circle cx="34" cy="11" r="2" fill="#052033"/>
+        <path d="M10,14 Q24,4 40,14 Q24,22 10,14 Z" fill="${c}" opacity="0.35"/>
+      </svg>`;
+      wrap.style.top = rand(8,72)+'vh';
+      wrap.style.left = '0px';
+      wrap.style.animationDuration = rand(16,30)+'s';
+      wrap.style.animationDelay = rand(-20,0)+'s';
+      oceanBg.appendChild(wrap);
+    }
+  }
+
+  function makeJelly(n){
+    for(let i=0;i<n;i++){
+      const wrap = document.createElement('div');
+      wrap.className='jelly';
+      const scale = rand(0.7,1.4);
+      wrap.innerHTML = `<svg width="${34*scale}" height="${44*scale}" viewBox="0 0 34 44" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2,18 C2,6 32,6 32,18 C32,26 24,24 24,32 M17,18 C17,28 17,32 17,38 M10,18 C10,26 12,28 12,36" stroke="#5be7e0" stroke-width="1.5" fill="none" opacity="0.8"/>
+        <path d="M2,18 C2,6 32,6 32,18 Q17,26 2,18 Z" fill="#5be7e0" opacity="0.55"/>
+      </svg>`;
+      wrap.style.top = rand(6,60)+'vh';
+      wrap.style.left = rand(4,92)+'vw';
+      wrap.style.animationDuration = rand(4,7)+'s, '+rand(3,5)+'s';
+      wrap.style.animationDelay = rand(0,4)+'s, '+rand(0,3)+'s';
+      oceanBg.appendChild(wrap);
+    }
+  }
+
+  function makeCoins(n){
+    for(let i=0;i<n;i++){
+      const wrap = document.createElement('div');
+      wrap.className='coin';
+      const size = rand(12,20);
+      wrap.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="10" cy="10" r="9" fill="#ffd166" stroke="#c98f1f" stroke-width="1"/>
+        <text x="10" y="14" font-size="10" text-anchor="middle" fill="#8a5a0d" font-family="Baloo 2, sans-serif">$</text>
+      </svg>`;
+      wrap.style.top = rand(10,80)+'vh';
+      wrap.style.left = rand(4,94)+'vw';
+      wrap.style.animationDuration = rand(3,6)+'s';
+      wrap.style.animationDelay = rand(0,4)+'s';
+      oceanBg.appendChild(wrap);
+    }
+  }
+
+  function makeSeaweed(n){
+    const row = document.getElementById('seaweedRow');
+    for(let i=0;i<n;i++){
+      const s = document.createElement('div');
+      s.className='seaweed';
+      const h = rand(40,90);
+      const c = i%2===0 ? '#0f7a5f' : '#12946f';
+      s.innerHTML = `<svg width="24" height="${h}" viewBox="0 0 24 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        <path d="M12,100 C-4,80 24,60 8,40 C-4,24 20,12 12,0" stroke="${c}" stroke-width="7" fill="none" stroke-linecap="round"/>
+      </svg>`;
+      s.style.animationDuration = rand(3.5,6)+'s';
+      s.style.animationDelay = rand(0,3)+'s';
+      row.appendChild(s);
+    }
+  }
+
+  makeBubbles(18);
+  makeFish(4);
+  makeJelly(3);
+  makeCoins(7);
+  makeSeaweed(9);
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]] = [a[j],a[i]];
+    }
+    return a;
+  }
+
+  /* ===============================================================
+     ACTIVITY 1 — DRAG CARDS INTO ORDERED SLOTS
+  =============================================================== */
+  const activity1Def = {
+    slotsId:'slots1', chipsId:'chips1',
+    slotHint: (i)=> 'Step '+(i+1),
+    items: [
+      {id:'rss', label:'RSS Feed'},
+      {id:'scrape', label:'Scrape Headlines'},
+      {id:'sqlite', label:'Store in SQLite'},
+      {id:'flask', label:'Flask Backend'},
+      {id:'display', label:'Display Headlines'}
+    ]
+  };
+  let a1State = { total:0, correct:0, done:false };
+
+  function buildActivity1(){
+    const def = activity1Def;
+    const slotsEl = document.getElementById(def.slotsId);
+    const chipsEl = document.getElementById(def.chipsId);
+    slotsEl.innerHTML = '';
+    chipsEl.innerHTML = '';
+
+    def.items.forEach((item, idx)=>{
+      const slot = document.createElement('div');
+      slot.className = 'slot';
+      slot.dataset.expect = item.id;
+      slot.dataset.index = idx;
+      slot.innerHTML = `<span class="slot-index">${idx+1}</span><span class="slot-hint">${def.slotHint(idx)}</span>`;
+      slotsEl.appendChild(slot);
+    });
+
+    const shuffled = shuffle(def.items);
+    shuffled.forEach(item=>{
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.dataset.id = item.id;
+      chip.innerHTML = item.label + (item.sub ? `<small>${item.sub}</small>` : '');
+      chipsEl.appendChild(chip);
+    });
+
+    a1State = { total: def.items.length, correct: 0, done:false };
+    attachDrag1();
+  }
+
+  function attachDrag1(){
+    const def = activity1Def;
+    const chipsEl = document.getElementById(def.chipsId);
+    const slotsEl = document.getElementById(def.slotsId);
+
+    let dragChip = null;
+    let floater = null;
+    let offsetX = 0, offsetY = 0;
+
+    function onPointerDown(e){
+      const chip = e.target.closest('.chip');
+      if(!chip || chip.classList.contains('locked')) return;
+      e.preventDefault();
+      dragChip = chip;
+      chip.classList.add('dragging');
+
+      const rect = chip.getBoundingClientRect();
+      floater = chip.cloneNode(true);
+      floater.classList.add('floating');
+      floater.classList.remove('dragging');
+      floater.style.width = rect.width+'px';
+      document.body.appendChild(floater);
+
+      const point = e.touches ? e.touches[0] : e;
+      offsetX = point.clientX - rect.left;
+      offsetY = point.clientY - rect.top;
+      moveFloater(point.clientX, point.clientY);
+
+      document.addEventListener('mousemove', onPointerMove);
+      document.addEventListener('touchmove', onPointerMove, {passive:false});
+      document.addEventListener('mouseup', onPointerUp);
+      document.addEventListener('touchend', onPointerUp);
+    }
+
+    function moveFloater(x,y){
+      floater.style.left = (x - offsetX)+'px';
+      floater.style.top = (y - offsetY)+'px';
+    }
+
+    function onPointerMove(e){
+      if(!dragChip) return;
+      e.preventDefault();
+      const point = e.touches ? e.touches[0] : e;
+      moveFloater(point.clientX, point.clientY);
+
+      slotsEl.querySelectorAll('.slot').forEach(s=>s.classList.remove('dragover'));
+      floater.style.display='none';
+      const under = document.elementFromPoint(point.clientX, point.clientY);
+      floater.style.display='';
+      const slot = under && under.closest ? under.closest('.slot') : null;
+      if(slot && !slot.classList.contains('correct')) slot.classList.add('dragover');
+    }
+
+    function onPointerUp(e){
+      if(!dragChip) return;
+      const point = (e.changedTouches ? e.changedTouches[0] : e);
+      floater.style.display='none';
+      const under = document.elementFromPoint(point.clientX, point.clientY);
+      floater.style.display='';
+      const slot = under && under.closest ? under.closest('.slot') : null;
+
+      slotsEl.querySelectorAll('.slot').forEach(s=>s.classList.remove('dragover'));
+
+      if(slot && !slot.classList.contains('correct')){
+        if(slot.dataset.expect === dragChip.dataset.id){
+          slot.classList.add('correct');
+          slot.innerHTML = `<span class="slot-filled">${dragChip.textContent}</span>`;
+          dragChip.remove();
+          a1State.correct++;
+          if(a1State.correct === a1State.total && !a1State.done){
+            a1State.done = true;
+            setTimeout(()=>onActivityComplete(1), 450);
+          }
+        } else {
+          slot.classList.add('wrong');
+          setTimeout(()=>slot.classList.remove('wrong'), 420);
+          dragChip.classList.remove('dragging');
+        }
+      } else {
+        dragChip.classList.remove('dragging');
+      }
+
+      floater.remove();
+      floater = null;
+      dragChip = null;
+      document.removeEventListener('mousemove', onPointerMove);
+      document.removeEventListener('touchmove', onPointerMove);
+      document.removeEventListener('mouseup', onPointerUp);
+      document.removeEventListener('touchend', onPointerUp);
+    }
+
+    chipsEl.addEventListener('mousedown', onPointerDown);
+    chipsEl.addEventListener('touchstart', onPointerDown, {passive:false});
+  }
+
+  /* ===============================================================
+     ACTIVITY 2 — SHELL MEMORY MATCH (click two shells, find the pair)
+  =============================================================== */
+  const matchPairs = [
+    {id:'headline', term:'Headline', def:'The raw text captured — e.g. "ISRO launches satellite"'},
+    {id:'timestamp', term:'Timestamp', def:'The moment the headline was captured'},
+    {id:'record', term:'Database Record', def:'Headline + timestamp saved into SQLite'},
+    {id:'route', term:'Flask Route', def:'The backend endpoint that fetches saved records'},
+    {id:'output', term:'Webpage Output', def:'The final page a reader sees in their browser'}
+  ];
+  let matchState = { first:null, second:null, matched:0, total:matchPairs.length, locked:false };
+
+  function buildMatch(){
+    const grid = document.getElementById('matchGrid');
+    grid.innerHTML = '';
+
+    const cards = [];
+    matchPairs.forEach(p=>{
+      cards.push({pairId:p.id, type:'term', text:p.term});
+      cards.push({pairId:p.id, type:'def', text:p.def});
+    });
+
+    shuffle(cards).forEach(c=>{
+      const card = document.createElement('div');
+      card.className = 'match-card';
+      card.dataset.pair = c.pairId;
+      card.dataset.type = c.type;
+      card.innerHTML = `<div class="match-card-inner">
+        <div class="match-card-face match-card-back">🐚</div>
+        <div class="match-card-face match-card-front">${c.text}</div>
+      </div>`;
+      card.addEventListener('click', onMatchCardClick);
+      grid.appendChild(card);
+    });
+
+    matchState = { first:null, second:null, matched:0, total:matchPairs.length, locked:false };
+  }
+
+  function onMatchCardClick(e){
+    if(matchState.locked) return;
+    const card = e.currentTarget;
+    if(card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+    card.classList.add('flipped');
+
+    if(!matchState.first){
+      matchState.first = card;
+      return;
+    }
+
+    matchState.second = card;
+    matchState.locked = true;
+
+    const isMatch = matchState.first.dataset.pair === matchState.second.dataset.pair &&
+                    matchState.first.dataset.type !== matchState.second.dataset.type;
+
+    if(isMatch){
+      matchState.first.classList.add('matched');
+      matchState.second.classList.add('matched');
+      matchState.matched++;
+      matchState.first = null;
+      matchState.second = null;
+      matchState.locked = false;
+
+      if(matchState.matched === matchState.total){
+        setTimeout(()=>onActivityComplete(2), 450);
+      }
+    } else {
+      matchState.first.classList.add('wrong');
+      matchState.second.classList.add('wrong');
+      const f = matchState.first, s = matchState.second;
+      setTimeout(()=>{
+        f.classList.remove('flipped','wrong');
+        s.classList.remove('flipped','wrong');
+        matchState.first = null;
+        matchState.second = null;
+        matchState.locked = false;
+      }, 700);
+    }
+  }
+
+  /* ===============================================================
+     ACTIVITY 3 — TREASURE-TRAIL QUIZ (answer step-by-step, in order)
+  =============================================================== */
+  const quizItems = [
+    {id:'fetch', label:'Fetch RSS Feed'},
+    {id:'extract', label:'Extract 10 Headlines'},
+    {id:'save', label:'Save to SQLite'},
+    {id:'retrieve', label:'Retrieve Latest Records'},
+    {id:'serve', label:'Serve with Flask'},
+    {id:'showtime', label:'Display with Timestamps'}
+  ];
+  let quizState = { step:0, total:quizItems.length };
+
+  function buildQuiz(){
+    quizState = { step:0, total:quizItems.length };
+    renderQuizStep();
+  }
+
+  function renderQuizStep(){
+    const step = quizState.step;
+    const correct = quizItems[step];
+    const qLabel = document.getElementById('quizQLabel');
+    const qText = document.getElementById('quizQText');
+    const fill = document.getElementById('quizFill');
+    const optionsEl = document.getElementById('quizOptions');
+
+    fill.style.width = (step/quizState.total*100)+'%';
+    qLabel.textContent = 'Step '+(step+1)+' of '+quizState.total;
+    qText.textContent = step===0
+      ? 'What is the very first step of the project?'
+      : `What happens right after "${quizItems[step-1].label}"?`;
+
+    const distractors = shuffle(quizItems.filter((it,i)=> i!==step)).slice(0,3);
+    const options = shuffle([correct, ...distractors]);
+
+    optionsEl.innerHTML = '';
+    options.forEach(opt=>{
+      const btn = document.createElement('button');
+      btn.className = 'quiz-option';
+      btn.textContent = opt.label;
+      btn.addEventListener('click', ()=>onQuizAnswer(btn, opt.id===correct.id));
+      optionsEl.appendChild(btn);
+    });
+  }
+
+  function onQuizAnswer(btn, isCorrect){
+    const optionsEl = document.getElementById('quizOptions');
+    optionsEl.querySelectorAll('.quiz-option').forEach(b=>b.classList.add('disabled'));
+
+    if(isCorrect){
+      btn.classList.add('correct');
+      quizState.step++;
+      if(quizState.step === quizState.total){
+        document.getElementById('quizFill').style.width = '100%';
+        setTimeout(()=>onActivityComplete(3), 500);
+      } else {
+        setTimeout(renderQuizStep, 600);
+      }
+    } else {
+      btn.classList.add('wrong');
+      setTimeout(()=>{
+        optionsEl.querySelectorAll('.quiz-option').forEach(b=>{ b.classList.remove('disabled','wrong'); });
+      }, 550);
+    }
+  }
+
+  /* ---------------- POPUP / PROGRESSION ---------------- */
+  const overlay = document.getElementById('popupOverlay');
+  const popupIcon = document.getElementById('popupIcon');
+  const popupTitle = document.getElementById('popupTitle');
+  const popupText = document.getElementById('popupText');
+  const popupBtn = document.getElementById('popupBtn');
+
+  function showPopup({icon, title, text, btnLabel, onClick, celebrate}){
+    popupIcon.textContent = icon;
+    popupTitle.textContent = title;
+    popupText.textContent = text;
+    popupBtn.textContent = btnLabel;
+    overlay.classList.toggle('celebration', !!celebrate);
+    overlay.classList.add('show');
+    popupBtn.onclick = ()=>{ overlay.classList.remove('show'); onClick && onClick(); };
+    if(celebrate) burstCoins();
+  }
+
+  function switchActivity(num){
+    document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+    document.getElementById('activity'+num).classList.add('active');
+    for(let i=1;i<=3;i++){
+      const dot = document.getElementById('dot'+i);
+      dot.classList.remove('active','done');
+      if(i<num) dot.classList.add('done');
+      if(i===num) dot.classList.add('active');
+    }
+  }
+
+  function onActivityComplete(num){
+    if(num===1){
+      showPopup({
+        icon:'🐠', title:'Pipeline Assembled!',
+        text:'You arranged the news tracker workflow perfectly. Ready for the next dive?',
+        btnLabel:'Continue to Activity 2',
+        onClick:()=>switchActivity(2)
+      });
+    } else if(num===2){
+      showPopup({
+        icon:'🦑', title:'Every Shell Matched!',
+        text:'You paired every piece of the news tracker with what it does. One more challenge awaits!',
+        btnLabel:'Continue to Activity 3',
+        onClick:()=>switchActivity(3)
+      });
+    } else if(num===3){
+      showPopup({
+        icon:'🏆', title:'Project Complete!',
+        text:'You built the entire news tracker project from start to finish. Treasure earned!',
+        btnLabel:'Play Again',
+        celebrate:true,
+        onClick: restartEverything
+      });
+    }
+  }
+
+  function burstCoins(){
+    for(let i=0;i<26;i++){
+      const c = document.createElement('div');
+      c.className='confetti-coin';
+      const size = rand(10,20);
+      c.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#ffd166" stroke="#c98f1f" stroke-width="1"/></svg>`;
+      c.style.left = rand(0,100)+'vw';
+      c.style.animationDuration = rand(2.2,4)+'s';
+      c.style.animationDelay = rand(0,0.8)+'s';
+      document.body.appendChild(c);
+      setTimeout(()=>c.remove(), 5200);
+    }
+  }
+
+  function restartEverything(){
+    buildActivity1();
+    buildMatch();
+    buildQuiz();
+    switchActivity(1);
+  }
+
+  document.querySelectorAll('.reset-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const num = parseInt(btn.dataset.target,10);
+      if(num===1) buildActivity1();
+      else if(num===2) buildMatch();
+      else if(num===3) buildQuiz();
+    });
+  });
+
+  /* ---------------- INIT ---------------- */
+  buildActivity1();
+  buildMatch();
+  buildQuiz();
+  switchActivity(1);
+
+})();
+</script>
+</body>
+</html>

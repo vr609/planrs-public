@@ -512,6 +512,21 @@ setInterval(()=>{
   document.getElementById('bio-fill').style.width=Math.floor(50+Math.random()*40)+'%';
 },3000);
 
+// ============ TIMER TRACKING (for clean restart) ============
+let pendingTimeouts=[];
+let pendingIntervals=[];
+function trackTimeout(fn,ms){
+  const id=setTimeout(()=>{pendingTimeouts=pendingTimeouts.filter(t=>t!==id);fn();},ms);
+  pendingTimeouts.push(id);
+  return id;
+}
+function trackInterval(fn,ms){
+  const id=setInterval(fn,ms);
+  pendingIntervals.push(id);
+  return id;
+}
+const ORIGINAL_MAIN_HTML=document.getElementById('main-content').innerHTML;
+
 // ============ ACTIVITY 1 ============
 let placed1=0;let score=0;
 function setupDrag(container,onDrop){
@@ -543,56 +558,72 @@ function setupZoneDrop(zone,onDrop){
 }
 
 // Act1 setup
-const items1Container=document.getElementById('items1');
-setupDrag(items1Container);
+function initAct1(){
+  placed1=0;
+  const items1Container=document.getElementById('items1');
+  setupDrag(items1Container);
 
-['zone-fast','zone-slow'].forEach(zid=>{
-  const zone=document.getElementById(zid);
-  setupZoneDrop(zone,(d,z)=>{
-    const sourceEl=items1Container.querySelector(`[data-item="${d.item}"]`);
-    if(!sourceEl||sourceEl.classList.contains('item-placed'))return;
-    const zoneType=z.dataset.zone;
-    const correct=d.correct===zoneType;
-    const poolId=zoneType==='fast'?'fast-items':'slow-items';
-    const pool=document.getElementById(poolId);
-    const chip=document.createElement('div');
-    chip.className='zone-dropped';
-    chip.textContent=d.text;
-    pool.appendChild(chip);
-    sourceEl.classList.add('item-placed');
-    placed1++;
-    document.getElementById('count1').textContent=placed1;
-    if(correct){
-      score+=15;
-      document.getElementById('score-dial').textContent=score;
-      showFeedback('feedback1','feedback-correct',`✓ Correct! ${d.text} ${zoneType==='fast'?'does break down quickly 🌿':'takes centuries to decompose ⚠️'}`,true);
-    }else{
-      showFeedback('feedback1','feedback-wrong',`✗ Not quite! ${d.text} actually belongs in the other category. Drag it again!`,false);
-      setTimeout(()=>{sourceEl.classList.remove('item-placed');placed1--;document.getElementById('count1').textContent=placed1;chip.remove();},1400);
-    }
-    if(placed1>=8){
-      document.getElementById('next1').classList.add('show');
-    }
+  ['zone-fast','zone-slow'].forEach(zid=>{
+    const zone=document.getElementById(zid);
+    setupZoneDrop(zone,(d,z)=>{
+      const sourceEl=items1Container.querySelector(`[data-item="${d.item}"]`);
+      if(!sourceEl||sourceEl.classList.contains('item-placed'))return;
+      const zoneType=z.dataset.zone;
+      const correct=d.correct===zoneType;
+      const poolId=zoneType==='fast'?'fast-items':'slow-items';
+      const pool=document.getElementById(poolId);
+      const chip=document.createElement('div');
+      chip.className='zone-dropped';
+      chip.textContent=d.text;
+      pool.appendChild(chip);
+      sourceEl.classList.add('item-placed');
+      placed1++;
+      document.getElementById('count1').textContent=placed1;
+      if(correct){
+        score+=15;
+        document.getElementById('score-dial').textContent=score;
+        showFeedback('feedback1','feedback-correct',`✓ Correct! ${d.text} ${zoneType==='fast'?'does break down quickly 🌿':'takes centuries to decompose ⚠️'}`,true);
+      }else{
+        showFeedback('feedback1','feedback-wrong',`✗ Not quite! ${d.text} actually belongs in the other category. Drag it again!`,false);
+        trackTimeout(()=>{sourceEl.classList.remove('item-placed');placed1--;document.getElementById('count1').textContent=placed1;chip.remove();},1400);
+      }
+      if(placed1>=8){
+        document.getElementById('next1').classList.add('show');
+      }
+    });
   });
-});
+}
+initAct1();
 
 // ============ ACTIVITY 2 ============
-const buryData=[null,null,null,null];
+let buryData=[null,null,null,null];
 let simDone=false;
-setupDrag(document.getElementById('items2'));
-[0,1,2,3].forEach(i=>{
-  const slot=document.getElementById('bslot'+i);
-  setupZoneDrop(slot,(d,z)=>{
-    const slotIdx=parseInt(z.dataset.slot);
-    if(buryData[slotIdx])return;
-    const sourceEl=document.getElementById('items2').querySelector(`[data-item2="${d.item}"]`);
-    if(!sourceEl||sourceEl.classList.contains('item-placed'))return;
-    buryData[slotIdx]={item:d.item,rate:d.rate,emoji:d.emoji,text:d.text};
-    document.getElementById('bitem'+slotIdx).textContent=d.emoji;
-    sourceEl.classList.add('item-placed');
-    slot.style.borderColor='rgba(0,212,255,.4)';
+
+function initAct2(){
+  buryData=[null,null,null,null];
+  simDone=false;
+  const simBtn=document.getElementById('sim-btn');
+  simBtn.disabled=false;
+  simBtn.style.opacity='';
+  document.getElementById('time-fill').style.width='0%';
+  document.getElementById('time-label').textContent='DAY 0';
+
+  setupDrag(document.getElementById('items2'));
+  [0,1,2,3].forEach(i=>{
+    const slot=document.getElementById('bslot'+i);
+    setupZoneDrop(slot,(d,z)=>{
+      const slotIdx=parseInt(z.dataset.slot);
+      if(buryData[slotIdx])return;
+      const sourceEl=document.getElementById('items2').querySelector(`[data-item2="${d.item}"]`);
+      if(!sourceEl||sourceEl.classList.contains('item-placed'))return;
+      buryData[slotIdx]={item:d.item,rate:d.rate,emoji:d.emoji,text:d.text};
+      document.getElementById('bitem'+slotIdx).textContent=d.emoji;
+      sourceEl.classList.add('item-placed');
+      slot.style.borderColor='rgba(0,212,255,.4)';
+    });
   });
-});
+}
+initAct2();
 
 function runSimulation(){
   const filled=buryData.filter(Boolean);
@@ -608,8 +639,8 @@ function runSimulation(){
   const label=document.getElementById('time-label');
   fill.style.width='100%';
   let d=0;
-  const timer=setInterval(()=>{d+=2;label.textContent='DAY '+d;if(d>=14)clearInterval(timer);},200);
-  setTimeout(()=>{
+  const timer=trackInterval(()=>{d+=2;label.textContent='DAY '+d;if(d>=14)clearInterval(timer);},200);
+  trackTimeout(()=>{
     label.textContent='DAY 14 — RESULTS';
     buryData.forEach((d,i)=>{
       if(!d)return;
@@ -642,77 +673,81 @@ function runSimulation(){
 
 // ============ ACTIVITY 3 ============
 let placed3=0;
-
-// Make all children of invest-zones non-interactive so dragover/drop fire on the zone itself
-document.querySelectorAll('.invest-zone *').forEach(el=>el.style.pointerEvents='none');
-
-// Dedicated drag state for act3
 let act3DragData=null;
 
-document.getElementById('items3').querySelectorAll('[draggable]').forEach(item=>{
-  item.addEventListener('dragstart',e=>{
-    act3DragData={
-      card:item.dataset.card,
-      type:item.dataset.type,
-      text:item.textContent.trim()
-    };
-    e.dataTransfer.setData('text/plain',item.dataset.card);
-    item.classList.add('dragging');
-  });
-  item.addEventListener('dragend',()=>item.classList.remove('dragging'));
-});
+function initAct3(){
+  placed3=0;
+  act3DragData=null;
 
-['inv-obs','inv-con'].forEach(zid=>{
-  const zone=document.getElementById(zid);
-  zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drop-target');});
-  zone.addEventListener('dragleave',e=>{
-    if(!zone.contains(e.relatedTarget)) zone.classList.remove('drop-target');
+  // Make all children of invest-zones non-interactive so dragover/drop fire on the zone itself
+  document.querySelectorAll('.invest-zone *').forEach(el=>el.style.pointerEvents='none');
+
+  document.getElementById('items3').querySelectorAll('[draggable]').forEach(item=>{
+    item.addEventListener('dragstart',e=>{
+      act3DragData={
+        card:item.dataset.card,
+        type:item.dataset.type,
+        text:item.textContent.trim()
+      };
+      e.dataTransfer.setData('text/plain',item.dataset.card);
+      item.classList.add('dragging');
+    });
+    item.addEventListener('dragend',()=>item.classList.remove('dragging'));
   });
-  zone.addEventListener('drop',e=>{
-    e.preventDefault();
-    zone.classList.remove('drop-target');
-    const d=act3DragData;
-    if(!d)return;
-    const sourceEl=document.getElementById('items3').querySelector(`[data-card="${d.card}"]`);
-    if(!sourceEl||sourceEl.classList.contains('item-placed'))return;
-    const zoneType=zone.dataset.izone;
-    const correct=d.type===zoneType;
-    const poolId=zoneType==='obs'?'obs-pool':'con-pool';
-    const pool=document.getElementById(poolId);
-    const card=document.createElement('div');
-    card.className='inv-card '+(correct?'correct-card':'wrong-card');
-    card.style.pointerEvents='auto';
-    card.textContent=d.text;
-    pool.appendChild(card);
-    sourceEl.classList.add('item-placed');
-    placed3++;
-    document.getElementById('count3').textContent=placed3;
-    if(correct){
-      score+=20;
-      document.getElementById('score-dial').textContent=score;
-      showFeedback('feedback3','feedback-correct',`✓ Correct! That's a great ${zoneType==='obs'?'observation':'conclusion'}.`,true);
-    }else{
-      showFeedback('feedback3','feedback-wrong',`✗ That belongs in the ${d.type==='obs'?'Observations':'Conclusions'} section. Try again!`,false);
-      setTimeout(()=>{
-        sourceEl.classList.remove('item-placed');
-        placed3--;
-        document.getElementById('count3').textContent=placed3;
-        card.remove();
-        act3DragData=null;
-      },1400);
-      return;
-    }
-    act3DragData=null;
-    if(placed3>=6) document.getElementById('next3').classList.add('show');
+
+  ['inv-obs','inv-con'].forEach(zid=>{
+    const zone=document.getElementById(zid);
+    zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drop-target');});
+    zone.addEventListener('dragleave',e=>{
+      if(!zone.contains(e.relatedTarget)) zone.classList.remove('drop-target');
+    });
+    zone.addEventListener('drop',e=>{
+      e.preventDefault();
+      zone.classList.remove('drop-target');
+      const d=act3DragData;
+      if(!d)return;
+      const sourceEl=document.getElementById('items3').querySelector(`[data-card="${d.card}"]`);
+      if(!sourceEl||sourceEl.classList.contains('item-placed'))return;
+      const zoneType=zone.dataset.izone;
+      const correct=d.type===zoneType;
+      const poolId=zoneType==='obs'?'obs-pool':'con-pool';
+      const pool=document.getElementById(poolId);
+      const card=document.createElement('div');
+      card.className='inv-card '+(correct?'correct-card':'wrong-card');
+      card.style.pointerEvents='auto';
+      card.textContent=d.text;
+      pool.appendChild(card);
+      sourceEl.classList.add('item-placed');
+      placed3++;
+      document.getElementById('count3').textContent=placed3;
+      if(correct){
+        score+=20;
+        document.getElementById('score-dial').textContent=score;
+        showFeedback('feedback3','feedback-correct',`✓ Correct! That's a great ${zoneType==='obs'?'observation':'conclusion'}.`,true);
+      }else{
+        showFeedback('feedback3','feedback-wrong',`✗ That belongs in the ${d.type==='obs'?'Observations':'Conclusions'} section. Try again!`,false);
+        trackTimeout(()=>{
+          sourceEl.classList.remove('item-placed');
+          placed3--;
+          document.getElementById('count3').textContent=placed3;
+          card.remove();
+          act3DragData=null;
+        },1400);
+        return;
+      }
+      act3DragData=null;
+      if(placed3>=6) document.getElementById('next3').classList.add('show');
+    });
   });
-});
+}
+initAct3();
 
 // ============ FEEDBACK UTIL ============
 function showFeedback(id,cls,msg,persist){
   const el=document.getElementById(id);
   el.innerHTML=`<div class="feedback-banner ${cls}">${msg}</div>`;
   el.style.display='block';
-  if(!persist)setTimeout(()=>{el.style.display='none';},2200);
+  if(!persist)trackTimeout(()=>{el.style.display='none';},2200);
 }
 
 // ============ POPUP SYSTEM ============
@@ -768,9 +803,44 @@ function showFinalScreen(){
         <div style="font-family:'Orbitron',monospace;font-size:8px;letter-spacing:2px;color:var(--glow-amber);margin-bottom:6px">⬡ MISSION DEBRIEF</div>
         Fungi, bacteria, and worms are nature's recyclers — they break dead matter into nutrients that feed new life. Without them, Earth would be buried under waste. Biodegradable materials join this cycle; synthetic materials disrupt it.
       </div>
-      <button onclick="location.reload()" style="margin-top:4px;font-family:'Orbitron',monospace;font-size:11px;letter-spacing:2px;padding:12px 32px;background:linear-gradient(135deg,rgba(57,255,140,.18),rgba(0,212,255,.15));border:1.5px solid var(--glow-green);border-radius:25px;color:var(--glow-green);cursor:pointer;transition:all .25s;box-shadow:0 0 18px rgba(57,255,140,.2)" onmouseover="this.style.boxShadow='0 0 28px rgba(57,255,140,.45)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 0 18px rgba(57,255,140,.2)';this.style.transform='translateY(0)'">🔄 PLAY AGAIN</button>
+      <button onclick="restartAll()" style="margin-top:4px;font-family:'Orbitron',monospace;font-size:11px;letter-spacing:2px;padding:12px 32px;background:linear-gradient(135deg,rgba(57,255,140,.18),rgba(0,212,255,.15));border:1.5px solid var(--glow-green);border-radius:25px;color:var(--glow-green);cursor:pointer;transition:all .25s;box-shadow:0 0 18px rgba(57,255,140,.2)" onmouseover="this.style.boxShadow='0 0 28px rgba(57,255,140,.45)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 0 18px rgba(57,255,140,.2)';this.style.transform='translateY(0)'">🔄 PLAY AGAIN</button>
     </div>
   </div>`;
+}
+
+function restartAll(){
+  // stop any pending gameplay timers (feedback banners, retry resets, simulation countdown)
+  pendingTimeouts.forEach(id=>clearTimeout(id));
+  pendingTimeouts=[];
+  pendingIntervals.forEach(id=>clearInterval(id));
+  pendingIntervals=[];
+
+  // reset scores + counters + in-progress drag state
+  score=0;
+  currentModule=1;
+
+  // rebuild all three activities from the original markup and rebind drag/drop listeners
+  const main=document.getElementById('main-content');
+  main.innerHTML=ORIGINAL_MAIN_HTML;
+  initAct1();
+  initAct2();
+  initAct3();
+
+  // make sure only module 1 is showing
+  document.querySelectorAll('.activity-screen').forEach(a=>a.classList.remove('visible'));
+  document.getElementById('act1').classList.add('visible');
+
+  // reset mission log / score dials
+  document.querySelectorAll('.step-item').forEach(s=>s.classList.remove('active','done'));
+  document.getElementById('step1').classList.add('active');
+  document.getElementById('score-dial').textContent='0';
+  document.getElementById('act-dial').textContent='1/3';
+
+  // close popup if it was open
+  document.getElementById('popup-overlay').classList.remove('visible');
+
+  // reset the rotating science fact back to the start
+  fi=0;
 }
 
 // touch fallback for mobile drag

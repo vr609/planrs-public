@@ -309,14 +309,20 @@ html,body{
 }
 #cubeStage{
   position:relative;
-  width:82%;
-  height:88%;
+  width:72%;
+  aspect-ratio:1/1;
 }
 /* Guide SVG fills the stage */
 #cubeStage svg.guide{
   position:absolute;inset:0;width:100%;height:100%;
   overflow:visible;
   pointer-events:none;
+}
+#cubeStage svg.guide line{
+  stroke:var(--ocean-deep);
+  stroke-width:1.6;
+  stroke-dasharray:5 5;
+  opacity:0.4;
 }
 .slot{
   position:absolute;
@@ -334,8 +340,7 @@ html,body{
 .slot:not(.filled){box-shadow:0 0 10px rgba(27,110,122,0.18);}
 .slot.edge-slot{
   border-radius:8px;
-  width:54px;height:18px;
-  margin-left:-27px;margin-top:-9px;
+  height:16px;
   font-size:13px;
 }
 .slot.filled{
@@ -410,7 +415,7 @@ html,body{
   font-size:18px;
 }
 .piece.stick{
-  width:62px;height:13px;border-radius:7px;
+  width:98px;height:15px;border-radius:7px;
   background:linear-gradient(180deg,#d4a867 0%,#a87639 60%,#8b5e28 100%);
   border:1.5px solid #6b4416;
 }
@@ -789,10 +794,11 @@ function renderActivity1(){
   updateTrail();
 
   // Simple, kid-friendly cube drawing: a front square + a back square, offset.
-  // This is the classic way a cube is drawn, so kids instantly recognise the shape.
+  // Both squares are the same size with a clean diagonal offset, so it reads
+  // as an actual cube right away instead of a lopsided box.
   const corners = [
-    {id:'c0', x:18,y:24},{id:'c1', x:55,y:24},{id:'c2', x:55,y:66},{id:'c3', x:18,y:66}, // front square
-    {id:'c4', x:38,y:8}, {id:'c5', x:75,y:8}, {id:'c6', x:75,y:50},{id:'c7', x:38,y:50}  // back square
+    {id:'c0', x:20,y:25},{id:'c1', x:60,y:25},{id:'c2', x:60,y:65},{id:'c3', x:20,y:65}, // front square
+    {id:'c4', x:35,y:10}, {id:'c5', x:75,y:10}, {id:'c6', x:75,y:50},{id:'c7', x:35,y:50}  // back square
   ];
   const edgeDefs = [
     ['c0','c1'],['c1','c2'],['c2','c3'],['c3','c0'],   // front face
@@ -823,6 +829,22 @@ function renderActivity1(){
 
   // corner slots
   let filledCorners = 0, filledEdges = 0;
+
+  // Static wireframe guide — draws the full cube outline right away so the
+  // shape is instantly recognisable, even before any pieces are placed.
+  const guideSvg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  guideSvg.setAttribute('class','guide');
+  guideSvg.setAttribute('viewBox','0 0 100 100');
+  guideSvg.setAttribute('preserveAspectRatio','none');
+  edgeDefs.forEach(([a,b])=>{
+    const ca = cornerMap[a], cb = cornerMap[b];
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',ca.x); line.setAttribute('y1',ca.y);
+    line.setAttribute('x2',cb.x); line.setAttribute('y2',cb.y);
+    guideSvg.appendChild(line);
+  });
+  cubeStage.appendChild(guideSvg);
+
   corners.forEach(c=>{
     const slot = document.createElement('div');
     slot.className='slot';
@@ -837,15 +859,20 @@ function renderActivity1(){
 
   // edge slots (midpoints) — built now but kept hidden until all corners are
   // placed, so a Grade 1 child only deals with one set of pieces at a time.
+  // Each slot's length matches its own edge exactly (in % of the square
+  // cubeStage), so a placed stick fills the cube edge properly instead of
+  // using one generic tiny box for every edge.
   const edgeSlots = [];
   edgeDefs.forEach(([a,b],i)=>{
     const ca = cornerMap[a], cb = cornerMap[b];
     const mx = (ca.x+cb.x)/2, my = (ca.y+cb.y)/2;
     const angle = Math.atan2(cb.y-ca.y, cb.x-ca.x)*180/Math.PI;
+    const lenPct = Math.hypot(cb.x-ca.x, cb.y-ca.y);
     const slot = document.createElement('div');
     slot.className='slot edge-slot';
     slot.style.left = mx+'%';
     slot.style.top = my+'%';
+    slot.style.width = lenPct+'%';
     slot.style.transform = `translate(-50%,-50%) rotate(${angle}deg)`;
     slot.style.visibility = 'hidden';
     slot.dataset.id = 'e'+i;

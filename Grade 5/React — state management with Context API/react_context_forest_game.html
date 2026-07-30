@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>React — State Management with Context API</title>
+<style>
+:root{
+  --mint:#7fffd4;--violet:#c084fc;--gold:#ffd700;--rose:#ff9ecd;
+  --green:#4ade80;--panel:rgba(15,10,35,0.68);--border:rgba(180,140,255,0.35);
+  --cream:#fef9e7;--mushroom:#ff7043;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{
+  margin:0;padding:0;width:100%;height:100%;overflow:hidden;
+  font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+  background:linear-gradient(180deg,#0d0520 0%,#1a0a38 35%,#0f2010 70%,#081808 100%);
+  color:#f0e8ff;touch-action:none;user-select:none;
+}
+
+/* ===== ENCHANTED TREES ===== */
+.tree{position:fixed;bottom:0;z-index:1;pointer-events:none;animation:sway ease-in-out infinite alternate;}
+@keyframes sway{0%{transform-origin:bottom center;transform:rotate(-2deg);}100%{transform:rotate(2deg);}}
+.tree svg{display:block;}
+
+/* ===== FIREFLIES ===== */
+.firefly{position:fixed;width:5px;height:5px;border-radius:50%;background:#ffe066;
+  box-shadow:0 0 8px 3px #ffe06688;z-index:3;pointer-events:none;
+  animation:ffloat ease-in-out infinite;}
+@keyframes ffloat{
+  0%{transform:translate(0,0);opacity:0;}
+  20%{opacity:1;}
+  50%{transform:translate(var(--fx),var(--fy));opacity:0.9;}
+  80%{opacity:0.6;}
+  100%{transform:translate(0,0);opacity:0;}
+}
+
+/* ===== MAGIC DUST ===== */
+.dust{position:fixed;border-radius:50%;pointer-events:none;z-index:2;
+  animation:dustDrift linear infinite;}
+@keyframes dustDrift{
+  0%{transform:translate(0,0) scale(1);opacity:0;}
+  15%{opacity:0.9;}
+  85%{opacity:0.5;}
+  100%{transform:translate(var(--dx),var(--dy)) scale(0.3);opacity:0;}
+}
+
+/* ===== BUTTERFLIES ===== */
+.butterfly{position:fixed;font-size:18px;z-index:3;pointer-events:none;
+  animation:flutter ease-in-out infinite;}
+@keyframes flutter{
+  0%{transform:translate(0,0) rotate(-5deg);}
+  30%{transform:translate(20px,-15px) rotate(5deg);}
+  60%{transform:translate(-10px,-25px) rotate(-3deg);}
+  100%{transform:translate(0,0) rotate(-5deg);}
+}
+
+/* ===== MUSHROOMS ===== */
+.shroom{position:fixed;bottom:30px;z-index:2;pointer-events:none;font-size:22px;
+  animation:shroomGlow 2.5s ease-in-out infinite;}
+@keyframes shroomGlow{
+  0%,100%{filter:drop-shadow(0 0 4px #ff704388);}
+  50%{filter:drop-shadow(0 0 14px #ff7043cc) drop-shadow(0 0 6px #ffd700aa);}
+}
+
+/* ===== FAIRY LIGHTS ===== */
+.fairy-light{position:fixed;width:4px;height:4px;border-radius:50%;z-index:2;pointer-events:none;
+  animation:fairyPulse ease-in-out infinite;}
+@keyframes fairyPulse{
+  0%,100%{transform:scale(1);opacity:0.3;}
+  50%{transform:scale(2.2);opacity:1;}
+}
+
+/* ===== SPARKLE ===== */
+.sparkle{position:fixed;font-size:14px;z-index:2;pointer-events:none;
+  animation:sparkleSpin linear infinite;}
+@keyframes sparkleSpin{
+  0%{transform:rotate(0deg) scale(1);opacity:0.8;}
+  50%{transform:rotate(180deg) scale(1.4);opacity:1;}
+  100%{transform:rotate(360deg) scale(1);opacity:0.8;}
+}
+
+/* ===== GROUND ===== */
+.ground{position:fixed;bottom:0;left:0;width:100%;height:32px;z-index:1;pointer-events:none;
+  background:linear-gradient(180deg,rgba(20,60,20,0.3),rgba(10,40,10,0.7));
+  border-top:1.5px solid rgba(100,200,80,0.3);}
+
+/* ===== HUD ===== */
+.hud{position:relative;z-index:10;text-align:center;padding:8px 10px 3px;}
+.title{margin:0;font-size:clamp(12px,2.2vw,22px);letter-spacing:.7px;font-weight:900;
+  background:linear-gradient(90deg,var(--mint),var(--violet),var(--gold),var(--rose));
+  -webkit-background-clip:text;background-clip:text;color:transparent;}
+.progress-track{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:5px;}
+.pd{width:24px;height:24px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;
+  justify-content:center;font-size:11px;font-weight:700;background:rgba(10,6,28,0.7);color:#c4a8e8;transition:all .4s;}
+.pd.active{border-color:var(--mint);color:#fff;box-shadow:0 0 10px var(--mint);}
+.pd.done{border-color:var(--green);background:var(--green);color:#001a08;}
+.pl{width:30px;height:1.5px;background:var(--border);}
+
+/* ===== STAGE ===== */
+.stage{position:relative;z-index:10;height:calc(100vh - 60px);display:flex;align-items:stretch;
+  justify-content:center;padding:2px 10px 38px;}
+.activity{width:100%;max-width:1080px;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.activity h2{margin:0;font-size:clamp(12px,1.75vw,17px);color:#fff;text-align:center;}
+.instr{margin:0 0 2px;font-size:clamp(9px,1.1vw,12px);color:#d0b8f0;text-align:center;}
+.reset-btn{margin-top:3px;padding:5px 16px;border-radius:18px;border:1px solid var(--border);
+  background:rgba(255,255,255,0.07);color:#fff;font-size:11px;cursor:pointer;font-weight:700;transition:all .2s;}
+.reset-btn:hover{background:rgba(255,255,255,0.16);}
+
+/* ===== SHARED CHIP ===== */
+.tray{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;min-height:38px;padding:5px;width:100%;max-width:880px;}
+.chip{
+  padding:6px 12px;border-radius:20px;font-size:clamp(9px,1.15vw,11px);font-weight:700;
+  background:linear-gradient(135deg,rgba(127,255,212,0.18),rgba(192,132,252,0.2));
+  border:1px solid var(--border);color:#f0eaff;cursor:grab;white-space:nowrap;
+  box-shadow:0 2px 10px rgba(0,0,0,0.4);touch-action:none;
+}
+.chip.dragging{cursor:grabbing;box-shadow:0 0 18px var(--violet);opacity:.95;}
+.chip.placed{cursor:default;}
+.shake{animation:shakeIt .4s;}
+@keyframes shakeIt{0%,100%{transform:translateX(0);}25%{transform:translateX(-7px);}75%{transform:translateX(7px);}}
+.fr{box-shadow:0 0 0 3px #ff5577 !important;}
+.fg{box-shadow:0 0 0 3px var(--green) !important;}
+
+/* ===== ACT 1: MAGIC SCROLL (horizontal) ===== */
+.scroll-row{display:flex;align-items:center;justify-content:center;gap:0;width:100%;max-width:900px;flex-wrap:nowrap;margin:4px 0;}
+.scroll-slot{
+  position:relative;flex:1;min-width:95px;max-width:175px;height:66px;
+  border-radius:14px;border:2px dashed var(--border);
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(20,10,45,0.5);
+}
+.scroll-slot .sn{
+  position:absolute;top:-11px;left:-11px;width:22px;height:22px;border-radius:50%;
+  background:var(--gold);color:#2a1a00;font-size:10px;font-weight:900;
+  display:flex;align-items:center;justify-content:center;
+}
+.scroll-slot.filled{border-style:solid;border-color:var(--green);background:rgba(74,222,128,0.1);}
+.scroll-slot .chip{width:88%;text-align:center;white-space:normal;line-height:1.2;}
+.scroll-arrow{color:var(--rose);font-size:18px;opacity:.7;flex:0 0 16px;text-align:center;}
+
+/* ===== ACT 2: ENCHANTED TREE MAP ===== */
+.tree-map{
+  display:grid;
+  grid-template-areas:
+    "tc uc . . ."
+    "pv pv ca cb cc"
+    ". . uc2 . .";
+  grid-template-columns:repeat(5,1fr);
+  gap:7px;width:100%;max-width:920px;margin:3px 0;
+}
+.tm-card{
+  border:1px solid var(--border);border-radius:12px;padding:5px;background:var(--panel);
+  display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+  gap:4px;min-height:66px;
+}
+.tm-label{font-size:clamp(8px,1vw,10px);text-align:center;color:#e0d0ff;font-weight:700;line-height:1.2;}
+.tm-icon{font-size:clamp(14px,1.8vw,20px);}
+.tm-drop{
+  width:100%;min-height:28px;border-radius:8px;border:2px dashed rgba(160,120,255,0.35);
+  display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.02);
+}
+.tm-drop.filled{border-style:solid;border-color:var(--green);background:rgba(74,222,128,0.1);}
+.tm-drop .chip{width:96%;text-align:center;white-space:normal;line-height:1.2;}
+.a-tc{grid-area:tc;}
+.a-uc{grid-area:uc;}
+.a-pv{grid-area:pv;}
+.a-ca{grid-area:ca;}
+.a-cb{grid-area:cb;}
+.a-cc{grid-area:cc;}
+.a-uc2{grid-area:uc2;}
+.connector{display:flex;align-items:center;justify-content:center;font-size:18px;opacity:.5;color:var(--violet);}
+.a-pv{flex-direction:row;flex-wrap:wrap;gap:4px;align-items:center;justify-content:center;}
+.a-pv .tm-label{flex:1 0 100%;order:-1;}
+.a-pv .tm-drop{flex:1;min-width:100px;}
+
+/* ===== ACT 3: FAIRY RING (circular) ===== */
+.fairy-ring{position:relative;width:min(50vh,90vw);height:min(50vh,90vw);margin:0 auto;}
+.ring-center{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:clamp(26px,4vh,40px);filter:drop-shadow(0 0 16px var(--violet));
+  animation:centerPulse 2s ease-in-out infinite;
+}
+@keyframes centerPulse{0%,100%{filter:drop-shadow(0 0 8px var(--violet));}50%{filter:drop-shadow(0 0 24px var(--violet)) drop-shadow(0 0 8px var(--gold));}}
+.ring-slot{
+  position:absolute;transform:translate(-50%,-50%);
+  width:min(14.5vh,19vw);min-width:72px;max-width:112px;height:56px;
+  border:2px dashed var(--border);border-radius:12px;
+  background:rgba(12,5,30,0.65);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1px;padding:3px;overflow:hidden;z-index:1;
+}
+.ring-slot .rn{font-size:8px;color:var(--gold);font-weight:900;flex:0 0 auto;line-height:1;}
+.ring-slot.filled{border-style:solid;border-color:var(--green);background:rgba(74,222,128,0.13);z-index:5;}
+.ring-slot .chip{
+  width:96%;text-align:center;font-size:clamp(6px,0.9vw,8.5px);line-height:1.1;
+  padding:2px 3px;white-space:normal;word-break:break-word;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;flex:1 1 auto;min-height:0;
+}
+
+/* ===== POPUP ===== */
+.overlay{position:fixed;inset:0;z-index:50;background:rgba(5,2,18,0.82);
+  display:none;align-items:center;justify-content:center;backdrop-filter:blur(5px);}
+.overlay.show{display:flex;}
+.pop-box{
+  background:linear-gradient(160deg,rgba(20,8,50,0.97),rgba(8,4,22,0.97));
+  border:1px solid var(--border);border-radius:22px;padding:26px 32px;text-align:center;
+  max-width:420px;box-shadow:0 0 50px rgba(192,132,252,0.3);animation:popIn .35s ease;
+}
+@keyframes popIn{from{transform:scale(0.8);opacity:0;}to{transform:scale(1);opacity:1;}}
+.pop-box h2{margin:0 0 10px;color:var(--gold);font-size:clamp(15px,2.2vw,21px);}
+.pop-box p{margin:0 0 16px;color:#e0d0ff;font-size:clamp(11px,1.4vw,14px);}
+.pop-btn{
+  padding:10px 26px;border-radius:22px;border:none;font-weight:900;font-size:14px;
+  background:linear-gradient(90deg,var(--mint),var(--violet));color:#0a001a;cursor:pointer;
+  box-shadow:0 0 22px rgba(127,255,212,0.4);
+}
+.pop-btn:hover{filter:brightness(1.12);}
+
+/* ===== CELEBRATION ===== */
+.celeb-layer{position:fixed;inset:0;pointer-events:none;z-index:49;overflow:hidden;}
+.cel-item{position:absolute;top:-5%;animation:celFall linear forwards;}
+@keyframes celFall{to{transform:translateY(115vh) rotate(720deg);opacity:0;}}
+</style>
+</head>
+<body>
+
+<div id="bgLayer"></div>
+<div class="ground"></div>
+
+<div class="hud">
+  <h1 class="title">REACT — STATE MANAGEMENT WITH CONTEXT API</h1>
+  <div class="progress-track">
+    <div class="pd active" id="dot1">1</div><div class="pl"></div>
+    <div class="pd" id="dot2">2</div><div class="pl"></div>
+    <div class="pd" id="dot3">3</div>
+  </div>
+</div>
+
+<main class="stage">
+
+  <!-- ACT 1 -->
+  <section class="activity" id="activity1">
+    <h2>📜 Magic Scroll — Order the Context API Setup</h2>
+    <p class="instr">Drag each spell onto the correct numbered scroll (left → right).</p>
+    <div class="scroll-row" id="scrollRow">
+      <div class="scroll-slot dropzone" data-order="0"><span class="sn">1</span></div>
+      <div class="scroll-arrow">✦</div>
+      <div class="scroll-slot dropzone" data-order="1"><span class="sn">2</span></div>
+      <div class="scroll-arrow">✦</div>
+      <div class="scroll-slot dropzone" data-order="2"><span class="sn">3</span></div>
+      <div class="scroll-arrow">✦</div>
+      <div class="scroll-slot dropzone" data-order="3"><span class="sn">4</span></div>
+      <div class="scroll-arrow">✦</div>
+      <div class="scroll-slot dropzone" data-order="4"><span class="sn">5</span></div>
+    </div>
+    <div class="tray" id="tray1"></div>
+    <button class="reset-btn" onclick="resetAct(1)">🔄 Reset Activity</button>
+  </section>
+
+  <!-- ACT 2 -->
+  <section class="activity" id="activity2" style="display:none;">
+    <h2>🌳 Enchanted Tree Map — Match Each Piece to its Place</h2>
+    <p class="instr">Drop each floating term into its correct position in the component tree.</p>
+    <div class="tree-map" id="treeMap"></div>
+    <div class="tray" id="tray2"></div>
+    <button class="reset-btn" onclick="resetAct(2)">🔄 Reset Activity</button>
+  </section>
+
+  <!-- ACT 3 -->
+  <section class="activity" id="activity3" style="display:none;">
+    <h2>🧚 Fairy Ring — Sequence the Full Context API Flow</h2>
+    <p class="instr">Place each enchanted step in the correct position around the fairy ring.</p>
+    <div class="fairy-ring" id="fairyRing">
+      <div class="ring-center">🧿</div>
+    </div>
+    <div class="tray" id="tray3"></div>
+    <button class="reset-btn" onclick="resetAct(3)">🔄 Reset Activity</button>
+  </section>
+
+</main>
+
+<div class="overlay" id="overlay">
+  <div class="pop-box">
+    <h2 id="popTitle"></h2>
+    <p id="popText"></p>
+    <button class="pop-btn" id="popBtn">Continue</button>
+  </div>
+</div>
+<div class="celeb-layer" id="celebLayer"></div>
+
+<script>
+/* ============ BACKGROUND ============ */
+function buildBg(){
+  const layer=document.getElementById('bgLayer');
+  layer.innerHTML='';
+
+  // Enchanted trees (SVG)
+  const treeData=[
+    {left:'2%',h:160,delay:'0s',dur:'4s',col:'#1a4a1a'},
+    {left:'10%',h:120,delay:'1s',dur:'5s',col:'#224422'},
+    {left:'83%',h:140,delay:'0.5s',dur:'4.5s',col:'#1a4a1a'},
+    {left:'92%',h:110,delay:'1.5s',dur:'3.8s',col:'#224422'},
+    {left:'96%',h:130,delay:'0.8s',dur:'4.2s',col:'#1a4a1a'},
+    {left:'5%',h:105,delay:'2s',dur:'5.5s',col:'#1e3e1e'},
+  ];
+  treeData.forEach(t=>{
+    const div=document.createElement('div');div.className='tree';
+    div.style.left=t.left;div.style.animationDuration=t.dur;div.style.animationDelay=t.delay;
+    const w=t.h*0.6;
+    div.innerHTML=`<svg width="${w}" height="${t.h}" viewBox="0 0 ${w} ${t.h}">
+      <ellipse cx="${w/2}" cy="${t.h*0.35}" rx="${w*0.42}" ry="${t.h*0.28}" fill="${t.col}" opacity="0.9"/>
+      <ellipse cx="${w/2}" cy="${t.h*0.55}" rx="${w*0.5}" ry="${t.h*0.3}" fill="${t.col}" opacity="0.95"/>
+      <ellipse cx="${w/2}" cy="${t.h*0.72}" rx="${w*0.46}" ry="${t.h*0.26}" fill="${t.col}"/>
+      <rect x="${w/2-4}" y="${t.h*0.88}" width="8" height="${t.h*0.12}" rx="3" fill="#3d2200" opacity="0.9"/>
+    </svg>`;
+    layer.appendChild(div);
+  });
+
+  // Fireflies
+  for(let i=0;i<28;i++){
+    const f=document.createElement('div');f.className='firefly';
+    f.style.left=(5+Math.random()*90)+'vw';f.style.top=(10+Math.random()*75)+'vh';
+    const fx=(Math.random()-0.5)*80;const fy=(Math.random()-0.5)*60;
+    f.style.setProperty('--fx',fx+'px');f.style.setProperty('--fy',fy+'px');
+    f.style.animationDuration=(3+Math.random()*5)+'s';f.style.animationDelay=(Math.random()*5)+'s';
+    layer.appendChild(f);
+  }
+
+  // Magic dust
+  const dustColors=['#c084fc','#7fffd4','#ffd700','#ff9ecd','#a78bfa'];
+  for(let i=0;i<30;i++){
+    const d=document.createElement('div');d.className='dust';
+    const sz=Math.random()*4+2;d.style.width=sz+'px';d.style.height=sz+'px';
+    d.style.background=dustColors[Math.floor(Math.random()*dustColors.length)];
+    d.style.left=Math.random()*100+'vw';d.style.top=Math.random()*100+'vh';
+    const dx=(Math.random()-0.5)*120;const dy=-(30+Math.random()*80);
+    d.style.setProperty('--dx',dx+'px');d.style.setProperty('--dy',dy+'px');
+    d.style.animationDuration=(5+Math.random()*8)+'s';d.style.animationDelay=(Math.random()*6)+'s';
+    layer.appendChild(d);
+  }
+
+  // Butterflies
+  const bfs=['🦋','🪲','✨','🌸'];
+  for(let i=0;i<7;i++){
+    const b=document.createElement('div');b.className='butterfly';
+    b.textContent=bfs[i%bfs.length];
+    b.style.left=(8+Math.random()*80)+'vw';b.style.top=(8+Math.random()*65)+'vh';
+    b.style.animationDuration=(4+Math.random()*5)+'s';b.style.animationDelay=(Math.random()*4)+'s';
+    layer.appendChild(b);
+  }
+
+  // Mushrooms
+  const shroomPositions=[15,28,38,52,64,74,88];
+  shroomPositions.forEach((pct,i)=>{
+    const m=document.createElement('div');m.className='shroom';
+    m.style.left=pct+'%';m.textContent=['🍄','🍄','🌿','🍄'][i%4];
+    m.style.animationDuration=(2+i*0.3)+'s';m.style.animationDelay=(i*0.5)+'s';
+    layer.appendChild(m);
+  });
+
+  // Fairy lights
+  const lightColors=['#ffd700','#c084fc','#7fffd4','#ff9ecd','#a78bfa','#ffe066'];
+  for(let i=0;i<40;i++){
+    const l=document.createElement('div');l.className='fairy-light';
+    l.style.left=Math.random()*100+'vw';l.style.top=Math.random()*85+'vh';
+    l.style.background=lightColors[Math.floor(Math.random()*lightColors.length)];
+    l.style.boxShadow=`0 0 6px 2px ${lightColors[Math.floor(Math.random()*lightColors.length)]}66`;
+    l.style.animationDuration=(1.5+Math.random()*2.5)+'s';l.style.animationDelay=(Math.random()*3)+'s';
+    layer.appendChild(l);
+  }
+
+  // Sparkles
+  for(let i=0;i<14;i++){
+    const s=document.createElement('div');s.className='sparkle';
+    s.textContent=['✨','⭐','💫','🌟'][i%4];
+    s.style.left=Math.random()*100+'vw';s.style.top=Math.random()*80+'vh';
+    s.style.animationDuration=(3+Math.random()*4)+'s';s.style.animationDelay=(Math.random()*4)+'s';
+    layer.appendChild(s);
+  }
+}
+buildBg();
+
+/* ============ UTIL ============ */
+function shuffle(arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+/* ============ DRAG CORE ============ */
+let dragEl=null,offX=0,offY=0;
+function attachDrag(el){el.addEventListener('pointerdown',dragStart);}
+function dragStart(e){
+  const el=e.currentTarget;if(el.classList.contains('placed'))return;
+  dragEl=el;try{dragEl.setPointerCapture(e.pointerId);}catch(err){}
+  const r=dragEl.getBoundingClientRect();
+  offX=e.clientX-r.left;offY=e.clientY-r.top;
+  Object.assign(dragEl.style,{position:'fixed',left:r.left+'px',top:r.top+'px',width:r.width+'px',zIndex:'1000'});
+  document.body.appendChild(dragEl);dragEl.classList.add('dragging');
+  document.addEventListener('pointermove',dragMove);document.addEventListener('pointerup',dragEnd);
+  e.preventDefault();
+}
+function dragMove(e){if(!dragEl)return;dragEl.style.left=(e.clientX-offX)+'px';dragEl.style.top=(e.clientY-offY)+'px';}
+function dragEnd(e){
+  if(!dragEl)return;
+  document.removeEventListener('pointermove',dragMove);document.removeEventListener('pointerup',dragEnd);
+  dragEl.classList.remove('dragging');dragEl.style.pointerEvents='none';
+  const under=document.elementFromPoint(e.clientX,e.clientY);
+  dragEl.style.pointerEvents='';
+  const zone=under?under.closest('.dropzone'):null;
+  let ok=false;
+  if(zone&&!zone.classList.contains('filled')&&window.dropHandler){ok=window.dropHandler(dragEl,zone);}
+  if(!ok)returnToTray(dragEl);
+  dragEl=null;
+}
+function returnToTray(el){
+  Object.assign(el.style,{position:'',left:'',top:'',width:'',zIndex:''});
+  el.classList.add('shake','fr');
+  document.getElementById(el.dataset.tray).appendChild(el);
+  setTimeout(()=>el.classList.remove('shake','fr'),420);
+}
+function placeInZone(el,zone){
+  Object.assign(el.style,{position:'',left:'',top:'',width:'100%',zIndex:''});
+  el.classList.add('placed');el.classList.add('fg');
+  zone.classList.add('filled');zone.appendChild(el);
+  setTimeout(()=>el.classList.remove('fg'),400);
+}
+
+/* ============ ACT 1: MAGIC SCROLL ============ */
+const act1Data=[
+  {text:'createContext',order:0},
+  {text:'Create Provider',order:1},
+  {text:'Wrap Components',order:2},
+  {text:'useContext',order:3},
+  {text:'Access Shared Data',order:4}
+];
+let a1c=0;
+function loadAct1(){
+  a1c=0;
+  document.querySelectorAll('#scrollRow .scroll-slot').forEach(s=>{
+    s.classList.remove('filled');const n=s.querySelector('.sn');s.innerHTML='';s.appendChild(n);
+  });
+  const tray=document.getElementById('tray1');tray.innerHTML='';
+  shuffle(act1Data).forEach(item=>{
+    const c=document.createElement('div');c.className='chip';c.textContent=item.text;
+    c.dataset.order=item.order;c.dataset.tray='tray1';tray.appendChild(c);attachDrag(c);
+  });
+}
+function act1Drop(el,zone){
+  if(String(zone.dataset.order)===String(el.dataset.order)){
+    placeInZone(el,zone);a1c++;
+    if(a1c===act1Data.length)setTimeout(()=>completeAct(1),500);
+    return true;
+  }
+  zone.classList.add('shake');setTimeout(()=>zone.classList.remove('shake'),400);return false;
+}
+
+/* ============ ACT 2: TREE MAP ============ */
+/* 7 draggable terms → 7 drop zones */
+const act2Items=[
+  {text:'Theme Context',answer:'tc'},
+  {text:'User Context', answer:'uc'},
+  {text:'Provider',     answer:'pv'},
+  {text:'Component A',  answer:'ca'},
+  {text:'Component B',  answer:'cb'},
+  {text:'Component C',  answer:'cc'},
+  {text:'useContext',   answer:'uc2'}
+];
+const act2Stations=[
+  {answer:'tc', area:'a-tc', icon:'🎨', label:'Context for theme (colors, fonts)'},
+  {answer:'uc', area:'a-uc', icon:'👤', label:'Context for logged-in user data'},
+  {answer:'pv', area:'a-pv', icon:'📡', label:'Broadcasts shared values to all children'},
+  {answer:'ca', area:'a-ca', icon:'📦', label:'Child reads theme from context'},
+  {answer:'cb', area:'a-cb', icon:'📦', label:'Child reads user from context'},
+  {answer:'cc', area:'a-cc', icon:'📦', label:'Child updates shared value'},
+  {answer:'uc2',area:'a-uc2',icon:'🔌', label:'Hook that subscribes to the context'},
+];
+let a2c=0;
+function loadAct2(){
+  a2c=0;
+  const map=document.getElementById('treeMap');map.innerHTML='';
+  shuffle(act2Stations).forEach(st=>{
+    const card=document.createElement('div');card.className='tm-card '+st.area;
+    card.innerHTML=`<div class="tm-icon">${st.icon}</div><div class="tm-label">${st.label}</div>`;
+    const drop=document.createElement('div');drop.className='tm-drop dropzone';drop.dataset.answer=st.answer;
+    card.appendChild(drop);map.appendChild(card);
+  });
+  const tray=document.getElementById('tray2');tray.innerHTML='';
+  shuffle(act2Items).forEach(item=>{
+    const c=document.createElement('div');c.className='chip';c.textContent=item.text;
+    c.dataset.answer=item.answer;c.dataset.tray='tray2';tray.appendChild(c);attachDrag(c);
+  });
+}
+function act2Drop(el,zone){
+  if(zone.dataset.answer===el.dataset.answer){
+    placeInZone(el,zone);a2c++;
+    if(a2c===act2Items.length)setTimeout(()=>completeAct(2),500);
+    return true;
+  }
+  zone.classList.add('shake');setTimeout(()=>zone.classList.remove('shake'),400);return false;
+}
+
+/* ============ ACT 3: FAIRY RING ============ */
+const act3Data=[
+  {text:'createContext',order:0},
+  {text:'Define shared state',order:1},
+  {text:'Wrap app with Provider',order:2},
+  {text:'Consume data using useContext',order:3},
+  {text:'Update shared values',order:4},
+  {text:'Reflect changes across all components',order:5}
+];
+let a3c=0;
+function loadAct3(){
+  a3c=0;
+  const ring=document.getElementById('fairyRing');
+  ring.querySelectorAll('.ring-slot').forEach(s=>s.remove());
+  const total=act3Data.length;
+  for(let i=0;i<total;i++){
+    const angle=(i*(360/total)-90)*Math.PI/180;
+    const x=50+Math.cos(angle)*43;const y=50+Math.sin(angle)*43;
+    const slot=document.createElement('div');
+    slot.className='ring-slot dropzone';slot.dataset.order=i;
+    slot.style.left=x+'%';slot.style.top=y+'%';
+    slot.innerHTML='<span class="rn">Step '+(i+1)+'</span>';
+    ring.appendChild(slot);
+  }
+  const tray=document.getElementById('tray3');tray.innerHTML='';
+  shuffle(act3Data).forEach(item=>{
+    const c=document.createElement('div');c.className='chip';c.textContent=item.text;
+    c.dataset.order=item.order;c.dataset.tray='tray3';tray.appendChild(c);attachDrag(c);
+  });
+}
+function act3Drop(el,zone){
+  if(String(zone.dataset.order)===String(el.dataset.order)){
+    const numLabel=zone.querySelector('.rn');
+    placeInZone(el,zone);if(numLabel)zone.insertBefore(numLabel,zone.firstChild);
+    a3c++;
+    if(a3c===act3Data.length)setTimeout(()=>completeAct(3),500);
+    return true;
+  }
+  zone.classList.add('shake');setTimeout(()=>zone.classList.remove('shake'),400);return false;
+}
+
+/* ============ SWITCHING ============ */
+function showOnly(n){
+  [1,2,3].forEach(i=>{
+    document.getElementById('activity'+i).style.display=(i===n)?'flex':'none';
+    const d=document.getElementById('dot'+i);d.classList.remove('active','done');
+    if(i<n)d.classList.add('done');if(i===n)d.classList.add('active');
+  });
+}
+function loadAct(n){
+  showOnly(n);
+  if(n===1){window.dropHandler=act1Drop;loadAct1();}
+  if(n===2){window.dropHandler=act2Drop;loadAct2();}
+  if(n===3){window.dropHandler=act3Drop;requestAnimationFrame(loadAct3);}
+}
+function resetAct(n){loadAct(n);}
+
+/* ============ POPUP ============ */
+const overlay=document.getElementById('overlay');
+function openPop(title,text,label,cb){
+  document.getElementById('popTitle').textContent=title;
+  document.getElementById('popText').textContent=text;
+  const btn=document.getElementById('popBtn');btn.textContent=label;btn.onclick=cb;
+  overlay.classList.add('show');
+}
+function closePop(){overlay.classList.remove('show');}
+
+function completeAct(n){
+  if(n===1) openPop('🌟 Scroll Complete!','The Context API spell order is perfect! Move to the enchanted tree map next.','Next Mission',()=>{closePop();loadAct(2);});
+  else if(n===2) openPop('🌳 Tree Map Unlocked!','Every component found its magical place in the tree. One final enchantment awaits!','Final Mission',()=>{closePop();loadAct(3);});
+  else{forestCelebration();openPop('🧚 You are a Context Wizard!','You sequenced the full Context API flow perfectly. The enchanted forest celebrates your magic!','Play Again',()=>{closePop();loadAct(1);});}
+}
+
+/* ============ CELEBRATION ============ */
+function forestCelebration(){
+  const layer=document.getElementById('celebLayer');layer.innerHTML='';
+  const items=['🧚','✨','🌸','🍄','🦋','⭐','💫','🌟','🔮','🌈'];
+  for(let i=0;i<55;i++){
+    const s=document.createElement('div');s.className='cel-item';
+    s.textContent=items[Math.floor(Math.random()*items.length)];
+    s.style.left=Math.random()*100+'vw';
+    s.style.fontSize=(14+Math.random()*12)+'px';
+    s.style.animationDuration=(2+Math.random()*2.5)+'s';
+    s.style.animationDelay=(Math.random()*0.8)+'s';
+    layer.appendChild(s);
+    setTimeout(()=>s.remove(),5000);
+  }
+}
+
+/* ============ INIT ============ */
+loadAct(1);
+</script>
+</body>
+</html>

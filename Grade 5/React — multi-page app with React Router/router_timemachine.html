@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>React — Multi-Page App with React Router</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#0a0714;
+    --void-mid:#170f2c;
+    --indigo:#2a1b4a;
+    --violet:#3d2266;
+    --brass:#d9a441;
+    --brass-deep:#b5761f;
+    --copper:#c9702f;
+    --clockface:#f2e6c4;
+    --electric:#8a63ff;
+    --electric2:#4fd6ff;
+    --lotus:#ff7fa8;
+    --panel:#1c1230;
+    --panel-light:#2c1e48;
+    --ink:#f5eefe;
+    --ink-dim:#c3b2e0;
+    --correct:#8bd17c;
+    --wrong:#ff7a7a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    height:100%; margin:0; overflow:hidden;
+    font-family:'Rajdhani',sans-serif; color:var(--ink);
+    background:#050310;
+    touch-action:none;
+    user-select:none;
+  }
+  h1,h2,h3,.display{font-family:'Orbitron',sans-serif;}
+
+  /* ================= BACKGROUND SCENE ================= */
+  #bg{position:fixed; inset:0; overflow:hidden; z-index:0;}
+  .sky{position:absolute; inset:0;
+    background:
+      radial-gradient(ellipse 60% 45% at 50% 40%, rgba(138,99,255,.22) 0%, transparent 65%),
+      radial-gradient(ellipse 40% 30% at 80% 15%, rgba(79,214,255,.16) 0%, transparent 60%),
+      linear-gradient(180deg, var(--void) 0%, var(--void-mid) 45%, var(--indigo) 100%);
+  }
+  .spark{position:absolute; border-radius:50%; background:#fff; opacity:.7;
+    animation:twinkle 3s ease-in-out infinite;}
+  @keyframes twinkle{0%,100%{opacity:.12;} 50%{opacity:1;}}
+
+  .particle{position:absolute; width:4px; height:4px; border-radius:50%;
+    background:radial-gradient(circle, #cdb6ff, transparent 70%);
+    box-shadow:0 0 8px 3px rgba(138,99,255,.6);
+    animation:driftUp linear infinite;}
+  @keyframes driftUp{
+    0%{transform:translate(0,0); opacity:0;}
+    12%{opacity:.9;}
+    100%{transform:translate(14px,-100vh); opacity:0;}
+  }
+
+  .gear{position:absolute; opacity:.22; filter:brightness(.9);}
+  .gear svg{width:100%; height:100%; display:block;}
+  .gear.g1{animation:spinCW 26s linear infinite;}
+  .gear.g2{animation:spinCCW 34s linear infinite;}
+  .gear.g3{animation:spinCW 20s linear infinite;}
+  @keyframes spinCW{to{transform:rotate(360deg);}}
+  @keyframes spinCCW{to{transform:rotate(-360deg);}}
+
+  .clockface{position:absolute; top:6%; right:5%; width:min(11vw,100px); height:min(11vw,100px);
+    border-radius:50%; background:radial-gradient(circle at 35% 32%, var(--clockface), #d9c48a 70%, #a9873f 100%);
+    box-shadow:0 0 40px 10px rgba(217,164,65,.35), inset 0 0 10px rgba(0,0,0,.35);
+    opacity:.9;}
+  .clockface::before{content:''; position:absolute; inset:8%; border-radius:50%; border:2px solid rgba(80,50,10,.4);}
+  .hand{position:absolute; left:50%; bottom:50%; transform-origin:50% 100%; background:#3a2410; border-radius:3px;}
+  .hand.hour{width:3px; height:26%; animation:spinCW 18s linear infinite;}
+  .hand.minute{width:2px; height:36%; animation:spinCW 5s linear infinite;}
+
+  .lightning{position:absolute; top:0; width:2px; height:38%; background:linear-gradient(180deg, var(--electric2), transparent);
+    filter:drop-shadow(0 0 8px var(--electric2)); opacity:0; animation:strike 7s ease-in-out infinite;}
+  @keyframes strike{0%,92%,100%{opacity:0;} 93%{opacity:.9;} 94%{opacity:.2;} 95%{opacity:.8;} 97%{opacity:0;}}
+
+  .temple-silhouette{position:absolute; bottom:16%; opacity:.5; filter:brightness(.5);}
+  .temple-silhouette svg{width:100%; display:block;}
+  .lamp{position:absolute; width:6px; height:8px; border-radius:50% 50% 40% 40%;
+    background:radial-gradient(circle at 50% 30%, #ffd98a, var(--brass) 70%, transparent 100%);
+    box-shadow:0 0 9px 3px rgba(217,164,65,.7);
+    animation:flicker 1.6s ease-in-out infinite;}
+  @keyframes flicker{0%,100%{opacity:.7; transform:scaleY(1);} 50%{opacity:1; transform:scaleY(1.14);}}
+
+  .ground{position:absolute; bottom:0; left:0; width:100%; height:16%;
+    background:linear-gradient(180deg, #241638 0%, #120a1e 100%);
+    clip-path:polygon(0% 40%, 18% 28%, 36% 46%, 54% 24%, 72% 42%, 88% 30%, 100% 40%, 100% 100%, 0% 100%);}
+
+  .petal{position:absolute; top:-5%; font-size:13px; opacity:.75;
+    animation:petalFall linear infinite;}
+  @keyframes petalFall{
+    0%{transform:translate(0,0) rotate(0deg); opacity:0;}
+    10%{opacity:.85;}
+    100%{transform:translate(40px,115vh) rotate(320deg); opacity:0;}
+  }
+
+  /* ================= APP LAYOUT ================= */
+  #app{position:relative; z-index:2; height:100vh; width:100vw; display:flex; flex-direction:column; padding:clamp(8px,1.4vh,16px) clamp(10px,2vw,26px);}
+  header{display:flex; align-items:center; justify-content:space-between; flex:0 0 auto; gap:10px;}
+  .title-wrap{display:flex; flex-direction:column; gap:2px;}
+  h1{margin:0; font-size:clamp(14px,2.1vh,24px); letter-spacing:.4px;
+    color:var(--brass); text-shadow:0 0 18px rgba(217,164,65,.45);}
+  .subtitle{font-size:clamp(9px,1.1vh,13px); color:var(--ink-dim); font-weight:600;}
+
+  .progress{display:flex; gap:10px; align-items:center;}
+  .dot{width:clamp(10px,1.6vh,16px); height:clamp(10px,1.6vh,16px); border-radius:50%;
+    background:rgba(255,255,255,0.14); border:2px solid rgba(255,255,255,0.28);
+    transition:.35s;}
+  .dot.active{background:var(--electric2); border-color:var(--electric2); box-shadow:0 0 12px rgba(79,214,255,.7); transform:scale(1.15);}
+  .dot.done{background:var(--correct); border-color:var(--correct);}
+
+  #stage{flex:1 1 auto; min-height:0; position:relative; margin-top:clamp(4px,1vh,10px);}
+  .activity{position:absolute; inset:0; display:none; flex-direction:column; gap:8px;}
+  .activity.active{display:flex;}
+
+  .act-header{display:flex; justify-content:space-between; align-items:center; flex:0 0 auto;}
+  .act-title{font-size:clamp(12px,1.7vh,18px); color:var(--ink); font-weight:700; display:flex; align-items:center; gap:8px;}
+  .act-title .tag{font-family:'Orbitron'; padding:2px 10px; border-radius:20px; font-size:clamp(9px,1.2vh,12px);
+    background:rgba(217,164,65,.16); border:1px solid rgba(217,164,65,.4); color:var(--brass);}
+  .act-body{flex:1 1 auto; min-height:0; display:flex; gap:clamp(8px,1.4vw,18px);}
+
+  button{font-family:'Rajdhani',sans-serif; font-weight:700; cursor:pointer; border:none; border-radius:12px;}
+  .btn{padding:7px 16px; font-size:clamp(10px,1.3vh,13px); background:rgba(255,255,255,0.1);
+    color:var(--ink); border:1px solid rgba(255,255,255,0.22); transition:.2s;}
+  .btn:hover{background:rgba(255,255,255,0.18);}
+  .btn.gold{background:linear-gradient(135deg,var(--brass),var(--brass-deep)); color:#2a1706; border:none; box-shadow:0 3px 10px rgba(181,118,31,.4);}
+  .btn.gold:hover{filter:brightness(1.08);}
+
+  /* ============ DRAGGABLE base ============ */
+  .drag-pool{display:flex; flex-wrap:wrap; gap:8px; align-content:flex-start;}
+  .chip{
+    padding:7px 12px; border-radius:10px; font-size:clamp(9px,1.15vh,12.5px); font-weight:800;
+    cursor:grab; touch-action:none; position:relative; z-index:5; white-space:nowrap;
+    box-shadow:0 3px 10px rgba(0,0,0,.45); transition:box-shadow .15s, transform .1s;
+    border:2px solid rgba(255,255,255,.55);
+  }
+  .chip:active{cursor:grabbing;}
+  .chip.dragging{z-index:999; box-shadow:0 10px 24px rgba(0,0,0,.6); transform:scale(1.06);}
+  .chip.placed{cursor:default; opacity:.55; filter:grayscale(.3);}
+  .chip.shake{animation:shake .4s;}
+  @keyframes shake{0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px);} 75%{transform:translateX(6px);}}
+
+  .slot{
+    border:2px dashed rgba(255,255,255,0.32); border-radius:10px;
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    font-size:clamp(8px,1.05vh,11.5px); color:var(--ink-dim); font-weight:700; padding:4px;
+    transition:.2s; position:relative;
+  }
+  .slot.over{border-color:var(--electric2); background:rgba(79,214,255,.14);}
+  .slot.correct{border-style:solid; border-color:var(--correct); background:rgba(139,209,124,.16); color:var(--correct);}
+  .slot.wrong-flash{border-color:var(--wrong); background:rgba(255,122,122,.16);}
+
+  /* ============ MODAL ============ */
+  #modalOverlay{position:fixed; inset:0; z-index:50; display:none; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 40%, rgba(42,27,74,.82), rgba(10,7,20,.95));
+    backdrop-filter:blur(3px);}
+  #modalOverlay.show{display:flex;}
+  .modal-box{
+    background:linear-gradient(160deg, var(--panel-light), var(--panel));
+    border:1px solid rgba(217,164,65,.4); border-radius:20px;
+    padding:clamp(16px,3vh,30px) clamp(18px,3.5vw,36px); max-width:min(560px,88vw);
+    text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.6);
+    animation:popIn .35s cubic-bezier(.2,1.4,.4,1);
+  }
+  @keyframes popIn{0%{transform:scale(.7); opacity:0;} 100%{transform:scale(1); opacity:1;}}
+  .modal-box h2{margin:0 0 8px; color:var(--brass); font-size:clamp(17px,2.6vh,26px); font-family:'Orbitron';}
+  .modal-box p{margin:0 0 16px; font-size:clamp(11px,1.6vh,15px); color:var(--ink-dim); line-height:1.5;}
+  .modal-emoji{font-size:clamp(30px,5vh,52px); margin-bottom:6px;}
+
+  /* ============ ACTIVITY 1 : Gear Chain — Setup Order ============ */
+  #a1-track{flex:1 1 auto; position:relative; display:flex; align-items:flex-end; justify-content:space-around;
+    padding:0 1%;
+    background:linear-gradient(180deg, transparent 55%, rgba(217,164,65,.12) 100%);
+    border-radius:16px; border:1px solid rgba(217,164,65,.3);}
+  .gear-col{display:flex; flex-direction:column-reverse; align-items:center; gap:6px; flex:1; max-width:17%;}
+  .gear-num{font-family:'Orbitron'; color:var(--brass); font-size:clamp(9px,1.3vh,13px);}
+  .cog{
+    width:100%; aspect-ratio:1/1; border-radius:50%;
+    background:radial-gradient(circle at 40% 35%, #3a2a52, #201535);
+    border:3px dashed rgba(255,255,255,.3);
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    font-size:clamp(7px,.95vh,10.5px); font-weight:700; color:var(--ink-dim); padding:4px;
+  }
+  .cog.correct{border-style:solid; border-color:var(--correct); background:radial-gradient(circle at 40% 35%,#2f4a2c,#1e321e); color:var(--correct);}
+  .cog.over{border-color:var(--electric2);}
+  #a1-pool{flex:0 0 auto; display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding-top:6px;}
+  .cogcard{
+    padding:8px 13px; border-radius:20px; font-size:clamp(9px,1.1vh,12px); font-weight:800;
+    background:#d9a441; border:2px solid #fff; color:#241300;
+    cursor:grab; touch-action:none; box-shadow:0 4px 12px rgba(0,0,0,.45);
+  }
+
+  /* ============ ACTIVITY 2 : Route Console (diagram) ============ */
+  #a2-diagram{flex:1 1 66%; position:relative; background:radial-gradient(circle at 50% 50%, rgba(79,214,255,.08), transparent 70%);
+    border-radius:16px; border:1px solid rgba(79,214,255,.22); overflow:hidden;}
+  #a2-svg-wrap{position:absolute; inset:0;}
+  .a2-slot{position:absolute;}
+  .a2-pool{flex:1 1 34%; display:flex; flex-direction:column; justify-content:center; gap:8px;}
+  .chip.c2{background:#2a8fbf; color:#031420; border-color:#fff;}
+
+  /* ============ ACTIVITY 3 : Clock Timeline ============ */
+  #a3-clock{flex:1 1 60%; position:relative; border-radius:50%; border:1px solid rgba(138,99,255,.3);
+    background:radial-gradient(circle, rgba(138,99,255,.08), transparent 70%);}
+  .clockslot{position:absolute; width:19%; min-width:78px; height:15%; min-height:56px;
+    transform:translate(-50%,-50%);}
+  #a3-pool{flex:1 1 36%; display:flex; flex-direction:column; gap:7px; justify-content:center;}
+  .timecard{
+    padding:8px 13px; border-radius:8px; font-size:clamp(9px,1.0vh,11.5px); font-weight:800; text-align:center;
+    background:#7b5cff; border:2px solid #fff; color:#0d0420;
+    cursor:grab; touch-action:none; box-shadow:0 4px 12px rgba(0,0,0,.5);
+  }
+
+  .floating-drag{position:fixed; z-index:1000; pointer-events:none;}
+
+  @media (max-width:720px){
+    .act-body{flex-direction:column;}
+    #a2-diagram, .a2-pool{flex:1 1 50%;}
+  }
+</style>
+</head>
+<body>
+
+<div id="bg">
+  <div class="sky"></div>
+  <div id="sparksLayer"></div>
+  <div id="particlesLayer"></div>
+  <div class="gear g1" style="top:8%; left:2%; width:min(11vw,90px); height:min(11vw,90px);">
+    <svg viewBox="0 0 100 100" fill="#d9a441"><path d="M50 8 l6 10 12-2 2 12 12 4-4 12 8 9-8 9 4 12-12 4-2 12-12-2-6 10-6-10-12 2-2-12-12-4 4-12-8-9 8-9-4-12 12-4 2-12 12 2z"/><circle cx="50" cy="50" r="16" fill="#170f2c"/></svg>
+  </div>
+  <div class="gear g2" style="bottom:24%; left:8%; width:min(7vw,58px); height:min(7vw,58px);">
+    <svg viewBox="0 0 100 100" fill="#c9702f"><path d="M50 8 l6 10 12-2 2 12 12 4-4 12 8 9-8 9 4 12-12 4-2 12-12-2-6 10-6-10-12 2-2-12-12-4 4-12-8-9 8-9-4-12 12-4 2-12 12 2z"/><circle cx="50" cy="50" r="16" fill="#170f2c"/></svg>
+  </div>
+  <div class="gear g3" style="top:38%; right:3%; width:min(9vw,74px); height:min(9vw,74px);">
+    <svg viewBox="0 0 100 100" fill="#d9a441"><path d="M50 8 l6 10 12-2 2 12 12 4-4 12 8 9-8 9 4 12-12 4-2 12-12-2-6 10-6-10-12 2-2-12-12-4 4-12-8-9 8-9-4-12 12-4 2-12 12 2z"/><circle cx="50" cy="50" r="16" fill="#170f2c"/></svg>
+  </div>
+  <div class="clockface">
+    <div class="hand hour"></div>
+    <div class="hand minute"></div>
+  </div>
+  <div class="lightning" style="left:22%; animation-delay:0s;"></div>
+  <div class="lightning" style="left:64%; animation-delay:-3.4s;"></div>
+  <div class="temple-silhouette" style="left:36%; width:22%; height:44%;">
+    <svg viewBox="0 0 60 110">
+      <rect x="10" y="60" width="40" height="50" fill="#1c1230"/>
+      <rect x="16" y="70" width="10" height="20" fill="#0a0714"/>
+      <rect x="34" y="70" width="10" height="20" fill="#0a0714"/>
+      <polygon points="30,10 46,50 14,50" fill="#241638"/>
+      <polygon points="30,22 40,50 20,50" fill="#2c1e48"/>
+      <circle cx="30" cy="10" r="4" fill="#d9a441"/>
+      <rect x="4" y="60" width="52" height="4" fill="#d9a441" opacity=".5"/>
+    </svg>
+    <div class="lamp" style="left:15%; bottom:44%; animation-delay:.3s;"></div>
+    <div class="lamp" style="left:80%; bottom:44%; animation-delay:.9s;"></div>
+  </div>
+  <div class="ground"></div>
+  <div id="petalsLayer"></div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="title-wrap">
+      <h1>⏱️ React — Multi-Page App with React Router</h1>
+      <div class="subtitle">BrowserRouter · Routes · Route · Link — Travelling Through Pages Instantly</div>
+    </div>
+    <div class="progress">
+      <div class="dot" id="dot1"></div>
+      <div class="dot" id="dot2"></div>
+      <div class="dot" id="dot3"></div>
+    </div>
+  </header>
+
+  <div id="stage">
+
+    <!-- ACTIVITY 1 -->
+    <section class="activity active" id="activity1">
+      <div class="act-header">
+        <div class="act-title"><span class="tag">Activity 1</span> Turn the Gear Chain — Setup Order</div>
+        <button class="btn" id="reset1">↺ Reset Activity</button>
+      </div>
+      <div class="act-body" style="flex-direction:column;">
+        <div id="a1-track"></div>
+        <div id="a1-pool"></div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 2 -->
+    <section class="activity" id="activity2">
+      <div class="act-header">
+        <div class="act-title"><span class="tag">Activity 2</span> Wire the Route Console</div>
+        <button class="btn" id="reset2">↺ Reset Activity</button>
+      </div>
+      <div class="act-body">
+        <div id="a2-diagram">
+          <div id="a2-svg-wrap"></div>
+        </div>
+        <div class="a2-pool">
+          <div style="font-size:clamp(9px,1.1vh,12px); color:var(--ink-dim); margin-bottom:2px;">Drag each piece onto its spot in the app ⚡</div>
+          <div class="drag-pool" id="a2-pool"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 3 -->
+    <section class="activity" id="activity3">
+      <div class="act-header">
+        <div class="act-title"><span class="tag">Activity 3</span> Set the Clock Timeline</div>
+        <button class="btn" id="reset3">↺ Reset Activity</button>
+      </div>
+      <div class="act-body">
+        <div id="a3-clock"></div>
+        <div id="a3-pool"></div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<div id="modalOverlay">
+  <div class="modal-box" id="modalBox"></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ================= UTIL ================= */
+function shuffle(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function rand(min,max){return Math.random()*(max-min)+min;}
+function el(tag,cls,html){const e=document.createElement(tag); if(cls)e.className=cls; if(html!==undefined)e.innerHTML=html; return e;}
+
+/* ================= BACKGROUND GENERATION ================= */
+function buildSparks(){
+  const layer=document.getElementById('sparksLayer');
+  let html='';
+  for(let i=0;i<50;i++){
+    const size=rand(1,2.4);
+    html+=`<div class="spark" style="left:${rand(0,100)}%; top:${rand(0,55)}%; width:${size}px; height:${size}px; animation-delay:${rand(0,3)}s; animation-duration:${rand(2,5)}s;"></div>`;
+  }
+  layer.innerHTML=html;
+}
+function buildParticles(){
+  const layer=document.getElementById('particlesLayer');
+  let html='';
+  for(let i=0;i<18;i++){
+    html+=`<div class="particle" style="left:${rand(0,100)}%; bottom:${rand(0,20)}%; animation-duration:${rand(7,13)}s; animation-delay:${rand(0,10)}s;"></div>`;
+  }
+  layer.innerHTML=html;
+}
+function buildPetals(){
+  const layer=document.getElementById('petalsLayer');
+  const emojis=['🌸','🪷'];
+  let html='';
+  for(let i=0;i<7;i++){
+    html+=`<div class="petal" style="left:${rand(0,96)}%; animation-duration:${rand(12,20)}s; animation-delay:${rand(0,15)}s;">${emojis[i%2]}</div>`;
+  }
+  layer.innerHTML=html;
+}
+buildSparks(); buildParticles(); buildPetals();
+
+/* ================= GENERIC POINTER DRAG ENGINE ================= */
+/*
+  setupDrag(container, dropSelector, onDropCheck)
+  container MUST enclose both the draggable pool AND the drop zones,
+  since pointerdown is listened for on the container itself.
+*/
+function setupDrag(container, dropSelector, onDropCheck){
+  let dragging=null, offsetX=0, offsetY=0, startParent=null, startNext=null;
+
+  container.addEventListener('pointerdown', (e)=>{
+    const item=e.target.closest('.draggable-item');
+    if(!item || item.classList.contains('placed')) return;
+    dragging=item;
+    startParent=item.parentElement;
+    startNext=item.nextSibling;
+    const r=item.getBoundingClientRect();
+    offsetX=e.clientX-r.left;
+    offsetY=e.clientY-r.top;
+    item.style.width=r.width+'px';
+    document.body.appendChild(item);
+    item.classList.add('dragging');
+    item.style.position='fixed';
+    item.style.left=r.left+'px';
+    item.style.top=r.top+'px';
+    item.setPointerCapture && item.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  window.addEventListener('pointermove',(e)=>{
+    if(!dragging) return;
+    dragging.style.left=(e.clientX-offsetX)+'px';
+    dragging.style.top=(e.clientY-offsetY)+'px';
+    document.querySelectorAll(dropSelector).forEach(z=>z.classList.remove('over'));
+    dragging.style.visibility='hidden';
+    const under=document.elementFromPoint(e.clientX,e.clientY);
+    dragging.style.visibility='visible';
+    const zone=under && under.closest(dropSelector);
+    if(zone) zone.classList.add('over');
+  },{passive:true});
+
+  window.addEventListener('pointerup',(e)=>{
+    if(!dragging) return;
+    const item=dragging;
+    dragging=null;
+    document.querySelectorAll(dropSelector).forEach(z=>z.classList.remove('over'));
+
+    item.style.visibility='hidden';
+    const under=document.elementFromPoint(e.clientX,e.clientY);
+    item.style.visibility='visible';
+    const zone=under && under.closest(dropSelector);
+
+    item.classList.remove('dragging');
+    item.style.position='';
+    item.style.left=''; item.style.top=''; item.style.width='';
+
+    let handled=false;
+    if(zone){
+      handled=onDropCheck(zone,item);
+    }
+    if(!handled){
+      if(startNext) startParent.insertBefore(item,startNext);
+      else startParent.appendChild(item);
+      item.classList.add('shake');
+      setTimeout(()=>item.classList.remove('shake'),400);
+    }
+  });
+}
+
+/* ================= MODAL SYSTEM ================= */
+const overlay=document.getElementById('modalOverlay');
+const modalBox=document.getElementById('modalBox');
+function showModal({emoji,title,text,buttonText,onButton}){
+  modalBox.innerHTML='';
+  if(emoji) modalBox.appendChild(el('div','modal-emoji',emoji));
+  modalBox.appendChild(el('h2',null,title));
+  modalBox.appendChild(el('p',null,text));
+  const btnRow=el('div',null,'');
+  btnRow.style.display='flex'; btnRow.style.gap='10px'; btnRow.style.justifyContent='center'; btnRow.style.flexWrap='wrap';
+  const b=el('button','btn gold',buttonText);
+  b.onclick=()=>{ hideModal(); onButton && onButton(); };
+  btnRow.appendChild(b);
+  modalBox.appendChild(btnRow);
+  overlay.classList.add('show');
+}
+function hideModal(){ overlay.classList.remove('show'); }
+
+/* ================= PROGRESS DOTS ================= */
+function setProgress(activeIdx){
+  for(let i=1;i<=3;i++){
+    const d=document.getElementById('dot'+i);
+    d.classList.remove('active','done');
+    if(i<activeIdx) d.classList.add('done');
+    else if(i===activeIdx) d.classList.add('active');
+  }
+}
+function goToActivity(n){
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.getElementById('activity'+n).classList.add('active');
+  setProgress(n);
+}
+
+/* =========================================================
+   ACTIVITY 1 — Turn the Gear Chain (Setup Order)
+   ========================================================= */
+const A1_STEPS=[
+  {id:1, label:'npm install react-router-dom'},
+  {id:2, label:'Import Router components'},
+  {id:3, label:'<Routes>'},
+  {id:4, label:'<Route>'},
+  {id:5, label:'Render pages'},
+];
+let a1Correct=0;
+function buildActivity1(){
+  const track=document.getElementById('a1-track');
+  track.innerHTML='';
+  for(let i=1;i<=5;i++){
+    const col=el('div','gear-col');
+    const cog=el('div','cog');
+    cog.dataset.id=i;
+    cog.textContent='place here';
+    col.appendChild(cog);
+    col.appendChild(el('div','gear-num','Gear '+i));
+    track.appendChild(col);
+  }
+  const pool=document.getElementById('a1-pool');
+  pool.innerHTML='';
+  a1Correct=0;
+  shuffle(A1_STEPS).forEach(step=>{
+    const card=el('div','cogcard draggable-item',step.label);
+    card.dataset.id=step.id;
+    pool.appendChild(card);
+  });
+
+  setupDrag(document.getElementById('activity1'), '.cog', (zone,item)=>{
+    if(zone.classList.contains('correct')) return false;
+    if(String(zone.dataset.id)===String(item.dataset.id)){
+      zone.classList.add('correct');
+      zone.textContent='';
+      item.classList.add('placed');
+      item.style.width='90%';
+      zone.appendChild(item);
+      a1Correct++;
+      if(a1Correct===A1_STEPS.length){
+        setTimeout(()=>showModal({
+          emoji:'⚙️⏱️',
+          title:'The Gears Are Turning!',
+          text:'react-router-dom is installed, the Router components are imported, Routes and Route are set, and pages render on cue — the time machine is powered up!',
+          buttonText:'Next: Wire the Console →',
+          onButton:()=>goToActivity(2)
+        }),500);
+      }
+      return true;
+    } else {
+      zone.classList.add('wrong-flash');
+      setTimeout(()=>zone.classList.remove('wrong-flash'),400);
+      return false;
+    }
+  });
+}
+document.getElementById('reset1').onclick=buildActivity1;
+
+/* =========================================================
+   ACTIVITY 2 — Wire the Route Console (diagram)
+   ========================================================= */
+const A2_ITEMS=[
+  {id:'navbar',  label:'Navbar'},
+  {id:'home',    label:'Home'},
+  {id:'about',   label:'About'},
+  {id:'contact', label:'Contact'},
+  {id:'active',  label:'Active Link'},
+  {id:'notfound',label:'404 Page'},
+];
+const A2_POS={
+  navbar:  {left:'4%',  top:'6%',  width:'92%', height:'16%'},
+  home:    {left:'4%',  top:'28%', width:'27%', height:'26%'},
+  about:   {left:'36%', top:'28%', width:'27%', height:'26%'},
+  contact: {left:'68%', top:'28%', width:'28%', height:'26%'},
+  active:  {left:'4%',  top:'60%', width:'44%', height:'16%'},
+  notfound:{left:'52%', top:'60%', width:'44%', height:'16%'},
+};
+let a2Correct=0;
+function buildActivity2(){
+  const wrap=document.getElementById('a2-svg-wrap');
+  wrap.innerHTML='';
+  Object.entries(A2_POS).forEach(([id,pos])=>{
+    const slot=el('div','slot a2-slot');
+    slot.dataset.id=id;
+    slot.style.left=pos.left; slot.style.top=pos.top; slot.style.width=pos.width; slot.style.height=pos.height;
+    slot.textContent = id==='navbar' ? '🧭 Navbar area' : id==='active' ? '✨ Active Link' : id==='notfound' ? '🚧 Unknown route' : '📄 Page route';
+    wrap.appendChild(slot);
+  });
+
+  const pool=document.getElementById('a2-pool');
+  pool.innerHTML='';
+  a2Correct=0;
+  shuffle(A2_ITEMS).forEach(item=>{
+    const chip=el('div','chip c2 draggable-item',item.label);
+    chip.dataset.id=item.id;
+    pool.appendChild(chip);
+  });
+
+  setupDrag(document.getElementById('activity2'), '.a2-slot', (zone,item)=>{
+    if(zone.classList.contains('correct')) return false;
+    if(zone.dataset.id===item.dataset.id){
+      zone.classList.add('correct');
+      zone.textContent='✓ '+item.textContent;
+      item.classList.add('placed');
+      zone.appendChild(item);
+      a2Correct++;
+      if(a2Correct===A2_ITEMS.length){
+        setTimeout(()=>showModal({
+          emoji:'🧭⚡',
+          title:'The Route Console is Wired!',
+          text:'Navbar, pages, the active link highlight, and the 404 fallback are all in place — tabs now switch instantly, no reloads needed.',
+          buttonText:'Next: Set the Timeline →',
+          onButton:()=>goToActivity(3)
+        }),500);
+      }
+      return true;
+    } else {
+      zone.classList.add('wrong-flash');
+      setTimeout(()=>zone.classList.remove('wrong-flash'),400);
+      return false;
+    }
+  });
+}
+document.getElementById('reset2').onclick=buildActivity2;
+
+/* =========================================================
+   ACTIVITY 3 — Set the Clock Timeline
+   ========================================================= */
+const A3_STEPS=[
+  {id:1, label:'Install React Router'},
+  {id:2, label:'Configure routes'},
+  {id:3, label:'Create a navigation bar'},
+  {id:4, label:'Highlight the active link'},
+  {id:5, label:'Handle unknown URLs with a 404 page'},
+  {id:6, label:'Render the correct page'},
+];
+const CLOCK_POS=[
+  {left:'50%', top:'6%'},
+  {left:'88%', top:'28%'},
+  {left:'88%', top:'72%'},
+  {left:'50%', top:'94%'},
+  {left:'12%', top:'72%'},
+  {left:'12%', top:'28%'},
+];
+let a3Correct=0;
+function buildActivity3(){
+  const clock=document.getElementById('a3-clock');
+  clock.innerHTML='';
+  for(let i=1;i<=6;i++){
+    const slot=el('div','slot clockslot');
+    slot.dataset.id=i;
+    slot.style.left=CLOCK_POS[i-1].left;
+    slot.style.top=CLOCK_POS[i-1].top;
+    slot.textContent=i+ ' o\u2019clock';
+    clock.appendChild(slot);
+  }
+  const pool=document.getElementById('a3-pool');
+  pool.innerHTML='';
+  a3Correct=0;
+  shuffle(A3_STEPS).forEach(step=>{
+    const card=el('div','timecard draggable-item',step.label);
+    card.dataset.id=step.id;
+    pool.appendChild(card);
+  });
+
+  setupDrag(document.getElementById('activity3'), '.clockslot', (zone,item)=>{
+    if(zone.classList.contains('correct')) return false;
+    if(String(zone.dataset.id)===String(item.dataset.id)){
+      zone.classList.add('correct');
+      zone.textContent='✓';
+      item.classList.add('placed');
+      item.style.width='90%';
+      zone.appendChild(item);
+      a3Correct++;
+      if(a3Correct===A3_STEPS.length){
+        setTimeout(()=>finishAll(),500);
+      }
+      return true;
+    } else {
+      zone.classList.add('wrong-flash');
+      setTimeout(()=>zone.classList.remove('wrong-flash'),400);
+      return false;
+    }
+  });
+}
+document.getElementById('reset3').onclick=buildActivity3;
+
+/* ================= FINAL CELEBRATION ================= */
+function finishAll(){
+  setProgress(4);
+  burstParticles();
+  showModal({
+    emoji:'⏱️⚡🪷',
+    title:'Mission Complete!',
+    text:'You powered the gears, wired the route console, and set every hour on the timeline — the time machine now glides between pages instantly, just like a modern app should!',
+    buttonText:'🔁 Play Again',
+    onButton:resetEverything
+  });
+}
+function burstParticles(){
+  const layer=document.getElementById('petalsLayer');
+  const emojis=['🌸','🪷','✨'];
+  for(let i=0;i<22;i++){
+    const f=el('div','petal',emojis[i%3]);
+    f.style.left=rand(10,90)+'%';
+    f.style.top='-5%';
+    f.style.animationDuration=rand(3,5)+'s';
+    f.style.fontSize=rand(12,20)+'px';
+    layer.appendChild(f);
+    setTimeout(()=>f.remove(),6000);
+  }
+}
+
+/* ================= RESET EVERYTHING ================= */
+function resetEverything(){
+  buildActivity1();
+  buildActivity2();
+  buildActivity3();
+  goToActivity(1);
+}
+
+/* ================= INIT ================= */
+function init(){
+  buildActivity1();
+  buildActivity2();
+  buildActivity3();
+  goToActivity(1);
+  showModal({
+    emoji:'⏱️⚡',
+    title:'Welcome, Route Builder!',
+    text:'React Router lets an app flip between pages instantly, without ever reloading — like a magic time machine control panel. Turn the gears, wire the console, and set the timeline — all in three activities!',
+    buttonText:'Start Activity 1 →'
+  });
+}
+init();
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Arduino — Ultrasonic Distance Sensor (HC-SR04)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --gold:#f4c568;
+    --gold-deep:#e0a530;
+    --ember:#ff9e5e;
+    --river:#5fd0ff;
+    --leaf:#7fce6a;
+    --panel:#12233a;
+    --panel-light:#1b3350;
+    --ink:#eaf3ff;
+    --ink-dim:#9fb6d1;
+    --correct:#7be495;
+    --wrong:#ff8b8b;
+    --purple:#c9a3ff;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    height:100%; margin:0; overflow:hidden;
+    font-family:'Quicksand',sans-serif; color:var(--ink);
+    background:#060f1c;
+    touch-action:none;
+    user-select:none;
+  }
+  h1,h2,h3,.display{font-family:'Baloo 2',cursive;}
+
+  /* ================= BACKGROUND SCENE ================= */
+  #bg{position:fixed; inset:0; overflow:hidden; z-index:0;}
+  .sky{position:absolute; inset:0;
+    background:
+      radial-gradient(ellipse at 70% 8%, #1c3358 0%, transparent 45%),
+      linear-gradient(180deg,#050b18 0%, #0a1830 30%, #123054 60%, #1a4468 100%);
+  }
+  .moon{position:absolute; top:6%; right:10%; width:min(7vw,60px); height:min(7vw,60px); border-radius:50%;
+    background:radial-gradient(circle at 35% 35%, #fffbe8, #fbe9a0 60%, #e8cf7a 100%);
+    box-shadow:0 0 40px 10px rgba(251,233,160,0.35);
+    animation:glow 6s ease-in-out infinite alternate;}
+  @keyframes glow{from{box-shadow:0 0 30px 8px rgba(251,233,160,0.25);} to{box-shadow:0 0 55px 16px rgba(251,233,160,0.45);}}
+
+  .star{position:absolute; background:#fff; border-radius:50%; opacity:.7;
+    animation:twinkle 3s ease-in-out infinite;}
+  @keyframes twinkle{0%,100%{opacity:.15;} 50%{opacity:1;}}
+
+  .mist{position:absolute; left:-20%; width:140%; height:14%;
+    background:linear-gradient(90deg, transparent, rgba(200,225,255,0.10), transparent);
+    filter:blur(2px);
+    animation:driftMist 26s linear infinite;}
+  @keyframes driftMist{0%{transform:translateX(-10%);} 100%{transform:translateX(10%);}}
+
+  .mountain{position:absolute; bottom:22%; width:60%; height:32%;
+    clip-path:polygon(0% 100%, 20% 30%, 38% 62%, 55% 10%, 72% 55%, 100% 25%, 100% 100%);}
+  .m1{left:-10%; background:#0d1f38; opacity:.9;}
+  .m2{left:35%; background:#0a1830; opacity:.95;}
+
+  .pine-row{position:absolute; bottom:18%; left:0; width:100%; height:20%; display:flex; align-items:flex-end;}
+  .pine{position:relative; width:5%; height:100%; transform-origin:bottom center;
+    animation:sway 5s ease-in-out infinite;}
+  .pine svg{width:100%; height:100%; display:block;}
+  @keyframes sway{0%,100%{transform:rotate(-1.2deg);} 50%{transform:rotate(1.2deg);}}
+
+  .river{position:absolute; bottom:0; left:0; width:100%; height:20%; overflow:hidden;}
+  .river svg{width:100%; height:100%;}
+  .river-flow{stroke-dasharray:14 10; animation:flow 2.2s linear infinite;}
+  @keyframes flow{to{stroke-dashoffset:-48;}}
+  .river-shimmer{position:absolute; inset:0;
+    background:linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.10) 45%, transparent 60%);
+    background-size:250% 100%;
+    animation:shimmer 4s linear infinite;}
+  @keyframes shimmer{0%{background-position:120% 0;} 100%{background-position:-20% 0;}}
+
+  .firefly{position:absolute; width:5px; height:5px; border-radius:50%;
+    background:#ffe8a3; box-shadow:0 0 8px 3px rgba(255,232,163,.9);
+    animation:fly 9s ease-in-out infinite;}
+  @keyframes fly{
+    0%{transform:translate(0,0); opacity:.2;}
+    20%{opacity:1;}
+    50%{transform:translate(30px,-24px); opacity:.6;}
+    75%{opacity:1;}
+    100%{transform:translate(-14px,10px); opacity:.2;}
+  }
+
+  .leaf{position:absolute; top:-5%; font-size:14px; opacity:.7;
+    animation:leafFall linear infinite;}
+  @keyframes leafFall{
+    0%{transform:translate(0,0) rotate(0deg); opacity:0;}
+    10%{opacity:.8;}
+    100%{transform:translate(40px,115vh) rotate(340deg); opacity:0;}
+  }
+
+  .deer{position:absolute; bottom:19%; left:6%; width:min(9vw,70px); opacity:.85; filter:brightness(.7);}
+  .deer svg{width:100%; display:block;}
+
+  /* ================= APP LAYOUT ================= */
+  #app{position:relative; z-index:2; height:100vh; width:100vw; display:flex; flex-direction:column; padding:clamp(8px,1.4vh,16px) clamp(10px,2vw,26px);}
+  header{display:flex; align-items:center; justify-content:space-between; flex:0 0 auto; gap:10px;}
+  .title-wrap{display:flex; flex-direction:column; gap:2px;}
+  h1{margin:0; font-size:clamp(15px,2.3vh,26px); letter-spacing:.5px;
+    color:var(--gold); text-shadow:0 0 18px rgba(244,197,104,.35);}
+  .subtitle{font-size:clamp(9px,1.1vh,13px); color:var(--ink-dim); font-weight:600;}
+
+  .progress{display:flex; gap:10px; align-items:center;}
+  .dot{width:clamp(10px,1.6vh,16px); height:clamp(10px,1.6vh,16px); border-radius:50%;
+    background:rgba(255,255,255,0.12); border:2px solid rgba(255,255,255,0.25);
+    display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; color:transparent;
+    transition:.35s;}
+  .dot.active{background:var(--gold); border-color:var(--gold); box-shadow:0 0 12px rgba(244,197,104,.7); transform:scale(1.15);}
+  .dot.done{background:var(--correct); border-color:var(--correct);}
+
+  #stage{flex:1 1 auto; min-height:0; position:relative; margin-top:clamp(4px,1vh,10px);}
+  .activity{position:absolute; inset:0; display:none; flex-direction:column; gap:8px;}
+  .activity.active{display:flex;}
+
+  .act-header{display:flex; justify-content:space-between; align-items:center; flex:0 0 auto;}
+  .act-title{font-size:clamp(12px,1.7vh,18px); color:var(--ink); font-weight:700; display:flex; align-items:center; gap:8px;}
+  .act-title .tag{font-family:'Baloo 2'; background:rgba(244,197,104,.15); border:1px solid rgba(244,197,104,.4);
+    color:var(--gold); padding:2px 10px; border-radius:20px; font-size:clamp(10px,1.3vh,13px);}
+  .act-body{flex:1 1 auto; min-height:0; display:flex; gap:clamp(8px,1.4vw,18px);}
+
+  button{font-family:'Quicksand',sans-serif; font-weight:700; cursor:pointer; border:none; border-radius:12px;}
+  .btn{padding:7px 16px; font-size:clamp(10px,1.3vh,13px); background:rgba(255,255,255,0.08);
+    color:var(--ink); border:1px solid rgba(255,255,255,0.2); transition:.2s;}
+  .btn:hover{background:rgba(255,255,255,0.16);}
+  .btn.gold{background:linear-gradient(135deg,var(--gold),var(--gold-deep)); color:#1a1206; border:none; box-shadow:0 3px 10px rgba(224,165,48,.4);}
+  .btn.gold:hover{filter:brightness(1.08);}
+
+  /* ============ DRAGGABLE base ============ */
+  .drag-pool{display:flex; flex-wrap:wrap; gap:8px; align-content:flex-start;}
+  .chip{
+    padding:7px 12px; border-radius:10px; font-size:clamp(9px,1.2vh,12.5px); font-weight:700;
+    cursor:grab; touch-action:none; position:relative; z-index:5; white-space:nowrap;
+    box-shadow:0 3px 8px rgba(0,0,0,.35); transition:box-shadow .15s, transform .1s;
+    border:1px solid rgba(255,255,255,0.25);
+  }
+  .chip:active{cursor:grabbing;}
+  .chip.dragging{z-index:999; box-shadow:0 10px 24px rgba(0,0,0,.55); transform:scale(1.06);}
+  .chip.placed{cursor:default; opacity:.55; filter:grayscale(.3);}
+  .chip.shake{animation:shake .4s;}
+  @keyframes shake{0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px);} 75%{transform:translateX(6px);}}
+
+  .slot{
+    border:2px dashed rgba(255,255,255,0.3); border-radius:10px;
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    font-size:clamp(8px,1.05vh,11.5px); color:var(--ink-dim); font-weight:700; padding:4px;
+    transition:.2s; position:relative;
+  }
+  .slot.over{border-color:var(--gold); background:rgba(244,197,104,.12);}
+  .slot.correct{border-style:solid; border-color:var(--correct); background:rgba(123,228,149,.16); color:var(--correct);}
+  .slot.wrong-flash{border-color:var(--wrong); background:rgba(255,139,139,.16);}
+
+  /* ============ MODAL ============ */
+  #modalOverlay{position:fixed; inset:0; z-index:50; display:none; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 40%, rgba(10,20,35,.75), rgba(3,7,14,.92));
+    backdrop-filter:blur(3px);}
+  #modalOverlay.show{display:flex;}
+  .modal-box{
+    background:linear-gradient(160deg, var(--panel-light), var(--panel));
+    border:1px solid rgba(244,197,104,.35); border-radius:20px;
+    padding:clamp(16px,3vh,30px) clamp(18px,3.5vw,36px); max-width:min(560px,88vw);
+    text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.6);
+    animation:popIn .35s cubic-bezier(.2,1.4,.4,1);
+  }
+  @keyframes popIn{0%{transform:scale(.7); opacity:0;} 100%{transform:scale(1); opacity:1;}}
+  .modal-box h2{margin:0 0 8px; color:var(--gold); font-size:clamp(17px,2.6vh,26px);}
+  .modal-box p{margin:0 0 16px; font-size:clamp(11px,1.6vh,15px); color:var(--ink-dim); line-height:1.5;}
+  .modal-emoji{font-size:clamp(30px,5vh,52px); margin-bottom:6px;}
+
+  /* ============ ACTIVITY 1 : Wire the Circuit ============ */
+  #a1-diagram{flex:1 1 55%; position:relative; background:radial-gradient(circle at 50% 50%, rgba(255,255,255,.04), transparent 70%);
+    border-radius:16px; border:1px solid rgba(255,255,255,.08); overflow:hidden;}
+  #a1-svg-wrap{position:absolute; inset:0;}
+  .a1-slot{position:absolute; width:16%; min-width:70px; height:11%; min-height:34px;}
+  .a1-pool{flex:1 1 45%; display:flex; flex-direction:column; justify-content:center; gap:8px;}
+
+  /* ============ ACTIVITY 2 : Stepping Stones ============ */
+  #a2-river{flex:1 1 auto; position:relative; display:flex; align-items:flex-end; justify-content:space-around;
+    padding:0 1%;
+    background:linear-gradient(180deg, transparent 60%, rgba(95,208,255,.08) 100%);
+    border-radius:16px; border:1px solid rgba(255,255,255,.08);}
+  .stone-col{display:flex; flex-direction:column; align-items:center; gap:6px; flex:1; max-width:15%;}
+  .stone-num{font-family:'Baloo 2'; color:var(--gold); font-size:clamp(10px,1.4vh,14px);}
+  .stone{
+    width:100%; aspect-ratio:1.5/1; border-radius:50% 50% 45% 45%/60% 60% 40% 40%;
+    background:linear-gradient(160deg,#3d4c5e,#26313f);
+    border:2px dashed rgba(255,255,255,.25);
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    font-size:clamp(7.5px,.95vh,10.5px); font-weight:700; color:var(--ink-dim); padding:4px;
+  }
+  .stone.correct{border-style:solid; border-color:var(--correct); background:linear-gradient(160deg,#2f4a37,#1e3226); color:var(--correct);}
+  .stone.over{border-color:var(--gold);}
+  #a2-pool{flex:0 0 auto; display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding-top:6px;}
+  .leafcard{
+    padding:8px 12px; border-radius:6px 14px 6px 14px; font-size:clamp(9px,1.1vh,12px); font-weight:700;
+    background:linear-gradient(135deg,#8a5a2a,#5e3d1c); border:1px solid rgba(255,255,255,.2); color:#ffe9c9;
+    cursor:grab; touch-action:none; box-shadow:0 3px 8px rgba(0,0,0,.35);
+  }
+
+  /* ============ ACTIVITY 3 : Signal Dashboard ============ */
+  #a3-panel{flex:1 1 60%; display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:1fr; gap:8px;}
+  .dial{
+    border-radius:14px; border:2px dashed rgba(201,163,255,.4); background:rgba(201,163,255,.06);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:6px; text-align:center;
+    position:relative;
+  }
+  .dial .lbl{font-family:'Baloo 2'; color:var(--purple); font-size:clamp(9px,1.15vh,12.5px);}
+  .dial .val{font-size:clamp(8px,1vh,11px); color:var(--ink-dim); font-weight:700;}
+  .dial.correct{border-style:solid; border-color:var(--correct); background:rgba(123,228,149,.12);}
+  .dial.over{border-color:var(--gold);}
+  #a3-pool{flex:1 1 40%; display:flex; flex-direction:column; gap:8px; justify-content:center;}
+  .gaugecard{
+    padding:8px 12px; border-radius:22px; font-size:clamp(9px,1.05vh,11.5px); font-weight:700; text-align:center;
+    background:linear-gradient(135deg,#3a2a5e,#241a3d); border:1px solid rgba(201,163,255,.4); color:#e6d9ff;
+    cursor:grab; touch-action:none; box-shadow:0 3px 8px rgba(0,0,0,.35);
+  }
+
+  .floating-drag{position:fixed; z-index:1000; pointer-events:none;}
+
+  #resetBtnWrap{position:absolute; top:0; right:0;}
+
+  @media (max-width:720px){
+    .act-body{flex-direction:column;}
+    #a1-diagram, #a1-pool{flex:1 1 50%;}
+    #a3-panel{grid-template-columns:1fr 1fr;}
+  }
+</style>
+</head>
+<body>
+
+<div id="bg">
+  <div class="sky"></div>
+  <div class="moon"></div>
+  <div id="starsLayer"></div>
+  <div class="mist" style="top:10%;"></div>
+  <div class="mist" style="top:22%; animation-duration:34s; animation-direction:reverse;"></div>
+  <div class="mountain m1"></div>
+  <div class="mountain m2"></div>
+  <div class="deer">
+    <svg viewBox="0 0 100 70" fill="#0a1424">
+      <path d="M20 55 L22 40 L18 30 L24 32 L26 20 L30 32 L34 22 L34 34 L40 30 L36 42 L40 55 L34 55 L33 47 L27 47 L26 55 Z"/>
+      <ellipse cx="27" cy="60" rx="14" ry="4" opacity="0"/>
+    </svg>
+  </div>
+  <div class="pine-row" id="pineRow"></div>
+  <div class="river">
+    <svg viewBox="0 0 1000 100" preserveAspectRatio="none">
+      <path d="M0,50 Q250,20 500,50 T1000,50 L1000,100 L0,100 Z" fill="#0e2b45"/>
+      <path class="river-flow" d="M0,55 Q250,30 500,55 T1000,55" stroke="#5fd0ff" stroke-width="2" fill="none" opacity="0.6"/>
+      <path class="river-flow" d="M0,68 Q250,48 500,68 T1000,68" stroke="#3aa0d8" stroke-width="2" fill="none" opacity="0.5" style="animation-delay:-1s;"/>
+    </svg>
+    <div class="river-shimmer"></div>
+  </div>
+  <div id="firefliesLayer"></div>
+  <div id="leavesLayer"></div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="title-wrap">
+      <h1>🛰️ Arduino — Ultrasonic Distance Sensor</h1>
+      <div class="subtitle">HC-SR04 · Trigger, Echo &amp; the Science of Bouncing Sound</div>
+    </div>
+    <div class="progress">
+      <div class="dot" id="dot1">1</div>
+      <div class="dot" id="dot2">2</div>
+      <div class="dot" id="dot3">3</div>
+    </div>
+  </header>
+
+  <div id="stage">
+
+    <!-- ACTIVITY 1 -->
+    <section class="activity active" id="activity1">
+      <div class="act-header">
+        <div class="act-title"><span class="tag">Activity 1</span> Wire the Sensor Circuit</div>
+        <button class="btn" id="reset1">↺ Reset Activity</button>
+      </div>
+      <div class="act-body">
+        <div id="a1-diagram">
+          <div id="a1-svg-wrap"></div>
+        </div>
+        <div class="a1-pool">
+          <div style="font-size:clamp(9px,1.1vh,12px); color:var(--ink-dim); margin-bottom:2px;">Drag each label onto the matching spot on the circuit board 👉</div>
+          <div class="drag-pool" id="a1-pool"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 2 -->
+    <section class="activity" id="activity2">
+      <div class="act-header">
+        <div class="act-title"><span class="tag">Activity 2</span> Cross the Stepping Stones — Sensor Workflow</div>
+        <button class="btn" id="reset2">↺ Reset Activity</button>
+      </div>
+      <div class="act-body" style="flex-direction:column;">
+        <div id="a2-river"></div>
+        <div id="a2-pool"></div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 3 -->
+    <section class="activity" id="activity3">
+      <div class="act-header">
+        <div class="act-title"><span class="tag">Activity 3</span> Signal Dashboard Challenge</div>
+        <button class="btn" id="reset3">↺ Reset Activity</button>
+      </div>
+      <div class="act-body">
+        <div id="a3-panel"></div>
+        <div id="a3-pool"></div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<div id="modalOverlay">
+  <div class="modal-box" id="modalBox"></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ================= UTIL ================= */
+function shuffle(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function rand(min,max){return Math.random()*(max-min)+min;}
+function el(tag,cls,html){const e=document.createElement(tag); if(cls)e.className=cls; if(html!==undefined)e.innerHTML=html; return e;}
+
+/* ================= BACKGROUND GENERATION ================= */
+function buildStars(){
+  const layer=document.getElementById('starsLayer');
+  let html='';
+  for(let i=0;i<50;i++){
+    const size=rand(1,2.6);
+    html+=`<div class="star" style="left:${rand(0,100)}%; top:${rand(0,55)}%; width:${size}px; height:${size}px; animation-delay:${rand(0,3)}s; animation-duration:${rand(2,5)}s;"></div>`;
+  }
+  layer.innerHTML=html;
+}
+function buildPines(){
+  const row=document.getElementById('pineRow');
+  let html='';
+  const n=14;
+  for(let i=0;i<n;i++){
+    const h=rand(60,100);
+    const green1='#0f2e1c', green2='#163d24', green3='#1d4c2e';
+    html+=`<div class="pine" style="width:${100/n}%; animation-delay:${rand(0,4)}s; animation-duration:${rand(4,7)}s;">
+      <svg viewBox="0 0 40 100" preserveAspectRatio="xMidYMax meet" style="height:${h}%; position:absolute; bottom:0; left:0; right:0; margin:auto;">
+        <rect x="17" y="82" width="6" height="18" fill="#2b1c10"/>
+        <polygon points="20,0 2,45 38,45" fill="${green1}"/>
+        <polygon points="20,18 0,62 40,62" fill="${green2}"/>
+        <polygon points="20,38 -2,88 42,88" fill="${green3}"/>
+      </svg>
+    </div>`;
+  }
+  row.innerHTML=html;
+}
+function buildFireflies(){
+  const layer=document.getElementById('firefliesLayer');
+  let html='';
+  for(let i=0;i<16;i++){
+    html+=`<div class="firefly" style="left:${rand(2,96)}%; top:${rand(30,80)}%; animation-delay:${rand(0,6)}s; animation-duration:${rand(6,11)}s;"></div>`;
+  }
+  layer.innerHTML=html;
+}
+function buildLeaves(){
+  const layer=document.getElementById('leavesLayer');
+  const emojis=['🍂','🍃'];
+  let html='';
+  for(let i=0;i<8;i++){
+    html+=`<div class="leaf" style="left:${rand(0,96)}%; animation-duration:${rand(10,18)}s; animation-delay:${rand(0,14)}s;">${emojis[i%2]}</div>`;
+  }
+  layer.innerHTML=html;
+}
+buildStars(); buildPines(); buildFireflies(); buildLeaves();
+
+/* ================= GENERIC POINTER DRAG ENGINE ================= */
+/*
+  makeDraggable(itemEl, {
+    onDrop(dropEl, itemEl) -> boolean handled,   // called with element under pointer that has data-dropzone
+    dropSelector: '.slot'
+  })
+*/
+function setupDrag(container, dropSelector, onDropCheck){
+  let dragging=null, offsetX=0, offsetY=0, startParent=null, startNext=null, startRect=null;
+
+  container.addEventListener('pointerdown', (e)=>{
+    const item=e.target.closest('.draggable-item');
+    if(!item || item.classList.contains('placed')) return;
+    dragging=item;
+    startParent=item.parentElement;
+    startNext=item.nextSibling;
+    const r=item.getBoundingClientRect();
+    startRect=r;
+    offsetX=e.clientX-r.left;
+    offsetY=e.clientY-r.top;
+    item.style.width=r.width+'px';
+    document.body.appendChild(item);
+    item.classList.add('dragging');
+    item.style.position='fixed';
+    item.style.left=r.left+'px';
+    item.style.top=r.top+'px';
+    item.setPointerCapture && item.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  window.addEventListener('pointermove',(e)=>{
+    if(!dragging) return;
+    dragging.style.left=(e.clientX-offsetX)+'px';
+    dragging.style.top=(e.clientY-offsetY)+'px';
+    document.querySelectorAll(dropSelector).forEach(z=>z.classList.remove('over'));
+    dragging.style.visibility='hidden';
+    const under=document.elementFromPoint(e.clientX,e.clientY);
+    dragging.style.visibility='visible';
+    const zone=under && under.closest(dropSelector);
+    if(zone) zone.classList.add('over');
+  },{passive:true});
+
+  window.addEventListener('pointerup',(e)=>{
+    if(!dragging) return;
+    const item=dragging;
+    dragging=null;
+    document.querySelectorAll(dropSelector).forEach(z=>z.classList.remove('over'));
+
+    item.style.visibility='hidden';
+    const under=document.elementFromPoint(e.clientX,e.clientY);
+    item.style.visibility='visible';
+    const zone=under && under.closest(dropSelector);
+
+    item.classList.remove('dragging');
+    item.style.position='';
+    item.style.left=''; item.style.top=''; item.style.width='';
+
+    let handled=false;
+    if(zone){
+      handled=onDropCheck(zone,item);
+    }
+    if(!handled){
+      // snap back
+      if(startNext) startParent.insertBefore(item,startNext);
+      else startParent.appendChild(item);
+      item.classList.add('shake');
+      setTimeout(()=>item.classList.remove('shake'),400);
+    }
+  });
+}
+
+/* ================= MODAL SYSTEM ================= */
+const overlay=document.getElementById('modalOverlay');
+const modalBox=document.getElementById('modalBox');
+function showModal({emoji,title,text,buttonText,onButton,secondaryText,onSecondary}){
+  modalBox.innerHTML='';
+  if(emoji) modalBox.appendChild(el('div','modal-emoji',emoji));
+  modalBox.appendChild(el('h2',null,title));
+  modalBox.appendChild(el('p',null,text));
+  const btnRow=el('div',null,'');
+  btnRow.style.display='flex'; btnRow.style.gap='10px'; btnRow.style.justifyContent='center'; btnRow.style.flexWrap='wrap';
+  const b=el('button','btn gold',buttonText);
+  b.onclick=()=>{ hideModal(); onButton && onButton(); };
+  btnRow.appendChild(b);
+  if(secondaryText){
+    const b2=el('button','btn',secondaryText);
+    b2.onclick=()=>{ hideModal(); onSecondary && onSecondary(); };
+    btnRow.appendChild(b2);
+  }
+  modalBox.appendChild(btnRow);
+  overlay.classList.add('show');
+}
+function hideModal(){ overlay.classList.remove('show'); }
+
+/* ================= PROGRESS DOTS ================= */
+function setProgress(activeIdx){
+  for(let i=1;i<=3;i++){
+    const d=document.getElementById('dot'+i);
+    d.classList.remove('active','done');
+    if(i<activeIdx) d.classList.add('done');
+    else if(i===activeIdx) d.classList.add('active');
+  }
+}
+function goToActivity(n){
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.getElementById('activity'+n).classList.add('active');
+  setProgress(n);
+}
+
+/* =========================================================
+   ACTIVITY 1 — Wire the Sensor Circuit
+   ========================================================= */
+const A1_ITEMS=[
+  {id:'sensor', label:'HC‑SR04 Sensor'},
+  {id:'board',  label:'Arduino UNO Board'},
+  {id:'trig',   label:'Trigger (Trig) Pin'},
+  {id:'echo',   label:'Echo Pin'},
+  {id:'vcc',    label:'VCC (+5V)'},
+  {id:'gnd',    label:'GND (Ground)'},
+  {id:'serial', label:'Serial Monitor'},
+];
+// positions of drop-zones on the diagram, in % of container
+const A1_POS={
+  sensor:{left:'4%',  top:'8%',  width:'27%', height:'26%'},
+  trig:  {left:'4%',  top:'40%', width:'27%', height:'15%'},
+  echo:  {left:'4%',  top:'59%', width:'27%', height:'15%'},
+  vcc:   {left:'4%',  top:'78%', width:'12%', height:'15%'},
+  gnd:   {left:'19%', top:'78%', width:'12%', height:'15%'},
+  board: {left:'37%', top:'32%', width:'27%', height:'40%'},
+  serial:{left:'70%', top:'8%',  width:'27%', height:'55%'},
+};
+let a1Correct=0;
+function buildActivity1(){
+  const wrap=document.getElementById('a1-svg-wrap');
+  wrap.innerHTML=`
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%;">
+      <line x1="18" y1="53" x2="50" y2="53" stroke="#ff9e5e" stroke-width="0.6" stroke-dasharray="2,1.5"/>
+      <line x1="18" y1="68" x2="50" y2="45" stroke="#5fd0ff" stroke-width="0.6" stroke-dasharray="2,1.5"/>
+      <line x1="10" y1="86" x2="42" y2="60" stroke="#f4c568" stroke-width="0.6" stroke-dasharray="2,1.5"/>
+      <line x1="25" y1="86" x2="55" y2="65" stroke="#7fce6a" stroke-width="0.6" stroke-dasharray="2,1.5"/>
+      <line x1="64" y1="45" x2="72" y2="35" stroke="#c9a3ff" stroke-width="0.6" stroke-dasharray="2,1.5"/>
+    </svg>
+  `;
+  Object.entries(A1_POS).forEach(([id,pos])=>{
+    const slot=el('div','slot a1-slot');
+    slot.dataset.id=id;
+    slot.style.left=pos.left; slot.style.top=pos.top; slot.style.width=pos.width; slot.style.height=pos.height;
+    slot.textContent = id==='board' ? '🔲 Arduino Board' : id==='sensor' ? '📡 Sensor' : id==='serial' ? '💻 Output Display' : '• pin •';
+    wrap.appendChild(slot);
+  });
+
+  const pool=document.getElementById('a1-pool');
+  pool.innerHTML='';
+  a1Correct=0;
+  const colors=['#4fb3ff','#7fce6a','#ff9e5e','#f4c568','#c9a3ff','#5fd0ff','#ff8fb0'];
+  shuffle(A1_ITEMS).forEach((item,i)=>{
+    const chip=el('div','chip draggable-item',item.label);
+    chip.dataset.id=item.id;
+    chip.style.background=`linear-gradient(135deg, ${colors[i%colors.length]}, ${colors[i%colors.length]}99)`;
+    chip.style.color='#0b1524';
+    pool.appendChild(chip);
+  });
+
+  setupDrag(document.getElementById('activity1'), '.a1-slot', (zone,item)=>{
+    if(zone.classList.contains('correct')) return false;
+    if(zone.dataset.id===item.dataset.id){
+      zone.classList.add('correct');
+      zone.textContent='✓ '+item.textContent;
+      item.classList.add('placed');
+      zone.appendChild(item);
+      a1Correct++;
+      if(a1Correct===A1_ITEMS.length){
+        setTimeout(()=>showModal({
+          emoji:'🔌✅',
+          title:'Circuit Wired Up!',
+          text:'You connected the HC‑SR04 to the Arduino correctly — trigger, echo, power and ground all in place, just like reverse-parking sensors in a car!',
+          buttonText:'Next: Sensor Workflow →',
+          onButton:()=>goToActivity(2)
+        }),500);
+      }
+      return true;
+    } else {
+      zone.classList.add('wrong-flash');
+      setTimeout(()=>zone.classList.remove('wrong-flash'),400);
+      return false;
+    }
+  });
+}
+document.getElementById('reset1').onclick=buildActivity1;
+
+/* =========================================================
+   ACTIVITY 2 — Stepping Stones Workflow
+   ========================================================= */
+const A2_STEPS=[
+  {id:1, label:'Send trigger pulse from the Trig pin'},
+  {id:2, label:'Receive the echo bouncing back'},
+  {id:3, label:"Measure echo time using pulseIn()"},
+  {id:4, label:'Convert time into distance (cm)'},
+  {id:5, label:'Display the distance on Serial Monitor'},
+  {id:6, label:'Print a bar of dashes for the distance'},
+];
+let a2Correct=0;
+function buildActivity2(){
+  const river=document.getElementById('a2-river');
+  river.innerHTML='';
+  for(let i=1;i<=6;i++){
+    const col=el('div','stone-col');
+    col.appendChild(el('div','stone-num','Step '+i));
+    const stone=el('div','stone');
+    stone.dataset.id=i;
+    stone.textContent='place card here';
+    col.appendChild(stone);
+    river.appendChild(col);
+  }
+  const pool=document.getElementById('a2-pool');
+  pool.innerHTML='';
+  a2Correct=0;
+  shuffle(A2_STEPS).forEach(step=>{
+    const card=el('div','leafcard draggable-item',step.label);
+    card.dataset.id=step.id;
+    pool.appendChild(card);
+  });
+
+  setupDrag(document.getElementById('activity2'), '.stone', (zone,item)=>{
+    if(zone.classList.contains('correct')) return false;
+    if(String(zone.dataset.id)===String(item.dataset.id)){
+      zone.classList.add('correct');
+      zone.textContent='';
+      item.classList.add('placed');
+      item.style.width='90%';
+      zone.appendChild(item);
+      a2Correct++;
+      if(a2Correct===A2_STEPS.length){
+        setTimeout(()=>showModal({
+          emoji:'🦌🌊',
+          title:'You Crossed the River!',
+          text:'The Arduino workflow is complete — from sending the pulse all the way to printing a distance bar, just like a monsoon flood-warning system tracking the river level.',
+          buttonText:'Next: Signal Dashboard →',
+          onButton:()=>goToActivity(3)
+        }),500);
+      }
+      return true;
+    } else {
+      zone.classList.add('wrong-flash');
+      setTimeout(()=>zone.classList.remove('wrong-flash'),400);
+      return false;
+    }
+  });
+}
+document.getElementById('reset2').onclick=buildActivity2;
+
+/* =========================================================
+   ACTIVITY 3 — Signal Dashboard Challenge
+   ========================================================= */
+const A3_ITEMS=[
+  {id:'reading', term:'Sensor Reading',        value:'HC‑SR04 detects an object ahead of it'},
+  {id:'time',    term:'Echo Time',             value:'580 microseconds (µs) measured by pulseIn()'},
+  {id:'distance',term:'Calculated Distance',   value:'10 cm  (Time × 0.034 ÷ 2)'},
+  {id:'serial',  term:'Serial Monitor Output', value:'"Distance: 10 cm"'},
+  {id:'bar',     term:'Bar Graph Visualization', value:'‑‑‑‑‑‑‑‑‑‑ (dashes scaled to distance)'},
+  {id:'app',     term:'Real-World Application',  value:'Reverse-parking sensor beeping near a wall'},
+];
+let a3Correct=0;
+function buildActivity3(){
+  const panel=document.getElementById('a3-panel');
+  panel.innerHTML='';
+  A3_ITEMS.forEach(it=>{
+    const dial=el('div','dial');
+    dial.dataset.id=it.id;
+    dial.innerHTML=`<div class="lbl">${it.term}</div><div class="val">drop the matching card</div>`;
+    panel.appendChild(dial);
+  });
+  const pool=document.getElementById('a3-pool');
+  pool.innerHTML='';
+  a3Correct=0;
+  shuffle(A3_ITEMS).forEach(it=>{
+    const card=el('div','gaugecard draggable-item',it.value);
+    card.dataset.id=it.id;
+    pool.appendChild(card);
+  });
+
+  setupDrag(document.getElementById('activity3'), '.dial', (zone,item)=>{
+    if(zone.classList.contains('correct')) return false;
+    if(zone.dataset.id===item.dataset.id){
+      zone.classList.add('correct');
+      const lbl=zone.querySelector('.lbl').textContent;
+      zone.innerHTML=`<div class="lbl">✓ ${lbl}</div>`;
+      item.classList.add('placed');
+      item.style.width='92%';
+      zone.appendChild(item);
+      a3Correct++;
+      if(a3Correct===A3_ITEMS.length){
+        setTimeout(()=>finishAll(),500);
+      }
+      return true;
+    } else {
+      zone.classList.add('wrong-flash');
+      setTimeout(()=>zone.classList.remove('wrong-flash'),400);
+      return false;
+    }
+  });
+}
+document.getElementById('reset3').onclick=buildActivity3;
+
+/* ================= FINAL CELEBRATION ================= */
+function finishAll(){
+  setProgress(4);
+  burstFireflies();
+  showModal({
+    emoji:'🏔️✨🦌',
+    title:'Mission Complete!',
+    text:'You wired the HC‑SR04, walked through its full sensing workflow, and matched every signal on the dashboard — just like the smart sensors used in cars, metro doors and terrace water tanks all across India!',
+    buttonText:'🔁 Play Again',
+    onButton:resetEverything
+  });
+}
+function burstFireflies(){
+  const layer=document.getElementById('firefliesLayer');
+  for(let i=0;i<20;i++){
+    const f=el('div','firefly');
+    f.style.left=rand(20,80)+'%';
+    f.style.top=rand(40,70)+'%';
+    f.style.animationDuration=rand(2,4)+'s';
+    layer.appendChild(f);
+    setTimeout(()=>f.remove(),6000);
+  }
+}
+
+/* ================= RESET EVERYTHING ================= */
+function resetEverything(){
+  buildActivity1();
+  buildActivity2();
+  buildActivity3();
+  goToActivity(1);
+}
+
+/* ================= INIT ================= */
+function init(){
+  buildActivity1();
+  buildActivity2();
+  buildActivity3();
+  goToActivity(1);
+  showModal({
+    emoji:'🌲🦇',
+    title:'Welcome, Sensor Explorer!',
+    text:'Ultrasonic sensors help bats find their way in the dark, and they help cars, metros and water tanks sense distance too. Wire up the HC‑SR04, walk it through its workflow, and master the signal dashboard — all in three quick activities!',
+    buttonText:'Start Activity 1 →'
+  });
+}
+init();
+
+})();
+</script>
+</body>
+</html>

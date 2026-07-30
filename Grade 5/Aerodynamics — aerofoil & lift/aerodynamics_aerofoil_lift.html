@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AERODYNAMICS — AEROFOIL &amp; LIFT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-deep:#0a1f36;
+    --navy:#123a5c;
+    --navy-light:#1c5580;
+    --parchment:#f8efdb;
+    --parchment-dark:#ecdcb6;
+    --gold:#d9a441;
+    --gold-dark:#b17d24;
+    --teal:#2ec4b6;
+    --coral:#e2574c;
+    --ink:#20304a;
+    --correct:#3fae4a;
+    --wrong:#e05a5a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    font-family:'Quicksand', 'Segoe UI', sans-serif;
+    background:radial-gradient(ellipse at 30% 20%, #163f63 0%, var(--navy-deep) 55%, #071523 100%);
+    touch-action:none; user-select:none;
+  }
+  h1,h2,h3{font-family:'Cinzel', serif;}
+
+  /* ============ BACKGROUND SCENE ============ */
+  #scene{position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none;}
+
+  /* dotted world-map texture */
+  .map-dots{
+    position:absolute; inset:0; opacity:0.35;
+    background-image:radial-gradient(rgba(255,255,255,0.18) 1.4px, transparent 1.4px);
+    background-size:22px 22px;
+  }
+  .continent{position:absolute; background:rgba(255,255,255,0.06); filter:blur(1px);}
+  .continent.c1{top:8%; left:6%; width:26vw; height:20vh; border-radius:42% 58% 60% 40% / 50% 40% 60% 50%;}
+  .continent.c2{bottom:6%; left:18%; width:30vw; height:22vh; border-radius:60% 40% 45% 55% / 45% 55% 45% 55%;}
+  .continent.c3{top:14%; right:4%; width:24vw; height:26vh; border-radius:50% 50% 40% 60% / 60% 40% 55% 45%;}
+  .continent.c4{bottom:10%; right:14%; width:20vw; height:16vh; border-radius:45% 55% 50% 50% / 55% 45% 50% 50%;}
+
+  /* compass rose, top-left, continuously rotating */
+  .compass{position:absolute; top:4%; left:3%; width:11vw; height:11vw; min-width:80px; min-height:80px; opacity:0.9;}
+  .compass svg{width:100%; height:100%; animation:spinCompass 26s linear infinite;}
+  @keyframes spinCompass{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+  .compass .needle-glow{filter:drop-shadow(0 0 6px rgba(217,164,65,0.7));}
+
+  /* glowing dashed route between landmarks */
+  .routes{position:absolute; inset:0;}
+  .routes path{
+    fill:none; stroke:var(--teal); stroke-width:2.4; stroke-dasharray:10 9; opacity:0.55;
+    filter:drop-shadow(0 0 4px rgba(46,196,182,0.65));
+    animation:dashMove 5s linear infinite;
+  }
+  @keyframes dashMove{ to{stroke-dashoffset:-190;} }
+
+  /* traveling plane along route */
+  .plane-traveler{position:absolute; font-size:2.6vh; z-index:2; animation:planeRoute 14s linear infinite;}
+  @keyframes planeRoute{
+    0%{transform:translate(6vw,68vh) rotate(-8deg);}
+    25%{transform:translate(38vw,20vh) rotate(10deg);}
+    50%{transform:translate(70vw,55vh) rotate(-6deg);}
+    75%{transform:translate(90vw,15vh) rotate(8deg);}
+    100%{transform:translate(6vw,68vh) rotate(-8deg);}
+  }
+
+  /* drifting clouds */
+  .cloud{position:absolute; background:#fff; border-radius:50px; opacity:0.5; animation:drift linear infinite;}
+  .cloud:before, .cloud:after{content:''; position:absolute; background:#fff; border-radius:50%;}
+  @keyframes drift{ from{transform:translateX(-15vw);} to{transform:translateX(115vw);} }
+
+  /* wind current streaks */
+  .wind-line{position:absolute; height:2px; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent); animation:windDrift linear infinite;}
+  @keyframes windDrift{ from{transform:translateX(-30vw);} to{transform:translateX(130vw);} }
+
+  /* waving flags */
+  .flag-post{position:absolute; bottom:9vh; width:3px; height:9vh; background:#c9974d; z-index:3;}
+  .flag{position:absolute; top:0; left:3px; width:4.5vw; max-width:60px; height:3vh; transform-origin:left center; animation:waveFlag 2.4s ease-in-out infinite;}
+  @keyframes waveFlag{ 0%,100%{transform:skewY(-6deg) scaleX(1);} 50%{transform:skewY(6deg) scaleX(0.94);} }
+
+  /* floating landmarks */
+  .landmark{position:absolute; font-size:4vh; z-index:2; animation:floatLandmark 4.5s ease-in-out infinite;}
+  @keyframes floatLandmark{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-1.6vh);} }
+
+  /* ============ SCREENS ============ */
+  #app{position:fixed; inset:0; z-index:10; display:flex; align-items:center; justify-content:center;}
+  .screen{
+    display:none; width:94vw; height:92vh; max-width:1320px;
+    background:rgba(248,239,219,0.94); border-radius:22px;
+    box-shadow:0 12px 45px rgba(0,0,0,0.4); border:5px solid var(--gold);
+    padding:1.4vh 2vw; flex-direction:column; align-items:center; justify-content:flex-start;
+    position:relative; overflow:hidden;
+    animation:popIn 0.35s ease;
+  }
+  .screen.active{display:flex;}
+  @keyframes popIn{ from{opacity:0; transform:scale(0.92);} to{opacity:1; transform:scale(1);} }
+
+  h1{font-size:clamp(19px,3vw,36px); color:var(--navy); margin:0.3vh 0 0.4vh; text-align:center; letter-spacing:1px;}
+  h2{font-size:clamp(15px,2vw,24px); color:var(--navy-light); margin:0.2vh 0 0.8vh; text-align:center;}
+  p.sub{font-size:clamp(12px,1.25vw,16px); color:#3a3a3a; text-align:center; max-width:820px; margin:0 auto 0.8vh; font-weight:600;}
+
+  .btn{
+    font-family:'Quicksand',sans-serif; font-size:clamp(13px,1.5vw,18px); font-weight:700; color:#fff; border:none; border-radius:30px;
+    padding:1.2vh 3vw; cursor:pointer; background:linear-gradient(135deg,var(--gold),var(--gold-dark));
+    box-shadow:0 5px 0 #8a5f16; transition:transform 0.1s;
+  }
+  .btn:active{transform:translateY(4px); box-shadow:0 1px 0 #8a5f16;}
+  .btn.teal{background:linear-gradient(135deg,var(--teal),#1f8f84); box-shadow:0 5px 0 #14615a;}
+  .btn.navy{background:linear-gradient(135deg,var(--navy-light),var(--navy)); box-shadow:0 5px 0 #071f33;}
+  .btn.small{padding:0.7vh 1.5vw; font-size:clamp(11px,1.1vw,14px); box-shadow:0 3px 0 #8a5f16;}
+
+  .reset-btn{position:absolute; top:1.5vh; right:1.5vw; z-index:5;}
+  .progress{position:absolute; top:1.7vh; left:1.5vw; font-size:clamp(11px,1.15vw,15px); font-weight:700; color:var(--navy); background:#ffffffcc; padding:0.5vh 1.2vw; border-radius:20px; border:2px solid var(--gold);}
+
+  /* Intro */
+  #screen-intro .emoji-row{font-size:clamp(28px,4.6vw,54px); margin:0.8vh 0;}
+  #screen-intro .globe-spin{display:inline-block; animation:spinGlobe 6s linear infinite;}
+  @keyframes spinGlobe{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+
+  /* ===== Activity 1: Bernoulli Diagram (labeled diagram matching) ===== */
+  #act1-wrap{display:flex; flex-direction:column; align-items:center; width:100%; flex:1; gap:1vh; overflow:hidden;}
+  #act1-diagram{
+    position:relative; width:92%; max-width:900px; flex:1; min-height:0;
+    background:linear-gradient(180deg,#dff3ff 0%, #f3fbff 60%, #eef7ef 100%);
+    border-radius:18px; border:3px solid var(--navy-light); box-shadow:inset 0 0 20px rgba(0,0,0,0.08);
+  }
+  .diagram-zone{
+    position:absolute; border:3px dashed var(--navy-light); border-radius:14px;
+    display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.55);
+    font-size:clamp(10px,1vw,13px); font-weight:700; color:var(--navy-light); text-align:center; padding:0.4vh;
+  }
+  .diagram-zone.filled{border-style:solid;}
+  .diagram-zone .zone-hint{opacity:0.85;}
+  #zone-fan{top:38%; left:4%; width:19%; height:26%;}
+  #zone-paper{top:40%; left:40%; width:22%; height:20%;}
+  #zone-airflow{top:12%; left:36%; width:30%; height:18%;}
+  #zone-lift{top:8%; left:70%; width:20%; height:20%;}
+  .diagram-arrow{position:absolute; font-size:clamp(16px,2vw,26px); color:var(--coral); opacity:0.8;}
+  #act1-pool{display:flex; gap:1.4vw; flex-wrap:wrap; justify-content:center; padding:0.6vh; max-width:900px;}
+  .drag-card{
+    background:var(--parchment); border-radius:12px; padding:1vh 1vw; font-size:clamp(11px,1.05vw,14px);
+    font-weight:700; color:var(--ink); text-align:center; box-shadow:0 3px 6px rgba(0,0,0,0.25);
+    cursor:grab; border:2px solid var(--gold); touch-action:none; min-width:90px;
+  }
+  .drag-card.dragging{cursor:grabbing; box-shadow:0 10px 20px rgba(0,0,0,0.4); opacity:0.96;}
+  .drag-card.correct{background:#e6f9e6; border-color:var(--correct); cursor:default;}
+  .drag-card.wrong-shake{animation:shake 0.4s;}
+  @keyframes shake{ 0%,100%{transform:translateX(0);} 25%{transform:translateX(-8px);} 75%{transform:translateX(8px);} }
+
+  /* ===== Activity 2: Expedition Route (waypoint sequence) ===== */
+  #act2-area{display:flex; flex-direction:column; align-items:center; width:100%; flex:1; justify-content:center; gap:1.5vh; overflow:hidden;}
+  #act2-trail{position:relative; width:96%; max-width:1100px; display:flex; justify-content:space-between; align-items:flex-start; padding:1vh 0.5vw;}
+  #act2-trail:before{
+    content:''; position:absolute; top:5.2vh; left:4%; right:4%; height:3px;
+    background:repeating-linear-gradient(90deg, var(--gold) 0 10px, transparent 10px 18px);
+  }
+  .waypoint{display:flex; flex-direction:column; align-items:center; width:18%; position:relative; z-index:1;}
+  .waypoint .flag-icon{font-size:clamp(18px,2.4vw,28px);}
+  .waypoint .drop-zone{
+    width:100%; min-height:9vh; border:2.5px dashed var(--navy-light); border-radius:12px;
+    display:flex; align-items:center; justify-content:center; margin-top:0.6vh; background:rgba(255,255,255,0.6);
+    font-size:clamp(9px,0.95vw,12px); font-weight:700; color:var(--navy); text-align:center; padding:0.4vh;
+  }
+  .waypoint .drop-zone.filled{border-style:solid;}
+  #act2-pool{display:flex; gap:1.2vw; flex-wrap:wrap; justify-content:center; max-width:1000px;}
+  .step-card{
+    background:#fff; border-radius:10px; padding:1vh 1.1vw; font-size:clamp(10px,1vw,13px);
+    font-weight:700; color:var(--navy); cursor:grab; box-shadow:0 3px 6px rgba(0,0,0,0.2); border:2px solid var(--teal);
+    touch-action:none; max-width:16vw; text-align:center;
+  }
+  .step-card.dragging{cursor:grabbing; box-shadow:0 10px 20px rgba(0,0,0,0.4); opacity:0.96;}
+  .step-card.correct{background:#e6f9e6; border-color:var(--correct); cursor:default;}
+  .step-card.wrong-shake{animation:shake 0.4s;}
+
+  /* ===== Activity 3: Compass Stations (matching) ===== */
+  #act3-area{display:flex; width:100%; flex:1; gap:1.4vw; overflow:hidden;}
+  #act3-stations{flex:1; display:grid; grid-template-columns:repeat(3,1fr); gap:1.2vh; align-content:start; padding:0.5vh;}
+  .station{
+    position:relative; background:linear-gradient(#ffffff,#f1e6c8); border:3px solid var(--navy-light); border-radius:14px;
+    padding:0.8vh 0.6vw; display:flex; flex-direction:column; align-items:center; box-shadow:0 4px 10px rgba(0,0,0,0.18);
+    min-height:15vh;
+  }
+  .station .station-icon{font-size:clamp(16px,2.2vw,26px);}
+  .station .station-name{font-size:clamp(10px,1vw,13px); font-weight:700; color:var(--navy); text-align:center; margin:0.2vh 0 0.4vh;}
+  .station .drop-zone{width:100%; flex:1; min-height:6.5vh; border:2px dashed #6668; border-radius:10px; display:flex; align-items:center; justify-content:center; padding:0.4vh;}
+  .station .drop-zone.filled{border-style:solid;}
+  #act3-pool{flex:0 0 27%; display:flex; flex-direction:column; gap:0.9vh; overflow-y:auto; padding:0.5vh;}
+  .mini-card{
+    background:var(--parchment); border-radius:10px; padding:0.9vh 0.7vw; font-size:clamp(10px,0.98vw,12.5px);
+    font-weight:600; color:var(--ink); text-align:center; cursor:grab; box-shadow:0 2px 5px rgba(0,0,0,0.2); border:2px solid var(--coral);
+    touch-action:none;
+  }
+  .mini-card.dragging{cursor:grabbing; box-shadow:0 10px 20px rgba(0,0,0,0.4); opacity:0.96;}
+  .mini-card.correct{background:#e6f9e6; border-color:var(--correct); cursor:default;}
+  .mini-card.wrong-shake{animation:shake 0.4s;}
+
+  /* Popups */
+  .popup-emoji{font-size:clamp(40px,7vw,80px); margin:1vh 0;}
+
+  /* Celebration */
+  #celebrate-burst{position:absolute; inset:0; overflow:hidden; pointer-events:none;}
+  .confetti{position:absolute; top:-5vh; font-size:2.4vh; animation:fallConfetti linear forwards;}
+  @keyframes fallConfetti{ 0%{transform:translate(0,0) rotate(0deg); opacity:1;} 100%{transform:translate(4vw,110vh) rotate(360deg); opacity:0.7;} }
+
+  @media (max-width:700px){
+    #act3-area{flex-direction:column;}
+    #act3-pool{flex:none; flex-direction:row; flex-wrap:wrap;}
+  }
+</style>
+</head>
+<body>
+
+<div id="scene">
+  <div class="map-dots"></div>
+  <div class="continent c1"></div>
+  <div class="continent c2"></div>
+  <div class="continent c3"></div>
+  <div class="continent c4"></div>
+
+  <div class="compass">
+    <svg viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="#d9a441" stroke-width="2" opacity="0.7"/>
+      <g class="needle-glow">
+        <polygon points="50,6 58,50 50,44 42,50" fill="#e2574c"/>
+        <polygon points="50,94 58,50 50,56 42,50" fill="#f8efdb"/>
+        <polygon points="6,50 50,42 44,50 50,58" fill="#f8efdb" opacity="0.85"/>
+        <polygon points="94,50 50,42 56,50 50,58" fill="#f8efdb" opacity="0.85"/>
+      </g>
+      <text x="50" y="14" text-anchor="middle" font-size="9" fill="#f8efdb" font-family="Cinzel,serif">N</text>
+      <text x="50" y="93" text-anchor="middle" font-size="9" fill="#f8efdb" font-family="Cinzel,serif">S</text>
+      <text x="10" y="53" text-anchor="middle" font-size="9" fill="#f8efdb" font-family="Cinzel,serif">W</text>
+      <text x="90" y="53" text-anchor="middle" font-size="9" fill="#f8efdb" font-family="Cinzel,serif">E</text>
+    </svg>
+  </div>
+
+  <svg class="routes" viewBox="0 0 100 100" preserveAspectRatio="none">
+    <path d="M8,65 Q30,20 45,45 T85,20"></path>
+    <path d="M15,85 Q45,60 60,85 T92,55"></path>
+  </svg>
+  <div class="plane-traveler">✈️</div>
+
+  <div class="cloud" style="top:10%; width:9vw; height:3vh; animation-duration:34s;"></div>
+  <div class="cloud" style="top:22%; width:7vw; height:2.4vh; animation-duration:26s; animation-delay:-8s;"></div>
+  <div class="cloud" style="top:16%; width:11vw; height:3.4vh; animation-duration:42s; animation-delay:-18s;"></div>
+
+  <div class="wind-line" style="top:48%; width:30vw; animation-duration:5s;"></div>
+  <div class="wind-line" style="top:53%; width:22vw; animation-duration:6.5s; animation-delay:-2s;"></div>
+  <div class="wind-line" style="top:58%; width:26vw; animation-duration:4.2s; animation-delay:-1s;"></div>
+
+  <div class="flag-post" style="left:6%;"><div class="flag" style="background:linear-gradient(90deg,#e2574c,#c94236);"></div></div>
+  <div class="flag-post" style="right:9%; bottom:14vh;"><div class="flag" style="background:linear-gradient(90deg,#2ec4b6,#1f8f84); animation-delay:-1.2s;"></div></div>
+
+  <div class="landmark" style="top:16%; left:20%; animation-delay:-1s;">🗼</div>
+  <div class="landmark" style="top:60%; right:22%; animation-delay:-2.4s;">🏔️</div>
+  <div class="landmark" style="bottom:14%; left:38%; animation-delay:-3.2s;">🕌</div>
+  <div class="landmark" style="top:30%; right:6%; animation-delay:-0.6s;">🏛️</div>
+</div>
+
+<div id="app">
+
+  <!-- INTRO -->
+  <div class="screen active" id="screen-intro">
+    <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+      <div class="emoji-row"><span class="globe-spin">🌍</span> ✈️ 🧭</div>
+      <h1>AERODYNAMICS — AEROFOIL &amp; LIFT</h1>
+      <h2>An Explorer's Journey Into the Science of Flight</h2>
+      <p class="sub">Chart a course through wind and wing! Discover how a curved shape moving through air creates the invisible force of <strong>lift</strong> — the same force that carries kites, birds, and aircraft skyward. Complete three expedition challenges to earn your Aerodynamics Explorer badge.</p>
+      <button class="btn" onclick="startActivity(1)">Begin the Expedition 🧭</button>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 1 -->
+  <div class="screen" id="screen-act1">
+    <div class="progress">Expedition Stop 1 of 3</div>
+    <button class="btn small reset-btn" onclick="resetAct1()">Reset ↺</button>
+    <h1>Build the Lift Diagram</h1>
+    <p class="sub">Drag each piece into its correct spot to show how moving air over a curved surface creates lift.</p>
+    <div id="act1-wrap">
+      <div id="act1-diagram">
+        <div class="diagram-arrow" style="top:34%; left:24%;">→</div>
+        <div class="diagram-arrow" style="top:20%; left:66%;">↑</div>
+        <div class="diagram-zone drop-zone" id="zone-fan" data-accept="fan"><span class="zone-hint">Air Source</span></div>
+        <div class="diagram-zone drop-zone" id="zone-paper" data-accept="paper"><span class="zone-hint">Test Surface</span></div>
+        <div class="diagram-zone drop-zone" id="zone-airflow" data-accept="airflow"><span class="zone-hint">Airflow Path</span></div>
+        <div class="diagram-zone drop-zone" id="zone-lift" data-accept="lift"><span class="zone-hint">Result</span></div>
+      </div>
+      <div id="act1-pool"></div>
+    </div>
+  </div>
+
+  <!-- POPUP 1 -->
+  <div class="screen" id="screen-popup1">
+    <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+      <div class="popup-emoji">🧭🎉</div>
+      <h1>Waypoint Reached!</h1>
+      <p class="sub">You've mapped how a curved wing turns moving air into lift. Onward to the next stop on the route!</p>
+      <button class="btn teal" onclick="startActivity(2)">Continue the Journey →</button>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 2 -->
+  <div class="screen" id="screen-act2">
+    <div class="progress">Expedition Stop 2 of 3</div>
+    <button class="btn small reset-btn" onclick="resetAct2()">Reset ↺</button>
+    <h1>Chart the Expedition Route</h1>
+    <p class="sub">Drag each experiment step onto the trail, in the correct order the test should be carried out.</p>
+    <div id="act2-area">
+      <div id="act2-trail"></div>
+      <div id="act2-pool"></div>
+    </div>
+  </div>
+
+  <!-- POPUP 2 -->
+  <div class="screen" id="screen-popup2">
+    <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+      <div class="popup-emoji">🚩✈️</div>
+      <h1>Route Charted!</h1>
+      <p class="sub">Your expedition log is in perfect order. One final challenge stands between you and your explorer badge.</p>
+      <button class="btn teal" onclick="startActivity(3)">Continue the Journey →</button>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 3 -->
+  <div class="screen" id="screen-act3">
+    <div class="progress">Expedition Stop 3 of 3</div>
+    <button class="btn small reset-btn" onclick="resetAct3()">Reset ↺</button>
+    <h1>Compass Station Challenge</h1>
+    <p class="sub">Match each flight-science card to its correct compass station.</p>
+    <div id="act3-area">
+      <div id="act3-pool"></div>
+      <div id="act3-stations"></div>
+    </div>
+  </div>
+
+  <!-- CELEBRATION -->
+  <div class="screen" id="screen-celebration">
+    <div id="celebrate-burst"></div>
+    <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:2;">
+      <div class="popup-emoji">🏆🌍✈️</div>
+      <h1>Expedition Complete!</h1>
+      <p class="sub">You've earned your Aerodynamics Explorer badge! You now understand how curved wings, fast-moving air, and pressure differences work together to create lift.</p>
+      <button class="btn" onclick="playAgain()">Play Again 🔁</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ================= SHARED DRAG ENGINE ================= */
+let dragState=null;
+
+function makeDraggable(card){
+  card.addEventListener('pointerdown', onPointerDown);
+}
+function onPointerDown(e){
+  const card=e.currentTarget;
+  if(card.classList.contains('locked')) return;
+  e.preventDefault();
+  const rect=card.getBoundingClientRect();
+  /* Store origin ON THE CARD ITSELF so a delayed (post-shake) return-to-origin
+     always knows where to go, even after the shared dragState is cleared. */
+  card._origin={ parent:card.parentElement, next:card.nextSibling };
+  dragState={
+    card,
+    offsetX:e.clientX-rect.left,
+    offsetY:e.clientY-rect.top
+  };
+  try{card.setPointerCapture(e.pointerId);}catch(err){}
+  card.classList.add('dragging');
+  document.body.appendChild(card);
+  card.style.position='fixed';
+  card.style.width=rect.width+'px';
+  card.style.left=rect.left+'px';
+  card.style.top=rect.top+'px';
+  card.style.zIndex=9999;
+  /* Listen on document (not the card) so reparenting the card mid-drag
+     never interrupts the pointer tracking and causes a stuck drag. */
+  document.addEventListener('pointermove', onPointerMove);
+  document.addEventListener('pointerup', onPointerUp);
+  document.addEventListener('pointercancel', onPointerUp);
+}
+function onPointerMove(e){
+  if(!dragState) return;
+  dragState.card.style.left=(e.clientX-dragState.offsetX)+'px';
+  dragState.card.style.top=(e.clientY-dragState.offsetY)+'px';
+}
+function onPointerUp(e){
+  if(!dragState) return;
+  const card=dragState.card;
+  document.removeEventListener('pointermove', onPointerMove);
+  document.removeEventListener('pointerup', onPointerUp);
+  document.removeEventListener('pointercancel', onPointerUp);
+  try{card.releasePointerCapture(e.pointerId);}catch(err){}
+  card.classList.remove('dragging');
+  card.style.pointerEvents='none';
+  const elUnder=document.elementFromPoint(e.clientX, e.clientY);
+  card.style.pointerEvents='';
+  const zone=elUnder ? elUnder.closest('.drop-zone') : null;
+  const handler=card._dropHandler;
+  if(zone && handler){
+    handler(card, zone);
+  } else {
+    returnToOrigin(card);
+  }
+  dragState=null;
+}
+function returnToOrigin(card){
+  card.style.position='static';
+  card.style.left=''; card.style.top=''; card.style.width=''; card.style.zIndex='';
+  const origin=card._origin;
+  if(origin && origin.next && origin.next.parentNode===origin.parent){
+    origin.parent.insertBefore(card, origin.next);
+  } else if(origin && origin.parent){
+    origin.parent.appendChild(card);
+  } else if(card.parentNode===document.body){
+    document.body.removeChild(card);
+  }
+}
+function snapIntoZone(card, zone){
+  card.style.position='static';
+  card.style.left=''; card.style.top=''; card.style.width='96%'; card.style.zIndex='';
+  card.classList.add('correct');
+  card.classList.remove('dragging');
+  card.style.cursor='default';
+  zone.innerHTML='';
+  zone.appendChild(card);
+  zone.classList.add('filled');
+}
+function shakeWrong(card){
+  card.classList.add('wrong-shake');
+  setTimeout(()=>{ card.classList.remove('wrong-shake'); returnToOrigin(card); }, 380);
+}
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+/* ================= SCREEN NAV ================= */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function startActivity(n){
+  if(n===1){ buildAct1(); showScreen('screen-act1'); }
+  if(n===2){ buildAct2(); showScreen('screen-act2'); }
+  if(n===3){ buildAct3(); showScreen('screen-act3'); }
+}
+
+/* ================= ACTIVITY 1: Bernoulli Diagram ================= */
+const act1Data=[
+  {id:'fan', label:'Fan / Air Blower', icon:'🌀', zone:'zone-fan'},
+  {id:'paper', label:'Curved Paper Strip', icon:'📄', zone:'zone-paper'},
+  {id:'airflow', label:'Fast-Moving Airflow', icon:'💨', zone:'zone-airflow'},
+  {id:'lift', label:'Lift Force Arrow', icon:'⬆️', zone:'zone-lift'}
+];
+function buildAct1(){
+  const pool=document.getElementById('act1-pool');
+  pool.innerHTML='';
+  // reset zones back to their empty labeled state
+  const hints={fan:'Air Source', paper:'Test Surface', airflow:'Airflow Path', lift:'Result'};
+  act1Data.forEach(d=>{
+    const zoneEl=document.getElementById(d.zone);
+    zoneEl.classList.remove('filled');
+    zoneEl.innerHTML=`<span class="zone-hint">${hints[d.id]}</span>`;
+  });
+  const shuffled=shuffle(act1Data);
+  shuffled.forEach(d=>{
+    const card=document.createElement('div');
+    card.className='drag-card';
+    card.innerHTML=`${d.icon}<br>${d.label}`;
+    card.dataset.match=d.id;
+    card._dropHandler=(c,zone)=>{
+      if(zone.classList.contains('filled')){ shakeWrong(c); return; }
+      if(zone.dataset.accept===c.dataset.match){
+        snapIntoZone(c, zone);
+        checkAct1Complete();
+      } else {
+        shakeWrong(c);
+      }
+    };
+    makeDraggable(card);
+    pool.appendChild(card);
+  });
+}
+function checkAct1Complete(){
+  const filled=document.querySelectorAll('#act1-diagram .diagram-zone.filled').length;
+  if(filled===act1Data.length){ setTimeout(()=>showScreen('screen-popup1'), 500); }
+}
+function resetAct1(){ buildAct1(); }
+
+/* ================= ACTIVITY 2: Expedition Route ================= */
+const act2Steps=[
+  {id:'s1', order:1, text:'Set up the wind tunnel', icon:'🧰'},
+  {id:'s2', order:2, text:'Blow over the curved paper', icon:'💨'},
+  {id:'s3', order:3, text:'Observe it rise', icon:'👀'},
+  {id:'s4', order:4, text:'Test three wing cross-sections', icon:'✈️'},
+  {id:'s5', order:5, text:'Compare the lift produced', icon:'📊'}
+];
+function buildAct2(){
+  const trail=document.getElementById('act2-trail');
+  const pool=document.getElementById('act2-pool');
+  trail.innerHTML=''; pool.innerHTML='';
+  act2Steps.forEach(s=>{
+    const wp=document.createElement('div');
+    wp.className='waypoint';
+    wp.innerHTML=`<div class="flag-icon">🚩${s.order}</div><div class="drop-zone" data-accept="${s.id}"></div>`;
+    trail.appendChild(wp);
+  });
+  const shuffled=shuffle(act2Steps);
+  shuffled.forEach(s=>{
+    const card=document.createElement('div');
+    card.className='step-card';
+    card.innerHTML=`${s.icon} ${s.text}`;
+    card.dataset.match=s.id;
+    card._dropHandler=(c,zone)=>{
+      if(zone.classList.contains('filled')){ shakeWrong(c); return; }
+      if(zone.dataset.accept===c.dataset.match){
+        snapIntoZone(c, zone);
+        checkAct2Complete();
+      } else {
+        shakeWrong(c);
+      }
+    };
+    makeDraggable(card);
+    pool.appendChild(card);
+  });
+}
+function checkAct2Complete(){
+  const filled=document.querySelectorAll('#act2-trail .drop-zone.filled').length;
+  if(filled===act2Steps.length){ setTimeout(()=>showScreen('screen-popup2'), 500); }
+}
+function resetAct2(){ buildAct2(); }
+
+/* ================= ACTIVITY 3: Compass Stations ================= */
+const stationData=[
+  {id:'cross', name:'Wing Cross-Section', icon:'🪽', text:'Curved on top, flatter on the bottom — shaped like a teardrop'},
+  {id:'flow', name:'Airflow Pattern', icon:'💨', text:'Air splits at the front and moves faster over the curved top'},
+  {id:'lift', name:'Lift Force', icon:'⬆️', text:'The upward push created when pressure below is higher than above'},
+  {id:'drag', name:'Drag', icon:'⬅️', text:'The backward resistance force caused by air pushing against the wing'},
+  {id:'best', name:'Best Aerofoil Design', icon:'🏅', text:'A smooth curved-top, flat-bottom shape used in real aircraft wings'}
+];
+function buildAct3(){
+  const stations=document.getElementById('act3-stations');
+  const pool=document.getElementById('act3-pool');
+  stations.innerHTML=''; pool.innerHTML='';
+  const shuffledStations=shuffle(stationData);
+  shuffledStations.forEach(s=>{
+    const st=document.createElement('div');
+    st.className='station';
+    st.innerHTML=`<div class="station-icon">${s.icon}</div><div class="station-name">${s.name}</div><div class="drop-zone" data-accept="${s.id}"></div>`;
+    stations.appendChild(st);
+  });
+  const shuffledCards=shuffle(stationData);
+  shuffledCards.forEach(s=>{
+    const card=document.createElement('div');
+    card.className='mini-card';
+    card.textContent=s.text;
+    card.dataset.match=s.id;
+    card._dropHandler=(c,zone)=>{
+      if(zone.classList.contains('filled')){ shakeWrong(c); return; }
+      if(zone.dataset.accept===c.dataset.match){
+        snapIntoZone(c, zone);
+        checkAct3Complete();
+      } else {
+        shakeWrong(c);
+      }
+    };
+    makeDraggable(card);
+    pool.appendChild(card);
+  });
+}
+function checkAct3Complete(){
+  const filled=document.querySelectorAll('#act3-stations .drop-zone.filled').length;
+  if(filled===stationData.length){ setTimeout(()=>showCelebration(), 600); }
+}
+function resetAct3(){ buildAct3(); }
+
+/* ================= CELEBRATION ================= */
+function showCelebration(){
+  showScreen('screen-celebration');
+  const burst=document.getElementById('celebrate-burst');
+  burst.innerHTML='';
+  const emojis=['🎉','🧭','✈️','🚩','🌍','⭐','🏆'];
+  for(let i=0;i<40;i++){
+    const c=document.createElement('div');
+    c.className='confetti';
+    c.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+    c.style.left=(Math.random()*100)+'vw';
+    c.style.animationDuration=(2.5+Math.random()*2.5)+'s';
+    c.style.animationDelay=(Math.random()*1.5)+'s';
+    burst.appendChild(c);
+  }
+}
+
+/* ================= PLAY AGAIN / RESTART (pure JS, no reload — LMS-iframe safe) ================= */
+function playAgain(){
+  document.getElementById('celebrate-burst').innerHTML='';
+  showScreen('screen-intro');
+}
+
+/* Init: nothing built until user starts, keeps first paint fast */
+</script>
+</body>
+</html>

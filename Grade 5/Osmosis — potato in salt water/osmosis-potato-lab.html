@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>OSMOSIS — POTATO IN SALT WATER</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@500;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#080c18;
+    --bg-mid:#0f1830;
+    --panel:#131f3d;
+    --panel-light:#1a2b52;
+    --panel-edge:#28407a;
+    --teal:#2dd4bf;
+    --teal-glow:#5eead4;
+    --magenta:#f472b6;
+    --amber:#fbbf24;
+    --violet:#a78bfa;
+    --text:#eef2ff;
+    --text-dim:#93a1c4;
+    --success:#34d399;
+    --danger:#fb7185;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    overflow:hidden; background:var(--bg-deep); color:var(--text);
+    font-family:'Nunito',sans-serif; touch-action:none; user-select:none;
+  }
+  #app{position:relative; width:100vw; height:100vh; display:flex; flex-direction:column; overflow:hidden;
+    background:radial-gradient(circle at 15% 10%, #16234a 0%, transparent 45%),
+               radial-gradient(circle at 85% 90%, #1b1440 0%, transparent 45%),
+               linear-gradient(160deg, var(--bg-deep), var(--bg-mid) 60%, var(--bg-deep));
+  }
+  /* ---------- background FX ---------- */
+  #bg-fx{position:absolute; inset:0; overflow:hidden; z-index:0; pointer-events:none;}
+  .bubble{position:absolute; bottom:-10vh; border-radius:50%;
+    background:radial-gradient(circle at 30% 30%, rgba(94,234,212,.55), rgba(45,212,191,.08) 70%);
+    box-shadow:0 0 14px rgba(45,212,191,.5), inset 0 0 6px rgba(255,255,255,.4);
+    animation:floatUp linear infinite;}
+  @keyframes floatUp{
+    0%{transform:translateY(0) translateX(0) scale(.8); opacity:0;}
+    8%{opacity:.8;}
+    92%{opacity:.5;}
+    100%{transform:translateY(-120vh) translateX(var(--drift,20px)) scale(1.15); opacity:0;}
+  }
+  .molecule{position:absolute; opacity:.35; filter:drop-shadow(0 0 6px currentColor); animation:driftMol linear infinite;}
+  @keyframes driftMol{
+    0%{transform:translate(0,0) rotate(0deg);}
+    50%{transform:translate(var(--dx,40px), var(--dy,-30px)) rotate(180deg);}
+    100%{transform:translate(0,0) rotate(360deg);}
+  }
+  .elsym{position:absolute; font-family:'Space Mono',monospace; font-weight:700; color:var(--panel-edge);
+    opacity:.35; animation:drift2 linear infinite;}
+  @keyframes drift2{
+    0%{transform:translateY(0) rotate(0deg);}
+    50%{transform:translateY(-30px) rotate(8deg);}
+    100%{transform:translateY(0) rotate(0deg);}
+  }
+  .glowblob{position:absolute; border-radius:50%; filter:blur(50px); animation:pulseGlow 6s ease-in-out infinite; z-index:0;}
+  @keyframes pulseGlow{0%,100%{opacity:.25; transform:scale(1);} 50%{opacity:.5; transform:scale(1.25);}}
+
+  /* ---------- header ---------- */
+  header{position:relative; z-index:2; text-align:center; padding:1.1vh 2vw .6vh; flex:0 0 auto;}
+  h1{
+    font-family:'Baloo 2',cursive; font-weight:800; letter-spacing:.5px;
+    font-size:clamp(1.1rem, 2.6vw, 2rem); margin:0;
+    background:linear-gradient(90deg, var(--teal-glow), var(--amber), var(--magenta));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 0 30px rgba(45,212,191,.25);
+  }
+  .subtitle{font-size:clamp(.62rem, 1.1vw, .85rem); color:var(--text-dim); letter-spacing:2px; text-transform:uppercase; margin-top:2px;}
+  .progress-track{display:flex; justify-content:center; gap:14px; margin-top:.6vh;}
+  .prog-flask{font-size:clamp(1rem,1.8vw,1.4rem); opacity:.35; filter:grayscale(1); transition:all .4s;}
+  .prog-flask.active{opacity:1; filter:none; transform:scale(1.25); text-shadow:0 0 12px var(--teal-glow);}
+  .prog-flask.done{opacity:1; filter:none; text-shadow:0 0 10px var(--success);}
+
+  /* ---------- stage ---------- */
+  #stage{position:relative; z-index:2; flex:1 1 auto; min-height:0; display:flex; align-items:stretch; justify-content:center; padding:0 2vw 1.4vh;}
+  .activity{display:none; width:100%; max-width:1180px; height:100%; flex-direction:column; min-height:0;}
+  .activity.active{display:flex;}
+  .a-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:.6vh; flex:0 0 auto;}
+  .a-title{font-family:'Baloo 2',cursive; font-size:clamp(.9rem,1.6vw,1.25rem); font-weight:700;}
+  .a-title small{display:block; font-family:'Nunito',sans-serif; font-weight:600; color:var(--text-dim); font-size:.62em; letter-spacing:1px;}
+  .reset-btn{
+    font-family:'Nunito',sans-serif; font-weight:800; font-size:clamp(.65rem,1vw,.8rem);
+    background:var(--panel-light); border:1px solid var(--panel-edge); color:var(--text);
+    padding:6px 14px; border-radius:20px; cursor:pointer; display:flex; align-items:center; gap:6px;
+    transition:.2s;
+  }
+  .reset-btn:hover{background:var(--panel-edge); transform:translateY(-1px);}
+  .a-body{flex:1 1 auto; min-height:0; display:flex; gap:1.4vw;}
+
+  /* ================= ACTIVITY 1 — LAB BENCH ================= */
+  #activity1 .a-body{flex-direction:column; gap:1vh;}
+  .bench{
+    background:linear-gradient(180deg, var(--panel), var(--panel-light));
+    border:1px solid var(--panel-edge); border-radius:18px; padding:1.2vh 1.6vw;
+    box-shadow:0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05);
+    flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:1vh;
+  }
+  .beakers-row{display:flex; justify-content:space-around; align-items:flex-end; flex:1 1 auto; min-height:0;}
+  .beaker-wrap{display:flex; flex-direction:column; align-items:center; gap:6px;}
+  .beaker{
+    width:clamp(60px,8vw,100px); height:clamp(75px,10vw,120px); position:relative;
+    border:3px solid var(--teal); border-top:none; border-radius:0 0 14px 14px;
+    background:linear-gradient(180deg, rgba(45,212,191,.06), rgba(45,212,191,.22));
+    box-shadow:0 0 16px rgba(45,212,191,.25), inset 0 -10px 18px rgba(45,212,191,.35);
+    display:flex; align-items:flex-end; justify-content:center; padding-bottom:6px;
+    transition:.25s;
+  }
+  .beaker.fresh{border-color:var(--teal); background:linear-gradient(180deg, rgba(45,212,191,.05), rgba(45,212,191,.25));}
+  .beaker.salt{border-color:var(--amber); background:linear-gradient(180deg, rgba(251,191,36,.05), rgba(251,191,36,.25)); box-shadow:0 0 16px rgba(251,191,36,.25), inset 0 -10px 18px rgba(251,191,36,.35);}
+  .beaker.distilled{border-color:var(--violet); background:linear-gradient(180deg, rgba(167,139,250,.05), rgba(167,139,250,.25)); box-shadow:0 0 16px rgba(167,139,250,.25), inset 0 -10px 18px rgba(167,139,250,.35);}
+  .beaker.dropzone-hot{transform:scale(1.06); filter:brightness(1.3);}
+  .beaker .strip-in{font-size:clamp(1.3rem,2.2vw,2rem); animation:popIn .35s ease;}
+  @keyframes popIn{from{transform:scale(0) rotate(-30deg); opacity:0;} to{transform:scale(1) rotate(0); opacity:1;}}
+  .beaker-label{font-family:'Space Mono',monospace; font-size:clamp(.55rem,.9vw,.72rem); text-align:center; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; max-width:100px;}
+  .strip-tray{display:flex; justify-content:center; gap:2.2vw; flex:0 0 auto; padding-top:4px; border-top:1px dashed var(--panel-edge);}
+  .potato-strip{
+    font-size:clamp(1.4rem,2.4vw,2.1rem); cursor:grab; padding:6px 10px; border-radius:12px;
+    background:rgba(251,191,36,.08); border:1px solid var(--panel-edge); transition:.2s;
+  }
+  .potato-strip:hover{background:rgba(251,191,36,.18); transform:translateY(-2px);}
+  .potato-strip.placed{display:none;}
+
+  .materials-section{display:none; flex-direction:column; gap:.6vh; flex:1 1 auto; min-height:0;}
+  .materials-section.show{display:flex;}
+  .mat-hint{font-size:clamp(.62rem,1vw,.78rem); color:var(--text-dim); text-align:center;}
+  .mat-row{display:flex; justify-content:space-between; gap:1vw; flex:1 1 auto; min-height:0;}
+  .mat-slots, .mat-tray{display:flex; gap:1vw; flex-wrap:wrap; align-items:center; justify-content:center; flex:1 1 auto;}
+  .mat-slot{
+    width:clamp(60px,8vw,90px); height:clamp(50px,7vw,72px); border:2px dashed var(--panel-edge); border-radius:12px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; background:rgba(255,255,255,.02);
+    transition:.2s;
+  }
+  .mat-slot .slot-icon{font-size:1.2rem; opacity:.25;}
+  .mat-slot span.slot-label{font-family:'Space Mono',monospace; font-size:.55rem; color:var(--text-dim); text-align:center;}
+  .mat-slot.filled{border-style:solid; border-color:var(--success); background:rgba(52,211,153,.12);}
+  .mat-slot.filled .slot-icon{opacity:1;}
+  .mat-item{
+    font-size:1.3rem; cursor:grab; padding:8px; border-radius:10px; background:var(--panel-light);
+    border:1px solid var(--panel-edge); display:flex; flex-direction:column; align-items:center; gap:2px;
+  }
+  .mat-item span{font-family:'Space Mono',monospace; font-size:.55rem; color:var(--text-dim);}
+  .mat-item.placed{display:none;}
+
+  /* ================= ACTIVITY 2 — SEQUENCE RACK ================= */
+  #activity2 .a-body{flex-direction:column; gap:1vh; align-items:center;}
+  .rack{
+    display:flex; gap:1.1vw; justify-content:center; align-items:flex-end; flex:1 1 auto; min-height:0;
+    background:linear-gradient(180deg, var(--panel), var(--panel-light)); border:1px solid var(--panel-edge);
+    border-radius:18px; padding:1.4vh 1.4vw; width:100%; box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  .seq-slot{
+    flex:1 1 0; height:100%; max-height:100%; border:2px dashed var(--panel-edge); border-radius:10px 10px 26px 26px;
+    display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding:8px 4px; gap:6px;
+    background:linear-gradient(180deg, rgba(244,114,182,.03), rgba(244,114,182,.1)); position:relative; min-width:0;
+    transition:.2s;
+  }
+  .seq-slot .slot-num{position:absolute; top:6px; left:8px; font-family:'Space Mono',monospace; color:var(--text-dim); font-size:.7rem;}
+  .seq-slot.filled{border-style:solid; border-color:var(--success); background:linear-gradient(180deg, rgba(52,211,153,.05), rgba(52,211,153,.18));}
+  .seq-slot .step-text{font-size:clamp(.58rem,1vw,.78rem); text-align:center; font-weight:700; line-height:1.15;}
+  .seq-tray{display:flex; gap:1vw; flex-wrap:wrap; justify-content:center; flex:0 0 auto;}
+  .step-card{
+    cursor:grab; padding:8px 12px; border-radius:12px; background:var(--panel-light); border:1px solid var(--panel-edge);
+    font-size:clamp(.6rem,1vw,.78rem); font-weight:700; max-width:150px; text-align:center; transition:.2s;
+  }
+  .step-card:hover{background:var(--panel-edge); transform:translateY(-2px);}
+  .step-card.placed{display:none;}
+
+  /* ================= ACTIVITY 3 — LAB NOTEBOOK ================= */
+  #activity3 .a-body{flex-direction:column; gap:1vh;}
+  .notebook{
+    background:repeating-linear-gradient(180deg, #f4f1e6 0 26px, #e9e4d2 26px 27px);
+    border-radius:14px; padding:1.2vh 1.6vw; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:1vh;
+    color:#22304f; box-shadow:0 12px 30px rgba(0,0,0,.4); position:relative; overflow:hidden;
+  }
+  .notebook::before{content:""; position:absolute; left:34px; top:0; bottom:0; width:2px; background:rgba(244,114,182,.5);}
+  .obs-row{display:flex; justify-content:space-between; gap:1.4vw; flex:1 1 auto; min-height:0; padding-left:26px;}
+  .obs-slots, .obs-tray{display:flex; flex-direction:column; gap:.6vh; flex:1 1 auto; justify-content:center;}
+  .obs-slot{
+    border:2px dashed #8e97b0; border-radius:10px; padding:6px 10px; font-size:clamp(.58rem,1vw,.75rem); font-weight:800;
+    display:flex; align-items:center; justify-content:space-between; gap:6px; background:rgba(255,255,255,.4); transition:.2s;
+  }
+  .obs-slot.filled{border-style:solid; border-color:#0f9d70; background:rgba(52,211,153,.25);}
+  .obs-slot .fill-here{font-style:italic; opacity:.5; font-size:.85em;}
+  .obs-card{
+    cursor:grab; padding:6px 10px; border-radius:10px; background:#22304f; color:#f4f1e6; font-weight:800;
+    font-size:clamp(.56rem,1vw,.74rem); text-align:center; transition:.2s;
+  }
+  .obs-card:hover{transform:translateY(-2px);}
+  .obs-card.placed{display:none;}
+
+  .graph-wrap{display:none; flex-direction:column; gap:.4vh; flex:1 1 auto; min-height:0; padding-left:26px;}
+  .graph-wrap.show{display:flex;}
+  .graph-hint{font-size:clamp(.56rem,.95vw,.72rem); font-weight:700; opacity:.7;}
+  .graph-area{display:flex; align-items:flex-end; gap:2vw; justify-content:center; flex:1 1 auto; min-height:0; border-bottom:3px solid #22304f; padding-bottom:4px;}
+  .axis-slot{
+    width:14%; height:100%; border:2px dashed #8e97b0; border-radius:8px 8px 0 0; display:flex; align-items:flex-end;
+    justify-content:center; position:relative; transition:.2s;
+  }
+  .axis-slot.filled{border-color:#0f9d70; border-style:solid;}
+  .axis-slot .axis-label{position:absolute; bottom:-22px; font-size:clamp(.5rem,.85vw,.66rem); font-weight:800; white-space:nowrap;}
+  .bar-tray{display:flex; gap:1.4vw; justify-content:center; flex:0 0 auto; padding-top:14px;}
+  .bar-block{
+    width:34px; cursor:grab; border-radius:6px 6px 0 0; display:flex; align-items:flex-start; justify-content:center;
+    font-size:.6rem; color:#0b1220; font-weight:800; padding-top:3px; transition:.2s;
+  }
+  .bar-block.placed{display:none;}
+  .bar-fill{width:34px; border-radius:6px 6px 0 0; transition:height .5s cubic-bezier(.2,1.4,.4,1);}
+
+  /* feedback anims */
+  .shake{animation:shakeX .45s;}
+  @keyframes shakeX{
+    10%,90%{transform:translateX(-4px);} 20%,80%{transform:translateX(6px);}
+    30%,50%,70%{transform:translateX(-10px);} 40%,60%{transform:translateX(10px);}
+  }
+  .flash-good{animation:flashGood .5s;}
+  @keyframes flashGood{0%{filter:brightness(2.2);} 100%{filter:brightness(1);}}
+
+  /* ---------- modal ---------- */
+  .overlay{position:fixed; inset:0; background:rgba(4,7,16,.78); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:50;}
+  .overlay.show{display:flex;}
+  .modal{
+    background:linear-gradient(180deg, var(--panel-light), var(--panel)); border:1px solid var(--panel-edge);
+    border-radius:22px; padding:3.4vh 3.4vw; text-align:center; max-width:min(90vw,480px);
+    box-shadow:0 0 60px rgba(45,212,191,.25), 0 20px 50px rgba(0,0,0,.5);
+    animation:modalPop .4s cubic-bezier(.2,1.6,.4,1);
+  }
+  @keyframes modalPop{from{transform:scale(.6); opacity:0;} to{transform:scale(1); opacity:1;}}
+  .modal .emoji{font-size:clamp(2.2rem,6vw,3.4rem); margin-bottom:6px; display:block;}
+  .modal h2{font-family:'Baloo 2',cursive; margin:.2em 0; font-size:clamp(1.1rem,2.6vw,1.6rem);
+    background:linear-gradient(90deg, var(--teal-glow), var(--amber)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .modal p{color:var(--text-dim); font-size:clamp(.75rem,1.4vw,.95rem); margin-bottom:1.2em;}
+  .next-btn{
+    font-family:'Baloo 2',cursive; font-weight:700; font-size:clamp(.85rem,1.6vw,1.1rem); cursor:pointer;
+    background:linear-gradient(90deg, var(--teal), var(--violet)); border:none; color:#06111f;
+    padding:12px 30px; border-radius:30px; box-shadow:0 8px 20px rgba(45,212,191,.35); transition:.2s;
+  }
+  .next-btn:hover{transform:translateY(-2px) scale(1.03);}
+  .celebrate-burst{position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:5;}
+  .confetti{position:absolute; top:-5%; border-radius:2px; animation:confettiFall 2.4s ease-in forwards;}
+  @keyframes confettiFall{
+    to{transform:translateY(115vh) rotate(540deg); opacity:0;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="bg-fx"></div>
+  <div class="glowblob" style="width:340px;height:340px;left:-80px;top:-80px;background:radial-gradient(circle,var(--teal),transparent 70%);"></div>
+  <div class="glowblob" style="width:300px;height:300px;right:-70px;bottom:-70px;background:radial-gradient(circle,var(--magenta),transparent 70%); animation-delay:2s;"></div>
+
+  <header>
+    <h1>🧪 OSMOSIS — POTATO IN SALT WATER</h1>
+    <div class="subtitle">Chemistry Lab Investigation</div>
+    <div class="progress-track">
+      <span class="prog-flask" id="dot1">🥽</span>
+      <span class="prog-flask" id="dot2">🥽</span>
+      <span class="prog-flask" id="dot3">🥽</span>
+    </div>
+  </header>
+
+  <main id="stage">
+
+    <!-- ACTIVITY 1 -->
+    <section class="activity" id="activity1">
+      <div class="a-head">
+        <div class="a-title">Activity 1 · Set Up The Experiment<small>Place each strip in its solution, then gather the materials</small></div>
+        <button class="reset-btn" onclick="resetActivity1()">↺ Reset</button>
+      </div>
+      <div class="a-body">
+        <div class="bench">
+          <div class="beakers-row" id="beakersRow"></div>
+          <div class="strip-tray" id="stripTray"></div>
+        </div>
+        <div class="materials-section" id="materialsSection">
+          <div class="mat-hint">Now drag each material onto its matching label</div>
+          <div class="mat-row">
+            <div class="mat-slots" id="matSlots"></div>
+          </div>
+          <div class="mat-tray" id="matTray"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 2 -->
+    <section class="activity" id="activity2">
+      <div class="a-head">
+        <div class="a-title">Activity 2 · Sequence The Steps<small>Drag each step into the correct test tube, in order</small></div>
+        <button class="reset-btn" onclick="resetActivity2()">↺ Reset</button>
+      </div>
+      <div class="a-body">
+        <div class="rack" id="seqRack"></div>
+        <div class="seq-tray" id="seqTray"></div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 3 -->
+    <section class="activity" id="activity3">
+      <div class="a-head">
+        <div class="a-title">Activity 3 · Analyze The Results<small>Match each solution to what happened, then build the graph</small></div>
+        <button class="reset-btn" onclick="resetActivity3()">↺ Reset</button>
+      </div>
+      <div class="a-body">
+        <div class="notebook" id="notebook">
+          <div class="obs-row">
+            <div class="obs-slots" id="obsSlots"></div>
+            <div class="obs-tray" id="obsTray"></div>
+          </div>
+          <div class="graph-wrap" id="graphWrap">
+            <div class="graph-hint">Drag each bar under the solution that caused it</div>
+            <div class="graph-area" id="graphArea"></div>
+            <div class="bar-tray" id="barTray"></div>
+          </div>
+          <div class="celebrate-burst" id="celebrateBurst"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="overlay" id="popup">
+    <div class="modal">
+      <span class="emoji" id="popupEmoji">🧪</span>
+      <h2 id="popupTitle">Activity Complete!</h2>
+      <p id="popupText">Great work, scientist.</p>
+      <button class="next-btn" id="popupBtn" onclick="advanceFromPopup()">Next Activity →</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="finalPopup">
+    <div class="modal">
+      <span class="emoji">🎉</span>
+      <h2>Experiment Complete!</h2>
+      <p>You've mastered osmosis, the potato way. Fantastic lab work!</p>
+      <button class="next-btn" onclick="playAgain()">🔁 Play Again</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ================= helpers ================= */
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+function rand(min,max){return Math.random()*(max-min)+min;}
+
+/* ================= background FX ================= */
+function buildBgFx(){
+  const fx=document.getElementById('bg-fx');
+  fx.innerHTML='';
+  for(let i=0;i<16;i++){
+    const b=document.createElement('div'); b.className='bubble';
+    const size=rand(10,34);
+    b.style.width=size+'px'; b.style.height=size+'px';
+    b.style.left=rand(0,100)+'%';
+    b.style.setProperty('--drift', rand(-40,40)+'px');
+    b.style.animationDuration=rand(7,17)+'s';
+    b.style.animationDelay=rand(0,14)+'s';
+    fx.appendChild(b);
+  }
+  const molColors=['#2dd4bf','#f472b6','#a78bfa','#fbbf24'];
+  for(let i=0;i<9;i++){
+    const m=document.createElement('div'); m.className='molecule';
+    m.style.left=rand(2,92)+'%'; m.style.top=rand(5,90)+'%';
+    m.style.color=molColors[i%molColors.length];
+    m.style.setProperty('--dx', rand(-60,60)+'px');
+    m.style.setProperty('--dy', rand(-50,50)+'px');
+    m.style.animationDuration=rand(10,20)+'s';
+    m.style.animationDelay=rand(0,8)+'s';
+    m.innerHTML='<svg width="30" height="18"><circle cx="6" cy="9" r="5" fill="currentColor"/><circle cx="22" cy="9" r="7" fill="currentColor" opacity="0.7"/><line x1="10" y1="9" x2="16" y2="9" stroke="currentColor" stroke-width="2"/></svg>';
+    fx.appendChild(m);
+  }
+  const symbols=['H','O','Na','Cl','K','Ca','C','Mg'];
+  for(let i=0;i<11;i++){
+    const s=document.createElement('div'); s.className='elsym';
+    s.textContent=symbols[i%symbols.length];
+    s.style.fontSize=rand(14,30)+'px';
+    s.style.left=rand(2,94)+'%'; s.style.top=rand(4,92)+'%';
+    s.style.animationDuration=rand(5,10)+'s';
+    s.style.animationDelay=rand(0,5)+'s';
+    fx.appendChild(s);
+  }
+}
+buildBgFx();
+
+/* ================= generic drag core ================= */
+function makeDraggable(el, zoneSelector, onDrop){
+  el.addEventListener('pointerdown', function(e){
+    if(el.classList.contains('placed')) return;
+    e.preventDefault();
+    const rect=el.getBoundingClientRect();
+    const offsetX=e.clientX-rect.left, offsetY=e.clientY-rect.top;
+    const ghost=el.cloneNode(true);
+    ghost.style.position='fixed';
+    ghost.style.zIndex='999';
+    ghost.style.width=rect.width+'px';
+    ghost.style.height=rect.height+'px';
+    ghost.style.left=rect.left+'px';
+    ghost.style.top=rect.top+'px';
+    ghost.style.pointerEvents='none';
+    ghost.style.opacity='.95';
+    ghost.style.transform='scale(1.08) rotate(-3deg)';
+    ghost.style.boxShadow='0 12px 26px rgba(0,0,0,.5)';
+    document.body.appendChild(ghost);
+    el.style.visibility='hidden';
+
+    function move(ev){
+      ghost.style.left=(ev.clientX-offsetX)+'px';
+      ghost.style.top=(ev.clientY-offsetY)+'px';
+      const under=document.elementFromPoint(ev.clientX,ev.clientY);
+      const zone=under ? under.closest(zoneSelector) : null;
+      document.querySelectorAll(zoneSelector+'.dropzone-hot').forEach(z=>z.classList.remove('dropzone-hot'));
+      if(zone) zone.classList.add('dropzone-hot');
+    }
+    function up(ev){
+      document.removeEventListener('pointermove',move);
+      document.removeEventListener('pointerup',up);
+      const under=document.elementFromPoint(ev.clientX,ev.clientY);
+      const zone=under ? under.closest(zoneSelector) : null;
+      document.querySelectorAll(zoneSelector+'.dropzone-hot').forEach(z=>z.classList.remove('dropzone-hot'));
+      ghost.remove();
+      const accepted=onDrop(el, zone);
+      if(!accepted){
+        el.style.visibility='visible';
+        el.classList.add('shake');
+        setTimeout(()=>el.classList.remove('shake'),450);
+      }
+    }
+    document.addEventListener('pointermove',move);
+    document.addEventListener('pointerup',up);
+  });
+}
+
+/* ================= progress / popups ================= */
+let currentActivity=1;
+const completedSet=new Set();
+function updateDots(){
+  for(let i=1;i<=3;i++){
+    const d=document.getElementById('dot'+i);
+    d.classList.toggle('active', i===currentActivity);
+    d.classList.toggle('done', completedSet.has(i));
+    d.textContent = completedSet.has(i) ? '✅' : '🥽';
+  }
+}
+function showActivity(n){
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.getElementById('activity'+n).classList.add('active');
+  currentActivity=n; updateDots();
+}
+let pendingNext=null;
+function openPopup(emoji,title,text,btnLabel,next){
+  document.getElementById('popupEmoji').textContent=emoji;
+  document.getElementById('popupTitle').textContent=title;
+  document.getElementById('popupText').textContent=text;
+  document.getElementById('popupBtn').textContent=btnLabel;
+  pendingNext=next;
+  document.getElementById('popup').classList.add('show');
+}
+function advanceFromPopup(){
+  document.getElementById('popup').classList.remove('show');
+  if(pendingNext) pendingNext();
+}
+
+/* ================= ACTIVITY 1 ================= */
+const BEAKERS=[
+  {id:'fresh', label:'Fresh Water'},
+  {id:'salt', label:'Salt Water'},
+  {id:'distilled', label:'Distilled Water'}
+];
+const MATERIALS=[
+  {id:'potato', icon:'🥔', label:'Potato Strips'},
+  {id:'salttub', icon:'🧂', label:'Salt'},
+  {id:'water', icon:'💧', label:'Water'},
+  {id:'glasses', icon:'🥃', label:'Glasses'},
+  {id:'ruler', icon:'📏', label:'Ruler'}
+];
+let a1BeakerFillCount=0, a1MatCount=0;
+
+function renderActivity1(){
+  const row=document.getElementById('beakersRow'); row.innerHTML='';
+  shuffle(BEAKERS).forEach(b=>{
+    const wrap=document.createElement('div'); wrap.className='beaker-wrap';
+    wrap.innerHTML=`<div class="beaker ${b.id}" data-id="${b.id}" data-filled="false"></div>
+      <div class="beaker-label">${b.label}</div>`;
+    row.appendChild(wrap);
+  });
+  const tray=document.getElementById('stripTray'); tray.innerHTML='';
+  for(let i=0;i<3;i++){
+    const s=document.createElement('div'); s.className='potato-strip'; s.textContent='🥔';
+    tray.appendChild(s);
+    makeDraggable(s, '.beaker', (el,zone)=>{
+      if(!zone) return false;
+      if(zone.dataset.filled==='true') return false;
+      zone.dataset.filled='true';
+      zone.classList.add('flash-good');
+      const p=document.createElement('div'); p.className='strip-in'; p.textContent='🥔';
+      zone.appendChild(p);
+      el.classList.add('placed');
+      a1BeakerFillCount++;
+      if(a1BeakerFillCount===3) revealMaterials();
+      return true;
+    });
+  }
+  document.getElementById('materialsSection').classList.remove('show');
+  a1BeakerFillCount=0; a1MatCount=0;
+}
+function revealMaterials(){
+  document.getElementById('materialsSection').classList.add('show');
+  const slots=document.getElementById('matSlots'); slots.innerHTML='';
+  shuffle(MATERIALS).forEach(m=>{
+    const s=document.createElement('div'); s.className='mat-slot'; s.dataset.id=m.id;
+    s.innerHTML=`<span class="slot-icon">${m.icon}</span><span class="slot-label">${m.label}</span>`;
+    slots.appendChild(s);
+  });
+  const tray=document.getElementById('matTray'); tray.innerHTML='';
+  shuffle(MATERIALS).forEach(m=>{
+    const item=document.createElement('div'); item.className='mat-item'; item.dataset.id=m.id;
+    item.innerHTML=`${m.icon}<span>${m.label}</span>`;
+    tray.appendChild(item);
+    makeDraggable(item, '.mat-slot', (el,zone)=>{
+      if(!zone) return false;
+      if(zone.dataset.id!==el.dataset.id) return false;
+      if(zone.classList.contains('filled')) return false;
+      zone.classList.add('filled','flash-good');
+      el.classList.add('placed');
+      a1MatCount++;
+      if(a1MatCount===5){
+        completedSet.add(1);
+        setTimeout(()=>openPopup('🧪','Activity 1 Complete!','Bench is set — every strip is soaking and materials are ready.','Next: Sequence the Steps →', ()=>{ resetActivity2(); showActivity(2); }),400);
+      }
+      return true;
+    });
+  });
+}
+function resetActivity1(){ renderActivity1(); }
+
+/* ================= ACTIVITY 2 ================= */
+const STEPS=[
+  {order:1, text:'Measure the potato strips'},
+  {order:2, text:'Place them in the solutions'},
+  {order:3, text:'Wait 30 minutes'},
+  {order:4, text:'Measure again'},
+  {order:5, text:'Compare the changes'}
+];
+let a2Count=0;
+function resetActivity2(){
+  a2Count=0;
+  const rack=document.getElementById('seqRack'); rack.innerHTML='';
+  for(let i=1;i<=5;i++){
+    const slot=document.createElement('div'); slot.className='seq-slot'; slot.dataset.order=i;
+    slot.innerHTML=`<span class="slot-num">${i}</span><span class="step-text"></span>`;
+    rack.appendChild(slot);
+  }
+  const tray=document.getElementById('seqTray'); tray.innerHTML='';
+  shuffle(STEPS).forEach(st=>{
+    const card=document.createElement('div'); card.className='step-card'; card.dataset.order=st.order; card.textContent=st.text;
+    tray.appendChild(card);
+    makeDraggable(card, '.seq-slot', (el,zone)=>{
+      if(!zone) return false;
+      if(zone.classList.contains('filled')) return false;
+      if(zone.dataset.order!==el.dataset.order) return false;
+      zone.classList.add('filled','flash-good');
+      zone.querySelector('.step-text').textContent=el.textContent;
+      el.classList.add('placed');
+      a2Count++;
+      if(a2Count===5){
+        completedSet.add(2);
+        setTimeout(()=>openPopup('🧫','Activity 2 Complete!','Perfect sequence — that is exactly how a real osmosis trial runs.','Next: Analyze the Results →', ()=>{ resetActivity3(); showActivity(3); }),400);
+      }
+      return true;
+    });
+  });
+}
+
+/* ================= ACTIVITY 3 ================= */
+const OBS=[
+  {sol:'salt', label:'Salt Water', obs:'Shrank & turned soft'},
+  {sol:'fresh', label:'Fresh Water', obs:'Stayed firm, no change'},
+  {sol:'distilled', label:'Distilled Water', obs:'Swelled & stayed plump'}
+];
+const BARS=[
+  {sol:'salt', label:'Salt Water', heightPct:28, color:'linear-gradient(180deg,#fbbf24,#b45309)'},
+  {sol:'fresh', label:'Fresh Water', heightPct:58, color:'linear-gradient(180deg,#2dd4bf,#0f766e)'},
+  {sol:'distilled', label:'Distilled Water', heightPct:92, color:'linear-gradient(180deg,#a78bfa,#5b21b6)'}
+];
+let a3ObsCount=0, a3BarCount=0;
+
+function resetActivity3(){
+  a3ObsCount=0; a3BarCount=0;
+  document.getElementById('graphWrap').classList.remove('show');
+  document.getElementById('celebrateBurst').innerHTML='';
+
+  const slots=document.getElementById('obsSlots'); slots.innerHTML='';
+  shuffle(OBS).forEach(o=>{
+    const s=document.createElement('div'); s.className='obs-slot'; s.dataset.sol=o.sol;
+    s.innerHTML=`<span>${o.label}</span><span class="fill-here">drop here</span>`;
+    slots.appendChild(s);
+  });
+  const tray=document.getElementById('obsTray'); tray.innerHTML='';
+  shuffle(OBS).forEach(o=>{
+    const c=document.createElement('div'); c.className='obs-card'; c.dataset.sol=o.sol; c.textContent=o.obs;
+    tray.appendChild(c);
+    makeDraggable(c, '.obs-slot', (el,zone)=>{
+      if(!zone) return false;
+      if(zone.classList.contains('filled')) return false;
+      if(zone.dataset.sol!==el.dataset.sol) return false;
+      zone.classList.add('filled','flash-good');
+      zone.querySelector('.fill-here').textContent=el.textContent;
+      el.classList.add('placed');
+      a3ObsCount++;
+      if(a3ObsCount===3){
+        setTimeout(()=>document.getElementById('graphWrap').classList.add('show'),300);
+      }
+      return true;
+    });
+  });
+
+  const axis=document.getElementById('graphArea'); axis.innerHTML='';
+  shuffle(BARS).forEach(b=>{
+    const slot=document.createElement('div'); slot.className='axis-slot'; slot.dataset.sol=b.sol;
+    slot.innerHTML=`<div class="axis-label">${b.label}</div>`;
+    axis.appendChild(slot);
+  });
+  const barTray=document.getElementById('barTray'); barTray.innerHTML='';
+  shuffle(BARS).forEach(b=>{
+    const bl=document.createElement('div'); bl.className='bar-block'; bl.dataset.sol=b.sol;
+    bl.style.height='34px'; bl.style.background=b.color; bl.textContent='🥔';
+    barTray.appendChild(bl);
+    makeDraggable(bl, '.axis-slot', (el,zone)=>{
+      if(!zone) return false;
+      if(zone.classList.contains('filled')) return false;
+      if(zone.dataset.sol!==el.dataset.sol) return false;
+      zone.classList.add('filled','flash-good');
+      const fillBar=document.createElement('div'); fillBar.className='bar-fill';
+      fillBar.style.background=b.color; fillBar.style.height='0';
+      zone.appendChild(fillBar);
+      requestAnimationFrame(()=>{ fillBar.style.height=b.heightPct+'%'; });
+      el.classList.add('placed');
+      a3BarCount++;
+      if(a3BarCount===3){
+        completedSet.add(3);
+        celebrateBurst();
+        setTimeout(()=>{ document.getElementById('finalPopup').classList.add('show'); }, 1400);
+      }
+      return true;
+    });
+  });
+}
+
+function celebrateBurst(){
+  const layer=document.getElementById('celebrateBurst');
+  layer.innerHTML='';
+  const colors=['#2dd4bf','#f472b6','#fbbf24','#a78bfa','#34d399'];
+  for(let i=0;i<40;i++){
+    const c=document.createElement('div'); c.className='confetti';
+    const size=rand(5,10);
+    c.style.width=size+'px'; c.style.height=size*1.6+'px';
+    c.style.left=rand(0,100)+'%';
+    c.style.background=colors[i%colors.length];
+    c.style.animationDelay=rand(0,.6)+'s';
+    c.style.animationDuration=rand(1.6,2.6)+'s';
+    layer.appendChild(c);
+  }
+}
+
+/* ================= play again ================= */
+function playAgain(){
+  document.getElementById('finalPopup').classList.remove('show');
+  completedSet.clear();
+  resetActivity1();
+  resetActivity2();
+  resetActivity3();
+  showActivity(1);
+}
+
+/* ================= init ================= */
+resetActivity1();
+resetActivity2();
+resetActivity3();
+showActivity(1);
+</script>
+</body>
+</html>

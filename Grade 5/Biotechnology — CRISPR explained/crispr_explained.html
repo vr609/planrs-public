@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BIOTECHNOLOGY — CRISPR EXPLAINED</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg: #060d1a;
+    --teal: #00e5ff;
+    --cyan: #00bcd4;
+    --yellow: #ffc107;
+    --green: #00e676;
+    --pink: #ff4081;
+    --purple: #7c4dff;
+    --ivory: #f0f4ff;
+    --card-bg: rgba(0,20,40,0.85);
+    --border: rgba(0,229,255,0.35);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Exo 2', sans-serif;
+    background: var(--bg);
+    color: var(--ivory);
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ── BIO BACKGROUND CANVAS ── */
+  #bioCanvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+
+  /* ── HEADER ── */
+  #header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    height: 56px;
+    background: linear-gradient(90deg, rgba(0,10,25,0.95) 0%, rgba(0,40,70,0.9) 50%, rgba(0,10,25,0.95) 100%);
+    border-bottom: 1.5px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    gap: 16px;
+  }
+  #header h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(11px, 1.8vw, 17px);
+    font-weight: 900;
+    letter-spacing: 0.18em;
+    background: linear-gradient(90deg, var(--teal), var(--yellow), var(--green));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    text-shadow: none;
+  }
+  .dna-icon { font-size: 22px; animation: spin 4s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── PROGRESS BAR ── */
+  #progressBar {
+    position: fixed; top: 56px; left: 0; right: 0; z-index: 10;
+    height: 4px;
+    background: rgba(255,255,255,0.08);
+  }
+  #progressFill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--teal), var(--green));
+    transition: width 0.6s ease;
+    width: 0%;
+    box-shadow: 0 0 8px var(--teal);
+  }
+
+  /* ── ACTIVITY STAGE ── */
+  #stage {
+    position: fixed;
+    top: 60px; left: 0; right: 0; bottom: 0;
+    z-index: 5;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ── ACTIVITY WRAPPER ── */
+  .activity {
+    display: none;
+    width: 96%; max-width: 1100px;
+    height: calc(100vh - 70px);
+    max-height: 720px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 10px 14px 8px;
+    gap: 8px;
+  }
+  .activity.active { display: flex; }
+
+  .act-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(11px, 1.5vw, 15px);
+    font-weight: 700;
+    color: var(--teal);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: center;
+  }
+  .act-subtitle {
+    font-size: clamp(10px, 1.2vw, 13px);
+    color: rgba(240,244,255,0.7);
+    text-align: center;
+    max-width: 700px;
+  }
+
+  /* ── RESET BTN ── */
+  .reset-btn {
+    position: absolute;
+    top: 68px; right: 18px;
+    z-index: 20;
+    background: rgba(255,64,129,0.18);
+    border: 1.5px solid var(--pink);
+    color: var(--pink);
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-family: 'Exo 2', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    transition: all 0.2s;
+  }
+  .reset-btn:hover { background: rgba(255,64,129,0.35); transform: scale(1.05); }
+
+  /* ══════════════════════════════════
+     ACTIVITY 1 — MEMORY MATCH
+  ══════════════════════════════════ */
+  #act1-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    width: 100%;
+    max-width: 720px;
+    margin-top: 4px;
+  }
+  .mem-card {
+    aspect-ratio: 1/1.15;
+    max-height: 120px;
+    position: relative;
+    cursor: pointer;
+    perspective: 800px;
+  }
+  .mem-card-inner {
+    width: 100%; height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.45s ease;
+    position: relative;
+  }
+  .mem-card.flipped .mem-card-inner { transform: rotateY(180deg); }
+  .mem-card.matched .mem-card-inner { transform: rotateY(180deg); }
+  .mem-card-front, .mem-card-back {
+    position: absolute; inset: 0;
+    border-radius: 12px;
+    backface-visibility: hidden;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    padding: 8px;
+    font-size: clamp(9px, 1.1vw, 12px);
+    font-weight: 600;
+    border: 2px solid var(--border);
+  }
+  .mem-card-front {
+    background: linear-gradient(135deg, #0a2040 0%, #0d2d50 100%);
+    font-size: 32px;
+  }
+  .mem-card-back {
+    transform: rotateY(180deg);
+    background: linear-gradient(135deg, #002030 0%, #003348 100%);
+    border-color: var(--teal);
+  }
+  .mem-card.matched .mem-card-back {
+    border-color: var(--green);
+    background: linear-gradient(135deg, #003020 0%, #004530 100%);
+    box-shadow: 0 0 18px rgba(0,230,118,0.5);
+  }
+  .mem-card.wrong .mem-card-back {
+    border-color: var(--pink);
+    animation: wrongShake 0.4s ease;
+  }
+  @keyframes wrongShake {
+    0%,100%{transform:rotateY(180deg) translateX(0)}
+    25%{transform:rotateY(180deg) translateX(-5px)}
+    75%{transform:rotateY(180deg) translateX(5px)}
+  }
+  #act1-score {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    color: var(--yellow);
+    letter-spacing: 0.1em;
+  }
+  #act1-msg {
+    font-size: 12px;
+    color: var(--green);
+    min-height: 18px;
+    font-weight: 600;
+  }
+
+  /* ══════════════════════════════════
+     ACTIVITY 2 — PIPELINE WIRE
+  ══════════════════════════════════ */
+  #act2-container {
+    width: 100%;
+    max-width: 860px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  #act2-dropzone {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+    padding: 14px 10px;
+    background: rgba(0,15,35,0.7);
+    border: 2px dashed rgba(0,229,255,0.3);
+    border-radius: 16px;
+    min-height: 100px;
+  }
+  .pipe-slot {
+    width: clamp(80px, 10vw, 110px);
+    min-height: 70px;
+    border: 2px dashed rgba(0,229,255,0.5);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    text-align: center;
+    padding: 6px;
+    font-size: 10px;
+    color: rgba(255,255,255,0.4);
+    position: relative;
+    transition: all 0.2s;
+    background: rgba(0,10,30,0.5);
+  }
+  .pipe-slot.over { border-color: var(--yellow); background: rgba(255,193,7,0.1); }
+  .pipe-slot.filled { border-color: var(--green); border-style: solid; }
+  .pipe-slot.filled.wrong-slot { border-color: var(--pink); animation: pulse-wrong 0.5s ease; }
+  @keyframes pulse-wrong { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+  .slot-label {
+    font-size: 9px;
+    color: var(--teal);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+  }
+  .pipe-arrow {
+    color: var(--teal);
+    font-size: 20px;
+    opacity: 0.5;
+    flex-shrink: 0;
+  }
+  #act2-bank {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    padding: 10px;
+  }
+  .pipe-card {
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: clamp(10px, 1.2vw, 13px);
+    font-weight: 600;
+    cursor: grab;
+    user-select: none;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .pipe-card:active { cursor: grabbing; transform: scale(1.08); opacity: 0.85; }
+  .pipe-card.dragging { opacity: 0.4; }
+  #act2-msg {
+    text-align: center;
+    font-size: 12px;
+    color: var(--green);
+    min-height: 16px;
+    font-weight: 600;
+  }
+
+  /* ══════════════════════════════════
+     ACTIVITY 3 — SORT TIMELINE
+  ══════════════════════════════════ */
+  #act3-container {
+    width: 100%;
+    max-width: 900px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  #act3-bank {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    width: 260px;
+    flex-shrink: 0;
+  }
+  #act3-bank-title {
+    font-size: 10px;
+    color: var(--teal);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  #act3-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    flex: 1;
+    position: relative;
+  }
+  .timeline-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+  }
+  .timeline-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 24px;
+    top: 50px;
+    width: 2px;
+    height: 14px;
+    background: linear-gradient(to bottom, var(--teal), rgba(0,229,255,0.2));
+  }
+  .step-num {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0a2040, #0d3060);
+    border: 2px solid var(--teal);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    color: var(--teal);
+    font-weight: 900;
+    flex-shrink: 0;
+    box-shadow: 0 0 12px rgba(0,229,255,0.3);
+  }
+  .timeline-slot {
+    flex: 1;
+    min-height: 52px;
+    border: 2px dashed rgba(0,229,255,0.4);
+    border-radius: 12px;
+    display: flex; align-items: center;
+    padding: 8px 12px;
+    font-size: clamp(9px, 1.1vw, 12px);
+    color: rgba(255,255,255,0.35);
+    transition: all 0.2s;
+    background: rgba(0,10,30,0.4);
+    margin-bottom: 14px;
+  }
+  .timeline-slot.over { border-color: var(--yellow); background: rgba(255,193,7,0.08); color: var(--yellow); }
+  .timeline-slot.filled { border-color: var(--green); border-style: solid; color: var(--ivory); background: rgba(0,100,50,0.15); }
+  .timeline-slot.correct-slot { box-shadow: 0 0 16px rgba(0,230,118,0.5); }
+  .timeline-slot.wrong-slot-tl { border-color: var(--pink); animation: shake-tl 0.4s ease; }
+  @keyframes shake-tl { 0%,100%{transform:translateX(0)} 30%{transform:translateX(-6px)} 70%{transform:translateX(6px)} }
+  .sort-card {
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: clamp(9px, 1.1vw, 12px);
+    font-weight: 600;
+    cursor: grab;
+    user-select: none;
+    border: 2px solid rgba(255,255,255,0.15);
+    display: flex; align-items: center; gap: 6px;
+    transition: all 0.2s;
+  }
+  .sort-card:active { cursor: grabbing; transform: scale(1.05); }
+  .sort-card.dragging { opacity: 0.4; }
+  #act3-msg {
+    text-align: center;
+    font-size: 12px;
+    color: var(--green);
+    min-height: 16px;
+    font-weight: 600;
+    margin-top: 4px;
+  }
+
+  /* ══════════════════════════════════
+     POPUP OVERLAYS
+  ══════════════════════════════════ */
+  .popup-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,5,15,0.88);
+    z-index: 100;
+    align-items: center; justify-content: center;
+  }
+  .popup-overlay.show { display: flex; }
+  .popup-box {
+    background: linear-gradient(135deg, #060d1a 0%, #0a1e3a 100%);
+    border: 2px solid var(--teal);
+    border-radius: 24px;
+    padding: 36px 44px;
+    max-width: 440px;
+    width: 90%;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 0 60px rgba(0,229,255,0.25), 0 0 120px rgba(0,229,255,0.08);
+    animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes popIn { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .popup-emoji { font-size: 52px; margin-bottom: 12px; }
+  .popup-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--teal);
+    margin-bottom: 10px;
+    letter-spacing: 0.1em;
+  }
+  .popup-body {
+    font-size: 14px;
+    color: rgba(240,244,255,0.8);
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+  .popup-btn {
+    padding: 12px 36px;
+    border-radius: 30px;
+    border: none;
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    transition: all 0.25s;
+    text-transform: uppercase;
+  }
+  .popup-btn-primary {
+    background: linear-gradient(90deg, var(--teal), var(--green));
+    color: #06111f;
+    box-shadow: 0 4px 20px rgba(0,229,255,0.4);
+  }
+  .popup-btn-primary:hover { transform: scale(1.08); box-shadow: 0 6px 30px rgba(0,229,255,0.6); }
+  .popup-btn-secondary {
+    background: linear-gradient(90deg, var(--yellow), var(--pink));
+    color: #06111f;
+    box-shadow: 0 4px 20px rgba(255,193,7,0.4);
+  }
+  .popup-btn-secondary:hover { transform: scale(1.08); }
+
+  /* ── CELEBRATION ── */
+  .confetti-piece {
+    position: absolute;
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    animation: confettiFall 2.5s ease-in forwards;
+  }
+  @keyframes confettiFall {
+    0% { transform: translateY(-40px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(400px) rotate(720deg); opacity: 0; }
+  }
+
+  /* ── SPARKLE ── */
+  .sparkle {
+    position: absolute;
+    pointer-events: none;
+    z-index: 50;
+    animation: sparkleAnim 0.6s ease forwards;
+  }
+  @keyframes sparkleAnim {
+    0% { transform: scale(0) rotate(0deg); opacity: 1; }
+    100% { transform: scale(2) rotate(180deg); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bioCanvas"></canvas>
+
+<div id="header">
+  <span class="dna-icon">🧬</span>
+  <h1>BIOTECHNOLOGY — CRISPR EXPLAINED</h1>
+  <span class="dna-icon">🔬</span>
+</div>
+<div id="progressBar"><div id="progressFill"></div></div>
+
+<button class="reset-btn" onclick="resetCurrentActivity()" id="resetBtn">↺ Reset</button>
+
+<!-- ══ STAGE ══ -->
+<div id="stage">
+
+  <!-- ACTIVITY 1: MEMORY MATCH -->
+  <div class="activity active" id="activity1">
+    <div class="act-title">🔬 Activity 1 — DNA Memory Match</div>
+    <div class="act-subtitle">Flip cards to find matching pairs! Match each CRISPR term with its correct definition.</div>
+    <div id="act1-score">Pairs found: 0 / 4</div>
+    <div id="act1-grid"></div>
+    <div id="act1-msg"></div>
+  </div>
+
+  <!-- ACTIVITY 2: PIPELINE DRAG -->
+  <div class="activity" id="activity2">
+    <div class="act-title">⚗️ Activity 2 — Build the CRISPR Pipeline</div>
+    <div class="act-subtitle">Drag each component into the correct slot to assemble the CRISPR gene-editing pipeline!</div>
+    <div id="act2-container">
+      <div id="act2-dropzone"></div>
+      <div id="act2-bank"></div>
+      <div id="act2-msg"></div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 3: SORT TIMELINE -->
+  <div class="activity" id="activity3">
+    <div class="act-title">🌱 Activity 3 — CRISPR Mission Timeline</div>
+    <div class="act-subtitle">Drag each step into the correct order on the timeline to complete a real-world CRISPR mission!</div>
+    <div id="act3-container">
+      <div id="act3-bank"><div id="act3-bank-title">🧩 Mission Steps</div></div>
+      <div id="act3-timeline"></div>
+    </div>
+    <div id="act3-msg"></div>
+  </div>
+
+</div>
+
+<!-- ══ POPUPS ══ -->
+<div class="popup-overlay" id="popup1">
+  <div class="popup-box" id="popup1-box">
+    <div class="popup-emoji">🎉</div>
+    <div class="popup-title">Excellent Scientist!</div>
+    <div class="popup-body">You matched all the CRISPR terms perfectly! You know your DNA from your Cas9. Ready for the next challenge?</div>
+    <button class="popup-btn popup-btn-primary" onclick="goToActivity(2)">Next Activity →</button>
+  </div>
+</div>
+
+<div class="popup-overlay" id="popup2">
+  <div class="popup-box" id="popup2-box">
+    <div class="popup-emoji">⚗️</div>
+    <div class="popup-title">Pipeline Complete!</div>
+    <div class="popup-body">Amazing! You've assembled the CRISPR pipeline correctly. The molecular scissors are ready to operate! One final mission awaits!</div>
+    <button class="popup-btn popup-btn-primary" onclick="goToActivity(3)">Final Challenge →</button>
+  </div>
+</div>
+
+<div class="popup-overlay" id="popup3">
+  <div class="popup-box" id="popup3-box" style="max-width:500px;">
+    <div id="confetti-container" style="position:absolute;inset:0;overflow:hidden;border-radius:24px;pointer-events:none;"></div>
+    <div class="popup-emoji" style="font-size:60px;">🧬🏆🧬</div>
+    <div class="popup-title" style="color:var(--yellow);">MISSION ACCOMPLISHED!</div>
+    <div class="popup-body">
+      Incredible work, Biotechnologist! 🎊<br>
+      You've mastered CRISPR — from DNA basics to real-world missions.<br><br>
+      <span style="color:var(--green);font-weight:700;">Guide RNA ✓ &nbsp; Cas9 ✓ &nbsp; Ethics ✓</span>
+    </div>
+    <button class="popup-btn popup-btn-secondary" onclick="playAgain()">▶ Play Again</button>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   BIO CANVAS BACKGROUND
+══════════════════════════════════════════════════════════════ */
+const canvas = document.getElementById('bioCanvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resizeCanvas() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// Floating cells
+const cells = Array.from({length:12}, () => ({
+  x: Math.random()*window.innerWidth,
+  y: Math.random()*window.innerHeight,
+  r: Math.random()*22+10,
+  vx: (Math.random()-0.5)*0.35,
+  vy: (Math.random()-0.5)*0.35,
+  hue: [180,200,160,300,60][Math.floor(Math.random()*5)],
+  pulse: Math.random()*Math.PI*2
+}));
+
+// DNA helix strands
+const helices = Array.from({length:4}, (_, i) => ({
+  x: (i+0.5) * window.innerWidth/4,
+  phase: Math.random()*Math.PI*2,
+  speed: 0.008 + Math.random()*0.006
+}));
+
+// Particles
+const particles = Array.from({length:35}, () => ({
+  x: Math.random()*window.innerWidth,
+  y: Math.random()*window.innerHeight,
+  r: Math.random()*2.5+0.5,
+  vx: (Math.random()-0.5)*0.5,
+  vy: (Math.random()-0.5)*0.5,
+  alpha: Math.random()*0.6+0.2,
+  color: ['#00e5ff','#00e676','#ffc107','#ff4081','#7c4dff'][Math.floor(Math.random()*5)]
+}));
+
+let frame = 0;
+
+function drawBio() {
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#060d1a';
+  ctx.fillRect(0,0,W,H);
+
+  frame++;
+
+  // Floating cells
+  cells.forEach(c => {
+    c.x += c.vx; c.y += c.vy;
+    c.pulse += 0.02;
+    if(c.x<-c.r*2) c.x=W+c.r; if(c.x>W+c.r*2) c.x=-c.r;
+    if(c.y<-c.r*2) c.y=H+c.r; if(c.y>H+c.r*2) c.y=-c.r;
+    const glow = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r);
+    glow.addColorStop(0, `hsla(${c.hue},80%,60%,0.12)`);
+    glow.addColorStop(0.5, `hsla(${c.hue},80%,50%,0.06)`);
+    glow.addColorStop(1, `hsla(${c.hue},80%,40%,0)`);
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, c.r*(1+0.08*Math.sin(c.pulse)), 0, Math.PI*2);
+    ctx.fillStyle = glow;
+    ctx.fill();
+    ctx.strokeStyle = `hsla(${c.hue},80%,60%,0.18)`;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    // Organelle dot
+    ctx.beginPath();
+    ctx.arc(c.x+c.r*0.2, c.y-c.r*0.2, c.r*0.25, 0, Math.PI*2);
+    ctx.fillStyle = `hsla(${c.hue},60%,70%,0.15)`;
+    ctx.fill();
+  });
+
+  // DNA Helices
+  helices.forEach(h => {
+    h.phase += h.speed;
+    const amp = 22, spacing = 14, len = H;
+    for(let y=0; y<len; y+=4) {
+      const s = Math.sin(y*0.04 + h.phase);
+      const x1 = h.x + s*amp;
+      const x2 = h.x - s*amp;
+      const alpha = 0.07 + 0.04*s;
+      // Strand 1
+      ctx.beginPath();
+      ctx.arc(x1, y, 2, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(0,229,255,${alpha})`;
+      ctx.fill();
+      // Strand 2
+      ctx.beginPath();
+      ctx.arc(x2, y, 2, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(0,230,118,${alpha})`;
+      ctx.fill();
+      // Rungs
+      if(y % spacing < 4) {
+        ctx.beginPath();
+        ctx.moveTo(x1, y); ctx.lineTo(x2, y);
+        ctx.strokeStyle = `rgba(255,193,7,${alpha*0.7})`;
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+      }
+    }
+  });
+
+  // Particles
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    if(p.x<0) p.x=W; if(p.x>W) p.x=0;
+    if(p.y<0) p.y=H; if(p.y>H) p.y=0;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    ctx.fillStyle = p.color + Math.floor(p.alpha*255).toString(16).padStart(2,'0');
+    ctx.fill();
+  });
+
+  // Microscope rings (corners)
+  [[50,50],[W-50,50],[50,H-50],[W-50,H-50]].forEach(([cx,cy],i) => {
+    const pulse = Math.sin(frame*0.015 + i*1.2);
+    for(let r=8; r<36; r+=8) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + pulse*3, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(0,229,255,${0.06-r*0.001})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  });
+
+  // Molecule sparkles (random)
+  if(frame % 40 === 0) {
+    const sx = Math.random()*W, sy = Math.random()*H;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 3, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,193,7,0.6)';
+    ctx.fill();
+    ctx.shadowColor = '#ffc107';
+    ctx.shadowBlur = 8;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  requestAnimationFrame(drawBio);
+}
+drawBio();
+
+/* ══════════════════════════════════════════════════════════════
+   UTILITY
+══════════════════════════════════════════════════════════════ */
+function shuffle(arr) {
+  const a = [...arr];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+function setProgress(p) {
+  document.getElementById('progressFill').style.width = p+'%';
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ACTIVITY 1 — MEMORY MATCH
+══════════════════════════════════════════════════════════════ */
+const memPairs = [
+  { id:'a', front:'🔬', back:'Cas9', desc:'Molecular scissors that cut DNA', color:'#00e5ff' },
+  { id:'b', front:'🧭', back:'Guide RNA', desc:'GPS navigator that finds the target gene', color:'#7c4dff' },
+  { id:'c', front:'📖', back:'DNA', desc:'The recipe book of life in every cell', color:'#ffc107' },
+  { id:'d', front:'✂️+🩹', back:'CRISPR', desc:'Find, Cut & Repair gene editing tool', color:'#00e676' },
+  // duplicate pairs (desc side)
+  { id:'a', front:'✂️', back:'Cas9', desc:'Cuts the DNA at the exact location found', color:'#00e5ff', isMatch:true },
+  { id:'b', front:'🗺️', back:'Guide RNA', desc:'Directs Cas9 to the exact wrong gene', color:'#7c4dff', isMatch:true },
+  { id:'c', front:'🧬', back:'DNA', desc:'Holds the genetic instructions of life', color:'#ffc107', isMatch:true },
+  { id:'d', front:'🔧', back:'CRISPR', desc:'The complete gene-editing molecular system', color:'#00e676', isMatch:true }
+];
+
+let flipped1 = [], matched1 = 0, canFlip = true;
+
+function initAct1() {
+  flipped1 = []; matched1 = 0; canFlip = true;
+  document.getElementById('act1-score').textContent = 'Pairs found: 0 / 4';
+  document.getElementById('act1-msg').textContent = '';
+  const grid = document.getElementById('act1-grid');
+  grid.innerHTML = '';
+  const shuffled = shuffle(memPairs);
+  shuffled.forEach((pair, idx) => {
+    const card = document.createElement('div');
+    card.className = 'mem-card';
+    card.dataset.id = pair.id;
+    card.dataset.idx = idx;
+    card.innerHTML = `
+      <div class="mem-card-inner">
+        <div class="mem-card-front" style="font-size:28px;">🧫</div>
+        <div class="mem-card-back" style="border-color:${pair.color};color:${pair.color};">
+          <div style="font-size:20px;margin-bottom:3px;">${pair.front}</div>
+          <div style="font-size:clamp(8px,1vw,11px);font-weight:700;color:white;">${pair.back}</div>
+          <div style="font-size:clamp(7px,0.9vw,9px);color:rgba(255,255,255,0.65);margin-top:2px;">${pair.desc}</div>
+        </div>
+      </div>
+    `;
+    card.addEventListener('click', () => flipCard1(card));
+    grid.appendChild(card);
+  });
+}
+
+function flipCard1(card) {
+  if(!canFlip || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+  card.classList.add('flipped');
+  flipped1.push(card);
+  if(flipped1.length === 2) {
+    canFlip = false;
+    setTimeout(check1, 800);
+  }
+}
+
+function check1() {
+  const [a,b] = flipped1;
+  if(a.dataset.id === b.dataset.id) {
+    a.classList.add('matched'); b.classList.add('matched');
+    a.classList.remove('flipped'); b.classList.remove('flipped');
+    matched1++;
+    document.getElementById('act1-score').textContent = `Pairs found: ${matched1} / 4`;
+    document.getElementById('act1-msg').textContent = ['🎉 Match!','✨ Great pair!','🧬 Correct!','🔬 You got it!'][matched1-1]||'';
+    if(matched1 === 4) setTimeout(() => document.getElementById('popup1').classList.add('show'), 600);
+  } else {
+    a.classList.add('wrong'); b.classList.add('wrong');
+    document.getElementById('act1-msg').textContent = '❌ Not a match, try again!';
+    setTimeout(() => {
+      a.classList.remove('flipped','wrong');
+      b.classList.remove('flipped','wrong');
+    }, 800);
+  }
+  flipped1 = [];
+  canFlip = true;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ACTIVITY 2 — PIPELINE DRAG
+══════════════════════════════════════════════════════════════ */
+const pipelineSteps = [
+  { id:'dna',    label:'🧬 Target DNA',      color:'#00e5ff', bg:'rgba(0,229,255,0.12)', desc:'The genetic sequence to fix' },
+  { id:'grna',   label:'🧭 Guide RNA',       color:'#7c4dff', bg:'rgba(124,77,255,0.12)', desc:'Locates the faulty gene' },
+  { id:'cas9',   label:'✂️ Cas9',            color:'#ffc107', bg:'rgba(255,193,7,0.12)', desc:'Cuts the DNA strand' },
+  { id:'repair', label:'🩹 Repair System',   color:'#00e676', bg:'rgba(0,230,118,0.12)', desc:'Fixes the cut with new code' },
+  { id:'editdna',label:'✅ Edited DNA',      color:'#ff4081', bg:'rgba(255,64,129,0.12)', desc:'Corrected genetic sequence' },
+];
+const pipeOrder = ['dna','grna','cas9','repair','editdna'];
+
+let pipe2Slots = {};
+let drag2Card = null;
+
+function initAct2() {
+  pipe2Slots = {};
+  document.getElementById('act2-msg').textContent = '';
+
+  // Build slots
+  const zone = document.getElementById('act2-dropzone');
+  zone.innerHTML = '';
+  pipeOrder.forEach((id, i) => {
+    if(i>0) {
+      const arr = document.createElement('div');
+      arr.className = 'pipe-arrow';
+      arr.textContent = '→';
+      zone.appendChild(arr);
+    }
+    const slot = document.createElement('div');
+    slot.className = 'pipe-slot';
+    slot.dataset.slot = id;
+    const lbl = document.createElement('div');
+    lbl.className = 'slot-label';
+    lbl.textContent = `Step ${i+1}`;
+    slot.appendChild(lbl);
+    const hint = document.createElement('div');
+    hint.textContent = ['Find DNA','Add GPS','Cut!','Repair','Done!'][i];
+    hint.style.cssText = 'font-size:9px;color:rgba(255,255,255,0.3);margin-top:2px;';
+    slot.appendChild(hint);
+    slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('over'); });
+    slot.addEventListener('dragleave', () => slot.classList.remove('over'));
+    slot.addEventListener('drop', e => { e.preventDefault(); slot.classList.remove('over'); dropOnPipe2(slot); });
+    zone.appendChild(slot);
+  });
+
+  // Build bank (shuffled)
+  const bank = document.getElementById('act2-bank');
+  bank.innerHTML = '';
+  shuffle(pipelineSteps).forEach(step => {
+    const card = document.createElement('div');
+    card.className = 'pipe-card';
+    card.draggable = true;
+    card.dataset.id = step.id;
+    card.style.cssText = `color:${step.color};background:${step.bg};border-color:${step.color}40;`;
+    card.innerHTML = `${step.label}<br><span style="font-size:9px;color:rgba(255,255,255,0.5);font-weight:400;">${step.desc}</span>`;
+    card.addEventListener('dragstart', e => { drag2Card = card; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+    card.addEventListener('dragend', () => { drag2Card=null; card.classList.remove('dragging'); });
+    bank.appendChild(card);
+  });
+}
+
+function dropOnPipe2(slot) {
+  if(!drag2Card) return;
+  const droppedCard = drag2Card;
+  const slotId = slot.dataset.slot;
+  const cardId = droppedCard.dataset.id;
+
+  // If slot already filled, put previous back
+  if(pipe2Slots[slotId]) {
+    const old = pipe2Slots[slotId];
+    const oldCard = document.querySelector(`#act2-bank .pipe-card[data-id="${old}"]`);
+    if(!oldCard) {
+      // Re-create
+      const step = pipelineSteps.find(s=>s.id===old);
+      const c = document.createElement('div');
+      c.className = 'pipe-card';
+      c.draggable = true;
+      c.dataset.id = step.id;
+      c.style.cssText = `color:${step.color};background:${step.bg};border-color:${step.color}40;`;
+      c.innerHTML = `${step.label}<br><span style="font-size:9px;color:rgba(255,255,255,0.5);font-weight:400;">${step.desc}</span>`;
+      c.addEventListener('dragstart', e => { drag2Card=c; c.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+      c.addEventListener('dragend', () => { drag2Card=null; c.classList.remove('dragging'); });
+      document.getElementById('act2-bank').appendChild(c);
+    }
+  }
+
+  pipe2Slots[slotId] = cardId;
+  const step = pipelineSteps.find(s=>s.id===cardId);
+
+  // Clear slot inner (keep label)
+  const lbl = slot.querySelector('.slot-label').outerHTML;
+  slot.innerHTML = lbl;
+  const inner = document.createElement('div');
+  inner.style.cssText = `font-size:10px;font-weight:700;color:${step.color};text-align:center;margin-top:4px;`;
+  inner.textContent = step.label;
+  slot.appendChild(inner);
+  slot.classList.add('filled');
+
+  // Hide card from bank
+  droppedCard.style.display = 'none';
+
+  // Check correctness
+  if(cardId !== slotId) {
+    slot.classList.add('wrong-slot');
+    document.getElementById('act2-msg').textContent = '❌ Not quite — try a different slot!';
+    setTimeout(()=>{
+      slot.classList.remove('wrong-slot','filled');
+      const lbl2 = slot.querySelector('.slot-label').outerHTML;
+      const hint = ['Find DNA','Add GPS','Cut!','Repair','Done!'][pipeOrder.indexOf(slotId)];
+      slot.innerHTML = lbl2;
+      const h = document.createElement('div');
+      h.textContent = hint;
+      h.style.cssText = 'font-size:9px;color:rgba(255,255,255,0.3);margin-top:2px;';
+      slot.appendChild(h);
+      // restore card
+      droppedCard.style.display='';
+      delete pipe2Slots[slotId];
+    },800);
+  } else {
+    slot.classList.remove('wrong-slot');
+    document.getElementById('act2-msg').textContent = '✅ Correct placement!';
+    checkPipe2Complete();
+  }
+}
+
+function checkPipe2Complete() {
+  const allCorrect = pipeOrder.every(id => pipe2Slots[id] === id);
+  if(allCorrect) setTimeout(()=>document.getElementById('popup2').classList.add('show'),600);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ACTIVITY 3 — SORT TIMELINE
+══════════════════════════════════════════════════════════════ */
+const timelineSteps = [
+  { id:'t1', label:'🔍 Identify the faulty gene',     icon:'🔍', color:'#00e5ff', bg:'rgba(0,229,255,0.12)',  detail:'Find the genetic typo causing disease' },
+  { id:'t2', label:'🧭 Program the Guide RNA',        icon:'🧭', color:'#7c4dff', bg:'rgba(124,77,255,0.12)', detail:'Set the GPS to target the exact mutation' },
+  { id:'t3', label:'✂️ Cas9 cuts the DNA strand',    icon:'✂️', color:'#ffc107', bg:'rgba(255,193,7,0.12)',  detail:'Molecular scissors slice at the right spot' },
+  { id:'t4', label:'🩹 Insert the healthy sequence', icon:'🩹', color:'#00e676', bg:'rgba(0,230,118,0.12)', detail:'New correct gene code is written in' },
+  { id:'t5', label:'✅ Verify the edited DNA',        icon:'✅', color:'#ff4081', bg:'rgba(255,64,129,0.12)', detail:'Check that the correction worked perfectly' },
+  { id:'t6', label:'🌍 Apply to help the world',     icon:'🌍', color:'#ffc107', bg:'rgba(255,193,7,0.12)',  detail:'Use in medicine, crops, or disease prevention' },
+];
+
+let sort3Slots = {};
+let drag3Card = null;
+let sort3Correct = 0;
+
+function initAct3() {
+  sort3Slots = {}; sort3Correct = 0;
+  document.getElementById('act3-msg').textContent = '';
+
+  // Timeline slots
+  const timeline = document.getElementById('act3-timeline');
+  timeline.innerHTML = '';
+  timelineSteps.forEach((step, i) => {
+    const row = document.createElement('div');
+    row.className = 'timeline-step';
+    const num = document.createElement('div');
+    num.className = 'step-num';
+    num.textContent = i+1;
+    const slot = document.createElement('div');
+    slot.className = 'timeline-slot';
+    slot.dataset.slot = step.id;
+    slot.dataset.pos = i;
+    slot.textContent = 'Drop here...';
+    slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('over'); });
+    slot.addEventListener('dragleave', () => slot.classList.remove('over'));
+    slot.addEventListener('drop', e => { e.preventDefault(); slot.classList.remove('over'); dropOnSort3(slot); });
+    row.appendChild(num);
+    row.appendChild(slot);
+    timeline.appendChild(row);
+  });
+
+  // Bank (shuffled)
+  const bank = document.getElementById('act3-bank');
+  // keep title
+  const title = bank.querySelector('#act3-bank-title');
+  bank.innerHTML = '';
+  bank.appendChild(title);
+  shuffle(timelineSteps).forEach(step => {
+    const card = document.createElement('div');
+    card.className = 'sort-card';
+    card.draggable = true;
+    card.dataset.id = step.id;
+    card.style.cssText = `background:${step.bg};border-color:${step.color}50;`;
+    card.innerHTML = `<span style="font-size:16px;">${step.icon}</span><span style="color:${step.color};font-size:clamp(9px,1vw,11px);">${step.label.replace(step.icon,'').trim()}</span>`;
+    card.addEventListener('dragstart', e => { drag3Card = card; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+    card.addEventListener('dragend', () => { drag3Card=null; card.classList.remove('dragging'); });
+    bank.appendChild(card);
+  });
+}
+
+function dropOnSort3(slot) {
+  if(!drag3Card) return;
+  const slotId = slot.dataset.slot;
+  const cardId = drag3Card.dataset.id;
+
+  const step = timelineSteps.find(s=>s.id===cardId);
+
+  if(cardId !== slotId) {
+    // Wrong
+    slot.classList.add('wrong-slot-tl');
+    document.getElementById('act3-msg').textContent = '❌ Not in the right order — think again!';
+    setTimeout(()=>slot.classList.remove('wrong-slot-tl'),600);
+    return;
+  }
+
+  // Correct!
+  sort3Slots[slotId] = cardId;
+  sort3Correct++;
+  slot.innerHTML = `<span style="font-size:18px;margin-right:8px;">${step.icon}</span><span style="color:${step.color};font-weight:700;">${step.label.replace(step.icon,'').trim()}</span><span style="font-size:9px;color:rgba(255,255,255,0.5);margin-left:8px;">${step.detail}</span>`;
+  slot.classList.add('filled','correct-slot');
+
+  // Remove from bank
+  drag3Card.style.opacity = '0';
+  drag3Card.style.transform = 'scale(0.5)';
+  drag3Card.style.transition = 'all 0.3s';
+  setTimeout(()=>{ drag3Card.style.display='none'; },300);
+
+  const msgs = ['🧬 Step 1 locked!','🧭 GPS set!','✂️ Cut made!','🩹 Healing!','✅ Verified!','🌍 Mission Complete!'];
+  document.getElementById('act3-msg').textContent = msgs[sort3Correct-1] || '';
+
+  if(sort3Correct === 6) {
+    setTimeout(()=>{
+      launchCelebration();
+      document.getElementById('popup3').classList.add('show');
+    }, 700);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CELEBRATION
+══════════════════════════════════════════════════════════════ */
+function launchCelebration() {
+  const cc = document.getElementById('confetti-container');
+  cc.innerHTML = '';
+  const colors = ['#ffc107','#00e5ff','#ff4081','#00e676','#7c4dff','#ffffff'];
+  for(let i=0;i<50;i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.cssText = `
+      left:${Math.random()*100}%;
+      top:${-10 - Math.random()*60}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-duration:${1.5+Math.random()*2}s;
+      animation-delay:${Math.random()*0.8}s;
+      transform:rotate(${Math.random()*360}deg);
+      border-radius:${Math.random()>0.5?'50%':'2px'};
+    `;
+    cc.appendChild(p);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════════════════════════════ */
+let currentActivity = 1;
+
+function goToActivity(n) {
+  document.querySelectorAll('.popup-overlay').forEach(p=>p.classList.remove('show'));
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.getElementById('activity'+n).classList.add('active');
+  currentActivity = n;
+  setProgress(n===1?0:n===2?33:n===3?66:100);
+  if(n===2) initAct2();
+  if(n===3) initAct3();
+}
+
+function resetCurrentActivity() {
+  if(currentActivity===1) initAct1();
+  if(currentActivity===2) initAct2();
+  if(currentActivity===3) initAct3();
+}
+
+function playAgain() {
+  document.querySelectorAll('.popup-overlay').forEach(p=>p.classList.remove('show'));
+  goToActivity(1);
+  initAct1();
+  setProgress(0);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════════════ */
+initAct1();
+setProgress(0);
+</script>
+</body>
+</html>

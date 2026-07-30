@@ -1,0 +1,1426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arduino Capstone — Design Your Own IoT Gadget</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ocean-deep: #0a1628;
+    --ocean-mid: #0d2b4e;
+    --ocean-light: #1a4a7a;
+    --ocean-surface: #1e6fa5;
+    --teal: #00c9b8;
+    --teal-glow: #00f5e4;
+    --coral: #ff6b6b;
+    --coral-bright: #ff4757;
+    --sand: #f4c842;
+    --sand-glow: #ffe066;
+    --seaweed: #2ecc71;
+    --seaweed-dark: #1a8a4a;
+    --jellyfish: #d89eff;
+    --jellyfish-glow: #c266ff;
+    --white: #ffffff;
+    --bubble: rgba(255,255,255,0.15);
+    --text-light: #e8f4fd;
+  }
+
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    font-family: 'Nunito', sans-serif;
+  }
+
+  body {
+    background: var(--ocean-deep);
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+
+  /* ===== OCEAN BACKGROUND ===== */
+  #ocean-bg {
+    position: fixed; inset: 0; z-index: 0; overflow: hidden;
+    background: linear-gradient(180deg, #061220 0%, #0a2040 25%, #0d3060 55%, #0f4080 80%, #1a5090 100%);
+  }
+
+  /* Light rays */
+  .ray {
+    position: absolute; top: -20%; width: 60px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 100%);
+    transform-origin: top center;
+    animation: raySwing 8s ease-in-out infinite;
+  }
+  .ray:nth-child(1){left:10%;height:70%;transform:rotate(-15deg);animation-delay:0s}
+  .ray:nth-child(2){left:25%;height:90%;transform:rotate(-8deg);animation-delay:1.5s;width:40px}
+  .ray:nth-child(3){left:45%;height:80%;transform:rotate(5deg);animation-delay:3s}
+  .ray:nth-child(4){left:65%;height:60%;transform:rotate(12deg);animation-delay:0.5s;width:30px}
+  .ray:nth-child(5){left:82%;height:75%;transform:rotate(20deg);animation-delay:2s}
+  @keyframes raySwing {
+    0%,100%{opacity:0.4;transform:rotate(var(--r,-10deg)) scaleX(1)}
+    50%{opacity:0.8;transform:rotate(calc(var(--r,-10deg) + 5deg)) scaleX(1.2)}
+  }
+
+  /* Sand floor */
+  .sand-floor {
+    position: absolute; bottom: 0; width: 100%; height: 80px;
+    background: linear-gradient(180deg, transparent 0%, #8b6914 40%, #a07820 100%);
+  }
+  .sand-floor::before {
+    content:''; position:absolute; inset:0;
+    background: radial-gradient(ellipse 120px 20px at 15% 60%, rgba(255,220,80,0.3) 0%, transparent 70%),
+                radial-gradient(ellipse 90px 15px at 40% 70%, rgba(255,200,60,0.2) 0%, transparent 70%),
+                radial-gradient(ellipse 100px 18px at 70% 65%, rgba(255,210,70,0.25) 0%, transparent 70%),
+                radial-gradient(ellipse 80px 12px at 90% 60%, rgba(255,220,80,0.2) 0%, transparent 70%);
+  }
+
+  /* Seaweed */
+  .seaweed {
+    position: absolute; bottom: 60px;
+    width: 18px; border-radius: 50% 50% 0 0;
+    transform-origin: bottom center;
+    animation: sway 3s ease-in-out infinite;
+  }
+  .seaweed::before, .seaweed::after {
+    content: ''; position: absolute;
+    width: 14px; border-radius: 50%;
+    animation: sway 3s ease-in-out infinite reverse;
+  }
+  @keyframes sway {
+    0%,100%{transform:rotate(-8deg)} 50%{transform:rotate(8deg)}
+  }
+  /* Generate seaweed positions via inline styles in HTML */
+
+  /* Coral SVG-style decorations */
+  .coral-group { position: absolute; bottom: 55px; }
+
+  /* Bubbles */
+  .bubble {
+    position: absolute; border-radius: 50%;
+    background: var(--bubble);
+    border: 1px solid rgba(255,255,255,0.25);
+    animation: bubbleRise linear infinite;
+  }
+  @keyframes bubbleRise {
+    0%{transform:translateY(0) translateX(0);opacity:0.8}
+    50%{transform:translateY(-50vh) translateX(15px);opacity:0.5}
+    100%{transform:translateY(-100vh) translateX(-10px);opacity:0}
+  }
+
+  /* Jellyfish */
+  .jellyfish {
+    position: absolute;
+    animation: jellydrift ease-in-out infinite;
+  }
+  .jelly-body {
+    border-radius: 50% 50% 0 0;
+    background: radial-gradient(ellipse at 40% 35%, rgba(255,255,255,0.4) 0%, var(--jellyfish) 60%, var(--jellyfish-glow) 100%);
+    filter: drop-shadow(0 0 12px var(--jellyfish-glow));
+    animation: jellyPulse 2s ease-in-out infinite;
+  }
+  .jelly-tentacles {
+    display: flex; justify-content: center; gap: 3px; margin-top: 2px;
+  }
+  .jelly-tentacle {
+    width: 2px; border-radius: 2px;
+    background: linear-gradient(180deg, var(--jellyfish) 0%, transparent 100%);
+    animation: tentacleWave ease-in-out infinite;
+  }
+  @keyframes jellyPulse {
+    0%,100%{transform:scaleY(1)} 50%{transform:scaleY(0.88)}
+  }
+  @keyframes jellydrift {
+    0%,100%{transform:translateY(0) translateX(0)}
+    33%{transform:translateY(-25px) translateX(18px)}
+    66%{transform:translateY(-12px) translateX(-12px)}
+  }
+  @keyframes tentacleWave {
+    0%,100%{transform:rotate(-5deg)} 50%{transform:rotate(5deg)}
+  }
+
+  /* Fish */
+  .fish {
+    position: absolute;
+    animation: fishSwim linear infinite;
+  }
+  .fish-body { display: flex; align-items: center; }
+  @keyframes fishSwim {
+    0%{transform:translateX(-80px)} 100%{transform:translateX(calc(100vw + 120px))}
+  }
+
+  /* Treasure chest */
+  .treasure {
+    position: absolute; bottom: 62px;
+    animation: shimmer 2s ease-in-out infinite;
+  }
+  @keyframes shimmer {
+    0%,100%{filter:drop-shadow(0 0 8px var(--sand-glow))}
+    50%{filter:drop-shadow(0 0 20px var(--sand-glow))}
+  }
+
+  /* Floating coins */
+  .coin {
+    position: absolute; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, var(--sand-glow) 0%, var(--sand) 60%, #c8960a 100%);
+    border: 2px solid #e6aa20;
+    animation: coinFloat ease-in-out infinite, coinSpin linear infinite;
+    filter: drop-shadow(0 0 6px var(--sand-glow));
+  }
+  @keyframes coinFloat {
+    0%,100%{transform:translateY(0) rotate3d(0,1,0,0deg)}
+    50%{transform:translateY(-18px) rotate3d(0,1,0,180deg)}
+  }
+  @keyframes coinSpin { 0%{} 100%{transform:rotateY(360deg)} }
+
+  /* Stars */
+  .star {
+    position: absolute; border-radius: 50%;
+    background: rgba(255,255,255,0.7);
+    animation: twinkle ease-in-out infinite;
+  }
+  @keyframes twinkle {
+    0%,100%{opacity:0.3;transform:scale(1)}
+    50%{opacity:1;transform:scale(1.4)}
+  }
+
+  /* ===== HEADER ===== */
+  #header {
+    position: relative; z-index: 10;
+    padding: 10px 20px 6px;
+    background: linear-gradient(180deg, rgba(6,18,32,0.95) 0%, rgba(10,22,40,0.8) 100%);
+    border-bottom: 2px solid rgba(0,201,184,0.4);
+    text-align: center;
+    flex-shrink: 0;
+  }
+  #header h1 {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(16px, 2.2vw, 26px);
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, var(--teal-glow), var(--sand-glow), var(--teal-glow));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    animation: titleShine 4s linear infinite;
+    background-size: 200% 100%;
+  }
+  @keyframes titleShine {
+    0%{background-position:0% 0%} 100%{background-position:200% 0%}
+  }
+  #header .subtitle {
+    font-size: 11px; color: rgba(200,230,255,0.7); letter-spacing: 3px;
+    text-transform: uppercase; margin-top: 2px;
+  }
+
+  /* Progress dots */
+  #progress-bar {
+    display: flex; justify-content: center; align-items: center; gap: 16px;
+    margin-top: 6px;
+  }
+  .prog-step {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; color: rgba(200,230,255,0.5);
+    transition: all 0.4s;
+  }
+  .prog-step.active { color: var(--teal-glow); }
+  .prog-step.done { color: var(--sand-glow); }
+  .prog-dot {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid rgba(200,230,255,0.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 800; transition: all 0.4s;
+  }
+  .prog-step.active .prog-dot {
+    border-color: var(--teal-glow);
+    background: rgba(0,245,228,0.15);
+    box-shadow: 0 0 10px var(--teal-glow);
+    color: var(--teal-glow);
+  }
+  .prog-step.done .prog-dot {
+    border-color: var(--sand-glow);
+    background: rgba(255,224,102,0.2);
+    color: var(--sand-glow);
+  }
+  .prog-line {
+    width: 40px; height: 2px;
+    background: rgba(200,230,255,0.2);
+    transition: background 0.4s;
+  }
+  .prog-line.done { background: var(--sand-glow); }
+
+  /* ===== MAIN AREA ===== */
+  #main {
+    position: relative; z-index: 10; flex: 1;
+    display: flex; align-items: center; justify-content: center;
+    padding: 10px 20px;
+    overflow: hidden;
+  }
+
+  /* Activity Panel */
+  .activity-panel {
+    background: linear-gradient(145deg, rgba(10,22,40,0.92) 0%, rgba(13,43,78,0.92) 100%);
+    border: 2px solid rgba(0,201,184,0.35);
+    border-radius: 20px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 0 40px rgba(0,201,184,0.15), 0 0 80px rgba(0,100,200,0.1);
+    padding: 18px 22px;
+    width: 100%; max-width: 860px;
+    max-height: calc(100vh - 140px);
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .activity-panel.active { display: flex; }
+
+  .act-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0,201,184,0.2);
+  }
+  .act-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(14px, 1.8vw, 20px);
+    color: var(--teal-glow);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .act-badge {
+    background: linear-gradient(135deg, var(--teal) 0%, var(--ocean-surface) 100%);
+    color: white; font-size: 10px; font-weight: 800;
+    padding: 3px 10px; border-radius: 20px; letter-spacing: 1px;
+  }
+  .act-instruction {
+    font-size: clamp(11px, 1.2vw, 13px); color: var(--text-light);
+    opacity: 0.8; line-height: 1.4;
+  }
+
+  /* Reset button */
+  .btn-reset {
+    background: rgba(255,107,107,0.15);
+    border: 1.5px solid var(--coral);
+    color: var(--coral); font-family: 'Nunito', sans-serif;
+    font-weight: 700; font-size: 12px;
+    padding: 5px 14px; border-radius: 20px; cursor: pointer;
+    transition: all 0.25s;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .btn-reset:hover {
+    background: var(--coral); color: white;
+    box-shadow: 0 0 12px rgba(255,107,107,0.5);
+  }
+
+  /* ===== ACTIVITY 1 — Card Matching ===== */
+  #act1-area {
+    display: flex; gap: 16px; flex: 1; overflow: hidden;
+  }
+
+  .match-column {
+    flex: 1; display: flex; flex-direction: column; gap: 8px;
+  }
+  .col-label {
+    font-size: 10px; font-weight: 800; letter-spacing: 2px;
+    text-transform: uppercase; text-align: center;
+    padding: 4px 8px; border-radius: 8px; margin-bottom: 2px;
+  }
+  .col-label.problems { background: rgba(255,107,107,0.2); color: #ff9f9f; }
+  .col-label.sensors { background: rgba(0,201,184,0.2); color: var(--teal-glow); }
+  .col-label.actuators { background: rgba(216,158,255,0.2); color: var(--jellyfish); }
+  .col-label.boards { background: rgba(244,200,66,0.2); color: var(--sand-glow); }
+
+  .draggable-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);
+    border: 1.5px solid rgba(255,255,255,0.12);
+    border-radius: 10px; padding: 7px 10px;
+    font-size: clamp(10px, 1.1vw, 12px); font-weight: 600; color: var(--text-light);
+    cursor: grab; transition: all 0.2s; text-align: center;
+    user-select: none;
+  }
+  .draggable-card:hover {
+    border-color: var(--teal); background: rgba(0,201,184,0.1);
+    transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,201,184,0.2);
+  }
+  .draggable-card.dragging {
+    opacity: 0.5; cursor: grabbing;
+  }
+  .draggable-card .card-icon { font-size: 18px; display: block; margin-bottom: 2px; }
+
+  .drop-zone {
+    border: 2px dashed rgba(255,255,255,0.2);
+    border-radius: 10px; padding: 7px 10px;
+    min-height: 52px; font-size: 11px;
+    color: rgba(255,255,255,0.3); text-align: center;
+    transition: all 0.2s; display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .drop-zone.drag-over {
+    border-color: var(--teal-glow); background: rgba(0,245,228,0.08);
+    box-shadow: 0 0 12px rgba(0,245,228,0.2);
+  }
+  .drop-zone.correct {
+    border-color: var(--seaweed); background: rgba(46,204,113,0.12);
+    color: var(--seaweed);
+  }
+  .drop-zone.incorrect {
+    border-color: var(--coral); background: rgba(255,107,107,0.1);
+    color: var(--coral); animation: shake 0.4s ease;
+  }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)}
+  }
+
+  .problem-row {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px; padding: 8px 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .problem-label {
+    font-size: clamp(9px, 1vw, 11px); font-weight: 700; color: #ff9f9f;
+    min-width: 130px; flex-shrink: 0;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .problem-label .icon { font-size: 16px; }
+  .problem-drops { display: flex; gap: 8px; flex: 1; }
+  .problem-drops .drop-zone { flex: 1; min-height: 44px; }
+
+  /* Check btn */
+  .btn-check {
+    background: linear-gradient(135deg, var(--teal) 0%, var(--ocean-surface) 100%);
+    border: none; color: white; font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: 13px; padding: 8px 24px;
+    border-radius: 20px; cursor: pointer; transition: all 0.25s;
+    box-shadow: 0 4px 15px rgba(0,201,184,0.3);
+    display: block; margin: 0 auto;
+  }
+  .btn-check:hover {
+    transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,201,184,0.5);
+  }
+
+  /* ===== ACTIVITY 2 — Sequence Sorting ===== */
+  #act2-area {
+    display: grid;
+    grid-template-columns: 190px 1fr;
+    grid-template-rows: 1fr auto;
+    gap: 14px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .seq-source {
+    grid-column: 1; grid-row: 1 / 3;
+    display: flex; flex-direction: column; gap: 5px;
+    overflow-y: auto; overflow-x: hidden;
+    padding-right: 4px;
+  }
+  .seq-source::-webkit-scrollbar { width: 4px; }
+  .seq-source::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius:4px; }
+  .seq-source::-webkit-scrollbar-thumb { background: rgba(216,158,255,0.3); border-radius:4px; }
+
+  .seq-source-label {
+    font-size: 10px; font-weight: 800; letter-spacing: 2px;
+    color: rgba(200,230,255,0.6); text-transform: uppercase; margin-bottom: 2px;
+    flex-shrink: 0;
+  }
+
+  .seq-card {
+    background: linear-gradient(135deg, rgba(216,158,255,0.1) 0%, rgba(194,102,255,0.05) 100%);
+    border: 1.5px solid rgba(216,158,255,0.3);
+    border-radius: 10px; padding: 7px 10px;
+    font-size: 11px; font-weight: 700; color: var(--text-light);
+    cursor: grab; user-select: none; transition: all 0.2s;
+    display: flex; align-items: center; gap: 7px;
+    flex-shrink: 0;
+  }
+  .seq-card:hover {
+    border-color: var(--jellyfish-glow); background: rgba(216,158,255,0.15);
+    transform: translateX(3px);
+  }
+  .seq-card.dragging { opacity: 0.4; }
+  .seq-card .seq-icon { font-size: 15px; flex-shrink: 0; }
+
+  .seq-pipeline {
+    grid-column: 2; grid-row: 1;
+    display: flex; flex-direction: column; gap: 5px;
+    overflow-y: auto; overflow-x: hidden;
+    padding-right: 4px; min-height: 0;
+  }
+  .seq-pipeline::-webkit-scrollbar { width: 4px; }
+  .seq-pipeline::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius:4px; }
+  .seq-pipeline::-webkit-scrollbar-thumb { background: rgba(0,201,184,0.3); border-radius:4px; }
+
+  .seq-pipeline-label {
+    font-size: 10px; font-weight: 800; letter-spacing: 2px;
+    color: rgba(200,230,255,0.6); text-transform: uppercase; margin-bottom: 2px;
+    flex-shrink: 0;
+  }
+  .seq-slots { display: flex; flex-direction: column; gap: 5px; }
+
+  .seq-slot {
+    border: 2px dashed rgba(216,158,255,0.25);
+    border-radius: 10px; padding: 7px 10px; min-height: 42px;
+    display: flex; align-items: center; gap: 8px;
+    transition: all 0.2s; position: relative; flex-shrink: 0;
+  }
+  .seq-slot-num {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: rgba(216,158,255,0.15);
+    border: 1.5px solid rgba(216,158,255,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 800; color: rgba(216,158,255,0.8);
+    flex-shrink: 0;
+  }
+  .seq-slot-hint {
+    font-size: 10px; color: rgba(255,255,255,0.2); font-style: italic;
+  }
+  .seq-slot.drag-over {
+    border-color: var(--jellyfish-glow); background: rgba(216,158,255,0.1);
+  }
+  .seq-slot.correct { border-color: var(--seaweed); background: rgba(46,204,113,0.08); }
+  .seq-slot.incorrect { border-color: var(--coral); animation: shake 0.4s ease; }
+
+  /* Act2 bottom row */
+  .act2-bottom-row {
+    grid-column: 2; grid-row: 2;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0; padding-top: 2px;
+  }
+
+  /* ===== ACTIVITY 3 — Board Drop (Capstone) ===== */
+  #act3-area { display: flex; gap: 14px; flex: 1; overflow: hidden; align-items: flex-start; }
+
+  .cap-source {
+    display: flex; flex-direction: column; gap: 6px;
+    width: 185px; flex-shrink: 0;
+  }
+
+  .cap-card {
+    background: linear-gradient(135deg, rgba(244,200,66,0.1) 0%, rgba(200,150,10,0.05) 100%);
+    border: 1.5px solid rgba(244,200,66,0.3);
+    border-radius: 8px; padding: 7px 10px;
+    font-size: 10px; font-weight: 700; color: var(--text-light);
+    cursor: grab; user-select: none; transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .cap-card:hover {
+    border-color: var(--sand-glow); background: rgba(244,200,66,0.15);
+    transform: scale(1.02);
+  }
+  .cap-card.dragging { opacity: 0.4; }
+  .cap-card .cap-icon { font-size: 14px; flex-shrink: 0; }
+
+  .cap-board {
+    flex: 1; position: relative;
+    background: linear-gradient(135deg, rgba(6,18,32,0.6) 0%, rgba(13,43,78,0.5) 100%);
+    border: 2px solid rgba(244,200,66,0.2);
+    border-radius: 16px; padding: 12px;
+    overflow: auto;
+  }
+  .cap-board-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 13px; color: var(--sand-glow);
+    text-align: center; margin-bottom: 10px; letter-spacing: 1px;
+  }
+  .cap-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .cap-slot {
+    border: 2px dashed rgba(244,200,66,0.2);
+    border-radius: 10px; padding: 7px 10px; min-height: 52px;
+    transition: all 0.2s; position: relative;
+  }
+  .cap-slot-label {
+    font-size: 9px; font-weight: 800; letter-spacing: 1.5px;
+    text-transform: uppercase; color: rgba(244,200,66,0.5);
+    margin-bottom: 4px;
+  }
+  .cap-slot-content {
+    min-height: 28px; display: flex; align-items: center;
+    font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.3);
+    font-style: italic;
+  }
+  .cap-slot.drag-over {
+    border-color: var(--sand-glow); background: rgba(244,200,66,0.08);
+  }
+  .cap-slot.correct { border-color: var(--seaweed); background: rgba(46,204,113,0.08); }
+  .cap-slot.correct .cap-slot-label { color: rgba(46,204,113,0.7); }
+  .cap-slot.incorrect { border-color: var(--coral); animation: shake 0.4s ease; }
+
+  /* ===== POPUPS ===== */
+  .popup-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+  .popup-box {
+    background: linear-gradient(145deg, rgba(10,22,40,0.98) 0%, rgba(13,43,78,0.98) 100%);
+    border: 2px solid rgba(0,201,184,0.4);
+    border-radius: 24px; padding: 32px 36px;
+    max-width: 420px; width: 90%; text-align: center;
+    box-shadow: 0 0 60px rgba(0,201,184,0.2), 0 0 120px rgba(0,100,200,0.15);
+    animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes popIn {
+    from{transform:scale(0.6);opacity:0} to{transform:scale(1);opacity:1}
+  }
+  .popup-emoji { font-size: 52px; margin-bottom: 12px; display: block; }
+  .popup-title {
+    font-family: 'Fredoka One', cursive; font-size: 24px;
+    color: var(--teal-glow); margin-bottom: 8px;
+  }
+  .popup-msg { font-size: 14px; color: var(--text-light); line-height: 1.5; margin-bottom: 20px; }
+  .popup-btn {
+    background: linear-gradient(135deg, var(--teal) 0%, var(--ocean-surface) 100%);
+    border: none; color: white; font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: 15px; padding: 10px 30px;
+    border-radius: 25px; cursor: pointer; transition: all 0.25s;
+    box-shadow: 0 4px 20px rgba(0,201,184,0.4);
+  }
+  .popup-btn:hover {
+    transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,201,184,0.6);
+  }
+  .popup-btn.gold {
+    background: linear-gradient(135deg, var(--sand) 0%, #c8960a 100%);
+    box-shadow: 0 4px 20px rgba(244,200,66,0.4);
+  }
+  .popup-btn.gold:hover { box-shadow: 0 8px 25px rgba(244,200,66,0.6); }
+
+  /* Celebration */
+  .celebrate-popup .popup-box {
+    border-color: var(--sand-glow);
+    box-shadow: 0 0 60px rgba(244,200,66,0.3), 0 0 120px rgba(244,200,66,0.15);
+  }
+  .celebrate-popup .popup-title { color: var(--sand-glow); font-size: 28px; }
+  .celebrate-icons { font-size: 28px; letter-spacing: 8px; margin: 10px 0; }
+  .celebrate-stars {
+    display: flex; justify-content: center; gap: 8px; margin: 10px 0;
+    font-size: 30px;
+    animation: starBounce 0.6s ease infinite alternate;
+  }
+  @keyframes starBounce {
+    from{transform:translateY(0)} to{transform:translateY(-8px)}
+  }
+
+  /* Feedback badge */
+  .feedback-badge {
+    position: absolute; top: -8px; right: -8px;
+    width: 24px; height: 24px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800;
+    box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    z-index: 5;
+  }
+  .feedback-badge.correct { background: var(--seaweed); color: white; }
+  .feedback-badge.incorrect { background: var(--coral); color: white; }
+
+  /* Score display */
+  .score-display {
+    text-align: center; font-size: 11px; color: rgba(200,230,255,0.6);
+    font-weight: 700;
+  }
+  .score-display span { color: var(--teal-glow); font-size: 15px; }
+
+  /* ===== CONFETTI ===== */
+  .confetti-piece {
+    position: fixed; z-index: 200; pointer-events: none;
+    border-radius: 2px;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0%{transform:translateY(-20px) rotate(0deg);opacity:1}
+    100%{transform:translateY(100vh) rotate(720deg);opacity:0}
+  }
+
+  /* Hidden utility */
+  .hidden { display: none !important; }
+
+</style>
+</head>
+<body>
+
+<!-- ===== OCEAN BACKGROUND ===== -->
+<div id="ocean-bg">
+  <div class="ray" style="--r:-15deg"></div>
+  <div class="ray" style="--r:-8deg"></div>
+  <div class="ray" style="--r:5deg"></div>
+  <div class="ray" style="--r:12deg"></div>
+  <div class="ray" style="--r:20deg"></div>
+  <div class="sand-floor"></div>
+</div>
+
+<!-- ===== HEADER ===== -->
+<div id="header">
+  <h1>🌊 Arduino Capstone — Design Your Own IoT Gadget 🤖</h1>
+  <div class="subtitle">Planrs Academy · Underwater Explorer Edition</div>
+  <div id="progress-bar">
+    <div class="prog-step active" id="prog1">
+      <div class="prog-dot">1</div>
+      <span>Match It</span>
+    </div>
+    <div class="prog-line" id="pline1"></div>
+    <div class="prog-step" id="prog2">
+      <div class="prog-dot">2</div>
+      <span>Sequence It</span>
+    </div>
+    <div class="prog-line" id="pline2"></div>
+    <div class="prog-step" id="prog3">
+      <div class="prog-dot">3</div>
+      <span>Capstone</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MAIN CONTENT ===== -->
+<div id="main">
+
+  <!-- ACTIVITY 1 -->
+  <div class="activity-panel active" id="act1">
+    <div class="act-header">
+      <div>
+        <div class="act-title">
+          <span class="act-badge">ACTIVITY 1</span>
+          🎯 Problem–Sensor–Actuator Match
+        </div>
+        <div class="act-instruction">Drag sensors, actuators, and the Arduino board to match each real-world problem correctly!</div>
+      </div>
+      <button class="btn-reset" onclick="resetAct1()">↺ Reset</button>
+    </div>
+
+    <div id="act1-area">
+      <!-- Drag Sources -->
+      <div class="match-column" style="max-width:160px">
+        <div class="col-label sensors">🔍 Sensors</div>
+        <div id="sensor-bank"></div>
+        <div class="col-label actuators" style="margin-top:8px">⚡ Actuators</div>
+        <div id="actuator-bank"></div>
+        <div class="col-label boards" style="margin-top:8px">🧠 Boards</div>
+        <div id="board-bank"></div>
+      </div>
+
+      <!-- Drop Zones -->
+      <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
+        <div id="problem-rows"></div>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-top:4px;">
+          <div class="score-display" id="act1-score">Score: <span>0</span>/3</div>
+          <button class="btn-check" onclick="checkAct1()">Check Answers 🐠</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 2 -->
+  <div class="activity-panel" id="act2">
+    <div class="act-header">
+      <div>
+        <div class="act-title">
+          <span class="act-badge">ACTIVITY 2</span>
+          🔄 IoT Development Workflow
+        </div>
+        <div class="act-instruction">Arrange the steps in the correct order to build an IoT gadget. Drag each step into its position on the pipeline!</div>
+      </div>
+      <button class="btn-reset" onclick="resetAct2()">↺ Reset</button>
+    </div>
+
+    <div id="act2-area">
+      <div class="seq-source">
+        <div class="seq-source-label">🎒 Step Cards</div>
+        <div id="seq-source-cards"></div>
+      </div>
+      <div class="seq-pipeline">
+        <div class="seq-pipeline-label">📋 Your Workflow Pipeline</div>
+        <div class="seq-slots" id="seq-slots"></div>
+      </div>
+      <div class="act2-bottom-row">
+        <div class="score-display" id="act2-score">Placed: <span>0</span>/7</div>
+        <button class="btn-check" onclick="checkAct2()">Check Sequence 🪸</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 3 -->
+  <div class="activity-panel" id="act3">
+    <div class="act-header">
+      <div>
+        <div class="act-title">
+          <span class="act-badge">ACTIVITY 3</span>
+          🏆 Capstone Challenge Board
+        </div>
+        <div class="act-instruction">Complete the full IoT project board! Drag each card to its correct slot on the blueprint.</div>
+      </div>
+      <button class="btn-reset" onclick="resetAct3()">↺ Reset</button>
+    </div>
+
+    <div id="act3-area">
+      <div class="cap-source">
+        <div class="seq-source-label">🎒 Project Cards</div>
+        <div id="cap-source-cards"></div>
+      </div>
+      <div class="cap-board">
+        <div class="cap-board-title">🗺️ Smart Gadget Blueprint</div>
+        <div class="cap-grid" id="cap-grid"></div>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-top:10px;">
+          <div class="score-display" id="act3-score">Filled: <span>0</span>/8</div>
+          <button class="btn-check" onclick="checkAct3()">Submit Blueprint 🐙</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== POPUPS ===== -->
+<div class="popup-overlay hidden" id="popup-act1-done">
+  <div class="popup-box">
+    <span class="popup-emoji">🐠</span>
+    <div class="popup-title">Brilliant Match!</div>
+    <div class="popup-msg">You've correctly matched all problems with their sensors, actuators, and the Arduino board. You think like a real IoT inventor! 🌊</div>
+    <button class="popup-btn" onclick="goToAct2()">Next: Sequence It! →</button>
+  </div>
+</div>
+
+<div class="popup-overlay hidden" id="popup-act2-done">
+  <div class="popup-box">
+    <span class="popup-emoji">🪸</span>
+    <div class="popup-title">Perfect Workflow!</div>
+    <div class="popup-msg">You've sequenced the IoT development steps like a pro engineer! Your gadget is ready to be built. 🐡</div>
+    <button class="popup-btn" onclick="goToAct3()">Final Challenge! 🏆</button>
+  </div>
+</div>
+
+<div class="popup-overlay hidden celebrate-popup" id="popup-final">
+  <div class="popup-box">
+    <div class="celebrate-stars">⭐⭐⭐</div>
+    <span class="popup-emoji">🏆</span>
+    <div class="popup-title">IoT Master Explorer!</div>
+    <div class="celebrate-icons">🌊🤖🐙🪸🐠</div>
+    <div class="popup-msg">Incredible! You've completed the entire Arduino Capstone challenge! You matched, sequenced, and built a full IoT project blueprint. The ocean is proud of you! 🎉</div>
+    <button class="popup-btn gold" onclick="playAgain()">🔄 Play Again</button>
+  </div>
+</div>
+
+<script>
+// ===== OCEAN ANIMATIONS =====
+(function buildOcean() {
+  const bg = document.getElementById('ocean-bg');
+
+  // Stars
+  for (let i = 0; i < 30; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = Math.random()*2+1;
+    s.style.cssText = `width:${sz}px;height:${sz}px;top:${Math.random()*50}%;left:${Math.random()*100}%;
+      animation-duration:${2+Math.random()*3}s;animation-delay:${Math.random()*4}s`;
+    bg.appendChild(s);
+  }
+
+  // Bubbles
+  for (let i = 0; i < 18; i++) {
+    const b = document.createElement('div');
+    b.className = 'bubble';
+    const sz = Math.random()*12+4;
+    b.style.cssText = `width:${sz}px;height:${sz}px;
+      left:${Math.random()*100}%;bottom:${Math.random()*40}%;
+      animation-duration:${6+Math.random()*8}s;animation-delay:${Math.random()*8}s`;
+    bg.appendChild(b);
+  }
+
+  // Seaweed
+  const swColors = [['#1a8a4a','#2ecc71'],['#16a085','#1abc9c'],['#1d8348','#27ae60']];
+  const swPositions = [5,12,22,35,55,68,78,88,95];
+  swPositions.forEach((pos, i) => {
+    const h = 60+Math.random()*80;
+    const [c1,c2] = swColors[i%3];
+    const sw = document.createElement('div');
+    sw.className = 'seaweed';
+    sw.style.cssText = `left:${pos}%;height:${h}px;background:linear-gradient(180deg,${c2} 0%,${c1} 100%);
+      animation-duration:${2+Math.random()*2}s;animation-delay:${Math.random()*2}s`;
+    // Add leaf segments
+    for (let j = 0; j < 3; j++) {
+      const leaf = document.createElement('div');
+      const side = j%2===0 ? 'left' : 'right';
+      leaf.style.cssText = `position:absolute;${side}:${side==='left'?'-10px':'-10px'};
+        top:${20+j*25}%;width:12px;height:12px;border-radius:50%;
+        background:${c2};opacity:0.8;`;
+      sw.appendChild(leaf);
+    }
+    bg.appendChild(sw);
+  });
+
+  // Coral groups (SVG-ish using divs)
+  const coralData = [{x:8,c:'#ff6b6b'},{x:30,c:'#ff9f43'},{x:58,c:'#ff6b6b'},{x:75,c:'#fd79a8'},{x:92,c:'#e17055'}];
+  coralData.forEach(({x,c}) => {
+    const cg = document.createElement('div');
+    cg.className = 'coral-group';
+    cg.style.left = x+'%';
+    // 3 branches
+    for (let b=0; b<3; b++) {
+      const branch = document.createElement('div');
+      const h = 20+b*10;
+      branch.style.cssText = `display:inline-block;width:8px;height:${h}px;
+        background:linear-gradient(180deg,${c} 0%,${c}88 100%);
+        border-radius:4px 4px 0 0;margin:0 2px;vertical-align:bottom;
+        filter:drop-shadow(0 0 4px ${c});`;
+      cg.appendChild(branch);
+    }
+    // dot on top of middle
+    const dot = document.createElement('div');
+    dot.style.cssText = `position:absolute;top:0;left:50%;transform:translateX(-50%);
+      width:10px;height:10px;border-radius:50%;background:${c};
+      filter:drop-shadow(0 0 6px ${c});animation:shimmer 1.5s ease-in-out infinite;`;
+    cg.appendChild(dot);
+    bg.appendChild(cg);
+  });
+
+  // Jellyfish
+  const jellyData = [
+    {x:15,y:20,size:50,delay:0,dur:6},
+    {x:70,y:30,size:35,delay:2,dur:5},
+    {x:88,y:15,size:40,delay:4,dur:7},
+  ];
+  jellyData.forEach(({x,y,size,delay,dur}) => {
+    const jf = document.createElement('div');
+    jf.className = 'jellyfish';
+    jf.style.cssText = `left:${x}%;top:${y}%;animation-duration:${dur}s;animation-delay:${delay}s`;
+    const body = document.createElement('div');
+    body.className = 'jelly-body';
+    body.style.cssText = `width:${size}px;height:${size*0.6}px`;
+    jf.appendChild(body);
+    const tent = document.createElement('div');
+    tent.className = 'jelly-tentacles';
+    for (let t=0; t<6; t++) {
+      const tt = document.createElement('div');
+      tt.className = 'jelly-tentacle';
+      tt.style.cssText = `height:${size*0.7+t*3}px;animation-duration:${1+t*0.15}s;animation-delay:${t*0.1}s`;
+      tent.appendChild(tt);
+    }
+    jf.appendChild(tent);
+    bg.appendChild(jf);
+  });
+
+  // Fish
+  const fishData = [
+    {y:20,size:28,color:'#ff6b6b',color2:'#ff9f43',dur:14,delay:0,dir:1},
+    {y:45,size:20,color:'#00c9b8',color2:'#1e6fa5',dur:18,delay:5,dir:1},
+    {y:65,size:24,color:'#f4c842',color2:'#e17055',dur:22,delay:10,dir:1},
+    {y:30,size:18,color:'#d89eff',color2:'#c266ff',dur:16,delay:8,dir:1},
+  ];
+  fishData.forEach(({y,size,color,color2,dur,delay,dir}) => {
+    const fish = document.createElement('div');
+    fish.className = 'fish';
+    fish.style.cssText = `top:${y}%;left:-80px;animation-duration:${dur}s;animation-delay:${delay}s`;
+    // Body
+    fish.innerHTML = `
+      <svg width="${size*2.5}" height="${size}" viewBox="0 0 60 24">
+        <ellipse cx="28" cy="12" rx="20" ry="9" fill="${color}" opacity="0.9"/>
+        <polygon points="0,4 16,12 0,20" fill="${color2}" opacity="0.8"/>
+        <circle cx="40" cy="9" r="3" fill="white" opacity="0.9"/>
+        <circle cx="41" cy="9" r="1.5" fill="#333"/>
+        <path d="M44,10 Q50,8 48,14" stroke="${color2}" stroke-width="1.5" fill="none" opacity="0.7"/>
+      </svg>`;
+    bg.appendChild(fish);
+  });
+
+  // Treasure chest
+  const tc = document.createElement('div');
+  tc.className = 'treasure';
+  tc.style.left = '45%';
+  tc.innerHTML = `<svg width="60" height="50" viewBox="0 0 60 50">
+    <rect x="5" y="22" width="50" height="25" rx="3" fill="#8b5e0a" stroke="#c8960a" stroke-width="1.5"/>
+    <rect x="5" y="15" width="50" height="10" rx="3" fill="#a07020" stroke="#c8960a" stroke-width="1.5"/>
+    <path d="M5,22 Q30,32 55,22" fill="#c8960a" opacity="0.5"/>
+    <rect x="24" y="28" width="12" height="10" rx="2" fill="#c8960a" stroke="#e6b800" stroke-width="1"/>
+    <circle cx="30" cy="33" r="3" fill="#ffe066" stroke="#c8960a" stroke-width="1"/>
+    <circle cx="18" cy="30" r="2" fill="#ffe066" opacity="0.7"/>
+    <circle cx="42" cy="30" r="2" fill="#ffe066" opacity="0.7"/>
+    <circle cx="25" cy="38" r="1.5" fill="#ffe066" opacity="0.6"/>
+    <circle cx="35" cy="38" r="1.5" fill="#ffe066" opacity="0.6"/>
+  </svg>`;
+  bg.appendChild(tc);
+
+  // Floating coins
+  for (let i=0; i<5; i++) {
+    const coin = document.createElement('div');
+    coin.className = 'coin';
+    const sz = 10+Math.random()*8;
+    coin.style.cssText = `width:${sz}px;height:${sz}px;
+      left:${42+i*4+Math.random()*3}%;bottom:${75+Math.random()*10}%;
+      animation-duration:${2+Math.random()*2}s,${1+Math.random()}s;
+      animation-delay:${i*0.3}s,${i*0.2}s`;
+    bg.appendChild(coin);
+  }
+})();
+
+// ===== DATA =====
+const ACT1_DATA = [
+  {
+    id: 'p1', icon: '💧', problem: 'Water tank overflows and wastes water at home',
+    sensor: {id:'s-ultra', icon:'📡', label:'Ultrasonic Sensor', tag:'sensor'},
+    actuator: {id:'a-buzz', icon:'🔔', label:'Buzzer + Relay', tag:'actuator'},
+    board: {id:'b-uno', icon:'🧠', label:'Arduino UNO', tag:'board'},
+  },
+  {
+    id: 'p2', icon: '🌱', problem: 'Balcony plants dry out when no one is home',
+    sensor: {id:'s-moist', icon:'🌊', label:'Soil Moisture Sensor', tag:'sensor'},
+    actuator: {id:'a-pump', icon:'⚙️', label:'Water Pump Motor', tag:'actuator'},
+    board: {id:'b-uno2', icon:'🧠', label:'Arduino UNO', tag:'board'},
+  },
+  {
+    id: 'p3', icon: '🌙', problem: 'Colony gate area stays dark after sunset',
+    sensor: {id:'s-ldr', icon:'☀️', label:'LDR Light Sensor', tag:'sensor'},
+    actuator: {id:'a-led', icon:'💡', label:'LED Strip / Bulb', tag:'actuator'},
+    board: {id:'b-uno3', icon:'🧠', label:'Arduino UNO', tag:'board'},
+  }
+];
+
+const ACT2_STEPS = [
+  {id:'step1', icon:'🔍', label:'Define the Problem', correct:0},
+  {id:'step2', icon:'📡', label:'Choose Sensors & Actuators', correct:1},
+  {id:'step3', icon:'⚡', label:'Wire the Circuit', correct:2},
+  {id:'step4', icon:'💻', label:'Write the Code', correct:3},
+  {id:'step5', icon:'🧪', label:'Test the Gadget', correct:4},
+  {id:'step6', icon:'🎞️', label:'Prepare a 3-Slide Pitch', correct:5},
+  {id:'step7', icon:'🎤', label:'Present the Project', correct:6},
+];
+
+const ACT3_SLOTS = [
+  {id:'slot-problem', label:'Problem Statement', icon:'🔍'},
+  {id:'slot-sensor', label:'Sensor (Input)', icon:'📡'},
+  {id:'slot-actuator', label:'Actuator (Output)', icon:'⚡'},
+  {id:'slot-board', label:'Microcontroller', icon:'🧠'},
+  {id:'slot-wiring', label:'Circuit Wiring', icon:'🔌'},
+  {id:'slot-code', label:'Code Logic (IF-ELSE)', icon:'💻'},
+  {id:'slot-testing', label:'Testing & Debugging', icon:'🧪'},
+  {id:'slot-pitch', label:'Pitch & Presentation', icon:'🎤'},
+];
+const ACT3_CARDS = [
+  {id:'c3-problem', icon:'🔍', label:'Smart Water Tank: Detect overflow', slot:'slot-problem'},
+  {id:'c3-sensor', icon:'📡', label:'Ultrasonic Sensor (HC-SR04)', slot:'slot-sensor'},
+  {id:'c3-actuator', icon:'🔔', label:'Buzzer + Water Pump Relay', slot:'slot-actuator'},
+  {id:'c3-board', icon:'🧠', label:'Arduino UNO R3', slot:'slot-board'},
+  {id:'c3-wiring', icon:'🔌', label:'Breadboard: VCC → Red, GND → Black', slot:'slot-wiring'},
+  {id:'c3-code', icon:'💻', label:'IF distance < 5cm THEN buzz ON', slot:'slot-code'},
+  {id:'c3-testing', icon:'🧪', label:'Pour water, verify buzzer triggers', slot:'slot-testing'},
+  {id:'c3-pitch', icon:'🎤', label:'Problem → Solution → Demo (3 slides)', slot:'slot-pitch'},
+];
+
+// ===== STATE =====
+let act1Checks = 0, act2Checks = 0, act3Checks = 0;
+let draggedEl = null, dragSource = null;
+
+// ===== DRAG & DROP HELPERS =====
+function makeDraggable(el, dataId) {
+  el.setAttribute('draggable', 'true');
+  el.dataset.dragId = dataId;
+  el.addEventListener('dragstart', e => {
+    draggedEl = el;
+    dragSource = el.parentElement;
+    el.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', dataId);
+  });
+  el.addEventListener('dragend', () => {
+    el.classList.remove('dragging');
+    document.querySelectorAll('.drag-over').forEach(z => z.classList.remove('drag-over'));
+  });
+}
+
+function makeDropZone(el, onDrop) {
+  el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag-over'); });
+  el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+  el.addEventListener('drop', e => {
+    e.preventDefault(); el.classList.remove('drag-over');
+    if (draggedEl) onDrop(el, draggedEl);
+  });
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+// ===== ACTIVITY 1 =====
+function initAct1() {
+  // Build sensor/actuator/board banks
+  const allItems = [];
+  ACT1_DATA.forEach(p => {
+    allItems.push({...p.sensor, pid: p.id});
+    allItems.push({...p.actuator, pid: p.id});
+    allItems.push({...p.board, pid: p.id});
+  });
+  // separate by tag
+  const sensors = shuffle(ACT1_DATA.map(p => p.sensor));
+  const actuators = shuffle(ACT1_DATA.map(p => p.actuator));
+  const boards = shuffle(ACT1_DATA.map(p => p.board));
+
+  const sBank = document.getElementById('sensor-bank');
+  const aBank = document.getElementById('actuator-bank');
+  const bBank = document.getElementById('board-bank');
+  sBank.innerHTML=''; aBank.innerHTML=''; bBank.innerHTML=''; 
+  sBank.style.cssText='display:flex;flex-direction:column;gap:6px';
+  aBank.style.cssText='display:flex;flex-direction:column;gap:6px';
+  bBank.style.cssText='display:flex;flex-direction:column;gap:6px';
+
+  sensors.forEach(item => {
+    const c = createDraggableCard(item.id, item.icon, item.label, 'teal');
+    c.dataset.tag = item.tag; c.dataset.origId = item.id;
+    sBank.appendChild(c);
+    makeDraggable(c, item.id);
+  });
+  actuators.forEach(item => {
+    const c = createDraggableCard(item.id, item.icon, item.label, 'purple');
+    c.dataset.tag = item.tag; c.dataset.origId = item.id;
+    aBank.appendChild(c);
+    makeDraggable(c, item.id);
+  });
+  boards.forEach(item => {
+    const c = createDraggableCard(item.id, item.icon, item.label, 'gold');
+    c.dataset.tag = item.tag; c.dataset.origId = item.id;
+    bBank.appendChild(c);
+    makeDraggable(c, item.id);
+  });
+
+  // Build problem rows
+  const rows = document.getElementById('problem-rows');
+  rows.innerHTML = ''; rows.style.cssText='display:flex;flex-direction:column;gap:8px';
+  ACT1_DATA.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'problem-row';
+    row.innerHTML = `<div class="problem-label"><span class="icon">${p.icon}</span>${p.problem}</div>
+      <div class="problem-drops">
+        <div class="drop-zone" id="dz-${p.id}-sensor" data-pid="${p.id}" data-type="sensor"><span style="font-size:10px">Drop Sensor</span></div>
+        <div class="drop-zone" id="dz-${p.id}-actuator" data-pid="${p.id}" data-type="actuator"><span style="font-size:10px">Drop Actuator</span></div>
+        <div class="drop-zone" id="dz-${p.id}-board" data-pid="${p.id}" data-type="board"><span style="font-size:10px">Drop Board</span></div>
+      </div>`;
+    rows.appendChild(row);
+  });
+
+  // Wire drop zones
+  document.querySelectorAll('.drop-zone').forEach(dz => {
+    makeDropZone(dz, (zone, card) => {
+      const expectedType = zone.dataset.type;
+      if (card.dataset.tag !== expectedType) { flashIncorrect(zone); return; }
+      // Return previous card if exists
+      const existing = zone.querySelector('.draggable-card');
+      if (existing) dragSource ? dragSource.appendChild(existing) : returnToBank(existing);
+      zone.innerHTML = '';
+      zone.appendChild(card);
+      updateAct1Score();
+    });
+  });
+  
+  updateAct1Score();
+  act1Checks = 0;
+}
+
+function createDraggableCard(id, icon, label, theme) {
+  const c = document.createElement('div');
+  c.className = 'draggable-card';
+  c.id = 'card-'+id;
+  const colors = {teal:'rgba(0,201,184,0.15)',purple:'rgba(216,158,255,0.15)',gold:'rgba(244,200,66,0.15)'};
+  c.style.background = `linear-gradient(135deg,${colors[theme]||'rgba(255,255,255,0.07)'} 0%,rgba(255,255,255,0.03) 100%)`;
+  c.innerHTML = `<span class="card-icon">${icon}</span>${label}`;
+  return c;
+}
+
+function returnToBank(card) {
+  const tag = card.dataset.tag;
+  const banks = {sensor:'sensor-bank', actuator:'actuator-bank', board:'board-bank'};
+  const b = document.getElementById(banks[tag]);
+  if (b) b.appendChild(card);
+}
+
+function updateAct1Score() {
+  let filled = 0;
+  document.querySelectorAll('.drop-zone').forEach(dz => {
+    if (dz.querySelector('.draggable-card')) filled++;
+  });
+  const sc = document.querySelector('#act1-score span');
+  if (sc) sc.textContent = Math.floor(filled/3);
+}
+
+function flashIncorrect(el) {
+  el.classList.add('incorrect');
+  setTimeout(() => el.classList.remove('incorrect'), 600);
+}
+
+function checkAct1() {
+  let correct = 0;
+  ACT1_DATA.forEach(p => {
+    ['sensor','actuator','board'].forEach(type => {
+      const dz = document.getElementById(`dz-${p.id}-${type}`);
+      if (!dz) return;
+      removeFeedback(dz);
+      const card = dz.querySelector('.draggable-card');
+      const expected = p[type].id;
+      if (card && card.dataset.origId === expected) {
+        dz.classList.add('correct'); correct++;
+        addFeedback(dz, true);
+        card.style.cursor = 'default'; card.setAttribute('draggable','false');
+      } else {
+        dz.classList.add('incorrect');
+        addFeedback(dz, false);
+        setTimeout(() => dz.classList.remove('incorrect'), 600);
+      }
+    });
+  });
+  document.querySelector('#act1-score span').textContent = Math.floor(correct/3);
+  if (correct === 9) {
+    setTimeout(() => document.getElementById('popup-act1-done').classList.remove('hidden'), 600);
+  }
+}
+
+function addFeedback(el, ok) {
+  const b = document.createElement('div');
+  b.className = `feedback-badge ${ok?'correct':'incorrect'}`;
+  b.textContent = ok ? '✓' : '✗';
+  el.appendChild(b);
+}
+function removeFeedback(el) {
+  el.querySelectorAll('.feedback-badge').forEach(f=>f.remove());
+  el.classList.remove('correct','incorrect');
+}
+
+function resetAct1() { initAct1(); }
+
+// ===== ACTIVITY 2 =====
+function initAct2() {
+  const shuffled = shuffle(ACT2_STEPS);
+  const src = document.getElementById('seq-source-cards');
+  const slots = document.getElementById('seq-slots');
+  src.innerHTML = ''; slots.innerHTML = '';
+  src.style.cssText='display:flex;flex-direction:column;gap:5px';
+
+  shuffled.forEach(step => {
+    const c = document.createElement('div');
+    c.className = 'seq-card';
+    c.id = 'seqcard-'+step.id;
+    c.dataset.stepId = step.id;
+    c.dataset.correct = step.correct;
+    c.innerHTML = `<span class="seq-icon">${step.icon}</span>${step.label}`;
+    src.appendChild(c);
+    makeDraggable(c, step.id);
+  });
+
+  ACT2_STEPS.forEach((_, i) => {
+    const slot = document.createElement('div');
+    slot.className = 'seq-slot';
+    slot.dataset.slotIndex = i;
+    slot.innerHTML = `<div class="seq-slot-num">${i+1}</div><div class="seq-slot-hint">Drop step here…</div>`;
+    slots.appendChild(slot);
+    makeDropZone(slot, (zone, card) => {
+      // If this slot already has a card, send it back to source panel
+      const existing = zone.querySelector('.seq-card');
+      if (existing && existing !== card) {
+        src.appendChild(existing);
+      }
+      // If card came from another slot, restore that slot's hint
+      const prevParent = card.parentElement;
+      if (prevParent && prevParent.classList.contains('seq-slot')) {
+        if (!prevParent.querySelector('.seq-card') || prevParent.querySelector('.seq-card') === card) {
+          const hint = document.createElement('div');
+          hint.className = 'seq-slot-hint';
+          hint.textContent = 'Drop step here…';
+          prevParent.appendChild(hint);
+        }
+      }
+      // Remove hint from target slot then place card
+      zone.querySelector('.seq-slot-hint')?.remove();
+      zone.appendChild(card);
+      updateAct2Count();
+    });
+  });
+
+  // Also make the source panel a drop zone so cards can be dragged back
+  makeDropZone(src, (zone, card) => {
+    if (card.classList.contains('seq-card')) {
+      const prevParent = card.parentElement;
+      if (prevParent && prevParent.classList.contains('seq-slot')) {
+        // Restore hint on the vacated slot
+        const hint = document.createElement('div');
+        hint.className = 'seq-slot-hint';
+        hint.textContent = 'Drop step here…';
+        prevParent.appendChild(hint);
+      }
+      zone.appendChild(card);
+      updateAct2Count();
+    }
+  });
+
+  updateAct2Count();
+  act2Checks = 0;
+}
+
+function updateAct2Count() {
+  const slots = document.querySelectorAll('#seq-slots .seq-slot');
+  let placed = 0;
+  slots.forEach(slot => { if (slot.querySelector('.seq-card')) placed++; });
+  const sc = document.querySelector('#act2-score span');
+  if (sc) sc.textContent = placed;
+}
+
+function checkAct2() {
+  const slots = document.querySelectorAll('#seq-slots .seq-slot');
+  let correct = 0;
+  slots.forEach(slot => {
+    slot.classList.remove('correct','incorrect');
+    const card = slot.querySelector('.seq-card');
+    const idx = parseInt(slot.dataset.slotIndex);
+    if (card) {
+      const cardCorrect = parseInt(card.dataset.correct);
+      if (cardCorrect === idx) {
+        slot.classList.add('correct'); correct++;
+        card.style.cursor='default'; card.setAttribute('draggable','false');
+      } else {
+        slot.classList.add('incorrect');
+        setTimeout(() => slot.classList.remove('incorrect'), 600);
+      }
+    }
+  });
+  if (correct === 7) {
+    setTimeout(() => document.getElementById('popup-act2-done').classList.remove('hidden'), 600);
+  }
+}
+
+function resetAct2() { initAct2(); }
+
+// ===== ACTIVITY 3 =====
+function initAct3() {
+  const shuffled = shuffle(ACT3_CARDS);
+  const src = document.getElementById('cap-source-cards');
+  const grid = document.getElementById('cap-grid');
+  src.innerHTML = ''; grid.innerHTML = '';
+  src.style.cssText='display:flex;flex-direction:column;gap:6px';
+
+  shuffled.forEach(card => {
+    const c = document.createElement('div');
+    c.className = 'cap-card';
+    c.id = 'capcard-'+card.id;
+    c.dataset.cardId = card.id;
+    c.dataset.targetSlot = card.slot;
+    c.innerHTML = `<span class="cap-icon">${card.icon}</span>${card.label}`;
+    src.appendChild(c);
+    makeDraggable(c, card.id);
+  });
+
+  ACT3_SLOTS.forEach(slot => {
+    const s = document.createElement('div');
+    s.className = 'cap-slot';
+    s.id = slot.id;
+    s.innerHTML = `<div class="cap-slot-label">${slot.icon} ${slot.label}</div>
+      <div class="cap-slot-content">Drop here…</div>`;
+    grid.appendChild(s);
+    makeDropZone(s, (zone, card) => {
+      const existing = zone.querySelector('.cap-card');
+      if (existing) {
+        dragSource ? dragSource.appendChild(existing) : src.appendChild(existing);
+      }
+      zone.querySelector('.cap-slot-content')?.remove();
+      zone.appendChild(card);
+      updateAct3Count();
+    });
+  });
+
+  updateAct3Count();
+  act3Checks = 0;
+}
+
+function updateAct3Count() {
+  let filled = 0;
+  document.querySelectorAll('.cap-slot .cap-card').forEach(() => filled++);
+  const sc = document.querySelector('#act3-score span');
+  if (sc) sc.textContent = filled;
+}
+
+function checkAct3() {
+  let correct = 0;
+  document.querySelectorAll('.cap-slot').forEach(slot => {
+    slot.classList.remove('correct','incorrect');
+    const card = slot.querySelector('.cap-card');
+    if (card) {
+      if (card.dataset.targetSlot === slot.id) {
+        slot.classList.add('correct'); correct++;
+        card.style.cursor='default'; card.setAttribute('draggable','false');
+      } else {
+        slot.classList.add('incorrect');
+        setTimeout(() => slot.classList.remove('incorrect'), 600);
+      }
+    }
+  });
+  if (correct === 8) {
+    launchConfetti();
+    setTimeout(() => document.getElementById('popup-final').classList.remove('hidden'), 800);
+  }
+}
+
+function resetAct3() { initAct3(); }
+
+// ===== NAVIGATION =====
+function goToAct2() {
+  document.getElementById('popup-act1-done').classList.add('hidden');
+  document.getElementById('act1').classList.remove('active');
+  document.getElementById('act2').classList.add('active');
+  setProgress(2);
+  initAct2();
+}
+
+function goToAct3() {
+  document.getElementById('popup-act2-done').classList.add('hidden');
+  document.getElementById('act2').classList.remove('active');
+  document.getElementById('act3').classList.add('active');
+  setProgress(3);
+  initAct3();
+}
+
+function setProgress(step) {
+  for (let i=1; i<=3; i++) {
+    const p = document.getElementById('prog'+i);
+    p.classList.remove('active','done');
+    if (i < step) p.classList.add('done');
+    else if (i === step) p.classList.add('active');
+  }
+  for (let i=1; i<=2; i++) {
+    const l = document.getElementById('pline'+i);
+    l.classList.toggle('done', i < step);
+  }
+}
+
+function playAgain() {
+  // Hide all popups
+  document.querySelectorAll('.popup-overlay').forEach(p => p.classList.add('hidden'));
+  // Remove confetti
+  document.querySelectorAll('.confetti-piece').forEach(c => c.remove());
+  // Go to act1
+  document.getElementById('act3').classList.remove('active');
+  document.getElementById('act1').classList.add('active');
+  setProgress(1);
+  initAct1();
+}
+
+// ===== CONFETTI =====
+function launchConfetti() {
+  const colors = ['#00c9b8','#f4c842','#ff6b6b','#d89eff','#2ecc71','#ff9f43','#1e6fa5'];
+  for (let i = 0; i < 80; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti-piece';
+    const sz = 6+Math.random()*8;
+    c.style.cssText = `left:${10+Math.random()*80}%;top:0;width:${sz}px;height:${sz}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-duration:${1.5+Math.random()*2}s;animation-delay:${Math.random()*0.5}s;
+      border-radius:${Math.random()>0.5?'50%':'2px'}`;
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 3500);
+  }
+}
+
+// ===== INIT =====
+initAct1();
+</script>
+</body>
+</html>

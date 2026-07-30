@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arduino — LCD Display & I2C Communication</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Exo+2:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#050d1a;
+  --blueprint:#0a1e3a;
+  --yellow:#FFB800;
+  --orange:#FF6B35;
+  --cyan:#00D4FF;
+  --grey:#8B9BAE;
+  --green:#00E676;
+  --red:#FF4757;
+  --panel:rgba(10,30,58,0.92);
+  --border:rgba(0,212,255,0.25);
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'Exo 2',sans-serif;}
+
+/* ═══ BACKGROUND CANVAS ═══ */
+#bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+
+/* Blueprint grid overlay */
+.blueprint-grid{
+  position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px),
+    linear-gradient(rgba(0,212,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.02) 1px, transparent 1px);
+  background-size:80px 80px, 80px 80px, 20px 20px, 20px 20px;
+}
+
+/* ═══ FLOATING ELEMENTS ═══ */
+.float-tool{position:fixed;z-index:2;pointer-events:none;opacity:0.12;font-size:22px;animation:floatTool 18s ease-in-out infinite;}
+@keyframes floatTool{0%,100%{transform:translateY(0) rotate(0deg);}33%{transform:translateY(-18px) rotate(8deg);}66%{transform:translateY(10px) rotate(-5deg);}}
+
+/* ═══ GEAR ANIMATIONS ═══ */
+.gear{position:fixed;z-index:2;pointer-events:none;opacity:0.08;}
+.gear svg{animation:spinGear 12s linear infinite;}
+.gear.ccw svg{animation:spinGear 10s linear infinite reverse;}
+@keyframes spinGear{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+
+/* ═══ CRANE ═══ */
+#crane{position:fixed;right:30px;bottom:0;z-index:2;pointer-events:none;opacity:0.18;width:180px;}
+#crane svg{animation:craneSway 8s ease-in-out infinite;}
+@keyframes craneSway{0%,100%{transform:translateX(0);}50%{transform:translateX(-8px);}}
+
+/* ═══ BLINK LIGHTS ═══ */
+.blink-light{position:fixed;z-index:3;border-radius:50%;pointer-events:none;animation:blinkLight 1.5s ease-in-out infinite;}
+@keyframes blinkLight{0%,100%{opacity:0.8;box-shadow:0 0 6px 3px currentColor;}50%{opacity:0.1;box-shadow:none;}}
+
+/* ═══ DRIFTING BLUEPRINTS ═══ */
+.drift-bp{position:fixed;z-index:2;pointer-events:none;opacity:0.05;animation:driftBp 30s linear infinite;}
+@keyframes driftBp{0%{transform:translate(0,0) rotate(0deg);}100%{transform:translate(-200px,100px) rotate(15deg);}}
+
+/* ═══ SPARKLE ═══ */
+.sparkle{position:fixed;z-index:3;pointer-events:none;width:4px;height:4px;border-radius:50%;background:var(--yellow);animation:sparkleAnim 3s ease-in-out infinite;}
+@keyframes sparkleAnim{0%,100%{opacity:0;transform:scale(0);}50%{opacity:1;transform:scale(1);}}
+
+/* ═══ MAIN LAYOUT ═══ */
+#app{position:relative;z-index:10;width:100%;height:100%;display:flex;flex-direction:column;padding:10px 16px 8px;}
+
+/* ═══ HEADER ═══ */
+#header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-shrink:0;}
+#header .logo{display:flex;align-items:center;gap:10px;}
+#header .logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--yellow),var(--orange));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 16px rgba(255,184,0,0.4);}
+#header h1{font-family:'Orbitron',sans-serif;font-size:clamp(11px,1.5vw,15px);font-weight:900;color:var(--yellow);letter-spacing:2px;line-height:1.2;text-shadow:0 0 20px rgba(255,184,0,0.5);}
+#header h1 span{display:block;font-size:clamp(8px,1vw,11px);color:var(--cyan);font-weight:400;letter-spacing:3px;margin-top:1px;}
+.progress-dots{display:flex;gap:8px;align-items:center;}
+.pdot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.2);transition:all 0.4s;}
+.pdot.active{background:var(--yellow);border-color:var(--yellow);box-shadow:0 0 8px var(--yellow);}
+.pdot.done{background:var(--green);border-color:var(--green);}
+
+/* ═══ ACTIVITY WRAPPER ═══ */
+#actWrapper{flex:1;min-height:0;display:flex;flex-direction:column;}
+.activity{display:none;flex-direction:column;height:100%;}
+.activity.active{display:flex;}
+
+/* ═══ ACT TITLE BAR ═══ */
+.act-title-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-shrink:0;}
+.act-badge{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--bg);background:var(--yellow);padding:3px 10px;border-radius:3px;letter-spacing:1px;}
+.act-title{font-family:'Orbitron',sans-serif;font-size:clamp(11px,1.5vw,14px);font-weight:700;color:white;flex:1;margin:0 12px;text-align:center;}
+.act-subtitle{font-size:10px;color:var(--grey);text-align:center;margin-bottom:6px;font-family:'Share Tech Mono';}
+.btn-reset{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--orange);border:1.5px solid var(--orange);background:transparent;padding:4px 10px;border-radius:4px;cursor:pointer;letter-spacing:1px;transition:all 0.25s;}
+.btn-reset:hover{background:var(--orange);color:white;}
+
+/* ═════════════════════════════════════════
+   ACTIVITY 1 — WIRE CONNECT GAME
+   ═════════════════════════════════════════ */
+#act1 .game-board{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;gap:0;position:relative;}
+#act1 svg.wires{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:5;}
+#act1 svg.wires line, #act1 svg.wires path{stroke-width:3;stroke-linecap:round;fill:none;}
+.component-col{display:flex;flex-direction:column;gap:10px;z-index:10;}
+.comp-block{border:2px solid var(--border);border-radius:10px;padding:10px 14px;background:var(--panel);backdrop-filter:blur(8px);text-align:center;position:relative;min-width:120px;}
+.comp-block .comp-icon{font-size:22px;margin-bottom:3px;}
+.comp-block .comp-name{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--cyan);letter-spacing:1px;}
+.comp-block .comp-sub{font-size:8px;color:var(--grey);margin-top:2px;font-family:'Share Tech Mono';}
+.comp-block.connected{border-color:var(--green);box-shadow:0 0 12px rgba(0,230,118,0.3);}
+
+/* Pin nodes */
+.pin-node{width:14px;height:14px;border-radius:50%;border:2.5px solid;cursor:pointer;position:absolute;transition:all 0.25s;z-index:20;}
+.pin-node:hover{transform:scale(1.4);}
+.pin-node.connecting{animation:pinPulse 0.6s ease-in-out infinite;}
+@keyframes pinPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.5);}}
+.pin-node.connected{cursor:default;}
+
+.pin-vcc{background:#ff4444;border-color:#ff6666;color:#ff4444;}
+.pin-gnd{background:#333;border-color:#666;color:#666;}
+.pin-sda{background:#7c4dff;border-color:#9c6dff;color:#7c4dff;}
+.pin-scl{background:#ff9800;border-color:#ffb74d;color:#ff9800;}
+
+.wire-label{position:absolute;font-family:'Share Tech Mono';font-size:9px;font-weight:700;pointer-events:none;}
+
+.act1-center{display:flex;flex-direction:column;gap:12px;align-items:center;z-index:10;padding:0 30px;}
+.lcd-visual{border:2px solid var(--cyan);border-radius:8px;padding:10px 16px;background:rgba(0,30,20,0.8);font-family:'Share Tech Mono';min-width:200px;text-align:center;}
+.lcd-visual .lcd-row{font-size:11px;color:#00e676;letter-spacing:2px;background:#001a00;padding:4px 8px;margin:2px 0;border-radius:3px;min-height:20px;}
+.lcd-visual .lcd-title{font-size:8px;color:var(--grey);margin-bottom:6px;letter-spacing:1px;}
+
+#act1-msg{text-align:center;font-family:'Share Tech Mono';font-size:11px;margin-top:6px;min-height:18px;}
+
+/* ═════════════════════════════════════════
+   ACTIVITY 2 — SEQUENCE PIPELINE (conveyor belt)
+   ═════════════════════════════════════════ */
+#act2 .game-area{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;}
+
+/* BANK */
+.seq-bank{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;padding:10px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:10px;}
+.seq-card{font-family:'Exo 2',sans-serif;font-size:10px;font-weight:600;padding:8px 12px;border-radius:8px;border:2px solid;cursor:grab;text-align:center;user-select:none;transition:all 0.25s;min-width:130px;max-width:160px;}
+.seq-card:active{cursor:grabbing;transform:scale(0.97);}
+.seq-card.dragging-card{opacity:0.3;}
+
+/* PIPELINE CONVEYOR */
+.pipeline-track{position:relative;background:linear-gradient(90deg,rgba(255,107,53,0.08),rgba(0,212,255,0.08));border:2px solid rgba(255,107,53,0.3);border-radius:12px;padding:12px 16px;}
+.pipeline-title{font-family:'Share Tech Mono';font-size:9px;color:var(--orange);letter-spacing:2px;margin-bottom:8px;}
+.pipeline-slots{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;}
+.pipeline-arrow{font-size:18px;color:var(--orange);opacity:0.5;flex-shrink:0;}
+.pipe-slot{min-width:120px;min-height:56px;border:2px dashed rgba(255,107,53,0.4);border-radius:8px;display:flex;align-items:center;justify-content:center;text-align:center;background:rgba(255,107,53,0.04);transition:all 0.25s;position:relative;padding:4px;}
+.pipe-slot.over{border-color:var(--yellow);background:rgba(255,184,0,0.08);transform:scale(1.04);}
+.pipe-slot.correct-slot{border-color:var(--green)!important;background:rgba(0,230,118,0.1);}
+.pipe-slot.wrong-slot{border-color:var(--red)!important;background:rgba(255,71,87,0.1);animation:shakeSlot 0.4s;}
+@keyframes shakeSlot{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
+.pipe-slot .slot-num{position:absolute;top:3px;left:5px;font-family:'Orbitron',sans-serif;font-size:8px;color:rgba(255,107,53,0.5);}
+.slot-text{font-size:9px;font-family:'Share Tech Mono';color:rgba(255,255,255,0.3);text-align:center;}
+
+#act2-msg{text-align:center;font-family:'Share Tech Mono';font-size:11px;margin-top:6px;min-height:18px;}
+
+/* conveyor belt anim */
+.conveyor-belt{height:8px;border-radius:4px;background:repeating-linear-gradient(90deg,var(--orange) 0,var(--orange) 12px,rgba(255,107,53,0.2) 12px,rgba(255,107,53,0.2) 18px);animation:conveyorMove 1.5s linear infinite;margin-bottom:8px;opacity:0.5;}
+@keyframes conveyorMove{from{background-position:0 0;}to{background-position:18px 0;}}
+
+/* ═════════════════════════════════════════
+   ACTIVITY 3 — MEMORY FLIP MATCH
+   ═════════════════════════════════════════ */
+#act3 .game-area{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;}
+.flip-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:100%;max-width:680px;}
+.flip-card{perspective:600px;cursor:pointer;height:76px;}
+.flip-inner{position:relative;width:100%;height:100%;transition:transform 0.55s cubic-bezier(.4,2,.6,1);transform-style:preserve-3d;}
+.flip-card.flipped .flip-inner{transform:rotateY(180deg);}
+.flip-face{position:absolute;width:100%;height:100%;backface-visibility:hidden;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:6px;}
+.flip-front{background:var(--blueprint);border:2px solid rgba(0,212,255,0.2);border-radius:10px;}
+.flip-front-icon{font-size:22px;opacity:0.6;}
+.flip-back{transform:rotateY(180deg);border:2px solid;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-align:center;}
+.flip-back .fb-icon{font-size:16px;}
+.flip-back .fb-text{font-family:'Exo 2',sans-serif;font-size:8px;font-weight:600;line-height:1.3;text-align:center;}
+.flip-card.matched .flip-inner{transform:rotateY(180deg);}
+.flip-card.matched .flip-back{box-shadow:0 0 14px currentColor;}
+.flip-card.wrong-flip .flip-inner{animation:wrongFlip 0.5s;}
+@keyframes wrongFlip{0%,100%{transform:rotateY(180deg);}50%{transform:rotateY(170deg);}75%{transform:rotateY(190deg);}}
+
+.match-legend{display:flex;gap:10px;justify-content:center;margin-top:6px;flex-wrap:wrap;}
+.legend-pill{display:flex;align-items:center;gap:5px;font-size:9px;font-family:'Share Tech Mono';color:var(--grey);}
+.legend-dot{width:8px;height:8px;border-radius:50%;}
+
+#act3-msg{text-align:center;font-family:'Share Tech Mono';font-size:11px;margin-top:6px;min-height:18px;}
+
+/* ═══ POPUPS ═══ */
+.popup-overlay{display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);}
+.popup-overlay.show{display:flex;}
+.popup-box{background:linear-gradient(135deg,#0a1e3a,#050d1a);border:2px solid var(--cyan);border-radius:18px;padding:32px 40px;text-align:center;max-width:420px;position:relative;animation:popIn 0.5s cubic-bezier(.34,1.56,.64,1);}
+@keyframes popIn{from{transform:scale(0.6);opacity:0;}to{transform:scale(1);opacity:1;}}
+.popup-icon{font-size:52px;margin-bottom:12px;display:block;}
+.popup-title{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:900;color:var(--yellow);margin-bottom:8px;}
+.popup-sub{font-size:13px;color:var(--grey);margin-bottom:24px;line-height:1.6;}
+.popup-fact{font-size:11px;font-family:'Share Tech Mono';color:var(--cyan);background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:10px;margin-bottom:20px;line-height:1.6;}
+.btn-next{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;padding:12px 32px;border:none;border-radius:8px;background:linear-gradient(135deg,var(--yellow),var(--orange));color:var(--bg);cursor:pointer;letter-spacing:1px;transition:all 0.25s;box-shadow:0 0 24px rgba(255,184,0,0.4);}
+.btn-next:hover{transform:scale(1.05);box-shadow:0 0 32px rgba(255,184,0,0.6);}
+
+/* FINAL celebration */
+#finalPopup .popup-box{border-color:var(--yellow);}
+.celebrate-emojis{font-size:28px;letter-spacing:4px;display:block;margin-bottom:12px;animation:emojiDance 1s ease-in-out infinite alternate;}
+@keyframes emojiDance{from{transform:scale(1) rotate(-3deg);}to{transform:scale(1.08) rotate(3deg);}}
+.confetti-piece{position:absolute;width:8px;height:8px;border-radius:2px;animation:confettiFall 2.5s ease-in infinite;}
+@keyframes confettiFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1;}100%{transform:translateY(320px) rotate(720deg);opacity:0;}}
+
+/* ═══ UTILS ═══ */
+.hidden{display:none!important;}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+<div class="blueprint-grid"></div>
+
+<!-- Decorative floating tools -->
+<div class="float-tool" style="top:12%;left:5%;animation-delay:0s">🔧</div>
+<div class="float-tool" style="top:25%;left:92%;animation-delay:2s">⚡</div>
+<div class="float-tool" style="top:72%;left:3%;animation-delay:4s">🔩</div>
+<div class="float-tool" style="top:80%;left:90%;animation-delay:1s">🛠️</div>
+<div class="float-tool" style="top:50%;left:96%;animation-delay:6s">📐</div>
+<div class="float-tool" style="top:8%;left:88%;animation-delay:3s">⚙️</div>
+
+<!-- Gears -->
+<div class="gear" style="top:-30px;left:-30px">
+  <svg width="120" height="120" viewBox="0 0 120 120"><circle cx="60" cy="60" r="30" fill="none" stroke="#00D4FF" stroke-width="4"/><circle cx="60" cy="60" r="16" fill="none" stroke="#00D4FF" stroke-width="3"/><g stroke="#00D4FF" stroke-width="5"><line x1="60" y1="20" x2="60" y2="8"/><line x1="60" y1="100" x2="60" y2="112"/><line x1="20" y1="60" x2="8" y2="60"/><line x1="100" y1="60" x2="112" y2="60"/><line x1="33.4" y1="33.4" x2="24.9" y2="24.9"/><line x1="86.6" y1="86.6" x2="95.1" y2="95.1"/><line x1="86.6" y1="33.4" x2="95.1" y2="24.9"/><line x1="33.4" y1="86.6" x2="24.9" y2="95.1"/></g></svg>
+</div>
+<div class="gear ccw" style="bottom:40px;left:60px">
+  <svg width="80" height="80" viewBox="0 0 80 80"><circle cx="40" cy="40" r="18" fill="none" stroke="#FF6B35" stroke-width="3"/><circle cx="40" cy="40" r="8" fill="none" stroke="#FF6B35" stroke-width="2.5"/><g stroke="#FF6B35" stroke-width="4"><line x1="40" y1="14" x2="40" y2="5"/><line x1="40" y1="66" x2="40" y2="75"/><line x1="14" y1="40" x2="5" y2="40"/><line x1="66" y1="40" x2="75" y2="40"/><line x1="21.7" y1="21.7" x2="15.6" y2="15.6"/><line x1="58.3" y1="58.3" x2="64.4" y2="64.4"/><line x1="58.3" y1="21.7" x2="64.4" y2="15.6"/><line x1="21.7" y1="58.3" x2="15.6" y2="64.4"/></g></svg>
+</div>
+
+<!-- Crane SVG -->
+<div id="crane">
+  <svg viewBox="0 0 180 320" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#FFB800" stroke-width="3">
+    <line x1="90" y1="310" x2="90" y2="120"/><line x1="70" y1="310" x2="110" y2="310"/>
+    <line x1="90" y1="120" x2="160" y2="80"/><line x1="90" y1="120" x2="30" y2="140"/>
+    <line x1="90" y1="120" x2="90" y2="100"/><line x1="90" y1="100" x2="150" y2="80"/>
+    <line x1="150" y1="80" x2="160" y2="80"/>
+    <line x1="130" y1="80" x2="130" y2="110"/><rect x="122" y="110" width="16" height="12" stroke="#FFB800" stroke-width="2"/>
+    <line x1="160" y1="80" x2="160" y2="50"/><rect x="152" y="50" width="16" height="20" fill="rgba(255,184,0,0.15)"/>
+    <!-- Hook cable -->
+    <line x1="143" y1="122" x2="143" y2="148" stroke-width="1.5" stroke-dasharray="3,3"><animate attributeName="y2" values="148;158;148" dur="3s" repeatCount="indefinite"/></line>
+    <path d="M138 148 Q143 154 148 148" stroke-width="2"><animate attributeName="d" values="M138 148 Q143 154 148 148;M138 158 Q143 164 148 158;M138 148 Q143 154 148 148" dur="3s" repeatCount="indefinite"/></path>
+  </svg>
+</div>
+
+<!-- Blink lights -->
+<div class="blink-light" style="width:8px;height:8px;top:15%;left:18%;color:#ff4444;background:#ff4444;animation-delay:0s;"></div>
+<div class="blink-light" style="width:6px;height:6px;top:60%;left:82%;color:#FFB800;background:#FFB800;animation-delay:0.7s;"></div>
+<div class="blink-light" style="width:7px;height:7px;top:35%;right:12%;color:#00D4FF;background:#00D4FF;animation-delay:1.4s;"></div>
+
+<!-- Sparkles -->
+<div class="sparkle" style="top:20%;left:75%;animation-delay:0s;"></div>
+<div class="sparkle" style="top:65%;left:20%;animation-delay:1.5s;background:var(--cyan);"></div>
+<div class="sparkle" style="top:40%;left:55%;animation-delay:2.8s;background:var(--orange);"></div>
+
+<!-- ═══════════════════════ APP ═══════════════════════ -->
+<div id="app">
+  <div id="header">
+    <div class="logo">
+      <div class="logo-icon">🏗️</div>
+      <h1>ARDUINO — LCD DISPLAY & I2C COMMUNICATION<span>PLANRS ACADEMY · EMBEDDED SYSTEMS</span></h1>
+    </div>
+    <div class="progress-dots">
+      <div class="pdot active" id="pd1"></div>
+      <div class="pdot" id="pd2"></div>
+      <div class="pdot" id="pd3"></div>
+    </div>
+  </div>
+
+  <div id="actWrapper">
+
+    <!-- ═══════ ACTIVITY 1 — WIRE CONNECT ═══════ -->
+    <div class="activity active" id="act1">
+      <div class="act-title-bar">
+        <span class="act-badge">ACTIVITY 1</span>
+        <span class="act-title">⚡ Wire the Circuit</span>
+        <button class="btn-reset" onclick="initAct1()">↺ RESET</button>
+      </div>
+      <div class="act-subtitle" id="act1-subtitle">Click a pin on the LEFT component, then click its matching pin on the RIGHT to connect the 4 I2C wires.</div>
+
+      <div class="game-board" id="act1Board">
+        <svg class="wires" id="wiresSvg"></svg>
+
+        <!-- LEFT: Arduino UNO -->
+        <div class="component-col" id="arduinoCol" style="margin-right:auto;">
+          <div class="comp-block" id="cArduino">
+            <div class="comp-icon">🤖</div>
+            <div class="comp-name">ARDUINO UNO</div>
+            <div class="comp-sub">Microcontroller</div>
+            <!-- pins on right side -->
+            <div class="pin-node pin-vcc" id="ard-5v" data-pin="5V" data-side="right" style="right:-9px;top:22px;" title="5V"></div>
+            <div class="pin-node pin-gnd" id="ard-gnd" data-pin="GND" data-side="right" style="right:-9px;top:44px;" title="GND"></div>
+            <div class="pin-node pin-sda" id="ard-sda" data-pin="SDA" data-side="right" style="right:-9px;top:66px;" title="A4/SDA"></div>
+            <div class="pin-node pin-scl" id="ard-scl" data-pin="SCL" data-side="right" style="right:-9px;top:88px;" title="A5/SCL"></div>
+          </div>
+          <div style="font-family:'Share Tech Mono';font-size:8px;color:var(--grey);padding:4px 10px;line-height:1.8;">
+            <div><span style="color:#ff6666;">●</span> 5V — Power</div>
+            <div><span style="color:#666;">●</span> GND — Ground</div>
+            <div><span style="color:#9c6dff;">●</span> A4 — SDA</div>
+            <div><span style="color:#ffb74d;">●</span> A5 — SCL</div>
+          </div>
+        </div>
+
+        <!-- CENTER: LCD visual -->
+        <div class="act1-center">
+          <div class="lcd-visual">
+            <div class="lcd-title">16×2 LCD PREVIEW</div>
+            <div class="lcd-row" id="lcdRow1" style="color:#004400;">_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _</div>
+            <div class="lcd-row" id="lcdRow2" style="color:#004400;">_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _</div>
+          </div>
+          <div style="font-family:'Share Tech Mono';font-size:9px;color:var(--grey);text-align:center;line-height:1.7;">
+            Connect all <span style="color:var(--yellow)">4 wires</span><br>to power the display
+          </div>
+        </div>
+
+        <!-- RIGHT: I2C + LCD Module -->
+        <div class="component-col" id="lcdCol" style="margin-left:auto;">
+          <div class="comp-block" id="cI2C">
+            <div class="comp-icon">📟</div>
+            <div class="comp-name">I2C + LCD MODULE</div>
+            <div class="comp-sub">0x27 · 16×2 Display</div>
+            <!-- pins on left side -->
+            <div class="pin-node pin-vcc" id="lcd-vcc" data-pin="5V" data-side="left" style="left:-9px;top:22px;" title="VCC"></div>
+            <div class="pin-node pin-gnd" id="lcd-gnd" data-pin="GND" data-side="left" style="left:-9px;top:44px;" title="GND"></div>
+            <div class="pin-node pin-sda" id="lcd-sda" data-pin="SDA" data-side="left" style="left:-9px;top:66px;" title="SDA"></div>
+            <div class="pin-node pin-scl" id="lcd-scl" data-pin="SCL" data-side="left" style="left:-9px;top:88px;" title="SCL"></div>
+          </div>
+          <div style="font-family:'Share Tech Mono';font-size:8px;color:var(--grey);padding:4px 10px;line-height:1.8;text-align:right;">
+            <div>Power <span style="color:#ff6666;">●</span></div>
+            <div>Ground <span style="color:#666;">●</span></div>
+            <div>Data <span style="color:#9c6dff;">●</span></div>
+            <div>Clock <span style="color:#ffb74d;">●</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="act1-msg" style="color:var(--grey)">Select a pin to begin wiring →</div>
+    </div>
+
+    <!-- ═══════ ACTIVITY 2 — SEQUENCE PIPELINE ═══════ -->
+    <div class="activity" id="act2">
+      <div class="act-title-bar">
+        <span class="act-badge">ACTIVITY 2</span>
+        <span class="act-title">🚀 Build the I2C Pipeline</span>
+        <button class="btn-reset" onclick="initAct2()">↺ RESET</button>
+      </div>
+      <div class="act-subtitle">Drag each step into the correct slot on the conveyor belt to complete the I2C LCD sequence.</div>
+
+      <div class="game-area" id="act2Area">
+        <div class="seq-bank" id="seqBank"></div>
+        <div class="pipeline-track">
+          <div class="conveyor-belt"></div>
+          <div class="pipeline-title">⚙️ I2C COMMUNICATION PIPELINE — DROP STEPS IN ORDER</div>
+          <div class="pipeline-slots" id="pipelineSlots"></div>
+        </div>
+      </div>
+      <div id="act2-msg" style="color:var(--grey)">Drag a step card onto the matching slot →</div>
+    </div>
+
+    <!-- ═══════ ACTIVITY 3 — MEMORY FLIP ═══════ -->
+    <div class="activity" id="act3">
+      <div class="act-title-bar">
+        <span class="act-badge">ACTIVITY 3</span>
+        <span class="act-title">🧠 Memory Match Challenge</span>
+        <button class="btn-reset" onclick="initAct3()">↺ RESET</button>
+      </div>
+      <div class="act-subtitle">Flip the cards to find matching pairs — each term matches its definition. Remember card positions!</div>
+
+      <div class="game-area" id="act3Area" style="align-items:center;gap:8px;">
+        <div class="flip-grid" id="flipGrid"></div>
+        <div class="match-legend" id="matchLegend"></div>
+      </div>
+      <div id="act3-msg" style="color:var(--grey)">Flip two cards to find a match →</div>
+    </div>
+
+  </div><!-- /actWrapper -->
+</div><!-- /app -->
+
+<!-- ═══════ POPUP 1 ═══════ -->
+<div class="popup-overlay" id="popup1">
+  <div class="popup-box">
+    <span class="popup-icon">⚡</span>
+    <div class="popup-title">Circuit Complete!</div>
+    <div class="popup-sub">All 4 I2C wires are connected correctly. The LCD is powered up!</div>
+    <div class="popup-fact">💡 <b>Key Fact:</b> I2C reduces wiring from <b>16 jumper wires</b> down to just <b>4 pins</b> — VCC, GND, SDA (data), and SCL (clock). That's like replacing 16 lanes of traffic with a 4-lane expressway!</div>
+    <button class="btn-next" onclick="goAct(2)">Next Challenge →</button>
+  </div>
+</div>
+
+<!-- ═══════ POPUP 2 ═══════ -->
+<div class="popup-overlay" id="popup2">
+  <div class="popup-box">
+    <span class="popup-icon">🚀</span>
+    <div class="popup-title">Pipeline Built!</div>
+    <div class="popup-sub">The I2C communication sequence is in perfect order. Data is flowing!</div>
+    <div class="popup-fact">💡 <b>Key Fact:</b> <code style="color:var(--cyan)">lcd.setCursor(0,0)</code> moves to Row 1, Column 1. <code style="color:var(--cyan)">lcd.setCursor(0,1)</code> jumps to Row 2. The LCD can display up to <b>32 characters</b> (16 per row).</div>
+    <button class="btn-next" onclick="goAct(3)">Final Challenge →</button>
+  </div>
+</div>
+
+<!-- ═══════ FINAL POPUP ═══════ -->
+<div class="popup-overlay" id="finalPopup">
+  <div class="popup-box" style="max-width:460px;">
+    <div id="confettiContainer" style="position:absolute;top:0;left:0;width:100%;height:100%;overflow:hidden;pointer-events:none;border-radius:18px;"></div>
+    <span class="celebrate-emojis">🏗️🏆🎉⚡🎊</span>
+    <div class="popup-title" style="color:var(--yellow);font-size:20px;">MASTER ENGINEER!</div>
+    <div class="popup-sub">You've completed all 3 challenges! You've mastered I2C wiring, the communication pipeline, and key Arduino LCD concepts.</div>
+    <div class="popup-fact">
+      🤖 <b>You learned:</b> 4-pin I2C wiring · Pipeline sequencing<br>
+      🧠 Memory matching · LCD functions<br>
+      ⚡ <code style="color:var(--cyan)">lcd.init() · lcd.backlight() · lcd.print()</code>
+    </div>
+    <button class="btn-next" onclick="playAgain()" style="background:linear-gradient(135deg,var(--green),#00b050);">🔄 Play Again</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// BACKGROUND CANVAS — animated particles
+// ══════════════════════════════════════════
+(function(){
+  const c = document.getElementById('bgCanvas');
+  const ctx = c.getContext('2d');
+  let W,H,pts=[];
+  function resize(){W=c.width=innerWidth;H=c.height=innerHeight;pts=[];for(let i=0;i<38;i++)pts.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-0.5)*0.25,vy:(Math.random()-0.5)*0.25,r:Math.random()*1.5+0.5});}
+  resize();addEventListener('resize',resize);
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // particles + connections
+    ctx.strokeStyle='rgba(0,212,255,0.07)';
+    for(let i=0;i<pts.length;i++){
+      for(let j=i+1;j<pts.length;j++){
+        const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y,d=Math.sqrt(dx*dx+dy*dy);
+        if(d<140){ctx.lineWidth=1;ctx.globalAlpha=(1-d/140)*0.3;ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);ctx.stroke();}
+      }
+    }
+    ctx.globalAlpha=1;
+    pts.forEach(p=>{
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle='rgba(0,212,255,0.4)';ctx.fill();
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ══════════════════════════════════════════
+// UTILITIES
+// ══════════════════════════════════════════
+function shuffle(arr){let a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function showPopup(id){document.getElementById(id).classList.add('show');}
+function hidePopup(id){document.getElementById(id).classList.remove('show');}
+function setMsg(id,html,color='var(--grey)'){const el=document.getElementById(id);el.innerHTML=html;el.style.color=color;}
+function updateDots(n){['pd1','pd2','pd3'].forEach((id,i)=>{const d=document.getElementById(id);d.classList.remove('active','done');if(i+1<n)d.classList.add('done');else if(i+1===n)d.classList.add('active');});}
+
+function goAct(n){
+  hidePopup('popup1');hidePopup('popup2');
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.getElementById('act'+n).classList.add('active');
+  updateDots(n);
+  if(n===2)initAct2();
+  if(n===3)initAct3();
+}
+
+function playAgain(){
+  hidePopup('finalPopup');
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('active'));
+  document.getElementById('act1').classList.add('active');
+  updateDots(1);
+  initAct1();
+  initAct2();
+  initAct3();
+}
+
+// ══════════════════════════════════════════
+// ACTIVITY 1 — WIRE CONNECT
+// ══════════════════════════════════════════
+let selectedPin = null;
+const wireColors = {
+  '5V':'#ff5555',
+  'GND':'#888888',
+  'SDA':'#9c6dff',
+  'SCL':'#ffb74d'
+};
+const wireConnected = {};
+
+function initAct1(){
+  selectedPin = null;
+  Object.keys(wireConnected).forEach(k=>delete wireConnected[k]);
+  document.getElementById('wiresSvg').innerHTML = '';
+  document.querySelectorAll('.pin-node').forEach(p=>{
+    p.classList.remove('connecting','connected');
+    p.style.opacity='1';
+    p.onclick = ()=>handlePinClick(p);
+  });
+  document.getElementById('lcdRow1').textContent='_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _';
+  document.getElementById('lcdRow2').textContent='_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _';
+  document.getElementById('lcdRow1').style.color='#004400';
+  document.getElementById('lcdRow2').style.color='#004400';
+  setMsg('act1-msg','Select a pin to begin wiring →');
+  document.querySelector('#act1 .comp-block').classList.remove('connected');
+  document.querySelector('#cI2C').classList.remove('connected');
+}
+
+function handlePinClick(pin){
+  if(pin.classList.contains('connected')) return;
+  const pinType = pin.dataset.pin;
+  const side = pin.dataset.side;
+
+  if(!selectedPin){
+    selectedPin = pin;
+    pin.classList.add('connecting');
+    setMsg('act1-msg',`🔌 ${pinType} selected — now click the matching ${pinType} pin on the other side`,'var(--yellow)');
+    return;
+  }
+
+  // Check valid connection
+  if(selectedPin === pin){
+    selectedPin.classList.remove('connecting');
+    selectedPin = null;
+    setMsg('act1-msg','Click a different pin on the other component →');
+    return;
+  }
+
+  if(selectedPin.dataset.pin === pin.dataset.pin && selectedPin.dataset.side !== pin.dataset.side){
+    // Correct match!
+    drawWire(selectedPin, pin, wireColors[pinType]);
+    selectedPin.classList.remove('connecting');
+    selectedPin.classList.add('connected');
+    pin.classList.add('connected');
+    selectedPin.onclick = null;
+    pin.onclick = null;
+    wireConnected[pinType] = true;
+    selectedPin = null;
+    setMsg('act1-msg',`✅ ${pinType} wire connected!`,'var(--green)');
+    checkAct1Complete();
+  } else if(selectedPin.dataset.side === pin.dataset.side){
+    // Same side — invalid
+    selectedPin.classList.remove('connecting');
+    selectedPin = pin;
+    pin.classList.add('connecting');
+    setMsg('act1-msg',`⚠️ Connect to the opposite component's ${pin.dataset.pin} pin`,'var(--orange)');
+  } else {
+    // Wrong pin type
+    selectedPin.classList.remove('connecting');
+    selectedPin = null;
+    setMsg('act1-msg',`❌ Wrong match! ${selectedPin ? selectedPin.dataset.pin : ''} ≠ ${pin.dataset.pin} — try again`,'var(--red)');
+    setMsg('act1-msg',`❌ Pin types must match — try again`,'var(--red)');
+  }
+}
+
+function drawWire(pinA, pinB, color){
+  const svg = document.getElementById('wiresSvg');
+  const board = document.getElementById('act1Board');
+  const br = board.getBoundingClientRect();
+  const ra = pinA.getBoundingClientRect();
+  const rb = pinB.getBoundingClientRect();
+  const x1 = ra.left+ra.width/2 - br.left;
+  const y1 = ra.top+ra.height/2 - br.top;
+  const x2 = rb.left+rb.width/2 - br.left;
+  const y2 = rb.top+rb.height/2 - br.top;
+  const cp = (x1+x2)/2;
+  const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d',`M ${x1} ${y1} C ${cp} ${y1}, ${cp} ${y2}, ${x2} ${y2}`);
+  path.setAttribute('stroke',color);
+  path.setAttribute('stroke-width','3');
+  path.setAttribute('fill','none');
+  path.setAttribute('stroke-dasharray','200');
+  path.setAttribute('stroke-dashoffset','200');
+  path.style.transition='stroke-dashoffset 0.5s ease';
+  svg.appendChild(path);
+  setTimeout(()=>{path.setAttribute('stroke-dashoffset','0');},30);
+
+  // Label
+  const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+  text.setAttribute('x',cp);text.setAttribute('y',(y1+y2)/2-6);
+  text.setAttribute('text-anchor','middle');text.setAttribute('fill',color);
+  text.setAttribute('font-size','9');text.setAttribute('font-family','Share Tech Mono');
+  text.textContent = pinA.dataset.pin;
+  svg.appendChild(text);
+}
+
+function checkAct1Complete(){
+  const needed = ['5V','GND','SDA','SCL'];
+  if(needed.every(p=>wireConnected[p])){
+    // Light up LCD
+    document.getElementById('lcdRow1').textContent='NAMASTE INDIA! 🇮🇳';
+    document.getElementById('lcdRow2').textContent='I2C CONNECTED ✓';
+    document.getElementById('lcdRow1').style.color='#00e676';
+    document.getElementById('lcdRow2').style.color='#00e676';
+    document.getElementById('cArduino').classList.add('connected');
+    document.getElementById('cI2C').classList.add('connected');
+    setMsg('act1-msg','🎉 All 4 wires connected! LCD is live!','var(--green)');
+    setTimeout(()=>showPopup('popup1'),800);
+  } else {
+    const count = needed.filter(p=>wireConnected[p]).length;
+    setMsg('act1-msg',`${count}/4 wires connected — keep going!`,'var(--cyan)');
+  }
+}
+
+// ══════════════════════════════════════════
+// ACTIVITY 2 — SEQUENCE PIPELINE
+// ══════════════════════════════════════════
+const pipelineSequence = [
+  { id:'init', label:'🔌 Initialize LCD', color:'#00D4FF', bg:'rgba(0,212,255,0.1)', desc:'lcd.init() · lcd.backlight()' },
+  { id:'i2c',  label:'📡 Establish I2C Link', color:'#7c4dff', bg:'rgba(124,77,255,0.1)', desc:'Wire.begin() · address 0x27' },
+  { id:'cursor', label:'📍 Set LCD Cursor', color:'#FFB800', bg:'rgba(255,184,0,0.1)', desc:'lcd.setCursor(col, row)' },
+  { id:'scroll', label:'📜 Display Text', color:'#FF6B35', bg:'rgba(255,107,53,0.1)', desc:'lcd.print("MESSAGE")' },
+  { id:'sensor', label:'📊 Read Sensor Value', color:'#00E676', bg:'rgba(0,230,118,0.1)', desc:'int val = analogRead(A0)' },
+];
+
+let pipe2Slots = {};
+let drag2Card = null;
+
+function initAct2(){
+  pipe2Slots = {};
+  const bank = document.getElementById('seqBank');
+  const slotsEl = document.getElementById('pipelineSlots');
+  bank.innerHTML=''; slotsEl.innerHTML='';
+  setMsg('act2-msg','Drag a step card onto the matching slot →');
+
+  // Build slots in order
+  pipelineSequence.forEach((step,i)=>{
+    if(i>0){
+      const arr=document.createElement('div');
+      arr.className='pipeline-arrow';arr.textContent='→';
+      slotsEl.appendChild(arr);
+    }
+    const slot=document.createElement('div');
+    slot.className='pipe-slot';
+    slot.dataset.slot=step.id;
+    slot.innerHTML=`<span class="slot-num">${i+1}</span><span class="slot-text">Drop here</span>`;
+    slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('over');});
+    slot.addEventListener('dragleave',()=>slot.classList.remove('over'));
+    slot.addEventListener('drop',e=>{e.preventDefault();slot.classList.remove('over');dropPipe(slot);});
+    slotsEl.appendChild(slot);
+  });
+
+  // Build bank (shuffled)
+  shuffle(pipelineSequence).forEach(step=>{
+    const card=document.createElement('div');
+    card.className='seq-card';
+    card.draggable=true;
+    card.dataset.id=step.id;
+    card.style.cssText=`color:${step.color};background:${step.bg};border-color:${step.color}55;`;
+    card.innerHTML=`<div style="font-size:13px;margin-bottom:2px;">${step.label}</div><div style="font-size:8px;color:rgba(255,255,255,0.5);font-family:'Share Tech Mono';">${step.desc}</div>`;
+    card.addEventListener('dragstart',e=>{drag2Card=card;card.classList.add('dragging-card');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',step.id);});
+    card.addEventListener('dragend',()=>{if(drag2Card)drag2Card.classList.remove('dragging-card');});
+    bank.appendChild(card);
+  });
+}
+
+function dropPipe(slot){
+  if(!drag2Card) return;
+  const droppedCard = drag2Card;
+  const slotId = slot.dataset.slot;
+  const cardId = droppedCard.dataset.id;
+
+  if(pipe2Slots[slotId]){
+    // slot occupied — return old card to bank
+    const oldId = pipe2Slots[slotId];
+    const existing = document.querySelector(`#seqBank .seq-card[data-id="${oldId}"]`);
+    if(!existing){
+      const oldStep = pipelineSequence.find(s=>s.id===oldId);
+      if(oldStep) recreatePipeCard(oldStep);
+    }
+  }
+
+  pipe2Slots[slotId] = cardId;
+  const step = pipelineSequence.find(s=>s.id===cardId);
+
+  // Visual fill slot
+  slot.innerHTML=`<span class="slot-num">${pipelineSequence.findIndex(s=>s.id===slotId)+1}</span>
+    <div style="font-size:10px;font-weight:700;color:${step.color};text-align:center;padding:2px;font-family:'Exo 2';">${step.label}</div>`;
+  slot.style.borderColor=step.color+'88';
+  slot.classList.add('filled');
+  droppedCard.style.display='none';
+
+  if(cardId !== slotId){
+    slot.classList.add('wrong-slot');
+    setMsg('act2-msg','❌ That step doesn\'t go there — try a different slot!','var(--red)');
+    setTimeout(()=>{
+      slot.classList.remove('wrong-slot','filled');
+      slot.innerHTML=`<span class="slot-num">${pipelineSequence.findIndex(s=>s.id===slotId)+1}</span><span class="slot-text">Drop here</span>`;
+      slot.style.borderColor='';
+      droppedCard.style.display='';
+      delete pipe2Slots[slotId];
+    },900);
+  } else {
+    slot.classList.add('correct-slot');
+    setMsg('act2-msg','✅ Correct! Keep building the pipeline…','var(--green)');
+    checkPipe2();
+  }
+  drag2Card = null;
+}
+
+function recreatePipeCard(step){
+  const card=document.createElement('div');
+  card.className='seq-card';card.draggable=true;card.dataset.id=step.id;
+  card.style.cssText=`color:${step.color};background:${step.bg};border-color:${step.color}55;`;
+  card.innerHTML=`<div style="font-size:13px;margin-bottom:2px;">${step.label}</div><div style="font-size:8px;color:rgba(255,255,255,0.5);font-family:'Share Tech Mono';">${step.desc}</div>`;
+  card.addEventListener('dragstart',e=>{drag2Card=card;card.classList.add('dragging-card');e.dataTransfer.effectAllowed='move';});
+  card.addEventListener('dragend',()=>{if(drag2Card)drag2Card.classList.remove('dragging-card');});
+  document.getElementById('seqBank').appendChild(card);
+}
+
+function checkPipe2(){
+  if(pipelineSequence.every(s=>pipe2Slots[s.id]===s.id)){
+    setMsg('act2-msg','🎉 Pipeline complete! I2C communication established!','var(--yellow)');
+    setTimeout(()=>showPopup('popup2'),700);
+  }
+}
+
+// ══════════════════════════════════════════
+// ACTIVITY 3 — MEMORY FLIP MATCH
+// ══════════════════════════════════════════
+const matchPairs = [
+  { id:'a', term:'🔌 VCC', def:'Power supply +5V to LCD', color:'#ff5555' },
+  { id:'b', term:'⚫ GND', def:'Ground — completes the circuit', color:'#888888' },
+  { id:'c', term:'📡 SDA', def:'Serial Data line — carries data bits', color:'#9c6dff' },
+  { id:'d', term:'⏰ SCL', def:'Serial Clock — synchronizes data transfer', color:'#ffb74d' },
+  { id:'e', term:'🖥️ 16×2 LCD', def:'Shows 2 rows × 16 characters = 32 chars', color:'#00D4FF' },
+  { id:'f', term:'🤖 0x27', def:'I2C device address of the LCD module', color:'#FF6B35' },
+  { id:'g', term:'📍 setCursor', def:'Sets row & column position for text output', color:'#00E676' },
+  { id:'h', term:'💡 backlight()', def:'Turns on the LCD backlight glow', color:'#FFB800' },
+];
+
+let flipped3 = [], matched3 = new Set(), canFlip3 = true;
+
+function initAct3(){
+  flipped3 = []; matched3 = new Set(); canFlip3 = true;
+  document.getElementById('act3-msg').textContent='Flip two cards to find a match →';
+  document.getElementById('act3-msg').style.color='var(--grey)';
+
+  // Build all cards: terms + defs shuffled together
+  const allCards = [];
+  matchPairs.forEach(p=>{
+    allCards.push({uid:p.id+'-term', pairId:p.id, type:'term', content:p.term, color:p.color});
+    allCards.push({uid:p.id+'-def',  pairId:p.id, type:'def',  content:p.def,  color:p.color});
+  });
+  const shuffled = shuffle(allCards);
+
+  const grid = document.getElementById('flipGrid');
+  grid.innerHTML = '';
+  shuffled.forEach(card=>{
+    const fc = document.createElement('div');
+    fc.className='flip-card';
+    fc.dataset.uid=card.uid;
+    fc.dataset.pairId=card.pairId;
+    fc.innerHTML=`<div class="flip-inner">
+      <div class="flip-face flip-front"><span class="flip-front-icon">🏗️</span></div>
+      <div class="flip-face flip-back" style="color:${card.color};border-color:${card.color}66;background:rgba(10,30,58,0.95);">
+        <span class="fb-icon">${card.type==='term'?'🔤':'📖'}</span>
+        <span class="fb-text">${card.content}</span>
+      </div>
+    </div>`;
+    fc.addEventListener('click',()=>flipCard(fc,card));
+    grid.appendChild(fc);
+  });
+
+  // Legend
+  const legend = document.getElementById('matchLegend');
+  legend.innerHTML = matchPairs.map(p=>`<div class="legend-pill"><div class="legend-dot" style="background:${p.color}"></div>${p.term}</div>`).join('');
+}
+
+function flipCard(el, card){
+  if(!canFlip3) return;
+  if(el.classList.contains('flipped') || el.classList.contains('matched')) return;
+  if(matched3.has(card.pairId)) return;
+
+  el.classList.add('flipped');
+  flipped3.push({el, card});
+
+  if(flipped3.length === 2){
+    canFlip3 = false;
+    const [a, b] = flipped3;
+    if(a.card.pairId === b.card.pairId && a.card.uid !== b.card.uid){
+      // Match!
+      matched3.add(a.card.pairId);
+      a.el.classList.add('matched');
+      b.el.classList.add('matched');
+      a.el.style.pointerEvents='none';
+      b.el.style.pointerEvents='none';
+      const pair = matchPairs.find(p=>p.id===a.card.pairId);
+      setMsg('act3-msg',`✅ Match! ${pair.term} ↔ ${pair.def}`,'var(--green)');
+      flipped3 = [];
+      canFlip3 = true;
+      if(matched3.size === matchPairs.length){
+        setTimeout(()=>launchFinalCelebration(),600);
+      }
+    } else {
+      // No match
+      setMsg('act3-msg','❌ Not a match — remember where they were!','var(--red)');
+      setTimeout(()=>{
+        a.el.classList.remove('flipped');
+        b.el.classList.remove('flipped');
+        a.el.querySelector('.flip-inner').classList.add('wrong-flip');
+        b.el.querySelector('.flip-inner').classList.add('wrong-flip');
+        setTimeout(()=>{
+          a.el.querySelector('.flip-inner').classList.remove('wrong-flip');
+          b.el.querySelector('.flip-inner').classList.remove('wrong-flip');
+        },500);
+        flipped3 = [];
+        canFlip3 = true;
+        setMsg('act3-msg',`${matched3.size}/${matchPairs.length} pairs found — keep going!`,'var(--cyan)');
+      },1200);
+    }
+  }
+}
+
+function launchFinalCelebration(){
+  const box = document.querySelector('#finalPopup .popup-box');
+  const container = document.getElementById('confettiContainer');
+  container.innerHTML='';
+  const colors=['#FFB800','#FF6B35','#00D4FF','#00E676','#ff5555','#9c6dff'];
+  for(let i=0;i<30;i++){
+    const p=document.createElement('div');
+    p.className='confetti-piece';
+    p.style.cssText=`left:${Math.random()*100}%;background:${colors[i%colors.length]};animation-delay:${Math.random()*2}s;animation-duration:${2+Math.random()*1.5}s;border-radius:${Math.random()>0.5?'50%':'2px'};`;
+    container.appendChild(p);
+  }
+  showPopup('finalPopup');
+}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+window.addEventListener('load',()=>{
+  initAct1();
+  initAct2();
+  initAct3();
+});
+</script>
+</body>
+</html>

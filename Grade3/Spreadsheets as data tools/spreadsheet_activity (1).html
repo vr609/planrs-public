@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Spreadsheet Data Explorer</title>
+<style>
+  :root{
+    --violet-900:#2e1065;
+    --violet-800:#3b1878;
+    --violet-700:#4c1d95;
+    --violet-600:#5b21b6;
+    --violet-500:#7c3aed;
+    --violet-400:#9d5cff;
+    --violet-300:#c4b5fd;
+    --violet-200:#e4d8ff;
+    --pink-500:#d946ef;
+    --gold:#fbbf24;
+    --mint:#34d399;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;
+    padding:0;
+    min-height:100vh;
+    font-family:'Trebuchet MS','Segoe UI',Verdana,sans-serif;
+    background:
+      radial-gradient(circle at 15% 20%, var(--violet-500) 0%, transparent 45%),
+      radial-gradient(circle at 85% 15%, var(--pink-500) 0%, transparent 40%),
+      radial-gradient(circle at 50% 90%, var(--violet-400) 0%, transparent 50%),
+      linear-gradient(135deg, var(--violet-900), var(--violet-700) 60%, var(--violet-800));
+    background-size:200% 200%;
+    animation:bgShift 18s ease infinite;
+    overflow-x:hidden;
+    color:#fff;
+  }
+  @keyframes bgShift{
+    0%{background-position:0% 0%;}
+    50%{background-position:100% 100%;}
+    100%{background-position:0% 0%;}
+  }
+
+  /* floating shapes */
+  .floaty{
+    position:fixed;
+    border-radius:50%;
+    filter:blur(2px);
+    opacity:0.35;
+    z-index:0;
+    animation:floatUp linear infinite;
+  }
+  @keyframes floatUp{
+    0%{transform:translateY(0) rotate(0deg);}
+    100%{transform:translateY(-120vh) rotate(360deg);}
+  }
+
+  .wrap{
+    position:relative;
+    z-index:1;
+    max-width:960px;
+    margin:0 auto;
+    padding:24px 18px 80px;
+  }
+
+  header{
+    text-align:center;
+    margin-bottom:20px;
+    animation:dropIn 0.8s ease;
+  }
+  @keyframes dropIn{
+    from{transform:translateY(-40px); opacity:0;}
+    to{transform:translateY(0); opacity:1;}
+  }
+  header h1{
+    font-size:2.1rem;
+    margin:0 0 6px;
+    background:linear-gradient(90deg,#fff,var(--violet-200),var(--gold));
+    background-size:200% auto;
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    animation:shine 4s linear infinite;
+    text-shadow:0 0 25px rgba(196,181,253,0.4);
+  }
+  @keyframes shine{
+    to{background-position:200% center;}
+  }
+  header p{
+    color:var(--violet-200);
+    font-size:1.05rem;
+    margin:0;
+  }
+
+  /* progress dots */
+  .progress{
+    display:flex;
+    justify-content:center;
+    gap:14px;
+    margin:18px 0 28px;
+  }
+  .dot{
+    width:44px;
+    height:44px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    font-size:1.1rem;
+    background:rgba(255,255,255,0.08);
+    border:3px solid var(--violet-400);
+    color:var(--violet-200);
+    transition:all 0.4s ease;
+    position:relative;
+  }
+  .dot.active{
+    background:linear-gradient(135deg,var(--pink-500),var(--violet-500));
+    border-color:var(--gold);
+    color:#fff;
+    box-shadow:0 0 20px rgba(251,191,36,0.6);
+    animation:pulseDot 1.4s ease infinite;
+  }
+  .dot.done{
+    background:linear-gradient(135deg,var(--mint),#10b981);
+    border-color:var(--mint);
+    color:#fff;
+  }
+  .dot.locked{
+    opacity:0.5;
+  }
+  @keyframes pulseDot{
+    0%,100%{transform:scale(1);}
+    50%{transform:scale(1.12);}
+  }
+  .progress-line{
+    position:absolute;
+    top:50%;
+    height:3px;
+    background:var(--violet-400);
+    z-index:-1;
+  }
+
+  .card{
+    background:linear-gradient(160deg, rgba(124,58,237,0.35), rgba(76,29,149,0.55));
+    border:2px solid rgba(196,181,253,0.4);
+    border-radius:22px;
+    padding:26px 24px 32px;
+    backdrop-filter:blur(6px);
+    box-shadow:0 20px 50px rgba(46,16,101,0.6), inset 0 0 40px rgba(157,92,255,0.1);
+    animation:cardIn 0.6s ease;
+  }
+  @keyframes cardIn{
+    from{opacity:0; transform:translateY(30px) scale(0.98);}
+    to{opacity:1; transform:translateY(0) scale(1);}
+  }
+
+  .activity{ display:none; }
+  .activity.visible{ display:block; animation:cardIn 0.5s ease; }
+
+  h2.activity-title{
+    text-align:center;
+    font-size:1.4rem;
+    margin:0 0 6px;
+    color:var(--gold);
+    text-shadow:0 0 10px rgba(251,191,36,0.5);
+  }
+  .instructions{
+    text-align:center;
+    color:var(--violet-200);
+    margin:0 0 22px;
+    font-size:1rem;
+  }
+
+  /* ============ Activity 1: Sheet Anatomy ============ */
+  .sheet-mock{
+    background:rgba(46,16,101,0.6);
+    border:2px solid var(--violet-400);
+    border-radius:14px;
+    padding:16px;
+    margin-bottom:22px;
+    position:relative;
+  }
+  .toolbar-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .toolbar-row div{
+    width:26px;height:18px;
+    background:rgba(255,255,255,0.15);
+    border-radius:4px;
+  }
+  .grid-demo{
+    display:grid;
+    grid-template-columns:40px repeat(3,1fr);
+    grid-template-rows:30px repeat(3,32px);
+    gap:2px;
+  }
+  .cell-demo{
+    background:rgba(255,255,255,0.07);
+    border:1px solid rgba(196,181,253,0.25);
+    border-radius:4px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:0.8rem;
+    color:var(--violet-200);
+  }
+  .cell-demo.header{
+    background:rgba(124,58,237,0.4);
+    font-weight:bold;
+    color:#fff;
+  }
+  .cell-demo.target{
+    background:rgba(217,70,239,0.18);
+    border:3px dashed var(--pink-500);
+    color:var(--pink-500);
+    font-weight:bold;
+    transition:all 0.3s ease;
+    animation:targetGlow 1.6s ease infinite;
+  }
+  @keyframes targetGlow{
+    0%,100%{ box-shadow:0 0 6px rgba(217,70,239,0.4); }
+    50%{ box-shadow:0 0 16px rgba(217,70,239,0.8); }
+  }
+  .cell-demo.target.filled{
+    border-style:solid;
+    color:#fff;
+    animation:none;
+  }
+  .cell-demo.target.correct-flash{
+    animation:correctPulse 0.6s ease;
+  }
+
+  /* Activity 1 clear layout */
+  .a1-layout{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    align-items:center;
+  }
+  .a1-top-row, .a1-bottom-row{
+    display:grid;
+    grid-template-columns:70px 1fr;
+    width:100%;
+    max-width:420px;
+  }
+  .a1-mid-row{
+    display:grid;
+    grid-template-columns:110px 1fr;
+    align-items:center;
+    gap:10px;
+    width:100%;
+    max-width:420px;
+  }
+  .a1-spacer{ width:70px; }
+  .callout-block{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+  }
+  .a1-top-row .callout-block{
+    grid-column:2;
+  }
+  .callout-caption{
+    font-size:0.72rem;
+    color:var(--gold);
+    font-weight:bold;
+    white-space:nowrap;
+    text-shadow:0 0 6px rgba(251,191,36,0.5);
+  }
+  #colheader-target{
+    width:100%;
+    height:26px;
+    border-radius:6px;
+  }
+  #rowheader-target{
+    width:44px;
+    height:130px;
+    border-radius:6px;
+    writing-mode:vertical-rl;
+  }
+  #cell-target{
+    width:60px;
+    height:32px;
+    border-radius:6px;
+  }
+  @keyframes correctPulse{
+    0%{background:rgba(52,211,153,0.6);}
+    100%{background:rgba(52,211,153,0.15);}
+  }
+
+  /* draggable labels bank */
+  .bank{
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    justify-content:center;
+    margin-top:18px;
+  }
+  .drag-item{
+    padding:10px 16px;
+    background:linear-gradient(135deg,var(--pink-500),var(--violet-500));
+    border-radius:12px;
+    cursor:grab;
+    font-weight:bold;
+    font-size:0.92rem;
+    box-shadow:0 6px 14px rgba(0,0,0,0.3);
+    border:2px solid rgba(255,255,255,0.4);
+    transition:transform 0.2s ease, box-shadow 0.2s ease;
+    user-select:none;
+    touch-action:none;
+  }
+  .drag-item:hover{
+    transform:translateY(-3px) scale(1.04);
+    box-shadow:0 10px 20px rgba(0,0,0,0.4);
+  }
+  .drag-item.dragging{
+    opacity:0.5;
+  }
+  .drag-item.used{
+    opacity:0.25;
+    pointer-events:none;
+    filter:grayscale(0.6);
+  }
+  .drop-target{
+    transition:all 0.25s ease;
+  }
+  .drop-target.dragover{
+    background:rgba(251,191,36,0.25) !important;
+    border-color:var(--gold) !important;
+    transform:scale(1.05);
+  }
+
+  /* ============ Activity 2: Sort rows/columns ============ */
+  .sort-stage{
+    display:flex;
+    flex-wrap:wrap;
+    gap:20px;
+    justify-content:center;
+    margin-bottom:24px;
+  }
+  .bin{
+    flex:1;
+    min-width:220px;
+    min-height:170px;
+    background:rgba(255,255,255,0.06);
+    border:3px dashed var(--violet-300);
+    border-radius:16px;
+    padding:14px;
+    text-align:center;
+  }
+  .bin h3{
+    margin:0 0 10px;
+    color:var(--gold);
+    font-size:1.05rem;
+  }
+  .bin .bin-items{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    justify-content:center;
+    min-height:60px;
+  }
+  .chip{
+    padding:9px 14px;
+    border-radius:10px;
+    font-weight:bold;
+    font-size:0.88rem;
+    cursor:grab;
+    background:linear-gradient(135deg,var(--violet-500),var(--pink-500));
+    box-shadow:0 5px 12px rgba(0,0,0,0.3);
+    border:2px solid rgba(255,255,255,0.35);
+    user-select:none;
+    touch-action:none;
+    transition:transform 0.2s ease;
+  }
+  .chip:hover{ transform:scale(1.05); }
+  .chip.dragging{ opacity:0.5; }
+
+  /* ============ Activity 3: Match data type ============ */
+  .match-stage{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .match-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    background:rgba(255,255,255,0.05);
+    border-radius:14px;
+    padding:10px 14px;
+    flex-wrap:wrap;
+  }
+  .match-label{
+    flex:1;
+    min-width:160px;
+    font-size:0.95rem;
+    background:rgba(76,29,149,0.6);
+    padding:10px 12px;
+    border-radius:10px;
+    border:2px solid var(--violet-400);
+  }
+  .match-slot{
+    width:180px;
+    min-height:44px;
+    border:3px dashed var(--violet-300);
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(255,255,255,0.04);
+    font-size:0.85rem;
+    color:var(--violet-200);
+    transition:all 0.25s ease;
+  }
+  .match-bank{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    justify-content:center;
+    margin-top:18px;
+    padding-top:16px;
+    border-top:2px dashed rgba(196,181,253,0.3);
+  }
+
+  /* feedback flashes inline */
+  .shake{
+    animation:shakeIt 0.5s ease;
+  }
+  @keyframes shakeIt{
+    0%,100%{transform:translateX(0);}
+    20%{transform:translateX(-8px);}
+    40%{transform:translateX(8px);}
+    60%{transform:translateX(-6px);}
+    80%{transform:translateX(6px);}
+  }
+
+  /* ============ Popups ============ */
+  .overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(20,6,50,0.65);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    backdrop-filter:blur(3px);
+  }
+  .overlay.show{ display:flex; animation:fadeBg 0.3s ease; }
+  @keyframes fadeBg{ from{opacity:0;} to{opacity:1;} }
+
+  .popup{
+    background:linear-gradient(160deg,var(--violet-600),var(--violet-800));
+    border:3px solid var(--violet-300);
+    border-radius:24px;
+    padding:34px 40px;
+    text-align:center;
+    box-shadow:0 25px 60px rgba(0,0,0,0.5);
+    animation:popIn 0.45s cubic-bezier(.34,1.56,.64,1);
+    max-width:360px;
+  }
+  @keyframes popIn{
+    0%{transform:scale(0.4) rotate(-8deg); opacity:0;}
+    70%{transform:scale(1.08) rotate(2deg);}
+    100%{transform:scale(1) rotate(0deg); opacity:1;}
+  }
+  .popup .icon{
+    font-size:3.2rem;
+    display:block;
+    margin-bottom:10px;
+    animation:iconBounce 1s ease infinite;
+  }
+  @keyframes iconBounce{
+    0%,100%{transform:translateY(0);}
+    50%{transform:translateY(-10px);}
+  }
+  .popup h2{
+    margin:0 0 8px;
+    font-size:1.5rem;
+    color:#fff;
+  }
+  .popup p{
+    color:var(--violet-200);
+    margin:0 0 20px;
+  }
+  .popup-btn{
+    border:none;
+    padding:12px 28px;
+    border-radius:30px;
+    font-size:1rem;
+    font-weight:bold;
+    cursor:pointer;
+    background:linear-gradient(135deg,var(--gold),#f59e0b);
+    color:#4c1d10;
+    box-shadow:0 8px 20px rgba(251,191,36,0.4);
+    transition:transform 0.2s ease;
+  }
+  .popup-btn:hover{ transform:scale(1.06); }
+  .popup.tryagain{
+    border-color:#f87171;
+  }
+  .popup.tryagain .popup-btn{
+    background:linear-gradient(135deg,#f87171,#ef4444);
+    color:#fff;
+    box-shadow:0 8px 20px rgba(239,68,68,0.4);
+  }
+
+  /* ============ Celebration screen ============ */
+  #celebration{
+    position:fixed;
+    inset:0;
+    z-index:100;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    background:
+      radial-gradient(circle at 30% 30%, var(--pink-500), transparent 50%),
+      radial-gradient(circle at 70% 70%, var(--violet-500), transparent 50%),
+      linear-gradient(135deg,var(--violet-900),var(--violet-700));
+    background-size:200% 200%;
+    animation:bgShift 10s ease infinite;
+    overflow:hidden;
+  }
+  #celebration.show{ display:flex; }
+  .celebrate-box{
+    text-align:center;
+    z-index:5;
+    animation:popIn 0.6s cubic-bezier(.34,1.56,.64,1);
+  }
+  .celebrate-box h1{
+    font-size:3rem;
+    margin:0 0 12px;
+    background:linear-gradient(90deg,var(--gold),#fff,var(--pink-500));
+    background-size:200% auto;
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    animation:shine 3s linear infinite;
+  }
+  .celebrate-box p{
+    font-size:1.3rem;
+    color:var(--violet-200);
+    margin:0 0 28px;
+  }
+  .trophy{
+    font-size:5rem;
+    animation:trophySpin 2.5s ease infinite;
+    display:inline-block;
+  }
+  @keyframes trophySpin{
+    0%,100%{transform:rotate(-8deg) scale(1);}
+    50%{transform:rotate(8deg) scale(1.1);}
+  }
+  #playAgainBtn{
+    border:none;
+    padding:16px 40px;
+    font-size:1.15rem;
+    font-weight:bold;
+    border-radius:36px;
+    cursor:pointer;
+    background:linear-gradient(135deg,var(--gold),#f59e0b);
+    color:#4c1d10;
+    box-shadow:0 10px 26px rgba(251,191,36,0.5);
+    transition:transform 0.2s ease;
+  }
+  #playAgainBtn:hover{ transform:scale(1.08) rotate(-1deg); }
+
+  .confetti-piece{
+    position:absolute;
+    top:-20px;
+    width:12px;
+    height:18px;
+    opacity:0.9;
+    animation:confettiFall linear infinite;
+  }
+  @keyframes confettiFall{
+    0%{transform:translateY(0) rotate(0deg); opacity:1;}
+    100%{transform:translateY(110vh) rotate(720deg); opacity:0.9;}
+  }
+
+  footer{
+    text-align:center;
+    margin-top:20px;
+    color:var(--violet-300);
+    font-size:0.85rem;
+  }
+
+  @media(max-width:600px){
+    .grid-demo{ grid-template-columns:30px repeat(3,1fr); }
+    .card{ padding:20px 14px 26px; }
+    header h1{ font-size:1.6rem; }
+    .match-slot{ width:140px; }
+    .celebrate-box h1{ font-size:2rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>📊 Spreadsheet Data Explorer</h1>
+  </header>
+
+  <div class="progress" id="progressDots">
+    <div class="dot active" data-step="1">1</div>
+    <div class="dot locked" data-step="2">2</div>
+    <div class="dot locked" data-step="3">3</div>
+  </div>
+
+  <div class="card">
+
+    <!-- ACTIVITY 1 -->
+    <section class="activity visible" id="activity1">
+      <h2 class="activity-title">🧩 Label the Spreadsheet</h2>
+      <p class="instructions">Each glowing box points to one part of the spreadsheet. Drag the matching label onto it.</p>
+
+      <div class="sheet-mock">
+        <div class="toolbar-row">
+          <div></div><div></div><div></div><div></div><div></div>
+        </div>
+
+        <div class="a1-layout">
+          <div class="a1-top-row">
+            <div class="a1-spacer"></div>
+            <div class="callout-block">
+              <div class="cell-demo target" id="colheader-target">?</div>
+              <div class="callout-caption">This is a whole ↓ COLUMN</div>
+            </div>
+          </div>
+
+          <div class="a1-mid-row">
+            <div class="callout-block">
+              <div class="cell-demo target" id="rowheader-target">?</div>
+              <div class="callout-caption">This is a whole → ROW</div>
+            </div>
+
+            <div class="grid-demo" id="grid1">
+              <div class="cell-demo header corner"></div>
+              <div class="cell-demo header">A</div>
+              <div class="cell-demo header">B</div>
+              <div class="cell-demo header">C</div>
+
+              <div class="cell-demo header">1</div>
+              <div class="cell-demo">Apples</div>
+              <div class="cell-demo">Fruit</div>
+              <div class="cell-demo">12</div>
+
+              <div class="cell-demo header">2</div>
+              <div class="cell-demo">Pears</div>
+              <div class="cell-demo">Fruit</div>
+              <div class="cell-demo">7</div>
+
+              <div class="cell-demo header">3</div>
+              <div class="cell-demo">Corn</div>
+              <div class="cell-demo">Veggie</div>
+              <div class="cell-demo">15</div>
+            </div>
+          </div>
+
+          <div class="a1-bottom-row">
+            <div class="a1-spacer"></div>
+            <div class="callout-block">
+              <div class="callout-caption">This one box is a ↑ CELL</div>
+              <div class="cell-demo target" id="cell-target">?</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bank" id="bank1">
+        <div class="drag-item" draggable="true" data-answer="cell-target">Cell</div>
+        <div class="drag-item" draggable="true" data-answer="colheader-target">Column</div>
+        <div class="drag-item" draggable="true" data-answer="rowheader-target">Row</div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 2 -->
+    <section class="activity" id="activity2">
+      <h2 class="activity-title">🗂️ Sort the Data</h2>
+      <p class="instructions">Drag each item into the bin where it belongs.</p>
+
+      <div class="sort-stage">
+        <div class="bin" data-bin="numbers">
+          <h3>🔢 Numbers</h3>
+          <div class="bin-items" id="bin-numbers"></div>
+        </div>
+        <div class="bin" data-bin="words">
+          <h3>🔤 Words</h3>
+          <div class="bin-items" id="bin-words"></div>
+        </div>
+      </div>
+
+      <div class="bank" id="bank2">
+        <div class="chip" draggable="true" data-answer="numbers">42</div>
+        <div class="chip" draggable="true" data-answer="words">Banana</div>
+        <div class="chip" draggable="true" data-answer="numbers">7</div>
+        <div class="chip" draggable="true" data-answer="words">Tuesday</div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY 3 -->
+    <section class="activity" id="activity3">
+      <h2 class="activity-title">🎯 Match the Data Tool</h2>
+      <p class="instructions">Drag the correct spreadsheet tool next to what it does.</p>
+
+      <div class="match-stage">
+        <div class="match-row">
+          <div class="match-label">Adds up a list of numbers automatically</div>
+          <div class="match-slot" data-answer="formula" id="slot-formula"></div>
+        </div>
+        <div class="match-row">
+          <div class="match-label">Turns your numbers into a colorful picture</div>
+          <div class="match-slot" data-answer="chart" id="slot-chart"></div>
+        </div>
+        <div class="match-row">
+          <div class="match-label">Arranges rows from smallest to largest</div>
+          <div class="match-slot" data-answer="sort" id="slot-sort"></div>
+        </div>
+      </div>
+
+      <div class="match-bank" id="bank3">
+        <div class="chip" draggable="true" data-answer="chart">Chart</div>
+        <div class="chip" draggable="true" data-answer="formula">Formula</div>
+        <div class="chip" draggable="true" data-answer="sort">Sort Button</div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>Complete each activity correctly to unlock the next one ✨</footer>
+</div>
+
+<!-- POPUPS -->
+<div class="overlay" id="tryAgainOverlay">
+  <div class="popup tryagain">
+    <span class="icon">🙈</span>
+    <h2>Not quite!</h2>
+    <p>Take another look and try again.</p>
+    <button class="popup-btn" onclick="closeTryAgain()">Try Again</button>
+  </div>
+</div>
+
+<div class="overlay" id="nextOverlay">
+  <div class="popup">
+    <span class="icon">🎉</span>
+    <h2>Great job!</h2>
+    <p>You completed this activity!</p>
+    <button class="popup-btn" id="nextActivityBtn">Next Activity</button>
+  </div>
+</div>
+
+<!-- CELEBRATION -->
+<div id="celebration">
+  <div class="celebrate-box">
+    <div class="trophy">🏆</div>
+    <h1>You're a Spreadsheet Star!</h1>
+    <p>You finished all 3 activities. Amazing work!</p>
+    <button id="playAgainBtn">Play Again</button>
+  </div>
+</div>
+
+<script>
+/* ---------- Floating background shapes ---------- */
+const colors = ['#7c3aed','#d946ef','#9d5cff','#fbbf24','#34d399'];
+for(let i=0;i<16;i++){
+  const el = document.createElement('div');
+  el.className='floaty';
+  const size = 20 + Math.random()*50;
+  el.style.width = size+'px';
+  el.style.height = size+'px';
+  el.style.left = Math.random()*100+'vw';
+  el.style.top = 100 + Math.random()*20 + 'vh';
+  el.style.background = colors[Math.floor(Math.random()*colors.length)];
+  el.style.animationDuration = (10+Math.random()*14)+'s';
+  el.style.animationDelay = (Math.random()*10)+'s';
+  document.body.appendChild(el);
+}
+
+/* ---------- State ---------- */
+let currentStep = 1;
+const completed = {1:false,2:false,3:false};
+
+function updateDots(){
+  document.querySelectorAll('.dot').forEach(dot=>{
+    const step = parseInt(dot.dataset.step);
+    dot.classList.remove('active','done','locked');
+    if(completed[step]) dot.classList.add('done');
+    else if(step===currentStep) dot.classList.add('active');
+    else dot.classList.add('locked');
+  });
+}
+updateDots();
+
+function showActivity(step){
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('visible'));
+  document.getElementById('activity'+step).classList.add('visible');
+  currentStep = step;
+  updateDots();
+}
+
+function openTryAgain(){
+  document.getElementById('tryAgainOverlay').classList.add('show');
+}
+function closeTryAgain(){
+  document.getElementById('tryAgainOverlay').classList.remove('show');
+}
+function openNext(step, isLast){
+  document.getElementById('nextOverlay').classList.add('show');
+  const btn = document.getElementById('nextActivityBtn');
+  if(isLast){
+    btn.textContent = 'See Results';
+    btn.onclick = ()=>{
+      document.getElementById('nextOverlay').classList.remove('show');
+      launchCelebration();
+    };
+  } else {
+    btn.textContent = 'Next Activity';
+    btn.onclick = ()=>{
+      document.getElementById('nextOverlay').classList.remove('show');
+      showActivity(step+1);
+    };
+  }
+}
+
+/* ---------- Generic drag helpers (mouse + touch friendly via HTML5 DnD) ---------- */
+function addDragHandlers(item){
+  item.addEventListener('dragstart', e=>{
+    e.dataTransfer.setData('text/plain', item.dataset.answer);
+    e.dataTransfer.setData('itemid', item.id || '');
+    item.classList.add('dragging');
+    window._draggedEl = item;
+  });
+  item.addEventListener('dragend', ()=>{
+    item.classList.remove('dragging');
+  });
+}
+
+function addDropHandlers(target, onDrop){
+  target.addEventListener('dragover', e=>{
+    e.preventDefault();
+    target.classList.add('dragover');
+  });
+  target.addEventListener('dragleave', ()=>{
+    target.classList.remove('dragover');
+  });
+  target.addEventListener('drop', e=>{
+    e.preventDefault();
+    target.classList.remove('dragover');
+    const answer = e.dataTransfer.getData('text/plain');
+    onDrop(answer, window._draggedEl);
+  });
+}
+
+/* ================= ACTIVITY 1 ================= */
+let a1Correct = 0;
+const a1Targets = ['cell-target','colheader-target','rowheader-target'];
+document.querySelectorAll('#bank1 .drag-item').forEach(addDragHandlers);
+
+a1Targets.forEach(id=>{
+  const target = document.getElementById(id);
+  target.classList.add('drop-target');
+  addDropHandlers(target, (answer, draggedEl)=>{
+    if(target.classList.contains('filled')) return;
+    if(answer === id){
+      target.classList.add('filled','correct-flash');
+      target.style.color = '#fff';
+      target.textContent = draggedEl.textContent;
+      draggedEl.classList.add('used');
+      draggedEl.setAttribute('draggable','false');
+      a1Correct++;
+      if(a1Correct === a1Targets.length){
+        completed[1] = true;
+        updateDots();
+        setTimeout(()=>openNext(1,false), 500);
+      }
+    } else {
+      target.classList.add('shake');
+      setTimeout(()=>target.classList.remove('shake'),500);
+      openTryAgain();
+    }
+  });
+});
+
+/* ================= ACTIVITY 2 ================= */
+let a2Correct = 0;
+const bank2 = document.getElementById('bank2');
+const bank2Items = Array.from(document.querySelectorAll('#bank2 .chip'));
+const a2Total = bank2Items.length;
+bank2Items.forEach(addDragHandlers);
+
+document.querySelectorAll('.bin').forEach(bin=>{
+  const key = bin.dataset.bin;
+  const dropZone = bin.querySelector('.bin-items');
+  bin.classList.add('drop-target');
+  addDropHandlers(bin, (answer, draggedEl)=>{
+    if(draggedEl.classList.contains('used')) return;
+    if(answer === key){
+      draggedEl.classList.add('used');
+      draggedEl.setAttribute('draggable','false');
+      draggedEl.style.opacity = '1';
+      draggedEl.style.filter = 'none';
+      draggedEl.style.pointerEvents = 'none';
+      dropZone.appendChild(draggedEl);
+      a2Correct++;
+      if(a2Correct === a2Total){
+        completed[2] = true;
+        updateDots();
+        setTimeout(()=>openNext(2,false), 500);
+      }
+    } else {
+      bin.classList.add('shake');
+      setTimeout(()=>bin.classList.remove('shake'),500);
+      openTryAgain();
+    }
+  });
+});
+
+/* ================= ACTIVITY 3 ================= */
+let a3Correct = 0;
+const a3Slots = ['slot-formula','slot-chart','slot-sort'];
+document.querySelectorAll('#bank3 .chip').forEach(addDragHandlers);
+
+a3Slots.forEach(id=>{
+  const slot = document.getElementById(id);
+  const wantAnswer = slot.dataset.answer;
+  slot.classList.add('drop-target');
+  addDropHandlers(slot, (answer, draggedEl)=>{
+    if(slot.dataset.filled) return;
+    if(answer === wantAnswer){
+      slot.textContent = draggedEl.textContent;
+      slot.style.color = '#fff';
+      slot.style.background = 'rgba(52,211,153,0.25)';
+      slot.style.borderStyle = 'solid';
+      slot.style.borderColor = '#34d399';
+      slot.dataset.filled = 'true';
+      draggedEl.classList.add('used');
+      draggedEl.setAttribute('draggable','false');
+      draggedEl.style.opacity='0.25';
+      draggedEl.style.pointerEvents='none';
+      a3Correct++;
+      if(a3Correct === a3Slots.length){
+        completed[3] = true;
+        updateDots();
+        setTimeout(()=>openNext(3,true), 500);
+      }
+    } else {
+      slot.classList.add('shake');
+      setTimeout(()=>slot.classList.remove('shake'),500);
+      openTryAgain();
+    }
+  });
+});
+
+/* ---------- Celebration + Confetti ---------- */
+function launchCelebration(){
+  const celeb = document.getElementById('celebration');
+  celeb.classList.add('show');
+  spawnConfetti();
+}
+function spawnConfetti(){
+  const celeb = document.getElementById('celebration');
+  document.querySelectorAll('.confetti-piece').forEach(c=>c.remove());
+  const confettiColors = ['#fbbf24','#d946ef','#9d5cff','#7c3aed','#34d399','#fff'];
+  for(let i=0;i<80;i++){
+    const piece = document.createElement('div');
+    piece.className='confetti-piece';
+    piece.style.left = Math.random()*100+'vw';
+    piece.style.background = confettiColors[Math.floor(Math.random()*confettiColors.length)];
+    piece.style.animationDuration = (2.5+Math.random()*3)+'s';
+    piece.style.animationDelay = (Math.random()*2)+'s';
+    piece.style.borderRadius = Math.random()>0.5 ? '50%':'2px';
+    celeb.appendChild(piece);
+  }
+}
+
+function resetGame(){
+  // Hide celebration screen and clear confetti
+  document.getElementById('celebration').classList.remove('show');
+  document.querySelectorAll('.confetti-piece').forEach(c=>c.remove());
+
+  // Reset progress state
+  completed[1] = false; completed[2] = false; completed[3] = false;
+  a1Correct = 0; a2Correct = 0; a3Correct = 0;
+
+  // ---- Activity 1 reset ----
+  a1Targets.forEach(id=>{
+    const target = document.getElementById(id);
+    target.classList.remove('filled','correct-flash');
+    target.style.color = '';
+    target.textContent = '?';
+  });
+  document.querySelectorAll('#bank1 .drag-item').forEach(item=>{
+    item.classList.remove('used');
+    item.setAttribute('draggable','true');
+  });
+
+  // ---- Activity 2 reset ----
+  bank2Items.forEach(item=>{
+    item.classList.remove('used');
+    item.setAttribute('draggable','true');
+    item.style.opacity = '';
+    item.style.filter = '';
+    item.style.pointerEvents = '';
+    bank2.appendChild(item);
+  });
+
+  // ---- Activity 3 reset ----
+  a3Slots.forEach(id=>{
+    const slot = document.getElementById(id);
+    slot.textContent = '';
+    slot.style.color = '';
+    slot.style.background = '';
+    slot.style.borderStyle = '';
+    slot.style.borderColor = '';
+    delete slot.dataset.filled;
+  });
+  document.querySelectorAll('#bank3 .chip').forEach(item=>{
+    item.classList.remove('used');
+    item.setAttribute('draggable','true');
+    item.style.opacity = '';
+    item.style.pointerEvents = '';
+  });
+
+  // Back to activity 1
+  showActivity(1);
+}
+
+document.getElementById('playAgainBtn').addEventListener('click', resetGame);
+</script>
+
+</body>
+</html>

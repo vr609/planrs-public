@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARDUINO — DC MOTOR WITH L298N DRIVER</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap');
+
+  :root {
+    --cosmos: #030a1a;
+    --deep: #060d1f;
+    --nebula: #0e1f45;
+    --pulse: #00e5ff;
+    --glow: #7b2fff;
+    --star: #ffe87a;
+    --plasma: #ff4da6;
+    --orbit: #39ff8f;
+    --white: #e8f4ff;
+    --dim: #6a7fa8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: 'Exo 2', sans-serif;
+    background: var(--cosmos);
+    color: var(--white);
+  }
+
+  /* ── SPACE CANVAS ── */
+  #space-canvas {
+    position: fixed; inset: 0; z-index: 0;
+    pointer-events: none;
+  }
+
+  /* ── LAYOUT ── */
+  #app {
+    position: relative; z-index: 1;
+    width: 100vw; height: 100vh;
+    display: flex; flex-direction: column;
+  }
+
+  /* ── HEADER ── */
+  #header {
+    flex-shrink: 0;
+    padding: 10px 24px 6px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid rgba(0,229,255,.15);
+    background: linear-gradient(90deg, rgba(3,10,26,.9) 0%, rgba(14,31,69,.5) 50%, rgba(3,10,26,.9) 100%);
+  }
+
+  #header h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(11px, 1.6vw, 18px);
+    font-weight: 900;
+    letter-spacing: .12em;
+    background: linear-gradient(90deg, var(--pulse), var(--glow), var(--plasma));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    text-shadow: none;
+  }
+
+  #progress-dots {
+    display: flex; gap: 10px;
+  }
+  .dot {
+    width: 32px; height: 8px; border-radius: 4px;
+    background: rgba(255,255,255,.12);
+    transition: background .4s;
+  }
+  .dot.active { background: var(--pulse); box-shadow: 0 0 8px var(--pulse); }
+  .dot.done { background: var(--orbit); box-shadow: 0 0 8px var(--orbit); }
+
+  /* ── ACTIVITY STAGE ── */
+  #stage {
+    flex: 1; overflow: hidden;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 8px 16px;
+  }
+
+  .activity { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; }
+  .activity.active { display: flex; }
+
+  .act-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(12px, 1.8vw, 20px);
+    font-weight: 700;
+    color: var(--star);
+    letter-spacing: .1em;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  .act-subtitle {
+    font-size: clamp(10px, 1.2vw, 13px);
+    color: var(--dim);
+    margin-bottom: 10px;
+    text-align: center;
+    max-width: 640px;
+  }
+
+  /* ──────────────────────────────────────────────
+     ACTIVITY 1 — CIRCUIT WIRING (drag to socket)
+  ────────────────────────────────────────────── */
+  #act1-arena {
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+    justify-content: center;
+    width: 100%;
+    flex: 1;
+  }
+
+  #circuit-board {
+    position: relative;
+    width: clamp(300px, 52vw, 580px);
+    height: clamp(260px, 42vh, 420px);
+    background: linear-gradient(135deg, #071228 0%, #0b1e3d 100%);
+    border: 1.5px solid rgba(0,229,255,.3);
+    border-radius: 12px;
+    box-shadow: 0 0 30px rgba(0,229,255,.08), inset 0 0 40px rgba(7,18,40,.8);
+    flex-shrink: 0;
+  }
+
+  /* PCB grid lines */
+  #circuit-board::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,.04) 1px, transparent 1px);
+    background-size: 28px 28px;
+    border-radius: 12px;
+  }
+
+  .socket {
+    position: absolute;
+    width: 68px; height: 30px;
+    border-radius: 6px;
+    border: 2px dashed rgba(255,255,255,.25);
+    background: rgba(255,255,255,.03);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; color: rgba(255,255,255,.4);
+    text-align: center; line-height: 1.2;
+    transition: border-color .2s, background .2s;
+    cursor: default;
+    font-family: 'Exo 2', sans-serif;
+    letter-spacing: .03em;
+  }
+  .socket.hover-glow { border-color: var(--pulse); background: rgba(0,229,255,.08); box-shadow: 0 0 10px rgba(0,229,255,.3); }
+  .socket.filled { border-style: solid; border-color: var(--orbit); background: rgba(57,255,143,.08); }
+  .socket.filled.wrong { border-color: var(--plasma); background: rgba(255,77,166,.08); animation: shake .3s; }
+  .socket .chip-label { font-size: 8px; font-weight: 600; letter-spacing: .04em; }
+
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 20%{transform:translateX(-4px)} 60%{transform:translateX(4px)}
+  }
+
+  /* component cards on left */
+  #comp-tray {
+    display: flex; flex-direction: column; gap: 7px;
+    justify-content: center;
+  }
+  .comp-chip {
+    width: 104px; padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 10px; font-weight: 600;
+    text-align: center; letter-spacing: .04em;
+    cursor: grab;
+    user-select: none;
+    transition: transform .15s, box-shadow .15s, opacity .2s;
+    touch-action: none;
+  }
+  .comp-chip:hover { transform: scale(1.05); }
+  .comp-chip.dragging-active { opacity: .4; transform: scale(.95); }
+  .comp-chip.used { opacity: .25; pointer-events: none; }
+
+  .chip-arduino { background: linear-gradient(135deg,#00629b,#003f6b); border: 1px solid #0090d6; color:#7dd6ff; }
+  .chip-l298n   { background: linear-gradient(135deg,#6b2100,#3d1200); border: 1px solid #c04010; color:#ffb380; }
+  .chip-dcmotor { background: linear-gradient(135deg,#005c2e,#002f17); border: 1px solid #00a050; color:#80ffba; }
+  .chip-ena     { background: linear-gradient(135deg,#5b006b,#360040); border: 1px solid #cc00ee; color:#f8b0ff; }
+  .chip-in1     { background: linear-gradient(135deg,#00406b,#00203d); border: 1px solid #0080d6; color:#80d6ff; }
+  .chip-in2     { background: linear-gradient(135deg,#00406b,#00203d); border: 1px solid #0080d6; color:#80d6ff; }
+  .chip-power   { background: linear-gradient(135deg,#6b4400,#3d2700); border: 1px solid #cc8800; color:#ffe080; }
+  .chip-gnd     { background: linear-gradient(135deg,#2a2a2a,#111); border: 1px solid #666; color:#ccc; }
+
+  /* wire svg overlay */
+  #wire-svg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    border-radius: 12px;
+  }
+
+  /* ──────────────────────────────────────────────
+     ACTIVITY 2 — MISSION TIMELINE SORT
+  ────────────────────────────────────────────── */
+  #act2-arena {
+    display: flex;
+    gap: 20px;
+    width: 100%;
+    flex: 1;
+    align-items: flex-start;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  #mission-steps-pool {
+    display: flex; flex-direction: column; gap: 6px;
+    width: 220px; flex-shrink: 0;
+    align-self: center;
+  }
+
+  .mission-card {
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 10.5px; font-weight: 600;
+    letter-spacing: .03em;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    transition: transform .15s, box-shadow .15s, opacity .2s;
+    border: 1px solid rgba(255,255,255,.15);
+    background: linear-gradient(135deg,rgba(30,50,90,.9),rgba(15,25,55,.95));
+    display: flex; align-items: center; gap: 8px;
+  }
+  .mission-card:hover { transform: scale(1.03); box-shadow: 0 4px 16px rgba(0,0,0,.5); }
+  .mission-card.dragging-active { opacity: .35; }
+  .mission-card.used { opacity: .2; pointer-events: none; }
+  .mission-card .mc-icon { font-size: 16px; flex-shrink: 0; }
+
+  #timeline-slots {
+    display: flex; flex-direction: column; gap: 8px;
+    flex: 1; max-width: 400px;
+    align-self: center;
+  }
+
+  .tl-row {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .tl-num {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px; font-weight: 700;
+    color: var(--pulse);
+    width: 22px; flex-shrink: 0; text-align: right;
+  }
+  .tl-connector { width: 18px; height: 2px; background: var(--pulse); opacity: .35; flex-shrink: 0; }
+  .tl-slot {
+    flex: 1; height: 38px;
+    border-radius: 8px;
+    border: 2px dashed rgba(0,229,255,.3);
+    background: rgba(0,229,255,.03);
+    display: flex; align-items: center; padding: 0 10px;
+    font-size: 10px; color: rgba(255,255,255,.3);
+    transition: border-color .2s, background .2s;
+    cursor: default;
+    font-family: 'Exo 2', sans-serif;
+  }
+  .tl-slot.hover-glow { border-color: var(--pulse); background: rgba(0,229,255,.08); box-shadow: 0 0 10px rgba(0,229,255,.25); }
+  .tl-slot.filled { border-style: solid; border-color: var(--orbit); color: var(--orbit); font-weight: 600; font-size: 10.5px; }
+  .tl-slot.wrong-slot { border-color: var(--plasma); color: var(--plasma); animation: shake .3s; }
+
+  /* ──────────────────────────────────────────────
+     ACTIVITY 3 — CARD MATCH FLIP GAME
+  ────────────────────────────────────────────── */
+  #act3-arena {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    width: 100%;
+    justify-content: center;
+  }
+
+  #match-instructions {
+    font-size: 11px; color: var(--dim);
+    text-align: center; max-width: 560px;
+  }
+
+  #match-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+    width: min(96vw, 720px);
+  }
+
+  .card-wrap {
+    perspective: 600px;
+    aspect-ratio: 3/4;
+    cursor: pointer;
+  }
+  .card-inner {
+    width: 100%; height: 100%;
+    transform-style: preserve-3d;
+    transition: transform .45s cubic-bezier(.4,0,.2,1);
+    position: relative;
+    border-radius: 8px;
+  }
+  .card-wrap.flipped .card-inner { transform: rotateY(180deg); }
+  .card-wrap.matched .card-inner { transform: rotateY(180deg); }
+
+  .card-front, .card-back {
+    position: absolute; inset: 0;
+    border-radius: 8px;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 4px;
+  }
+  .card-front {
+    background: linear-gradient(135deg,#0a1830,#0d2040);
+    border: 1.5px solid rgba(0,229,255,.2);
+    font-size: 22px;
+  }
+  .card-back {
+    background: linear-gradient(135deg,#0e2040,#1a0e40);
+    border: 1.5px solid rgba(123,47,255,.5);
+    transform: rotateY(180deg);
+    font-size: clamp(7px, 1.1vw, 10px);
+    font-weight: 600;
+    color: var(--white);
+    letter-spacing: .02em;
+    line-height: 1.3;
+    flex-direction: column; gap: 4px;
+  }
+  .card-back .card-icon { font-size: 14px; }
+
+  .card-wrap.matched .card-front { border-color: var(--orbit); }
+  .card-wrap.matched .card-back { border-color: var(--orbit); background: linear-gradient(135deg,#021a0e,#033020); box-shadow: 0 0 12px rgba(57,255,143,.25); }
+  .card-wrap.mismatch .card-inner { animation: wobble .4s; }
+
+  @keyframes wobble {
+    0%,100%{transform:rotateY(180deg) rotate(0)} 25%{transform:rotateY(180deg) rotate(-3deg)} 75%{transform:rotateY(180deg) rotate(3deg)}
+  }
+
+  /* match score */
+  #match-score {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px; color: var(--star);
+    letter-spacing: .08em;
+  }
+
+  /* ── RESET BUTTON ── */
+  .reset-btn {
+    position: absolute; bottom: 10px; right: 16px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,.2);
+    background: rgba(255,255,255,.05);
+    color: var(--dim);
+    font-family: 'Exo 2', sans-serif;
+    font-size: 11px; font-weight: 600;
+    letter-spacing: .06em;
+    cursor: pointer;
+    transition: border-color .2s, color .2s, background .2s;
+    z-index: 10;
+  }
+  .reset-btn:hover { border-color: var(--plasma); color: var(--plasma); background: rgba(255,77,166,.08); }
+
+  /* ── FLOATING GHOST ── */
+  #drag-ghost {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: .85;
+    transform: translate(-50%,-50%) scale(1.08) rotate(-3deg);
+    display: none;
+  }
+
+  /* ── POPUP ── */
+  #popup-overlay {
+    position: fixed; inset: 0;
+    background: rgba(2,6,20,.85);
+    backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  #popup-overlay.show { display: flex; }
+
+  #popup-box {
+    background: linear-gradient(145deg, #0a1530, #10204a);
+    border: 1.5px solid rgba(0,229,255,.3);
+    border-radius: 16px;
+    padding: 36px 48px;
+    text-align: center;
+    max-width: 480px;
+    box-shadow: 0 0 60px rgba(0,229,255,.12), 0 0 120px rgba(123,47,255,.08);
+    position: relative;
+  }
+
+  #popup-icon { font-size: 52px; margin-bottom: 12px; }
+  #popup-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 22px; font-weight: 900;
+    letter-spacing: .12em;
+    background: linear-gradient(90deg,var(--pulse),var(--glow));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 10px;
+  }
+  #popup-body { font-size: 13px; color: var(--dim); line-height: 1.6; margin-bottom: 24px; }
+
+  #popup-btn {
+    padding: 12px 36px;
+    border-radius: 30px;
+    border: none;
+    background: linear-gradient(90deg, var(--pulse), var(--glow));
+    color: #fff;
+    font-family: 'Orbitron', monospace;
+    font-size: 14px; font-weight: 700;
+    letter-spacing: .1em;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+    box-shadow: 0 4px 20px rgba(0,229,255,.3);
+  }
+  #popup-btn:hover { transform: scale(1.04); box-shadow: 0 6px 28px rgba(0,229,255,.5); }
+
+  #play-again-btn {
+    display: none;
+    margin-top: 12px;
+    padding: 10px 28px;
+    border-radius: 30px;
+    border: 1.5px solid var(--orbit);
+    background: transparent;
+    color: var(--orbit);
+    font-family: 'Orbitron', monospace;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: .1em;
+    cursor: pointer;
+    transition: background .2s, box-shadow .2s;
+  }
+  #play-again-btn:hover { background: rgba(57,255,143,.1); box-shadow: 0 0 16px rgba(57,255,143,.3); }
+  #play-again-btn.show { display: inline-block; }
+
+  /* celebration particles */
+  .confetti-piece {
+    position: fixed;
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 200;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* feedback flash */
+  .flash-correct {
+    animation: flashGreen .5s forwards;
+  }
+  @keyframes flashGreen {
+    0%   { background: rgba(57,255,143,.3); }
+    100% { background: rgba(57,255,143,.05); }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="space-canvas"></canvas>
+
+<div id="app">
+  <!-- HEADER -->
+  <div id="header">
+    <h1>ARDUINO — DC MOTOR WITH L298N DRIVER</h1>
+    <div id="progress-dots">
+      <div class="dot active" id="dot-1"></div>
+      <div class="dot" id="dot-2"></div>
+      <div class="dot" id="dot-3"></div>
+    </div>
+  </div>
+
+  <!-- STAGE -->
+  <div id="stage">
+
+    <!-- ══════════════════════════════════════
+         ACTIVITY 1: CIRCUIT WIRING CHALLENGE
+    ══════════════════════════════════════ -->
+    <div class="activity active" id="activity-1">
+      <div class="act-title">⚡ MISSION 1: CIRCUIT WIRING CHALLENGE</div>
+      <div class="act-subtitle">Drag each component chip and drop it onto its correct socket on the circuit board. Wire up the rover's motor system!</div>
+
+      <div id="act1-arena">
+        <!-- Component Tray -->
+        <div id="comp-tray"></div>
+
+        <!-- Circuit Board -->
+        <div id="circuit-board">
+          <svg id="wire-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+
+          <!-- Sockets positioned on board -->
+          <div class="socket" id="sock-arduino" style="left:12%;top:10%">
+            <span class="chip-label">BRAIN<br/>UNIT</span>
+          </div>
+          <div class="socket" id="sock-l298n" style="left:38%;top:10%">
+            <span class="chip-label">DRIVER<br/>MODULE</span>
+          </div>
+          <div class="socket" id="sock-dcmotor" style="left:66%;top:10%">
+            <span class="chip-label">OUTPUT<br/>ACTUATOR</span>
+          </div>
+          <div class="socket" id="sock-ena" style="left:12%;top:48%">
+            <span class="chip-label">ENABLE<br/>SIGNAL</span>
+          </div>
+          <div class="socket" id="sock-in1" style="left:38%;top:48%">
+            <span class="chip-label">DIRECTION<br/>PIN A</span>
+          </div>
+          <div class="socket" id="sock-in2" style="left:66%;top:48%">
+            <span class="chip-label">DIRECTION<br/>PIN B</span>
+          </div>
+          <div class="socket" id="sock-power" style="left:25%;top:75%">
+            <span class="chip-label">EXTERNAL<br/>POWER</span>
+          </div>
+          <div class="socket" id="sock-gnd" style="left:55%;top:75%">
+            <span class="chip-label">COMMON<br/>GROUND</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="reset-btn" onclick="resetAct1()">↺ RESET</button>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         ACTIVITY 2: MISSION TIMELINE SORT
+    ══════════════════════════════════════ -->
+    <div class="activity" id="activity-2">
+      <div class="act-title">🚀 MISSION 2: ROVER LAUNCH SEQUENCE SORT</div>
+      <div class="act-subtitle">Drag the mission steps into the correct launch order! A mistake in sequence could crash the rover.</div>
+
+      <div id="act2-arena">
+        <div id="mission-steps-pool"></div>
+
+        <div id="timeline-slots">
+          <!-- Slots generated by JS -->
+        </div>
+      </div>
+
+      <button class="reset-btn" onclick="resetAct2()">↺ RESET</button>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         ACTIVITY 3: CARD MATCH FLIP GAME
+    ══════════════════════════════════════ -->
+    <div class="activity" id="activity-3">
+      <div class="act-title">🪐 MISSION 3: DEEP SPACE MEMORY MATCH</div>
+      <div class="act-subtitle">Flip cards to find matching pairs — each L298N term with its correct function!</div>
+
+      <div id="match-score">Pairs found: 0 / 8</div>
+      <div id="match-grid"></div>
+
+      <button class="reset-btn" onclick="resetAct3()">↺ RESET</button>
+    </div>
+
+  </div><!-- /stage -->
+</div><!-- /app -->
+
+<!-- DRAG GHOST -->
+<div id="drag-ghost"></div>
+
+<!-- POPUP -->
+<div id="popup-overlay">
+  <div id="popup-box">
+    <div id="popup-icon">🛸</div>
+    <div id="popup-title">SYSTEM ONLINE</div>
+    <div id="popup-body">Great work, Engineer!</div>
+    <button id="popup-btn" onclick="popupNext()">NEXT MISSION →</button>
+    <br>
+    <button id="play-again-btn" onclick="playAgain()">↺ PLAY AGAIN</button>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════
+   SPACE CANVAS
+═══════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('space-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H;
+  const stars = [], planets = [], asteroids = [], shootings = [], particles = [];
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // Stars
+  for (let i = 0; i < 260; i++) {
+    stars.push({
+      x: Math.random() * W, y: Math.random() * H,
+      r: Math.random() * 1.6 + .2,
+      base: Math.random(), phase: Math.random() * Math.PI * 2,
+      speed: Math.random() * .008 + .003
+    });
+  }
+
+  // Planets
+  const planetColors = [
+    ['#1a4d7a','#0a2040'],['#7a1a4d','#40082a'],
+    ['#1a7a4d','#082a1a'],['#4d3d00','#1a1400']
+  ];
+  for (let i = 0; i < 4; i++) {
+    const c = planetColors[i];
+    planets.push({
+      cx: Math.random() * W, cy: Math.random() * H,
+      orbitR: Math.random() * 28 + 14,
+      r: Math.random() * 18 + 10,
+      angle: Math.random() * Math.PI * 2,
+      speed: (Math.random() * .003 + .001) * (Math.random() < .5 ? 1 : -1),
+      color: c[0], dark: c[1],
+      hasRing: Math.random() < .4
+    });
+  }
+
+  // Asteroids
+  for (let i = 0; i < 7; i++) {
+    asteroids.push({
+      x: Math.random() * W, y: Math.random() * H,
+      vx: (Math.random() - .5) * .35,
+      vy: (Math.random() - .5) * .35,
+      r: Math.random() * 5 + 3,
+      rot: 0, rotV: (Math.random() - .5) * .02
+    });
+  }
+
+  // Shooting stars
+  function spawnShooting() {
+    shootings.push({
+      x: Math.random() * W * .6,
+      y: Math.random() * H * .4,
+      len: Math.random() * 90 + 40,
+      vx: Math.random() * 6 + 4,
+      vy: Math.random() * 4 + 2,
+      alpha: 1
+    });
+  }
+  setInterval(spawnShooting, 2600);
+
+  // Particles
+  for (let i = 0; i < 35; i++) {
+    particles.push({
+      x: Math.random() * W, y: Math.random() * H,
+      vx: (Math.random() - .5) * .18, vy: (Math.random() - .5) * .18,
+      r: Math.random() * 1.2 + .3,
+      alpha: Math.random() * .5 + .2
+    });
+  }
+
+  let t = 0;
+  function draw() {
+    t += .016;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#030a1a';
+    ctx.fillRect(0, 0, W, H);
+
+    // Stars twinkle
+    stars.forEach(s => {
+      const tw = .5 + .5 * Math.sin(t * s.speed * 60 + s.phase);
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r * (.7 + .5 * tw), 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(200,220,255,${s.base * .7 + tw * .3})`;
+      ctx.fill();
+    });
+
+    // Planets
+    planets.forEach(p => {
+      p.angle += p.speed;
+      const px = p.cx + Math.cos(p.angle) * p.orbitR;
+      const py = p.cy + Math.sin(p.angle) * p.orbitR;
+
+      // Orbit trail
+      ctx.beginPath();
+      ctx.ellipse(p.cx, p.cy, p.orbitR, p.orbitR * .35, .3, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(100,150,255,.06)';
+      ctx.lineWidth = 1; ctx.stroke();
+
+      // Planet body
+      const grad = ctx.createRadialGradient(px - 3, py - 3, 1, px, py, p.r);
+      grad.addColorStop(0, p.color); grad.addColorStop(1, p.dark);
+      ctx.beginPath(); ctx.arc(px, py, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = grad; ctx.fill();
+
+      if (p.hasRing) {
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.scale(1, .28);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.r * 1.8, p.r * 1.8, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = p.color + '60'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.restore();
+      }
+    });
+
+    // Asteroids
+    asteroids.forEach(a => {
+      a.x += a.vx; a.y += a.vy; a.rot += a.rotV;
+      if (a.x < -10) a.x = W + 10; if (a.x > W + 10) a.x = -10;
+      if (a.y < -10) a.y = H + 10; if (a.y > H + 10) a.y = -10;
+      ctx.save();
+      ctx.translate(a.x, a.y); ctx.rotate(a.rot);
+      ctx.beginPath();
+      for (let i = 0; i < 7; i++) {
+        const angle = (i / 7) * Math.PI * 2;
+        const r = a.r * (.7 + .3 * Math.sin(i * 2.3));
+        i === 0 ? ctx.moveTo(Math.cos(angle)*r, Math.sin(angle)*r)
+                : ctx.lineTo(Math.cos(angle)*r, Math.sin(angle)*r);
+      }
+      ctx.closePath();
+      ctx.fillStyle = '#3a3218'; ctx.fill();
+      ctx.strokeStyle = '#6a5a28'; ctx.lineWidth = .8; ctx.stroke();
+      ctx.restore();
+    });
+
+    // Shooting stars
+    for (let i = shootings.length - 1; i >= 0; i--) {
+      const s = shootings[i];
+      s.x += s.vx; s.y += s.vy; s.alpha -= .018;
+      if (s.alpha <= 0) { shootings.splice(i, 1); continue; }
+      const grad = ctx.createLinearGradient(s.x, s.y, s.x - s.vx * s.len * .18, s.y - s.vy * s.len * .18);
+      grad.addColorStop(0, `rgba(255,240,180,${s.alpha})`);
+      grad.addColorStop(1, 'rgba(255,240,180,0)');
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y);
+      ctx.lineTo(s.x - s.vx * s.len * .18, s.y - s.vy * s.len * .18);
+      ctx.strokeStyle = grad; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+
+    // Particles
+    particles.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(150,200,255,${p.alpha})`;
+      ctx.fill();
+    });
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ═══════════════════════════════════════
+   GLOBAL STATE
+═══════════════════════════════════════ */
+let currentActivity = 1;
+
+/* ═══════════════════════════════════════
+   DRAG ENGINE (pointer-capture based)
+═══════════════════════════════════════ */
+let dragData = null;
+const ghost = document.getElementById('drag-ghost');
+
+function startDrag(e, chipEl, meta) {
+  e.preventDefault();
+  const clone = chipEl.cloneNode(true);
+  clone.style.cssText = `pointer-events:none;margin:0;`;
+  ghost.innerHTML = '';
+  ghost.appendChild(clone);
+  ghost.style.display = 'block';
+  moveDragGhost(e);
+
+  dragData = { source: chipEl, meta };
+  chipEl.classList.add('dragging-active');
+
+  document.body.appendChild(ghost); // ensure body ownership BEFORE capture
+  chipEl.setPointerCapture(e.pointerId);
+
+  chipEl.addEventListener('pointermove', onPointerMove);
+  chipEl.addEventListener('pointerup', onPointerUp);
+  chipEl.addEventListener('pointercancel', cancelDrag);
+}
+
+function moveDragGhost(e) {
+  ghost.style.left = e.clientX + 'px';
+  ghost.style.top  = e.clientY + 'px';
+}
+
+function onPointerMove(e) {
+  moveDragGhost(e);
+  // Highlight drop targets
+  const els = document.elementsFromPoint(e.clientX, e.clientY);
+  document.querySelectorAll('.socket,.tl-slot').forEach(s => s.classList.remove('hover-glow'));
+  els.forEach(el => {
+    if (el.classList.contains('socket') || el.classList.contains('tl-slot')) {
+      el.classList.add('hover-glow');
+    }
+  });
+}
+
+function onPointerUp(e) {
+  if (!dragData) return;
+  ghost.style.display = 'none';
+  dragData.source.classList.remove('dragging-active');
+  document.querySelectorAll('.socket,.tl-slot').forEach(s => s.classList.remove('hover-glow'));
+
+  // Find drop target
+  const hidden = ghost;
+  hidden.style.display = 'none';
+  const els = document.elementsFromPoint(e.clientX, e.clientY);
+  let target = null;
+  els.forEach(el => {
+    if (!target && (el.classList.contains('socket') || el.classList.contains('tl-slot'))) {
+      target = el;
+    }
+  });
+
+  if (target) {
+    if (currentActivity === 1) handleDropAct1(target, dragData);
+    else if (currentActivity === 2) handleDropAct2(target, dragData);
+  }
+
+  dragData.source.removeEventListener('pointermove', onPointerMove);
+  dragData.source.removeEventListener('pointerup', onPointerUp);
+  dragData.source.removeEventListener('pointercancel', cancelDrag);
+  dragData = null;
+}
+
+function cancelDrag() {
+  if (!dragData) return;
+  ghost.style.display = 'none';
+  dragData.source.classList.remove('dragging-active');
+  dragData.source.removeEventListener('pointermove', onPointerMove);
+  dragData.source.removeEventListener('pointerup', onPointerUp);
+  dragData.source.removeEventListener('pointercancel', cancelDrag);
+  dragData = null;
+}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 1 — CIRCUIT WIRING
+═══════════════════════════════════════ */
+const ACT1_ITEMS = [
+  { id:'arduino', label:'Arduino Uno', cls:'chip-arduino', icon:'🔵', sockId:'sock-arduino' },
+  { id:'l298n',   label:'L298N Driver', cls:'chip-l298n',  icon:'🔴', sockId:'sock-l298n'   },
+  { id:'dcmotor', label:'DC Motor',    cls:'chip-dcmotor', icon:'🟢', sockId:'sock-dcmotor' },
+  { id:'ena',     label:'ENA Pin',     cls:'chip-ena',     icon:'🟣', sockId:'sock-ena'     },
+  { id:'in1',     label:'IN1 Pin',     cls:'chip-in1',     icon:'🔷', sockId:'sock-in1'     },
+  { id:'in2',     label:'IN2 Pin',     cls:'chip-in2',     icon:'🔷', sockId:'sock-in2'     },
+  { id:'power',   label:'9V Power',   cls:'chip-power',   icon:'🟡', sockId:'sock-power'   },
+  { id:'gnd',     label:'GND Wire',   cls:'chip-gnd',     icon:'⬛', sockId:'sock-gnd'     },
+];
+
+const WIRE_COLORS = { arduino:'#00e5ff', l298n:'#ff6030', dcmotor:'#39ff8f', ena:'#cc00ee', in1:'#0080ff', in2:'#0080ff', power:'#ffa000', gnd:'#888888' };
+
+let act1State = {};
+
+function buildAct1() {
+  act1State = {};
+  const tray = document.getElementById('comp-tray');
+  tray.innerHTML = '';
+  const svg = document.getElementById('wire-svg');
+  svg.innerHTML = '';
+  document.querySelectorAll('.socket').forEach(s => {
+    s.classList.remove('filled','wrong');
+    s.querySelector('.chip-label').style.display = '';
+  });
+
+  // Shuffle chips
+  const items = shuffle([...ACT1_ITEMS]);
+  items.forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'comp-chip ' + item.cls;
+    el.id = 'chip-' + item.id;
+    el.textContent = item.icon + ' ' + item.label;
+    el.style.touchAction = 'none';
+    el.addEventListener('pointerdown', e => startDrag(e, el, { ...item }));
+    tray.appendChild(el);
+  });
+}
+
+function handleDropAct1(socket, dd) {
+  const item = dd.meta;
+  const correctSock = document.getElementById(item.sockId);
+  if (!correctSock) return;
+
+  if (socket === correctSock && !socket.classList.contains('filled')) {
+    socket.classList.add('filled');
+    socket.classList.remove('wrong');
+    socket.innerHTML = `<span style="font-size:9px;font-weight:700;color:var(--orbit)">${item.icon} ${item.label}</span>`;
+    dd.source.classList.add('used');
+    act1State[item.id] = true;
+
+    // Draw wire from tray to socket
+    drawWireToSocket(socket, item);
+
+    checkAct1Complete();
+  } else if (socket !== correctSock) {
+    socket.classList.add('wrong');
+    setTimeout(() => socket.classList.remove('wrong'), 600);
+  }
+}
+
+function drawWireToSocket(socket, item) {
+  const svg = document.getElementById('wire-svg');
+  const board = document.getElementById('circuit-board');
+  const br = board.getBoundingClientRect();
+  const sr = socket.getBoundingClientRect();
+
+  // Socket center relative to board
+  const sx = sr.left - br.left + sr.width / 2;
+  const sy = sr.top - br.top + sr.height / 2;
+
+  const color = WIRE_COLORS[item.id] || '#fff';
+  const startX = 0, startY = sy;
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d', `M ${startX} ${sy} C ${sx*.4} ${sy}, ${sx*.6} ${sy}, ${sx} ${sy}`);
+  path.setAttribute('stroke', color);
+  path.setAttribute('stroke-width', '2');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('opacity', '.7');
+  path.setAttribute('stroke-dasharray', '4 2');
+
+  // Animate dash offset
+  path.style.strokeDashoffset = '0';
+  svg.appendChild(path);
+}
+
+function checkAct1Complete() {
+  if (Object.keys(act1State).length === ACT1_ITEMS.length) {
+    setTimeout(() => showPopup(
+      '⚡', 'CIRCUIT COMPLETE!',
+      'Outstanding! You\'ve wired the Arduino, L298N driver, and DC motor correctly. The rover\'s motor system is online!',
+      'LAUNCH MISSION 2 →', 2
+    ), 500);
+  }
+}
+
+function resetAct1() {
+  buildAct1();
+}
+
+/* ═══════════════════════════════════════
+   ACTIVITY 2 — MISSION TIMELINE SORT
+═══════════════════════════════════════ */
+const ACT2_STEPS = [
+  { id:'s1', icon:'🔌', text:'Connect L298N to Arduino', order:1 },
+  { id:'s2', icon:'🤖', text:'Connect DC Motor to L298N OUT', order:2 },
+  { id:'s3', icon:'🔧', text:'Set ENA, IN1, IN2 pin modes', order:3 },
+  { id:'s4', icon:'🎛️', text:'Control speed using PWM signal', order:4 },
+  { id:'s5', icon:'🔄', text:'Change direction via IN1/IN2', order:5 },
+  { id:'s6', icon:'🚀', text:'Test and launch the rover!', order:6 },
+];
+
+let act2Slots = {};
+
+function buildAct2() {
+  act2Slots = {};
+  const pool = document.getElementById('mission-steps-pool');
+  const slotsEl = document.getElementById('timeline-slots');
+  pool.innerHTML = '';
+  slotsEl.innerHTML = '';
+
+  // Shuffle cards
+  const cards = shuffle([...ACT2_STEPS]);
+  cards.forEach(step => {
+    const el = document.createElement('div');
+    el.className = 'mission-card';
+    el.id = 'mcard-' + step.id;
+    el.innerHTML = `<span class="mc-icon">${step.icon}</span><span>${step.text}</span>`;
+    el.style.touchAction = 'none';
+    el.addEventListener('pointerdown', e => startDrag(e, el, { ...step }));
+    pool.appendChild(el);
+  });
+
+  // Build slots 1-6
+  for (let i = 1; i <= 6; i++) {
+    const row = document.createElement('div');
+    row.className = 'tl-row';
+    row.innerHTML = `
+      <div class="tl-num">${i}</div>
+      <div class="tl-connector"></div>
+      <div class="tl-slot" id="tl-slot-${i}" data-order="${i}">Drop step here…</div>`;
+    slotsEl.appendChild(row);
+  }
+}
+
+function handleDropAct2(slot, dd) {
+  if (!slot.classList.contains('tl-slot')) return;
+  if (slot.classList.contains('filled')) return;
+
+  const step = dd.meta;
+  const slotOrder = parseInt(slot.getAttribute('data-order'));
+
+  if (step.order === slotOrder) {
+    slot.classList.add('filled');
+    slot.classList.remove('wrong-slot');
+    slot.innerHTML = `${step.icon} ${step.text}`;
+    dd.source.classList.add('used');
+    act2Slots[step.id] = true;
+    checkAct2Complete();
+  } else {
+    slot.classList.add('wrong-slot');
+    setTimeout(() => slot.classList.remove('wrong-slot'), 600);
+  }
+}
+
+function checkAct2Complete() {
+  if (Object.keys(act2Slots).length === ACT2_STEPS.length) {
+    setTimeout(() => showPopup(
+      '🚀', 'SEQUENCE LOCKED!',
+      'Perfect mission planning! You\'ve arranged all rover launch steps in the correct order. The L298N motor controller is ready for take-off!',
+      'ENTER FINAL MISSION →', 3
+    ), 500);
+  }
+}
+
+function resetAct2() { buildAct2(); }
+
+/* ═══════════════════════════════════════
+   ACTIVITY 3 — CARD MATCH FLIP GAME
+═══════════════════════════════════════ */
+const ACT3_PAIRS = [
+  { id:'p1', term:'L298N', def:'Dual H-Bridge Motor Driver Module' },
+  { id:'p2', term:'ENA Pin', def:'Enables PWM Speed Control Signal' },
+  { id:'p3', term:'IN1 Pin', def:'Controls Motor Forward Direction' },
+  { id:'p4', term:'IN2 Pin', def:'Controls Motor Reverse Direction' },
+  { id:'p5', term:'H-Bridge', def:'Circuit That Reverses Current Flow' },
+  { id:'p6', term:'PWM Signal', def:'Pulse Width Modulation for Speed' },
+  { id:'p7', term:'DC Motor', def:'Converts Electric Energy to Rotation' },
+  { id:'p8', term:'Rover Base', def:'Robot Chassis Powered by DC Motors' },
+];
+const CARD_ICONS = ['⚡','🔧','🎛️','🔄','🤖','🚀','🔵','🟢'];
+
+let flippedCards = [];
+let matchedCount = 0;
+let canFlip = true;
+let act3Cards = [];
+
+function buildAct3() {
+  flippedCards = [];
+  matchedCount = 0;
+  canFlip = true;
+  act3Cards = [];
+
+  document.getElementById('match-score').textContent = 'Pairs found: 0 / 8';
+  const grid = document.getElementById('match-grid');
+  grid.innerHTML = '';
+
+  // Build deck: each pair has a "term" card and a "def" card
+  const deck = [];
+  ACT3_PAIRS.forEach((pair, i) => {
+    deck.push({ pairId: pair.id, type:'term', text: pair.term, icon: CARD_ICONS[i] });
+    deck.push({ pairId: pair.id, type:'def',  text: pair.def,  icon: CARD_ICONS[i] });
+  });
+  shuffle(deck);
+
+  deck.forEach((card, idx) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'card-wrap';
+    wrap.dataset.pairId = card.pairId;
+    wrap.dataset.type = card.type;
+    wrap.dataset.idx = idx;
+
+    wrap.innerHTML = `
+      <div class="card-inner">
+        <div class="card-front">🛸</div>
+        <div class="card-back">
+          <div class="card-icon">${card.icon}</div>
+          <div>${card.text}</div>
+        </div>
+      </div>`;
+
+    wrap.addEventListener('click', () => flipCard(wrap));
+    grid.appendChild(wrap);
+    act3Cards.push(wrap);
+  });
+}
+
+function flipCard(wrap) {
+  if (!canFlip) return;
+  if (wrap.classList.contains('flipped') || wrap.classList.contains('matched')) return;
+  if (flippedCards.length >= 2) return;
+
+  wrap.classList.add('flipped');
+  flippedCards.push(wrap);
+
+  if (flippedCards.length === 2) {
+    canFlip = false;
+    setTimeout(checkMatch3, 700);
+  }
+}
+
+function checkMatch3() {
+  const [a, b] = flippedCards;
+  if (a.dataset.pairId === b.dataset.pairId && a.dataset.type !== b.dataset.type) {
+    // Match!
+    a.classList.add('matched'); b.classList.add('matched');
+    a.classList.remove('flipped'); b.classList.remove('flipped');
+    matchedCount++;
+    document.getElementById('match-score').textContent = `Pairs found: ${matchedCount} / 8`;
+    if (matchedCount === 8) {
+      setTimeout(() => showPopup(
+        '🏆', 'MISSION ACCOMPLISHED!',
+        'You matched all 8 L298N concepts perfectly! You\'re now a certified Arduino Motor Control Engineer. The deep-space rover is fully operational!',
+        null, null, true
+      ), 500);
+    }
+  } else {
+    a.classList.add('mismatch'); b.classList.add('mismatch');
+    setTimeout(() => {
+      a.classList.remove('flipped','mismatch');
+      b.classList.remove('flipped','mismatch');
+    }, 600);
+  }
+  flippedCards = [];
+  canFlip = true;
+}
+
+function resetAct3() { buildAct3(); }
+
+/* ═══════════════════════════════════════
+   POPUP & NAVIGATION
+═══════════════════════════════════════ */
+let popupTarget = null;
+
+function showPopup(icon, title, body, btnText, nextAct, isFinal = false) {
+  document.getElementById('popup-icon').textContent = icon;
+  document.getElementById('popup-title').textContent = title;
+  document.getElementById('popup-body').textContent = body;
+
+  const btn = document.getElementById('popup-btn');
+  const pab = document.getElementById('play-again-btn');
+
+  if (isFinal) {
+    btn.textContent = '🎉 MISSION COMPLETE!';
+    btn.style.display = 'none';
+    pab.classList.add('show');
+    launchCelebration();
+  } else {
+    btn.textContent = btnText;
+    btn.style.display = '';
+    pab.classList.remove('show');
+  }
+
+  popupTarget = nextAct;
+  document.getElementById('popup-overlay').classList.add('show');
+}
+
+function popupNext() {
+  document.getElementById('popup-overlay').classList.remove('show');
+  if (popupTarget) goToActivity(popupTarget);
+}
+
+function goToActivity(n) {
+  currentActivity = n;
+  document.querySelectorAll('.activity').forEach((a, i) => {
+    a.classList.toggle('active', i + 1 === n);
+  });
+  updateDots(n);
+  if (n === 2) buildAct2(); // refresh on enter
+  if (n === 3) buildAct3();
+}
+
+function updateDots(n) {
+  for (let i = 1; i <= 3; i++) {
+    const d = document.getElementById('dot-' + i);
+    d.classList.remove('active','done');
+    if (i < n) d.classList.add('done');
+    else if (i === n) d.classList.add('active');
+  }
+}
+
+function playAgain() {
+  document.getElementById('popup-overlay').classList.remove('show');
+  document.getElementById('play-again-btn').classList.remove('show');
+  document.getElementById('popup-btn').style.display = '';
+  // Clean up confetti
+  document.querySelectorAll('.confetti-piece').forEach(c => c.remove());
+
+  // Force-show activity 1, hide others immediately
+  document.querySelectorAll('.activity').forEach((a, i) => {
+    a.classList.remove('active');
+    if (i === 0) a.classList.add('active');
+  });
+  currentActivity = 1;
+  updateDots(1);
+
+  // Rebuild all activities fresh
+  buildAct1();
+  buildAct2();
+  buildAct3();
+}
+
+/* ═══════════════════════════════════════
+   CELEBRATION
+═══════════════════════════════════════ */
+function launchCelebration() {
+  const colors = ['#00e5ff','#7b2fff','#ff4da6','#ffe87a','#39ff8f','#ff8c00'];
+  for (let i = 0; i < 80; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.cssText = `
+      left:${Math.random() * 100}vw;
+      top: -10px;
+      background:${colors[Math.floor(Math.random() * colors.length)]};
+      width:${Math.random() * 8 + 4}px;
+      height:${Math.random() * 8 + 4}px;
+      border-radius:${Math.random() < .5 ? '50%' : '2px'};
+      animation-duration:${Math.random() * 2.5 + 2}s;
+      animation-delay:${Math.random() * 1.2}s;
+    `;
+    document.body.appendChild(piece);
+    piece.addEventListener('animationend', () => piece.remove());
+  }
+}
+
+/* ═══════════════════════════════════════
+   UTILITY
+═══════════════════════════════════════ */
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+/* ═══════════════════════════════════════
+   INIT
+═══════════════════════════════════════ */
+buildAct1();
+buildAct2();
+buildAct3();
+updateDots(1);
+</script>
+</body>
+</html>

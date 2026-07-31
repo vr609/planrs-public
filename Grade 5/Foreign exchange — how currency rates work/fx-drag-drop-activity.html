@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Money Market Adventure — How Currency Rates Work</title>
+<style>
+  :root{
+    --violet-1:#2a0845;
+    --violet-2:#4b1284;
+    --violet-3:#6d28d9;
+    --violet-4:#9333ea;
+    --violet-5:#c084fc;
+    --pink:#f472b6;
+    --yellow:#fde047;
+    --teal:#2dd4bf;
+    --orange:#fb923c;
+    --green:#4ade80;
+    --blue:#60a5fa;
+    --red:#f87171;
+    --text-light:#fdf4ff;
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    font-family:'Trebuchet MS', 'Segoe UI', Verdana, sans-serif;
+    background: linear-gradient(-45deg, var(--violet-1), var(--violet-2), var(--violet-3), var(--violet-2));
+    background-size: 400% 400%;
+    animation: gradientShift 14s ease infinite;
+    color: var(--text-light);
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  @keyframes gradientShift{
+    0%{background-position:0% 50%;}
+    50%{background-position:100% 50%;}
+    100%{background-position:0% 50%;}
+  }
+
+  /* Floating background blobs */
+  .blob{
+    position:fixed;
+    border-radius:50%;
+    filter:blur(2px);
+    opacity:0.55;
+    z-index:0;
+    pointer-events:none;
+  }
+  .blob1{ width:120px;height:120px; background:var(--pink); top:8%; left:5%; animation: floatY 7s ease-in-out infinite; }
+  .blob2{ width:80px;height:80px; background:var(--yellow); top:65%; left:88%; animation: floatY 9s ease-in-out infinite reverse; }
+  .blob3{ width:150px;height:150px; background:var(--teal); top:80%; left:10%; animation: floatX 11s ease-in-out infinite; }
+  .blob4{ width:60px;height:60px; background:var(--orange); top:15%; left:80%; animation: floatX 8s ease-in-out infinite reverse; }
+  .blob5{ width:100px;height:100px; background:var(--green); top:45%; left:2%; animation: floatY 10s ease-in-out infinite; }
+
+  @keyframes floatY{
+    0%,100%{ transform: translateY(0) scale(1); }
+    50%{ transform: translateY(-40px) scale(1.1); }
+  }
+  @keyframes floatX{
+    0%,100%{ transform: translateX(0) rotate(0deg); }
+    50%{ transform: translateX(40px) rotate(15deg); }
+  }
+
+  /* Floating coin/emoji sprites */
+  .sprite{
+    position:fixed;
+    font-size:2rem;
+    z-index:0;
+    pointer-events:none;
+    animation: driftAcross linear infinite;
+    opacity:0.8;
+  }
+  @keyframes driftAcross{
+    0%{ transform: translate(-10vw, 0) rotate(0deg); }
+    100%{ transform: translate(110vw, -30px) rotate(360deg); }
+  }
+
+  .wrap{
+    position:relative;
+    z-index:2;
+    max-width:900px;
+    margin:0 auto;
+    padding:24px 18px 60px;
+  }
+
+  header{
+    text-align:center;
+    margin-bottom:20px;
+    animation: popIn 0.8s ease;
+  }
+
+  @keyframes popIn{
+    0%{ transform: scale(0.7); opacity:0; }
+    70%{ transform: scale(1.05); opacity:1; }
+    100%{ transform: scale(1); }
+  }
+
+  h1{
+    font-size:clamp(1.6rem, 5vw, 2.6rem);
+    margin:0 0 6px;
+    background: linear-gradient(90deg, var(--yellow), var(--pink), var(--teal), var(--yellow));
+    background-size: 300% auto;
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    animation: shine 4s linear infinite;
+    text-shadow: 0 0 30px rgba(192,132,252,0.4);
+  }
+  @keyframes shine{
+    to{ background-position: 300% center; }
+  }
+
+  .subtitle{
+    color: var(--violet-5);
+    font-size:1.05rem;
+    font-weight:bold;
+  }
+
+  /* progress bar */
+  .progress-track{
+    display:flex;
+    justify-content:center;
+    gap:14px;
+    margin:22px 0 8px;
+  }
+  .progress-dot{
+    width:46px;
+    height:46px;
+    border-radius:50%;
+    background: rgba(255,255,255,0.08);
+    border:3px solid var(--violet-5);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    font-size:1.2rem;
+    color: var(--violet-5);
+    transition: all 0.4s ease;
+    position:relative;
+  }
+  .progress-dot.active{
+    background: linear-gradient(135deg, var(--pink), var(--violet-4));
+    border-color: var(--yellow);
+    color:#fff;
+    transform: scale(1.15);
+    box-shadow: 0 0 20px var(--pink);
+    animation: pulseDot 1.4s ease-in-out infinite;
+  }
+  .progress-dot.done{
+    background: linear-gradient(135deg, var(--green), var(--teal));
+    border-color: var(--green);
+    color:#08331f;
+  }
+  .progress-dot.done::after{
+    content:"✓";
+    position:absolute;
+  }
+  .progress-dot.done span{ display:none; }
+  @keyframes pulseDot{
+    0%,100%{ box-shadow: 0 0 12px var(--pink); }
+    50%{ box-shadow: 0 0 26px var(--pink); }
+  }
+
+  .card{
+    background: rgba(255,255,255,0.07);
+    border: 2px solid rgba(255,255,255,0.18);
+    backdrop-filter: blur(10px);
+    border-radius: 26px;
+    padding: 26px 22px;
+    margin-top:20px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.35), inset 0 0 60px rgba(147,51,234,0.15);
+    animation: cardIn 0.6s ease;
+  }
+  @keyframes cardIn{
+    0%{ opacity:0; transform: translateY(30px) scale(0.97); }
+    100%{ opacity:1; transform: translateY(0) scale(1); }
+  }
+
+  .activity-title{
+    font-size:1.35rem;
+    color: var(--yellow);
+    margin:0 0 6px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .activity-desc{
+    color: var(--text-light);
+    opacity:0.9;
+    margin-bottom:18px;
+    line-height:1.5;
+  }
+
+  .hidden{ display:none !important; }
+
+  /* ===== Drag and drop zones ===== */
+  .dnd-area{
+    display:flex;
+    flex-wrap:wrap;
+    gap:24px;
+    justify-content:space-between;
+  }
+
+  .draggables, .dropzones{
+    flex:1 1 260px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  .col-label{
+    font-weight:bold;
+    color: var(--teal);
+    text-align:center;
+    margin-bottom:4px;
+    letter-spacing:0.5px;
+  }
+
+  .drag-chip{
+    padding:14px 16px;
+    border-radius:16px;
+    background: linear-gradient(135deg, var(--violet-4), var(--pink));
+    border: 2px solid rgba(255,255,255,0.4);
+    color:#fff;
+    font-weight:bold;
+    text-align:center;
+    cursor:grab;
+    user-select:none;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    touch-action:none;
+  }
+  .drag-chip:hover{ transform: translateY(-3px) scale(1.03); box-shadow:0 10px 18px rgba(0,0,0,0.4); }
+  .drag-chip.dragging{
+    opacity:0.5;
+    cursor:grabbing;
+    transform: scale(1.06) rotate(-2deg);
+  }
+  .drag-chip.placed{
+    opacity:0;
+    height:0;
+    padding:0;
+    margin:0;
+    border:0;
+    pointer-events:none;
+  }
+  .drag-chip.wiggle{
+    animation: wiggle 2.4s ease-in-out infinite;
+  }
+  @keyframes wiggle{
+    0%,100%{ transform: rotate(0deg); }
+    25%{ transform: rotate(-2deg); }
+    75%{ transform: rotate(2deg); }
+  }
+
+  .drop-slot{
+    min-height:64px;
+    border-radius:16px;
+    border:3px dashed var(--violet-5);
+    background: rgba(255,255,255,0.05);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    padding:10px 12px;
+    text-align:center;
+    color: var(--violet-5);
+    font-weight:bold;
+    transition: all 0.25s ease;
+  }
+  .drop-slot .slot-hint{ font-size:0.85rem; opacity:0.75; }
+  .drop-slot.over{
+    border-color: var(--yellow);
+    background: rgba(253,224,71,0.12);
+    transform: scale(1.03);
+  }
+  .drop-slot.filled{
+    border-style:solid;
+    border-color: var(--teal);
+    background: linear-gradient(135deg, rgba(45,212,191,0.25), rgba(96,165,250,0.2));
+    color:#fff;
+    flex-direction:column;
+  }
+  .drop-slot.correct-flash{
+    animation: correctFlash 0.7s ease;
+  }
+  @keyframes correctFlash{
+    0%{ box-shadow: 0 0 0 rgba(74,222,128,0); }
+    40%{ box-shadow: 0 0 26px 6px rgba(74,222,128,0.8); }
+    100%{ box-shadow: 0 0 0 rgba(74,222,128,0); }
+  }
+  .drop-slot.wrong-flash{
+    animation: wrongFlash 0.6s ease;
+  }
+  @keyframes wrongFlash{
+    0%,100%{ transform: translateX(0); }
+    20%{ transform: translateX(-8px); }
+    40%{ transform: translateX(8px); }
+    60%{ transform: translateX(-6px); }
+    80%{ transform: translateX(6px); }
+  }
+
+  .slot-label{
+    font-size:0.8rem;
+    opacity:0.85;
+    font-weight:normal;
+  }
+
+  /* Buttons */
+  .btn{
+    border:none;
+    padding:12px 26px;
+    border-radius:999px;
+    font-weight:bold;
+    font-size:1rem;
+    cursor:pointer;
+    color:#fff;
+    background: linear-gradient(135deg, var(--pink), var(--violet-4));
+    box-shadow: 0 8px 18px rgba(147,51,234,0.5);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn:hover{ transform: translateY(-3px) scale(1.04); box-shadow: 0 12px 22px rgba(147,51,234,0.65); }
+  .btn:active{ transform: translateY(0) scale(0.98); }
+  .btn.secondary{
+    background: linear-gradient(135deg, var(--teal), var(--blue));
+    box-shadow: 0 8px 18px rgba(45,212,191,0.5);
+  }
+  .btn.yellowbtn{
+    background: linear-gradient(135deg, var(--yellow), var(--orange));
+    color:#3b1d00;
+    box-shadow: 0 8px 18px rgba(251,146,60,0.5);
+  }
+
+  .check-row{
+    display:flex;
+    justify-content:center;
+    gap:14px;
+    margin-top:22px;
+    flex-wrap:wrap;
+  }
+
+  .feedback-inline{
+    text-align:center;
+    margin-top:14px;
+    font-weight:bold;
+    min-height:24px;
+    color: var(--green);
+  }
+
+  /* ===== Popups ===== */
+  .overlay{
+    position:fixed;
+    inset:0;
+    background: rgba(20,4,40,0.75);
+    backdrop-filter: blur(3px);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    opacity:0;
+    pointer-events:none;
+    transition: opacity 0.25s ease;
+  }
+  .overlay.show{
+    opacity:1;
+    pointer-events:auto;
+  }
+
+  .popup{
+    background: linear-gradient(160deg, var(--violet-3), var(--violet-2));
+    border:3px solid var(--violet-5);
+    border-radius:24px;
+    padding:34px 30px;
+    text-align:center;
+    max-width:360px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    transform: scale(0.6) rotate(-6deg);
+    opacity:0;
+  }
+  .overlay.show .popup{
+    animation: popupIn 0.5s cubic-bezier(.34,1.56,.64,1) forwards;
+  }
+  @keyframes popupIn{
+    0%{ transform: scale(0.5) rotate(-8deg); opacity:0; }
+    60%{ transform: scale(1.08) rotate(3deg); opacity:1; }
+    100%{ transform: scale(1) rotate(0deg); opacity:1; }
+  }
+
+  .popup .icon{
+    font-size:3.6rem;
+    display:block;
+    margin-bottom:10px;
+    animation: bounceIcon 1s ease-in-out infinite;
+  }
+  @keyframes bounceIcon{
+    0%,100%{ transform: translateY(0) rotate(0deg); }
+    50%{ transform: translateY(-12px) rotate(8deg); }
+  }
+
+  .popup h2{
+    margin:0 0 8px;
+    color: var(--yellow);
+    font-size:1.5rem;
+  }
+  .popup p{
+    margin:0 0 18px;
+    color: var(--text-light);
+    line-height:1.4;
+  }
+
+  .try-again .icon{ color: var(--orange); }
+  .next-activity .icon{ color: var(--green); }
+
+  /* ===== Celebration screen ===== */
+  #celebration{
+    position:fixed;
+    inset:0;
+    z-index:100;
+    background: radial-gradient(circle at 50% 20%, var(--violet-3), var(--violet-1) 70%);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    text-align:center;
+    overflow:hidden;
+  }
+  #celebration.show{ display:flex; }
+
+  #celebration h1{
+    font-size:clamp(2rem, 8vw, 4rem);
+    margin:0;
+    background: linear-gradient(90deg, var(--yellow), var(--pink), var(--teal), var(--orange), var(--yellow));
+    background-size:300% auto;
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    animation: shine 3s linear infinite, popIn 0.8s ease;
+  }
+  #celebration .stars{
+    font-size:2.6rem;
+    margin:14px 0;
+    animation: floatY 2s ease-in-out infinite;
+  }
+  #celebration p{
+    font-size:1.15rem;
+    color: var(--violet-5);
+    max-width:480px;
+    margin:6px 20px 26px;
+  }
+
+  .confetti-piece{
+    position:absolute;
+    top:-40px;
+    border-radius:3px;
+    animation-name: confettiFall;
+    animation-timing-function: linear;
+    animation-iteration-count:1;
+    z-index:1;
+  }
+  @keyframes confettiFall{
+    0%{ transform: translateY(0) rotate(0deg); opacity:1; }
+    100%{ transform: translateY(110vh) rotate(720deg); opacity:0.9; }
+  }
+
+  footer.note{
+    text-align:center;
+    color: rgba(253,244,255,0.55);
+    font-size:0.8rem;
+    margin-top:30px;
+  }
+
+  @media (max-width:600px){
+    .dnd-area{ flex-direction:column; }
+  }
+</style>
+</head>
+<body>
+
+<!-- floating ambient blobs -->
+<div class="blob blob1"></div>
+<div class="blob blob2"></div>
+<div class="blob blob3"></div>
+<div class="blob blob4"></div>
+<div class="blob blob5"></div>
+
+<!-- floating sprites (coins/emoji) added via JS -->
+<div id="spriteLayer"></div>
+
+<div class="wrap">
+  <header>
+    <h1>💱 Money Market Adventure</h1>
+  </header>
+
+  <div class="progress-track">
+    <div class="progress-dot active" id="dot1"><span>1</span></div>
+    <div class="progress-dot" id="dot2"><span>2</span></div>
+    <div class="progress-dot" id="dot3"><span>3</span></div>
+  </div>
+
+  <!-- ACTIVITY 1 -->
+  <div class="card" id="activity1">
+    <div class="activity-title">🌍 Activity 1 — Match the Currency to its Country</div>
+    <div class="activity-desc">Every country has its own currency. Drag each currency to the country that uses it!</div>
+    <div class="dnd-area">
+      <div class="draggables" id="drag1">
+        <div class="col-label">Currencies</div>
+        <div class="drag-chip" draggable="true" data-match="usa">💵 US Dollar</div>
+        <div class="drag-chip" draggable="true" data-match="japan">💴 Japanese Yen</div>
+        <div class="drag-chip" draggable="true" data-match="uk">💷 British Pound</div>
+        <div class="drag-chip" draggable="true" data-match="eu">💶 Euro</div>
+      </div>
+      <div class="dropzones" id="drop1">
+        <div class="col-label">Countries</div>
+        <div class="drop-slot" data-answer="eu"><span class="slot-hint">🇪🇺 European Union</span></div>
+        <div class="drop-slot" data-answer="usa"><span class="slot-hint">🇺🇸 United States</span></div>
+        <div class="drop-slot" data-answer="japan"><span class="slot-hint">🇯🇵 Japan</span></div>
+        <div class="drop-slot" data-answer="uk"><span class="slot-hint">🇬🇧 United Kingdom</span></div>
+      </div>
+    </div>
+    <div class="feedback-inline" id="feedback1"></div>
+    <div class="check-row">
+      <button class="btn" onclick="checkActivity(1)">✅ Check My Answers</button>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 2 -->
+  <div class="card hidden" id="activity2">
+    <div class="activity-title">📈 Activity 2 — Strong or Weak Exchange Rate?</div>
+    <div class="activity-desc">When it takes MORE of a currency to buy 1 US Dollar, that currency is WEAKER. When it takes LESS, it's STRONGER. Drag each rate change to where it belongs!</div>
+    <div class="dnd-area">
+      <div class="draggables" id="drag2">
+        <div class="col-label">Rate Changes</div>
+        <div class="drag-chip" draggable="true" data-match="strong">1 USD = 80 Yen (was 110 Yen)</div>
+        <div class="drag-chip" draggable="true" data-match="weak">1 USD = 90 Rupees (was 75 Rupees)</div>
+        <div class="drag-chip" draggable="true" data-match="strong">1 USD = 0.80 Euro (was 0.95 Euro)</div>
+        <div class="drag-chip" draggable="true" data-match="weak">1 USD = 1600 Lira (was 1200 Lira)</div>
+      </div>
+      <div class="dropzones" id="drop2">
+        <div class="col-label">What Happened?</div>
+        <div class="drop-slot" data-answer="strong"><span class="slot-hint">💪 Currency Got Stronger</span></div>
+        <div class="drop-slot" data-answer="weak"><span class="slot-hint">📉 Currency Got Weaker</span></div>
+        <div class="drop-slot" data-answer="strong"><span class="slot-hint">💪 Currency Got Stronger</span></div>
+        <div class="drop-slot" data-answer="weak"><span class="slot-hint">📉 Currency Got Weaker</span></div>
+      </div>
+    </div>
+    <div class="feedback-inline" id="feedback2"></div>
+    <div class="check-row">
+      <button class="btn" onclick="checkActivity(2)">✅ Check My Answers</button>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 3 -->
+  <div class="card hidden" id="activity3">
+    <div class="activity-title">🧮 Activity 3 — Do the Currency Math</div>
+    <div class="activity-desc">If 1 US Dollar = 5 Coins, drag the correct total to match how many Coins you'd get for each amount of Dollars.</div>
+    <div class="dnd-area">
+      <div class="draggables" id="drag3">
+        <div class="col-label">Coin Totals</div>
+        <div class="drag-chip" draggable="true" data-match="d2">10 Coins</div>
+        <div class="drag-chip" draggable="true" data-match="d5">25 Coins</div>
+        <div class="drag-chip" draggable="true" data-match="d10">50 Coins</div>
+        <div class="drag-chip" draggable="true" data-match="d20">100 Coins</div>
+      </div>
+      <div class="dropzones" id="drop3">
+        <div class="col-label">Dollar Amounts</div>
+        <div class="drop-slot" data-answer="d5"><span class="slot-hint">💵 5 Dollars</span></div>
+        <div class="drop-slot" data-answer="d20"><span class="slot-hint">💵 20 Dollars</span></div>
+        <div class="drop-slot" data-answer="d2"><span class="slot-hint">💵 2 Dollars</span></div>
+        <div class="drop-slot" data-answer="d10"><span class="slot-hint">💵 10 Dollars</span></div>
+      </div>
+    </div>
+    <div class="feedback-inline" id="feedback3"></div>
+    <div class="check-row">
+      <button class="btn" onclick="checkActivity(3)">✅ Check My Answers</button>
+    </div>
+  </div>
+</div>
+
+<!-- Try again popup -->
+<div class="overlay" id="tryAgainOverlay">
+  <div class="popup try-again">
+    <span class="icon">🔁</span>
+    <h2>Not quite!</h2>
+    <p>Some answers aren't right yet. Take another look and try again — you've got this!</p>
+    <button class="btn yellowbtn" onclick="closeOverlay('tryAgainOverlay')">Try Again</button>
+  </div>
+</div>
+
+<!-- Next activity popup -->
+<div class="overlay" id="nextOverlay">
+  <div class="popup next-activity">
+    <span class="icon">🎉</span>
+    <h2>Awesome job!</h2>
+    <p id="nextPopupText">You completed this activity perfectly!</p>
+    <button class="btn secondary" id="nextPopupBtn" onclick="goToNextActivity()">Next Activity ➜</button>
+  </div>
+</div>
+
+<!-- Celebration screen -->
+<div id="celebration">
+  <div class="stars">🏆 🌟 🏆</div>
+  <h1>You Did It!</h1>
+  <p>You explored how currencies are matched to countries, how exchange rates move, and how currency math works. Great exploring!</p>
+  <button class="btn yellowbtn" style="font-size:1.2rem;padding:16px 40px;" onclick="resetAll()">🔄 Play Again</button>
+</div>
+
+<script>
+/* ===================== Floating sprite decorations ===================== */
+const spriteEmojis = ["💰","🪙","🌟","💵","💶","💴","🎈","✨","🦄","🎨"];
+const spriteLayer = document.getElementById('spriteLayer');
+function spawnSprites(count){
+  for(let i=0;i<count;i++){
+    const s = document.createElement('div');
+    s.className = 'sprite';
+    s.textContent = spriteEmojis[Math.floor(Math.random()*spriteEmojis.length)];
+    s.style.top = (Math.random()*90)+'vh';
+    s.style.left = '-5vw';
+    s.style.fontSize = (1.4 + Math.random()*1.8)+'rem';
+    const duration = 14 + Math.random()*16;
+    s.style.animationDuration = duration+'s';
+    s.style.animationDelay = (Math.random()*duration)+'s';
+    spriteLayer.appendChild(s);
+  }
+}
+spawnSprites(9);
+
+/* ===================== Drag and drop logic ===================== */
+let currentActivity = 1;
+let draggedChip = null;
+
+function setupDragAndDrop(activityNum){
+  const chips = document.querySelectorAll('#drag'+activityNum+' .drag-chip');
+  const slots = document.querySelectorAll('#drop'+activityNum+' .drop-slot');
+
+  chips.forEach(chip => {
+    chip.addEventListener('dragstart', e => {
+      draggedChip = chip;
+      chip.classList.add('dragging');
+      e.dataTransfer.setData('text/plain', chip.dataset.match);
+    });
+    chip.addEventListener('dragend', () => {
+      chip.classList.remove('dragging');
+    });
+
+    // Touch support (mobile)
+    chip.addEventListener('touchstart', handleTouchStart, {passive:false});
+  });
+
+  slots.forEach(slot => {
+    slot.addEventListener('dragover', e => {
+      e.preventDefault();
+      slot.classList.add('over');
+    });
+    slot.addEventListener('dragleave', () => slot.classList.remove('over'));
+    slot.addEventListener('drop', e => {
+      e.preventDefault();
+      slot.classList.remove('over');
+      placeChipInSlot(draggedChip, slot);
+    });
+  });
+}
+
+function placeChipInSlot(chip, slot){
+  if(!chip) return;
+  // if slot already filled, return old chip to pool
+  if(slot.dataset.filledId){
+    const oldChip = document.getElementById(slot.dataset.filledId);
+    if(oldChip){
+      oldChip.classList.remove('placed');
+      oldChip.style.display = '';
+    }
+  }
+  // if this chip was already placed elsewhere, clear that slot
+  document.querySelectorAll('.drop-slot').forEach(s => {
+    if(s.dataset.filledId === chip.id) {
+      s.dataset.filledId = '';
+      const hint = s.querySelector('.slot-hint').cloneNode(true);
+      s.innerHTML = '';
+      s.appendChild(hint);
+      s.classList.remove('filled');
+    }
+  });
+
+  if(!chip.id){
+    chip.id = 'chip-' + Math.random().toString(36).slice(2,9);
+  }
+  const hint = slot.querySelector('.slot-hint') ? slot.querySelector('.slot-hint').textContent : '';
+  slot.innerHTML = '<span class="slot-label">'+hint+'</span><span class="placed-answer">'+chip.textContent+'</span>';
+  slot.dataset.filledId = chip.id;
+  slot.classList.add('filled');
+  chip.classList.add('placed');
+  chip.style.display = 'none';
+}
+
+/* Touch (mobile) drag support */
+let touchGhost = null;
+let touchStartChip = null;
+
+function handleTouchStart(e){
+  e.preventDefault();
+  touchStartChip = e.currentTarget;
+  const rect = touchStartChip.getBoundingClientRect();
+  touchGhost = touchStartChip.cloneNode(true);
+  touchGhost.style.position = 'fixed';
+  touchGhost.style.zIndex = 999;
+  touchGhost.style.pointerEvents = 'none';
+  touchGhost.style.width = rect.width+'px';
+  touchGhost.style.opacity = '0.85';
+  touchGhost.style.left = rect.left+'px';
+  touchGhost.style.top = rect.top+'px';
+  document.body.appendChild(touchGhost);
+  touchStartChip.classList.add('dragging');
+
+  document.addEventListener('touchmove', handleTouchMove, {passive:false});
+  document.addEventListener('touchend', handleTouchEnd, {passive:false});
+}
+function handleTouchMove(e){
+  e.preventDefault();
+  const touch = e.touches[0];
+  touchGhost.style.left = (touch.clientX - touchGhost.offsetWidth/2)+'px';
+  touchGhost.style.top = (touch.clientY - 30)+'px';
+
+  document.querySelectorAll('.drop-slot').forEach(s => s.classList.remove('over'));
+  const target = document.elementFromPoint(touch.clientX, touch.clientY);
+  const slot = target ? target.closest('.drop-slot') : null;
+  if(slot) slot.classList.add('over');
+}
+function handleTouchEnd(e){
+  const touch = e.changedTouches[0];
+  const target = document.elementFromPoint(touch.clientX, touch.clientY);
+  const slot = target ? target.closest('.drop-slot') : null;
+  document.querySelectorAll('.drop-slot').forEach(s => s.classList.remove('over'));
+  if(slot){
+    placeChipInSlot(touchStartChip, slot);
+  }
+  touchStartChip.classList.remove('dragging');
+  if(touchGhost) touchGhost.remove();
+  touchGhost = null;
+  touchStartChip = null;
+  document.removeEventListener('touchmove', handleTouchMove);
+  document.removeEventListener('touchend', handleTouchEnd);
+}
+
+/* ===================== Checking answers ===================== */
+function checkActivity(num){
+  const slots = document.querySelectorAll('#drop'+num+' .drop-slot');
+  let allFilled = true;
+  let allCorrect = true;
+
+  slots.forEach(slot => {
+    if(!slot.dataset.filledId){
+      allFilled = false;
+      return;
+    }
+    const chip = document.getElementById(slot.dataset.filledId);
+    const correct = chip.dataset.match === slot.dataset.answer;
+    slot.classList.remove('correct-flash','wrong-flash');
+    void slot.offsetWidth; // reflow to restart animation
+    if(correct){
+      slot.classList.add('correct-flash');
+      slot.style.borderColor = 'var(--green)';
+    } else {
+      slot.classList.add('wrong-flash');
+      slot.style.borderColor = 'var(--red)';
+      allCorrect = false;
+    }
+  });
+
+  const feedback = document.getElementById('feedback'+num);
+
+  if(!allFilled){
+    feedback.textContent = "Fill every slot before checking! 🧩";
+    feedback.style.color = 'var(--yellow)';
+    return;
+  }
+
+  if(allCorrect){
+    feedback.textContent = "Perfect! Every match is correct! 🎯";
+    feedback.style.color = 'var(--green)';
+    setTimeout(()=> showNextPopup(num), 500);
+  } else {
+    feedback.textContent = "Some matches need fixing — check the red ones!";
+    feedback.style.color = 'var(--red)';
+    setTimeout(()=> showOverlay('tryAgainOverlay'), 500);
+  }
+}
+
+/* ===================== Popups ===================== */
+function showOverlay(id){
+  document.getElementById(id).classList.add('show');
+}
+function closeOverlay(id){
+  document.getElementById(id).classList.remove('show');
+}
+
+function showNextPopup(num){
+  const text = document.getElementById('nextPopupText');
+  const btn = document.getElementById('nextPopupBtn');
+  if(num < 3){
+    text.textContent = "You completed Activity " + num + " perfectly! Ready for the next challenge?";
+    btn.textContent = "Next Activity ➜";
+  } else {
+    text.textContent = "You completed the final activity perfectly! Let's celebrate!";
+    btn.textContent = "See My Celebration 🎊";
+  }
+  showOverlay('nextOverlay');
+
+  // mark dot as done
+  const dot = document.getElementById('dot'+num);
+  dot.classList.remove('active');
+  dot.classList.add('done');
+}
+
+function goToNextActivity(){
+  closeOverlay('nextOverlay');
+  if(currentActivity < 3){
+    document.getElementById('activity'+currentActivity).classList.add('hidden');
+    currentActivity++;
+    document.getElementById('activity'+currentActivity).classList.remove('hidden');
+    document.getElementById('dot'+currentActivity).classList.add('active');
+    document.getElementById('activity'+currentActivity).scrollIntoView({behavior:'smooth', block:'start'});
+  } else {
+    launchCelebration();
+  }
+}
+
+/* ===================== Celebration + confetti ===================== */
+function launchCelebration(){
+  document.querySelector('.wrap').style.display = 'none';
+  const celebration = document.getElementById('celebration');
+  celebration.classList.add('show');
+  burstConfetti();
+}
+
+function burstConfetti(){
+  const colors = ['#f472b6','#fde047','#2dd4bf','#fb923c','#4ade80','#60a5fa','#c084fc','#f87171'];
+  const celebration = document.getElementById('celebration');
+  // clear old confetti
+  document.querySelectorAll('.confetti-piece').forEach(el => el.remove());
+
+  for(let i=0;i<120;i++){
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    const size = 6 + Math.random()*10;
+    piece.style.width = size+'px';
+    piece.style.height = (size*0.4 + Math.random()*8)+'px';
+    piece.style.left = Math.random()*100+'vw';
+    piece.style.background = colors[Math.floor(Math.random()*colors.length)];
+    const duration = 2.5 + Math.random()*3;
+    piece.style.animationDuration = duration+'s';
+    piece.style.animationDelay = (Math.random()*1.5)+'s';
+    piece.style.transform = 'rotate(' + Math.random()*360 + 'deg)';
+    celebration.appendChild(piece);
+  }
+
+  // keep sprinkling confetti while celebration is visible
+  clearInterval(window._confettiInterval);
+  window._confettiInterval = setInterval(()=>{
+    if(!celebration.classList.contains('show')){
+      clearInterval(window._confettiInterval);
+      return;
+    }
+    for(let i=0;i<14;i++){
+      const piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      const colors2 = ['#f472b6','#fde047','#2dd4bf','#fb923c','#4ade80','#60a5fa','#c084fc'];
+      const size = 6 + Math.random()*10;
+      piece.style.width = size+'px';
+      piece.style.height = (size*0.4 + Math.random()*8)+'px';
+      piece.style.left = Math.random()*100+'vw';
+      piece.style.background = colors2[Math.floor(Math.random()*colors2.length)];
+      piece.style.animationDuration = (2.5 + Math.random()*3)+'s';
+      celebration.appendChild(piece);
+      setTimeout(()=> piece.remove(), 6000);
+    }
+  }, 900);
+}
+
+/* ===================== Reset / Play again ===================== */
+function resetAll(){
+  clearInterval(window._confettiInterval);
+  document.querySelectorAll('.confetti-piece').forEach(el => el.remove());
+  document.getElementById('celebration').classList.remove('show');
+  document.querySelector('.wrap').style.display = '';
+
+  // reset activities visibility
+  for(let n=1;n<=3;n++){
+    const act = document.getElementById('activity'+n);
+    if(n===1) act.classList.remove('hidden');
+    else act.classList.add('hidden');
+
+    // reset feedback text
+    document.getElementById('feedback'+n).textContent = '';
+
+    // reset slots
+    document.querySelectorAll('#drop'+n+' .drop-slot').forEach(slot => {
+      const hintText = slot.dataset.originalHint || '';
+      slot.innerHTML = '<span class="slot-hint">'+hintText+'</span>';
+      slot.dataset.filledId = '';
+      slot.classList.remove('filled','correct-flash','wrong-flash','over');
+      slot.style.borderColor = '';
+    });
+
+    // reset chips
+    document.querySelectorAll('#drag'+n+' .drag-chip').forEach(chip => {
+      chip.classList.remove('placed','dragging');
+      chip.style.display = '';
+      chip.removeAttribute('id');
+    });
+  }
+
+  // reset progress dots
+  for(let n=1;n<=3;n++){
+    const dot = document.getElementById('dot'+n);
+    dot.classList.remove('active','done');
+  }
+  document.getElementById('dot1').classList.add('active');
+
+  currentActivity = 1;
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+/* ===================== Init ===================== */
+setupDragAndDrop(1);
+setupDragAndDrop(2);
+setupDragAndDrop(3);
+
+/* Capture original slot hint text for reset (store as data attribute) */
+document.querySelectorAll('.drop-slot').forEach(slot => {
+  const hint = slot.querySelector('.slot-hint');
+  if(hint) slot.dataset.originalHint = hint.textContent;
+});
+
+/* Improve resetAll to use originalHint reliably */
+function resetAllRobust(){
+  resetAll();
+}
+</script>
+
+</body>
+</html>

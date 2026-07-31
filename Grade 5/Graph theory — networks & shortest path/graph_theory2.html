@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>GRAPH THEORY — NETWORKS & SHORTEST PATH</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ─── TOKENS ─────────────────────────────────────────── */
+:root{
+  --deep:#06111e;
+  --navy:#0b2240;
+  --ocean:#0e3a6e;
+  --sky:#1a6fb5;
+  --gold:#e8a422;
+  --gold2:#c47f0a;
+  --amber:#f5c842;
+  --cream:#fdf6e3;
+  --cream2:#f0e4c0;
+  --sage:#3daa7a;
+  --rose:#d94f3d;
+  --violet:#6b5be6;
+  --ok:#3daa7a;
+  --bad:#d94f3d;
+  --txt:#1a1a2e;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;
+  font-family:'DM Sans',sans-serif;background:var(--deep);color:var(--cream);}
+h1,h2,.serif{font-family:'Playfair Display',serif;}
+button{font-family:'DM Sans',sans-serif;cursor:pointer;border:none;}
+
+/* ─── BACKGROUND MAP WORLD ──────────────────────────── */
+.world{position:fixed;inset:0;z-index:0;overflow:hidden;
+  background:radial-gradient(ellipse at 40% 50%,#0d2e58 0%,#071425 55%,var(--deep) 100%);}
+
+/* latitude/longitude grid */
+.world::before{content:'';position:absolute;inset:0;
+  background:
+    linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);
+  background-size:7vw 7vh;}
+
+/* continent silhouettes */
+.land{position:absolute;background:var(--ocean);opacity:.22;border-radius:40%;filter:blur(.5px);}
+.l1{width:32vw;height:20vh;left:2%;top:14%;border-radius:52% 38% 45% 55%/55% 45% 60% 40%;transform:rotate(-5deg);}
+.l2{width:16vw;height:22vh;left:19%;top:8%;border-radius:45% 55% 38% 62%/60% 40% 55% 45%;transform:rotate(6deg);}
+.l3{width:10vw;height:14vh;left:6%;top:52%;border-radius:50%;transform:rotate(12deg);}
+.l4{width:28vw;height:22vh;right:5%;top:12%;border-radius:58% 42% 60% 40%/40% 60% 35% 65%;transform:rotate(-8deg);}
+.l5{width:14vw;height:18vh;right:4%;top:40%;border-radius:42% 58% 55% 45%/48% 52% 45% 55%;transform:rotate(5deg);}
+.l6{width:22vw;height:12vh;left:36%;bottom:18%;border-radius:50% 40% 55% 45%;transform:rotate(-3deg);}
+.l7{width:8vw;height:10vh;right:25%;bottom:22%;border-radius:50%;transform:rotate(10deg);}
+
+/* animated ocean ripple */
+.ripple{position:absolute;border-radius:50%;border:1px solid rgba(26,111,181,.15);
+  animation:expand linear infinite;pointer-events:none;}
+.rp1{width:40vw;height:40vw;left:20%;top:10%;animation-duration:14s;}
+.rp2{width:30vw;height:30vw;right:10%;top:30%;animation-duration:10s;animation-delay:3s;}
+.rp3{width:20vw;height:20vw;left:50%;bottom:10%;animation-duration:8s;animation-delay:6s;}
+@keyframes expand{0%{transform:scale(.4);opacity:.6;}100%{transform:scale(1.6);opacity:0;}}
+
+/* drifting clouds */
+.cloud{position:absolute;background:rgba(255,255,255,.055);border-radius:60px;filter:blur(1.5px);
+  animation:cloud-move linear infinite;}
+.cloud::before,.cloud::after{content:'';position:absolute;background:inherit;border-radius:50%;}
+.ck1{width:200px;height:38px;top:7%;animation-duration:30s;left:-220px;}
+.ck1::before{width:80px;height:60px;top:-32px;left:25px;}
+.ck1::after{width:65px;height:50px;top:-24px;left:95px;}
+.ck2{width:160px;height:30px;top:19%;animation-duration:38s;animation-delay:7s;left:-180px;}
+.ck3{width:220px;height:34px;top:64%;animation-duration:26s;animation-delay:4s;left:-240px;}
+.ck4{width:130px;height:26px;top:75%;animation-duration:34s;animation-delay:12s;left:-150px;}
+@keyframes cloud-move{0%{transform:translateX(0);}100%{transform:translateX(115vw);}}
+
+/* glowing route lines */
+.gline{position:absolute;height:1.5px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);
+  animation:route-glow 4s ease-in-out infinite;pointer-events:none;}
+.gl1{width:28vw;top:24%;left:16%;transform:rotate(-10deg);animation-delay:0s;}
+.gl2{width:20vw;top:57%;right:12%;transform:rotate(9deg);animation-delay:1.5s;}
+.gl3{width:16vw;bottom:26%;left:33%;transform:rotate(-6deg);animation-delay:2.8s;}
+.gl4{width:24vw;top:42%;left:40%;transform:rotate(4deg);animation-delay:.8s;}
+@keyframes route-glow{0%,100%{opacity:.12;box-shadow:none;}50%{opacity:.65;box-shadow:0 0 8px rgba(232,164,34,.5);}}
+
+/* floating map pins */
+.fpin{position:absolute;animation:pin-float ease-in-out infinite;filter:drop-shadow(0 0 6px var(--gold));}
+@keyframes pin-float{0%,100%{transform:translateY(0);}50%{transform:translateY(-9px);}}
+.fp1{left:10%;top:28%;animation-duration:5s;}
+.fp2{right:12%;top:20%;animation-duration:6.5s;animation-delay:1s;}
+.fp3{left:52%;bottom:16%;animation-duration:4.8s;animation-delay:.6s;}
+.fp4{right:28%;bottom:28%;animation-duration:5.8s;animation-delay:1.9s;}
+
+/* rotating compass */
+.compass-ring{position:absolute;right:1.8%;top:1.5%;
+  width:clamp(54px,5.5vw,80px);height:clamp(54px,5.5vw,80px);
+  animation:spin-slow 16s linear infinite;opacity:.32;}
+@keyframes spin-slow{to{transform:rotate(360deg);}}
+
+/* waving flags */
+.wflag{position:absolute;font-size:clamp(18px,2.4vw,30px);
+  animation:wave ease-in-out infinite;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));}
+.wf1{left:3%;bottom:16%;animation-duration:3.2s;}
+.wf2{right:4%;bottom:20%;animation-duration:4s;animation-delay:.6s;}
+.wf3{left:48%;top:4%;animation-duration:3.6s;animation-delay:1.2s;}
+@keyframes wave{0%,100%{transform:rotate(-4deg);}50%{transform:rotate(4deg);}}
+
+/* sparkling stars */
+.spark{position:absolute;color:var(--amber);font-size:clamp(10px,1.6vw,18px);
+  animation:twinkle ease-in-out infinite;}
+.sk1{left:24%;top:36%;animation-duration:2.4s;}
+.sk2{right:20%;top:48%;animation-duration:3.2s;animation-delay:.9s;}
+.sk3{left:62%;bottom:20%;animation-duration:2.8s;animation-delay:1.6s;}
+.sk4{right:40%;top:16%;animation-duration:3.8s;animation-delay:2s;}
+@keyframes twinkle{0%,100%{opacity:.2;transform:scale(.7);}50%{opacity:1;transform:scale(1.3);}}
+
+/* ─── APP SHELL ─────────────────────────────────────── */
+.app{position:relative;z-index:2;width:100vw;height:100vh;
+  display:flex;flex-direction:column;align-items:center;
+  padding:1vh 1.8vw 1.2vh;gap:.5vh;}
+
+header{text-align:center;flex-shrink:0;}
+header h1{font-size:clamp(15px,2.4vw,28px);color:var(--amber);letter-spacing:1px;
+  text-shadow:0 0 24px rgba(245,200,66,.45);}
+header .tagline{font-size:clamp(9px,.95vw,12px);color:rgba(253,246,227,.55);margin-top:1px;}
+
+/* step trail */
+.trail{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.step-dot{display:flex;align-items:center;gap:5px;font-size:clamp(9px,.95vw,12px);
+  font-weight:600;color:rgba(253,246,227,.3);transition:color .4s;}
+.step-dot.active{color:var(--amber);}
+.step-dot.done{color:var(--sage);}
+.step-dot .pip{width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0;}
+.trail-sep{color:rgba(253,246,227,.18);font-size:14px;}
+
+main{flex:1;min-height:0;width:100%;max-width:1200px;}
+
+/* panels */
+.panel{width:100%;height:100%;display:none;flex-direction:column;gap:.9vh;
+  background:rgba(8,22,42,.72);border:1.5px solid rgba(232,164,34,.28);
+  border-radius:16px;padding:1.2vh 1.6vw;backdrop-filter:blur(8px);
+  box-shadow:0 0 50px rgba(0,0,0,.5),inset 0 1px 0 rgba(232,164,34,.12);}
+.panel.active{display:flex;}
+
+.ph{display:flex;justify-content:space-between;align-items:flex-start;flex-shrink:0;}
+.ph h2{font-family:'Playfair Display',serif;font-size:clamp(13px,1.7vw,20px);color:var(--amber);}
+.ph .desc{font-size:clamp(9px,.95vw,12px);color:rgba(253,246,227,.55);margin-top:2px;}
+.rbtn{background:rgba(217,79,61,.82);color:var(--cream);padding:5px 13px;border-radius:18px;
+  font-size:11px;font-weight:600;box-shadow:0 3px 0 #8b1c0e;flex-shrink:0;
+  transition:transform .12s;}
+.rbtn:active{transform:translateY(2px);box-shadow:0 1px 0 #8b1c0e;}
+
+.body{flex:1;min-height:0;display:flex;gap:1vw;}
+
+/* ─── ACTIVITY 1 — Neon Metro Card Match ─────────────── */
+#a1 .body{flex-direction:row;}
+.a1-left{width:clamp(120px,17vw,190px);display:flex;flex-direction:column;gap:.6vh;overflow-y:auto;flex-shrink:0;}
+.tray-lbl{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--sky);font-weight:700;margin-bottom:1px;}
+.metro-chip{background:linear-gradient(135deg,#12396e,#091f42);
+  border:1.5px solid var(--sky);border-radius:10px;
+  padding:8px 10px;text-align:center;font-size:clamp(9px,1vw,12px);
+  font-weight:700;color:var(--cream);cursor:grab;user-select:none;touch-action:none;
+  position:relative;box-shadow:0 0 12px rgba(26,111,181,.35);}
+.metro-chip .chip-icon{font-size:14px;display:block;margin-bottom:2px;}
+.metro-chip::after{content:'';position:absolute;inset:0;border-radius:9px;
+  background:linear-gradient(135deg,rgba(255,255,255,.08),transparent);pointer-events:none;}
+.metro-chip.locked{opacity:.28;cursor:default;}
+
+.a1-mid{flex:1;background:rgba(255,255,255,.03);border-radius:10px;
+  border:1px dashed rgba(232,164,34,.18);display:flex;align-items:center;
+  justify-content:center;overflow:hidden;position:relative;}
+.mid-hint{font-size:clamp(9px,.95vw,11px);color:rgba(253,246,227,.2);
+  text-align:center;padding:16px;pointer-events:none;}
+
+.a1-right{width:clamp(120px,17vw,190px);display:flex;flex-direction:column;gap:.6vh;overflow-y:auto;flex-shrink:0;}
+.drop-card{background:rgba(255,255,255,.05);border:2px dashed rgba(26,111,181,.5);
+  border-radius:10px;padding:8px 10px;min-height:46px;font-size:clamp(9px,.95vw,11px);
+  color:rgba(253,246,227,.65);display:flex;align-items:center;gap:7px;transition:.2s;}
+.drop-card.filled{border-style:solid;border-color:var(--ok);
+  background:rgba(61,170,122,.1);color:var(--cream);}
+.drop-card.wrong-flash{border-color:var(--bad);background:rgba(217,79,61,.12);}
+.drop-card .di{font-size:15px;flex-shrink:0;}
+
+/* ─── ACTIVITY 2 — Vintage Boarding Pass ─────────────── */
+#a2 .body{flex-direction:column;}
+.pass-tray{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;flex-shrink:0;padding:.3vh 0;}
+.pass{position:relative;background:var(--cream2);color:var(--txt);
+  border-radius:6px;padding:9px 18px 9px 12px;font-size:clamp(9px,1vw,12px);
+  font-weight:700;cursor:grab;user-select:none;touch-action:none;
+  box-shadow:2px 3px 0 #9a8050,0 0 0 1px rgba(0,0,0,.1);}
+.pass::before{content:'';position:absolute;right:0;top:0;bottom:0;width:18px;
+  background:repeating-linear-gradient(0deg,var(--cream2) 0px,var(--cream2) 4px,
+  transparent 4px,transparent 8px);border-left:1px dashed #b09858;}
+.pass .pass-num{position:absolute;top:-8px;left:8px;
+  background:var(--gold);color:#1a0a00;font-size:9px;font-family:'Playfair Display',serif;
+  font-weight:700;width:16px;height:16px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;}
+.pass .pass-icon{font-size:13px;margin-right:4px;}
+.pass.locked{opacity:.28;}
+
+.pass-track{flex:1;min-height:0;display:flex;align-items:center;
+  justify-content:center;gap:.8vw;overflow:auto;
+  border-top:2px dotted rgba(232,164,34,.2);padding-top:1vh;}
+.pass-slot{min-width:clamp(80px,11vw,130px);height:clamp(58px,8.5vh,78px);
+  border-radius:8px;background:rgba(255,255,255,.04);
+  border:2px solid rgba(232,164,34,.3);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;padding:5px;
+  gap:3px;flex-shrink:0;transition:.2s;}
+.pass-slot .sn{width:20px;height:20px;border-radius:50%;background:var(--gold);
+  color:#1a0a00;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.pass-slot .sh{font-size:clamp(8px,.85vw,10px);color:rgba(253,246,227,.35);line-height:1.2;}
+.pass-slot.filled{border-color:var(--ok);background:rgba(61,170,122,.1);}
+.pass-slot.filled .sh{color:rgba(253,246,227,.7);}
+.pass-slot.wrong-flash{border-color:var(--bad);}
+.pass-arrow{color:rgba(232,164,34,.4);font-size:clamp(12px,1.8vw,20px);flex-shrink:0;}
+
+/* ─── ACTIVITY 3 — Explorer's Journal Cards ──────────── */
+#a3 .body{flex-direction:column;}
+.journal-tray{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;flex-shrink:0;}
+.journal-tag{background:linear-gradient(145deg,#5a3e8a,#3a2460);color:#e8d8ff;
+  padding:7px 13px;border-radius:20px;font-size:clamp(9px,.95vw,12px);font-weight:700;
+  cursor:grab;user-select:none;touch-action:none;
+  box-shadow:0 3px 0 #271549,0 0 10px rgba(107,91,230,.35);}
+.journal-tag.locked{opacity:.28;}
+.journal-grid{flex:1;min-height:0;display:grid;
+  grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(2,1fr);
+  gap:.7vh .7vw;overflow:auto;}
+.journal-slot{background:rgba(255,255,255,.04);
+  border:1.5px dashed rgba(107,91,230,.4);border-radius:10px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:8px;gap:3px;transition:.2s;}
+.journal-slot .js-icon{font-size:clamp(16px,2vw,22px);}
+.journal-slot .js-hint{font-size:clamp(7px,.8vw,10px);
+  color:rgba(253,246,227,.32);line-height:1.25;}
+.journal-slot.filled{border-style:solid;border-color:var(--violet);
+  background:rgba(107,91,230,.12);}
+.journal-slot.filled .js-hint{color:rgba(253,246,227,.65);}
+.journal-slot.wrong-flash{border-color:var(--bad);}
+
+/* ─── GHOST ─────────────────────────────────────────── */
+.drag-ghost{pointer-events:none;z-index:9999;position:fixed;opacity:.9;}
+
+/* ─── OVERLAYS ──────────────────────────────────────── */
+.overlay{position:fixed;inset:0;background:rgba(3,10,22,.8);display:none;
+  align-items:center;justify-content:center;z-index:80;}
+.overlay.show{display:flex;}
+.popup{background:linear-gradient(160deg,var(--cream),var(--cream2));color:var(--txt);
+  border-radius:18px;padding:24px 32px;text-align:center;
+  max-width:min(90vw,400px);border:3px solid var(--gold);
+  box-shadow:0 0 60px rgba(232,164,34,.4);animation:popin .35s cubic-bezier(.34,1.56,.64,1);}
+@keyframes popin{0%{transform:scale(.5);opacity:0;}100%{transform:scale(1);opacity:1;}}
+.popup-icon{font-size:48px;margin-bottom:6px;}
+.popup h2{font-family:'Playfair Display',serif;font-size:clamp(16px,2.2vw,22px);
+  color:var(--ocean);margin-bottom:6px;}
+.popup p{font-size:clamp(11px,1.2vw,14px);margin-bottom:16px;line-height:1.5;}
+.p-btn{background:linear-gradient(145deg,var(--ocean),#062240);color:var(--cream);
+  padding:10px 24px;border-radius:22px;font-size:14px;font-weight:700;
+  box-shadow:0 4px 0 #030f1f;}
+.p-btn:active{transform:translateY(3px);box-shadow:0 1px 0 #030f1f;}
+#playAgainBtn{background:linear-gradient(145deg,var(--gold),var(--gold2));
+  color:#1a0a00;box-shadow:0 4px 0 #7a4a00;font-size:15px;}
+
+/* confetti */
+.conf-wrap{position:fixed;inset:0;pointer-events:none;z-index:70;overflow:hidden;}
+.conf-bit{position:absolute;border-radius:2px;
+  animation:conf-drop linear forwards;}
+@keyframes conf-drop{
+  0%{transform:translateY(-10px) rotate(0deg);opacity:1;}
+  100%{transform:translateY(105vh) rotate(720deg);opacity:0;}}
+
+/* mobile */
+@media(max-width:680px){
+  #a1 .body{flex-direction:column;}
+  .a1-left,.a1-right{width:100%;flex-direction:row;flex-wrap:wrap;overflow-y:visible;}
+  .journal-grid{grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(4,1fr);}
+}
+</style>
+</head>
+<body>
+
+<!-- ░░ ANIMATED WORLD BACKGROUND ░░ -->
+<div class="world">
+  <div class="land l1"></div><div class="land l2"></div><div class="land l3"></div>
+  <div class="land l4"></div><div class="land l5"></div><div class="land l6"></div>
+  <div class="land l7"></div>
+  <div class="ripple rp1"></div><div class="ripple rp2"></div><div class="ripple rp3"></div>
+  <div class="cloud ck1"></div><div class="cloud ck2"></div>
+  <div class="cloud ck3"></div><div class="cloud ck4"></div>
+  <div class="gline gl1"></div><div class="gline gl2"></div>
+  <div class="gline gl3"></div><div class="gline gl4"></div>
+  <!-- floating pins -->
+  <div class="fpin fp1"><svg width="22" height="28" viewBox="0 0 24 30"><path d="M12 0C7.13 0 3 4.13 3 9c0 7 9 21 9 21s9-14 9-21C21 4.13 16.87 0 12 0z" fill="#e8a422"/><circle cx="12" cy="9" r="3.2" fill="#fff"/></svg></div>
+  <div class="fpin fp2"><svg width="18" height="24" viewBox="0 0 24 30"><path d="M12 0C7.13 0 3 4.13 3 9c0 7 9 21 9 21s9-14 9-21C21 4.13 16.87 0 12 0z" fill="#d94f3d"/><circle cx="12" cy="9" r="3.2" fill="#fff"/></svg></div>
+  <div class="fpin fp3"><svg width="20" height="26" viewBox="0 0 24 30"><path d="M12 0C7.13 0 3 4.13 3 9c0 7 9 21 9 21s9-14 9-21C21 4.13 16.87 0 12 0z" fill="#3daa7a"/><circle cx="12" cy="9" r="3.2" fill="#fff"/></svg></div>
+  <div class="fpin fp4"><svg width="16" height="20" viewBox="0 0 24 30"><path d="M12 0C7.13 0 3 4.13 3 9c0 7 9 21 9 21s9-14 9-21C21 4.13 16.87 0 12 0z" fill="#e8a422"/><circle cx="12" cy="9" r="3.2" fill="#fff"/></svg></div>
+  <!-- compass -->
+  <svg class="compass-ring" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="46" fill="none" stroke="#e8a422" stroke-width="1.5"/>
+    <circle cx="50" cy="50" r="38" fill="none" stroke="#e8a422" stroke-width=".5" stroke-dasharray="3 4"/>
+    <line x1="50" y1="4" x2="50" y2="22" stroke="#e8a422" stroke-width="2"/>
+    <line x1="50" y1="78" x2="50" y2="96" stroke="#e8a422" stroke-width="2"/>
+    <line x1="4" y1="50" x2="22" y2="50" stroke="#e8a422" stroke-width="1"/>
+    <line x1="78" y1="50" x2="96" y2="50" stroke="#e8a422" stroke-width="1"/>
+    <polygon points="50,12 46,50 50,46 54,50" fill="#e8a422"/>
+    <polygon points="50,88 46,50 50,54 54,50" fill="#aaa"/>
+  </svg>
+  <div class="wflag wf1">🚩</div>
+  <div class="wflag wf2">🏳️</div>
+  <div class="wflag wf3">🎌</div>
+  <div class="spark sk1">✦</div>
+  <div class="spark sk2">✧</div>
+  <div class="spark sk3">✦</div>
+  <div class="spark sk4">✧</div>
+</div>
+
+<!-- ░░ APP ░░ -->
+<div class="app">
+  <header>
+    <h1>🗺 GRAPH THEORY — NETWORKS &amp; SHORTEST PATH</h1>
+    <div class="tagline">Map the nodes · Trace the edges · Find the fastest route</div>
+  </header>
+
+  <div class="trail">
+    <div class="step-dot" id="sd1"><div class="pip"></div>Build the Network</div>
+    <div class="trail-sep">›</div>
+    <div class="step-dot" id="sd2"><div class="pip"></div>Algorithm Steps</div>
+    <div class="trail-sep">›</div>
+    <div class="step-dot" id="sd3"><div class="pip"></div>Explorer's Journal</div>
+  </div>
+
+  <main>
+    <!-- PANEL 1 -->
+    <div class="panel" id="a1">
+      <div class="ph">
+        <div>
+          <h2>🔵 Activity 1 — Connect the Metro Network</h2>
+          <div class="desc">Drag each metro station card onto its matching network description.</div>
+        </div>
+        <button class="rbtn" onclick="resetActivity(1)">↺ Reset</button>
+      </div>
+      <div class="body">
+        <div class="a1-left" id="a1tray"><div class="tray-lbl">Stations</div></div>
+        <div class="a1-mid" id="a1mid"><div class="mid-hint" id="a1hint">← Drag stations here to match their role in the network</div></div>
+        <div class="a1-right" id="a1targets"></div>
+      </div>
+    </div>
+
+    <!-- PANEL 2 -->
+    <div class="panel" id="a2">
+      <div class="ph">
+        <div>
+          <h2>🎟 Activity 2 — Dijkstra's Route Steps</h2>
+          <div class="desc">Arrange the boarding passes in the correct order of the algorithm.</div>
+        </div>
+        <button class="rbtn" onclick="resetActivity(2)">↺ Reset</button>
+      </div>
+      <div class="body">
+        <div class="pass-tray" id="a2tray"></div>
+        <div class="pass-track" id="a2track"></div>
+      </div>
+    </div>
+
+    <!-- PANEL 3 -->
+    <div class="panel" id="a3">
+      <div class="ph">
+        <div>
+          <h2>📔 Activity 3 — Explorer's Journal</h2>
+          <div class="desc">Pin every term onto its correct page in the graph theory journal.</div>
+        </div>
+        <button class="rbtn" onclick="resetActivity(3)">↺ Reset</button>
+      </div>
+      <div class="body">
+        <div class="journal-tray" id="a3tray"></div>
+        <div class="journal-grid" id="a3grid"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- popups -->
+<div class="overlay" id="stepOverlay">
+  <div class="popup">
+    <div class="popup-icon" id="sIcon">🗺️</div>
+    <h2 id="sTitle">Stage Complete!</h2>
+    <p id="sMsg">Well navigated!</p>
+    <button class="p-btn" id="sContinue">Continue →</button>
+  </div>
+</div>
+<div class="overlay" id="finalOverlay">
+  <div class="popup">
+    <div class="popup-icon">🏆🌍</div>
+    <h2>Master Network Architect!</h2>
+    <p>Every node placed, every step ordered, every term mapped — the entire network is yours!</p>
+    <button class="p-btn" id="playAgainBtn">▶ Play Again</button>
+  </div>
+</div>
+<div class="conf-wrap" id="confWrap"></div>
+
+<script>
+/* ── DATA ── */
+const A1 = [
+  {id:'m1',icon:'🚇',label:'Rajiv Chowk',   desc:'Central interchange hub connecting multiple metro lines'},
+  {id:'m2',icon:'🏛️',label:'Kashmere Gate', desc:'Northern terminus — historic old city gateway node'},
+  {id:'m3',icon:'🎓',label:'Hauz Khas',     desc:'University district node on the south-bound line'},
+  {id:'m4',icon:'🏙️',label:'Noida City Ctr',desc:'Eastern boundary node linking the outer ring'},
+  {id:'m5',icon:'🚉',label:'CSMT Mumbai',   desc:'Grand terminus — start of suburban rail network'},
+  {id:'m6',icon:'📦',label:'Dark Store Hub', desc:'Quick-commerce origin node for last-mile delivery'}
+];
+
+const A2 = [
+  {id:'s1',label:'Choose the start node',             icon:'🟢', order:1},
+  {id:'s2',label:'Assign initial distances',          icon:'∞',  order:2},
+  {id:'s3',label:'Visit nearest unvisited node',      icon:'📍', order:3},
+  {id:'s4',label:'Update neighboring distances',      icon:'🔄', order:4},
+  {id:'s5',label:'Repeat until destination reached',  icon:'🔁', order:5},
+  {id:'s6',label:'Identify the shortest path',        icon:'🏁', order:6}
+];
+
+const A3 = [
+  {id:'g1',label:'Nodes',                icon:'🔵', hint:'Points / locations in a network'},
+  {id:'g2',label:'Edges',                icon:'➖', hint:'Roads / connections between nodes'},
+  {id:'g3',label:'Weights',              icon:'⚖️', hint:'Cost, time or distance on a link'},
+  {id:'g4',label:'Shortest Path',        icon:'🛤️', hint:'Route with the lowest total weight'},
+  {id:'g5',label:"Dijkstra's Algorithm", icon:'🧮', hint:'Step-by-step method to find best route'},
+  {id:'g6',label:'Destination',          icon:'🏁', hint:'The final endpoint of a journey'},
+  {id:'g7',label:'Route Optimization',   icon:'⚡', hint:'Choosing the best path through a network'},
+  {id:'g8',label:'Google Maps Routing',  icon:'🗺️', hint:'Real-world graph theory every second'}
+];
+
+/* ── UTILS ── */
+const rnd=(a,b)=>a+Math.random()*(b-a);
+function shuffle(a){
+  const r=[...a];
+  for(let i=r.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [r[i],r[j]]=[r[j],r[i]];
+  }
+  return r;
+}
+
+/* ── GHOST DRAG ENGINE ── */
+let DS=null;
+function enableDrag(el){
+  el.addEventListener('pointerdown',e=>{
+    if(el.classList.contains('locked'))return;
+    e.preventDefault();
+    const r=el.getBoundingClientRect();
+    const g=el.cloneNode(true);
+    g.className=el.className+' drag-ghost';
+    g.style.cssText=`position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;z-index:9999;transition:none;`;
+    document.body.appendChild(g);
+    el.style.opacity='0';el.style.pointerEvents='none';
+    DS={el,g,ox:e.clientX-r.left,oy:e.clientY-r.top,par:el.parentElement,nxt:el.nextSibling};
+    el.setPointerCapture(e.pointerId);
+    el.addEventListener('pointermove',onMove);
+    el.addEventListener('pointerup',onUp);
+    el.addEventListener('pointercancel',onUp);
+  });
+}
+function onMove(e){
+  if(!DS)return;
+  DS.g.style.left=(e.clientX-DS.ox)+'px';
+  DS.g.style.top=(e.clientY-DS.oy)+'px';
+}
+function onUp(e){
+  if(!DS)return;
+  const{el,g,par,nxt}=DS;
+  el.releasePointerCapture(e.pointerId);
+  el.removeEventListener('pointermove',onMove);
+  el.removeEventListener('pointerup',onUp);
+  el.removeEventListener('pointercancel',onUp);
+  const under=document.elementFromPoint(e.clientX,e.clientY);
+  g.remove();
+  el.style.opacity='';el.style.pointerEvents='';
+  const zone=under?.closest('.drop-card,.pass-slot,.journal-slot');
+  if(zone&&!zone.classList.contains('filled')){
+    if(zone.dataset.accept===el.dataset.id){
+      zone.appendChild(el);
+      el.classList.add('locked');
+      zone.classList.add('filled');
+      onCorrect(zone.dataset.act);
+    } else {
+      zone.classList.add('wrong-flash');
+      setTimeout(()=>zone.classList.remove('wrong-flash'),450);
+      par.insertBefore(el,nxt);
+    }
+  } else {
+    par.insertBefore(el,nxt);
+  }
+  DS=null;
+}
+
+/* ── PROGRESS ── */
+const totals={1:A1.length,2:A2.length,3:A3.length};
+const filled={1:0,2:0,3:0};
+function onCorrect(act){
+  filled[act]++;
+  if(filled[act]>=totals[act])setTimeout(()=>finishAct(+act),380);
+}
+function finishAct(n){
+  setSd(n,'done');
+  if(n<3){
+    document.getElementById('sIcon').textContent=n===1?'🧭':'📔';
+    document.getElementById('sTitle').textContent=`Stage ${n} Complete!`;
+    document.getElementById('sMsg').textContent=n===1
+      ?'All stations connected! Time to sequence the algorithm.'
+      :'Algorithm steps in order! One final journal entry awaits.';
+    document.getElementById('sContinue').onclick=()=>{hideOv('stepOverlay');goTo(n+1);};
+    showOv('stepOverlay');
+  } else {
+    confetti();
+    setTimeout(()=>showOv('finalOverlay'),900);
+  }
+}
+function setSd(n,s){
+  const el=document.getElementById('sd'+n);
+  el.classList.remove('active','done');
+  if(s)el.classList.add(s);
+}
+function showOv(id){document.getElementById(id).classList.add('show');}
+function hideOv(id){document.getElementById(id).classList.remove('show');}
+function goTo(n){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('a'+n).classList.add('active');
+  for(let i=1;i<=3;i++) setSd(i,i<n?'done':i===n?'active':'');
+}
+
+/* ── BUILDERS ── */
+function buildA1(){
+  filled[1]=0;
+  const tray=document.getElementById('a1tray');
+  const tgt=document.getElementById('a1targets');
+  tray.innerHTML='<div class="tray-lbl">Stations</div>';
+  tgt.innerHTML='';
+  document.getElementById('a1hint').style.display='';
+
+  shuffle(A1).forEach(it=>{
+    const c=document.createElement('div');
+    c.className='metro-chip';c.dataset.id=it.id;
+    c.innerHTML=`<span class="chip-icon">${it.icon}</span>${it.label}`;
+    enableDrag(c);tray.appendChild(c);
+  });
+  shuffle(A1).forEach(it=>{
+    const z=document.createElement('div');
+    z.className='drop-card';z.dataset.accept=it.id;z.dataset.act='1';
+    z.innerHTML=`<span class="di">${it.icon}</span><span>${it.desc}</span>`;
+    tgt.appendChild(z);
+  });
+}
+
+function buildA2(){
+  filled[2]=0;
+  const tray=document.getElementById('a2tray');
+  const track=document.getElementById('a2track');
+  tray.innerHTML='';track.innerHTML='';
+
+  shuffle(A2).forEach(it=>{
+    const c=document.createElement('div');
+    c.className='pass';c.dataset.id=it.id;
+    c.innerHTML=`<span class="pass-icon">${it.icon}</span>${it.label}`;
+    enableDrag(c);tray.appendChild(c);
+  });
+  A2.forEach((it,idx)=>{
+    if(idx>0){
+      const ar=document.createElement('div');
+      ar.className='pass-arrow';ar.textContent='→';
+      track.appendChild(ar);
+    }
+    const sl=document.createElement('div');
+    sl.className='pass-slot';sl.dataset.accept=it.id;sl.dataset.act='2';
+    sl.innerHTML=`<div class="sn">${it.order}</div><div class="sh">Step ${it.order}</div>`;
+    track.appendChild(sl);
+  });
+}
+
+function buildA3(){
+  filled[3]=0;
+  const tray=document.getElementById('a3tray');
+  const grid=document.getElementById('a3grid');
+  tray.innerHTML='';grid.innerHTML='';
+
+  shuffle(A3).forEach(it=>{
+    const c=document.createElement('div');
+    c.className='journal-tag';c.dataset.id=it.id;
+    c.textContent=it.label;
+    enableDrag(c);tray.appendChild(c);
+  });
+  A3.forEach(it=>{
+    const sl=document.createElement('div');
+    sl.className='journal-slot';sl.dataset.accept=it.id;sl.dataset.act='3';
+    sl.innerHTML=`<div class="js-icon">${it.icon}</div><div class="js-hint">${it.hint}</div>`;
+    grid.appendChild(sl);
+  });
+}
+
+function resetActivity(n){
+  if(n===1)buildA1();
+  if(n===2)buildA2();
+  if(n===3)buildA3();
+}
+
+/* ── CONFETTI ── */
+function confetti(){
+  const wrap=document.getElementById('confWrap');
+  wrap.innerHTML='';
+  const cols=['#e8a422','#3daa7a','#d94f3d','#6b5be6','#1a6fb5','#f5c842'];
+  for(let i=0;i<75;i++){
+    const b=document.createElement('div');
+    b.className='conf-bit';
+    const s=rnd(5,13);
+    b.style.cssText=`width:${s}px;height:${s}px;left:${rnd(3,97)}vw;
+      background:${cols[Math.floor(Math.random()*cols.length)]};
+      animation-duration:${rnd(1.1,2.8)}s;animation-delay:${rnd(0,.6)}s;`;
+    wrap.appendChild(b);
+  }
+  setTimeout(()=>wrap.innerHTML='',3500);
+}
+
+/* ── INIT ── */
+function initAll(){
+  buildA1();buildA2();buildA3();goTo(1);
+}
+document.getElementById('playAgainBtn').addEventListener('click',()=>{
+  hideOv('finalOverlay');initAll();
+});
+initAll();
+</script>
+</body>
+</html>

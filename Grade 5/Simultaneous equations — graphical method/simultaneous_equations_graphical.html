@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finding the Secret Crossing — Math World</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap');
+
+  :root {
+    --gold: #FFD700;
+    --coral: #FF6B6B;
+    --teal: #00C9B1;
+    --violet: #9B59B6;
+    --navy: #1A1A4E;
+    --sky: #4FC3F7;
+    --lime: #A8E063;
+    --orange: #FF8C42;
+    --white: #FFFFFF;
+    --card-bg: rgba(255,255,255,0.10);
+    --border-glow: rgba(255,215,0,0.5);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  html, body {
+    width:100%; height:100%; overflow:hidden;
+    font-family:'Nunito', sans-serif;
+    background: var(--navy);
+    color: var(--white);
+    user-select:none;
+  }
+
+  /* ===== CANVAS BG ===== */
+  #bgCanvas {
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    z-index:0; pointer-events:none;
+  }
+
+  /* ===== FLOATING MATH SYMBOLS ===== */
+  .floaters {
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    z-index:1; pointer-events:none; overflow:hidden;
+  }
+  .floater {
+    position:absolute;
+    font-family:'Fredoka One', cursive;
+    opacity:0.08;
+    animation: floatUp linear infinite;
+    color: var(--gold);
+    pointer-events:none;
+  }
+  @keyframes floatUp {
+    0%   { transform: translateY(110vh) rotate(0deg); opacity:0.04; }
+    10%  { opacity:0.10; }
+    90%  { opacity:0.08; }
+    100% { transform: translateY(-15vh) rotate(360deg); opacity:0; }
+  }
+
+  /* ===== MAIN LAYOUT ===== */
+  #app {
+    position:relative; z-index:10;
+    width:100%; height:100%;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:flex-start;
+    padding: 8px 12px 6px;
+    gap:6px;
+  }
+
+  /* ===== HEADER ===== */
+  #header {
+    text-align:center;
+    flex-shrink:0;
+  }
+  #header h1 {
+    font-family:'Fredoka One', cursive;
+    font-size: clamp(16px, 2.2vw, 26px);
+    letter-spacing:2px;
+    background: linear-gradient(90deg, var(--gold), var(--coral), var(--teal), var(--gold));
+    background-size:200%;
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    animation: shimmer 4s linear infinite;
+    filter: drop-shadow(0 0 8px rgba(255,215,0,0.5));
+  }
+  #header p {
+    font-size: clamp(10px, 1.2vw, 14px);
+    color: rgba(255,255,255,0.7);
+    margin-top:1px;
+  }
+  @keyframes shimmer {
+    0%  { background-position:0% }
+    100%{ background-position:200% }
+  }
+
+  /* ===== PROGRESS BAR ===== */
+  #progressBar {
+    display:flex; gap:8px; align-items:center;
+    flex-shrink:0;
+  }
+  .prog-dot {
+    width:32px; height:32px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Fredoka One';
+    font-size:14px;
+    border: 2.5px solid rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.4);
+    transition: all 0.4s ease;
+    position:relative;
+  }
+  .prog-dot.active {
+    border-color: var(--gold);
+    color: var(--gold);
+    box-shadow: 0 0 12px var(--gold);
+  }
+  .prog-dot.done {
+    background: var(--teal);
+    border-color: var(--teal);
+    color: var(--white);
+    box-shadow: 0 0 10px var(--teal);
+  }
+  .prog-line {
+    width:40px; height:3px;
+    background: rgba(255,255,255,0.15);
+    border-radius:2px;
+    overflow:hidden;
+    position:relative;
+  }
+  .prog-line-fill {
+    height:100%; width:0%;
+    background: linear-gradient(90deg, var(--teal), var(--gold));
+    border-radius:2px;
+    transition: width 0.6s ease;
+  }
+
+  /* ===== ACTIVITY PANEL ===== */
+  .activity {
+    display:none;
+    width:100%; flex:1; min-height:0;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+  }
+  .activity.visible { display:flex; }
+
+  .act-title {
+    font-family:'Fredoka One';
+    font-size: clamp(13px, 1.8vw, 20px);
+    color: var(--gold);
+    text-align:center;
+    text-shadow: 0 0 12px rgba(255,215,0,0.6);
+    flex-shrink:0;
+  }
+  .act-subtitle {
+    font-size: clamp(10px, 1.1vw, 13px);
+    color: rgba(255,255,255,0.75);
+    text-align:center;
+    flex-shrink:0;
+    padding: 0 8px;
+  }
+
+  .reset-btn {
+    padding: 5px 16px;
+    border-radius:20px;
+    border: 2px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.8);
+    cursor:pointer;
+    font-family:'Nunito'; font-weight:700;
+    font-size:12px;
+    transition: all 0.25s;
+    flex-shrink:0;
+  }
+  .reset-btn:hover {
+    background: rgba(255,107,107,0.3);
+    border-color: var(--coral);
+    color: var(--coral);
+    box-shadow: 0 0 8px rgba(255,107,107,0.4);
+  }
+
+  /* ===== ACTIVITY 1 — GRID PLOTTER ===== */
+  #act1-container {
+    display:flex; gap:10px; align-items:flex-start;
+    width:100%; flex:1; min-height:0;
+    justify-content:center;
+  }
+  #act1-left {
+    display:flex; flex-direction:column; gap:6px;
+    flex-shrink:0;
+  }
+  .rule-card {
+    padding: 8px 12px;
+    border-radius:12px;
+    font-size: clamp(10px, 1.1vw, 13px);
+    line-height:1.5;
+  }
+  .rule-card.r1 { background: rgba(255,107,107,0.2); border:1.5px solid var(--coral); }
+  .rule-card.r2 { background: rgba(79,195,247,0.2); border:1.5px solid var(--sky); }
+  .rule-card b { display:block; font-size:1.1em; margin-bottom:2px; }
+
+  #gridWrap {
+    position:relative;
+    flex-shrink:0;
+  }
+  #gridCanvas {
+    border-radius:12px;
+    cursor:crosshair;
+    display:block;
+  }
+
+  #act1-right {
+    display:flex; flex-direction:column; gap:6px;
+    font-size:12px; min-width:120px;
+    flex-shrink:0;
+  }
+  .points-list {
+    background: rgba(255,255,255,0.06);
+    border-radius:10px;
+    padding:8px;
+    font-size:11px;
+  }
+  .points-list h4 {
+    font-size:12px; margin-bottom:4px;
+    font-family:'Fredoka One';
+  }
+  .pt-item {
+    padding:2px 4px;
+    border-radius:4px;
+    margin-bottom:2px;
+    font-family:monospace;
+    font-size:12px;
+  }
+  .pt-item.r1 { color:var(--coral); }
+  .pt-item.r2 { color:var(--sky); }
+  .pt-item.correct { background:rgba(168,224,99,0.2); }
+  .pt-item.wrong   { background:rgba(255,107,107,0.2); }
+
+  #act1-feedback {
+    font-size:13px; font-weight:800;
+    text-align:center; min-height:18px;
+    color:var(--lime);
+  }
+
+  /* ===== ACTIVITY 2 — SEQUENCE ORDERING ===== */
+  #act2-container {
+    display:flex; flex-direction:column;
+    align-items:center;
+    gap:8px;
+    width:100%; flex:1; min-height:0;
+  }
+  #act2-steps-area {
+    display:flex; gap:6px; width:100%; justify-content:center;
+    flex-wrap:nowrap; flex-shrink:0;
+  }
+  .step-slot {
+    width: clamp(80px, 10vw, 110px);
+    min-height: 60px;
+    border-radius:12px;
+    border: 2.5px dashed rgba(255,255,255,0.25);
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    text-align:center;
+    font-size: clamp(9px, 1vw, 12px);
+    padding:4px;
+    transition: all 0.25s;
+    position:relative;
+  }
+  .step-slot .slot-num {
+    position:absolute; top:3px; left:6px;
+    font-family:'Fredoka One';
+    font-size:11px;
+    color:rgba(255,255,255,0.4);
+  }
+  .step-slot.drag-over {
+    border-color: var(--gold);
+    background: rgba(255,215,0,0.1);
+    box-shadow: 0 0 12px rgba(255,215,0,0.4);
+  }
+  .step-slot.correct-slot {
+    border-color: var(--teal);
+    background: rgba(0,201,177,0.15);
+  }
+  .step-slot.wrong-slot {
+    border-color: var(--coral);
+    background: rgba(255,107,107,0.15);
+  }
+
+  #act2-cards-pool {
+    display:flex; gap:6px; flex-wrap:wrap;
+    justify-content:center;
+    padding:8px;
+    background:rgba(255,255,255,0.05);
+    border-radius:14px;
+    max-width:700px;
+    width:100%;
+    flex-shrink:0;
+  }
+  .seq-card {
+    padding: 8px 14px;
+    border-radius:10px;
+    font-size: clamp(10px, 1.1vw, 13px);
+    font-weight:700;
+    cursor:grab;
+    text-align:center;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+    background: linear-gradient(135deg, rgba(155,89,182,0.4), rgba(79,195,247,0.3));
+    border-color: rgba(155,89,182,0.6);
+    min-width:90px;
+  }
+  .seq-card:hover {
+    transform: scale(1.06);
+    box-shadow: 0 4px 16px rgba(155,89,182,0.5);
+  }
+  .seq-card.dragging { opacity:0.4; cursor:grabbing; }
+  .seq-card.placed   { display:none; }
+
+  #act2-feedback {
+    font-size:13px; font-weight:800;
+    color:var(--lime); min-height:18px;
+    text-align:center;
+  }
+
+  /* ===== ACTIVITY 3 — MATCH CARDS ===== */
+  #act3-container {
+    display:flex; gap:12px; align-items:flex-start;
+    width:100%; flex:1; min-height:0;
+    justify-content:center;
+  }
+  #act3-left {
+    display:flex; flex-direction:column;
+    gap:6px; flex-shrink:0;
+  }
+  .target-label {
+    padding: 8px 14px;
+    border-radius:10px;
+    font-size: clamp(10px, 1.1vw, 13px);
+    font-weight:700;
+    min-width: clamp(130px, 14vw, 180px);
+    border: 2.5px dashed rgba(255,255,255,0.25);
+    display:flex; align-items:center; justify-content:space-between;
+    min-height:38px;
+    transition: all 0.25s;
+    position:relative;
+  }
+  .target-label.drag-over {
+    border-color: var(--gold);
+    box-shadow: 0 0 14px rgba(255,215,0,0.5);
+  }
+  .target-label.matched-ok {
+    border-color: var(--teal);
+    background: rgba(0,201,177,0.15);
+  }
+  .target-label.matched-no {
+    border-color: var(--coral);
+    background: rgba(255,107,107,0.15);
+  }
+  .match-badge {
+    font-size:14px; margin-left:6px;
+  }
+
+  #act3-right {
+    display:flex; flex-direction:column;
+    gap:6px; flex-shrink:0;
+    justify-content:flex-start;
+  }
+  .match-chip {
+    padding: 8px 14px;
+    border-radius:10px;
+    font-size: clamp(10px, 1.1vw, 12px);
+    font-weight:700;
+    cursor:grab;
+    text-align:center;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+    min-height:38px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .match-chip:nth-child(1) { background:rgba(255,215,0,0.2);   border-color:rgba(255,215,0,0.6);   color:var(--gold); }
+  .match-chip:nth-child(2) { background:rgba(255,107,107,0.2); border-color:rgba(255,107,107,0.6); color:var(--coral); }
+  .match-chip:nth-child(3) { background:rgba(79,195,247,0.2);  border-color:rgba(79,195,247,0.6);  color:var(--sky); }
+  .match-chip:nth-child(4) { background:rgba(168,224,99,0.2);  border-color:rgba(168,224,99,0.6);  color:var(--lime); }
+  .match-chip:nth-child(5) { background:rgba(255,140,66,0.2);  border-color:rgba(255,140,66,0.6);  color:var(--orange); }
+  .match-chip:nth-child(6) { background:rgba(155,89,182,0.2);  border-color:rgba(155,89,182,0.6);  color:#d6a8ff; }
+  .match-chip:nth-child(7) { background:rgba(0,201,177,0.2);   border-color:rgba(0,201,177,0.6);   color:var(--teal); }
+  .match-chip:hover { transform:scale(1.05); }
+  .match-chip.dragging { opacity:0.3; cursor:grabbing; }
+  .match-chip.placed   { opacity:0.15; pointer-events:none; }
+
+  #act3-feedback {
+    font-size:13px; font-weight:800;
+    color:var(--lime); min-height:18px;
+    text-align:center;
+  }
+
+  /* ===== POPUP ===== */
+  .popup-overlay {
+    display:none;
+    position:fixed; inset:0;
+    z-index:100;
+    background: rgba(10,10,40,0.85);
+    align-items:center; justify-content:center;
+    backdrop-filter:blur(6px);
+  }
+  .popup-overlay.show { display:flex; }
+
+  .popup-box {
+    background: linear-gradient(135deg, #1e1e6e, #2d1b5e);
+    border: 2px solid var(--gold);
+    border-radius:20px;
+    padding: 28px 36px;
+    text-align:center;
+    box-shadow: 0 0 50px rgba(255,215,0,0.3), 0 20px 60px rgba(0,0,0,0.6);
+    max-width:400px; width:90%;
+    animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes popIn {
+    from { transform:scale(0.5); opacity:0; }
+    to   { transform:scale(1);   opacity:1; }
+  }
+  .popup-box h2 {
+    font-family:'Fredoka One';
+    font-size:26px;
+    color:var(--gold);
+    margin-bottom:8px;
+    text-shadow:0 0 20px rgba(255,215,0,0.7);
+  }
+  .popup-box p  { font-size:15px; color:rgba(255,255,255,0.85); margin-bottom:18px; line-height:1.6; }
+  .popup-btn {
+    padding: 12px 32px;
+    border-radius:50px;
+    border:none; cursor:pointer;
+    font-family:'Fredoka One';
+    font-size:18px;
+    transition: all 0.25s;
+    margin:4px;
+  }
+  .popup-btn.primary {
+    background: linear-gradient(135deg, var(--gold), var(--orange));
+    color: var(--navy);
+    box-shadow: 0 4px 20px rgba(255,215,0,0.5);
+  }
+  .popup-btn.primary:hover {
+    transform:scale(1.06);
+    box-shadow:0 6px 28px rgba(255,215,0,0.7);
+  }
+  .popup-btn.secondary {
+    background: rgba(255,255,255,0.1);
+    color: var(--white);
+    border:2px solid rgba(255,255,255,0.3);
+  }
+
+  /* ===== CONFETTI ===== */
+  #confetti-wrap {
+    position:fixed; inset:0; z-index:200;
+    pointer-events:none; overflow:hidden;
+    display:none;
+  }
+  .conf-piece {
+    position:absolute;
+    width:10px; height:10px;
+    border-radius:2px;
+    animation: confFall linear forwards;
+  }
+  @keyframes confFall {
+    0%   { transform: translateY(-20px) rotate(0deg);   opacity:1; }
+    100% { transform: translateY(110vh)  rotate(720deg); opacity:0; }
+  }
+
+  /* ===== FEEDBACK FLASH ===== */
+  @keyframes feedFlash {
+    0%   { transform:scale(1); }
+    30%  { transform:scale(1.2); }
+    100% { transform:scale(1); }
+  }
+  .flash { animation:feedFlash 0.4s ease; }
+
+  /* ===== PLACED CARD INSIDE SLOT ===== */
+  .placed-in-slot {
+    padding:4px 8px;
+    border-radius:8px;
+    font-size:11px;
+    font-weight:700;
+    background:rgba(255,255,255,0.12);
+    color:var(--white);
+    text-align:center;
+    word-break:break-word;
+    max-width:95%;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+<div class="floaters" id="floaters"></div>
+
+<div id="app">
+  <!-- HEADER -->
+  <div id="header">
+    <h1>⭐ FINDING THE SECRET CROSSING ⭐</h1>
+    <p>Simultaneous Equations — Graphical Method &nbsp;|&nbsp; Math World</p>
+  </div>
+
+  <!-- PROGRESS -->
+  <div id="progressBar">
+    <div class="prog-dot active" id="pd1">1</div>
+    <div class="prog-line"><div class="prog-line-fill" id="pl1"></div></div>
+    <div class="prog-dot" id="pd2">2</div>
+    <div class="prog-line"><div class="prog-line-fill" id="pl2"></div></div>
+    <div class="prog-dot" id="pd3">3</div>
+  </div>
+
+  <!-- ACTIVITY 1 -->
+  <div class="activity visible" id="act1">
+    <div class="act-title">🗺️ Activity 1 — Plot the Points on the Grid!</div>
+    <div class="act-subtitle">Priya is at the sweet shop. Click on the grid to plot the correct crossing point that satisfies BOTH rules at the same time!</div>
+    <div id="act1-container">
+      <div id="act1-left">
+        <div class="rule-card r1">
+          <b>🔴 Rule 1 (Red Line)</b>
+          1 Pencil + 1 Eraser = ₹10<br>
+          Points: (1,9) (2,8) (5,5) (8,2)
+        </div>
+        <div class="rule-card r2">
+          <b>🔵 Rule 2 (Blue Line)</b>
+          Pencil = Eraser + 4<br>
+          Points: (4,0) (5,1) (7,3) (9,5)
+        </div>
+        <div id="act1-feedback">👆 Click the grid to mark a point!</div>
+        <button class="reset-btn" onclick="resetAct1()">↺ Reset</button>
+      </div>
+      <div id="gridWrap">
+        <canvas id="gridCanvas" width="320" height="320"></canvas>
+      </div>
+      <div id="act1-right">
+        <div class="points-list">
+          <h4 style="color:var(--coral)">🔴 Red Points</h4>
+          <div id="r1-points"></div>
+        </div>
+        <div class="points-list">
+          <h4 style="color:var(--sky)">🔵 Blue Points</h4>
+          <div id="r2-points"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 2 -->
+  <div class="activity" id="act2">
+    <div class="act-title">🔢 Activity 2 — Put the Steps in the Right Order!</div>
+    <div class="act-subtitle">Drag the steps into the correct order (1 → 5) to solve the graphical method.</div>
+    <div id="act2-steps-area">
+      <div class="step-slot" id="slot-0" data-idx="0" ondragover="slotDragOver(event)" ondragleave="slotDragLeave(event)" ondrop="slotDrop(event)">
+        <span class="slot-num">1</span>
+      </div>
+      <div class="step-slot" id="slot-1" data-idx="1" ondragover="slotDragOver(event)" ondragleave="slotDragLeave(event)" ondrop="slotDrop(event)">
+        <span class="slot-num">2</span>
+      </div>
+      <div class="step-slot" id="slot-2" data-idx="2" ondragover="slotDragOver(event)" ondragleave="slotDragLeave(event)" ondrop="slotDrop(event)">
+        <span class="slot-num">3</span>
+      </div>
+      <div class="step-slot" id="slot-3" data-idx="3" ondragover="slotDragOver(event)" ondragleave="slotDragLeave(event)" ondrop="slotDrop(event)">
+        <span class="slot-num">4</span>
+      </div>
+      <div class="step-slot" id="slot-4" data-idx="4" ondragover="slotDragOver(event)" ondragleave="slotDragLeave(event)" ondrop="slotDrop(event)">
+        <span class="slot-num">5</span>
+      </div>
+    </div>
+    <div id="act2-cards-pool"></div>
+    <div id="act2-feedback">🃏 Drag each step to the correct position!</div>
+    <button class="reset-btn" onclick="resetAct2()">↺ Reset</button>
+  </div>
+
+  <!-- ACTIVITY 3 -->
+  <div class="activity" id="act3">
+    <div class="act-title">🎯 Activity 3 — Match Each Part to Its Role!</div>
+    <div class="act-subtitle">Drag the chips on the right to the correct labels on the left to complete the solution map!</div>
+    <div id="act3-container">
+      <div id="act3-left"></div>
+      <div id="act3-right"></div>
+    </div>
+    <div id="act3-feedback">✨ Drag and match all 7 parts correctly!</div>
+    <button class="reset-btn" onclick="resetAct3()">↺ Reset</button>
+  </div>
+</div>
+
+<!-- POPUPS -->
+<div class="popup-overlay" id="popup1">
+  <div class="popup-box">
+    <h2>🌟 Brilliant!</h2>
+    <p>You found the <strong>crossing point (7, 3)</strong>! That's the one spot where BOTH rules are true at the same time. That's the magic answer! ✨</p>
+    <button class="popup-btn primary" onclick="goToAct2()">Next Activity →</button>
+  </div>
+</div>
+
+<div class="popup-overlay" id="popup2">
+  <div class="popup-box">
+    <h2>🚂 Excellent!</h2>
+    <p>You ordered the steps perfectly! That's exactly how the graphical method works — draw both lines, find where they cross, and <em>that's</em> your answer!</p>
+    <button class="popup-btn primary" onclick="goToAct3()">Final Challenge →</button>
+  </div>
+</div>
+
+<div class="popup-overlay" id="popupFinal">
+  <div class="popup-box">
+    <h2>🏆 MATH WORLD CHAMPION!</h2>
+    <p>You've mastered the <strong>Graphical Method</strong>! You can plot lines, find the crossing point, and verify the answer. You're a Secret Crossing expert! 🎉</p>
+    <button class="popup-btn primary" onclick="playAgain()">🔄 Play Again</button>
+  </div>
+</div>
+
+<div id="confetti-wrap"></div>
+
+<script>
+// =============================================
+// BACKGROUND CANVAS — animated math world
+// =============================================
+const bgCanvas = document.getElementById('bgCanvas');
+const bgCtx = bgCanvas.getContext('2d');
+
+function resizeBg() {
+  bgCanvas.width  = window.innerWidth;
+  bgCanvas.height = window.innerHeight;
+}
+resizeBg();
+window.addEventListener('resize', resizeBg);
+
+const shapes = [];
+const SHAPE_COUNT = 18;
+
+function rnd(a,b){ return a + Math.random()*(b-a); }
+
+function initShapes(){
+  shapes.length=0;
+  const types = ['circle','square','triangle','diamond','grid'];
+  const colors = ['#FFD70030','#FF6B6B28','#00C9B128','#9B59B625','#4FC3F728'];
+  for(let i=0;i<SHAPE_COUNT;i++){
+    shapes.push({
+      type:  types[Math.floor(Math.random()*types.length)],
+      x:     rnd(0,1), y: rnd(0,1),
+      size:  rnd(20,60),
+      color: colors[Math.floor(Math.random()*colors.length)],
+      vx:    rnd(-0.0002,0.0002),
+      vy:    rnd(-0.0002,0.0002),
+      rot:   rnd(0,Math.PI*2),
+      vrot:  rnd(-0.005,0.005),
+      pulse: rnd(0,Math.PI*2),
+      vpulse:rnd(0.02,0.05)
+    });
+  }
+}
+initShapes();
+
+function drawBg(){
+  const W=bgCanvas.width, H=bgCanvas.height;
+  bgCtx.clearRect(0,0,W,H);
+
+  // base gradient
+  const grad = bgCtx.createLinearGradient(0,0,W,H);
+  grad.addColorStop(0,'#0d0d3b');
+  grad.addColorStop(0.5,'#1a0a3c');
+  grad.addColorStop(1,'#0a1a3b');
+  bgCtx.fillStyle=grad;
+  bgCtx.fillRect(0,0,W,H);
+
+  // subtle grid lines
+  bgCtx.strokeStyle='rgba(79,195,247,0.04)';
+  bgCtx.lineWidth=1;
+  const step=50;
+  for(let x=0;x<W;x+=step){
+    bgCtx.beginPath(); bgCtx.moveTo(x,0); bgCtx.lineTo(x,H); bgCtx.stroke();
+  }
+  for(let y=0;y<H;y+=step){
+    bgCtx.beginPath(); bgCtx.moveTo(0,y); bgCtx.lineTo(W,y); bgCtx.stroke();
+  }
+
+  // animated shapes
+  for(const s of shapes){
+    s.x = ((s.x+s.vx)%1+1)%1;
+    s.y = ((s.y+s.vy)%1+1)%1;
+    s.rot+=s.vrot;
+    s.pulse+=s.vpulse;
+    const sx=s.x*W, sy=s.y*H;
+    const sc=s.size*(0.85+0.15*Math.sin(s.pulse));
+    bgCtx.save();
+    bgCtx.translate(sx,sy);
+    bgCtx.rotate(s.rot);
+    bgCtx.fillStyle=s.color;
+    bgCtx.strokeStyle=s.color.slice(0,-2)+'55';
+    bgCtx.lineWidth=1.5;
+    if(s.type==='circle'){
+      bgCtx.beginPath(); bgCtx.arc(0,0,sc/2,0,Math.PI*2);
+      bgCtx.fill(); bgCtx.stroke();
+    } else if(s.type==='square'){
+      bgCtx.fillRect(-sc/2,-sc/2,sc,sc);
+      bgCtx.strokeRect(-sc/2,-sc/2,sc,sc);
+    } else if(s.type==='triangle'){
+      bgCtx.beginPath();
+      bgCtx.moveTo(0,-sc/2); bgCtx.lineTo(sc/2,sc/2); bgCtx.lineTo(-sc/2,sc/2); bgCtx.closePath();
+      bgCtx.fill(); bgCtx.stroke();
+    } else if(s.type==='diamond'){
+      bgCtx.beginPath();
+      bgCtx.moveTo(0,-sc/2); bgCtx.lineTo(sc/2,0); bgCtx.lineTo(0,sc/2); bgCtx.lineTo(-sc/2,0); bgCtx.closePath();
+      bgCtx.fill(); bgCtx.stroke();
+    } else if(s.type==='grid'){
+      bgCtx.strokeStyle=s.color.slice(0,-2)+'44';
+      const g=sc/4;
+      for(let i=-2;i<=2;i++){
+        bgCtx.beginPath(); bgCtx.moveTo(i*g,-sc/2); bgCtx.lineTo(i*g,sc/2); bgCtx.stroke();
+        bgCtx.beginPath(); bgCtx.moveTo(-sc/2,i*g); bgCtx.lineTo(sc/2,i*g); bgCtx.stroke();
+      }
+    }
+    bgCtx.restore();
+  }
+
+  requestAnimationFrame(drawBg);
+}
+drawBg();
+
+// =============================================
+// FLOATING MATH SYMBOLS
+// =============================================
+const floaters = document.getElementById('floaters');
+const SYMBOLS = ['+','−','×','÷','=','∑','∫','π','√','⊕','y','x','∞','△','□','◇','⬡'];
+
+function spawnFloater(){
+  const el=document.createElement('div');
+  el.className='floater';
+  el.textContent=SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)];
+  el.style.left=Math.random()*100+'%';
+  el.style.fontSize=(18+Math.random()*40)+'px';
+  const dur = 8+Math.random()*14;
+  el.style.animationDuration=dur+'s';
+  el.style.animationDelay=(Math.random()*-dur)+'s';
+  floaters.appendChild(el);
+}
+for(let i=0;i<30;i++) spawnFloater();
+
+// =============================================
+// PROGRESS BAR
+// =============================================
+let currentAct = 1;
+
+function setProgress(act){
+  currentAct=act;
+  for(let i=1;i<=3;i++){
+    const d=document.getElementById('pd'+i);
+    d.className='prog-dot';
+    if(i<act){ d.classList.add('done'); d.textContent='✓'; }
+    else if(i===act){ d.classList.add('active'); d.textContent=i; }
+    else { d.textContent=i; }
+  }
+  if(act>1) document.getElementById('pl1').style.width='100%';
+  if(act>2) document.getElementById('pl2').style.width='100%';
+}
+
+function showAct(n){
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('visible'));
+  document.getElementById('act'+n).classList.add('visible');
+  setProgress(n);
+}
+
+// =============================================
+// ACTIVITY 1 — GRID POINT PLOTTER
+// =============================================
+
+// Rule 1: Pencil + Eraser = 10  => pairs (P,E): (1,9)(2,8)(5,5)(8,2)
+// Rule 2: Pencil = Eraser + 4   => pairs: (4,0)(5,1)(7,3)(9,5)
+// Intersection: Pencil=7, Eraser=3 → grid point (7,3)
+
+const GRID_SIZE = 10;
+const GRID_STEPS = 10;
+let gridCanvas, gridCtx;
+let r1Points = [], r2Points = [];
+let intersectionPlaced = false;
+let intersectionCorrect = false;
+let act1Phase = 1; // 1=place red, 2=place blue, 3=find crossing
+
+const R1_TARGETS = [{x:1,y:9},{x:2,y:8},{x:5,y:5},{x:8,y:2}];
+const R2_TARGETS = [{x:4,y:0},{x:5,y:1},{x:7,y:3},{x:9,y:5}];
+const INTERSECTION = {x:7, y:3};
+
+function initAct1(){
+  gridCanvas = document.getElementById('gridCanvas');
+  gridCtx    = gridCanvas.getContext('2d');
+  // scale canvas to fit
+  const sz = Math.min(window.innerWidth*0.38, window.innerHeight*0.52, 320);
+  gridCanvas.width  = sz;
+  gridCanvas.height = sz;
+
+  r1Points=[]; r2Points=[];
+  intersectionPlaced=false; intersectionCorrect=false;
+  act1Phase=1;
+  document.getElementById('act1-feedback').textContent='👆 Click to plot RED Rule 1 points! (4 points needed)';
+  drawGrid();
+  updatePointsList();
+
+  gridCanvas.onclick = handleGridClick;
+}
+
+function gridToPixel(gx,gy){
+  const W=gridCanvas.width, H=gridCanvas.height;
+  const margin=32;
+  const inner=W-2*margin;
+  const step=inner/GRID_STEPS;
+  return {
+    px: margin + gx*step,
+    py: H - margin - gy*step
+  };
+}
+
+function pixelToGrid(px,py){
+  const W=gridCanvas.width, H=gridCanvas.height;
+  const margin=32;
+  const inner=W-2*margin;
+  const step=inner/GRID_STEPS;
+  const gx=Math.round((px-margin)/step);
+  const gy=Math.round((H-margin-py)/step);
+  return {x:gx, y:gy};
+}
+
+function drawGrid(){
+  const W=gridCanvas.width, H=gridCanvas.height;
+  const margin=32;
+  const inner=W-2*margin;
+  const step=inner/GRID_STEPS;
+  const ctx=gridCtx;
+
+  // background
+  ctx.clearRect(0,0,W,H);
+  const bg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,W*0.7);
+  bg.addColorStop(0,'rgba(30,30,100,0.95)');
+  bg.addColorStop(1,'rgba(10,10,50,0.98)');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+
+  // grid lines
+  ctx.strokeStyle='rgba(79,195,247,0.15)'; ctx.lineWidth=0.8;
+  for(let i=0;i<=GRID_STEPS;i++){
+    const x=margin+i*step;
+    const y=margin+i*step;
+    ctx.beginPath(); ctx.moveTo(x,margin); ctx.lineTo(x,H-margin); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(margin,y); ctx.lineTo(W-margin,y); ctx.stroke();
+  }
+
+  // axes
+  ctx.strokeStyle='rgba(255,215,0,0.7)'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(margin,H-margin); ctx.lineTo(W-margin,H-margin); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(margin,margin); ctx.lineTo(margin,H-margin); ctx.stroke();
+
+  // axis labels
+  ctx.fillStyle='rgba(255,215,0,0.8)'; ctx.font=`bold ${Math.floor(W*0.036)}px Nunito`; ctx.textAlign='center';
+  for(let i=0;i<=GRID_STEPS;i+=2){
+    const px=margin+i*step;
+    const py=H-margin+14;
+    ctx.fillText(i,px,py);
+  }
+  ctx.textAlign='right';
+  for(let i=0;i<=GRID_STEPS;i+=2){
+    const py=H-margin-i*step+4;
+    ctx.fillText(i,margin-5,py);
+  }
+
+  // axis titles
+  ctx.fillStyle='rgba(255,255,255,0.6)'; ctx.textAlign='center'; ctx.font=`${Math.floor(W*0.038)}px Nunito`;
+  ctx.fillText('Pencils (₹)',W/2,H-4);
+  ctx.save(); ctx.translate(10,H/2); ctx.rotate(-Math.PI/2); ctx.fillText('Erasers (₹)',0,0); ctx.restore();
+
+  // draw R1 line (if ≥2 points)
+  if(r1Points.length>=2){
+    ctx.strokeStyle='rgba(255,107,107,0.5)'; ctx.lineWidth=2; ctx.setLineDash([5,4]);
+    ctx.beginPath();
+    const pa=gridToPixel(0,10); const pb=gridToPixel(10,0);
+    ctx.moveTo(pa.px,pa.py); ctx.lineTo(pb.px,pb.py); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  // draw R2 line (if ≥2 points)
+  if(r2Points.length>=2){
+    ctx.strokeStyle='rgba(79,195,247,0.5)'; ctx.lineWidth=2; ctx.setLineDash([5,4]);
+    ctx.beginPath();
+    // Rule2: y=x-4, x from 4 to 10
+    const pa=gridToPixel(4,0); const pb=gridToPixel(10,6);
+    ctx.moveTo(pa.px,pa.py); ctx.lineTo(pb.px,pb.py); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // draw r1 points
+  for(const p of r1Points){
+    const {px,py}=gridToPixel(p.x,p.y);
+    const isCorrect=R1_TARGETS.some(t=>t.x===p.x&&t.y===p.y);
+    ctx.beginPath(); ctx.arc(px,py,6,0,Math.PI*2);
+    ctx.fillStyle= isCorrect ? '#FF6B6B' : 'rgba(255,100,100,0.3)';
+    ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+  }
+
+  // draw r2 points
+  for(const p of r2Points){
+    const {px,py}=gridToPixel(p.x,p.y);
+    const isCorrect=R2_TARGETS.some(t=>t.x===p.x&&t.y===p.y);
+    ctx.beginPath(); ctx.arc(px,py,6,0,Math.PI*2);
+    ctx.fillStyle= isCorrect ? '#4FC3F7' : 'rgba(80,180,240,0.3)';
+    ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+  }
+
+  // glow at intersection if placed correctly
+  if(intersectionCorrect){
+    const {px,py}=gridToPixel(INTERSECTION.x,INTERSECTION.y);
+    // glow
+    const grd=ctx.createRadialGradient(px,py,0,px,py,24);
+    grd.addColorStop(0,'rgba(255,215,0,0.8)');
+    grd.addColorStop(1,'rgba(255,215,0,0)');
+    ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(px,py,24,0,Math.PI*2); ctx.fill();
+    // star dot
+    ctx.beginPath(); ctx.arc(px,py,8,0,Math.PI*2);
+    ctx.fillStyle='#FFD700'; ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+    // label
+    ctx.fillStyle='#FFD700'; ctx.font=`bold ${Math.floor(W*0.042)}px Fredoka One`; ctx.textAlign='left';
+    ctx.fillText(`★ (${INTERSECTION.x},${INTERSECTION.y})`,px+12,py-6);
+  }
+}
+
+function handleGridClick(e){
+  const rect=gridCanvas.getBoundingClientRect();
+  const px=(e.clientX-rect.left)*(gridCanvas.width/rect.width);
+  const py=(e.clientY-rect.top)*(gridCanvas.height/rect.height);
+  const {x,y}=pixelToGrid(px,py);
+
+  if(x<0||x>GRID_STEPS||y<0||y>GRID_STEPS) return;
+
+  const fb=document.getElementById('act1-feedback');
+
+  if(act1Phase===1){
+    // placing red points
+    const already=r1Points.some(p=>p.x===x&&p.y===y);
+    if(already) return;
+    r1Points.push({x,y});
+    const correct=R1_TARGETS.some(t=>t.x===x&&t.y===y);
+    if(correct){ fb.textContent=`✅ Good! (${x},${y}) is on Red Line! (${r1Points.filter(p=>R1_TARGETS.some(t=>t.x===p.x&&t.y===p.y)).length}/4)`; fb.style.color='var(--lime)'; }
+    else        { fb.textContent=`❌ (${x},${y}) is not on Rule 1! Keep trying.`; fb.style.color='var(--coral)'; }
+    if(r1Points.filter(p=>R1_TARGETS.some(t=>t.x===p.x&&t.y===p.y)).length>=4){
+      act1Phase=2;
+      fb.textContent='🔵 Brilliant! Now click 4 BLUE Rule 2 points!';
+      fb.style.color='var(--sky)';
+    }
+    drawGrid(); updatePointsList();
+
+  } else if(act1Phase===2){
+    // placing blue points
+    const already=r2Points.some(p=>p.x===x&&p.y===y);
+    if(already) return;
+    r2Points.push({x,y});
+    const correctCheck=R2_TARGETS.some(t=>t.x===x&&t.y===y);
+    if(correctCheck){ fb.textContent=`✅ Yes! (${x},${y}) is on Blue Line! (${r2Points.filter(p=>R2_TARGETS.some(t=>t.x===p.x&&t.y===p.y)).length}/4)`; fb.style.color='var(--sky)'; }
+    else            { fb.textContent=`❌ (${x},${y}) is not on Rule 2! Try again.`; fb.style.color='var(--coral)'; }
+    if(r2Points.filter(p=>R2_TARGETS.some(t=>t.x===p.x&&t.y===p.y)).length>=4){
+      act1Phase=3;
+      fb.textContent='⭐ Now click the CROSSING POINT of both lines!';
+      fb.style.color='var(--gold)';
+    }
+    drawGrid(); updatePointsList();
+
+  } else if(act1Phase===3){
+    // find intersection
+    if(x===INTERSECTION.x && y===INTERSECTION.y){
+      intersectionCorrect=true;
+      fb.textContent=`🌟 PERFECT! The crossing point is (${INTERSECTION.x},${INTERSECTION.y})! Pencil=₹7, Eraser=₹3!`;
+      fb.style.color='var(--gold)';
+      drawGrid();
+      setTimeout(()=>{ document.getElementById('popup1').classList.add('show'); }, 800);
+    } else {
+      fb.textContent=`❌ (${x},${y}) is not the crossing! Look where both lines meet.`;
+      fb.style.color='var(--coral)';
+    }
+  }
+}
+
+function updatePointsList(){
+  const r1div=document.getElementById('r1-points');
+  const r2div=document.getElementById('r2-points');
+  r1div.innerHTML='';
+  for(const p of r1Points){
+    const ok=R1_TARGETS.some(t=>t.x===p.x&&t.y===p.y);
+    const d=document.createElement('div');
+    d.className='pt-item r1 '+(ok?'correct':'wrong');
+    d.textContent=(ok?'✓ ':'✗ ')+'('+p.x+','+p.y+')';
+    r1div.appendChild(d);
+  }
+  r2div.innerHTML='';
+  for(const p of r2Points){
+    const ok=R2_TARGETS.some(t=>t.x===p.x&&t.y===p.y);
+    const d=document.createElement('div');
+    d.className='pt-item r2 '+(ok?'correct':'wrong');
+    d.textContent=(ok?'✓ ':'✗ ')+'('+p.x+','+p.y+')';
+    r2div.appendChild(d);
+  }
+}
+
+function resetAct1(){
+  r1Points=[]; r2Points=[];
+  intersectionPlaced=false; intersectionCorrect=false;
+  act1Phase=1;
+  document.getElementById('act1-feedback').textContent='👆 Click to plot RED Rule 1 points! (4 points needed)';
+  document.getElementById('act1-feedback').style.color='var(--lime)';
+  drawGrid(); updatePointsList();
+}
+
+// =============================================
+// ACTIVITY 2 — SEQUENCE ORDERING
+// =============================================
+const ACT2_STEPS = [
+  { id:'s1', text:'📏 Plot the First Line\n(Rule 1)', correct:0 },
+  { id:'s2', text:'📐 Plot the Second Line\n(Rule 2)', correct:1 },
+  { id:'s3', text:'🔍 Find the Crossing Point\nwhere lines meet', correct:2 },
+  { id:'s4', text:'🎯 Read the Answer\n(x, y) at crossing', correct:3 },
+  { id:'s5', text:'✅ Verify by checking\nboth rules', correct:4 },
+];
+
+let act2Slots = [null,null,null,null,null];
+let act2Dragging = null;
+
+function shuffleArr(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function initAct2(){
+  act2Slots=[null,null,null,null,null];
+  // clear slots
+  for(let i=0;i<5;i++){
+    const sl=document.getElementById('slot-'+i);
+    const placed=sl.querySelector('.placed-in-slot');
+    if(placed) sl.removeChild(placed);
+    sl.classList.remove('correct-slot','wrong-slot','drag-over');
+  }
+
+  // shuffle and render pool
+  const pool=document.getElementById('act2-cards-pool');
+  pool.innerHTML='';
+  const shuffled=shuffleArr([...ACT2_STEPS]);
+  for(const step of shuffled){
+    const card=document.createElement('div');
+    card.className='seq-card';
+    card.id='sc-'+step.id;
+    card.dataset.sid=step.id;
+    card.textContent=step.text;
+    card.draggable=true;
+    card.addEventListener('dragstart', seqDragStart);
+    card.addEventListener('dragend',   seqDragEnd);
+    // touch
+    card.addEventListener('pointerdown', seqPointerDown);
+    pool.appendChild(card);
+  }
+  document.getElementById('act2-feedback').textContent='🃏 Drag each step to the correct position!';
+  document.getElementById('act2-feedback').style.color='rgba(255,255,255,0.7)';
+}
+
+let act2DragId=null;
+function seqDragStart(e){ act2DragId=e.target.dataset.sid; e.target.classList.add('dragging'); }
+function seqDragEnd(e)  { e.target.classList.remove('dragging'); }
+
+function slotDragOver(e){
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+function slotDragLeave(e){ e.currentTarget.classList.remove('drag-over'); }
+
+function slotDrop(e){
+  e.preventDefault();
+  const slot=e.currentTarget;
+  slot.classList.remove('drag-over');
+  if(!act2DragId) return;
+
+  const step=ACT2_STEPS.find(s=>s.id===act2DragId);
+  if(!step) return;
+
+  const slotIdx=parseInt(slot.dataset.idx);
+
+  // remove from previous slot if it was there
+  const prev=act2Slots.indexOf(act2DragId);
+  if(prev>=0){
+    act2Slots[prev]=null;
+    const ps=document.getElementById('slot-'+prev);
+    const pp=ps.querySelector('.placed-in-slot');
+    if(pp) ps.removeChild(pp);
+    ps.classList.remove('correct-slot','wrong-slot');
+  }
+
+  // if slot already occupied, return card to pool
+  if(act2Slots[slotIdx]){
+    const oldId=act2Slots[slotIdx];
+    const oldCard=document.getElementById('sc-'+oldId);
+    if(oldCard) oldCard.classList.remove('placed');
+    act2Slots[slotIdx]=null;
+    const op=slot.querySelector('.placed-in-slot');
+    if(op) slot.removeChild(op);
+  }
+
+  act2Slots[slotIdx]=act2DragId;
+  const card=document.getElementById('sc-'+act2DragId);
+  if(card) card.classList.add('placed');
+
+  // place display
+  const disp=document.createElement('div');
+  disp.className='placed-in-slot';
+  disp.textContent=step.text;
+  slot.appendChild(disp);
+
+  const isCorrect=(step.correct===slotIdx);
+  slot.classList.toggle('correct-slot', isCorrect);
+  slot.classList.toggle('wrong-slot',  !isCorrect);
+
+  // feedback
+  const fb=document.getElementById('act2-feedback');
+  if(isCorrect){ fb.textContent='✅ Correct placement! Keep going!'; fb.style.color='var(--lime)'; }
+  else          { fb.textContent='❌ Not quite! Keep trying other positions.'; fb.style.color='var(--coral)'; }
+
+  // check all 5 done
+  const allFilled=act2Slots.every(s=>s!==null);
+  const allCorrect=ACT2_STEPS.every(s=>act2Slots[s.correct]===s.id);
+  if(allFilled && allCorrect){
+    fb.textContent='🎉 All steps in the right order!'; fb.style.color='var(--gold)';
+    setTimeout(()=>{ document.getElementById('popup2').classList.add('show'); }, 600);
+  }
+
+  act2DragId=null;
+}
+
+// touch fallback for act2
+let act2TouchEl=null, act2Clone=null;
+function seqPointerDown(e){
+  if(e.pointerType!=='touch') return;
+  act2TouchEl=e.currentTarget;
+  act2DragId=act2TouchEl.dataset.sid;
+  // create ghost
+  act2Clone=act2TouchEl.cloneNode(true);
+  act2Clone.style.cssText=`position:fixed;top:${e.clientY-20}px;left:${e.clientX-40}px;opacity:0.75;z-index:500;pointer-events:none;min-width:90px;`;
+  document.body.appendChild(act2Clone);
+  act2TouchEl.setPointerCapture(e.pointerId);
+  act2TouchEl.addEventListener('pointermove',seqPointerMove);
+  act2TouchEl.addEventListener('pointerup',seqPointerUp);
+  act2TouchEl.addEventListener('pointercancel',seqPointerUp);
+}
+function seqPointerMove(e){
+  if(!act2Clone) return;
+  act2Clone.style.top=e.clientY-20+'px';
+  act2Clone.style.left=e.clientX-40+'px';
+}
+function seqPointerUp(e){
+  if(act2Clone){ document.body.removeChild(act2Clone); act2Clone=null; }
+  if(!act2DragId) return;
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  const slot=el?.closest('.step-slot');
+  if(slot) slotDrop({preventDefault:()=>{}, currentTarget:slot});
+  act2DragId=null;
+  e.currentTarget.removeEventListener('pointermove',seqPointerMove);
+  e.currentTarget.removeEventListener('pointerup',seqPointerUp);
+}
+
+function resetAct2(){ initAct2(); }
+
+// =============================================
+// ACTIVITY 3 — MATCH CHIPS TO LABELS
+// =============================================
+const ACT3_PAIRS = [
+  { id:'p1', label:'📋 Equation 1',         chip:'Pencil + Eraser = ₹10' },
+  { id:'p2', label:'📋 Equation 2',         chip:'Pencil = Eraser + ₹4' },
+  { id:'p3', label:'📊 Coordinate Axes',    chip:'X = Pencils, Y = Erasers' },
+  { id:'p4', label:'✖️ Intersection Point', chip:'Where both lines cross' },
+  { id:'p5', label:'🎯 Solution (P, E)',     chip:'Pencil=7, Eraser=3' },
+  { id:'p6', label:'📈 Graph',              chip:'Two straight lines plotted' },
+  { id:'p7', label:'✅ Substitution Check', chip:'7+3=10 ✓  7=3+4 ✓' },
+];
+
+let act3Matches = {};
+let act3DragId3 = null;
+
+function initAct3(){
+  act3Matches = {};
+  const leftDiv  = document.getElementById('act3-left');
+  const rightDiv = document.getElementById('act3-right');
+  leftDiv.innerHTML=''; rightDiv.innerHTML='';
+
+  // targets
+  for(const p of ACT3_PAIRS){
+    const t=document.createElement('div');
+    t.className='target-label';
+    t.id='tgt-'+p.id;
+    t.dataset.pid=p.id;
+    t.innerHTML=`<span>${p.label}</span><span class="match-badge" id="mb-${p.id}"></span>`;
+    t.addEventListener('dragover', tgt3DragOver);
+    t.addEventListener('dragleave',tgt3DragLeave);
+    t.addEventListener('drop',    tgt3Drop);
+    leftDiv.appendChild(t);
+  }
+
+  // chips shuffled
+  const shuffled=shuffleArr([...ACT3_PAIRS]);
+  for(const p of shuffled){
+    const c=document.createElement('div');
+    c.className='match-chip';
+    c.id='chip-'+p.id;
+    c.dataset.pid=p.id;
+    c.textContent=p.chip;
+    c.draggable=true;
+    c.addEventListener('dragstart', chip3DragStart);
+    c.addEventListener('dragend',   chip3DragEnd);
+    c.addEventListener('pointerdown',chip3PointerDown);
+    rightDiv.appendChild(c);
+  }
+
+  document.getElementById('act3-feedback').textContent='✨ Drag and match all 7 parts correctly!';
+  document.getElementById('act3-feedback').style.color='rgba(255,255,255,0.7)';
+}
+
+function chip3DragStart(e){ act3DragId3=e.target.dataset.pid; e.target.classList.add('dragging'); }
+function chip3DragEnd(e)  { e.target.classList.remove('dragging'); }
+function tgt3DragOver(e)  { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+function tgt3DragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+
+function tgt3Drop(e){
+  e.preventDefault();
+  const tgt=e.currentTarget;
+  tgt.classList.remove('drag-over');
+  if(!act3DragId3) return;
+
+  const tgtId=tgt.dataset.pid;
+  const chip=document.getElementById('chip-'+act3DragId3);
+  const isCorrect=(act3DragId3===tgtId);
+
+  // if chip was already matched somewhere, undo that
+  for(const [tid,cid] of Object.entries(act3Matches)){
+    if(cid===act3DragId3){
+      delete act3Matches[tid];
+      const oldTgt=document.getElementById('tgt-'+tid);
+      oldTgt.classList.remove('matched-ok','matched-no');
+      document.getElementById('mb-'+tid).textContent='';
+    }
+  }
+
+  // if target already had a chip, free it
+  if(act3Matches[tgtId]){
+    const oldChip=document.getElementById('chip-'+act3Matches[tgtId]);
+    if(oldChip){ oldChip.classList.remove('placed'); }
+  }
+
+  act3Matches[tgtId]=act3DragId3;
+  chip.classList.add('placed');
+
+  tgt.classList.toggle('matched-ok', isCorrect);
+  tgt.classList.toggle('matched-no', !isCorrect);
+  document.getElementById('mb-'+tgtId).textContent = isCorrect ? '✅' : '❌';
+
+  const fb=document.getElementById('act3-feedback');
+  if(isCorrect){ fb.textContent='✅ Correct match! Keep going!'; fb.style.color='var(--lime)'; }
+  else          { fb.textContent='❌ Hmm, not quite! Try another spot.'; fb.style.color='var(--coral)'; }
+
+  // check all matched correctly
+  const allDone=Object.keys(act3Matches).length===ACT3_PAIRS.length;
+  const allRight=allDone && ACT3_PAIRS.every(p=>act3Matches[p.id]===p.id);
+  if(allRight){
+    fb.textContent='🏆 ALL MATCHED! You are a Graphical Method master!'; fb.style.color='var(--gold)';
+    launchConfetti();
+    setTimeout(()=>{ document.getElementById('popupFinal').classList.add('show'); }, 1200);
+  }
+
+  act3DragId3=null;
+}
+
+// touch for act3
+let chip3TouchEl=null, chip3Clone=null;
+function chip3PointerDown(e){
+  if(e.pointerType!=='touch') return;
+  chip3TouchEl=e.currentTarget;
+  act3DragId3=chip3TouchEl.dataset.pid;
+  chip3Clone=chip3TouchEl.cloneNode(true);
+  chip3Clone.style.cssText=`position:fixed;top:${e.clientY-18}px;left:${e.clientX-45}px;opacity:0.8;z-index:500;pointer-events:none;min-width:100px;border-radius:10px;`;
+  document.body.appendChild(chip3Clone);
+  chip3TouchEl.setPointerCapture(e.pointerId);
+  chip3TouchEl.addEventListener('pointermove',chip3PointerMove);
+  chip3TouchEl.addEventListener('pointerup',chip3PointerUp);
+}
+function chip3PointerMove(e){
+  if(!chip3Clone) return;
+  chip3Clone.style.top=e.clientY-18+'px';
+  chip3Clone.style.left=e.clientX-45+'px';
+}
+function chip3PointerUp(e){
+  if(chip3Clone){ document.body.removeChild(chip3Clone); chip3Clone=null; }
+  if(!act3DragId3) return;
+  const under=document.elementFromPoint(e.clientX,e.clientY);
+  const tgt=under?.closest('.target-label');
+  if(tgt) tgt3Drop({preventDefault:()=>{},currentTarget:tgt});
+  act3DragId3=null;
+  e.currentTarget.removeEventListener('pointermove',chip3PointerMove);
+  e.currentTarget.removeEventListener('pointerup',chip3PointerUp);
+}
+
+function resetAct3(){ initAct3(); }
+
+// =============================================
+// NAVIGATION
+// =============================================
+function goToAct2(){
+  document.getElementById('popup1').classList.remove('show');
+  showAct(2);
+  initAct2();
+}
+function goToAct3(){
+  document.getElementById('popup2').classList.remove('show');
+  showAct(3);
+  initAct3();
+}
+
+function playAgain(){
+  document.getElementById('popupFinal').classList.remove('show');
+  document.getElementById('confetti-wrap').style.display='none';
+  document.getElementById('confetti-wrap').innerHTML='';
+  showAct(1);
+  resetAct1();
+  // Reset act2 and act3 in case they're needed
+  act2Slots=[null,null,null,null,null];
+  act3Matches={};
+}
+
+// =============================================
+// CONFETTI
+// =============================================
+function launchConfetti(){
+  const wrap=document.getElementById('confetti-wrap');
+  wrap.style.display='block';
+  wrap.innerHTML='';
+  const colors=['#FFD700','#FF6B6B','#00C9B1','#9B59B6','#4FC3F7','#A8E063','#FF8C42'];
+  for(let i=0;i<120;i++){
+    const p=document.createElement('div');
+    p.className='conf-piece';
+    p.style.left=Math.random()*100+'%';
+    p.style.top='-20px';
+    p.style.background=colors[Math.floor(Math.random()*colors.length)];
+    p.style.width=(6+Math.random()*12)+'px';
+    p.style.height=(6+Math.random()*12)+'px';
+    p.style.borderRadius=Math.random()>0.5?'50%':'2px';
+    const dur=(1.5+Math.random()*2.5);
+    p.style.animationDuration=dur+'s';
+    p.style.animationDelay=(Math.random()*1.2)+'s';
+    wrap.appendChild(p);
+  }
+  setTimeout(()=>{ wrap.style.display='none'; wrap.innerHTML=''; }, 5000);
+}
+
+// =============================================
+// INIT
+// =============================================
+window.addEventListener('load', ()=>{
+  initAct1();
+});
+</script>
+</body>
+</html>

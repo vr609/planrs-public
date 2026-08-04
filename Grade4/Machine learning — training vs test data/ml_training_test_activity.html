@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Machine Learning: Training vs Test Data</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --v1: #2D0A6E;
+    --v2: #4A1BA8;
+    --v3: #6B35C8;
+    --v4: #9B59D8;
+    --v5: #C084F0;
+    --v6: #E0AAFF;
+    --acc1: #FF6B9D;
+    --acc2: #FFD93D;
+    --acc3: #6BCB77;
+    --acc4: #4FC3F7;
+    --acc5: #FF9A3C;
+  }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: linear-gradient(135deg, var(--v1) 0%, var(--v2) 40%, var(--v3) 100%);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Floating background shapes */
+  .bg-shape {
+    position: fixed;
+    border-radius: 50%;
+    opacity: 0.08;
+    animation: floatShape linear infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes floatShape {
+    0% { transform: translateY(100vh) rotate(0deg); }
+    100% { transform: translateY(-200px) rotate(360deg); }
+  }
+
+  /* Moving objects in background */
+  .moving-obj {
+    position: fixed;
+    font-size: 2rem;
+    pointer-events: none;
+    z-index: 0;
+    animation: moveAcross linear infinite;
+    opacity: 0.3;
+  }
+
+  @keyframes moveAcross {
+    0% { transform: translateX(-100px) translateY(0) rotate(0deg); }
+    50% { transform: translateX(50vw) translateY(-30px) rotate(180deg); }
+    100% { transform: translateX(110vw) translateY(0) rotate(360deg); }
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    padding: 24px 20px 12px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .header h1 {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(1.6rem, 4vw, 2.6rem);
+    color: var(--v6);
+    text-shadow: 0 0 30px rgba(192,132,240,0.6), 3px 3px 0 var(--v1);
+    letter-spacing: 1px;
+  }
+
+  .header p {
+    color: var(--v5);
+    font-size: 1rem;
+    margin-top: 6px;
+    font-weight: 600;
+  }
+
+  /* Progress bar */
+  .progress-wrap {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px 20px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .progress-dot {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 3px solid var(--v4);
+    display: flex;align-items: center; justify-content: center;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+    color: var(--v4);
+    background: var(--v2);
+    transition: all 0.4s;
+    position: relative;
+  }
+
+  .progress-dot.active {
+    background: linear-gradient(135deg, var(--v4), var(--v5));
+    border-color: var(--v6);
+    color: var(--v1);
+    box-shadow: 0 0 20px var(--v5);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  .progress-dot.done {
+    background: linear-gradient(135deg, var(--acc3), #2ecc71);
+    border-color: #2ecc71;
+    color: #fff;
+    box-shadow: 0 0 20px var(--acc3);
+  }
+
+  .progress-line {
+    width: 40px;
+    height: 3px;
+    background: var(--v3);
+    align-self: center;
+    border-radius: 2px;
+    transition: background 0.4s;
+  }
+  .progress-line.done { background: var(--acc3); }
+
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 20px var(--v5); transform: scale(1); }
+    50% { box-shadow: 0 0 40px var(--v5); transform: scale(1.1); }
+  }
+
+  /* Activity container */
+  .activity-screen {
+    display: none;
+    padding: 16px 20px 100px;
+    position: relative;
+    z-index: 10;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .activity-screen.active { display: block; }
+
+  .activity-card {
+    background: linear-gradient(135deg, rgba(74,27,168,0.7) 0%, rgba(107,53,200,0.5) 100%);
+    border: 2px solid rgba(192,132,240,0.4);
+    border-radius: 24px;
+    padding: 24px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+  }
+
+  .activity-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.5rem;
+    color: var(--acc2);
+    text-align: center;
+    margin-bottom: 8px;
+    text-shadow: 2px 2px 0 var(--v1);
+  }
+
+  .activity-instructions {
+    text-align: center;
+    color: var(--v6);
+    font-size: 0.95rem;
+    margin-bottom: 20px;
+    font-weight: 600;
+    line-height: 1.5;
+    background: rgba(45,10,110,0.5);
+    padding: 12px 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(192,132,240,0.3);
+  }
+
+  /* ---- ACTIVITY 1: Sort into bins ---- */
+  .cards-source {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
+    min-height: 60px;
+    padding: 14px;
+    background: rgba(45,10,110,0.5);
+    border-radius: 16px;
+    border: 2px dashed rgba(192,132,240,0.4);
+  }
+
+  .drag-card {
+    background: linear-gradient(135deg, var(--v3), var(--v4));
+    border: 2px solid var(--v5);
+    border-radius: 14px;
+    padding: 10px 16px;
+    color: #fff;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: grab;
+    user-select: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .drag-card:hover { transform: translateY(-3px) scale(1.04); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  .drag-card.dragging { opacity: 0.5; cursor: grabbing; transform: rotate(3deg) scale(1.05); }
+
+  .bins-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .drop-bin {
+    min-height: 160px;
+    border-radius: 18px;
+    padding: 14px;
+    border: 3px dashed;
+    transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .drop-bin.training-bin {
+    background: rgba(79,195,247,0.1);
+    border-color: var(--acc4);
+  }
+
+  .drop-bin.test-bin {
+    background: rgba(255,107,157,0.1);
+    border-color: var(--acc1);
+  }
+
+  .drop-bin.drag-over {
+    transform: scale(1.02);
+    box-shadow: 0 0 30px rgba(255,255,255,0.2);
+  }
+
+  .drop-bin.training-bin.drag-over { background: rgba(79,195,247,0.25); }
+  .drop-bin.test-bin.drag-over { background: rgba(255,107,157,0.25); }
+
+  .bin-label {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+    text-align: center;
+    padding: 8px;
+    border-radius: 10px;
+    margin-bottom: 4px;
+  }
+
+  .training-bin .bin-label { color: var(--acc4); background: rgba(79,195,247,0.15); }
+  .test-bin .bin-label { color: var(--acc1); background: rgba(255,107,157,0.15); }
+
+  .bin-icon { font-size: 1.4rem; margin-right: 6px; }
+
+  .dropped-item {
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #fff;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .training-bin .dropped-item { background: rgba(79,195,247,0.35); border: 1px solid var(--acc4); }
+  .test-bin .dropped-item { background: rgba(255,107,157,0.35); border: 1px solid var(--acc1); }
+
+  /* ---- ACTIVITY 2: True / False ---- */
+  .tf-list { display: flex; flex-direction: column; gap: 14px; }
+
+  .tf-item {
+    background: rgba(45,10,110,0.6);
+    border: 2px solid rgba(192,132,240,0.3);
+    border-radius: 16px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .tf-statement {
+    color: var(--v6);
+    font-weight: 700;
+    font-size: 0.93rem;
+    line-height: 1.5;
+    display: flex; align-items: flex-start; gap: 8px;
+  }
+
+  .tf-emoji { font-size: 1.3rem; flex-shrink: 0; }
+
+  .tf-btns { display: flex; gap: 10px; }
+
+  .tf-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tf-btn.true-btn { background: linear-gradient(135deg, #2ecc71, #27ae60); color: #fff; }
+  .tf-btn.false-btn { background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; }
+  .tf-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+  .tf-btn:active { transform: translateY(0); }
+  .tf-btn.selected-correct { box-shadow: 0 0 0 3px var(--acc2), 0 0 20px var(--acc3); animation: correctPop 0.4s; }
+  .tf-btn.selected-wrong { box-shadow: 0 0 0 3px #e74c3c; animation: shake 0.4s; }
+
+  @keyframes correctPop { 0%{transform:scale(1)} 50%{transform:scale(1.12)} 100%{transform:scale(1)} }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+
+  /* ---- ACTIVITY 3: Match ---- */
+  .match-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+  .match-col-label {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    text-align: center;
+    padding: 8px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    color: #fff;
+  }
+
+  .match-left .match-col-label { background: linear-gradient(135deg, #4FC3F7, #0288D1); }
+  .match-right .match-col-label { background: linear-gradient(135deg, #FF6B9D, #c0392b); }
+
+  .match-items { display: flex; flex-direction: column; gap: 10px; }
+
+  .match-term {
+    background: linear-gradient(135deg, rgba(79,195,247,0.2), rgba(2,136,209,0.2));
+    border: 2px solid var(--acc4);
+    border-radius: 14px;
+    padding: 12px 14px;
+    color: var(--acc4);
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: grab;
+    user-select: none;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 8px;
+    min-height: 52px;
+  }
+
+  .match-term:hover { transform: translateX(4px); box-shadow: 0 4px 16px rgba(79,195,247,0.3); }
+  .match-term.dragging { opacity: 0.4; }
+  .match-term.matched { opacity: 0.4; cursor: default; }
+
+  .match-slot {
+    min-height: 52px;
+    border-radius: 14px;
+    border: 2.5px dashed var(--acc1);
+    background: rgba(255,107,157,0.08);
+    padding: 8px 12px;
+    display: flex; align-items: center;
+    transition: all 0.3s;
+    position: relative;
+  }
+
+  .match-slot-label {
+    color: var(--v5);
+    font-size: 0.82rem;
+    font-style: italic;
+    font-weight: 600;
+  }
+
+  .match-slot.drag-over { background: rgba(255,107,157,0.25); transform: scale(1.03); border-color: #fff; }
+
+  .match-slot .filled-term {
+    background: linear-gradient(135deg, rgba(255,107,157,0.4), rgba(192,57,43,0.3));
+    border: 1.5px solid var(--acc1);
+    border-radius: 10px;
+    padding: 6px 10px;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.82rem;
+    width: 100%;
+    display: flex; align-items: center; gap: 6px;
+    cursor: pointer;
+  }
+
+  .match-slot .filled-term .remove-x {
+    margin-left: auto;
+    color: rgba(255,255,255,0.6);
+    font-size: 1rem;
+    font-weight: 900;
+  }
+
+  /* Check button */
+  .check-btn {
+    display: block;
+    margin: 20px auto 0;
+    padding: 14px 40px;
+    background: linear-gradient(135deg, var(--acc2), #e6c200);
+    color: var(--v1);
+    border: none;
+    border-radius: 50px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 6px 20px rgba(255,217,61,0.4);
+  }
+
+  .check-btn:hover { transform: translateY(-3px) scale(1.04); box-shadow: 0 12px 30px rgba(255,217,61,0.5); }
+  .check-btn:active { transform: translateY(0) scale(1); }
+
+  /* Popup overlay */
+  .popup-overlay {
+    position: fixed; inset: 0;
+    background: rgba(10,0,40,0.75);
+    z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
+  .popup-overlay.visible { opacity: 1; pointer-events: all; }
+
+  .popup-box {
+    background: linear-gradient(135deg, var(--v2), var(--v3));
+    border: 3px solid var(--v5);
+    border-radius: 28px;
+    padding: 36px 40px;
+    text-align: center;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    transform: scale(0.5) rotate(-6deg);
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .popup-overlay.visible .popup-box { transform: scale(1) rotate(0deg); }
+
+  .popup-box::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at 30% 30%, rgba(192,132,240,0.2), transparent 60%);
+    pointer-events: none;
+  }
+
+  .popup-emoji { font-size: 3.5rem; margin-bottom: 10px; animation: bounceEmoji 0.6s ease-out; }
+  @keyframes bounceEmoji { 0%{transform:scale(0) rotate(-30deg)} 60%{transform:scale(1.2) rotate(5deg)} 100%{transform:scale(1) rotate(0)} }
+
+  .popup-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.8rem;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 0 var(--v1);
+  }
+
+  .popup-msg { color: var(--v6); font-size: 1rem; font-weight: 600; margin-bottom: 22px; line-height: 1.5; }
+
+  .popup-btn {
+    padding: 13px 36px;
+    border: none;
+    border-radius: 50px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+
+  .popup-btn:hover { transform: scale(1.06); }
+
+  .btn-try { background: linear-gradient(135deg, var(--acc1), #c0392b); color: #fff; box-shadow: 0 6px 20px rgba(255,107,157,0.4); }
+  .btn-next { background: linear-gradient(135deg, var(--acc3), #27ae60); color: #fff; box-shadow: 0 6px 20px rgba(107,203,119,0.4); }
+
+  /* Celebration screen */
+  #celebration {
+    display: none;
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, var(--v1), var(--v2), #1a0050);
+    z-index: 2000;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden;
+  }
+
+  #celebration.show { display: flex; }
+
+  .celebration-emoji { font-size: 5rem; animation: celebBounce 0.8s ease-out; }
+  @keyframes celebBounce { 0%{transform:scale(0) rotate(-20deg) translateY(-60px)} 60%{transform:scale(1.15) rotate(5deg)} 100%{transform:scale(1) rotate(0)} }
+
+  .celebration-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    color: var(--acc2);
+    text-shadow: 3px 3px 0 var(--v1), 0 0 40px rgba(255,217,61,0.5);
+    margin: 16px 0 8px;
+    animation: titleSlide 0.6s ease-out 0.3s both;
+  }
+
+  @keyframes titleSlide { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+
+  .celebration-sub {
+    color: var(--v6);
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    animation: titleSlide 0.6s ease-out 0.5s both;
+  }
+
+  .celebration-kids {
+    font-size: 3rem;
+    margin: 12px 0;
+    animation: kidsWave 1s ease-out 0.7s both;
+    display: flex; gap: 10px; justify-content: center;
+  }
+
+  @keyframes kidsWave { from{opacity:0;transform:scale(0.3)} to{opacity:1;transform:scale(1)} }
+
+  .kid-char {
+    display: inline-block;
+    animation: kidDance 0.8s ease-in-out infinite alternate;
+  }
+
+  .kid-char:nth-child(2) { animation-delay: 0.15s; }
+  .kid-char:nth-child(3) { animation-delay: 0.3s; }
+  .kid-char:nth-child(4) { animation-delay: 0.45s; }
+
+  @keyframes kidDance {
+    from { transform: translateY(0) rotate(-5deg); }
+    to { transform: translateY(-14px) rotate(5deg); }
+  }
+
+  .play-again-btn {
+    margin-top: 20px;
+    padding: 16px 48px;
+    background: linear-gradient(135deg, var(--acc1), var(--acc5), var(--acc2));
+    background-size: 200% auto;
+    color: var(--v1);
+    border: none;
+    border-radius: 50px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.4rem;
+    cursor: pointer;
+    animation: titleSlide 0.6s ease-out 0.9s both, rainbowShift 3s linear infinite;
+    box-shadow: 0 10px 40px rgba(255,107,157,0.5);
+    transition: transform 0.2s;
+  }
+
+  .play-again-btn:hover { transform: scale(1.08) rotate(-2deg); }
+
+  @keyframes rainbowShift { 0%{background-position:0%} 100%{background-position:200%} }
+
+  /* Confetti */
+  .confetti-piece {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    animation: confettiFall linear infinite;
+    pointer-events: none;
+  }
+
+  @keyframes confettiFall {
+    0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(110vh) rotate(720deg); opacity: 0.3; }
+  }
+
+  /* Score strip */
+  .score-strip {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    padding: 8px 20px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .score-chip {
+    background: rgba(45,10,110,0.7);
+    border: 2px solid var(--v4);
+    border-radius: 50px;
+    padding: 6px 16px;
+    color: var(--v6);
+    font-weight: 800;
+    font-size: 0.88rem;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .score-chip span { color: var(--acc2); font-family: 'Fredoka One', cursive; font-size: 1.1rem; }
+
+  /* Mascot row */
+  .mascot-row {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin: 4px 0 8px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .mascot {
+    font-size: 1.8rem;
+    display: inline-block;
+    animation: mascotBob 2s ease-in-out infinite alternate;
+  }
+
+  .mascot:nth-child(2) { animation-delay: 0.3s; }
+  .mascot:nth-child(3) { animation-delay: 0.6s; }
+
+  @keyframes mascotBob {
+    from { transform: translateY(0) rotate(-4deg); }
+    to { transform: translateY(-8px) rotate(4deg); }
+  }
+
+  @media (max-width: 600px) {
+    .bins-row { grid-template-columns: 1fr; }
+    .match-layout { grid-template-columns: 1fr; }
+    .match-right .match-col-label { display: none; }
+    .popup-box { padding: 26px 22px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Background shapes -->
+<script>
+  const colors = ['#9B59D8','#C084F0','#FF6B9D','#FFD93D','#4FC3F7','#6BCB77'];
+  for(let i=0;i<10;i++){
+    const s=document.createElement('div'); s.className='bg-shape';
+    const sz=60+Math.random()*140;
+    s.style.cssText=`width:${sz}px;height:${sz}px;background:${colors[i%colors.length]};left:${Math.random()*100}%;animation-duration:${12+Math.random()*18}s;animation-delay:${-Math.random()*20}s`;
+    document.body.appendChild(s);
+  }
+  const movers = ['🚀','⭐','💫','🌙','🎮','🎯','🔮','🎪','🌈','💎'];
+  movers.forEach((m,i)=>{
+    const el=document.createElement('div'); el.className='moving-obj';
+    el.textContent=m;
+    el.style.cssText=`top:${10+Math.random()*80}%;animation-duration:${15+Math.random()*20}s;animation-delay:${-Math.random()*20}s;font-size:${1.5+Math.random()}rem`;
+    document.body.appendChild(el);
+  });
+</script>
+
+<!-- Header -->
+<div class="header">
+  <h1>🤖 Machine Learning Explorer!</h1>
+</div>
+
+<!-- Mascots -->
+<div class="mascot-row">
+  <span class="mascot">🧑‍💻</span>
+  <span class="mascot">🤖</span>
+  <span class="mascot">👩‍🔬</span>
+</div>
+
+<!-- Progress -->
+<div class="progress-wrap">
+  <div class="progress-dot active" id="dot1">1</div>
+  <div class="progress-line" id="line1"></div>
+  <div class="progress-dot" id="dot2">2</div>
+  <div class="progress-line" id="line2"></div>
+  <div class="progress-dot" id="dot3">3</div>
+</div>
+
+<!-- Score -->
+<div class="score-strip">
+  <div class="score-chip">⭐ Score: <span id="scoreVal">0</span></div>
+  <div class="score-chip">✅ Activity: <span id="actNum">1</span>/3</div>
+</div>
+
+<!-- ============ ACTIVITY 1 ============ -->
+<div class="activity-screen active" id="act1">
+  <div class="activity-card">
+    <div class="activity-title">🗂️ Activity 1: Sort the Data!</div>
+    <div class="activity-instructions">
+      A machine learning model learns from <b>Training Data</b> 📚 and is checked with <b>Test Data</b> 🔍.<br>
+      Drag each card into the correct bucket!
+    </div>
+
+    <div class="cards-source" id="sourceCards1">
+      <!-- Draggable cards injected by JS -->
+    </div>
+
+    <div class="bins-row">
+      <div class="drop-bin training-bin" id="trainBin" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'training')">
+        <div class="bin-label"><span class="bin-icon">📚</span> Training Data</div>
+      </div>
+      <div class="drop-bin test-bin" id="testBin" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'test')">
+        <div class="bin-label"><span class="bin-icon">🔍</span> Test Data</div>
+      </div>
+    </div>
+
+    <button class="check-btn" onclick="checkAct1()">🔍 Check My Answers!</button>
+  </div>
+</div>
+
+<!-- ============ ACTIVITY 2 ============ -->
+<div class="activity-screen" id="act2">
+  <div class="activity-card">
+    <div class="activity-title">❓ Activity 2: True or False?</div>
+    <div class="activity-instructions">
+      Read each statement carefully and tap <b>TRUE ✅</b> or <b>FALSE ❌</b>!
+    </div>
+    <div class="tf-list" id="tfList"></div>
+    <button class="check-btn" onclick="checkAct2()">🔍 Check My Answers!</button>
+  </div>
+</div>
+
+<!-- ============ ACTIVITY 3 ============ -->
+<div class="activity-screen" id="act3">
+  <div class="activity-card">
+    <div class="activity-title">🔗 Activity 3: Match It Up!</div>
+    <div class="activity-instructions">
+      Drag each word from the left side and drop it onto its matching description on the right!
+    </div>
+    <div class="match-layout">
+      <div class="match-left">
+        <div class="match-col-label">📖 Concepts</div>
+        <div class="match-items" id="matchTerms"></div>
+      </div>
+      <div class="match-right">
+        <div class="match-col-label">💡 Descriptions</div>
+        <div class="match-items" id="matchSlots"></div>
+      </div>
+    </div>
+    <button class="check-btn" onclick="checkAct3()">🔍 Check My Answers!</button>
+  </div>
+</div>
+
+<!-- ============ POPUPS ============ -->
+<div class="popup-overlay" id="tryAgainPopup">
+  <div class="popup-box">
+    <div class="popup-emoji">😅</div>
+    <div class="popup-title" style="color:#FF6B9D">Oops!</div>
+    <div class="popup-msg" id="tryAgainMsg">Not quite right! Give it another shot — you've got this! 💪</div>
+    <button class="popup-btn btn-try" onclick="closeTryAgain()">🔄 Try Again!</button>
+  </div>
+</div>
+
+<div class="popup-overlay" id="nextPopup">
+  <div class="popup-box">
+    <div class="popup-emoji" id="nextEmoji">🎉</div>
+    <div class="popup-title" style="color:#6BCB77" id="nextTitle">Awesome!</div>
+    <div class="popup-msg" id="nextMsg">You nailed it! Ready for the next challenge?</div>
+    <button class="popup-btn btn-next" onclick="goNext()" id="nextBtn">➡️ Next Activity!</button>
+  </div>
+</div>
+
+<!-- ============ CELEBRATION ============ -->
+<div id="celebration">
+  <div class="celebration-emoji">🏆</div>
+  <div class="celebration-title">You're a Machine Learning Master!</div>
+  <div class="celebration-sub">You completed all 3 activities like a superstar! 🌟</div>
+  <div class="celebration-kids">
+    <span class="kid-char">🧒</span>
+    <span class="kid-char">👧</span>
+    <span class="kid-char">👦</span>
+    <span class="kid-char">🧑</span>
+  </div>
+  <div class="celebration-sub" style="color:var(--acc2); font-size:1.3rem; margin-top:4px;">Final Score: <span id="finalScore">0</span> ⭐</div>
+  <button class="play-again-btn" onclick="playAgain()">🔁 Play Again!</button>
+</div>
+
+<script>
+/* ============================================================
+   DATA
+============================================================ */
+const act1Cards = [
+  { id:'c1', text:'80% of the dataset', emoji:'📊', answer:'training' },
+  { id:'c2', text:'Used to teach the model', emoji:'📚', answer:'training' },
+  { id:'c3', text:'Used to evaluate accuracy', emoji:'🎯', answer:'test' },
+  { id:'c4', text:'Patterns the model learns from', emoji:'🧠', answer:'training' },
+  { id:'c5', text:'Never seen during learning', emoji:'🙈', answer:'test' },
+  { id:'c6', text:'Checks if model generalises', emoji:'✅', answer:'test' },
+  { id:'c7', text:'Contains labelled examples', emoji:'🏷️', answer:'training' },
+  { id:'c8', text:'20% of the dataset', emoji:'📉', answer:'test' },
+];
+
+const tfQuestions = [
+  { id:'t1', text:'Training data is used to check how well a model performs on new data.', emoji:'🧪', answer: false, hint:'That is the job of test data!' },
+  { id:'t2', text:'A model should not see the test data during training.', emoji:'🙈', answer: true, hint:'Keeping test data hidden ensures a fair evaluation!' },
+  { id:'t3', text:'Using test data for training can make results look falsely better.', emoji:'📈', answer: true, hint:'This is called data leakage — a sneaky problem!' },
+  { id:'t4', text:'Test data and training data are always the same set of examples.', emoji:'🔁', answer: false, hint:'They must be separate for honest evaluation!' },
+  { id:'t5', text:'The more training data a model has, the better it can usually learn.', emoji:'📚', answer: true, hint:'More examples help a model spot more patterns!' },
+];
+
+const matchData = [
+  { id:'m1', term:'Overfitting', emoji:'😵', desc:'When a model memorises training data and fails on new examples' },
+  { id:'m2', term:'Generalisation', emoji:'🌍', desc:'The ability to perform well on unseen test data' },
+  { id:'m3', term:'Label', emoji:'🏷️', desc:'The correct answer provided for each training example' },
+  { id:'m4', term:'Validation Set', emoji:'🔬', desc:'A third data split used to tune the model during development' },
+  { id:'m5', term:'Data Split', emoji:'✂️', desc:'Dividing the dataset into training and test portions' },
+];
+
+/* ============================================================
+   STATE
+============================================================ */
+let currentAct = 1;
+let score = 0;
+let draggingId = null;
+let act1Placed = {};  // { cardId: 'training'|'test' }
+let tfSelected = {};  // { id: true|false }
+let matchPlaced = {}; // { slotId: termId }
+let totalCorrect = 0; // for score tracking per activity
+let nextTarget = 2;
+
+/* ============================================================
+   INIT
+============================================================ */
+window.onload = () => {
+  buildAct1();
+  buildAct2();
+  buildAct3();
+};
+
+function buildAct1() {
+  const src = document.getElementById('sourceCards1');
+  shuffle(act1Cards).forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'drag-card';
+    div.id = `card_${c.id}`;
+    div.draggable = true;
+    div.dataset.cardId = c.id;
+    div.innerHTML = `${c.emoji} ${c.text}`;
+    div.addEventListener('dragstart', e => {
+      draggingId = c.id;
+      div.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    div.addEventListener('dragend', () => div.classList.remove('dragging'));
+    // Touch support
+    addTouchDrag(div, c.id);
+    src.appendChild(div);
+  });
+}
+
+function buildAct2() {
+  const list = document.getElementById('tfList');
+  tfQuestions.forEach(q => {
+    const item = document.createElement('div');
+    item.className = 'tf-item';
+    item.id = `tfitem_${q.id}`;
+    item.innerHTML = `
+      <div class="tf-statement"><span class="tf-emoji">${q.emoji}</span>${q.text}</div>
+      <div class="tf-btns">
+        <button class="tf-btn true-btn" onclick="selectTF('${q.id}',true,this)">✅ TRUE</button>
+        <button class="tf-btn false-btn" onclick="selectTF('${q.id}',false,this)">❌ FALSE</button>
+      </div>`;
+    list.appendChild(item);
+  });
+}
+
+function buildAct3() {
+  const termsEl = document.getElementById('matchTerms');
+  const slotsEl = document.getElementById('matchSlots');
+
+  shuffle([...matchData]).forEach(m => {
+    const div = document.createElement('div');
+    div.className = 'match-term';
+    div.id = `term_${m.id}`;
+    div.draggable = true;
+    div.dataset.termId = m.id;
+    div.innerHTML = `${m.emoji} ${m.term}`;
+    div.addEventListener('dragstart', e => {
+      draggingId = m.id;
+      div.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    div.addEventListener('dragend', () => div.classList.remove('dragging'));
+    addTouchDrag(div, m.id);
+    termsEl.appendChild(div);
+  });
+
+  shuffle([...matchData]).forEach(m => {
+    const slot = document.createElement('div');
+    slot.className = 'match-slot';
+    slot.id = `slot_${m.id}`;
+    slot.dataset.slotId = m.id;
+    slot.innerHTML = `<span class="match-slot-label">${m.desc}</span>`;
+    slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('drag-over'); });
+    slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
+    slot.addEventListener('drop', e => { e.preventDefault(); slot.classList.remove('drag-over'); dropToSlot(m.id); });
+    slotsEl.appendChild(slot);
+  });
+}
+
+/* ============================================================
+   ACTIVITY 1: DRAG & DROP BINS
+============================================================ */
+function dragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+function dragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+
+function drop(e, binType) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if(!draggingId) return;
+
+  const card = act1Cards.find(c=>c.id===draggingId);
+  if(!card) return;
+
+  // Remove from previous bin if any
+  const prev = act1Placed[draggingId];
+  if(prev) {
+    const prevEl = document.querySelector(`#${prev==='training'?'trainBin':'testBin'} [data-placed="${draggingId}"]`);
+    if(prevEl) prevEl.remove();
+  }
+
+  // Remove original card display if in source
+  const origCard = document.getElementById(`card_${draggingId}`);
+  if(origCard) origCard.style.display='none';
+
+  // Place in bin
+  act1Placed[draggingId] = binType;
+  const bin = document.getElementById(binType==='training'?'trainBin':'testBin');
+  const placed = document.createElement('div');
+  placed.className = 'dropped-item';
+  placed.dataset.placed = draggingId;
+  placed.innerHTML = `${card.emoji} ${card.text} <span style="margin-left:auto;cursor:pointer;font-size:1rem;" onclick="removeFromBin('${draggingId}')">✖</span>`;
+  bin.appendChild(placed);
+
+  draggingId = null;
+}
+
+function removeFromBin(cardId) {
+  const bin = act1Placed[cardId];
+  if(!bin) return;
+  const el = document.querySelector(`#${bin==='training'?'trainBin':'testBin'} [data-placed="${cardId}"]`);
+  if(el) el.remove();
+  delete act1Placed[cardId];
+  const orig = document.getElementById(`card_${cardId}`);
+  if(orig) orig.style.display='flex';
+}
+
+function checkAct1() {
+  const allPlaced = Object.keys(act1Placed).length === act1Cards.length;
+  if(!allPlaced) {
+    showTryAgain('Place ALL 8 cards into a bucket first! 🗂️');
+    return;
+  }
+  let correct = 0;
+  act1Cards.forEach(c => { if(act1Placed[c.id]===c.answer) correct++; });
+  if(correct < act1Cards.length) {
+    const wrong = act1Cards.length - correct;
+    showTryAgain(`${wrong} card${wrong>1?'s':''} ${wrong>1?'are':'is'} in the wrong bucket! Try rearranging them. 🔄`);
+    return;
+  }
+  score += 30;
+  updateScore();
+  showNext('🎊', 'Sorted!', 'All 8 cards sorted perfectly! You know exactly what Training and Test data are! 📚🔍', 2);
+}
+
+/* ============================================================
+   ACTIVITY 2: TRUE / FALSE
+============================================================ */
+function selectTF(qId, val, btn) {
+  const item = document.getElementById(`tfitem_${qId}`);
+  item.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('selected-correct','selected-wrong'));
+  tfSelected[qId] = val;
+  btn.classList.add('selected-correct');
+  btn.style.outline = '3px solid #FFD93D';
+}
+
+function checkAct2() {
+  if(Object.keys(tfSelected).length < tfQuestions.length) {
+    showTryAgain('Answer ALL 5 statements before checking! 🤔');
+    return;
+  }
+  let wrong = [];
+  tfQuestions.forEach(q => {
+    if(tfSelected[q.id] !== q.answer) wrong.push(q.hint);
+  });
+  if(wrong.length > 0) {
+    showTryAgain(`${wrong.length} answer${wrong.length>1?'s':''} need fixing! Hint: ${wrong[0]} 💡`);
+    return;
+  }
+  score += 35;
+  updateScore();
+  showNext('🧠', 'Brain Power!', 'Perfect score on True or False! You really understand how ML data works! 🏅', 3);
+}
+
+/* ============================================================
+   ACTIVITY 3: MATCH
+============================================================ */
+function dropToSlot(slotId) {
+  if(!draggingId) return;
+
+  // If slot already has something, return term to pool
+  if(matchPlaced[slotId]) {
+    const oldTermId = matchPlaced[slotId];
+    const oldTerm = document.getElementById(`term_${oldTermId}`);
+    if(oldTerm) { oldTerm.classList.remove('matched'); oldTerm.style.opacity='1'; }
+  }
+
+  // If term already placed somewhere, remove it
+  Object.keys(matchPlaced).forEach(sid => {
+    if(matchPlaced[sid]===draggingId && sid!==slotId) {
+      const oldSlot = document.getElementById(`slot_${sid}`);
+      const filled = oldSlot.querySelector('.filled-term');
+      if(filled) filled.remove();
+      oldSlot.innerHTML=`<span class="match-slot-label">${matchData.find(m=>m.id===sid).desc}</span>`;
+      delete matchPlaced[sid];
+    }
+  });
+
+  matchPlaced[slotId] = draggingId;
+
+  // Hide term from left
+  const termEl = document.getElementById(`term_${draggingId}`);
+  if(termEl) { termEl.classList.add('matched'); termEl.style.opacity='0.35'; }
+
+  // Fill slot
+  const slot = document.getElementById(`slot_${slotId}`);
+  const termData = matchData.find(m=>m.id===draggingId);
+  slot.innerHTML=`<div class="filled-term" data-term="${draggingId}">${termData.emoji} ${termData.term}<span class="remove-x" onclick="removeMatch('${slotId}')">✖</span></div>`;
+
+  draggingId = null;
+}
+
+function removeMatch(slotId) {
+  const termId = matchPlaced[slotId];
+  if(!termId) return;
+  delete matchPlaced[slotId];
+  const termEl = document.getElementById(`term_${termId}`);
+  if(termEl) { termEl.classList.remove('matched'); termEl.style.opacity='1'; }
+  const slot = document.getElementById(`slot_${slotId}`);
+  slot.innerHTML=`<span class="match-slot-label">${matchData.find(m=>m.id===slotId).desc}</span>`;
+}
+
+function checkAct3() {
+  if(Object.keys(matchPlaced).length < matchData.length) {
+    showTryAgain('Match ALL 5 concepts before checking! 🔗');
+    return;
+  }
+  let wrong = 0;
+  Object.keys(matchPlaced).forEach(slotId => {
+    if(matchPlaced[slotId] !== slotId) wrong++;
+  });
+  if(wrong > 0) {
+    showTryAgain(`${wrong} match${wrong>1?'es':''} are wrong! Look at the descriptions carefully. 🔍`);
+    return;
+  }
+  score += 35;
+  updateScore();
+  showCelebration();
+}
+
+/* ============================================================
+   POPUPS
+============================================================ */
+function showTryAgain(msg) {
+  document.getElementById('tryAgainMsg').textContent = msg;
+  document.getElementById('tryAgainPopup').classList.add('visible');
+}
+
+function closeTryAgain() {
+  document.getElementById('tryAgainPopup').classList.remove('visible');
+}
+
+let nextTargetAct = 2;
+function showNext(emoji, title, msg, target) {
+  nextTargetAct = target;
+  document.getElementById('nextEmoji').textContent = emoji;
+  document.getElementById('nextTitle').textContent = title;
+  document.getElementById('nextMsg').textContent = msg;
+  const btn = document.getElementById('nextBtn');
+  if(target > 3) { btn.textContent = '🏆 See Results!'; }
+  else { btn.textContent = `➡️ Activity ${target}!`; }
+  document.getElementById('nextPopup').classList.add('visible');
+}
+
+function goNext() {
+  document.getElementById('nextPopup').classList.remove('visible');
+  moveToActivity(nextTargetAct);
+}
+
+function moveToActivity(n) {
+  document.querySelectorAll('.activity-screen').forEach(s=>s.classList.remove('active'));
+  const next = document.getElementById(`act${n}`);
+  if(next) { next.classList.add('active'); next.scrollIntoView({behavior:'smooth',block:'start'}); }
+  currentAct = n;
+  document.getElementById('actNum').textContent = n;
+
+  // Progress dots
+  for(let i=1;i<=3;i++){
+    const dot = document.getElementById(`dot${i}`);
+    const line = document.getElementById(`line${i}`);
+    if(i < n){ dot.classList.remove('active'); dot.classList.add('done'); dot.textContent='✓'; }
+    else if(i===n){ dot.classList.remove('done'); dot.classList.add('active'); }
+    else { dot.classList.remove('active','done'); dot.textContent=i; }
+    if(line && i < n) line.classList.add('done'); else if(line) line.classList.remove('done');
+  }
+}
+
+/* ============================================================
+   CELEBRATION
+============================================================ */
+function showCelebration() {
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('celebration').classList.add('show');
+  // Update all 3 dots to done
+  for(let i=1;i<=3;i++){
+    const dot=document.getElementById(`dot${i}`);
+    dot.classList.remove('active'); dot.classList.add('done'); dot.textContent='✓';
+    const line=document.getElementById(`line${i}`);
+    if(line) line.classList.add('done');
+  }
+  spawnConfetti();
+}
+
+function spawnConfetti() {
+  const cel = document.getElementById('celebration');
+  const confColors=['#FFD93D','#FF6B9D','#6BCB77','#4FC3F7','#C084F0','#FF9A3C','#fff'];
+  for(let i=0;i<80;i++){
+    const c=document.createElement('div');
+    c.className='confetti-piece';
+    c.style.cssText=`
+      left:${Math.random()*100}%;
+      background:${confColors[Math.floor(Math.random()*confColors.length)]};
+      width:${6+Math.random()*10}px;
+      height:${6+Math.random()*10}px;
+      border-radius:${Math.random()>0.5?'50%':'2px'};
+      animation-duration:${2+Math.random()*4}s;
+      animation-delay:${Math.random()*3}s;
+    `;
+    cel.appendChild(c);
+  }
+}
+
+/* ============================================================
+   PLAY AGAIN / RESET
+============================================================ */
+function playAgain() {
+  // Reset state
+  act1Placed = {};
+  tfSelected = {};
+  matchPlaced = {};
+  score = 0;
+  currentAct = 1;
+  updateScore();
+
+  // Celebration hide
+  document.getElementById('celebration').classList.remove('show');
+  document.querySelectorAll('.confetti-piece').forEach(c=>c.remove());
+
+  // Progress reset
+  for(let i=1;i<=3;i++){
+    const dot=document.getElementById(`dot${i}`);
+    dot.classList.remove('done');
+    dot.textContent=i;
+    const line=document.getElementById(`line${i}`);
+    if(line) line.classList.remove('done');
+  }
+  document.getElementById('dot1').classList.add('active');
+  document.getElementById('actNum').textContent='1';
+
+  // Reset activity 1
+  const src1=document.getElementById('sourceCards1');
+  src1.innerHTML='';
+  document.querySelectorAll('#trainBin .dropped-item, #testBin .dropped-item').forEach(e=>e.remove());
+
+  // Reset activity 2
+  document.getElementById('tfList').innerHTML='';
+
+  // Reset activity 3
+  document.getElementById('matchTerms').innerHTML='';
+  document.getElementById('matchSlots').innerHTML='';
+
+  // Rebuild
+  buildAct1();
+  buildAct2();
+  buildAct3();
+
+  // Show act1
+  document.querySelectorAll('.activity-screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('act1').classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function updateScore() {
+  document.getElementById('scoreVal').textContent = score;
+}
+
+/* ============================================================
+   TOUCH DRAG SUPPORT
+============================================================ */
+function addTouchDrag(el, id) {
+  let ghost=null, ox=0, oy=0;
+  el.addEventListener('touchstart', e=>{
+    draggingId=id;
+    const t=e.touches[0];
+    ox=t.clientX-el.getBoundingClientRect().left;
+    oy=t.clientY-el.getBoundingClientRect().top;
+    ghost=el.cloneNode(true);
+    ghost.style.cssText=`position:fixed;z-index:9999;opacity:0.85;pointer-events:none;transform:scale(1.05) rotate(3deg);transition:none;left:${t.clientX-ox}px;top:${t.clientY-oy}px;`;
+    document.body.appendChild(ghost);
+    e.preventDefault();
+  },{passive:false});
+
+  el.addEventListener('touchmove', e=>{
+    if(!ghost) return;
+    const t=e.touches[0];
+    ghost.style.left=`${t.clientX-ox}px`;
+    ghost.style.top=`${t.clientY-oy}px`;
+    e.preventDefault();
+  },{passive:false});
+
+  el.addEventListener('touchend', e=>{
+    if(!ghost){draggingId=null;return;}
+    const t=e.changedTouches[0];
+    ghost.remove(); ghost=null;
+
+    // Find element under touch point
+    const target=document.elementFromPoint(t.clientX, t.clientY);
+    if(!target){draggingId=null;return;}
+
+    // Act1 bins
+    const bin=target.closest('.drop-bin');
+    if(bin){
+      const binType=bin.classList.contains('training-bin')?'training':'test';
+      drop({preventDefault:()=>{},currentTarget:bin}, binType);
+      return;
+    }
+
+    // Act3 slots
+    const slot=target.closest('.match-slot');
+    if(slot){ dropToSlot(slot.dataset.slotId); return; }
+
+    draggingId=null;
+  });
+}
+
+/* ============================================================
+   UTILS
+============================================================ */
+function shuffle(arr) {
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+</script>
+</body>
+</html>

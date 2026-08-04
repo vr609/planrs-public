@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Light It Up! Arduino LED Adventure</title>
+<style>
+  :root{
+    --v1:#2e1065;
+    --v2:#4c1d95;
+    --v3:#6d28d9;
+    --v4:#8b5cf6;
+    --v5:#a78bfa;
+    --v6:#c4b5fd;
+    --pink:#f472b6;
+    --yellow:#fde047;
+    --green:#4ade80;
+    --orange:#fb923c;
+    --cyan:#22d3ee;
+    --red:#f87171;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{
+    margin:0; padding:0; min-height:100vh;
+    font-family: 'Trebuchet MS', 'Comic Sans MS', 'Segoe UI', sans-serif;
+    background: linear-gradient(-45deg, var(--v1), var(--v2), var(--v3), var(--v2));
+    background-size: 400% 400%;
+    animation: gradientShift 14s ease infinite;
+    overflow-x:hidden;
+    color:#fff;
+    position:relative;
+  }
+  @keyframes gradientShift{
+    0%{background-position:0% 50%;}
+    50%{background-position:100% 50%;}
+    100%{background-position:0% 50%;}
+  }
+
+  /* Floating background blobs */
+  .blob{
+    position:fixed;
+    border-radius:50%;
+    filter: blur(2px);
+    opacity:0.5;
+    z-index:0;
+    pointer-events:none;
+    animation: floatBlob linear infinite;
+  }
+  @keyframes floatBlob{
+    0%{ transform: translateY(0) translateX(0) rotate(0deg);}
+    50%{ transform: translateY(-40px) translateX(30px) rotate(180deg);}
+    100%{ transform: translateY(0) translateX(0) rotate(360deg);}
+  }
+
+  .stars{
+    position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;
+  }
+  .star{
+    position:absolute;
+    font-size: 20px;
+    animation: twinkle 3s ease-in-out infinite, drift 20s linear infinite;
+    opacity:0.8;
+  }
+  @keyframes twinkle{
+    0%,100%{ opacity:0.3; transform:scale(0.8);}
+    50%{ opacity:1; transform:scale(1.2);}
+  }
+  @keyframes drift{
+    from{ transform: translateY(0px);}
+    to{ transform: translateY(-30px);}
+  }
+
+  .wrap{
+    position:relative;
+    z-index:2;
+    max-width:980px;
+    margin:0 auto;
+    padding: 24px 16px 80px;
+  }
+
+  header{
+    text-align:center;
+    margin-bottom: 20px;
+    animation: popIn 0.8s ease;
+  }
+  @keyframes popIn{
+    0%{ transform: scale(0.6); opacity:0;}
+    70%{ transform: scale(1.05); opacity:1;}
+    100%{ transform: scale(1);}
+  }
+  h1{
+    font-size: clamp(28px, 5vw, 46px);
+    margin: 6px 0 4px;
+    background: linear-gradient(90deg, var(--yellow), var(--pink), var(--cyan), var(--yellow));
+    background-size: 300% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shine 5s linear infinite;
+    text-shadow: 0 4px 18px rgba(0,0,0,0.25);
+  }
+  @keyframes shine{
+    to{ background-position: 300% center; }
+  }
+  .subtitle{
+    font-size: clamp(14px, 2.4vw, 18px);
+    color: var(--v6);
+    font-weight:bold;
+  }
+  .bouncy-icon{
+    display:inline-block;
+    animation: bounce 1.6s ease-in-out infinite;
+    font-size: 40px;
+  }
+  @keyframes bounce{
+    0%,100%{ transform: translateY(0) rotate(-8deg);}
+    50%{ transform: translateY(-14px) rotate(8deg);}
+  }
+
+  /* progress bar */
+  .progress-track{
+    display:flex;
+    justify-content:center;
+    gap:14px;
+    margin: 18px 0 30px;
+  }
+  .progress-dot{
+    width:46px; height:46px;
+    border-radius:50%;
+    background: rgba(255,255,255,0.12);
+    border:3px solid var(--v5);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:bold; font-size:18px;
+    color:var(--v6);
+    transition: all 0.4s ease;
+    position:relative;
+  }
+  .progress-dot.active{
+    background: linear-gradient(135deg, var(--pink), var(--cyan));
+    color:#1a0a33;
+    border-color: var(--yellow);
+    transform: scale(1.15);
+    box-shadow: 0 0 22px var(--pink);
+    animation: pulseDot 1.2s ease-in-out infinite;
+  }
+  @keyframes pulseDot{
+    0%,100%{ box-shadow: 0 0 14px var(--pink);}
+    50%{ box-shadow: 0 0 30px var(--cyan);}
+  }
+  .progress-dot.done{
+    background: linear-gradient(135deg, var(--green), var(--cyan));
+    color:#08331b;
+    border-color: var(--green);
+  }
+  .progress-line{
+    width: 40px; height:4px; align-self:center;
+    background: rgba(255,255,255,0.2);
+    border-radius:4px;
+    margin-top:21px;
+  }
+  .progress-line.filled{
+    background: linear-gradient(90deg, var(--green), var(--cyan));
+  }
+
+  .card{
+    background: rgba(255,255,255,0.08);
+    border: 2px solid rgba(255,255,255,0.18);
+    border-radius: 26px;
+    padding: 26px;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 20px 50px rgba(20,0,50,0.4);
+    animation: cardIn 0.6s ease;
+    position:relative;
+    overflow:hidden;
+  }
+  @keyframes cardIn{
+    0%{ opacity:0; transform: translateY(30px) scale(0.96);}
+    100%{ opacity:1; transform: translateY(0) scale(1);}
+  }
+  .card::before{
+    content:"";
+    position:absolute;
+    top:-60px; right:-60px;
+    width:180px; height:180px;
+    background: radial-gradient(circle, rgba(244,114,182,0.35), transparent 70%);
+    border-radius:50%;
+    animation: floatBlob 10s linear infinite;
+  }
+
+  .activity-title{
+    font-size: clamp(20px,3.4vw,26px);
+    color: var(--yellow);
+    text-align:center;
+    margin-bottom:6px;
+  }
+  .activity-instructions{
+    text-align:center;
+    color: var(--v6);
+    margin-bottom: 22px;
+    font-size: clamp(13px, 2vw, 16px);
+  }
+
+  /* ============ ACTIVITY 1: circuit part matching ============ */
+  .match-zone{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap: 40px;
+    margin-top: 10px;
+  }
+  .drop-column, .drag-column{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    min-width: 240px;
+  }
+  .col-label{
+    text-align:center;
+    font-weight:bold;
+    color: var(--cyan);
+    margin-bottom:6px;
+    font-size:14px;
+    letter-spacing:1px;
+  }
+  .drop-slot{
+    min-height: 64px;
+    border: 3px dashed var(--v5);
+    border-radius: 16px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 8px 12px;
+    background: rgba(139,92,246,0.15);
+    transition: all 0.25s ease;
+    font-size:14px;
+    text-align:center;
+  }
+  .drop-slot.over{
+    background: rgba(244,114,182,0.3);
+    border-color: var(--pink);
+    transform: scale(1.04);
+  }
+  .drop-slot.filled{
+    border-style: solid;
+    border-color: var(--green);
+    background: rgba(74,222,128,0.18);
+  }
+  .drop-slot .slot-hint{
+    color: var(--v6);
+    font-style: italic;
+    font-size:13px;
+  }
+
+  .draggable{
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--pink), var(--v4));
+    color:#fff;
+    font-weight:bold;
+    text-align:center;
+    cursor: grab;
+    user-select:none;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.3);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    border: 2px solid rgba(255,255,255,0.35);
+    animation: wiggleIn 0.5s ease;
+    font-size:14px;
+  }
+  .draggable:hover{
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 10px 22px rgba(0,0,0,0.4);
+  }
+  .draggable:active{ cursor:grabbing; }
+  .draggable.dragging{
+    opacity:0.5;
+  }
+  .draggable.placed{
+    animation:none;
+    cursor:default;
+    padding:8px 10px;
+    font-size:13px;
+  }
+  @keyframes wiggleIn{
+    0%{ transform: rotate(-4deg) scale(0.9); opacity:0;}
+    60%{ transform: rotate(3deg) scale(1.02);}
+    100%{ transform: rotate(0) scale(1); opacity:1;}
+  }
+
+  /* ============ ACTIVITY 2: build the circuit order ============ */
+  .order-zone{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:18px;
+  }
+  .order-slots{
+    display:flex;
+    flex-wrap:wrap;
+    gap: 14px;
+    justify-content:center;
+  }
+  .order-slot{
+    width: 150px;
+    min-height: 90px;
+    border:3px dashed var(--v5);
+    border-radius:16px;
+    background: rgba(139,92,246,0.15);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:8px;
+    position:relative;
+    transition: all 0.25s ease;
+  }
+  .order-slot .step-num{
+    position:absolute; top:-14px; left:-14px;
+    background: var(--yellow);
+    color:#3b0764;
+    font-weight:bold;
+    width:30px; height:30px;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 10px rgba(0,0,0,0.3);
+    font-size:15px;
+  }
+  .order-slot.over{ background: rgba(244,114,182,0.3); border-color:var(--pink); transform:scale(1.05);}
+  .order-slot.filled{ border-style:solid; border-color: var(--green); background: rgba(74,222,128,0.18);}
+
+  .order-pool{
+    display:flex;
+    flex-wrap:wrap;
+    gap:14px;
+    justify-content:center;
+    margin-top:10px;
+    padding-top:16px;
+    border-top: 2px dotted rgba(255,255,255,0.25);
+    width:100%;
+  }
+  .order-card{
+    width:140px;
+    padding: 14px 10px;
+    border-radius:16px;
+    background: linear-gradient(135deg, var(--cyan), var(--v4));
+    color:#0a1a2e;
+    font-weight:bold;
+    text-align:center;
+    cursor:grab;
+    user-select:none;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.3);
+    border:2px solid rgba(255,255,255,0.4);
+    font-size:13px;
+    animation: wiggleIn 0.5s ease;
+  }
+  .order-card:active{ cursor:grabbing; }
+  .order-card.dragging{ opacity:0.5; }
+  .order-card.placed{ animation:none; cursor:default; }
+
+  /* ============ ACTIVITY 3: resistor calculation ============ */
+  .calc-zone{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:22px;
+  }
+  .formula-box{
+    background: rgba(0,0,0,0.25);
+    border-radius:18px;
+    padding:18px 26px;
+    font-size: clamp(16px,3vw,22px);
+    text-align:center;
+    color: var(--yellow);
+    border: 2px solid var(--v5);
+  }
+  .calc-values{
+    display:flex;
+    gap:24px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .value-chip{
+    background: rgba(255,255,255,0.1);
+    padding:10px 18px;
+    border-radius:14px;
+    font-weight:bold;
+    color:var(--v6);
+    border:2px solid var(--v4);
+  }
+  .answer-slots{
+    display:flex;
+    gap:12px;
+    justify-content:center;
+    flex-wrap:wrap;
+  }
+  .answer-slot{
+    width:110px; height:70px;
+    border:3px dashed var(--v5);
+    border-radius:14px;
+    background: rgba(139,92,246,0.15);
+    display:flex; align-items:center; justify-content:center;
+    font-size:20px; font-weight:bold;
+    transition: all 0.25s ease;
+  }
+  .answer-slot.over{ background: rgba(244,114,182,0.3); border-color:var(--pink); transform:scale(1.06);}
+  .answer-slot.filled{ border-style:solid; border-color:var(--green); background: rgba(74,222,128,0.18);}
+  .option-pool{
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+    justify-content:center;
+    margin-top: 6px;
+  }
+  .option-chip{
+    width:100px; height:60px;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:14px;
+    background: linear-gradient(135deg, var(--orange), var(--pink));
+    color:#3b0764;
+    font-weight:bold;
+    font-size:19px;
+    cursor:grab;
+    user-select:none;
+    box-shadow:0 6px 14px rgba(0,0,0,0.3);
+    border:2px solid rgba(255,255,255,0.4);
+    animation: wiggleIn 0.5s ease;
+  }
+  .option-chip:active{cursor:grabbing;}
+  .option-chip.dragging{opacity:0.5;}
+  .option-chip.placed{animation:none;cursor:default;}
+
+  .led-preview{
+    width:70px;height:70px;
+    border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #fff, var(--red) 60%, #7f1d1d);
+    margin: 0 auto 8px;
+    box-shadow: 0 0 0 rgba(248,113,113,0);
+    transition: box-shadow 0.4s ease;
+  }
+  .led-preview.lit{
+    animation: ledGlow 1s ease-in-out infinite alternate;
+  }
+  @keyframes ledGlow{
+    from{ box-shadow: 0 0 20px 8px rgba(248,113,113,0.5);}
+    to{ box-shadow: 0 0 40px 18px rgba(248,113,113,0.9);}
+  }
+
+  .check-btn{
+    margin-top: 26px;
+    display:block;
+    margin-left:auto; margin-right:auto;
+    padding: 14px 36px;
+    font-size:18px;
+    font-weight:bold;
+    border:none;
+    border-radius: 50px;
+    background: linear-gradient(135deg, var(--yellow), var(--orange));
+    color:#3b0764;
+    cursor:pointer;
+    box-shadow: 0 8px 20px rgba(251,146,60,0.4);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .check-btn:hover{ transform: translateY(-3px) scale(1.04); box-shadow: 0 12px 26px rgba(251,146,60,0.55);}
+  .check-btn:active{ transform: translateY(0) scale(0.98); }
+  .check-btn:disabled{
+    opacity:0.4;
+    cursor:not-allowed;
+    transform:none;
+  }
+
+  /* ============ POPUPS ============ */
+  .overlay{
+    position:fixed; inset:0;
+    background: rgba(20,0,45,0.65);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    backdrop-filter: blur(3px);
+  }
+  .overlay.show{ display:flex; animation: fadeBg 0.3s ease; }
+  @keyframes fadeBg{ from{opacity:0;} to{opacity:1;} }
+
+  .popup{
+    background: linear-gradient(145deg, var(--v3), var(--v2));
+    border-radius: 28px;
+    padding: 34px 40px;
+    text-align:center;
+    max-width: 380px;
+    border: 3px solid var(--v6);
+    box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+  }
+  .popup.try-again{
+    animation: shakePop 0.6s ease;
+    border-color: var(--red);
+  }
+  @keyframes shakePop{
+    0%{ transform: translate(0,40px) scale(0.7); opacity:0;}
+    40%{ transform: translate(0,0) scale(1.05); opacity:1;}
+    50%{ transform: translateX(-10px);}
+    60%{ transform: translateX(10px);}
+    70%{ transform: translateX(-6px);}
+    80%{ transform: translateX(6px);}
+    100%{ transform: translateX(0);}
+  }
+  .popup.next-activity{
+    animation: popBounce 0.6s cubic-bezier(.36,1.5,.64,1);
+    border-color: var(--green);
+  }
+  @keyframes popBounce{
+    0%{ transform: scale(0.4) rotate(-10deg); opacity:0;}
+    60%{ transform: scale(1.1) rotate(4deg); opacity:1;}
+    100%{ transform: scale(1) rotate(0);}
+  }
+  .popup-emoji{
+    font-size: 60px;
+    display:block;
+    margin-bottom: 10px;
+    animation: emojiSpin 1s ease-in-out infinite alternate;
+  }
+  @keyframes emojiSpin{
+    from{ transform: rotate(-12deg) scale(1);}
+    to{ transform: rotate(12deg) scale(1.15);}
+  }
+  .popup h2{
+    margin: 6px 0 10px;
+    font-size: 26px;
+    color: var(--yellow);
+  }
+  .popup p{
+    color: var(--v6);
+    font-size:15px;
+    margin-bottom: 20px;
+  }
+  .popup-btn{
+    padding: 12px 30px;
+    border:none;
+    border-radius: 50px;
+    font-weight:bold;
+    font-size:16px;
+    cursor:pointer;
+    background: linear-gradient(135deg, var(--green), var(--cyan));
+    color:#062a1a;
+    box-shadow: 0 8px 18px rgba(74,222,128,0.4);
+    transition: transform 0.15s ease;
+  }
+  .popup-btn:hover{ transform: translateY(-2px) scale(1.05); }
+  .popup.try-again .popup-btn{
+    background: linear-gradient(135deg, var(--red), var(--orange));
+    box-shadow: 0 8px 18px rgba(248,113,113,0.4);
+    color:#3b0764;
+  }
+
+  /* ============ CELEBRATION SCREEN ============ */
+  .celebration{
+    position:fixed; inset:0;
+    background: linear-gradient(-45deg, var(--v1), var(--pink), var(--v3), var(--cyan));
+    background-size: 400% 400%;
+    animation: gradientShift 8s ease infinite;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    z-index:200;
+    text-align:center;
+    overflow:hidden;
+  }
+  .celebration.show{ display:flex; }
+  .celebration h1{
+    font-size: clamp(34px,7vw,64px);
+    margin-bottom:10px;
+    animation: popIn 0.8s ease, floatTitle 2.4s ease-in-out infinite 0.8s;
+  }
+  @keyframes floatTitle{
+    0%,100%{ transform: translateY(0);}
+    50%{ transform: translateY(-14px);}
+  }
+  .celebration p{
+    font-size: clamp(16px,3vw,22px);
+    color:#fff;
+    margin-bottom: 30px;
+    max-width:520px;
+  }
+  .trophy{
+    font-size: 90px;
+    animation: trophySpin 2s ease-in-out infinite;
+    margin-bottom: 10px;
+  }
+  @keyframes trophySpin{
+    0%,100%{ transform: rotate(-10deg) scale(1);}
+    50%{ transform: rotate(10deg) scale(1.15);}
+  }
+  .play-again-btn{
+    padding: 16px 44px;
+    font-size:20px;
+    font-weight:bold;
+    border:none;
+    border-radius:50px;
+    background: linear-gradient(135deg, var(--yellow), var(--pink));
+    color:#3b0764;
+    cursor:pointer;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.4);
+    transition: transform 0.15s ease;
+    z-index:5;
+    position:relative;
+  }
+  .play-again-btn:hover{ transform: scale(1.08) translateY(-3px); }
+
+  .confetti-piece{
+    position:absolute;
+    top:-20px;
+    width:12px; height:12px;
+    opacity:0.9;
+    animation: confettiFall linear infinite;
+    z-index:1;
+  }
+  @keyframes confettiFall{
+    0%{ transform: translateY(-20px) rotate(0deg); opacity:1;}
+    100%{ transform: translateY(110vh) rotate(720deg); opacity:0.9;}
+  }
+
+  .mascot-row{
+    display:flex;
+    gap: 22px;
+    margin-top: 6px;
+    font-size: 46px;
+  }
+  .mascot-row span{
+    display:inline-block;
+    animation: mascotBounce 1.4s ease-in-out infinite;
+  }
+  .mascot-row span:nth-child(2){ animation-delay:0.2s; }
+  .mascot-row span:nth-child(3){ animation-delay:0.4s; }
+  .mascot-row span:nth-child(4){ animation-delay:0.6s; }
+  @keyframes mascotBounce{
+    0%,100%{ transform: translateY(0) rotate(0);}
+    50%{ transform: translateY(-20px) rotate(10deg);}
+  }
+
+  @media (max-width:600px){
+    .match-zone{ flex-direction:column; align-items:center; }
+    .drag-column, .drop-column{ min-width: 90%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stars" id="starsField"></div>
+
+<div class="wrap">
+  <header>
+    <div class="bouncy-icon">💡</div>
+    <h1>Light It Up!</h1>
+  </header>
+
+  <div class="progress-track" id="progressTrack">
+    <div class="progress-dot active" id="dot1">1</div>
+    <div class="progress-line" id="line1"></div>
+    <div class="progress-dot" id="dot2">2</div>
+    <div class="progress-line" id="line2"></div>
+    <div class="progress-dot" id="dot3">3</div>
+  </div>
+
+  <!-- ACTIVITY 1 -->
+  <div class="card activity" id="activity1">
+    <div class="activity-title">🔍 Activity 1: Match the Circuit Parts</div>
+    <div class="activity-instructions">Drag each part to the box that describes what it does!</div>
+
+    <div class="match-zone">
+      <div class="drop-column">
+        <div class="col-label">WHAT IT DOES</div>
+        <div class="drop-slot" data-answer="led" ondrop="dropMatch(event)" ondragover="allowDrop(event)" ondragleave="dragLeaveMatch(event)">
+          <span class="slot-hint">Lights up when current flows ✨</span>
+        </div>
+        <div class="drop-slot" data-answer="resistor" ondrop="dropMatch(event)" ondragover="allowDrop(event)" ondragleave="dragLeaveMatch(event)">
+          <span class="slot-hint">Limits current to protect the LED 🛡️</span>
+        </div>
+        <div class="drop-slot" data-answer="board" ondrop="dropMatch(event)" ondragover="allowDrop(event)" ondragleave="dragLeaveMatch(event)">
+          <span class="slot-hint">Sends power out through its pins 🧠</span>
+        </div>
+        <div class="drop-slot" data-answer="wire" ondrop="dropMatch(event)" ondragover="allowDrop(event)" ondragleave="dragLeaveMatch(event)">
+          <span class="slot-hint">Carries electricity between parts 🔗</span>
+        </div>
+      </div>
+
+      <div class="drag-column" id="dragColumn1">
+        <div class="col-label">CIRCUIT PARTS</div>
+        <div class="draggable" draggable="true" id="led" ondragstart="dragStart(event)" ondragend="dragEnd(event)">💡 LED</div>
+        <div class="draggable" draggable="true" id="resistor" ondragstart="dragStart(event)" ondragend="dragEnd(event)">🌀 Resistor</div>
+        <div class="draggable" draggable="true" id="board" ondragstart="dragStart(event)" ondragend="dragEnd(event)">🔷 Arduino Board</div>
+        <div class="draggable" draggable="true" id="wire" ondragstart="dragStart(event)" ondragend="dragEnd(event)">🔌 Jumper Wire</div>
+      </div>
+    </div>
+
+    <button class="check-btn" id="check1" onclick="checkActivity1()" disabled>Check My Answers! 🚀</button>
+  </div>
+
+  <!-- ACTIVITY 2 -->
+  <div class="card activity" id="activity2" style="display:none;">
+    <div class="activity-title">🛠️ Activity 2: Build the Circuit in Order</div>
+    <div class="activity-instructions">Drag the steps into the correct build order, from first to last!</div>
+
+    <div class="order-zone">
+      <div class="order-slots" id="orderSlots">
+        <div class="order-slot" data-step="1" ondrop="dropOrder(event)" ondragover="allowDrop(event)" ondragleave="dragLeaveOrder(event)"><div class="step-num">1</div><span class="slot-hint">First step</span></div>
+        <div class="order-slot" data-step="2" ondrop="dropOrder(event)" ondragover="allowDrop(event)" ondragleave="dragLeaveOrder(event)"><div class="step-num">2</div><span class="slot-hint">Second step</span></div>
+        <div class="order-slot" data-step="3" ondrop="dropOrder(event)" ondragover="allowDrop(event)" ondragleave="dragLeaveOrder(event)"><div class="step-num">3</div><span class="slot-hint">Third step</span></div>
+        <div class="order-slot" data-step="4" ondrop="dropOrder(event)" ondragover="allowDrop(event)" ondragleave="dragLeaveOrder(event)"><div class="step-num">4</div><span class="slot-hint">Fourth step</span></div>
+      </div>
+
+      <div class="order-pool" id="orderPool">
+        <div class="order-card" draggable="true" id="step-resistor" data-step="1" ondragstart="dragStart(event)" ondragend="dragEnd(event)">🌀 Connect resistor to the Arduino pin</div>
+        <div class="order-card" draggable="true" id="step-led-pos" data-step="2" ondragstart="dragStart(event)" ondragend="dragEnd(event)">💡 Connect resistor to LED's long leg (+)</div>
+        <div class="order-card" draggable="true" id="step-led-neg" data-step="3" ondragstart="dragStart(event)" ondragend="dragEnd(event)">🔌 Connect LED's short leg (-) to a wire</div>
+        <div class="order-card" draggable="true" id="step-ground" data-step="4" ondragstart="dragStart(event)" ondragend="dragEnd(event)">🌍 Connect wire to Arduino GND pin</div>
+      </div>
+    </div>
+
+    <button class="check-btn" id="check2" onclick="checkActivity2()" disabled>Check My Order! 🚀</button>
+  </div>
+
+  <!-- ACTIVITY 3 -->
+  <div class="card activity" id="activity3" style="display:none;">
+    <div class="activity-title">🧮 Activity 3: Calculate the Resistor Value</div>
+    <div class="activity-instructions">Use Ohm's Law to find the missing values, then drag the right answer into each box!</div>
+
+    <div class="calc-zone">
+      <div class="led-preview" id="ledPreview"></div>
+      <div class="formula-box">R = (V<sub>supply</sub> − V<sub>LED</sub>) ÷ I</div>
+      <div class="calc-values">
+        <div class="value-chip">V supply = 9V</div>
+        <div class="value-chip">V LED = 2V</div>
+        <div class="value-chip">I = 0.01A</div>
+      </div>
+
+      <div class="activity-instructions" style="margin-top:6px;">Step 1: What is V supply − V LED?</div>
+      <div class="answer-slots">
+        <div class="answer-slot" data-answer="7" ondrop="dropCalc(event)" ondragover="allowDrop(event)" ondragleave="dragLeaveCalc(event)">?</div>
+      </div>
+
+      <div class="activity-instructions" style="margin-top:10px;">Step 2: What is the final Resistor value (R)?</div>
+      <div class="answer-slots">
+        <div class="answer-slot" data-answer="700" ondrop="dropCalc(event)" ondragover="allowDrop(event)" ondragleave="dragLeaveCalc(event)">?</div>
+        <div class="value-chip" style="align-self:center;">Ω (ohms)</div>
+      </div>
+
+      <div class="option-pool" id="optionPool">
+        <div class="option-chip" draggable="true" id="opt-7" data-value="7" ondragstart="dragStart(event)" ondragend="dragEnd(event)">7</div>
+        <div class="option-chip" draggable="true" id="opt-700" data-value="700" ondragstart="dragStart(event)" ondragend="dragEnd(event)">700</div>
+        <div class="option-chip" draggable="true" id="opt-11" data-value="11" ondragstart="dragStart(event)" ondragend="dragEnd(event)">11</div>
+        <div class="option-chip" draggable="true" id="opt-90" data-value="90" ondragstart="dragStart(event)" ondragend="dragEnd(event)">90</div>
+      </div>
+    </div>
+
+    <button class="check-btn" id="check3" onclick="checkActivity3()" disabled>Check My Math! 🚀</button>
+  </div>
+</div>
+
+<!-- Try Again popup -->
+<div class="overlay" id="tryAgainOverlay">
+  <div class="popup try-again">
+    <span class="popup-emoji">😅</span>
+    <h2>Not Quite!</h2>
+    <p id="tryAgainMsg">Give it another shot — you're getting closer!</p>
+    <button class="popup-btn" onclick="closeTryAgain()">Try Again 🔁</button>
+  </div>
+</div>
+
+<!-- Next Activity popup -->
+<div class="overlay" id="nextOverlay">
+  <div class="popup next-activity">
+    <span class="popup-emoji">🎉</span>
+    <h2>Awesome Job!</h2>
+    <p id="nextMsg">You completed this activity perfectly!</p>
+    <button class="popup-btn" onclick="goToNextActivity()">Next Activity ➡️</button>
+  </div>
+</div>
+
+<!-- Celebration Screen -->
+<div class="celebration" id="celebration">
+  <div class="trophy">🏆</div>
+  <h1>You Did It!</h1>
+  <p>You matched the parts, built the circuit, and cracked the resistor math like a true circuit wizard!</p>
+  <div class="mascot-row">
+    <span>💡</span><span>🔋</span><span>🌈</span><span>⚡</span>
+  </div>
+  <br>
+  <button class="play-again-btn" onclick="resetAll()">Play Again 🔄</button>
+</div>
+
+<script>
+/* ---------- Floating background blobs & stars ---------- */
+const blobColors = ['#f472b6','#22d3ee','#fde047','#a78bfa','#4ade80','#fb923c'];
+for(let i=0;i<10;i++){
+  const b = document.createElement('div');
+  b.className='blob';
+  const size = 60 + Math.random()*120;
+  b.style.width=size+'px';
+  b.style.height=size+'px';
+  b.style.left = Math.random()*100+'vw';
+  b.style.top = Math.random()*100+'vh';
+  b.style.background = blobColors[i % blobColors.length];
+  b.style.animationDuration = (10+Math.random()*10)+'s';
+  document.body.appendChild(b);
+}
+
+const starEmojis = ['✨','⭐','🌟','💫'];
+const starsField = document.getElementById('starsField');
+for(let i=0;i<18;i++){
+  const s = document.createElement('div');
+  s.className='star';
+  s.textContent = starEmojis[Math.floor(Math.random()*starEmojis.length)];
+  s.style.left = Math.random()*100+'vw';
+  s.style.top = Math.random()*100+'vh';
+  s.style.animationDelay = (Math.random()*3)+'s, '+(Math.random()*5)+'s';
+  starsField.appendChild(s);
+}
+
+/* ---------- Drag and drop generic handlers ---------- */
+let draggedEl = null;
+
+function dragStart(e){
+  draggedEl = e.target;
+  e.target.classList.add('dragging');
+  e.dataTransfer.setData('text/plain', e.target.id);
+}
+function dragEnd(e){
+  e.target.classList.remove('dragging');
+}
+function allowDrop(e){
+  e.preventDefault();
+  const slot = e.currentTarget;
+  if(!slot.classList.contains('filled')){
+    slot.classList.add('over');
+  }
+}
+function dragLeaveMatch(e){ e.currentTarget.classList.remove('over'); }
+function dragLeaveOrder(e){ e.currentTarget.classList.remove('over'); }
+function dragLeaveCalc(e){ e.currentTarget.classList.remove('over'); }
+
+/* ---------- Activity 1: Match ---------- */
+let matchState = {};
+function dropMatch(e){
+  e.preventDefault();
+  const slot = e.currentTarget;
+  slot.classList.remove('over');
+  if(slot.classList.contains('filled')) return;
+  const id = e.dataTransfer.getData('text/plain');
+  const el = document.getElementById(id);
+  if(!el || !el.classList.contains('draggable')) return;
+
+  slot.innerHTML = '';
+  slot.appendChild(el);
+  el.classList.add('placed');
+  el.setAttribute('draggable','false');
+  slot.classList.add('filled');
+  matchState[slot.dataset.answer] = id;
+
+  checkActivity1Ready();
+}
+function checkActivity1Ready(){
+  const slots = document.querySelectorAll('#activity1 .drop-slot');
+  const allFilled = [...slots].every(s => s.classList.contains('filled'));
+  document.getElementById('check1').disabled = !allFilled;
+}
+function checkActivity1(){
+  const slots = document.querySelectorAll('#activity1 .drop-slot');
+  let allCorrect = true;
+  slots.forEach(s => {
+    if(matchState[s.dataset.answer] !== s.dataset.answer){
+      allCorrect = false;
+    }
+  });
+  if(allCorrect){
+    showNextPopup("Awesome Job!","You matched every circuit part perfectly! You really know your Arduino parts! 🔧");
+  } else {
+    showTryAgainPopup("Some matches aren't quite right. Take a peek and try swapping them!");
+  }
+}
+
+/* ---------- Activity 2: Order ---------- */
+let orderState = {};
+function dropOrder(e){
+  e.preventDefault();
+  const slot = e.currentTarget;
+  slot.classList.remove('over');
+  if(slot.classList.contains('filled')) return;
+  const id = e.dataTransfer.getData('text/plain');
+  const el = document.getElementById(id);
+  if(!el || !el.classList.contains('order-card')) return;
+
+  const stepLabel = slot.querySelector('.step-num').outerHTML;
+  slot.innerHTML = stepLabel;
+  slot.appendChild(el);
+  el.classList.add('placed');
+  el.setAttribute('draggable','false');
+  slot.classList.add('filled');
+  orderState[slot.dataset.step] = id;
+
+  checkActivity2Ready();
+}
+function checkActivity2Ready(){
+  const slots = document.querySelectorAll('#activity2 .order-slot');
+  const allFilled = [...slots].every(s => s.classList.contains('filled'));
+  document.getElementById('check2').disabled = !allFilled;
+}
+function checkActivity2(){
+  const slots = document.querySelectorAll('#activity2 .order-slot');
+  let allCorrect = true;
+  slots.forEach(s => {
+    const el = document.getElementById(orderState[s.dataset.step]);
+    if(!el || el.dataset.step !== s.dataset.step){
+      allCorrect = false;
+    }
+  });
+  if(allCorrect){
+    showNextPopup("Circuit Complete!","You built the whole circuit in the perfect order! Bright work! 💡");
+  } else {
+    showTryAgainPopup("The build order isn't quite right yet. Think about how current flows and try again!");
+  }
+}
+
+/* ---------- Activity 3: Calc ---------- */
+let calcState = {};
+function dropCalc(e){
+  e.preventDefault();
+  const slot = e.currentTarget;
+  slot.classList.remove('over');
+  if(slot.classList.contains('filled')) return;
+  const id = e.dataTransfer.getData('text/plain');
+  const el = document.getElementById(id);
+  if(!el || !el.classList.contains('option-chip')) return;
+
+  slot.innerHTML = '';
+  slot.appendChild(el);
+  el.classList.add('placed');
+  el.setAttribute('draggable','false');
+  slot.classList.add('filled');
+  calcState[slot.dataset.answer] = el.dataset.value;
+
+  checkActivity3Ready();
+}
+function checkActivity3Ready(){
+  const slots = document.querySelectorAll('#activity3 .answer-slot');
+  const allFilled = [...slots].every(s => s.classList.contains('filled'));
+  document.getElementById('check3').disabled = !allFilled;
+}
+function checkActivity3(){
+  const slots = document.querySelectorAll('#activity3 .answer-slot');
+  let allCorrect = true;
+  slots.forEach(s => {
+    if(calcState[s.dataset.answer] !== s.dataset.answer){
+      allCorrect = false;
+    }
+  });
+  if(allCorrect){
+    document.getElementById('ledPreview').classList.add('lit');
+    setTimeout(()=>{
+      showFinalCelebration();
+    }, 700);
+  } else {
+    showTryAgainPopup("The math isn't quite right. Check the formula and try dragging different numbers!");
+  }
+}
+
+/* ---------- Popups ---------- */
+function showTryAgainPopup(msg){
+  document.getElementById('tryAgainMsg').textContent = msg;
+  document.getElementById('tryAgainOverlay').classList.add('show');
+}
+function closeTryAgain(){
+  document.getElementById('tryAgainOverlay').classList.remove('show');
+}
+
+let currentActivityIndex = 1;
+function showNextPopup(title, msg){
+  document.querySelector('#nextOverlay h2').textContent = title;
+  document.getElementById('nextMsg').textContent = msg;
+  document.getElementById('nextOverlay').classList.add('show');
+}
+function goToNextActivity(){
+  document.getElementById('nextOverlay').classList.remove('show');
+
+  document.getElementById('dot'+currentActivityIndex).classList.remove('active');
+  document.getElementById('dot'+currentActivityIndex).classList.add('done');
+  document.getElementById('dot'+currentActivityIndex).textContent = '✓';
+  if(currentActivityIndex < 3){
+    document.getElementById('line'+currentActivityIndex).classList.add('filled');
+  }
+
+  document.getElementById('activity'+currentActivityIndex).style.display = 'none';
+  currentActivityIndex++;
+  const nextCard = document.getElementById('activity'+currentActivityIndex);
+  if(nextCard){
+    nextCard.style.display = 'block';
+    document.getElementById('dot'+currentActivityIndex).classList.add('active');
+    nextCard.style.animation = 'none';
+    void nextCard.offsetWidth;
+    nextCard.style.animation = 'cardIn 0.6s ease';
+    nextCard.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+}
+
+function showFinalCelebration(){
+  document.getElementById('dot3').classList.remove('active');
+  document.getElementById('dot3').classList.add('done');
+  document.getElementById('dot3').textContent = '✓';
+
+  const celeb = document.getElementById('celebration');
+  celeb.classList.add('show');
+  launchConfetti();
+}
+
+function launchConfetti(){
+  const colors = ['#f472b6','#fde047','#22d3ee','#a78bfa','#4ade80','#fb923c','#fff'];
+  const celeb = document.getElementById('celebration');
+  const existing = celeb.querySelectorAll('.confetti-piece');
+  existing.forEach(e=>e.remove());
+
+  for(let i=0;i<90;i++){
+    const piece = document.createElement('div');
+    piece.className='confetti-piece';
+    piece.style.left = Math.random()*100+'vw';
+    piece.style.background = colors[Math.floor(Math.random()*colors.length)];
+    const isCircle = Math.random() > 0.5;
+    piece.style.borderRadius = isCircle ? '50%' : '2px';
+    piece.style.width = (8+Math.random()*8)+'px';
+    piece.style.height = piece.style.width;
+    piece.style.animationDuration = (2.5+Math.random()*3)+'s';
+    piece.style.animationDelay = (Math.random()*3)+'s';
+    celeb.appendChild(piece);
+  }
+}
+
+/* ---------- Reset ---------- */
+function resetAll(){
+  document.getElementById('celebration').classList.remove('show');
+
+  // reset activity 1
+  const dragCol1 = document.getElementById('dragColumn1');
+  ['led','resistor','board','wire'].forEach(id=>{
+    const el = document.getElementById(id);
+    el.classList.remove('placed');
+    el.setAttribute('draggable','true');
+    dragCol1.appendChild(el);
+  });
+  document.querySelectorAll('#activity1 .drop-slot').forEach(s=>{
+    s.classList.remove('filled','over');
+    const hints = {
+      led:"Lights up when current flows ✨",
+      resistor:"Limits current to protect the LED 🛡️",
+      board:"Sends power out through its pins 🧠",
+      wire:"Carries electricity between parts 🔗"
+    };
+    s.innerHTML = '<span class="slot-hint">'+hints[s.dataset.answer]+'</span>';
+  });
+  matchState = {};
+  document.getElementById('check1').disabled = true;
+
+  // reset activity 2
+  const orderPool = document.getElementById('orderPool');
+  ['step-resistor','step-led-pos','step-led-neg','step-ground'].forEach(id=>{
+    const el = document.getElementById(id);
+    el.classList.remove('placed');
+    el.setAttribute('draggable','true');
+    orderPool.appendChild(el);
+  });
+  document.querySelectorAll('#activity2 .order-slot').forEach(s=>{
+    s.classList.remove('filled','over');
+    const stepNum = s.dataset.step;
+    s.innerHTML = '<div class="step-num">'+stepNum+'</div><span class="slot-hint">'+
+      (stepNum==1?'First step':stepNum==2?'Second step':stepNum==3?'Third step':'Fourth step')+'</span>';
+  });
+  orderState = {};
+  document.getElementById('check2').disabled = true;
+
+  // reset activity 3
+  const optionPool = document.getElementById('optionPool');
+  ['opt-7','opt-700','opt-11','opt-90'].forEach(id=>{
+    const el = document.getElementById(id);
+    el.classList.remove('placed');
+    el.setAttribute('draggable','true');
+    optionPool.appendChild(el);
+  });
+  document.querySelectorAll('#activity3 .answer-slot').forEach(s=>{
+    s.classList.remove('filled','over');
+    s.innerHTML = '?';
+  });
+  document.getElementById('ledPreview').classList.remove('lit');
+  calcState = {};
+  document.getElementById('check3').disabled = true;
+
+  // reset progress dots
+  currentActivityIndex = 1;
+  for(let i=1;i<=3;i++){
+    const dot = document.getElementById('dot'+i);
+    dot.classList.remove('active','done');
+    dot.textContent = i;
+  }
+  document.getElementById('dot1').classList.add('active');
+  document.getElementById('line1').classList.remove('filled');
+  document.getElementById('line2').classList.remove('filled');
+
+  // show only activity 1
+  document.getElementById('activity1').style.display = 'block';
+  document.getElementById('activity2').style.display = 'none';
+  document.getElementById('activity3').style.display = 'none';
+
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+</script>
+</body>
+</html>

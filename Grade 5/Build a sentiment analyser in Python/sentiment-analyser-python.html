@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build a Sentiment Analyser in Python</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@400;600;700;800;900&display=swap');
+
+:root{
+  --space-bg:#020818;
+  --deep:#060f2e;
+  --pos:#00ff88;
+  --neg:#ff4466;
+  --neu:#ffcc00;
+  --cyan:#00d4ff;
+  --purple:#a855f7;
+  --orange:#ff8c00;
+  --card-bg:rgba(6,15,46,0.85);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Exo 2',sans-serif;background:var(--space-bg);color:#fff;user-select:none;}
+
+/* ===== DEEP SPACE BG ===== */
+#cosmos{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+
+.star{position:absolute;border-radius:50%;background:#fff;animation:twinkle ease-in-out infinite;}
+@keyframes twinkle{0%,100%{opacity:.2;transform:scale(1)}50%{opacity:1;transform:scale(1.4)}}
+
+.shooting-star{
+  position:absolute;width:120px;height:2px;
+  background:linear-gradient(90deg,rgba(255,255,255,0),#fff,rgba(0,212,255,0.8));
+  border-radius:2px;animation:shoot linear infinite;
+}
+@keyframes shoot{0%{transform:translateX(-200px) translateY(0) rotate(-25deg);opacity:0}10%{opacity:1}80%{opacity:.8}100%{transform:translateX(130vw) translateY(60px) rotate(-25deg);opacity:0}}
+
+.planet{
+  position:absolute;border-radius:50%;
+  animation:orbit ease-in-out infinite alternate;
+}
+@keyframes orbit{0%{transform:translateY(0) scale(1)}100%{transform:translateY(-14px) scale(1.04)}}
+
+.asteroid{
+  position:absolute;width:8px;height:4px;border-radius:40%;
+  background:rgba(200,180,150,0.5);animation:drift linear infinite;
+}
+@keyframes drift{from{transform:translateX(0) rotate(0deg)}to{transform:translateX(100vw) rotate(360deg)}}
+
+.satellite{
+  position:absolute;animation:satOrbit linear infinite;
+}
+@keyframes satOrbit{from{transform:rotate(0deg) translateX(60px) rotate(0deg)}to{transform:rotate(360deg) translateX(60px) rotate(-360deg)}}
+
+.cosmic-particle{
+  position:absolute;width:2px;height:2px;border-radius:50%;
+  animation:cosmicFloat ease-in-out infinite;
+}
+@keyframes cosmicFloat{0%,100%{transform:translate(0,0);opacity:.3}50%{transform:translate(var(--dx,10px),var(--dy,-15px));opacity:.9}}
+
+.nebula{
+  position:absolute;border-radius:50%;
+  filter:blur(40px);opacity:.07;animation:nebulaPulse ease-in-out infinite;
+}
+@keyframes nebulaPulse{0%,100%{opacity:.05;transform:scale(1)}50%{opacity:.12;transform:scale(1.08)}}
+
+/* ===== APP ===== */
+#app{position:relative;z-index:10;width:100vw;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px;}
+
+/* header */
+#hdr{text-align:center;margin-bottom:7px;flex-shrink:0;}
+#hdr h1{
+  font-family:'Rajdhani',sans-serif;font-size:clamp(13px,2.1vw,22px);font-weight:700;letter-spacing:2px;
+  background:linear-gradient(90deg,var(--cyan),var(--pos),var(--neu),var(--purple));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:hdrGlow 3s ease-in-out infinite;
+}
+@keyframes hdrGlow{0%,100%{filter:drop-shadow(0 0 4px rgba(0,212,255,.5))}50%{filter:drop-shadow(0 0 12px rgba(0,212,255,.9))}}
+#hdr p{font-size:clamp(8px,1vw,10px);color:rgba(255,255,255,.4);letter-spacing:3px;margin-top:1px;}
+
+/* progress */
+#prog{display:flex;gap:6px;align-items:center;margin-bottom:7px;flex-shrink:0;}
+.ps{display:flex;align-items:center;gap:4px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;color:rgba(255,255,255,.3);letter-spacing:1px;transition:all .4s;}
+.pnum{width:21px;height:21px;border-radius:50%;border:2px solid rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:9px;font-family:'Share Tech Mono',monospace;transition:all .4s;}
+.ps.active .pnum{border-color:var(--cyan);background:rgba(0,212,255,.12);color:var(--cyan);box-shadow:0 0 10px rgba(0,212,255,.4);}
+.ps.active{color:var(--cyan);}
+.ps.done .pnum{border-color:var(--pos);background:rgba(0,255,136,.12);color:var(--pos);}
+.ps.done{color:var(--pos);}
+.pd{width:26px;height:1px;background:rgba(255,255,255,.1);border-radius:1px;}
+
+/* card */
+#card{
+  background:linear-gradient(145deg,rgba(6,15,46,.9),rgba(2,8,24,.95));
+  border:1px solid rgba(0,212,255,.18);border-radius:18px;
+  padding:15px 18px 13px;width:min(820px,96vw);flex-shrink:0;
+  backdrop-filter:blur(16px);
+  box-shadow:0 0 50px rgba(0,212,255,.07),0 8px 32px rgba(0,0,0,.6);
+}
+.ah{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:9px;}
+.atag{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;padding:2px 9px;border-radius:20px;font-weight:400;}
+.t1{background:rgba(0,255,136,.1);color:var(--pos);border:1px solid rgba(0,255,136,.3);}
+.t2{background:rgba(168,85,247,.1);color:var(--purple);border:1px solid rgba(168,85,247,.3);}
+.t3{background:rgba(0,212,255,.1);color:var(--cyan);border:1px solid rgba(0,212,255,.3);}
+.atitle{font-size:clamp(13px,1.6vw,16px);font-weight:700;color:#fff;margin-top:2px;font-family:'Rajdhani',sans-serif;letter-spacing:.5px;}
+.asub{font-size:clamp(9px,1.1vw,11px);color:rgba(255,255,255,.4);margin-top:1px;}
+.rbtn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.55);font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:600;padding:4px 11px;border-radius:20px;cursor:pointer;transition:all .2s;flex-shrink:0;letter-spacing:1px;}
+.rbtn:hover{background:rgba(255,255,255,.12);color:#fff;}
+
+/* feedback */
+#fb{text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;min-height:16px;color:rgba(255,255,255,.4);flex-shrink:0;margin-top:3px;}
+#fb.ok{color:var(--pos);}#fb.bad{color:var(--neg);}
+
+/* next */
+#nxt{display:none;margin:5px auto 0;background:linear-gradient(135deg,var(--cyan),var(--purple));color:#000;border:none;border-radius:22px;padding:9px 26px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;letter-spacing:1px;cursor:pointer;transition:all .25s;box-shadow:0 4px 18px rgba(0,212,255,.35);}
+#nxt:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 6px 26px rgba(0,212,255,.5);}
+
+/* draggable shared */
+.draggable{cursor:grab;transition:transform .15s,box-shadow .15s;}
+.draggable:active{cursor:grabbing;}
+.draggable.dragging{opacity:.3;transform:scale(.93);}
+
+/* ===== ACT 1 — WORD CLASSIFIER ===== */
+/* three columns: Positive | Neutral | Negative */
+#a1-wrap{display:flex;flex-direction:column;gap:8px;}
+#a1-word-bank{
+  display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;
+  background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.12);border-radius:12px;
+  min-height:40px;align-items:center;
+}
+.a1-word{
+  padding:5px 12px;border-radius:20px;font-family:'Share Tech Mono',monospace;font-size:11px;font-weight:400;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.85);
+}
+.a1-word:hover{background:rgba(255,255,255,.15);transform:translateY(-1px);}
+
+#a1-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.a1-col{
+  border-radius:14px;padding:8px;
+  display:flex;flex-direction:column;gap:5px;min-height:100px;
+}
+.a1-pos-col{background:rgba(0,255,136,.05);border:1.5px dashed rgba(0,255,136,.25);}
+.a1-neu-col{background:rgba(255,204,0,.05);border:1.5px dashed rgba(255,204,0,.25);}
+.a1-neg-col{background:rgba(255,68,102,.05);border:1.5px dashed rgba(255,68,102,.25);}
+.a1-col-hdr{
+  text-align:center;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;
+  letter-spacing:2px;padding:3px 0;border-radius:8px;margin-bottom:2px;
+}
+.pos-hdr{color:var(--pos);background:rgba(0,255,136,.08);}
+.neu-hdr{color:var(--neu);background:rgba(255,204,0,.08);}
+.neg-hdr{color:var(--neg);background:rgba(255,68,102,.08);}
+.a1-col.over{border-style:solid;}
+.a1-pos-col.over{border-color:var(--pos);background:rgba(0,255,136,.1);}
+.a1-neu-col.over{border-color:var(--neu);background:rgba(255,204,0,.08);}
+.a1-neg-col.over{border-color:var(--neg);background:rgba(255,68,102,.1);}
+.placed-word{
+  padding:4px 10px;border-radius:16px;font-family:'Share Tech Mono',monospace;font-size:10px;
+  text-align:center;animation:wordDrop .3s ease;
+}
+@keyframes wordDrop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.placed-word.ok-pos{background:rgba(0,255,136,.15);border:1px solid rgba(0,255,136,.4);color:var(--pos);}
+.placed-word.ok-neu{background:rgba(255,204,0,.12);border:1px solid rgba(255,204,0,.35);color:var(--neu);}
+.placed-word.ok-neg{background:rgba(255,68,102,.12);border:1px solid rgba(255,68,102,.4);color:var(--neg);}
+.placed-word.wrong{background:rgba(255,68,102,.15);border:1px solid rgba(255,68,102,.5);color:var(--neg);animation:wShake .4s ease;}
+@keyframes wShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.a1-col-empty{font-size:10px;color:rgba(255,255,255,.2);text-align:center;padding:12px 0;font-family:'Share Tech Mono',monospace;}
+
+/* ===== ACT 2 — PIPELINE SEQUENCE ===== */
+/* horizontal flow with terminal / code aesthetic */
+#a2-wrap{display:flex;flex-direction:column;gap:8px;}
+.a2-top-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(168,85,247,.6);letter-spacing:2px;}
+#a2-bank{
+  display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;
+  background:rgba(168,85,247,.04);border:1px dashed rgba(168,85,247,.2);border-radius:12px;min-height:40px;
+}
+.a2-card{
+  background:linear-gradient(135deg,rgba(168,85,247,.12),rgba(99,40,180,.08));
+  border:1.5px solid rgba(168,85,247,.3);color:#c084fc;
+  font-size:10px;font-weight:600;padding:6px 11px;border-radius:8px;white-space:nowrap;
+  font-family:'Share Tech Mono',monospace;
+}
+.a2-card:hover{background:rgba(168,85,247,.2);box-shadow:0 0 10px rgba(168,85,247,.25);}
+.a2-card.dragging{opacity:.3;}
+
+.pipeline-row{display:flex;gap:4px;align-items:center;overflow-x:auto;padding-bottom:2px;}
+.pipe-slot{
+  border:1.5px dashed rgba(168,85,247,.22);border-radius:8px;
+  min-width:108px;height:44px;display:flex;align-items:center;justify-content:center;
+  font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(255,255,255,.2);
+  transition:all .2s;flex-shrink:0;position:relative;padding:2px 4px;text-align:center;line-height:1.3;
+}
+.pipe-slot .sn{
+  position:absolute;top:-8px;left:5px;
+  background:rgba(168,85,247,.2);color:var(--purple);
+  font-family:'Share Tech Mono',monospace;font-size:7px;padding:1px 5px;border-radius:4px;
+}
+.pipe-slot.over{border-color:var(--purple);background:rgba(168,85,247,.08);}
+.pipe-slot.filled{border-style:solid;border-color:rgba(168,85,247,.4);}
+.pipe-slot.ok{border-color:var(--pos);background:rgba(0,255,136,.07);animation:slotPop .4s ease;}
+.pipe-slot.no{border-color:var(--neg);}
+@keyframes slotPop{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+.pipe-arrow{color:rgba(168,85,247,.4);font-size:16px;flex-shrink:0;font-family:'Share Tech Mono',monospace;}
+
+.a2-check{
+  align-self:center;
+  background:linear-gradient(135deg,var(--purple),#6d28d9);
+  color:#fff;border:none;border-radius:8px;padding:8px 20px;
+  font-family:'Share Tech Mono',monospace;font-size:11px;cursor:pointer;
+  transition:all .2s;box-shadow:0 4px 14px rgba(168,85,247,.3);letter-spacing:1px;
+}
+.a2-check:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(168,85,247,.4);}
+
+/* ===== ACT 3 — NLP MATCH CARDS ===== */
+/* Card-flip pairing style */
+#a3-wrap{display:flex;gap:10px;align-items:stretch;}
+#a3-definitions{
+  flex:1;display:flex;flex-direction:column;gap:5px;
+}
+.def-row{
+  display:flex;align-items:center;gap:8px;
+  background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.12);border-radius:10px;
+  padding:6px 10px;
+}
+.def-icon{font-size:16px;flex-shrink:0;width:24px;text-align:center;}
+.def-text{font-size:10px;color:rgba(255,255,255,.55);font-family:'Share Tech Mono',monospace;flex:1;line-height:1.35;}
+.def-slot{
+  min-width:100px;width:100px;height:28px;flex-shrink:0;
+  border:1.5px dashed rgba(0,212,255,.25);border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(255,255,255,.2);
+  transition:all .2s;text-align:center;padding:2px;
+}
+.def-slot.over{border-color:var(--cyan);background:rgba(0,212,255,.08);color:var(--cyan);}
+.def-slot.ok{border-color:var(--pos);background:rgba(0,255,136,.08);color:var(--pos);border-style:solid;animation:slotPop .4s ease;}
+.def-slot.no{border-color:var(--neg);animation:wShake .4s ease;}
+
+#a3-bank{
+  width:145px;flex-shrink:0;display:flex;flex-direction:column;gap:5px;
+}
+.a3-bank-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(0,212,255,.35);letter-spacing:2px;margin-bottom:2px;}
+.a3-card{
+  background:linear-gradient(135deg,rgba(0,212,255,.1),rgba(0,100,200,.08));
+  border:1.5px solid rgba(0,212,255,.28);color:var(--cyan);
+  font-size:9px;font-weight:400;padding:7px 9px;border-radius:8px;text-align:center;
+  font-family:'Share Tech Mono',monospace;line-height:1.3;
+}
+.a3-card:hover{background:rgba(0,212,255,.18);box-shadow:0 0 10px rgba(0,212,255,.25);}
+.a3-card.placed{opacity:.15;pointer-events:none;}
+
+/* ===== CELEBRATION ===== */
+#celeb{display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.82);align-items:center;justify-content:center;backdrop-filter:blur(10px);}
+#celeb.show{display:flex;}
+.cbox{
+  background:linear-gradient(145deg,#060f2e,#020818);
+  border:1.5px solid rgba(0,212,255,.4);border-radius:22px;
+  padding:32px 36px;text-align:center;max-width:400px;width:90vw;
+  box-shadow:0 0 60px rgba(0,212,255,.18),0 0 100px rgba(168,85,247,.1);
+  animation:cboxIn .55s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes cboxIn{from{transform:scale(.45);opacity:0}to{transform:scale(1);opacity:1}}
+.c-rocket{font-size:42px;animation:rocketLaunch 2.5s ease-in-out infinite;display:inline-block;margin-bottom:8px;}
+@keyframes rocketLaunch{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-10px) rotate(5deg)}}
+.c-title{font-family:'Rajdhani',sans-serif;font-size:clamp(18px,3.5vw,26px);font-weight:700;letter-spacing:2px;background:linear-gradient(90deg,var(--cyan),var(--pos),var(--neu));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px;}
+.c-msg{font-size:12px;color:rgba(255,255,255,.7);line-height:1.7;margin-bottom:18px;font-family:'Share Tech Mono',monospace;}
+.c-badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:18px;}
+.c-badge{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:5px 10px;font-size:9px;font-weight:600;color:rgba(255,255,255,.6);font-family:'Share Tech Mono',monospace;}
+#pa{background:linear-gradient(135deg,var(--cyan),var(--pos));color:#000;border:none;border-radius:25px;padding:11px 32px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;letter-spacing:1.5px;cursor:pointer;transition:all .25s;box-shadow:0 4px 18px rgba(0,212,255,.35);}
+#pa:hover{transform:translateY(-3px) scale(1.05);box-shadow:0 8px 28px rgba(0,212,255,.5);}
+
+/* star burst confetti */
+.starburst{position:fixed;pointer-events:none;z-index:1001;animation:starBurst linear forwards;}
+@keyframes starBurst{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--tx),var(--ty)) scale(0);opacity:0}}
+</style>
+</head>
+<body>
+<div id="cosmos"></div>
+<div id="app">
+  <div id="hdr">
+    <h1>🚀 BUILD A SENTIMENT ANALYSER IN PYTHON</h1>
+    <p>DEEP SPACE NLP MISSION · DRAG & DROP CHALLENGE</p>
+  </div>
+  <div id="prog">
+    <div class="ps active" id="ps1"><div class="pnum">1</div>CLASSIFY</div>
+    <div class="pd"></div>
+    <div class="ps" id="ps2"><div class="pnum">2</div>PIPELINE</div>
+    <div class="pd"></div>
+    <div class="ps" id="ps3"><div class="pnum">3</div>NLP MAP</div>
+  </div>
+  <div id="card">
+    <div id="a1">
+      <div class="ah">
+        <div><div class="atag t1">MISSION 01</div><div class="atitle">Word Sentiment Classifier</div><div class="asub">Drag each word into its correct sentiment category: Positive, Neutral, or Negative</div></div>
+        <button class="rbtn" onclick="initA1()">↺ Reset</button>
+      </div>
+      <div id="a1-wrap"></div>
+    </div>
+    <div id="a2" style="display:none">
+      <div class="ah">
+        <div><div class="atag t2">MISSION 02</div><div class="atitle">Sentiment Analysis Pipeline</div><div class="asub">Arrange the 6 steps of the sentiment analysis workflow in the correct order</div></div>
+        <button class="rbtn" onclick="initA2()">↺ Reset</button>
+      </div>
+      <div id="a2-wrap"></div>
+    </div>
+    <div id="a3" style="display:none">
+      <div class="ah">
+        <div><div class="atag t3">MISSION 03</div><div class="atitle">NLP Term Matcher</div><div class="asub">Match each NLP term to its correct definition on the right</div></div>
+        <button class="rbtn" onclick="initA3()">↺ Reset</button>
+      </div>
+      <div id="a3-wrap"></div>
+    </div>
+  </div>
+  <div id="fb"></div>
+  <button id="nxt" onclick="goNext()">NEXT MISSION →</button>
+</div>
+<div id="celeb">
+  <div class="cbox">
+    <div class="c-rocket">🚀</div>
+    <div class="c-title">AI MISSION COMPLETE!</div>
+    <div class="c-msg">Outstanding work, Space Coder! You classified sentiments, ordered the NLP pipeline, and matched every AI term. You just built the logic of a real Sentiment Analyser!</div>
+    <div class="c-badges"><div class="c-badge">⭐ Word Classifier</div><div class="c-badge">🔬 Pipeline Builder</div><div class="c-badge">🤖 NLP Expert</div></div>
+    <button id="pa" onclick="playAgain()">🔄 PLAY AGAIN</button>
+  </div>
+</div>
+
+<script>
+// ── COSMOS BUILD ──
+(function(){
+  const cosmos=document.getElementById('cosmos');
+  // stars
+  for(let i=0;i<200;i++){
+    const s=document.createElement('div');s.className='star';
+    const sz=Math.random()*2.5+0.5;
+    s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;animation-duration:${1.5+Math.random()*4}s;animation-delay:${Math.random()*5}s;`;
+    cosmos.appendChild(s);
+  }
+  // shooting stars
+  for(let i=0;i<5;i++){
+    const s=document.createElement('div');s.className='shooting-star';
+    s.style.cssText=`top:${Math.random()*50}%;left:${-150+Math.random()*200}px;animation-duration:${3+Math.random()*5}s;animation-delay:${Math.random()*12}s;`;
+    cosmos.appendChild(s);
+  }
+  // planets
+  const planets=[
+    {w:28,h:28,l:'8%',t:'12%',bg:'radial-gradient(circle at 35% 35%,#ff8c00,#cc4400)',d:6},
+    {w:18,h:18,l:'88%',t:'8%',bg:'radial-gradient(circle at 35% 35%,#a855f7,#5b21b6)',d:9},
+    {w:22,h:22,l:'6%',t:'70%',bg:'radial-gradient(circle at 35% 35%,#00d4ff,#0066aa)',d:7},
+    {w:14,h:14,l:'92%',t:'65%',bg:'radial-gradient(circle at 35% 35%,#00ff88,#007744)',d:11},
+    {w:36,h:36,l:'78%',t:'30%',bg:'radial-gradient(circle at 35% 35%,#ffcc00,#aa7700)',d:8},
+  ];
+  planets.forEach(p=>{
+    const el=document.createElement('div');el.className='planet';
+    el.style.cssText=`width:${p.w}px;height:${p.h}px;left:${p.l};top:${p.t};background:${p.bg};box-shadow:0 0 ${p.w/2}px rgba(255,255,255,0.15);animation-duration:${p.d}s;`;
+    cosmos.appendChild(el);
+  });
+  // asteroids
+  for(let i=0;i<8;i++){
+    const a=document.createElement('div');a.className='asteroid';
+    a.style.cssText=`top:${10+Math.random()*80}%;left:-20px;animation-duration:${15+Math.random()*20}s;animation-delay:${Math.random()*15}s;opacity:${0.3+Math.random()*.4};`;
+    cosmos.appendChild(a);
+  }
+  // satellite
+  const satWrap=document.createElement('div');satWrap.style.cssText='position:absolute;left:50%;top:20%;width:0;height:0;';
+  const sat=document.createElement('div');sat.className='satellite';sat.textContent='🛸';sat.style.cssText='font-size:14px;animation-duration:12s;';
+  satWrap.appendChild(sat);cosmos.appendChild(satWrap);
+  // nebulae
+  [{w:300,h:200,l:'10%',t:'20%',bg:'#7c3aed',d:8},{w:250,h:180,l:'60%',t:'50%',bg:'#0ea5e9',d:12}].forEach(n=>{
+    const el=document.createElement('div');el.className='nebula';
+    el.style.cssText=`width:${n.w}px;height:${n.h}px;left:${n.l};top:${n.t};background:${n.bg};animation-duration:${n.d}s;`;
+    cosmos.appendChild(el);
+  });
+  // cosmic particles
+  const pColors=['#00d4ff','#00ff88','#ffcc00','#a855f7','#ff8c00'];
+  for(let i=0;i<30;i++){
+    const el=document.createElement('div');el.className='cosmic-particle';
+    const c=pColors[Math.floor(Math.random()*pColors.length)];
+    const dx=(Math.random()-.5)*30,dy=(Math.random()-.5)*30;
+    el.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;background:${c};--dx:${dx}px;--dy:${dy}px;animation-duration:${2+Math.random()*4}s;animation-delay:${Math.random()*5}s;box-shadow:0 0 4px ${c};`;
+    cosmos.appendChild(el);
+  }
+})();
+
+// ── SHARED ──
+let cur=1,a1ok=false,a2ok=false,a3ok=false;
+let dragData=null,dragSrc=null;
+
+function shuffle(a){const r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;}
+function fb(msg,cls=''){const el=document.getElementById('fb');el.textContent=msg;el.className=cls;}
+function setProg(n,s){document.getElementById('ps'+n).className='ps '+(s==='active'?'active':s==='done'?'done':'');}
+
+// touch + mouse drag
+function makeDrag(el,data){
+  el.setAttribute('draggable','true');
+  el.addEventListener('dragstart',e=>{dragSrc=el;dragData=data;setTimeout(()=>el.classList.add('dragging'),0);e.dataTransfer.effectAllowed='move';});
+  el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+  let clone=null;
+  el.addEventListener('touchstart',e=>{
+    dragSrc=el;dragData=data;const t=e.touches[0];
+    clone=el.cloneNode(true);
+    clone.style.cssText=`position:fixed;z-index:9999;pointer-events:none;opacity:.85;transform:scale(1.06) rotate(-2deg);left:${t.clientX-55}px;top:${t.clientY-18}px;`;
+    document.body.appendChild(clone);el.classList.add('dragging');
+  },{passive:true});
+  el.addEventListener('touchmove',e=>{
+    if(!clone)return;const t=e.touches[0];
+    clone.style.left=(t.clientX-55)+'px';clone.style.top=(t.clientY-18)+'px';
+  },{passive:true});
+  el.addEventListener('touchend',e=>{
+    if(clone){clone.remove();clone=null;}
+    el.classList.remove('dragging');
+    const t=e.changedTouches[0];
+    const tgt=document.elementFromPoint(t.clientX,t.clientY);
+    if(tgt){const z=tgt.closest('[data-dz]');if(z)z.dispatchEvent(new CustomEvent('tdrop',{bubbles:false,detail:{data:dragData,src:dragSrc}}));}
+    dragData=null;dragSrc=null;
+  },{passive:true});
+}
+function makeDrop(el,cb){
+  el.setAttribute('data-dz','1');
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('over'));
+  el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('over');cb(dragData,dragSrc,el);});
+  el.addEventListener('tdrop',e=>{el.classList.remove('over');cb(e.detail.data,e.detail.src,el);});
+}
+
+// ── ACTIVITY 1 — WORD CLASSIFIER ──
+const a1Words=[
+  {word:'delicious',cat:'pos'},{word:'superb',cat:'pos'},{word:'awesome',cat:'pos'},
+  {word:'fast',cat:'pos'},{word:'crisp',cat:'pos'},
+  {word:'the',cat:'neu'},{word:'a',cat:'neu'},{word:'arrived',cat:'neu'},{word:'review',cat:'neu'},
+  {word:'terrible',cat:'neg'},{word:'cold',cat:'neg'},{word:'late',cat:'neg'},
+  {word:'slow',cat:'neg'},{word:'boring',cat:'neg'},
+];
+let a1correct=0;
+let a1total=0;
+
+function initA1(){
+  a1correct=0;a1ok=false;
+  document.getElementById('nxt').style.display='none';fb('');
+  const wrap=document.getElementById('a1-wrap');wrap.innerHTML='';
+
+  // word bank
+  const bank=document.createElement('div');bank.id='a1-word-bank';
+  const shuffled=shuffle(a1Words);
+  a1total=shuffled.length;
+  shuffled.forEach(w=>{
+    const el=document.createElement('div');el.className='a1-word draggable';
+    el.textContent=w.word;el.id='w-'+w.word;
+    makeDrag(el,JSON.stringify({word:w.word,cat:w.cat}));
+    bank.appendChild(el);
+  });
+  wrap.appendChild(bank);
+
+  // columns
+  const cols=document.createElement('div');cols.id='a1-cols';
+  const colDefs=[
+    {id:'col-pos',cls:'a1-col a1-pos-col',hdrCls:'a1-col-hdr pos-hdr',label:'⬆ POSITIVE',expect:'pos'},
+    {id:'col-neu',cls:'a1-col a1-neu-col',hdrCls:'a1-col-hdr neu-hdr',label:'➡ NEUTRAL',expect:'neu'},
+    {id:'col-neg',cls:'a1-col a1-neg-col',hdrCls:'a1-col-hdr neg-hdr',label:'⬇ NEGATIVE',expect:'neg'},
+  ];
+  colDefs.forEach(cd=>{
+    const col=document.createElement('div');col.className=cd.cls;col.id=cd.id;
+    const hdr=document.createElement('div');hdr.className=cd.hdrCls;hdr.textContent=cd.label;
+    const empty=document.createElement('div');empty.className='a1-col-empty';empty.textContent='drop words here';
+    col.appendChild(hdr);col.appendChild(empty);
+    makeDrop(col,(data)=>{
+      try{
+        const p=JSON.parse(data);
+        // remove empty placeholder
+        const emp=col.querySelector('.a1-col-empty');if(emp&&col.children.length<=2)emp.remove();
+        const placed=document.createElement('div');placed.className='placed-word';
+        if(p.cat===cd.expect){
+          placed.classList.add('ok-'+cd.expect);placed.textContent='✓ '+p.word;
+          a1correct++;
+          // hide original
+          const src=document.getElementById('w-'+p.word);if(src)src.style.display='none';
+          fb('✓ Correct! +1','ok');
+          checkA1();
+        } else {
+          placed.classList.add('wrong');placed.textContent='✗ '+p.word;
+          fb('Wrong category — try again!','bad');
+          setTimeout(()=>placed.remove(),800);
+          return;
+        }
+        col.appendChild(placed);
+      }catch(e){}
+    });
+    cols.appendChild(col);
+  });
+  wrap.appendChild(cols);
+}
+
+function checkA1(){
+  if(a1correct>=a1total){
+    a1ok=true;setProg(1,'done');fb('🚀 All words classified! You are an AI Word Sorter!','ok');
+    document.getElementById('nxt').style.display='block';document.getElementById('nxt').textContent='NEXT MISSION →';
+  }
+}
+
+// ── ACTIVITY 2 — PIPELINE ──
+const a2Steps=[
+  {id:'s1',label:'Load a product review',order:1},
+  {id:'s2',label:'Count positive & negative words',order:2},
+  {id:'s3',label:'Calculate sentiment score',order:3},
+  {id:'s4',label:'Improve with weighted words',order:4},
+  {id:'s5',label:'Classify the review',order:5},
+  {id:'s6',label:'Test on 5 tweets',order:6},
+];
+let a2slots={};
+
+function initA2(){
+  a2ok=false;document.getElementById('nxt').style.display='none';fb('');
+  const wrap=document.getElementById('a2-wrap');wrap.innerHTML='';
+
+  const lbl=document.createElement('div');lbl.className='a2-top-lbl';lbl.textContent='// PIPELINE STEPS — DRAG INTO CORRECT ORDER:';wrap.appendChild(lbl);
+  const bank=document.createElement('div');bank.id='a2-bank';
+  shuffle(a2Steps).forEach(s=>{
+    const c=document.createElement('div');c.className='a2-card draggable';c.id='a2c-'+s.id;c.textContent=s.label;
+    makeDrag(c,JSON.stringify({id:s.id,label:s.label,order:s.order}));bank.appendChild(c);
+  });
+  wrap.appendChild(bank);
+
+  const rl=document.createElement('div');rl.style.cssText='font-size:9px;font-family:"Share Tech Mono",monospace;color:rgba(168,85,247,.45);letter-spacing:1px;';rl.textContent='// ARRANGE: step_1 → step_2 → ... → step_6';wrap.appendChild(rl);
+
+  const row=document.createElement('div');row.className='pipeline-row';
+  a2slots={};
+  for(let i=1;i<=6;i++){
+    const slot=document.createElement('div');slot.className='pipe-slot';slot.dataset.n=i;
+    slot.innerHTML=`<div class="sn">STEP_${i}</div>drop_here`;
+    a2slots[i]={el:slot,content:null};
+    makeDrop(slot,(data)=>{
+      try{
+        const p=JSON.parse(data);
+        if(a2slots[i].content){
+          const old=document.getElementById('a2c-'+a2slots[i].content.id);
+          if(old){old.style.display='';document.getElementById('a2-bank').appendChild(old);}
+        }
+        const src=document.getElementById('a2c-'+p.id);if(src)src.style.display='none';
+        slot.innerHTML=`<div class="sn">STEP_${i}</div><span style="font-size:8px;color:#c084fc;font-family:'Share Tech Mono',monospace;text-align:center;line-height:1.3;padding:2px;">${p.label}</span>`;
+        slot.classList.add('filled');slot.classList.remove('ok','no');
+        a2slots[i].content=p;fb('Step placed — keep going!','');
+      }catch(e){}
+    });
+    row.appendChild(slot);
+    if(i<6){const arr=document.createElement('div');arr.className='pipe-arrow';arr.textContent='▶';row.appendChild(arr);}
+  }
+  wrap.appendChild(row);
+
+  const br=document.createElement('div');br.style.cssText='display:flex;justify-content:center;margin-top:7px;';
+  const btn=document.createElement('button');btn.className='a2-check';btn.textContent='>> RUN CHECK';btn.onclick=checkA2;br.appendChild(btn);wrap.appendChild(br);
+}
+
+function checkA2(){
+  if(!Object.values(a2slots).every(s=>s.content)){fb('Fill all 6 steps first!','bad');return;}
+  let ok=0;
+  for(let i=1;i<=6;i++){
+    const s=a2slots[i];
+    if(s.content&&s.content.order===i){s.el.classList.add('ok');ok++;}
+    else s.el.classList.add('no');
+  }
+  if(ok===6){
+    a2ok=true;setProg(2,'done');fb('🚀 Perfect pipeline! The Sentiment Analyser is ready to run!','ok');
+    document.getElementById('nxt').style.display='block';document.getElementById('nxt').textContent='FINAL MISSION →';
+  } else {
+    fb(`${ok}/6 correct. Red slots wrong — reset and try again!`,'bad');
+  }
+}
+
+// ── ACTIVITY 3 — NLP MATCH ──
+const a3Items=[
+  {id:'pw',  text:'Positive Words',   slot:'d-pw',  def:'Words like "awesome" or "superb" that add +1 to the score',icon:'⬆'},
+  {id:'nw',  text:'Negative Words',   slot:'d-nw',  def:'Words like "terrible" or "slow" that subtract −1 from score',icon:'⬇'},
+  {id:'ws',  text:'Weighted Score',   slot:'d-ws',  def:'A number showing the total emotion strength of the text',icon:'🔢'},
+  {id:'pr',  text:'Product Review',   slot:'d-pr',  def:'Text written by a customer about an app or food delivery',icon:'📝'},
+  {id:'tw',  text:'Tweet',            slot:'d-tw',  def:'A short message on social media, max 280 characters',icon:'🐦'},
+  {id:'sa',  text:'Sentiment Analyser',slot:'d-sa', def:'A Python program that reads text and outputs Positive/Negative/Neutral',icon:'🤖'},
+  {id:'fp',  text:'Final Prediction', slot:'d-fp',  def:'The last output label: POSITIVE, NEGATIVE, or NEUTRAL',icon:'🎯'},
+];
+let a3placed={};
+
+function initA3(){
+  a3placed={};a3ok=false;document.getElementById('nxt').style.display='none';fb('');
+  const wrap=document.getElementById('a3-wrap');wrap.innerHTML='';
+
+  // definitions column
+  const defsCol=document.createElement('div');defsCol.id='a3-definitions';
+  const shuffled=shuffle(a3Items);
+  shuffled.forEach(item=>{
+    const row=document.createElement('div');row.className='def-row';
+    const icon=document.createElement('div');icon.className='def-icon';icon.textContent=item.icon;
+    const txt=document.createElement('div');txt.className='def-text';txt.textContent=item.def;
+    const slot=document.createElement('div');slot.className='def-slot';slot.id=item.slot;slot.textContent='drag here';
+    a3placed[item.slot]=false;
+    makeDrop(slot,(data)=>{
+      if(slot.classList.contains('ok'))return;
+      try{
+        const p=JSON.parse(data);
+        if(p.slot===item.slot){
+          slot.textContent=p.text;slot.classList.add('ok');a3placed[item.slot]=true;
+          const src=document.getElementById('a3c-'+p.id);if(src)src.classList.add('placed');
+          fb('✓ Matched!','ok');checkA3();
+        } else {
+          slot.classList.add('no');fb('That term does not match this definition!','bad');
+          setTimeout(()=>slot.classList.remove('no'),600);
+        }
+      }catch(e){}
+    });
+    row.appendChild(icon);row.appendChild(txt);row.appendChild(slot);
+    defsCol.appendChild(row);
+  });
+
+  // bank
+  const bank=document.createElement('div');bank.id='a3-bank';
+  const bl=document.createElement('div');bl.className='a3-bank-lbl';bl.textContent='// NLP TERMS:';bank.appendChild(bl);
+  shuffle(a3Items).forEach(item=>{
+    const c=document.createElement('div');c.className='a3-card draggable';c.id='a3c-'+item.id;c.textContent=item.text;
+    makeDrag(c,JSON.stringify({id:item.id,text:item.text,slot:item.slot}));bank.appendChild(c);
+  });
+
+  wrap.appendChild(defsCol);wrap.appendChild(bank);
+}
+
+function checkA3(){
+  if(Object.values(a3placed).every(v=>v)){
+    a3ok=true;setProg(3,'done');fb('🚀 All NLP terms matched! You built a real AI brain!','ok');
+    document.getElementById('nxt').style.display='block';document.getElementById('nxt').textContent='🎉 MISSION COMPLETE!';
+  }
+}
+
+// ── NAVIGATION ──
+function goNext(){
+  if(cur===1&&a1ok)showAct(2);
+  else if(cur===2&&a2ok)showAct(3);
+  else if(cur===3&&a3ok)celebrate();
+}
+function showAct(n){
+  document.getElementById('a1').style.display=n===1?'':'none';
+  document.getElementById('a2').style.display=n===2?'':'none';
+  document.getElementById('a3').style.display=n===3?'':'none';
+  cur=n;fb('');document.getElementById('nxt').style.display='none';
+  setProg(n,'active');
+  if(n===2)initA2();if(n===3)initA3();
+}
+
+// ── CELEBRATION ──
+function celebrate(){
+  document.getElementById('celeb').classList.add('show');
+  launchStarBurst();
+}
+function launchStarBurst(){
+  const colors=['#00ff88','#00d4ff','#ffcc00','#a855f7','#ff8c00','#fff'];
+  for(let i=0;i<80;i++){
+    setTimeout(()=>{
+      const el=document.createElement('div');el.className='starburst';
+      const c=colors[Math.floor(Math.random()*colors.length)];
+      const tx=(Math.random()-.5)*300,ty=(Math.random()-.5)*300;
+      const sz=4+Math.random()*8;
+      el.style.cssText=`left:${Math.random()*100}vw;top:${Math.random()*100}vh;width:${sz}px;height:${sz}px;background:${c};border-radius:50%;--tx:${tx}px;--ty:${ty}px;animation-duration:${0.8+Math.random()*1}s;box-shadow:0 0 6px ${c};`;
+      document.body.appendChild(el);setTimeout(()=>el.remove(),2200);
+    },i*25);
+  }
+}
+function playAgain(){
+  document.getElementById('celeb').classList.remove('show');
+  a1ok=false;a2ok=false;a3ok=false;cur=1;
+  ['ps1','ps2','ps3'].forEach((id,i)=>{document.getElementById(id).className='ps'+(i===0?' active':'');});
+  showAct(1);initA1();
+}
+
+// ── INIT ──
+initA1();
+</script>
+</body>
+</html>

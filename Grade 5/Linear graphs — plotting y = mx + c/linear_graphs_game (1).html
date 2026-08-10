@@ -295,15 +295,31 @@ header .subtitle{
 }
 .dot-zone{
   position:absolute;
-  width:26px; height:26px;
+  width:48px; height:48px;
   border-radius:50%;
-  border:2px dashed rgba(253,251,246,0.5);
-  background:rgba(253,251,246,0.06);
+  border:2.5px dashed rgba(253,251,246,0.55);
+  background:rgba(253,251,246,0.07);
   transform:translate(-50%,-50%);
   transition:all .2s ease;
+  display:flex; align-items:center; justify-content:center;
+}
+.dot-zone .zone-coord{
+  font-size:0.6rem;
+  font-weight:700;
+  color:rgba(253,251,246,0.45);
+  font-family:var(--font-body);
+  pointer-events:none;
+  text-align:center;
+  line-height:1.1;
+}
+.dot-zone.drag-over{
+  border-color:var(--yellow);
+  background:rgba(245,185,66,0.18);
+  transform:translate(-50%,-50%) scale(1.18);
+  box-shadow:0 0 18px rgba(245,185,66,0.5);
 }
 .dot-zone.filled{
-  border:2px solid var(--success);
+  border:2.5px solid var(--success);
   background:rgba(63,214,138,0.25);
   box-shadow:0 0 14px rgba(63,214,138,0.6);
 }
@@ -325,18 +341,37 @@ header .subtitle{
 .graph-wrap svg{ position:absolute; inset:0; width:100%; height:100%; }
 .prop-zone{
   position:absolute;
-  min-width:36px; min-height:36px;
+  min-width:90px; min-height:36px;
+  padding:5px 10px;
   border-radius:10px;
   border:2px dashed rgba(253,251,246,0.55);
-  background:rgba(253,251,246,0.06);
+  background:rgba(11,31,58,0.65);
   transform:translate(-50%,-50%);
   transition:all .2s ease;
+  display:flex; align-items:center; justify-content:center;
+}
+.prop-zone .zone-hint{
+  font-size:0.65rem;
+  font-weight:700;
+  color:rgba(253,251,246,0.4);
+  font-family:var(--font-body);
+  font-style:italic;
+  text-align:center;
+  pointer-events:none;
+  white-space:nowrap;
+}
+.prop-zone.drag-over{
+  border-color:var(--yellow);
+  background:rgba(245,185,66,0.18);
+  transform:translate(-50%,-50%) scale(1.08);
+  box-shadow:0 0 18px rgba(245,185,66,0.5);
 }
 .prop-zone.filled{
   border:2px solid var(--success);
   background:rgba(63,214,138,0.22);
   box-shadow:0 0 14px rgba(63,214,138,0.55);
 }
+.prop-zone.filled .zone-hint{ display:none; }
 
 /* Activity 3 ordering */
 .order-row{
@@ -355,6 +390,11 @@ header .subtitle{
   padding:8px 12px;
   min-height:44px;
   transition:all .2s ease;
+}
+.order-slot.drag-over{
+  border-color:var(--yellow);
+  background:rgba(245,185,66,0.13);
+  box-shadow:0 0 14px rgba(245,185,66,0.35);
 }
 .order-slot.filled{
   border:2px solid var(--success);
@@ -520,7 +560,7 @@ header .subtitle{
       <div class="panel-header">
         <div class="htext">
           <h2>Activity 3 · Put the Steps in Order</h2>
-          <p>Drag each step card into the correct slot, from first to last.</p>
+          <p>What order do you follow to draw <strong>y = mx + c</strong>? Drag each step into the right numbered slot.</p>
         </div>
         <button class="btn reset-btn" data-reset="3">↺ Reset</button>
       </div>
@@ -581,11 +621,25 @@ header .subtitle{
       chip.style.width = rect.width + 'px';
       chip.style.zIndex = 2000;
 
+      var lastHovered = null;
       function move(ev){
         chip.style.left = (ev.clientX - offsetX) + 'px';
         chip.style.top = (ev.clientY - offsetY) + 'px';
+        // highlight nearest valid zone
+        var z = opts.getZone(ev.clientX, ev.clientY);
+        var hoverTarget = z ? (z.closest
+          ? (z.classList.contains('drop-zone') ? z : z.closest('.drop-zone') || z)
+          : z) : null;
+        if (hoverTarget !== lastHovered){
+          if (lastHovered) lastHovered.classList.remove('drag-over');
+          if (hoverTarget && !hoverTarget.classList.contains('filled'))
+            hoverTarget.classList.add('drag-over');
+          lastHovered = hoverTarget;
+        }
       }
       function up(ev){
+        if (lastHovered) lastHovered.classList.remove('drag-over');
+        lastHovered = null;
         try { chip.releasePointerCapture(ev.pointerId); } catch(err){}
         chip.removeEventListener('pointermove', move);
         chip.removeEventListener('pointerup', up);
@@ -779,6 +833,11 @@ header .subtitle{
       z.dataset.y = pt[1];
       z.style.left = xPct(pt[0]) + '%';
       z.style.top = yPct(pt[1]) + '%';
+      // show coordinate so students know where this zone is
+      var lbl = document.createElement('span');
+      lbl.className = 'zone-coord';
+      lbl.textContent = '(' + pt[0] + ',' + pt[1] + ')';
+      z.appendChild(lbl);
       zonesWrap.appendChild(z);
     });
 
@@ -863,10 +922,10 @@ header .subtitle{
     var px = m.px, py = m.py;
 
     var zoneDefs = [
-      { id: 'intercept', xp: px(0),   yp: py(1),  label:'y-intercept spot' },
-      { id: 'gradient',  xp: px(1.7), yp: py(4),  label:'slope triangle' },
-      { id: 'direction', xp: px(4.3), yp: py(9.6),label:'arrow end' },
-      { id: 'equation',  xp: px(3.0), yp: py(7.4),label:'near the line' }
+      { id: 'intercept', xp: px(0),   yp: py(1),  hint:'drop here →' },
+      { id: 'gradient',  xp: px(1.7), yp: py(4),  hint:'drop here →' },
+      { id: 'direction', xp: px(4.3), yp: py(9.6),hint:'← drop here' },
+      { id: 'equation',  xp: px(3.0), yp: py(7.4),hint:'drop here ↓' }
     ];
     zoneDefs.forEach(function(z){
       var el = document.createElement('div');
@@ -874,6 +933,10 @@ header .subtitle{
       el.dataset.match = z.id;
       el.style.left = (z.xp / 500 * 100) + '%';
       el.style.top = (z.yp / 400 * 100) + '%';
+      var hint = document.createElement('span');
+      hint.className = 'zone-hint';
+      hint.textContent = z.hint;
+      el.appendChild(hint);
       zonesWrap.appendChild(el);
     });
 
@@ -928,7 +991,7 @@ header .subtitle{
       slot.className = 'order-slot drop-zone';
       slot.dataset.correct = step.id;
       slot.innerHTML = '<span class="num">' + (idx + 1) + '</span>' +
-        '<span class="slot-target"><span class="slot-hint">drop step ' + (idx + 1) + ' here</span></span>';
+        '<span class="slot-target"><span class="slot-hint">Drag the ' + (idx === 0 ? '1st' : idx === 1 ? '2nd' : idx === 2 ? '3rd' : (idx+1)+'th') + ' step here</span></span>';
       row.appendChild(slot);
     });
 
@@ -943,18 +1006,27 @@ header .subtitle{
       makeDraggable(chip, {
         getZone: function(x, y){
           var target = zoneFromPoint(x, y, '.order-slot');
-          if (target) return target.querySelector('.slot-target') || target;
-          return null;
+          return target || null;
         },
         match: function(c, z){
-          var slot = z.closest('.order-slot');
+          var slot = z.closest ? z.closest('.order-slot') : z;
           return slot && slot.dataset.correct === c.dataset.id;
         },
         placeMode: 'flow',
         onCorrect: function(chip, zone){
-          var slot = zone.closest('.order-slot');
+          var slot = zone.closest ? zone.closest('.order-slot') : zone;
+          var target = slot.querySelector('.slot-target');
           var hint = slot.querySelector('.slot-hint');
           if (hint) hint.remove();
+          // place chip inside the slot-target span for clean flow layout
+          chip.style.position = '';
+          chip.style.left = '';
+          chip.style.top = '';
+          chip.style.transform = '';
+          chip.style.width = '';
+          if (target) target.appendChild(chip);
+          else slot.appendChild(chip);
+          chip.classList.add('placed', 'locked');
           slot.classList.add('filled');
           a3FilledCount++;
           if (a3FilledCount === steps3.length){

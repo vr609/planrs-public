@@ -191,6 +191,18 @@ body{
 .check-btn:hover{transform:translateY(-2px) scale(1.04);box-shadow:0 8px 24px rgba(139,92,246,.45)}
 .check-btn:active{transform:scale(.98)}
 .check-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.reset-btn{
+  align-self:flex-end;margin-top:8px;margin-right:8px;
+  padding:clamp(8px,1vw,12px) clamp(16px,2.5vw,24px);
+  border-radius:40px;border:2px solid #c4b5fd;cursor:pointer;font-family:'Nunito',sans-serif;
+  font-size:clamp(11px,1.4vw,13px);font-weight:800;
+  background:rgba(255,255,255,.8);color:#7c3aed;
+  box-shadow:0 2px 10px rgba(139,92,246,.15);
+  transition:all .2s;flex-shrink:0;
+}
+.reset-btn:hover{transform:translateY(-2px) scale(1.04);background:#ede9fe;box-shadow:0 6px 18px rgba(139,92,246,.25)}
+.reset-btn:active{transform:scale(.98)}
+.act-btn-row{display:flex;justify-content:flex-end;gap:8px;flex-shrink:0;margin-top:6px;align-items:center;flex-wrap:wrap}
 
 /* ── FEEDBACK BAR ── */
 .feedback-bar{
@@ -241,6 +253,20 @@ body{
 
 /* ── SCROLLBAR FOR DZ ── */
 .drop-zone{scrollbar-width:thin;scrollbar-color:#c4b5fd transparent}
+
+/* ── DROP TOAST ── */
+#drop-toast{
+  position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(16px);
+  background:linear-gradient(135deg,#7c1d1d,#991b1b);
+  color:#fff;border:1.5px solid #f87171;
+  padding:10px 22px;border-radius:40px;
+  font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;
+  box-shadow:0 6px 24px rgba(239,68,68,.35);
+  opacity:0;pointer-events:none;z-index:200;
+  transition:opacity .25s ease,transform .25s ease;
+  white-space:nowrap;
+}
+#drop-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
@@ -283,7 +309,10 @@ body{
       </div>
     </div>
     <div class="feedback-bar" id="fb1"></div>
-    <button class="check-btn" id="check1" onclick="checkAct1()">Check Answers ✨</button>
+    <div class="act-btn-row">
+      <button class="reset-btn" onclick="resetAct(1)">↺ Reset</button>
+      <button class="check-btn" id="check1" onclick="checkAct1()">Check Answers ✨</button>
+    </div>
   </div>
 
   <!-- ═══════════ ACTIVITY 2 ═══════════ -->
@@ -319,7 +348,10 @@ body{
       </div>
     </div>
     <div class="feedback-bar" id="fb2"></div>
-    <button class="check-btn" id="check2" onclick="checkAct2()">Check Answers ✨</button>
+    <div class="act-btn-row">
+      <button class="reset-btn" onclick="resetAct(2)">↺ Reset</button>
+      <button class="check-btn" id="check2" onclick="checkAct2()">Check Answers ✨</button>
+    </div>
   </div>
 
   <!-- ═══════════ ACTIVITY 3 ═══════════ -->
@@ -344,7 +376,10 @@ body{
       </div>
     </div>
     <div class="feedback-bar" id="fb3"></div>
-    <button class="check-btn" id="check3" onclick="checkAct3()">Check Answers ✨</button>
+    <div class="act-btn-row">
+      <button class="reset-btn" onclick="resetAct(3)">↺ Reset</button>
+      <button class="check-btn" id="check3" onclick="checkAct3()">Check Answers ✨</button>
+    </div>
   </div>
 </div>
 
@@ -381,6 +416,8 @@ body{
     <button class="popup-btn" onclick="restartAll()">🔄 Play Again!</button>
   </div>
 </div>
+
+<div id="drop-toast"></div>
 
 <script>
 // ═══════════════════════════════════════════════════
@@ -469,6 +506,18 @@ body{
 })();
 
 // ═══════════════════════════════════════════════════
+// DROP TOAST
+// ═══════════════════════════════════════════════════
+let toastTimer=null;
+function showDropToast(msg){
+  const t=document.getElementById('drop-toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ═══════════════════════════════════════════════════
 // DATA
 // ═══════════════════════════════════════════════════
 const ACT1_CARDS=[
@@ -534,9 +583,24 @@ function doDrop(e,zone,act){
   e.preventDefault();zone.classList.remove('drag-over');
   if(!dragging||dragging.act!==act) return;
   const {el,card}=dragging;
+  el.classList.remove('dropped-correct','dropped-wrong');
   zone.appendChild(el);
   el.dataset.droppedZone=zone.id;
   dragging=null;
+  let isCorrect=false;
+  if(act==='act1'){
+    const expected=card.category==='correct'?'dz-correct':'dz-incorrect';
+    isCorrect=zone.id===expected;
+  } else if(act==='act3'){
+    const expected=card.category==='compile'?'dz-compile':'dz-runtime';
+    isCorrect=zone.id===expected;
+  }
+  if(isCorrect){
+    el.classList.add('dropped-correct');
+  } else {
+    el.classList.add('dropped-wrong');
+    showDropToast('❌ '+card.tip);
+  }
 }
 
 function dropOnSlot(e,slot,slotIdx){
@@ -549,12 +613,26 @@ function dropOnSlot(e,slot,slotIdx){
     const old=document.getElementById(prev);
     if(old){old.classList.remove('used');old.style.display=''}
   }
+  // Clear previous inline feedback styles
+  slot.style.background='';slot.style.borderColor='';slot.style.color='';
   slot.textContent=type;
   slot.classList.add('filled');
   slot.dataset.chipId=chip.id;
   act2Answers[slotIdx]=type;
   chip.classList.add('used');
   dragging=null;
+  // Instant feedback
+  const correct=ACT2_SLOTS[slotIdx].correct;
+  if(type===correct){
+    slot.style.background='rgba(134,239,172,.2)';
+    slot.style.borderColor='#22c55e';
+    slot.style.color='#065f46';
+  } else {
+    slot.style.background='rgba(252,165,165,.2)';
+    slot.style.borderColor='#f87171';
+    slot.style.color='#dc2626';
+    showDropToast('❌ Hint: think about the value type!');
+  }
 }
 
 // ═══════════════════════════════════════════════════
@@ -602,7 +680,7 @@ function checkAct1(){
   const fb=document.getElementById('fb1');
   fb.className='feedback-bar show '+(right===total?'good':'bad');
   fb.textContent=right===total?`Perfect! ${right}/${total} — All bugs spotted! 🎉`:`${right}/${total} correct — Some are still hiding! Check the wrong ones.`;
-  if(right>=total*0.6){
+  if(right===total){
     document.getElementById('check1').disabled=true;
     setTimeout(()=>{showPopup('popup1',`${right}/${total} Bugs Found!`,'conf1');},900);
   }
@@ -618,7 +696,7 @@ function checkAct2(){
   const fb=document.getElementById('fb2');
   fb.className='feedback-bar show '+(right===6?'good':'bad');
   fb.textContent=right===6?`All 6 types correct! You speak TypeScript! 💜`:`${right}/6 correct — Try the remaining slots!`;
-  if(right>=4){
+  if(right===6){
     document.getElementById('check2').disabled=true;
     setTimeout(()=>{showPopup('popup2',`${right}/6 Types Correct!`,'conf2');},900);
   }
@@ -636,7 +714,7 @@ function checkAct3(){
   const fb=document.getElementById('fb3');
   fb.className='feedback-bar show '+(right===total?'good':'bad');
   fb.textContent=right===total?`Brilliant! ${right}/${total} — You understand when errors happen! 🌟`:`${right}/${total} — Keep thinking about WHEN each error is found!`;
-  if(right>=total*0.6){
+  if(right===total){
     document.getElementById('check3').disabled=true;
     setTimeout(showFinal,900);
   }
@@ -681,6 +759,40 @@ function updateProgress(n){
     pip.className='step-pip '+(i<n?'done':i===n?'active':'todo');
     if(i<3)document.getElementById(`line${i}`).style.width=i<n?'100%':'0';
   });
+}
+function resetAct(n){
+  // Clear feedback bar
+  const fb=document.getElementById(`fb${n}`);
+  fb.className='feedback-bar';fb.textContent='';
+  // Re-enable check button
+  document.getElementById(`check${n}`).disabled=false;
+
+  if(n===1){
+    // Remove all cards from drop zones (their label children stay)
+    ['dz-correct','dz-incorrect'].forEach(dzId=>{
+      const dz=document.getElementById(dzId);
+      dz.querySelectorAll('.drag-card').forEach(el=>el.remove());
+    });
+    // Rebuild source tray with fresh cards
+    buildAct1();
+  }
+  if(n===2){
+    // Reset slot inline styles left by checkAct2
+    for(let i=0;i<6;i++){
+      const s=document.getElementById(`slot${i}`);
+      s.style.background='';s.style.borderColor='';s.style.color='';
+    }
+    buildAct2();
+  }
+  if(n===3){
+    // Remove all cards from drop zones
+    ['dz-compile','dz-runtime'].forEach(dzId=>{
+      const dz=document.getElementById(dzId);
+      dz.querySelectorAll('.drag-card').forEach(el=>el.remove());
+    });
+    // Rebuild source tray with fresh cards
+    buildAct3();
+  }
 }
 function restartAll(){
   document.getElementById('popupFinal').classList.add('hidden');

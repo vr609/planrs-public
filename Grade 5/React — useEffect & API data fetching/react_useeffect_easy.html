@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>React — useEffect Adventure!</title>
+<style>
+  :root{
+    --amber:#ffb84d;
+    --teal:#3ddad7;
+    --cream:#fff6e6;
+    --success:#3ddc84;
+    --error:#ff6b6b;
+    --purple:#c084fc;
+    --panel-bg: rgba(14,18,45,0.82);
+    --panel-border: rgba(255,184,77,0.4);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    background:#050714;
+    font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;
+    color:var(--cream);
+  }
+  #app{ position:relative; width:100vw; height:100vh; overflow:hidden; }
+
+  /* SPACE BACKGROUND */
+  #space-bg{ position:absolute; inset:0; background:radial-gradient(ellipse at 30% 20%, #141a3a 0%, #050714 55%, #020308 100%); overflow:hidden; }
+  .star{ position:absolute; background:#fff; border-radius:50%; animation:twinkle linear infinite; }
+  @keyframes twinkle{ 0%,100%{opacity:.15} 50%{opacity:1} }
+  .nebula{ position:absolute; border-radius:50%; filter:blur(40px); opacity:.3; animation:nebulaPulse 9s ease-in-out infinite; }
+  @keyframes nebulaPulse{ 0%,100%{opacity:.2; transform:scale(1);} 50%{opacity:.4; transform:scale(1.1);} }
+  .planet{ position:absolute; border-radius:50%; box-shadow: inset -6px -6px 14px rgba(0,0,0,.5), 0 0 24px rgba(255,184,77,.2); }
+  .satellite{ position:absolute; font-size:20px; animation:satMove linear infinite; filter: drop-shadow(0 0 6px rgba(61,218,215,.5)); }
+  @keyframes satMove{ from{ transform: translate(-10vw,-6vh) rotate(15deg);} to{ transform: translate(110vw,50vh) rotate(15deg);} }
+
+  /* UI LAYER */
+  #ui-layer{ position:relative; z-index:5; width:100%; height:100%; display:flex; flex-direction:column; align-items:center; padding:8px 14px; }
+
+  header{ width:100%; max-width:960px; display:flex; align-items:center; justify-content:space-between; padding:6px 4px 8px; flex-shrink:0; }
+  header h1{
+    font-size:clamp(14px,2.2vw,22px); margin:0; letter-spacing:.5px;
+    background:linear-gradient(90deg,var(--teal),var(--amber));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  #progress{ display:flex; gap:10px; align-items:center; }
+  .dot{ width:14px; height:14px; border-radius:50%; background:rgba(255,255,255,0.15); border:2px solid rgba(255,255,255,0.25); transition:.3s; }
+  .dot.active{ background:var(--amber); border-color:var(--amber); box-shadow:0 0 10px var(--amber); }
+  .dot.done{ background:var(--success); border-color:var(--success); }
+
+  .header-btns{ display:flex; gap:8px; }
+  .hbtn{
+    background:linear-gradient(135deg,#2a2f55,#1a1e3a); color:var(--cream); border:1px solid rgba(255,255,255,0.25);
+    padding:6px 13px; border-radius:18px; cursor:pointer; font-size:12px; font-weight:700;
+    transition:.2s;
+  }
+  .hbtn:hover{ background:linear-gradient(135deg,#3a4070,#242a50); transform:translateY(-1px); }
+  .hbtn.hint-btn{ border-color:rgba(192,132,252,0.5); color:var(--purple); }
+  .hbtn.hint-btn:hover{ background:linear-gradient(135deg,#2a1f50,#1a1438); }
+
+  main{ flex:1; width:100%; max-width:960px; display:flex; align-items:center; justify-content:center; min-height:0; }
+
+  .activity{ display:none; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:center; gap:12px; animation:fadeIn .4s ease; }
+  .activity.visible{ display:flex; }
+  @keyframes fadeIn{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+
+  .instructions{
+    text-align:center; font-size:clamp(13px,1.8vw,16px); color:var(--cream); opacity:.95; max-width:700px; margin:0 0 2px;
+    background:var(--panel-bg); padding:10px 20px; border-radius:16px; border:1px solid var(--panel-border);
+    line-height:1.5;
+  }
+  .instructions b{ color:var(--amber); }
+  .instructions .sub{ font-size:clamp(11px,1.4vw,13px); opacity:.75; display:block; margin-top:4px; }
+
+  /* -------- Activity 1: sequence -------- */
+  #a1-slots{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:900px; }
+  .slot{
+    width:130px; height:82px; border:2.5px dashed rgba(255,255,255,0.3); border-radius:14px;
+    display:flex; align-items:center; justify-content:center; position:relative; background:rgba(255,255,255,0.03);
+    transition:.2s; text-align:center;
+  }
+  .slot .slot-num{
+    position:absolute; top:-11px; left:-11px; background:var(--teal); color:#04222a;
+    font-weight:900; font-size:13px; width:24px; height:24px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; box-shadow:0 0 8px rgba(61,218,215,.6);
+  }
+  .slot.correct{ border-color:var(--success); background:rgba(61,220,132,0.1); box-shadow:0 0 14px rgba(61,220,132,0.35); }
+  .slot.incorrect{ border-color:var(--error); background:rgba(255,107,107,0.1); box-shadow:0 0 14px rgba(255,107,107,0.35); }
+
+  #a1-tray, #a3-tray{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:900px; margin-top:2px; min-height:72px; padding:8px; border-radius:14px; background:rgba(255,255,255,0.02); }
+
+  .card{
+    width:130px; min-height:72px; border-radius:12px; padding:8px 10px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:4px;
+    font-size:11.5px; font-weight:700; line-height:1.3; color:#04121a;
+    background:linear-gradient(135deg,var(--teal),#8fe8e6);
+    cursor:grab; box-shadow:0 4px 12px rgba(0,0,0,.4);
+    touch-action:none; position:relative; z-index:20;
+  }
+  .card .card-icon{ font-size:20px; line-height:1; }
+  .card:active{ cursor:grabbing; }
+  .card.dragging{ position:fixed; z-index:999; pointer-events:none; opacity:.95; box-shadow:0 8px 26px rgba(0,0,0,.6); transform:scale(1.07); }
+  .card.placed-correct{ background:linear-gradient(135deg,var(--success),#8ff0c0); }
+  .card.placed-incorrect{ background:linear-gradient(135deg,var(--error),#ffb0b0); }
+
+  /* -------- Activity 2: phone matching -------- */
+  #a2-wrap{ display:flex; gap:24px; align-items:center; flex-wrap:wrap; justify-content:center; }
+  #weather-phone{
+    width:240px; min-height:340px; border-radius:26px; border:3px solid rgba(255,255,255,0.2);
+    background:linear-gradient(160deg,#1b2050,#0c0f2c); padding:14px 12px; display:flex; flex-direction:column; gap:10px;
+    box-shadow:0 0 28px rgba(61,218,215,.12), inset 0 0 20px rgba(0,0,0,.4);
+  }
+  .wz-label{ font-size:10px; font-weight:700; color:rgba(255,255,255,.35); text-transform:uppercase; letter-spacing:.6px; margin-bottom:2px; }
+  .wz{
+    border:2px dashed rgba(255,255,255,0.28); border-radius:12px;
+    display:flex; align-items:center; justify-content:center; gap:5px;
+    background:rgba(255,255,255,0.03); transition:.2s; font-size:12px;
+    color:rgba(255,255,255,.45); padding:7px; text-align:center; overflow:hidden; flex-shrink:0;
+    min-height:42px;
+  }
+  .wz .wz-hint{ font-size:11.5px; line-height:1.3; display:flex; align-items:center; gap:5px; }
+  .wz.filled{ border-style:solid; }
+  .wz.filled .wz-hint{ display:none; }
+  .wz.correct{ border-color:var(--success); background:rgba(61,220,132,0.12); box-shadow:0 0 12px rgba(61,220,132,.28); }
+  .wz.incorrect{ border-color:var(--error); background:rgba(255,107,107,0.12); }
+  .placed-chip{ max-width:95%; text-align:center; line-height:1.2; word-break:break-word; font-size:11px; font-weight:700; color:#04121a; background:rgba(255,255,255,0.9); padding:3px 8px; border-radius:7px; }
+  #wz-city{ height:36px; font-size:14px; }
+  #wz-temp{ height:52px; font-size:24px; }
+  #wz-icon{ height:52px; font-size:28px; }
+
+  #a2-tray{ display:flex; flex-direction:column; gap:10px; }
+  #a2-tray .card{ width:160px; min-height:46px; font-size:12px; }
+
+  /* -------- Activity 3: badge match -------- */
+  #a3-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; max-width:860px; width:100%; }
+  .step-card{
+    border:2px solid rgba(255,255,255,0.18); border-radius:14px; padding:10px 8px; min-height:96px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    background:rgba(255,255,255,0.04); position:relative; transition:.2s; text-align:center;
+  }
+  .step-card .step-icon{ font-size:22px; line-height:1; }
+  .step-card .badge-slot{
+    width:40px; height:40px; border-radius:50%; border:2.5px dashed rgba(255,184,77,0.55); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-weight:800;
+    background:rgba(0,0,0,0.25); color:rgba(255,255,255,0.3); font-size:13px; transition:.2s;
+  }
+  .step-card .step-label{ font-size:11px; font-weight:700; line-height:1.3; color:var(--amber); }
+  .step-card.correct{ border-color:var(--success); box-shadow:0 0 14px rgba(61,220,132,.35); }
+  .step-card.incorrect{ border-color:var(--error); box-shadow:0 0 14px rgba(255,107,107,.35); }
+
+  .badge{
+    width:46px; height:46px; border-radius:50%; background:linear-gradient(135deg,var(--amber),#ffd18f); color:#3a2400;
+    display:flex; align-items:center; justify-content:center; font-weight:900; font-size:19px; cursor:grab;
+    box-shadow:0 4px 14px rgba(0,0,0,.45); touch-action:none; position:relative; z-index:20;
+    transition:transform .15s ease;
+  }
+  .badge:hover{ transform:scale(1.1); }
+  .badge.dragging{ position:fixed; z-index:999; pointer-events:none; transform:scale(1.18); }
+
+  /* Buttons */
+  .btn{
+    padding:9px 22px; border-radius:22px; border:none; font-weight:800; font-size:14px; letter-spacing:.5px; cursor:pointer;
+    background:linear-gradient(135deg,var(--amber),#ffcf7a); color:#3a2400; box-shadow:0 6px 16px rgba(255,184,77,.35); transition:.2s;
+  }
+  .btn:hover{ transform:translateY(-2px); box-shadow:0 8px 20px rgba(255,184,77,.5); }
+
+  /* Toast */
+  #wrong-toast{
+    position:fixed; left:50%; top:16%; transform:translate(-50%,-12px);
+    background:linear-gradient(135deg,#3a1414,#2a0d0d); color:#ffdada; border:1px solid rgba(255,107,107,0.6);
+    padding:12px 22px; border-radius:16px; font-weight:800; font-size:14px;
+    box-shadow:0 8px 24px rgba(0,0,0,.5), 0 0 18px rgba(255,107,107,.35);
+    opacity:0; pointer-events:none; z-index:150; transition:opacity .25s ease, transform .25s ease;
+    display:flex; align-items:center; gap:8px; white-space:nowrap;
+  }
+  #wrong-toast.show{ opacity:1; transform:translate(-50%,0); }
+
+  /* Hint overlay */
+  #hint-overlay{
+    position:fixed; inset:0; background:rgba(2,3,10,0.85); backdrop-filter:blur(4px);
+    display:none; align-items:center; justify-content:center; z-index:200;
+  }
+  #hint-overlay.visible{ display:flex; }
+  .hint-box{
+    background:linear-gradient(160deg,#161b40,#0a0d24); border:1px solid rgba(192,132,252,0.5);
+    border-radius:20px; padding:28px 32px; text-align:left; max-width:440px; width:90%;
+    box-shadow:0 0 50px rgba(192,132,252,.2); animation:pop .3s ease;
+  }
+  .hint-box h3{ margin:0 0 14px; color:var(--purple); font-size:18px; }
+  .hint-box ol{ margin:0; padding-left:20px; font-size:13.5px; line-height:2; color:var(--cream); opacity:.92; }
+  .hint-box ol li b{ color:var(--amber); }
+  .hint-box .close-hint{ margin-top:18px; }
+
+  /* Modal */
+  #modal-overlay{
+    position:fixed; inset:0; background:rgba(2,3,10,0.8); backdrop-filter:blur(3px);
+    display:none; align-items:center; justify-content:center; z-index:100;
+  }
+  #modal-overlay.visible{ display:flex; }
+  .modal-box{
+    background:linear-gradient(160deg,#161b40,#0a0d24); border:1px solid rgba(255,184,77,0.4);
+    border-radius:20px; padding:30px 34px; text-align:center; max-width:400px; width:90%;
+    box-shadow:0 0 60px rgba(61,218,215,.2); animation:pop .35s ease;
+  }
+  @keyframes pop{ from{ transform:scale(.8); opacity:0;} to{ transform:scale(1); opacity:1;} }
+  .modal-box .emoji{ font-size:48px; margin-bottom:8px; }
+  .modal-box h2{ margin:0 0 8px; color:var(--amber); font-size:20px; }
+  .modal-box p{ margin:0 0 18px; font-size:13.5px; color:var(--cream); opacity:.9; line-height:1.6; }
+
+  /* Confetti */
+  #confetti-layer{ position:fixed; inset:0; pointer-events:none; z-index:99; overflow:hidden; }
+  .confetti{ position:absolute; top:-20px; border-radius:2px; animation:fall linear forwards; }
+  @keyframes fall{ to{ transform:translateY(110vh) rotate(720deg); opacity:.2; } }
+
+  @media (max-width:640px){
+    #a3-grid{ grid-template-columns:repeat(2,1fr); }
+    .slot{ width:100px; height:70px; }
+    .card{ width:100px; font-size:11px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="space-bg"></div>
+  <div id="confetti-layer"></div>
+
+  <div id="ui-layer">
+    <header>
+      <h1>🚀 useEffect Adventure!</h1>
+      <div id="progress">
+        <span class="dot" data-dot="1"></span>
+        <span class="dot" data-dot="2"></span>
+        <span class="dot" data-dot="3"></span>
+      </div>
+      <div class="header-btns">
+        <button class="hbtn hint-btn" id="hint-btn" onclick="showHint()">💡 Hint</button>
+        <button class="hbtn" onclick="resetCurrentActivity()">↺ Reset</button>
+      </div>
+    </header>
+
+    <main>
+      <!-- ACTIVITY 1 -->
+      <section class="activity" id="activity1">
+        <div class="instructions">
+          🛸 <b>Activity 1: Put the steps in order!</b>
+          <span class="sub">Drag each card into the correct numbered box — from first to last.</span>
+        </div>
+        <div id="a1-slots"></div>
+        <div id="a1-tray"></div>
+      </section>
+
+      <!-- ACTIVITY 2 -->
+      <section class="activity" id="activity2">
+        <div class="instructions">
+          🌦️ <b>Activity 2: Build the weather app!</b>
+          <span class="sub">Drag each label to the matching part of the phone screen.</span>
+        </div>
+        <div id="a2-wrap">
+          <div id="weather-phone">
+            <div>
+              <div class="wz-label">Location</div>
+              <div class="wz" id="wz-city"><div class="wz-hint">📍 Where are you?</div></div>
+            </div>
+            <div>
+              <div class="wz-label">Temperature</div>
+              <div class="wz" id="wz-temp"><div class="wz-hint">🌡️ How hot is it?</div></div>
+            </div>
+            <div>
+              <div class="wz-label">Weather Picture</div>
+              <div class="wz" id="wz-icon"><div class="wz-hint">☁️ Sun, rain, cloud?</div></div>
+            </div>
+          </div>
+          <div id="a2-tray"></div>
+        </div>
+      </section>
+
+      <!-- ACTIVITY 3 -->
+      <section class="activity" id="activity3">
+        <div class="instructions">
+          🏆 <b>Activity 3: Match the numbers!</b>
+          <span class="sub">Drag the numbered badges to the step they belong to. Use the Hint if you need help!</span>
+        </div>
+        <div id="a3-grid"></div>
+        <div id="a3-tray"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal-overlay">
+    <div class="modal-box" id="modal-box"></div>
+  </div>
+
+  <!-- Hint overlay -->
+  <div id="hint-overlay">
+    <div class="hint-box">
+      <h3>💡 Step-by-Step Hint</h3>
+      <ol id="hint-list"></ol>
+      <button class="btn close-hint" onclick="closeHint()">Got it! ✓</button>
+    </div>
+  </div>
+
+  <div id="wrong-toast">❌ Not quite — try a different spot!</div>
+</div>
+
+<script>
+/* ===== SPACE BACKGROUND ===== */
+const spaceBg = document.getElementById('space-bg');
+function rand(a,b){ return Math.random()*(b-a)+a; }
+
+for(let i=0;i<100;i++){
+  const s=document.createElement('div'); s.className='star';
+  const sz=rand(1,2.5);
+  Object.assign(s.style,{width:sz+'px',height:sz+'px',left:rand(0,100)+'vw',top:rand(0,100)+'vh',animationDuration:rand(1.5,4)+'s',animationDelay:rand(0,4)+'s'});
+  spaceBg.appendChild(s);
+}
+
+['#3ddad7','#ff8fd6','#7a5cff'].forEach((c,i)=>{
+  const n=document.createElement('div'); n.className='nebula';
+  const sz=rand(200,340);
+  Object.assign(n.style,{width:sz+'px',height:sz+'px',left:rand(-5,80)+'vw',top:rand(-5,75)+'vh',background:`radial-gradient(circle,${c},transparent 70%)`,animationDelay:rand(0,4)+'s',animationDuration:rand(7,11)+'s'});
+  spaceBg.appendChild(n);
+});
+
+// Planets
+[[8,12,60,'#ffd18f','#c9761f'],[82,55,44,'#8fd7ff','#2d5fa0'],[65,8,26,'#c9a7ff','#5a3aa0']].forEach(([x,y,sz,c1,c2])=>{
+  const p=document.createElement('div'); p.className='planet';
+  Object.assign(p.style,{width:sz+'px',height:sz+'px',left:x+'vw',top:y+'vh',background:`radial-gradient(circle at 35% 30%,${c1},${c2})`});
+  spaceBg.appendChild(p);
+});
+
+for(let i=0;i<2;i++){
+  const sat=document.createElement('div'); sat.className='satellite'; sat.textContent='🛰️';
+  Object.assign(sat.style,{animationDuration:rand(22,32)+'s',animationDelay:rand(0,12)+'s'});
+  spaceBg.appendChild(sat);
+}
+
+/* ===== HELPERS ===== */
+function shuffle(arr){ return [...arr].sort(()=>Math.random()-.5); }
+
+function showWrongToast(msg='❌ Not quite — try a different spot!'){
+  const t=document.getElementById('wrong-toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2000);
+}
+
+function showModal(html){
+  document.getElementById('modal-box').innerHTML=html;
+  document.getElementById('modal-overlay').classList.add('visible');
+}
+function hideModal(){ document.getElementById('modal-overlay').classList.remove('visible'); }
+
+function updateDots(active, completed){
+  document.querySelectorAll('.dot').forEach((d,i)=>{
+    d.classList.remove('active','done');
+    if(completed.includes(i+1)) d.classList.add('done');
+    else if(i+1===active) d.classList.add('active');
+  });
+}
+
+function launchConfetti(){
+  const layer=document.getElementById('confetti-layer');
+  const colors=['#ffb84d','#3ddad7','#3ddc84','#ff8fd6','#c084fc','#fff6e6'];
+  for(let i=0;i<80;i++){
+    const c=document.createElement('div'); c.className='confetti';
+    const sz=rand(5,11);
+    Object.assign(c.style,{width:sz+'px',height:sz*.5+'px',left:rand(0,100)+'vw',background:colors[Math.floor(Math.random()*colors.length)],animationDuration:rand(2.2,4.2)+'s',animationDelay:rand(0,.5)+'s'});
+    layer.appendChild(c);
+    setTimeout(()=>c.remove(),5000);
+  }
+}
+
+/* ===== DRAG ENGINE ===== */
+function enableDrag(el, dropSel, onDrop){
+  el.addEventListener('pointerdown', function(ev){
+    if(el.dataset.locked==='true') return;
+    ev.preventDefault();
+    const rect=el.getBoundingClientRect();
+    const ox=ev.clientX-rect.left, oy=ev.clientY-rect.top;
+    const ph=document.createElement('div');
+    ph.style.width=rect.width+'px'; ph.style.height=rect.height+'px'; ph.style.visibility='hidden';
+    el.parentNode.insertBefore(ph,el);
+    el.classList.add('dragging');
+    el.style.width=rect.width+'px'; el.style.left=rect.left+'px'; el.style.top=rect.top+'px';
+    document.body.appendChild(el);
+    function move(e){ el.style.left=(e.clientX-ox)+'px'; el.style.top=(e.clientY-oy)+'px'; }
+    function up(e){
+      document.removeEventListener('pointermove',move);
+      document.removeEventListener('pointerup',up);
+      el.classList.remove('dragging');
+      el.style.position=el.style.left=el.style.top=el.style.width='';
+      el.style.visibility='hidden';
+      const tgt=document.elementFromPoint(e.clientX,e.clientY);
+      el.style.visibility='';
+      const dz=tgt?tgt.closest(dropSel):null;
+      if(dz){ ph.remove(); onDrop(el,dz); }
+      else{ ph.replaceWith(el); }
+    }
+    document.addEventListener('pointermove',move);
+    document.addEventListener('pointerup',up);
+  });
+}
+
+/* ===== HINT SYSTEM ===== */
+const HINTS={
+  1:[
+    '1️⃣ The <b>component</b> shows up on screen first',
+    '2️⃣ <b>useEffect</b> wakes up right after',
+    '3️⃣ It sends a message to the internet (<b>API Request</b>)',
+    '4️⃣ The internet sends data back (<b>API Response</b>)',
+    '5️⃣ The app <b>updates</b> what it remembered (state)',
+    '6️⃣ Finally the <b>weather</b> appears on screen!'
+  ],
+  2:[
+    '📍 <b>City Name</b> — the name of the place at the top',
+    '🌡️ <b>Temperature</b> — the number that shows how hot or cold',
+    '☀️ <b>Weather Icon</b> — the picture of sun, rain, or cloud'
+  ],
+  3:[
+    '1️⃣ <b>Component Mount</b> — the screen appears',
+    '2️⃣ <b>useEffect Runs</b> — the magic hook wakes up',
+    '3️⃣ <b>Fetching Data</b> — asking the internet for info',
+    '4️⃣ <b>Data Arrives</b> — the internet answers back',
+    '5️⃣ <b>Show on Screen</b> — the app updates what you see'
+  ]
+};
+
+function showHint(){
+  const list=document.getElementById('hint-list');
+  list.innerHTML=HINTS[currentActivity].map(h=>`<li>${h}</li>`).join('');
+  document.getElementById('hint-overlay').classList.add('visible');
+}
+function closeHint(){ document.getElementById('hint-overlay').classList.remove('visible'); }
+
+/* ===== ACTIVITY 1 ===== */
+const A1_STEPS=[
+  {id:'mount',     icon:'🧩', label:'Component Loads'},
+  {id:'useeffect', icon:'⚡', label:'useEffect Runs'},
+  {id:'request',   icon:'📡', label:'Ask for Data'},
+  {id:'response',  icon:'📬', label:'Data Arrives'},
+  {id:'update',    icon:'🔄', label:'Save the Data'},
+  {id:'display',   icon:'✨', label:'Show Weather'}
+];
+
+function initActivity1(){
+  const slotsWrap=document.getElementById('a1-slots');
+  const tray=document.getElementById('a1-tray');
+  slotsWrap.innerHTML=''; tray.innerHTML='';
+
+  A1_STEPS.forEach((s,i)=>{
+    const slot=document.createElement('div');
+    slot.className='slot'; slot.dataset.dropzone='a1'; slot.dataset.index=i;
+    slot.innerHTML=`<span class="slot-num">${i+1}</span>`;
+    slotsWrap.appendChild(slot);
+  });
+
+  shuffle(A1_STEPS).forEach(s=>{
+    const card=document.createElement('div');
+    card.className='card'; card.dataset.id=s.id;
+    card.innerHTML=`<span class="card-icon">${s.icon}</span><span>${s.label}</span>`;
+    tray.appendChild(card);
+    enableDrag(card,'.slot',a1Drop);
+  });
+}
+
+function a1Drop(card,slot){
+  const existing=slot.querySelector('.card');
+  const tray=document.getElementById('a1-tray');
+  if(existing){ tray.appendChild(existing); existing.classList.remove('placed-correct','placed-incorrect'); }
+  slot.appendChild(card);
+  card.style.position='';
+  checkActivity1();
+  if(slot.classList.contains('incorrect')) showWrongToast();
+}
+
+function checkActivity1(){
+  const slots=[...document.querySelectorAll('#a1-slots .slot')];
+  let allFilled=true, allCorrect=true;
+  slots.forEach(slot=>{
+    const card=slot.querySelector('.card');
+    if(!card){ allFilled=false; slot.classList.remove('correct','incorrect'); return; }
+    const correctId=A1_STEPS[+slot.dataset.index].id;
+    const ok=card.dataset.id===correctId;
+    slot.classList.toggle('correct',ok); slot.classList.toggle('incorrect',!ok);
+    card.classList.toggle('placed-correct',ok); card.classList.toggle('placed-incorrect',!ok);
+    if(!ok) allCorrect=false;
+  });
+  if(allFilled && allCorrect) setTimeout(()=>completeActivity(1),500);
+}
+
+/* ===== ACTIVITY 2 ===== */
+const A2_ITEMS=[
+  {id:'city',  label:'📍 City Name',      zone:'wz-city'},
+  {id:'temp',  label:'🌡️ Temperature',   zone:'wz-temp'},
+  {id:'icon',  label:'☀️ Weather Picture', zone:'wz-icon'}
+];
+
+function initActivity2(){
+  const tray=document.getElementById('a2-tray');
+  tray.innerHTML='';
+  ['wz-city','wz-temp','wz-icon'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.classList.remove('filled','correct','incorrect');
+    el.dataset.filledBy='';
+    const hint=el.querySelector('.wz-hint');
+    if(hint) hint.style.display='';
+  });
+
+  shuffle(A2_ITEMS).forEach(item=>{
+    const card=document.createElement('div');
+    card.className='card'; card.dataset.id=item.id;
+    card.innerHTML=`<span>${item.label}</span>`;
+    tray.appendChild(card);
+    enableDrag(card,'.wz',a2Drop);
+  });
+}
+
+function a2Drop(card,zone){
+  const oldChip=zone.querySelector('.placed-chip');
+  if(oldChip){
+    const returnCard=document.createElement('div');
+    returnCard.className='card'; returnCard.dataset.id=oldChip.dataset.id;
+    returnCard.innerHTML=`<span>${oldChip.dataset.label}</span>`;
+    document.getElementById('a2-tray').appendChild(returnCard);
+    enableDrag(returnCard,'.wz',a2Drop);
+    oldChip.remove();
+  }
+  const chip=document.createElement('div');
+  chip.className='placed-chip';
+  chip.dataset.id=card.dataset.id; chip.dataset.label=card.textContent;
+  chip.textContent=card.textContent;
+  zone.appendChild(chip);
+  zone.dataset.filledBy=card.dataset.id;
+  zone.classList.add('filled');
+  card.remove();
+  checkActivity2();
+}
+
+function checkActivity2(){
+  const zones=[...document.querySelectorAll('#weather-phone .wz')];
+  let allFilled=true, allCorrect=true;
+  zones.forEach(zone=>{
+    if(!zone.dataset.filledBy){ allFilled=false; zone.classList.remove('correct','incorrect'); return; }
+    const correctItem=A2_ITEMS.find(it=>it.zone===zone.id);
+    const ok=zone.dataset.filledBy===correctItem.id;
+    zone.classList.toggle('correct',ok); zone.classList.toggle('incorrect',!ok);
+    if(!ok) allCorrect=false;
+  });
+  if(allFilled && allCorrect) setTimeout(()=>completeActivity(2),500);
+}
+
+/* ===== ACTIVITY 3 ===== */
+const A3_STEPS=[
+  {id:1, icon:'🧩', label:'Component Loads',  hint:'The screen appears'},
+  {id:2, icon:'⚡', label:'useEffect Runs',    hint:'The hook wakes up'},
+  {id:3, icon:'📡', label:'Fetching Data',     hint:'Asks the internet'},
+  {id:4, icon:'📬', label:'Data Arrives',      hint:'Internet answers back'},
+  {id:5, icon:'✨', label:'Show on Screen',    hint:'App updates the display'}
+];
+
+function initActivity3(){
+  const grid=document.getElementById('a3-grid');
+  const tray=document.getElementById('a3-tray');
+  grid.innerHTML=''; tray.innerHTML='';
+
+  // Grid shows SHUFFLED step cards (without numbers)
+  shuffle(A3_STEPS).forEach(step=>{
+    const card=document.createElement('div');
+    card.className='step-card';
+    card.dataset.dropzone='a3';
+    card.dataset.correctId=String(step.id);
+    card.innerHTML=`
+      <div class="step-icon">${step.icon}</div>
+      <div class="badge-slot"></div>
+      <div class="step-label">${step.label}</div>
+      <div style="font-size:10px;color:rgba(255,246,230,.55);line-height:1.3;">${step.hint}</div>
+    `;
+    grid.appendChild(card);
+  });
+
+  // Tray shows numbered badges 1–5
+  shuffle(A3_STEPS.map(s=>s.id)).forEach(num=>{
+    const badge=document.createElement('div');
+    badge.className='badge'; badge.dataset.id=String(num);
+    badge.textContent=num;
+    tray.appendChild(badge);
+    enableDrag(badge,'.step-card',a3Drop);
+  });
+}
+
+function a3Drop(badge,stepCard){
+  const slot=stepCard.querySelector('.badge-slot');
+  const oldNum=slot.dataset.badgeId;
+  if(oldNum){
+    const returned=document.createElement('div');
+    returned.className='badge'; returned.dataset.id=oldNum; returned.textContent=oldNum;
+    document.getElementById('a3-tray').appendChild(returned);
+    enableDrag(returned,'.step-card',a3Drop);
+  }
+  slot.textContent=badge.dataset.id;
+  slot.dataset.badgeId=badge.dataset.id;
+  badge.remove();
+  checkActivity3();
+}
+
+function checkActivity3(){
+  const cards=[...document.querySelectorAll('#a3-grid .step-card')];
+  let allFilled=true, allCorrect=true;
+  cards.forEach(card=>{
+    const slot=card.querySelector('.badge-slot');
+    if(!slot.dataset.badgeId){ allFilled=false; card.classList.remove('correct','incorrect'); return; }
+    const ok=slot.dataset.badgeId===card.dataset.correctId;
+    card.classList.toggle('correct',ok); card.classList.toggle('incorrect',!ok);
+    if(!ok) allCorrect=false;
+  });
+  if(allFilled && allCorrect) setTimeout(()=>completeActivity(3),500);
+}
+
+/* ===== FLOW CONTROL ===== */
+let currentActivity=1;
+let completedActivities=[];
+
+const ACTIVITY_MODALS={
+  1:{ emoji:'🛸', title:'Step Order Unlocked!',   text:'Amazing! You got all 6 steps in the right order. The app knows exactly what to do!' },
+  2:{ emoji:'🌦️', title:'Weather App Built!',     text:'Great job! Every part of the phone screen is in the right place now!' },
+  3:{ emoji:'🚀', title:'Mission Complete!',       text:'You numbered all the steps correctly — you just traced how useEffect works from start to finish!' }
+};
+
+function showActivity(n){
+  document.querySelectorAll('.activity').forEach(a=>a.classList.remove('visible'));
+  document.getElementById('activity'+n).classList.add('visible');
+  currentActivity=n;
+  updateDots(n,completedActivities);
+}
+
+function completeActivity(n){
+  if(!completedActivities.includes(n)) completedActivities.push(n);
+  updateDots(n,completedActivities);
+  const info=ACTIVITY_MODALS[n];
+  const isLast=n===3;
+  showModal(`
+    <div class="emoji">${info.emoji}</div>
+    <h2>${info.title}</h2>
+    <p>${info.text}</p>
+    <button class="btn" onclick="${isLast?'finishMission()':`proceedToNext(${n+1})`}">${isLast?'🎉 See Celebration!':'Next Activity →'}</button>
+  `);
+}
+
+function proceedToNext(n){
+  hideModal();
+  initActivityByNumber(n);
+  showActivity(n);
+}
+
+function initActivityByNumber(n){
+  if(n===1) initActivity1();
+  if(n===2) initActivity2();
+  if(n===3) initActivity3();
+}
+
+function finishMission(){
+  hideModal();
+  launchConfetti();
+  showModal(`
+    <div class="emoji">🪐✨🎉</div>
+    <h2>You're a React Star!</h2>
+    <p>You learned how <b>useEffect</b> fetches data from the internet — component loads, hook runs, request goes out, data comes back, and the screen updates. That's real coding knowledge!</p>
+    <button class="btn" onclick="playAgain()">🔁 Play Again</button>
+  `);
+  setTimeout(launchConfetti,900);
+  setTimeout(launchConfetti,1800);
+}
+
+function playAgain(){
+  hideModal();
+  completedActivities=[];
+  initActivityByNumber(1);
+  showActivity(1);
+}
+
+function resetCurrentActivity(){
+  hideModal();
+  initActivityByNumber(currentActivity);
+}
+
+initActivityByNumber(1);
+showActivity(1);
+</script>
+</body>
+</html>

@@ -257,6 +257,32 @@ body{
   box-shadow:0 0 30px rgba(201,168,76,.4);transform:translateY(-1px);
 }
 .check-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.reset-btn{
+  align-self:flex-end;margin-top:6px;
+  padding:clamp(7px,1vw,10px) clamp(14px,2vw,20px);
+  border-radius:6px;border:1px solid rgba(201,168,76,.4);cursor:pointer;
+  font-family:'Cinzel Decorative',serif;
+  font-size:clamp(10px,1.2vw,12px);font-weight:700;
+  background:rgba(201,168,76,.06);color:var(--muted);
+  transition:all .2s;flex-shrink:0;letter-spacing:.4px;
+}
+.reset-btn:hover{background:rgba(201,168,76,.14);color:var(--gold);border-color:var(--gold);transform:translateY(-1px)}
+.act-btn-row{display:flex;justify-content:flex-end;gap:8px;flex-shrink:0;margin-top:6px;align-items:center}
+/* drop toast */
+#drop-toast{
+  position:fixed;left:50%;bottom:28px;
+  transform:translateX(-50%) translateY(14px);
+  background:linear-gradient(135deg,#2a0808,#3d0f0f);
+  color:#ff9090;border:1px solid rgba(255,60,60,.5);
+  padding:9px 22px;border-radius:6px;
+  font-family:'Share Tech Mono',monospace;font-size:12px;font-weight:700;
+  letter-spacing:.4px;
+  box-shadow:0 0 24px rgba(255,60,60,.3);
+  opacity:0;pointer-events:none;z-index:200;
+  transition:opacity .22s ease,transform .22s ease;
+  white-space:nowrap;
+}
+#drop-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* ══ POPUP ══ */
 .popup-overlay{
@@ -425,7 +451,10 @@ body{
     </div>
   </div>
   <div class="feedback-bar" id="fb1"></div>
-  <button class="check-btn" id="chk1" onclick="checkAct1()">⚙ Compile Blueprint</button>
+  <div class="act-btn-row">
+    <button class="reset-btn" onclick="resetAct(1)">↺ Reset</button>
+    <button class="check-btn" id="chk1" onclick="checkAct1()">⚙ Compile Blueprint</button>
+  </div>
 </div>
 
 <!-- ═══════════════ ACTIVITY 2 ═══════════════ -->
@@ -486,7 +515,10 @@ body{
     <div id="src2" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:rgba(8,6,20,.5);border-radius:8px;border:1px solid var(--border)"></div>
   </div>
   <div class="feedback-bar" id="fb2"></div>
-  <button class="check-btn" id="chk2" onclick="checkAct2()">⚙ Compile Aliases</button>
+  <div class="act-btn-row">
+    <button class="reset-btn" onclick="resetAct(2)">↺ Reset</button>
+    <button class="check-btn" id="chk2" onclick="checkAct2()">⚙ Compile Aliases</button>
+  </div>
 </div>
 
 <!-- ═══════════════ ACTIVITY 3 ═══════════════ -->
@@ -511,7 +543,10 @@ body{
     </div>
   </div>
   <div class="feedback-bar" id="fb3"></div>
-  <button class="check-btn" id="chk3" onclick="checkAct3()">⚙ Run Compiler</button>
+  <div class="act-btn-row">
+    <button class="reset-btn" onclick="resetAct(3)">↺ Reset</button>
+    <button class="check-btn" id="chk3" onclick="checkAct3()">⚙ Run Compiler</button>
+  </div>
 </div>
 
 </div><!-- end .content -->
@@ -549,6 +584,8 @@ body{
     <button class="popup-btn" onclick="restartAll()">🔄 Travel Back & Retry</button>
   </div>
 </div>
+
+<div id="drop-toast"></div>
 
 <script>
 // ═══════════════════════════════════════════════════════
@@ -709,12 +746,48 @@ function makeCard(d,act){
   return div;
 }
 
+// ── TOAST ──
+let _toastTimer=null;
+function showToast(msg){
+  const t=document.getElementById('drop-toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ── DROP with instant accept/reject ──
 function doDrop(e,zone,act){
   e.preventDefault();zone.classList.remove('drag-over');
   if(!dragging||dragging.act!==act) return;
-  zone.appendChild(dragging.el);
-  dragging.el.dataset.droppedZone=zone.id;
+  const {el,data}=dragging;
   dragging=null;
+
+  // Determine correctness immediately
+  let correct=false;
+  if(act==='act1'){
+    const expected=data.zone==='req'?'dz-req':'dz-opt';
+    correct=zone.id===expected;
+  } else if(act==='act2'){
+    correct=zone.id===data.zone;
+  } else if(act==='act3'){
+    const expected=data.valid?'dz-valid':'dz-invalid';
+    correct=zone.id===expected;
+  }
+
+  if(correct){
+    // Accept — place and highlight green
+    el.classList.remove('ok','fail');
+    zone.appendChild(el);
+    el.dataset.droppedZone=zone.id;
+    el.classList.add('ok');
+  } else {
+    // Reject — shake and show toast, card stays in source
+    el.classList.remove('ok','fail');
+    el.classList.add('fail');
+    showToast('❌ Wrong zone — ' + (data.hint||'try again!'));
+    // Remove shake class after animation so it can re-trigger
+    setTimeout(()=>el.classList.remove('fail'),500);
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -758,7 +831,7 @@ function checkAct1(){
   const fb=document.getElementById('fb1');
   fb.className='feedback-bar show '+(right===total?'good':'bad');
   fb.textContent=right===total?`⚡ Perfect! ${right}/${total} — Interface blueprint approved by the compiler!`:`${right}/${total} correct — Some properties are in the wrong section. Required vs optional?`;
-  if(right>=Math.ceil(total*.6)){
+  if(right===total){
     document.getElementById('chk1').disabled=true;
     setTimeout(()=>{showPopup('pop1',`${right}/${total} Properties Placed`,'conf1')},900);
   }
@@ -778,8 +851,8 @@ function checkAct2(){
   const total=ACT2.length;
   const fb=document.getElementById('fb2');
   fb.className='feedback-bar show '+(right>=total-1?'good':'bad');
-  fb.textContent=right>=total-1?`⚡ Aliases forged! ${right}/${total} — Type nicknames ready!`:`${right}/${total} correct — Think about what kind of value each alias stores.`;
-  if(right>=Math.ceil(total*.6)){
+  fb.textContent=right===total?`⚡ Aliases forged! ${right}/${total} — Type nicknames ready!`:`${right}/${total} correct — Think about what kind of value each alias stores.`;
+  if(right===total){
     document.getElementById('chk2').disabled=true;
     setTimeout(()=>{showPopup('pop2',`${right}/${total} Aliases Correct`,'conf2')},900);
   }
@@ -798,7 +871,7 @@ function checkAct3(){
   const fb=document.getElementById('fb3');
   fb.className='feedback-bar show '+(right===total?'good':'bad');
   fb.textContent=right===total?`⚡ Compiler satisfied! ${right}/${total} — You think like TypeScript!`:`${right}/${total} correct — Which snippets break the interface contract?`;
-  if(right>=Math.ceil(total*.6)){
+  if(right===total){
     document.getElementById('chk3').disabled=true;
     setTimeout(showFinal,900);
   }
@@ -837,6 +910,27 @@ function updatePips(n){
     document.getElementById(`pip${i}`).className='step-pip '+(i<n?'done':i===n?'active':'todo');
     if(i<3)document.getElementById(`line${i}`).style.width=i<n?'100%':'0';
   });
+}
+function resetAct(n){
+  const fb=document.getElementById(`fb${n}`);
+  fb.className='feedback-bar';fb.textContent='';
+  document.getElementById(`chk${n}`).disabled=false;
+  if(n===1){
+    // Remove cards from drop zones back to source, clear highlights
+    ['dz-req','dz-opt'].forEach(id=>{
+      document.getElementById(id).querySelectorAll('.drag-card').forEach(c=>c.remove());
+    });
+    buildAct1();
+  }
+  if(n===2){
+    buildAct2();
+  }
+  if(n===3){
+    ['dz-valid','dz-invalid'].forEach(id=>{
+      document.getElementById(id).querySelectorAll('.drag-card').forEach(c=>c.remove());
+    });
+    buildAct3();
+  }
 }
 function restartAll(){
   document.getElementById('popFinal').classList.add('hidden');

@@ -226,6 +226,20 @@ body{
 }
 .chk-btn:hover{transform:translateY(-2px);box-shadow:0 8px 26px rgba(43,143,255,.45)}
 .chk-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.rst-btn{
+  align-self:flex-end;margin-top:6px;margin-right:8px;flex-shrink:0;
+  padding:clamp(7px,1vw,10px) clamp(14px,2vw,22px);
+  border-radius:40px;border:none;cursor:pointer;
+  font-family:'Baloo 2',sans-serif;font-size:clamp(11px,1.4vw,14px);font-weight:800;
+  background:linear-gradient(135deg,#ff8c2b,#d96800);color:#fff;
+  box-shadow:0 4px 18px rgba(255,140,43,.35);transition:all .18s;
+}
+.rst-btn:hover{transform:translateY(-2px);box-shadow:0 8px 26px rgba(255,140,43,.45)}
+.btn-row{display:flex;justify-content:flex-end;gap:8px;margin-top:6px;flex-shrink:0}
+@keyframes wrongPop{0%{transform:scale(1)}30%{transform:scale(1.08)}60%{transform:scale(.95)}100%{transform:scale(1)}}
+.card.wrong-drop{border-color:var(--red)!important;background:rgba(255,92,92,.12)!important;animation:shake .38s ease,wrongPop .38s ease}
+.dz.wrong-flash,.seq-slot.wrong-flash{animation:dzFlash .45s ease}
+@keyframes dzFlash{0%,100%{background-color:inherit}30%,70%{background-color:rgba(255,92,92,.22)}}
 
 /* ══ POPUP ══ */
 .overlay{
@@ -320,7 +334,10 @@ body{
     </div>
   </div>
   <div class="fb" id="fb1"></div>
-  <button class="chk-btn" id="cb1" onclick="chk1()">▶ Run Structure Check</button>
+  <div class="btn-row">
+    <button class="rst-btn" onclick="resetAct1()">↺ Reset</button>
+    <button class="chk-btn" id="cb1" onclick="chk1()">▶ Run Structure Check</button>
+  </div>
 </div>
 
 <!-- ══ ACT 2 ══ -->
@@ -340,7 +357,10 @@ body{
     </div>
   </div>
   <div class="fb" id="fb2"></div>
-  <button class="chk-btn" id="cb2" onclick="chk2()">▶ Run Sequence Check</button>
+  <div class="btn-row">
+    <button class="rst-btn" onclick="resetAct2()">↺ Reset</button>
+    <button class="chk-btn" id="cb2" onclick="chk2()">▶ Run Sequence Check</button>
+  </div>
 </div>
 
 <!-- ══ ACT 3 ══ -->
@@ -368,7 +388,10 @@ body{
     </div>
   </div>
   <div class="fb" id="fb3"></div>
-  <button class="chk-btn" id="cb3" onclick="chk3()">▶ Compile &amp; Run</button>
+  <div class="btn-row">
+    <button class="rst-btn" onclick="resetAct3()">↺ Reset</button>
+    <button class="chk-btn" id="cb3" onclick="chk3()">▶ Compile &amp; Run</button>
+  </div>
 </div>
 
 </div><!-- .content -->
@@ -566,9 +589,26 @@ function mkCard(d,act,mini){
   return div;
 }
 
+function wrongFlash(card,zone){
+  // shake the card
+  card.classList.remove('wrong-drop');
+  void card.offsetWidth; // reflow
+  card.classList.add('wrong-drop');
+  // flash the zone
+  zone.classList.add('wrong-flash');
+  setTimeout(()=>{card.classList.remove('wrong-drop');zone.classList.remove('wrong-flash');},500);
+}
+
 function dp(e,zone,act){
   e.preventDefault();zone.classList.remove('drag-over');
   if(!dragging||dragging.act!==act) return;
+  const d=dragging.d;
+  // ── Act 1 & 3: validate correct zone ──
+  if((act==='a1'||act==='a3')&&d.zone&&zone.id!==d.zone){
+    wrongFlash(dragging.el,zone);
+    dragging=null;
+    return;
+  }
   zone.appendChild(dragging.el);
   dragging.el.dataset.dz=zone.id;
   dragging=null;
@@ -589,6 +629,18 @@ function buildSlots(){
     slot.addEventListener('drop',e=>{
       e.preventDefault();slot.classList.remove('drag-over-slot');
       if(!dragging||dragging.act!=='a2') return;
+      // ── validate: is this the correct step for this slot? ──
+      if(dragging.el.id!==A2_ORDERED[i].id){
+        // wrong step — shake card, flash slot, send back
+        const card=dragging.el;
+        card.classList.remove('wrong-drop');
+        void card.offsetWidth;
+        card.classList.add('wrong-drop');
+        slot.classList.add('wrong-flash');
+        setTimeout(()=>{card.classList.remove('wrong-drop');slot.classList.remove('wrong-flash');},500);
+        dragging=null;
+        return;
+      }
       const dropTarget=slot.querySelector('.seq-drop');
       // if slot already occupied, send old card back to source
       const prev=slotMap[i];
@@ -628,6 +680,30 @@ function buildAct3(){
   });
 }
 function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]]}return arr}
+
+function resetAct1(){
+  scores.a1=0;
+  const cb=document.getElementById('cb1');cb.disabled=false;
+  const fb=document.getElementById('fb1');fb.className='fb';fb.textContent='';
+  // clear drop zones (keep label)
+  ['dz-setup','dz-logic','dz-output'].forEach(id=>{
+    const z=document.getElementById(id);
+    while(z.children.length>1) z.removeChild(z.lastChild);
+  });
+  buildAct1();
+}
+function resetAct2(){
+  scores.a2=0;
+  const cb=document.getElementById('cb2');cb.disabled=false;
+  const fb=document.getElementById('fb2');fb.className='fb';fb.textContent='';
+  buildAct2(); // rebuilds slots and src
+}
+function resetAct3(){
+  scores.a3=0;
+  const cb=document.getElementById('cb3');cb.disabled=false;
+  const fb=document.getElementById('fb3');fb.className='fb';fb.textContent='';
+  buildAct3();
+}
 
 // ══════════════════════════════════════════════
 // CHECK FUNCTIONS
@@ -721,11 +797,7 @@ function updatePips(n){
 function restart(){
   document.getElementById('popF').classList.add('hidden');
   scores={a1:0,a2:0,a3:0};
-  [1,2,3].forEach(i=>{
-    const cb=document.getElementById(`cb${i}`);if(cb)cb.disabled=false;
-    const fb=document.getElementById(`fb${i}`);if(fb){fb.className='fb';fb.textContent='';}
-  });
-  buildAct1();buildAct2();buildAct3();
+  resetAct1();resetAct2();resetAct3();
   [2,3].forEach(i=>document.getElementById(`act${i}`).style.display='none');
   document.getElementById('act1').style.display='flex';
   updatePips(1);

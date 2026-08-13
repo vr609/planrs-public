@@ -281,6 +281,38 @@
   .check-btn:active { transform: scale(0.97); }
   .check-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+  .reset-btn {
+    align-self: flex-end;
+    background: rgba(255,107,107,0.18);
+    color: #ff6b6b;
+    border: 1.5px solid rgba(255,107,107,0.45);
+    border-radius: 10px;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: clamp(12px, 1.3vw, 15px);
+    padding: 9px 20px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+  }
+  .reset-btn:hover { transform: translateY(-2px); background: rgba(255,107,107,0.28); box-shadow: 0 5px 18px rgba(255,107,107,0.25); }
+  .reset-btn:active { transform: scale(0.97); }
+  .btn-group { display: flex; gap: 8px; align-items: center; }
+
+  @keyframes wrongShake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+  @keyframes wrongFlashZone {
+    0%,100% { background-color: inherit; }
+    35%,65% { background-color: rgba(255,107,107,0.28); }
+  }
+  .wrong-shake { animation: wrongShake 0.4s ease !important; }
+  .wrong-flash-zone { animation: wrongFlashZone 0.45s ease !important; }
+
   .feedback-msg {
     font-size: clamp(12px, 1.3vw, 14px);
     font-weight: 700;
@@ -795,7 +827,10 @@
         </div>
         <div class="bottom-row">
           <div class="feedback-msg" id="fb1"></div>
-          <button class="check-btn" onclick="checkAct1()">Check Answers ✦</button>
+          <div class="btn-group">
+            <button class="reset-btn" onclick="resetAct1()">↺ Reset</button>
+            <button class="check-btn" id="chk1" onclick="checkAct1()">Check Answers ✦</button>
+          </div>
         </div>
       </div>
 
@@ -851,7 +886,10 @@
         </div>
         <div class="bottom-row">
           <div class="feedback-msg" id="fb2"></div>
-          <button class="check-btn" onclick="checkAct2()">Check Query ✦</button>
+          <div class="btn-group">
+            <button class="reset-btn" onclick="resetAct2()">↺ Reset</button>
+            <button class="check-btn" id="chk2" onclick="checkAct2()">Check Query ✦</button>
+          </div>
         </div>
       </div>
 
@@ -898,7 +936,10 @@
         </div>
         <div class="bottom-row">
           <div class="feedback-msg" id="fb3"></div>
-          <button class="check-btn" onclick="checkAct3()">Check Order ✦</button>
+          <div class="btn-group">
+            <button class="reset-btn" onclick="resetAct3()">↺ Reset</button>
+            <button class="check-btn" id="chk3" onclick="checkAct3()">Check Order ✦</button>
+          </div>
         </div>
       </div>
 
@@ -986,22 +1027,49 @@ function setupDrag(chip, pool) {
   chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
 }
 
-function setupDropZone(zone, chipClass) {
+// ── Wrong drop feedback ───────────────────────────
+function rejectDrop(zone) {
+  // flash the zone red
+  zone.classList.remove('wrong-flash-zone');
+  void zone.offsetWidth;
+  zone.classList.add('wrong-flash-zone');
+  setTimeout(() => zone.classList.remove('wrong-flash-zone'), 460);
+  // shake the dragging chip
+  if (draggingChip) {
+    draggingChip.classList.remove('wrong-shake');
+    void draggingChip.offsetWidth;
+    draggingChip.classList.add('wrong-shake');
+    setTimeout(() => draggingChip && draggingChip.classList.remove('wrong-shake'), 420);
+  }
+  draggingLabel = null; draggingChip = null; originPool = null;
+}
+
+// ── ACTIVITY 1 SETUP ──────────────────────────────
+const pool1 = document.getElementById('pool1');
+pool1.querySelectorAll('.chip').forEach(c => setupDrag(c, pool1));
+
+document.querySelectorAll('#act1 .drop-zone').forEach(zone => {
   zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('over'));
   zone.addEventListener('drop', e => {
     e.preventDefault();
     zone.classList.remove('over');
     if (!draggingLabel) return;
+    // ── Wrong answer: reject ──
+    if (draggingLabel !== zone.dataset.answer) {
+      rejectDrop(zone);
+      return;
+    }
     // Remove existing chip in zone if any
-    const existing = zone.querySelector('.' + chipClass);
+    const existing = zone.querySelector('.chip.placed');
     if (existing) {
       existing.classList.remove('placed');
-      originPool.appendChild(existing);
+      pool1.appendChild(existing);
     }
-    zone.querySelector('.dz-text') && (zone.querySelector('.dz-text').style.display = 'none');
+    const dzText = zone.querySelector('.dz-text');
+    if (dzText) dzText.style.display = 'none';
     const clone = draggingChip.cloneNode(true);
-    clone.classList.add('placed', chipClass);
+    clone.classList.add('placed', 'chip');
     clone.removeAttribute('draggable');
     clone.style.cursor = 'default';
     zone.appendChild(clone);
@@ -1012,23 +1080,17 @@ function setupDropZone(zone, chipClass) {
     draggingChip.setAttribute('draggable', 'false');
     draggingLabel = null; draggingChip = null; originPool = null;
   });
-}
-
-// ── ACTIVITY 1 SETUP ──────────────────────────────
-const pool1 = document.getElementById('pool1');
-pool1.querySelectorAll('.chip').forEach(c => setupDrag(c, pool1));
-document.querySelectorAll('#act1 .drop-zone').forEach(z => setupDropZone(z, 'chip'));
+});
 
 function checkAct1() {
   const zones = document.querySelectorAll('#act1 .drop-zone');
   let correct = 0;
   zones.forEach(z => {
-    const answer = z.dataset.answer;
     const placed = z.dataset.placed;
     z.classList.remove('correct-zone','wrong-zone');
     const chip = z.querySelector('.chip.placed');
     if (!placed) return;
-    if (placed === answer) {
+    if (placed === z.dataset.answer) {
       z.classList.add('correct-zone');
       if (chip) chip.classList.add('correct-chip');
       correct++;
@@ -1041,11 +1103,33 @@ function checkAct1() {
   if (correct === 4) {
     fb.textContent = '✓ All correct! Well done!';
     fb.className = 'feedback-msg correct';
+    document.getElementById('chk1').disabled = true;
     setTimeout(() => showPopup('popup1'), 700);
   } else {
     fb.textContent = `${correct}/4 correct — check the highlighted zones and try again.`;
     fb.className = 'feedback-msg wrong';
   }
+}
+
+function resetAct1() {
+  // Restore all chips to pool
+  document.querySelectorAll('#act1 .drop-zone').forEach(z => {
+    z.classList.remove('correct-zone','wrong-zone','filled');
+    delete z.dataset.placed;
+    const chip = z.querySelector('.chip.placed');
+    if (chip) z.removeChild(chip);
+    const dzText = z.querySelector('.dz-text');
+    if (dzText) dzText.style.display = '';
+  });
+  pool1.querySelectorAll('.chip').forEach(c => {
+    c.classList.remove('placed','correct-chip','wrong-chip','wrong-shake');
+    c.style.opacity = '1';
+    c.setAttribute('draggable','true');
+    c.style.cursor = 'grab';
+  });
+  const fb = document.getElementById('fb1');
+  fb.textContent = ''; fb.className = 'feedback-msg';
+  document.getElementById('chk1').disabled = false;
 }
 
 // ── ACTIVITY 2 SETUP ──────────────────────────────
@@ -1059,6 +1143,11 @@ document.querySelectorAll('.sql-slot').forEach(slot => {
     e.preventDefault();
     slot.classList.remove('over');
     if (!draggingLabel) return;
+    // ── Wrong answer: reject ──
+    if (draggingLabel !== slot.dataset.answer) {
+      rejectDrop(slot);
+      return;
+    }
     const existing = slot.querySelector('.sql-chip.placed');
     if (existing) {
       existing.classList.remove('placed');
@@ -1097,11 +1186,29 @@ function checkAct2() {
   if (correct === 4) {
     fb.textContent = '✓ Perfect SQL query!';
     fb.className = 'feedback-msg correct';
+    document.getElementById('chk2').disabled = true;
     setTimeout(() => showPopup('popup2'), 700);
   } else {
     fb.textContent = `${correct}/4 slots correct — review the query goal and try again.`;
     fb.className = 'feedback-msg wrong';
   }
+}
+
+function resetAct2() {
+  document.querySelectorAll('.sql-slot').forEach(s => {
+    s.classList.remove('correct-zone','wrong-zone','filled');
+    delete s.dataset.placed;
+    s.innerHTML = '';
+  });
+  pool2.querySelectorAll('.sql-chip').forEach(c => {
+    c.classList.remove('placed','wrong-shake');
+    c.style.opacity = '1';
+    c.setAttribute('draggable','true');
+    c.style.cursor = 'grab';
+  });
+  const fb = document.getElementById('fb2');
+  fb.textContent = ''; fb.className = 'feedback-msg';
+  document.getElementById('chk2').disabled = false;
 }
 
 // ── ACTIVITY 3 SETUP ──────────────────────────────
@@ -1115,6 +1222,11 @@ document.querySelectorAll('.order-slot').forEach(slot => {
     e.preventDefault();
     slot.classList.remove('over');
     if (!draggingLabel) return;
+    // ── Wrong answer: reject ──
+    if (draggingLabel !== slot.dataset.answer) {
+      rejectDrop(slot);
+      return;
+    }
     const existing = slot.querySelector('.order-chip.placed');
     if (existing) {
       existing.classList.remove('placed');
@@ -1156,11 +1268,30 @@ function checkAct3() {
     fb.className = 'feedback-msg correct';
     resultWrap.style.opacity = '1';
     resultWrap.style.transition = 'opacity 0.6s';
+    document.getElementById('chk3').disabled = true;
     setTimeout(() => showPopup('popup3'), 900);
   } else {
     fb.textContent = `${correct}/4 parts in correct position — check the query structure.`;
     fb.className = 'feedback-msg wrong';
   }
+}
+
+function resetAct3() {
+  document.querySelectorAll('.order-slot').forEach(s => {
+    s.classList.remove('correct-zone','wrong-zone','filled');
+    delete s.dataset.placed;
+    s.innerHTML = '';
+  });
+  pool3.querySelectorAll('.order-chip').forEach(c => {
+    c.classList.remove('placed','wrong-shake');
+    c.style.opacity = '1';
+    c.setAttribute('draggable','true');
+    c.style.cursor = 'grab';
+  });
+  document.getElementById('resultWrap').style.opacity = '0.35';
+  const fb = document.getElementById('fb3');
+  fb.textContent = ''; fb.className = 'feedback-msg';
+  document.getElementById('chk3').disabled = false;
 }
 
 // ── Popup & navigation ────────────────────────────
@@ -1203,7 +1334,19 @@ function showFinal() {
 
 function restartAll() {
   hidePopup('popupFinal');
-  location.reload();
+  // Reset all three activities
+  resetAct1(); resetAct2(); resetAct3();
+  // Reset dots
+  ['dot1','dot2','dot3'].forEach(id => {
+    document.getElementById(id).classList.remove('done','active');
+  });
+  document.getElementById('dot1').classList.add('active');
+  // Go back to act1
+  document.getElementById('act2').classList.remove('active');
+  document.getElementById('act3').classList.remove('active');
+  document.getElementById('act1').classList.add('active');
+  document.getElementById('mainCard').style.animation = 'none';
+  setTimeout(() => document.getElementById('mainCard').style.animation = 'cardIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both', 10);
 }
 
 // ── Confetti ──────────────────────────────────────

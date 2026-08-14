@@ -186,6 +186,20 @@ html,body{width:100%;height:100%;overflow:hidden;background:#020b18;font-family:
   cursor:default;
 }
 .drag-chip.placed-wrong{border-color:#ff4444;color:#ff4444;cursor:default}
+.drag-chip.wrong-shake{animation:chipShake 0.45s ease;border-color:#ff4444!important;background:rgba(255,68,68,0.18)!important;color:#ff6666!important;box-shadow:0 0 16px rgba(255,68,68,0.5)!important}
+@keyframes chipShake{0%{transform:translateX(0)}15%{transform:translateX(-8px)}30%{transform:translateX(7px)}45%{transform:translateX(-6px)}60%{transform:translateX(5px)}75%{transform:translateX(-3px)}90%{transform:translateX(2px)}100%{transform:translateX(0)}}
+/* RESET BUTTON */
+.btn-reset{
+  padding:7px 20px;
+  font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:2px;font-weight:700;
+  background:transparent;
+  border:1.5px solid var(--neon-orange);
+  border-radius:6px;color:var(--neon-orange);
+  cursor:pointer;transition:all .2s;
+  box-shadow:0 0 8px rgba(255,106,0,0.2);
+  margin-top:6px;
+}
+.btn-reset:hover{background:rgba(255,106,0,0.1);box-shadow:0 0 20px rgba(255,106,0,0.4)}
 
 /* ── WORKFLOW ARROWS ── */
 .flow-arrows{display:flex;align-items:center;gap:0;width:100%}
@@ -369,6 +383,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#020b18;font-family:
 }
 .resolve-drop.over{border-color:var(--neon-cyan);background:rgba(0,245,255,0.06)}
 .resolve-drop.correct{border-color:var(--neon-green);background:rgba(0,255,136,0.04)}
+.resolve-drop.wrong{border-color:#ff4444;background:rgba(255,68,68,0.08);animation:shake .3s ease}
 
 /* scrollbar */
 ::-webkit-scrollbar{width:4px}
@@ -475,7 +490,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#020b18;font-family:
       </div>
 
       <div class="feedback" id="fb1"></div>
-      <button class="btn-check" id="btn1">VERIFY SEQUENCE</button>
+      <div style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap">
+        <button class="btn-check" id="btn1">VERIFY SEQUENCE</button>
+        <button class="btn-reset" id="resetBtn1" onclick="resetAct1()">↺ RESET MISSION 01</button>
+      </div>
     </div>
 
     <!-- ══════════ ACTIVITY 2 ══════════ -->
@@ -570,7 +588,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#020b18;font-family:
       </div>
 
       <div class="feedback" id="fb2"></div>
-      <button class="btn-check" id="btn2">VERIFY BRANCH WORKFLOW</button>
+      <div style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap">
+        <button class="btn-check" id="btn2">VERIFY BRANCH WORKFLOW</button>
+        <button class="btn-reset" id="resetBtn2" onclick="resetAct2()">↺ RESET MISSION 02</button>
+      </div>
     </div>
 
     <!-- ══════════ ACTIVITY 3 ══════════ -->
@@ -627,7 +648,10 @@ background: #000; <span style="color:rgba(0,255,136,0.5)">← from feature</span
       </div>
 
       <div class="feedback" id="fb3"></div>
-      <button class="btn-check" id="btn3">RESOLVE CONFLICT</button>
+      <div style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap">
+        <button class="btn-check" id="btn3">RESOLVE CONFLICT</button>
+        <button class="btn-reset" id="resetBtn3" onclick="resetAct3()">↺ RESET MISSION 03</button>
+      </div>
     </div>
 
     <!-- ── PROGRESS BAR ── -->
@@ -794,6 +818,19 @@ pool1.querySelectorAll('.drag-chip').forEach(c=>setupDrag(c));
 slots1.forEach(slot=>{
   setupDrop(slot, (zone, chip, origin)=>{
     if(!chip) return;
+    const ans = zone.dataset.answer;
+    const isCorrect = chip.dataset.cmd === ans;
+    if(!isCorrect){
+      // Reject: shake the chip and return it to origin
+      zone.classList.add('wrong');
+      setTimeout(()=>zone.classList.remove('wrong'),400);
+      chip.classList.add('wrong-shake');
+      setTimeout(()=>chip.classList.remove('wrong-shake'),450);
+      document.getElementById('fb1').textContent='✗ Wrong command for this step — try another!';
+      document.getElementById('fb1').className='feedback error';
+      return;
+    }
+    // Correct — place it
     const occupied = slotContents[zone.id];
     if(occupied){
       if(origin.classList.contains('drop-zone')){
@@ -812,7 +849,11 @@ slots1.forEach(slot=>{
     }
     zone.textContent='';
     zone.appendChild(chip);
+    zone.classList.add('correct');
+    chip.classList.add('placed');
     slotContents[zone.id] = chip;
+    document.getElementById('fb1').textContent='✓ Correct! Keep going.';
+    document.getElementById('fb1').className='feedback success';
   });
 });
 
@@ -851,6 +892,18 @@ pool2.querySelectorAll('.drag-chip').forEach(c=>setupDrag(c));
 bSlots.forEach(slot=>{
   setupDrop(slot,(zone,chip,origin)=>{
     if(!chip) return;
+    const isCorrect = chip.dataset.cmd === zone.dataset.answer;
+    if(!isCorrect){
+      // Reject: shake chip, flash zone red
+      zone.classList.add('wrong');
+      setTimeout(()=>zone.classList.remove('wrong'),400);
+      chip.classList.add('wrong-shake');
+      setTimeout(()=>chip.classList.remove('wrong-shake'),450);
+      document.getElementById('fb2').textContent='✗ Wrong command for this position — check the diagram!';
+      document.getElementById('fb2').className='feedback error';
+      return;
+    }
+    // Correct — place it
     const occupied = bSlotContents[zone.id];
     if(occupied){
       (origin.classList.contains('drop-zone') ? (()=>{origin.textContent='Drop here';delete bSlotContents[origin.id];origin.classList.remove('correct','wrong')})() : pool2.appendChild(occupied));
@@ -859,7 +912,9 @@ bSlots.forEach(slot=>{
     if(origin && origin.classList.contains('drop-zone') && origin!==zone){
       origin.textContent='Drop here';delete bSlotContents[origin.id];origin.classList.remove('correct','wrong');
     }
-    zone.textContent='';zone.appendChild(chip);bSlotContents[zone.id]=chip;
+    zone.textContent='';zone.appendChild(chip);zone.classList.add('correct');chip.classList.add('placed');bSlotContents[zone.id]=chip;
+    document.getElementById('fb2').textContent='✓ Correct! Keep going.';
+    document.getElementById('fb2').className='feedback success';
   });
 });
 
@@ -907,6 +962,10 @@ resolveZone.addEventListener('drop',e=>{
     const fb=document.getElementById('fb3');
     fb.textContent='⚠ Only use the resolved code blocks (right side). Do not drag raw conflict code!';
     fb.className='feedback error';
+    // Shake the wrong chip
+    currentDrag.classList.add('wrong-shake');
+    resolveZone.classList.add('wrong');
+    setTimeout(()=>{currentDrag.classList.remove('wrong-shake');resolveZone.classList.remove('wrong');},450);
     return;
   }
   if(resolvedOrder.includes(id)) return;
@@ -966,48 +1025,56 @@ function goToAct(n){
   document.getElementById('progLabel').textContent='MISSION '+n+' / 3';
 }
 
-function resetAll(){
-  document.querySelectorAll('.popup-overlay').forEach(p=>p.classList.remove('show'));
-
-  // Reset act1
+function resetAct1(){
   const p1 = document.getElementById('pool1');
   document.querySelectorAll('#slot1-1,#slot1-2,#slot1-3,#slot1-4,#slot1-5').forEach(slot=>{
     if(slotContents[slot.id]){
       p1.appendChild(slotContents[slot.id]);
-      slotContents[slot.id].classList.remove('placed','placed-wrong');
+      slotContents[slot.id].classList.remove('placed','placed-wrong','wrong-shake');
       delete slotContents[slot.id];
     }
     slot.textContent='Drop here';
     slot.classList.remove('correct','wrong');
   });
-  document.getElementById('fb1').className='feedback';
-  document.getElementById('fb1').textContent='';
+  const fb=document.getElementById('fb1');
+  fb.className='feedback hint';fb.textContent='↺ Mission 01 reset — arrange the commands again!';
+  setTimeout(()=>{fb.className='feedback';fb.textContent='';},2500);
+}
 
-  // Reset act2
+function resetAct2(){
   const p2 = document.getElementById('pool2');
   bSlots.forEach(slot=>{
     if(bSlotContents[slot.id]){
       p2.appendChild(bSlotContents[slot.id]);
-      bSlotContents[slot.id].classList.remove('placed','placed-wrong');
+      bSlotContents[slot.id].classList.remove('placed','placed-wrong','wrong-shake');
       delete bSlotContents[slot.id];
     }
     slot.textContent='Drop here';
     slot.classList.remove('correct','wrong');
   });
-  document.getElementById('fb2').className='feedback';
-  document.getElementById('fb2').textContent='';
+  const fb=document.getElementById('fb2');
+  fb.className='feedback hint';fb.textContent='↺ Mission 02 reset — rebuild the branch workflow!';
+  setTimeout(()=>{fb.className='feedback';fb.textContent='';},2500);
+}
 
-  // Reset act3
+function resetAct3(){
   resolvedOrder.length=0;
   resolveZone.innerHTML='<div style="font-family:Share Tech Mono,monospace;font-size:10px;color:rgba(0,245,255,0.2);text-align:center;margin:auto">Drop conflict blocks here in the correct resolution order</div>';
-  resolveZone.classList.remove('correct');
+  resolveZone.classList.remove('correct','wrong');
   ['cc-r1','cc-r2','cc-r3','cc-m1','cc-f1','cc-f2'].forEach(id=>{
     const el=document.getElementById(id);
-    if(el){el.classList.remove('placed');el.draggable=true;}
+    if(el){el.classList.remove('placed','wrong-shake');el.draggable=true;el.style.opacity='1';el.style.cursor='grab';}
   });
-  document.getElementById('fb3').className='feedback';
-  document.getElementById('fb3').textContent='';
+  const fb=document.getElementById('fb3');
+  fb.className='feedback hint';fb.textContent='↺ Mission 03 reset — resolve the conflict again!';
+  setTimeout(()=>{fb.className='feedback';fb.textContent='';},2500);
+}
 
+function resetAll(){
+  document.querySelectorAll('.popup-overlay').forEach(p=>p.classList.remove('show'));
+  resetAct1();
+  resetAct2();
+  resetAct3();
   goToAct(1);
 }
 </script>

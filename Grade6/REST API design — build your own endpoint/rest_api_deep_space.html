@@ -90,6 +90,27 @@ html,body{width:100%;height:100%;overflow:hidden;background:#03050f;font-family:
 .chip:active{cursor:grabbing;transform:scale(.95)}
 .chip.placed{border-color:var(--green);color:var(--green);box-shadow:0 0 10px rgba(57,255,137,0.25);cursor:default}
 .chip.wrong{border-color:var(--red);color:var(--red);cursor:default}
+.chip.wrong-shake{
+  animation:chipShk 0.45s ease;
+  border-color:var(--red)!important;
+  background:rgba(255,61,113,0.18)!important;
+  color:var(--red)!important;
+  box-shadow:0 0 16px rgba(255,61,113,0.5)!important;
+}
+@keyframes chipShk{
+  0%{transform:translateX(0)}15%{transform:translateX(-8px)}
+  30%{transform:translateX(7px)}45%{transform:translateX(-6px)}
+  60%{transform:translateX(5px)}75%{transform:translateX(-3px)}
+  90%{transform:translateX(2px)}100%{transform:translateX(0)}
+}
+/* RESET BTN */
+.btn-r{
+  padding:8px 22px;font-family:'VT323',monospace;font-size:19px;letter-spacing:2px;
+  background:transparent;border:1.5px solid var(--orange);border-radius:6px;
+  color:var(--orange);cursor:pointer;transition:all .15s;
+  box-shadow:0 0 10px rgba(255,112,67,0.12);
+}
+.btn-r:hover{background:rgba(255,112,67,0.09);box-shadow:0 0 24px rgba(255,112,67,0.38)}
 
 /* GET/POST/PUT/DELETE chip colours */
 .chip-get{border-color:rgba(57,255,137,0.4);color:var(--green)}
@@ -348,7 +369,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#03050f;font-family:
       </div>
 
       <div class="fb" id="fb1"></div>
-      <button class="btn-v" id="btn1">◈ VERIFY ENDPOINTS</button>
+      <div style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap">
+        <button class="btn-v" id="btn1">◈ VERIFY ENDPOINTS</button>
+        <button class="btn-r" onclick="resetAct1()">↺ RESET MISSION 01</button>
+      </div>
     </div>
 
     <!-- ═══ ACT 2: HTTP Methods ═══ -->
@@ -418,7 +442,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#03050f;font-family:
       </div>
 
       <div class="fb" id="fb2"></div>
-      <button class="btn-v" id="btn2">◈ VERIFY METHOD SORT</button>
+      <div style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap">
+        <button class="btn-v" id="btn2">◈ VERIFY METHOD SORT</button>
+        <button class="btn-r" onclick="resetAct2()">↺ RESET MISSION 02</button>
+      </div>
     </div>
 
     <!-- ═══ ACT 3: Route Builder ═══ -->
@@ -513,7 +540,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#03050f;font-family:
       </div>
 
       <div class="fb" id="fb3"></div>
-      <button class="btn-v" id="btn3">◈ LAUNCH API</button>
+      <div style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap">
+        <button class="btn-v" id="btn3">◈ LAUNCH API</button>
+        <button class="btn-r" onclick="resetAct3()">↺ RESET MISSION 03</button>
+      </div>
     </div>
 
     <!-- PROGRESS -->
@@ -661,22 +691,29 @@ const sc1={};
 p1.querySelectorAll('.chip').forEach(makeDrag);
 slots1.forEach(s=>makeDrop(s,(zone,chip,origin)=>{
   if(!chip)return;
+  const isCorrect=chip.dataset.id===zone.dataset.ans;
+  if(!isCorrect){
+    zone.classList.add('bad');
+    setTimeout(()=>zone.classList.remove('bad'),400);
+    chip.classList.add('wrong-shake');
+    setTimeout(()=>chip.classList.remove('wrong-shake'),450);
+    const fb=document.getElementById('fb1');
+    fb.textContent='✗ Wrong endpoint here — check the hint panel!';fb.className='fb err';
+    return;
+  }
   const occ=sc1[zone.id];
   if(occ){(origin.classList.contains('dz')?(()=>{origin.textContent='Drop endpoint';delete sc1[origin.id];origin.classList.remove('ok','bad')})():p1.appendChild(occ));occ.classList.remove('placed','wrong')}
   if(origin&&origin.classList.contains('dz')&&origin!==zone){origin.textContent='Drop endpoint';delete sc1[origin.id];origin.classList.remove('ok','bad')}
-  zone.textContent='';zone.appendChild(chip);sc1[zone.id]=chip;
+  zone.textContent='';zone.appendChild(chip);zone.classList.add('ok');chip.classList.add('placed');sc1[zone.id]=chip;
+  const fb=document.getElementById('fb1');
+  fb.textContent='✓ Correct endpoint!';fb.className='fb ok';
 }));
 document.getElementById('btn1').addEventListener('click',()=>{
   let ok=true;
-  slots1.forEach(s=>{
-    const chip=sc1[s.id];if(!chip){ok=false;return}
-    const good=chip.dataset.id===s.dataset.ans;
-    s.classList.remove('ok','bad');chip.classList.remove('placed','wrong');
-    if(good){s.classList.add('ok');chip.classList.add('placed')}else{s.classList.add('bad');chip.classList.add('wrong');ok=false}
-  });
+  slots1.forEach(s=>{if(!sc1[s.id])ok=false});
   const fb=document.getElementById('fb1');
   if(ok){fb.textContent='✓ All endpoints correctly mapped! Your Library API is taking shape.';fb.className='fb ok';setTimeout(()=>document.getElementById('pop1').classList.add('show'),700)}
-  else{fb.textContent='✗ Some endpoints are mismatched — check the hint panel and try again!';fb.className='fb err'}
+  else{fb.textContent='✗ Fill all endpoint slots first!';fb.className='fb err'}
 });
 
 /* ═══ ACT 2 ═══ */
@@ -687,52 +724,69 @@ p2.querySelectorAll('.chip').forEach(makeDrag);
 Object.entries(mzones).forEach(([method,zone])=>{
   makeDrop(zone,(z,chip,origin)=>{
     if(!chip||!chip.dataset.method)return;
-    const ph=z.querySelector('.zone-placeholder');if(ph)ph.remove();
-    if(origin&&origin.classList.contains('method-zone')&&origin!==z){
-      const c=placed2[chip.dataset.id];if(c){delete placed2[chip.dataset.id]}
+    const isCorrect=chip.dataset.method===method;
+    if(!isCorrect){
+      z.classList.add('bad');
+      setTimeout(()=>z.classList.remove('bad'),400);
+      chip.classList.add('wrong-shake');
+      setTimeout(()=>chip.classList.remove('wrong-shake'),450);
+      const fb=document.getElementById('fb2');
+      fb.textContent='✗ Wrong method! GET=Read, POST=Create, PUT=Update, DELETE=Remove.';fb.className='fb err';
+      return;
     }
-    z.appendChild(chip);placed2[chip.dataset.id]=method;
+    // remove from previous zone if dragged from one
+    if(origin&&origin.classList.contains('method-zone')&&origin!==z){
+      delete placed2[chip.dataset.id];
+    }
+    const ph=z.querySelector('.zone-placeholder');if(ph)ph.remove();
+    z.appendChild(chip);chip.classList.add('placed');placed2[chip.dataset.id]=method;
+    const fb=document.getElementById('fb2');
+    fb.textContent='✓ Correct method!';fb.className='fb ok';
   });
 });
 document.getElementById('btn2').addEventListener('click',()=>{
-  const allChips=[...p2.querySelectorAll('.chip'),...Object.values(mzones).flatMap(z=>[...z.querySelectorAll('.chip')])];
-  let ok=true,checked=0;
-  allChips.forEach(chip=>{
-    const dest=placed2[chip.dataset.id];
-    chip.classList.remove('placed','wrong');
-    if(!dest){ok=false;return}
-    checked++;
-    if(chip.dataset.method===dest){chip.classList.add('placed')}else{chip.classList.add('wrong');ok=false}
-  });
-  if(checked<8){ok=false}
+  const total=Object.keys(placed2).length;
   const fb=document.getElementById('fb2');
-  if(ok){fb.textContent='✓ Perfect! All 8 actions sorted correctly across GET, POST, PUT, DELETE.';fb.className='fb ok';setTimeout(()=>document.getElementById('pop2').classList.add('show'),700)}
-  else{fb.textContent='✗ Some actions are in the wrong method group. Remember: GET reads, POST creates, PUT updates, DELETE removes!';fb.className='fb err'}
+  if(total<8){fb.textContent='✗ Place all 8 action cards first!';fb.className='fb err';return}
+  fb.textContent='✓ Perfect! All 8 actions sorted correctly across GET, POST, PUT, DELETE.';fb.className='fb ok';
+  setTimeout(()=>document.getElementById('pop2').classList.add('show'),700);
 });
 
 /* ═══ ACT 3 ═══ */
 const p3=document.getElementById('pool3');
 const rzones=['rz1','rz2','rz3','rz4','rz5','rz6'].map(id=>document.getElementById(id));
 const sc3={};
+// helper: get placeholder text for a route-dz by its data-ans
+function rzPlaceholder(zone){
+  const ans=zone.dataset.ans||'';
+  return (ans==='r-get'||ans==='r-put'||ans==='r-post'||ans==='r-del')?'method':'path';
+}
 p3.querySelectorAll('.chip').forEach(makeDrag);
 rzones.forEach(z=>makeDrop(z,(zone,chip,origin)=>{
   if(!chip||!chip.classList.contains('chip'))return;
+  const isCorrect=chip.dataset.id===zone.dataset.ans;
+  if(!isCorrect){
+    zone.classList.add('bad');
+    setTimeout(()=>zone.classList.remove('bad'),400);
+    chip.classList.add('wrong-shake');
+    setTimeout(()=>chip.classList.remove('wrong-shake'),450);
+    const fb=document.getElementById('fb3');
+    fb.textContent='✗ Wrong piece here — method goes in app.METHOD(), path goes inside the parentheses!';fb.className='fb err';
+    return;
+  }
   const occ=sc3[zone.id];
-  if(occ){(origin.classList.contains('route-dz')?(()=>{origin.textContent=origin.dataset.ans.startsWith('r-')?'path':'method';delete sc3[origin.id];origin.classList.remove('ok','bad')})():p3.appendChild(occ));occ.classList.remove('placed','wrong')}
-  if(origin&&origin.classList.contains('route-dz')&&origin!==zone){const ph=origin.dataset.ans.startsWith('r-get')||origin.dataset.ans.startsWith('r-post')||origin.dataset.ans.startsWith('r-put')||origin.dataset.ans.startsWith('r-del')?'method':'path';origin.textContent=ph;delete sc3[origin.id];origin.classList.remove('ok','bad')}
-  zone.textContent='';zone.appendChild(chip);sc3[zone.id]=chip;
+  if(occ){(origin.classList.contains('route-dz')?(()=>{origin.textContent=rzPlaceholder(origin);delete sc3[origin.id];origin.classList.remove('ok','bad')})():p3.appendChild(occ));occ.classList.remove('placed','wrong')}
+  if(origin&&origin.classList.contains('route-dz')&&origin!==zone){origin.textContent=rzPlaceholder(origin);delete sc3[origin.id];origin.classList.remove('ok','bad')}
+  zone.textContent='';zone.appendChild(chip);zone.classList.add('ok');chip.classList.add('placed');sc3[zone.id]=chip;
+  const fb=document.getElementById('fb3');
+  fb.textContent='✓ Correct route piece!';fb.className='fb ok';
 }));
 document.getElementById('btn3').addEventListener('click',()=>{
   let ok=true;
-  rzones.forEach(s=>{
-    const chip=sc3[s.id];if(!chip){ok=false;return}
-    const good=chip.dataset.id===s.dataset.ans;
-    s.classList.remove('ok','bad');chip.classList.remove('placed','wrong');
-    if(good){s.classList.add('ok');chip.classList.add('placed')}else{s.classList.add('bad');chip.classList.add('wrong');ok=false}
-  });
+  rzones.forEach(s=>{if(!sc3[s.id])ok=false});
   const fb=document.getElementById('fb3');
   if(ok){fb.textContent='✓ All 6 routes assembled correctly! Your Library Management API is live!';fb.className='fb ok';setTimeout(()=>document.getElementById('popF').classList.add('show'),700)}
-  else{fb.textContent='✗ Some route pieces are misplaced. Check: method goes in app.METHOD() and path goes inside the parentheses!';fb.className='fb err'}
+  else{fb.textContent='✗ Fill all route slots first!';fb.className='fb err'}
 });
 
 /* ─── NAV ─── */
@@ -745,21 +799,39 @@ function goAct(n){
   document.getElementById('pPct').textContent=pct+'%';
   document.getElementById('pLbl').textContent='MISSION '+n+' / 3';
 }
-function resetAll(){
-  document.querySelectorAll('.pop').forEach(p=>p.classList.remove('show'));
-  slots1.forEach(s=>{if(sc1[s.id]){p1.appendChild(sc1[s.id]);sc1[s.id].classList.remove('placed','wrong');delete sc1[s.id]}s.textContent='Drop endpoint';s.classList.remove('ok','bad')});
-  document.getElementById('fb1').className='fb';document.getElementById('fb1').textContent='';
+
+function resetAct1(){
+  slots1.forEach(s=>{
+    if(sc1[s.id]){p1.appendChild(sc1[s.id]);sc1[s.id].classList.remove('placed','wrong','wrong-shake');delete sc1[s.id]}
+    s.textContent='Drop endpoint';s.classList.remove('ok','bad');
+  });
+  const fb=document.getElementById('fb1');
+  fb.textContent='↺ Mission 01 reset — map the endpoints again!';fb.className='fb hint';
+  setTimeout(()=>{fb.textContent='';fb.className='fb';},2500);
+}
+function resetAct2(){
   Object.values(mzones).forEach(z=>{
-    [...z.querySelectorAll('.chip')].forEach(c=>{p2.appendChild(c);c.classList.remove('placed','wrong')});
+    [...z.querySelectorAll('.chip')].forEach(c=>{p2.appendChild(c);c.classList.remove('placed','wrong','wrong-shake')});
     if(!z.querySelector('.zone-placeholder')){const d=document.createElement('div');d.className='zone-placeholder';d.textContent='Drop actions here';z.appendChild(d)}
+    z.classList.remove('ok','bad');
   });
   Object.keys(placed2).forEach(k=>delete placed2[k]);
-  document.getElementById('fb2').className='fb';document.getElementById('fb2').textContent='';
+  const fb=document.getElementById('fb2');
+  fb.textContent='↺ Mission 02 reset — sort the actions again!';fb.className='fb hint';
+  setTimeout(()=>{fb.textContent='';fb.className='fb';},2500);
+}
+function resetAct3(){
   rzones.forEach(s=>{
-    if(sc3[s.id]){p3.appendChild(sc3[s.id]);sc3[s.id].classList.remove('placed','wrong');delete sc3[s.id]}
-    const isMethod=['rz1','rz3','rz5'].includes(s.id);s.textContent=isMethod?'method':'path';s.classList.remove('ok','bad')
+    if(sc3[s.id]){p3.appendChild(sc3[s.id]);sc3[s.id].classList.remove('placed','wrong','wrong-shake');delete sc3[s.id]}
+    s.textContent=rzPlaceholder(s);s.classList.remove('ok','bad');
   });
-  document.getElementById('fb3').className='fb';document.getElementById('fb3').textContent='';
+  const fb=document.getElementById('fb3');
+  fb.textContent='↺ Mission 03 reset — assemble the routes again!';fb.className='fb hint';
+  setTimeout(()=>{fb.textContent='';fb.className='fb';},2500);
+}
+function resetAll(){
+  document.querySelectorAll('.pop').forEach(p=>p.classList.remove('show'));
+  resetAct1();resetAct2();resetAct3();
   goAct(1);
 }
 </script>

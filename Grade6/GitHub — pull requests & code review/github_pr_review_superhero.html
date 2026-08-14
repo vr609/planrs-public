@@ -119,6 +119,28 @@ html,body{width:100%;height:100%;overflow:hidden;background:#080c1a;font-family:
 .chip:active{cursor:grabbing;transform:scale(.95)}
 .chip.placed{border-color:var(--green);color:var(--green);box-shadow:0 0 12px rgba(57,255,20,0.3);cursor:default}
 .chip.wrong{border-color:var(--red);color:var(--red);cursor:default}
+.chip.wrong-shake,.comment-chip.wrong-shake,.branch-chip.wrong-shake{
+  animation:chipShk 0.45s ease;
+  border-color:var(--red)!important;
+  background:rgba(255,45,85,0.18)!important;
+  color:var(--red)!important;
+  box-shadow:0 0 16px rgba(255,45,85,0.5)!important;
+}
+@keyframes chipShk{
+  0%{transform:translateX(0)}15%{transform:translateX(-8px)}
+  30%{transform:translateX(7px)}45%{transform:translateX(-6px)}
+  60%{transform:translateX(5px)}75%{transform:translateX(-3px)}
+  90%{transform:translateX(2px)}100%{transform:translateX(0)}
+}
+/* RESET BUTTON */
+.btn-r{
+  padding:8px 22px;
+  font-family:'Bangers',cursive;font-size:15px;letter-spacing:2px;
+  background:transparent;border:2px solid var(--amber);border-radius:6px;
+  color:var(--amber);cursor:pointer;transition:all .18s;
+  box-shadow:0 0 10px rgba(255,149,0,0.15);
+}
+.btn-r:hover{background:rgba(255,149,0,0.1);box-shadow:0 0 24px rgba(255,149,0,0.4)}
 
 /* ── DROP ZONES ── */
 .dz{
@@ -446,7 +468,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#080c1a;font-family:
       </div>
 
       <div class="fb" id="fb1"></div>
-      <button class="btn-v" id="btn1">⚡ VERIFY SEQUENCE</button>
+      <div style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap">
+        <button class="btn-v" id="btn1">⚡ VERIFY SEQUENCE</button>
+        <button class="btn-r" onclick="resetAct1()">↺ RESET MISSION 01</button>
+      </div>
     </div>
 
     <!-- ═══ ACT 2: Code Review ═══ -->
@@ -519,7 +544,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#080c1a;font-family:
       </div>
 
       <div class="fb" id="fb2"></div>
-      <button class="btn-v" id="btn2">⚡ SUBMIT REVIEW</button>
+      <div style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap">
+        <button class="btn-v" id="btn2">⚡ SUBMIT REVIEW</button>
+        <button class="btn-r" onclick="resetAct2()">↺ RESET MISSION 02</button>
+      </div>
     </div>
 
     <!-- ═══ ACT 3: Branch Strategy ═══ -->
@@ -619,7 +647,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#080c1a;font-family:
       </div>
 
       <div class="fb" id="fb3"></div>
-      <button class="btn-v" id="btn3">⚡ SUBMIT BRANCH MAP</button>
+      <div style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap">
+        <button class="btn-v" id="btn3">⚡ SUBMIT BRANCH MAP</button>
+        <button class="btn-r" onclick="resetAct3()">↺ RESET MISSION 03</button>
+      </div>
     </div>
 
     <!-- Progress -->
@@ -727,47 +758,64 @@ const sc1={};
 pool1.querySelectorAll('.chip').forEach(makeDraggable);
 slots1.forEach(slot=>makeDroppable(slot,(zone,chip,origin)=>{
   if(!chip)return;
+  const isCorrect=chip.dataset.id===zone.dataset.ans;
+  if(!isCorrect){
+    // Reject: shake chip, flash zone red
+    zone.classList.add('wrong-drop');
+    setTimeout(()=>zone.classList.remove('wrong-drop'),400);
+    chip.classList.add('wrong-shake');
+    setTimeout(()=>chip.classList.remove('wrong-shake'),450);
+    const fb=document.getElementById('fb1');
+    fb.textContent='✗ Wrong step here — check the reference panel!';fb.className='fb err';
+    return;
+  }
+  // Correct — evict previous occupant if any
   const occ=sc1[zone.id];
   if(occ){(origin.classList.contains('dz')?(()=>{origin.textContent='Drop here';delete sc1[origin.id];origin.classList.remove('correct','wrong-drop')})():pool1.appendChild(occ));occ.classList.remove('placed','wrong')}
   if(origin&&origin.classList.contains('dz')&&origin!==zone){origin.textContent='Drop here';delete sc1[origin.id];origin.classList.remove('correct','wrong-drop')}
-  zone.textContent='';zone.appendChild(chip);sc1[zone.id]=chip;
+  zone.textContent='';zone.appendChild(chip);zone.classList.add('correct');chip.classList.add('placed');sc1[zone.id]=chip;
+  const fb=document.getElementById('fb1');
+  fb.textContent='✓ Correct! Keep going.';fb.className='fb ok';
 }));
 document.getElementById('btn1').addEventListener('click',()=>{
   let ok=true;
-  slots1.forEach(s=>{
-    const chip=sc1[s.id];if(!chip){ok=false;return}
-    const good=chip.dataset.id===s.dataset.ans;
-    s.classList.remove('correct','wrong-drop');chip.classList.remove('placed','wrong');
-    if(good){s.classList.add('correct');chip.classList.add('placed')}else{s.classList.add('wrong-drop');chip.classList.add('wrong');ok=false}
-  });
+  slots1.forEach(s=>{if(!sc1[s.id])ok=false});
   const fb=document.getElementById('fb1');
   if(ok){fb.textContent='✓ Perfect! Pull Request workflow sequence unlocked.';fb.className='fb ok';setTimeout(()=>showPop('pop1'),700)}
-  else{fb.textContent='✗ Some steps are out of order — check the reference panel!';fb.className='fb err'}
+  else{fb.textContent='✗ Fill all steps first!';fb.className='fb err'}
 });
 
 /* ─── ACT 2 ─── */
 const pool2=document.getElementById('pool2');
 const rs=['rs1','rs2','rs3'].map(id=>document.getElementById(id));
 const sc2={};
+const rsLabels={rs1:'Drop a line comment here',rs2:'Drop a suggestion here',rs3:'Drop the final action here'};
 pool2.querySelectorAll('.comment-chip').forEach(makeDraggable);
 rs.forEach(slot=>makeDroppable(slot,(zone,chip,origin)=>{
   if(!chip||!chip.classList.contains('comment-chip'))return;
+  const isCorrect=chip.dataset.id===zone.dataset.ans;
+  if(!isCorrect){
+    zone.classList.add('wrong-drop');
+    setTimeout(()=>zone.classList.remove('wrong-drop'),400);
+    chip.classList.add('wrong-shake');
+    setTimeout(()=>chip.classList.remove('wrong-shake'),450);
+    const fb=document.getElementById('fb2');
+    fb.textContent='✗ Wrong card here — think: kind, specific, constructive!';fb.className='fb err';
+    return;
+  }
   const occ=sc2[zone.id];
   if(occ){pool2.appendChild(occ);occ.classList.remove('placed');delete sc2[zone.id]}
-  if(origin&&origin.classList.contains('dz')&&origin!==zone){origin.textContent=origin.id==='rs1'?'Drop a line comment here':origin.id==='rs2'?'Drop a suggestion here':'Drop the final action here';delete sc2[origin.id];origin.classList.remove('placed-ok','placed-err')}
-  zone.textContent='';zone.appendChild(chip);sc2[zone.id]=chip;
+  if(origin&&origin.classList.contains('dz')&&origin!==zone){origin.textContent=rsLabels[origin.id]||'Drop here';delete sc2[origin.id];origin.classList.remove('placed-ok','placed-err')}
+  zone.textContent='';zone.appendChild(chip);zone.classList.add('placed-ok');chip.classList.add('placed');sc2[zone.id]=chip;
+  const fb=document.getElementById('fb2');
+  fb.textContent='✓ Good choice! Keep going.';fb.className='fb ok';
 }));
 document.getElementById('btn2').addEventListener('click',()=>{
   let ok=true;
-  rs.forEach(s=>{
-    const chip=sc2[s.id];if(!chip){ok=false;return}
-    const good=chip.dataset.id===s.dataset.ans;
-    s.classList.remove('placed-ok','placed-err');
-    if(good){s.classList.add('placed-ok')}else{s.classList.add('placed-err');ok=false}
-  });
+  rs.forEach(s=>{if(!sc2[s.id])ok=false});
   const fb=document.getElementById('fb2');
   if(ok){fb.textContent='✓ Brilliant review! Kind, specific, and professional — ISRO-level quality checking!';fb.className='fb ok';setTimeout(()=>showPop('pop2'),700)}
-  else{fb.textContent='✗ Some review actions are misplaced. Remember: be kind, specific, and constructive!';fb.className='fb err'}
+  else{fb.textContent='✗ Fill all review slots first!';fb.className='fb err'}
 });
 
 /* ─── ACT 3 ─── */
@@ -777,22 +825,29 @@ const sc3={};
 pool3.querySelectorAll('.branch-chip').forEach(makeDraggable);
 bzs.forEach(slot=>makeDroppable(slot,(zone,chip,origin)=>{
   if(!chip||!chip.classList.contains('branch-chip'))return;
+  const isCorrect=chip.dataset.id===zone.dataset.ans;
+  if(!isCorrect){
+    zone.classList.add('bad');
+    setTimeout(()=>zone.classList.remove('bad'),400);
+    chip.classList.add('wrong-shake');
+    setTimeout(()=>chip.classList.remove('wrong-shake'),450);
+    const fb=document.getElementById('fb3');
+    fb.textContent='✗ Wrong zone — think: main is stable, features branch off, PRs bring them back!';fb.className='fb err';
+    return;
+  }
   const occ=sc3[zone.id];
   if(occ){pool3.appendChild(occ);occ.classList.remove('placed');delete sc3[zone.id]}
   if(origin&&origin.classList.contains('branch-drop')&&origin!==zone){origin.textContent='Drop here';delete sc3[origin.id];origin.classList.remove('ok','bad')}
-  zone.textContent='';zone.appendChild(chip);sc3[zone.id]=chip;
+  zone.textContent='';zone.appendChild(chip);zone.classList.add('ok');chip.classList.add('placed');sc3[zone.id]=chip;
+  const fb=document.getElementById('fb3');
+  fb.textContent='✓ Correct branch placement!';fb.className='fb ok';
 }));
 document.getElementById('btn3').addEventListener('click',()=>{
   let ok=true;
-  bzs.forEach(s=>{
-    const chip=sc3[s.id];if(!chip){ok=false;return}
-    const good=chip.dataset.id===s.dataset.ans;
-    s.classList.remove('ok','bad');
-    if(good){s.classList.add('ok')}else{s.classList.add('bad');ok=false}
-  });
+  bzs.forEach(s=>{if(!sc3[s.id])ok=false});
   const fb=document.getElementById('fb3');
   if(ok){fb.textContent='✓ Branch strategy complete! Your team can now work in parallel without conflicts.';fb.className='fb ok';setTimeout(()=>showPop('popF'),700)}
-  else{fb.textContent='✗ Some branches are in the wrong zone. Think: main is stable, features branch off, PRs bring them back!';fb.className='fb err'}
+  else{fb.textContent='✗ Fill all branch zones first!';fb.className='fb err'}
 });
 
 /* ─── NAV ─── */
@@ -806,17 +861,37 @@ function goAct(n){
   document.getElementById('pPct').textContent=pct+'%';
   document.getElementById('pLabel').textContent='MISSION '+n+' / 3';
 }
+
+function resetAct1(){
+  slots1.forEach(s=>{
+    if(sc1[s.id]){pool1.appendChild(sc1[s.id]);sc1[s.id].classList.remove('placed','wrong','wrong-shake');delete sc1[s.id]}
+    s.textContent='Drop here';s.classList.remove('correct','wrong-drop');
+  });
+  const fb=document.getElementById('fb1');
+  fb.textContent='↺ Mission 01 reset — arrange the steps again!';fb.className='fb hint';
+  setTimeout(()=>{fb.textContent='';fb.className='fb';},2500);
+}
+function resetAct2(){
+  rs.forEach(s=>{
+    if(sc2[s.id]){pool2.appendChild(sc2[s.id]);sc2[s.id].classList.remove('placed','wrong-shake');delete sc2[s.id]}
+    s.textContent=rsLabels[s.id]||'Drop here';s.classList.remove('placed-ok','placed-err','wrong-drop');
+  });
+  const fb=document.getElementById('fb2');
+  fb.textContent='↺ Mission 02 reset — pick the right review actions!';fb.className='fb hint';
+  setTimeout(()=>{fb.textContent='';fb.className='fb';},2500);
+}
+function resetAct3(){
+  bzs.forEach(s=>{
+    if(sc3[s.id]){pool3.appendChild(sc3[s.id]);sc3[s.id].classList.remove('placed','wrong-shake');delete sc3[s.id]}
+    s.textContent='Drop here';s.classList.remove('ok','bad');
+  });
+  const fb=document.getElementById('fb3');
+  fb.textContent='↺ Mission 03 reset — map the branches again!';fb.className='fb hint';
+  setTimeout(()=>{fb.textContent='';fb.className='fb';},2500);
+}
 function resetAll(){
   document.querySelectorAll('.pop').forEach(p=>p.classList.remove('show'));
-  // reset act1
-  slots1.forEach(s=>{if(sc1[s.id]){pool1.appendChild(sc1[s.id]);sc1[s.id].classList.remove('placed','wrong');delete sc1[s.id]}s.textContent='Drop here';s.classList.remove('correct','wrong-drop')});
-  document.getElementById('fb1').className='fb';document.getElementById('fb1').textContent='';
-  // reset act2
-  rs.forEach(s=>{if(sc2[s.id]){pool2.appendChild(sc2[s.id]);sc2[s.id].classList.remove('placed');delete sc2[s.id]}s.textContent=s.id==='rs1'?'Drop a line comment here':s.id==='rs2'?'Drop a suggestion here':'Drop the final action here';s.classList.remove('placed-ok','placed-err')});
-  document.getElementById('fb2').className='fb';document.getElementById('fb2').textContent='';
-  // reset act3
-  bzs.forEach(s=>{if(sc3[s.id]){pool3.appendChild(sc3[s.id]);sc3[s.id].classList.remove('placed');delete sc3[s.id]}s.textContent='Drop here';s.classList.remove('ok','bad')});
-  document.getElementById('fb3').className='fb';document.getElementById('fb3').textContent='';
+  resetAct1();resetAct2();resetAct3();
   goAct(1);
 }
 </script>

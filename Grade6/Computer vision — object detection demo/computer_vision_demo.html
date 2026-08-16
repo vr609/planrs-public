@@ -325,9 +325,20 @@ html,body{width:100vw;height:100vh;overflow:hidden;
 .conf-fill{height:100%;border-radius:4px;transition:width 1.5s cubic-bezier(.34,1.56,.64,1);}
 .conf-pct{font-family:'Cinzel',serif;font-size:9px;color:var(--sub);width:32px;text-align:right;}
 
+/* ── BUTTON ROW ── */
+.btn-row{display:flex;align-items:center;justify-content:space-between;
+  margin-top:6px;flex-shrink:0;}
+.reset-btn{padding:7px 18px;border-radius:25px;font-family:'Cinzel',serif;
+  font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  border:1.5px solid rgba(167,139,250,.35);cursor:pointer;
+  background:rgba(167,139,250,.07);color:var(--rune);
+  transition:transform .2s,box-shadow .2s,background .2s;}
+.reset-btn:hover{background:rgba(167,139,250,.15);transform:scale(1.05);
+  box-shadow:0 4px 14px rgba(167,139,250,.2);}
+.reset-btn:active{transform:scale(.97);}
+
 /* ── NEXT BUTTON ── */
-.next-btn{align-self:flex-end;margin-top:6px;flex-shrink:0;
-  padding:7px 22px;border-radius:25px;font-family:'Cinzel',serif;
+.next-btn{padding:7px 22px;border-radius:25px;font-family:'Cinzel',serif;
   font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
   border:1.5px solid rgba(251,191,36,.4);cursor:pointer;
   background:linear-gradient(135deg,rgba(251,191,36,.15),rgba(45,212,191,.1));
@@ -338,6 +349,11 @@ html,body{width:100vw;height:100vh;overflow:hidden;
 .next-btn.on{opacity:1;pointer-events:all;}
 .next-btn.on:hover{transform:scale(1.07) translateY(-2px);
   box-shadow:0 8px 32px rgba(251,191,36,.35);color:var(--gold);}
+
+/* ── WRONG DROP FLASH ── */
+.lbl.lbl-wrong{animation:shk .35s;box-shadow:0 0 12px rgba(239,68,68,.5)!important;}
+.det-card.det-wrong{animation:shk .35s;box-shadow:0 0 12px rgba(239,68,68,.5)!important;}
+.step-chip.sc-wrong{animation:shk .35s;box-shadow:0 0 12px rgba(239,68,68,.5)!important;}
 
 /* ── POPUP ── */
 .pop-ov{position:fixed;inset:0;z-index:100;
@@ -482,7 +498,10 @@ html,body{width:100vw;height:100vh;overflow:hidden;
           </div>
         </div>
       </div>
-      <button class="next-btn" id="nb1" onclick="showPop('pop1')">Proceed to Stage II ▶</button>
+      <div class="btn-row">
+        <button class="reset-btn" onclick="resetA1()">⟳ Reset Stage I</button>
+        <button class="next-btn" id="nb1" onclick="showPop('pop1')">Proceed to Stage II ▶</button>
+      </div>
     </div>
 
     <!-- ══ ACTIVITY 2 ══ -->
@@ -498,7 +517,10 @@ html,body{width:100vw;height:100vh;overflow:hidden;
         <!-- Categories -->
         <div class="categories-col" id="categories-col"><!-- JS --></div>
       </div>
-      <button class="next-btn" id="nb2" onclick="showPop('pop2')">Proceed to Stage III ▶</button>
+      <div class="btn-row">
+        <button class="reset-btn" onclick="resetA2()">⟳ Reset Stage II</button>
+        <button class="next-btn" id="nb2" onclick="showPop('pop2')">Proceed to Stage III ▶</button>
+      </div>
     </div>
 
     <!-- ══ ACTIVITY 3 ══ -->
@@ -540,7 +562,10 @@ html,body{width:100vw;height:100vh;overflow:hidden;
           </div>
         </div>
       </div>
-      <button class="next-btn" id="nb3" onclick="showPop('pop-fin')">🏛 Complete the Mission</button>
+      <div class="btn-row">
+        <button class="reset-btn" onclick="resetA3()">⟳ Reset Stage III</button>
+        <button class="next-btn" id="nb3" onclick="showPop('pop-fin')">🏛 Complete the Mission</button>
+      </div>
     </div>
 
   </div><!-- /card -->
@@ -624,13 +649,15 @@ html,body{width:100vw;height:100vh;overflow:hidden;
 
 // ── ACTIVITY 1 ───────────────────────────────────────────
 let a1Done=0;
+let a1CurrentDrag=null;
 
 document.querySelectorAll('.lbl').forEach(lbl=>{
   lbl.addEventListener('dragstart',e=>{
+    a1CurrentDrag=lbl;
     e.dataTransfer.setData('lid',lbl.dataset.lid);
     lbl.classList.add('dragging');
   });
-  lbl.addEventListener('dragend',()=>lbl.classList.remove('dragging'));
+  lbl.addEventListener('dragend',()=>{lbl.classList.remove('dragging');a1CurrentDrag=null;});
 });
 
 document.querySelectorAll('.drop-slot').forEach(slot=>{
@@ -650,11 +677,34 @@ document.querySelectorAll('.drop-slot').forEach(slot=>{
       a1Done++;
       if(a1Done===4) document.getElementById('nb1').classList.add('on');
     } else {
+      // Wrong — reject, flash both slot and dragged label
       slot.classList.add('ds-wrong');
       setTimeout(()=>slot.classList.remove('ds-wrong'),500);
+      if(a1CurrentDrag){
+        a1CurrentDrag.classList.add('lbl-wrong');
+        setTimeout(()=>a1CurrentDrag&&a1CurrentDrag.classList.remove('lbl-wrong'),500);
+      }
     }
   });
 });
+
+function resetA1(){
+  a1Done=0;
+  a1CurrentDrag=null;
+  // Restore all drop slots
+  document.querySelectorAll('.drop-slot').forEach(slot=>{
+    const expects=slot.dataset.expects;
+    const placeholders={class:'Class Name?',conf:'Score?',bbox:'Box coords?',pixel:'Pixels?'};
+    slot.dataset.filled='';
+    slot.className='drop-slot';
+    slot.textContent=placeholders[expects]||'Drop here…';
+  });
+  // Restore all labels
+  document.querySelectorAll('.lbl').forEach(lbl=>{
+    lbl.classList.remove('lbl-used','lbl-wrong','dragging');
+  });
+  document.getElementById('nb1').classList.remove('on');
+}
 
 // ── ACTIVITY 2 ───────────────────────────────────────────
 const DETECTIONS=[
@@ -745,8 +795,18 @@ function buildA2(){
         document.getElementById('czcnt-'+cat.id).textContent=`${a2State[cat.id].length} / ${A2_CORRECT[cat.id].length}`;
         checkA2();
       } else {
+        // Wrong category — show brief chip preview then remove
+        const det=DETECTIONS.find(d=>d.id===detId);
         drop.classList.add('cd-wrong');
-        setTimeout(()=>drop.classList.remove('cd-wrong'),500);
+        const tempPh=document.createElement('div');
+        tempPh.className=`placed-det ${det?det.cls:''}`;
+        tempPh.style.opacity='.6';
+        tempPh.innerHTML=det?`${det.icon} ${det.name}`:'?';
+        drop.appendChild(tempPh);
+        setTimeout(()=>{drop.classList.remove('cd-wrong');tempPh.remove();},700);
+        // Flash source card too
+        const srcCard=document.getElementById('detc-'+detId);
+        if(srcCard){srcCard.classList.add('det-wrong');setTimeout(()=>srcCard.classList.remove('det-wrong'),500);}
       }
     });
   });
@@ -755,6 +815,13 @@ function buildA2(){
 function checkA2(){
   const ok=CATS.every(c=>A2_CORRECT[c.id].every(id=>a2State[c.id].includes(id)));
   if(ok) document.getElementById('nb2').classList.add('on');
+}
+
+function resetA2(){
+  a2State={vehicle:[],person:[],animal:[],object:[]};
+  a2DragId=null;
+  buildA2();
+  document.getElementById('nb2').classList.remove('on');
 }
 
 buildA2();
@@ -831,8 +898,11 @@ function buildA3(){
         if(i<4){const cl=document.getElementById('cl-'+i);if(cl)cl.classList.add('filled');}
         checkA3();
       } else {
+        // Wrong position — reject, flash slot and source chip
         slot.classList.add('wf-wrong');
         setTimeout(()=>slot.classList.remove('wf-wrong'),500);
+        const srcChip=document.getElementById('sc-'+stepId);
+        if(srcChip){srcChip.classList.add('sc-wrong');setTimeout(()=>srcChip.classList.remove('sc-wrong'),500);}
       }
     });
   }
@@ -861,6 +931,22 @@ function animConf(fillId,pctId,val){
   let cur=0;
   const step=()=>{if(cur<val){cur+=2;pct.textContent=cur+'%';requestAnimationFrame(step);}else{pct.textContent=val+'%';}};
   step();
+}
+
+function resetA3(){
+  a3Progress=Array(5).fill(null);
+  a3DragStep=null;
+  // Reset confidence bars
+  const confResult=document.getElementById('conf-result');
+  confResult.style.opacity='.4';
+  ['cf1','cf2','cf3','cf4'].forEach((id,i)=>{
+    const el=document.getElementById(id);if(el)el.style.width='0%';
+  });
+  ['cp1','cp2','cp3','cp4'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.textContent='0%';
+  });
+  buildA3();
+  document.getElementById('nb3').classList.remove('on');
 }
 
 buildA3();

@@ -240,9 +240,19 @@ html,body{width:100vw;height:100vh;overflow:hidden;font-family:'Nunito',sans-ser
 .st{color:#b2ff59;}
 .nm{color:#ffd700;}
 
+/* ── BUTTON ROW ── */
+.btn-row{display:flex;align-items:center;justify-content:space-between;
+  margin-top:6px;flex-shrink:0;}
+.reset-btn{padding:7px 18px;border-radius:25px;font-family:'Fredoka One',cursive;
+  font-size:13px;letter-spacing:1px;border:1.5px solid rgba(255,215,0,.35);cursor:pointer;
+  background:rgba(255,255,255,.07);color:var(--gold);
+  transition:transform .2s,box-shadow .2s,background .2s;}
+.reset-btn:hover{background:rgba(255,215,0,.12);transform:scale(1.05);
+  box-shadow:0 4px 14px rgba(255,215,0,.2);}
+.reset-btn:active{transform:scale(.97);}
+
 /* ── NEXT BUTTON ── */
-.next-btn{align-self:flex-end;margin-top:6px;flex-shrink:0;
-  padding:7px 22px;border-radius:25px;font-family:'Fredoka One',cursive;
+.next-btn{padding:7px 22px;border-radius:25px;font-family:'Fredoka One',cursive;
   font-size:14px;letter-spacing:1px;border:none;cursor:pointer;
   background:linear-gradient(135deg,var(--amber),var(--hot));color:#fff;
   box-shadow:0 4px 20px rgba(255,179,0,.35);
@@ -251,6 +261,12 @@ html,body{width:100vw;height:100vh;overflow:hidden;font-family:'Nunito',sans-ser
 .next-btn.on{opacity:1;pointer-events:all;}
 .next-btn.on:hover{transform:scale(1.08) translateY(-2px);
   box-shadow:0 8px 32px rgba(255,79,160,.5);}
+
+/* ── WRONG DROP HIGHLIGHT ── */
+.num-block.blk-wrong{animation:shk .35s;border-color:#ff4fa0 !important;
+  box-shadow:0 0 12px rgba(255,79,160,.6);}
+.rule-drop-area.drop-wrong{border-color:#ff4fa0 !important;
+  background:rgba(255,79,160,.1)!important;animation:shk .35s;}
 
 /* ── POPUP ── */
 .pop-ov{position:fixed;inset:0;z-index:100;
@@ -329,7 +345,10 @@ html,body{width:100vw;height:100vh;overflow:hidden;font-family:'Nunito',sans-ser
           <div class="pool-label">🎸 Drag from here →</div>
         </div>
       </div>
-      <button class="next-btn" id="nb1" onclick="showPop('pop1')">Next Stage ►</button>
+      <div class="btn-row">
+        <button class="reset-btn" onclick="resetA1()">🔄 Reset</button>
+        <button class="next-btn" id="nb1" onclick="showPop('pop1')">Next Stage ►</button>
+      </div>
     </div>
 
     <!-- ══ ACTIVITY 2 ══ -->
@@ -352,7 +371,10 @@ html,body{width:100vw;height:100vh;overflow:hidden;font-family:'Nunito',sans-ser
           <div class="flow-slots" id="mrg-slots"><!-- JS --></div>
         </div>
       </div>
-      <button class="next-btn" id="nb2" onclick="showPop('pop2')">Final Stage ►</button>
+      <div class="btn-row">
+        <button class="reset-btn" onclick="resetA2()">🔄 Reset</button>
+        <button class="next-btn" id="nb2" onclick="showPop('pop2')">Final Stage ►</button>
+      </div>
     </div>
 
     <!-- ══ ACTIVITY 3 ══ -->
@@ -404,7 +426,10 @@ html,body{width:100vw;height:100vh;overflow:hidden;font-family:'Nunito',sans-ser
           </div>
         </div>
       </div>
-      <button class="next-btn" id="nb3" onclick="showPop('pop-fin')">🎉 Finish!</button>
+      <div class="btn-row">
+        <button class="reset-btn" onclick="resetA3()">🔄 Reset</button>
+        <button class="next-btn" id="nb3" onclick="showPop('pop-fin')">🎉 Finish!</button>
+      </div>
     </div>
 
   </div><!-- /card -->
@@ -589,14 +614,15 @@ function setupA1Drops(){
 
       const fromStep=parseInt(e.dataTransfer.getData('stepIdx'));
       if(fromStep!==si) {
-        // Wrong step slot
+        // Wrong step — reject, shake track AND the dragged block
         track.classList.add('track-wrong');
         setTimeout(()=>track.classList.remove('track-wrong'),500);
+        if(a1DragItem){
+          a1DragItem.classList.add('blk-wrong');
+          setTimeout(()=>a1DragItem&&a1DragItem.classList.remove('blk-wrong'),500);
+        }
         return;
       }
-      // They dropped the right step's set — check if this is the whole set
-      // We accept any drop for this step's items; we collect all by re-rendering
-      // Mark as solved if the current drag is from this step
       track.dataset.solved='1';
       track.innerHTML=step.answer.map(n=>`<div class="num-block ${NUM_COLOR[n]||'nb-r'}">${n}</div>`).join('');
       track.classList.add('track-correct');
@@ -609,6 +635,13 @@ function setupA1Drops(){
       }
     });
   });
+}
+
+function resetA1(){
+  a1Done=0;
+  a1DragItem=null;
+  buildA1();
+  document.getElementById('nb1').classList.remove('on');
 }
 
 buildA1();
@@ -687,7 +720,14 @@ function buildFlowSlots(containerId, count, type){
       if(slot.dataset.filled) return;
       const aid=e.dataTransfer.getData('aid');
       const atype=e.dataTransfer.getData('atype');
-      if(atype!==type){slot.classList.add('fs-wrong');setTimeout(()=>slot.classList.remove('fs-wrong'),500);return;}
+      if(atype!==type){
+        slot.classList.add('fs-wrong');
+        setTimeout(()=>slot.classList.remove('fs-wrong'),500);
+        // Flash the dragged chip too
+        const wrongChip=document.getElementById('chip-'+aid);
+        if(wrongChip){wrongChip.style.animation='shk .35s';setTimeout(()=>wrongChip&&(wrongChip.style.animation=''),400);}
+        return;
+      }
       const expected=slot.dataset.expected;
       if(aid===expected){
         slot.dataset.filled='1';
@@ -700,8 +740,11 @@ function buildFlowSlots(containerId, count, type){
         if(type==='sel') selProgress[i]=aid; else mrgProgress[i]=aid;
         checkA2Done();
       } else {
+        // Wrong answer for this slot — reject with visual feedback
         slot.classList.add('fs-wrong');
         setTimeout(()=>slot.classList.remove('fs-wrong'),500);
+        const wrongChip=document.getElementById('chip-'+aid);
+        if(wrongChip){wrongChip.style.animation='shk .35s';setTimeout(()=>wrongChip&&(wrongChip.style.animation=''),400);}
       }
     });
     el.appendChild(slot);
@@ -712,6 +755,14 @@ function checkA2Done(){
   const selOk=selProgress.every((v,i)=>v===SEL_ANSWER[i]);
   const mrgOk=mrgProgress.every((v,i)=>v===MRG_ANSWER[i]);
   if(selOk&&mrgOk) document.getElementById('nb2').classList.add('on');
+}
+
+function resetA2(){
+  selProgress=Array(5).fill(null);
+  mrgProgress=Array(5).fill(null);
+  a2DragData=null;
+  buildA2();
+  document.getElementById('nb2').classList.remove('on');
 }
 
 buildA2();
@@ -780,8 +831,21 @@ function buildA3(){
         a3State[cat].push(lid);
         checkA3Done();
       } else {
+        // Wrong category — show chip briefly then remove it
+        const lb=LABELS.find(x=>x.id===lid);
         area.classList.add('cd-wrong');
-        setTimeout(()=>area.classList.remove('cd-wrong'),500);
+        const tempChip=document.createElement('div');
+        tempChip.className='filled-chip '+lb.cls;
+        tempChip.textContent=lb.text;
+        tempChip.style.opacity='.7';
+        area.appendChild(tempChip);
+        setTimeout(()=>{
+          area.classList.remove('cd-wrong');
+          tempChip.remove();
+        },700);
+        // Also shake the source chip
+        const srcChip=document.getElementById('lc-'+lid);
+        if(srcChip){srcChip.style.animation='shk .35s';setTimeout(()=>srcChip&&(srcChip.style.animation=''),400);}
       }
     });
   });
@@ -793,6 +857,21 @@ function checkA3Done(){
   if(qOk) document.getElementById('drop-quad').classList.add('cd-correct');
   if(nOk) document.getElementById('drop-nlog').classList.add('cd-correct');
   if(qOk&&nOk) document.getElementById('nb3').classList.add('on');
+}
+
+function resetA3(){
+  a3State={quad:[],nlog:[]};
+  a3LabelDrag=null;
+  // Restore placeholders
+  const quad=document.getElementById('drop-quad');
+  const nlog=document.getElementById('drop-nlog');
+  quad.innerHTML='<span class="cat-placeholder">Drop slower algorithms here…</span>';
+  nlog.innerHTML='<span class="cat-placeholder">Drop faster algorithms here…</span>';
+  quad.classList.remove('cd-correct','cd-wrong','dragover');
+  nlog.classList.remove('cd-correct','cd-wrong','dragover');
+  // Restore all label chips
+  document.querySelectorAll('.label-chip').forEach(c=>c.classList.remove('lc-used','dragging'));
+  document.getElementById('nb3').classList.remove('on');
 }
 
 buildA3();

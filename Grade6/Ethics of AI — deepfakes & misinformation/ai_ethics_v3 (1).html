@@ -1,0 +1,1684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ethics of AI — Deepfakes & Misinformation</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Cinzel:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ocean: #0a1628;
+    --deep: #0d2040;
+    --sea: #1a3a5c;
+    --teal: #1e6b8a;
+    --gold: #f0b429;
+    --amber: #e8860a;
+    --sand: #f5dfa0;
+    --land: #4a7c4e;
+    --land2: #6aaa6e;
+    --red: #d94f3d;
+    --green: #2db87a;
+    --white: #f0f4ff;
+    --muted: #8ba8c4;
+    --card-bg: rgba(15,35,65,0.92);
+    --compass-glow: rgba(240,180,41,0.25);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    font-family: 'Montserrat', sans-serif;
+    background: var(--ocean);
+    color: var(--white);
+  }
+
+  /* ── ANIMATED MAP BACKGROUND ── */
+  #bg {
+    position: fixed; inset: 0; z-index: 0;
+    overflow: hidden;
+  }
+
+  /* SVG world map silhouette */
+  #map-svg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    opacity: 0.13;
+  }
+
+  /* Latitude/longitude grid */
+  .grid-line {
+    position: absolute;
+    background: rgba(100,160,220,0.12);
+  }
+  .grid-h { width: 100%; height: 1px; }
+  .grid-v { width: 1px; height: 100%; top: 0; }
+
+  /* Drifting clouds */
+  .cloud {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
+    animation: drift linear infinite;
+    pointer-events: none;
+  }
+  @keyframes drift {
+    from { transform: translateX(-120px); }
+    to   { transform: translateX(calc(100vw + 120px)); }
+  }
+
+  /* Moving dotted map paths */
+  .map-path {
+    position: absolute;
+    border-top: 2px dashed rgba(100,200,255,0.1);
+    animation: pathPulse 4s ease-in-out infinite;
+  }
+  @keyframes pathPulse {
+    0%,100% { opacity: 0.3; } 50% { opacity: 0.7; }
+  }
+
+  /* Landmark dots */
+  .landmark {
+    position: absolute;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 8px var(--gold), 0 0 20px rgba(240,180,41,0.4);
+    animation: landmarkPulse 2.5s ease-in-out infinite;
+  }
+  @keyframes landmarkPulse {
+    0%,100% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.6); opacity: 1; }
+  }
+
+  /* Glowing compass rose */
+  #compass {
+    position: fixed;
+    bottom: 20px; right: 24px;
+    width: 90px; height: 90px;
+    z-index: 5;
+    animation: compassGlow 3s ease-in-out infinite;
+    opacity: 0.7;
+  }
+  @keyframes compassGlow {
+    0%,100% { filter: drop-shadow(0 0 6px var(--gold)); }
+    50% { filter: drop-shadow(0 0 18px var(--gold)) drop-shadow(0 0 30px rgba(240,180,41,0.4)); }
+  }
+  #compass-needle {
+    animation: compassSpin 20s linear infinite;
+    transform-origin: 45px 45px;
+  }
+
+  /* Mini rotating globe */
+  #globe {
+    position: fixed;
+    top: 18px; right: 24px;
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 35%,
+      #1e6b8a 0%, #0d2040 55%, #070f1e 100%);
+    border: 2px solid rgba(100,200,255,0.3);
+    box-shadow: 0 0 20px rgba(30,107,138,0.5), inset 0 0 12px rgba(0,0,0,0.5);
+    overflow: hidden;
+    z-index: 5;
+  }
+  #globe::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent, transparent 12px,
+      rgba(100,200,255,0.08) 12px, rgba(100,200,255,0.08) 13px
+    );
+  }
+  #globe-lines {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid rgba(100,200,255,0.12);
+    animation: globeSpin 8s linear infinite;
+  }
+  #globe-lines::before, #globe-lines::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: -20%;
+    width: 140%; height: 140%;
+    border-radius: 50%;
+    border: 1px solid rgba(100,200,255,0.12);
+    transform: translateY(-50%);
+  }
+  #globe-lines::after { left: 20%; }
+  @keyframes globeSpin {
+    from { transform: rotateY(0deg); }
+    to   { transform: rotateY(360deg); }
+  }
+  #globe-shine {
+    position: absolute;
+    top: 8px; left: 10px;
+    width: 22px; height: 18px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.2), transparent);
+  }
+
+  /* ── MAIN APP ── */
+  #app {
+    position: relative; z-index: 10;
+    width: 100vw; height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+
+  /* ── TITLE HEADER ── */
+  #header {
+    text-align: center;
+    margin-bottom: 12px;
+    animation: fadeDown 0.8s ease both;
+  }
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  #header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(14px, 2vw, 20px);
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    background: linear-gradient(135deg, var(--gold) 0%, var(--sand) 50%, var(--amber) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    line-height: 1.2;
+  }
+  #header .subtitle {
+    font-size: clamp(9px, 1.1vw, 11px);
+    color: var(--muted);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+
+  /* ── PROGRESS BAR ── */
+  #progress-bar {
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 10px;
+  }
+  .prog-step {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--muted);
+    transition: color 0.4s;
+  }
+  .prog-step.active { color: var(--gold); }
+  .prog-step.done { color: var(--green); }
+  .prog-dot {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 2px solid var(--muted);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800;
+    transition: all 0.4s;
+  }
+  .prog-step.active .prog-dot {
+    border-color: var(--gold);
+    background: rgba(240,180,41,0.15);
+    color: var(--gold);
+    box-shadow: 0 0 12px rgba(240,180,41,0.4);
+  }
+  .prog-step.done .prog-dot {
+    border-color: var(--green);
+    background: rgba(45,184,122,0.15);
+    color: var(--green);
+  }
+  .prog-line {
+    width: 40px; height: 2px;
+    background: var(--muted);
+    border-radius: 2px;
+    transition: background 0.4s;
+  }
+  .prog-line.done { background: var(--green); }
+
+  /* ── ACTIVITY CARD ── */
+  #activity-wrap {
+    width: min(96vw, 860px);
+    background: var(--card-bg);
+    border: 1px solid rgba(100,180,255,0.15);
+    border-radius: 18px;
+    padding: 18px 22px 16px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 48px rgba(0,0,0,0.55), 0 0 0 1px rgba(240,180,41,0.08);
+    animation: cardIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+  @keyframes cardIn {
+    from { opacity: 0; transform: scale(0.92) translateY(16px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .act-header {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 10px;
+  }
+  .act-badge {
+    background: linear-gradient(135deg, var(--amber), var(--gold));
+    color: var(--ocean);
+    font-size: 9px; font-weight: 900;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 20px;
+    white-space: nowrap;
+  }
+  .act-title {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(13px, 1.8vw, 17px);
+    font-weight: 700;
+    color: var(--white);
+  }
+  .act-desc {
+    font-size: clamp(10px, 1.2vw, 12px);
+    color: var(--muted);
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+
+  /* ── DRAG-DROP AREA ── */
+  .dnd-layout {
+    display: grid;
+    gap: 10px;
+  }
+  .dnd-layout.act1 { grid-template-columns: 1fr 1fr; }
+  .dnd-layout.act2 { grid-template-columns: 1fr 1fr 1fr; }
+  .dnd-layout.act3 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+  /* Source cards pool */
+  #cards-pool {
+    display: flex; flex-wrap: wrap; gap: 7px;
+    justify-content: center;
+    margin-bottom: 10px;
+    min-height: 52px;
+  }
+
+  .drag-card {
+    background: linear-gradient(135deg, rgba(26,58,92,0.9), rgba(13,32,64,0.95));
+    border: 1.5px solid rgba(100,180,255,0.25);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: clamp(9px, 1.1vw, 11px);
+    font-weight: 600;
+    cursor: grab;
+    user-select: none;
+    transition: all 0.2s;
+    text-align: center;
+    max-width: 160px;
+    line-height: 1.35;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    animation: cardFloat 0.4s ease both;
+  }
+  @keyframes cardFloat {
+    from { opacity: 0; transform: scale(0.85); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  .drag-card:hover {
+    border-color: var(--gold);
+    box-shadow: 0 4px 16px rgba(240,180,41,0.3);
+    transform: translateY(-2px) scale(1.03);
+  }
+  .drag-card.dragging {
+    opacity: 0.4;
+    cursor: grabbing;
+  }
+  .drag-card.placed { display: none; }
+
+  /* Drop zones */
+  .drop-zone {
+    border: 2px dashed rgba(100,180,255,0.2);
+    border-radius: 12px;
+    padding: 10px 8px;
+    min-height: 120px;
+    transition: all 0.25s;
+    display: flex; flex-direction: column;
+    align-items: stretch;
+    background: rgba(10,22,40,0.5);
+  }
+  .drop-zone.over {
+    border-color: var(--gold);
+    background: rgba(240,180,41,0.06);
+    box-shadow: inset 0 0 20px rgba(240,180,41,0.08);
+  }
+  .drop-zone-title {
+    font-size: clamp(9px, 1.1vw, 11px);
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(100,180,255,0.12);
+    text-align: center;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .zone-icon { font-size: 14px; }
+
+  .placed-card {
+    background: rgba(26,58,92,0.7);
+    border: 1px solid rgba(100,180,255,0.2);
+    border-radius: 8px;
+    padding: 5px 8px;
+    font-size: clamp(8px, 1vw, 10px);
+    font-weight: 600;
+    margin: 3px 0;
+    animation: placeIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
+    line-height: 1.3;
+    text-align: center;
+  }
+  @keyframes placeIn {
+    from { opacity: 0; transform: scale(0.7); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  .placed-card.correct {
+    border-color: var(--green);
+    background: rgba(45,184,122,0.15);
+    color: #7effc8;
+  }
+  .placed-card.wrong {
+    border-color: var(--red);
+    background: rgba(217,79,61,0.15);
+    color: #ff9985;
+  }
+
+  /* ── WRONG SHAKE ANIMATION ── */
+  @keyframes wrongShake {
+    0%   { transform: translateX(0); }
+    15%  { transform: translateX(-7px); }
+    30%  { transform: translateX(7px); }
+    45%  { transform: translateX(-5px); }
+    60%  { transform: translateX(5px); }
+    75%  { transform: translateX(-3px); }
+    90%  { transform: translateX(3px); }
+    100% { transform: translateX(0); }
+  }
+  .drop-zone.wrong-flash {
+    animation: wrongShake 0.45s ease;
+    border-color: var(--red) !important;
+    background: rgba(217,79,61,0.12) !important;
+    box-shadow: inset 0 0 20px rgba(217,79,61,0.18) !important;
+  }
+
+  /* Wrong toast variant */
+  #toast.wrong-toast {
+    border-color: rgba(217,79,61,0.5);
+    color: #ff9985;
+  }
+
+  /* ── BUTTON ROW ── */
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 12px;
+  }
+
+  /* ── RESET BUTTON ── */
+  #reset-btn {
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Montserrat', sans-serif;
+    font-size: clamp(10px, 1.2vw, 12px);
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border: 1.5px solid rgba(139,168,196,0.3);
+    border-radius: 30px;
+    padding: 10px 22px;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  #reset-btn:hover {
+    border-color: var(--muted);
+    color: var(--white);
+    background: rgba(139,168,196,0.08);
+    transform: translateY(-1px);
+  }
+  #reset-btn:active { transform: scale(0.97); }
+
+  /* ── CHECK BUTTON ── */
+  #check-btn {
+    display: block;
+    margin: 12px auto 0;
+    background: linear-gradient(135deg, var(--amber) 0%, var(--gold) 100%);
+    color: var(--ocean);
+    font-family: 'Montserrat', sans-serif;
+    font-size: clamp(10px, 1.3vw, 13px);
+    font-weight: 900;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border: none; border-radius: 30px;
+    padding: 10px 36px;
+    cursor: pointer;
+    transition: all 0.25s;
+    box-shadow: 0 4px 20px rgba(240,180,41,0.35);
+  }
+  #check-btn:hover {
+    transform: translateY(-2px) scale(1.04);
+    box-shadow: 0 6px 28px rgba(240,180,41,0.55);
+  }
+  #check-btn:active { transform: scale(0.98); }
+
+  /* ══════════════════════════════════════════
+     ACTIVITY 2 — TAP-TO-ASSIGN STYLE
+  ══════════════════════════════════════════ */
+  .act2-layout {
+    display: flex; gap: 12px;
+  }
+  /* Left: statement list */
+  .act2-statements {
+    flex: 1.1;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .act2-stmt {
+    background: linear-gradient(135deg, rgba(26,58,92,0.85), rgba(13,32,64,0.9));
+    border: 1.5px solid rgba(100,180,255,0.2);
+    border-radius: 10px;
+    padding: 9px 13px;
+    font-size: clamp(9px, 1.05vw, 11px);
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    line-height: 1.4;
+    transition: all 0.2s;
+    position: relative;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .act2-stmt::before {
+    content: '▶';
+    font-size: 8px;
+    color: var(--muted);
+    flex-shrink: 0;
+    transition: color 0.2s;
+  }
+  .act2-stmt:hover {
+    border-color: var(--gold);
+    background: linear-gradient(135deg, rgba(30,68,110,0.9), rgba(18,40,75,0.95));
+    transform: translateX(3px);
+  }
+  .act2-stmt.selected {
+    border-color: var(--gold);
+    background: rgba(240,180,41,0.1);
+    box-shadow: 0 0 12px rgba(240,180,41,0.25), inset 0 0 8px rgba(240,180,41,0.05);
+  }
+  .act2-stmt.selected::before { color: var(--gold); content: '◀'; }
+  .act2-stmt.assigned {
+    opacity: 0.45;
+    cursor: default;
+    pointer-events: none;
+    border-color: rgba(100,180,255,0.1);
+  }
+  .act2-stmt.assigned::before { content: '✓'; color: var(--green); }
+  /* Right: bucket column */
+  .act2-buckets {
+    flex: 0.9;
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .act2-bucket {
+    border-radius: 12px;
+    padding: 8px 10px;
+    border: 2px solid;
+    cursor: pointer;
+    transition: all 0.22s;
+    min-height: 52px;
+    display: flex; flex-direction: column;
+  }
+  .act2-bucket:not(.locked):hover {
+    transform: scale(1.02);
+    filter: brightness(1.15);
+  }
+  .act2-bucket.locked { cursor: default; }
+  .act2-bucket-title {
+    font-size: clamp(9px, 1.1vw, 11px);
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: flex; align-items: center; gap: 5px;
+    padding-bottom: 5px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    flex-shrink: 0;
+  }
+  .act2-bucket.pulse {
+    animation: bucketPulse 0.5s ease;
+  }
+  @keyframes bucketPulse {
+    0%  { transform: scale(1); }
+    40% { transform: scale(1.04); }
+    100%{ transform: scale(1); }
+  }
+  .act2-chip {
+    font-size: clamp(7px, 0.9vw, 9px);
+    font-weight: 600;
+    padding: 3px 6px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    margin-top: 3px;
+    line-height: 1.3;
+    color: #c8e0ff;
+    animation: chipIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+  @keyframes chipIn {
+    from { opacity: 0; transform: scale(0.75) translateY(-4px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  /* Hint: flash buckets when nothing selected */
+  .act2-hint {
+    font-size: clamp(9px, 1vw, 10px);
+    color: var(--muted);
+    text-align: center;
+    margin-top: 4px;
+    font-style: italic;
+    animation: hintFade 1.2s ease-in-out infinite alternate;
+  }
+  @keyframes hintFade { from { opacity: 0.4; } to { opacity: 1; } }
+
+  /* ══════════════════════════════════════════
+     ACTIVITY 3 — POLICY WALL (CARD QUEUE)
+  ══════════════════════════════════════════ */
+
+  /* Outer wrapper: card stage top, pillar wall bottom */
+  .act3-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* ── Card stage ── */
+  .act3-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+
+  /* Stack of remaining cards (shows depth) */
+  .act3-deck {
+    position: relative;
+    width: 230px;
+    height: 82px;
+    flex-shrink: 0;
+  }
+  .act3-deck-shadow {
+    position: absolute;
+    border-radius: 12px;
+    background: rgba(26,58,92,0.5);
+    border: 1.5px solid rgba(100,180,255,0.1);
+  }
+  .act3-deck-shadow:nth-child(1) { inset: 6px -6px -6px 6px; }
+  .act3-deck-shadow:nth-child(2) { inset: 3px -3px -3px 3px; opacity: 0.7; }
+
+  /* The active card */
+  .act3-active-card {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(145deg, rgba(30,65,105,0.95), rgba(10,22,44,0.98));
+    border: 1.5px solid rgba(100,180,255,0.28);
+    border-radius: 12px;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+    animation: cardSlideIn 0.38s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+  @keyframes cardSlideIn {
+    from { opacity: 0; transform: translateY(-18px) scale(0.9); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .act3-active-card.fly-out {
+    animation: cardFlyOut 0.3s ease-in forwards;
+  }
+  @keyframes cardFlyOut {
+    to { opacity: 0; transform: translateX(60px) scale(0.85); }
+  }
+  .act3-active-card.fly-wrong {
+    animation: cardWrongShake 0.38s ease;
+  }
+  @keyframes cardWrongShake {
+    0%,100% { transform: translateX(0); border-color: rgba(100,180,255,0.28); }
+    20%  { transform: translateX(-8px); border-color: var(--red); }
+    40%  { transform: translateX(8px);  border-color: var(--red); }
+    60%  { transform: translateX(-5px); border-color: var(--red); }
+    80%  { transform: translateX(5px);  border-color: var(--red); }
+  }
+  .act3-card-num {
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .act3-card-text {
+    font-size: clamp(9px, 1.05vw, 11px);
+    font-weight: 600;
+    color: var(--white);
+    line-height: 1.4;
+  }
+
+  /* Counter + progress dots beside the deck */
+  .act3-sidebar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .act3-counter {
+    font-size: clamp(11px, 1.4vw, 14px);
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 0.05em;
+  }
+  .act3-counter span {
+    font-size: clamp(8px, 1vw, 10px);
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .act3-dots {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    max-width: 80px;
+    justify-content: center;
+  }
+  .act3-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(139,168,196,0.25);
+    border: 1px solid rgba(139,168,196,0.3);
+    transition: all 0.3s;
+  }
+  .act3-dot.done {
+    background: var(--green);
+    border-color: var(--green);
+    box-shadow: 0 0 5px rgba(45,184,122,0.5);
+  }
+  .act3-dot.active {
+    background: var(--gold);
+    border-color: var(--gold);
+    box-shadow: 0 0 5px rgba(240,180,41,0.5);
+  }
+
+  /* ── Pillar wall (4 columns) ── */
+  .act3-pillars {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 7px;
+  }
+  .act3-pillar {
+    border-radius: 12px;
+    border: 2px solid;
+    padding: 8px 7px;
+    display: flex;
+    flex-direction: column;
+    min-height: 90px;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .act3-pillar:hover {
+    filter: brightness(1.18);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+  }
+  .act3-pillar.wrong-flash {
+    animation: wrongShake 0.4s ease;
+    filter: brightness(1.3) saturate(1.5);
+  }
+  .act3-pillar-header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: clamp(8px, 1vw, 10px);
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    flex-shrink: 0;
+  }
+  .act3-pillar-icon { font-size: 13px; }
+  .act3-chip {
+    font-size: clamp(7px, 0.82vw, 9px);
+    font-weight: 600;
+    padding: 3px 5px;
+    border-radius: 5px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.1);
+    margin-top: 3px;
+    line-height: 1.3;
+    color: rgba(220,235,255,0.9);
+    animation: chipIn 0.32s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+  @keyframes chipIn {
+    from { opacity: 0; transform: scale(0.7) translateY(-4px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  /* All-done state */
+  .act3-done-msg {
+    text-align: center;
+    padding: 10px;
+    font-size: clamp(10px, 1.2vw, 13px);
+    font-weight: 700;
+    color: var(--green);
+    letter-spacing: 0.08em;
+    animation: fadeDown 0.4s ease both;
+  }
+
+  /* ── POPUPS ── */
+  .popup-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(5,12,25,0.85);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeOverlay 0.3s ease both;
+  }
+  @keyframes fadeOverlay {
+    from { opacity: 0; } to { opacity: 1; }
+  }
+  .popup-box {
+    background: linear-gradient(145deg, #0d2040, #0a1628);
+    border: 1.5px solid rgba(240,180,41,0.3);
+    border-radius: 20px;
+    padding: 32px 36px;
+    text-align: center;
+    max-width: 440px; width: 90vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(240,180,41,0.1);
+    animation: popIn 0.45s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.75) translateY(20px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .popup-icon { font-size: 48px; margin-bottom: 12px; }
+  .popup-title {
+    font-family: 'Cinzel', serif;
+    font-size: 20px; font-weight: 900;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+  .popup-msg {
+    font-size: 13px; color: var(--muted);
+    line-height: 1.6; margin-bottom: 20px;
+  }
+  .popup-btn {
+    background: linear-gradient(135deg, var(--amber), var(--gold));
+    color: var(--ocean);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12px; font-weight: 900;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    border: none; border-radius: 30px;
+    padding: 11px 32px;
+    cursor: pointer;
+    transition: all 0.25s;
+    box-shadow: 0 4px 20px rgba(240,180,41,0.35);
+  }
+  .popup-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 28px rgba(240,180,41,0.55);
+  }
+  .popup-score {
+    display: flex; gap: 10px; justify-content: center;
+    margin: 14px 0;
+  }
+  .score-pill {
+    padding: 5px 14px; border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+    background: rgba(45,184,122,0.15);
+    color: var(--green);
+    border: 1px solid rgba(45,184,122,0.3);
+  }
+  .score-pill.wrong-pill {
+    background: rgba(217,79,61,0.15);
+    color: #ff9985;
+    border-color: rgba(217,79,61,0.3);
+  }
+
+  /* Final success */
+  .final-stars { font-size: 28px; margin: 6px 0 14px; letter-spacing: 6px; }
+  .pledge-box {
+    background: rgba(240,180,41,0.07);
+    border: 1px solid rgba(240,180,41,0.2);
+    border-radius: 12px;
+    padding: 12px 18px;
+    margin: 12px 0;
+    font-size: 12px;
+    color: var(--sand);
+    line-height: 1.7;
+    text-align: left;
+  }
+  .pledge-box strong { color: var(--gold); }
+
+  /* Tiny flag row decoration */
+  .flag-row {
+    display: flex; gap: 4px; justify-content: center;
+    margin-top: 8px; font-size: 18px; opacity: 0.7;
+  }
+
+  /* ── SCORE BADGE ── */
+  #score-display {
+    position: fixed; top: 18px; left: 24px;
+    background: rgba(10,22,40,0.8);
+    border: 1px solid rgba(240,180,41,0.2);
+    border-radius: 30px;
+    padding: 6px 14px;
+    font-size: 11px; font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 0.1em;
+    backdrop-filter: blur(8px);
+    z-index: 5;
+    box-shadow: 0 0 14px rgba(240,180,41,0.15);
+  }
+
+  /* Toast feedback */
+  #toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: rgba(10,22,40,0.95);
+    border: 1px solid rgba(100,180,255,0.2);
+    border-radius: 30px;
+    padding: 8px 20px;
+    font-size: 11px; font-weight: 700;
+    z-index: 50;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; }
+
+  /* Responsive tweaks */
+  @media (max-height: 700px) {
+    #header { margin-bottom: 6px; }
+    #activity-wrap { padding: 12px 16px 10px; }
+    .act-desc { margin-bottom: 8px; }
+    .drop-zone { min-height: 90px; }
+    #check-btn { margin-top: 8px; padding: 8px 28px; }
+  }
+  @media (max-width: 600px) {
+    .dnd-layout.act2, .dnd-layout.act3 { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── ANIMATED BACKGROUND ── -->
+<div id="bg">
+  <!-- SVG Flat map -->
+  <svg id="map-svg" viewBox="0 0 1440 800" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" fill="rgba(100,170,220,0.6)">
+    <!-- North America -->
+    <path d="M120,120 L200,100 L280,110 L320,150 L310,220 L280,260 L240,290 L200,310 L180,350 L160,370 L130,360 L110,320 L90,270 L80,200 Z"/>
+    <!-- South America -->
+    <path d="M200,380 L250,370 L290,390 L310,430 L320,480 L300,530 L270,570 L240,590 L220,560 L200,510 L190,460 L185,420 Z"/>
+    <!-- Europe -->
+    <path d="M580,90 L650,80 L700,95 L720,130 L700,160 L670,170 L640,165 L610,155 L590,130 Z"/>
+    <!-- Africa -->
+    <path d="M600,200 L660,190 L710,210 L730,260 L720,330 L700,390 L670,430 L640,440 L610,430 L590,380 L575,310 L570,250 Z"/>
+    <!-- Asia -->
+    <path d="M720,80 L820,70 L920,80 L980,110 L1000,150 L980,190 L940,200 L880,210 L830,200 L780,190 L740,170 L720,140 Z"/>
+    <!-- Australia -->
+    <path d="M960,380 L1030,365 L1090,380 L1110,420 L1100,460 L1060,480 L1020,470 L990,440 L975,410 Z"/>
+    <!-- Greenland -->
+    <path d="M300,50 L360,40 L400,55 L410,85 L390,105 L350,110 L310,95 Z"/>
+  </svg>
+
+  <!-- Grid lines -->
+  <div class="grid-line grid-h" style="top:16.66%"></div>
+  <div class="grid-line grid-h" style="top:33.33%"></div>
+  <div class="grid-line grid-h" style="top:50%"></div>
+  <div class="grid-line grid-h" style="top:66.66%"></div>
+  <div class="grid-line grid-h" style="top:83.33%"></div>
+  <div class="grid-line grid-v" style="left:12.5%"></div>
+  <div class="grid-line grid-v" style="left:25%"></div>
+  <div class="grid-line grid-v" style="left:37.5%"></div>
+  <div class="grid-line grid-v" style="left:50%"></div>
+  <div class="grid-line grid-v" style="left:62.5%"></div>
+  <div class="grid-line grid-v" style="left:75%"></div>
+  <div class="grid-line grid-v" style="left:87.5%"></div>
+
+  <!-- Landmark dots -->
+  <div class="landmark" style="top:22%;left:18%"></div>
+  <div class="landmark" style="top:45%;left:22%;animation-delay:0.7s"></div>
+  <div class="landmark" style="top:30%;left:47%;animation-delay:1.2s"></div>
+  <div class="landmark" style="top:18%;left:65%;animation-delay:0.4s"></div>
+  <div class="landmark" style="top:55%;left:70%;animation-delay:1.8s"></div>
+  <div class="landmark" style="top:60%;left:82%;animation-delay:0.9s"></div>
+  <div class="landmark" style="top:35%;left:78%;animation-delay:2.1s"></div>
+  <div class="landmark" style="top:72%;left:55%;animation-delay:1.5s"></div>
+
+  <!-- Map paths -->
+  <div class="map-path" style="top:35%;left:5%;width:25%;animation-delay:0s"></div>
+  <div class="map-path" style="top:55%;left:40%;width:30%;animation-delay:1s"></div>
+  <div class="map-path" style="top:25%;left:60%;width:20%;animation-delay:2s"></div>
+
+  <!-- Clouds -->
+  <div class="cloud" style="width:200px;height:80px;top:10%;animation-duration:35s;animation-delay:-5s;opacity:0.8"></div>
+  <div class="cloud" style="width:300px;height:100px;top:60%;animation-duration:50s;animation-delay:-20s;opacity:0.5"></div>
+  <div class="cloud" style="width:150px;height:60px;top:35%;animation-duration:42s;animation-delay:-12s;opacity:0.6"></div>
+  <div class="cloud" style="width:250px;height:90px;top:80%;animation-duration:38s;animation-delay:-30s;opacity:0.7"></div>
+</div>
+
+<!-- ── UI ELEMENTS ── -->
+<div id="score-display">🧭 Score: <span id="score-num">0</span></div>
+
+<!-- Globe -->
+<div id="globe">
+  <div id="globe-lines"></div>
+  <div id="globe-shine"></div>
+</div>
+
+<!-- Compass -->
+<svg id="compass" viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="45" cy="45" r="42" fill="none" stroke="rgba(240,180,41,0.3)" stroke-width="1.5"/>
+  <circle cx="45" cy="45" r="36" fill="rgba(10,22,40,0.6)" stroke="rgba(240,180,41,0.2)" stroke-width="1"/>
+  <text x="45" y="14" text-anchor="middle" fill="#f0b429" font-size="9" font-family="Montserrat" font-weight="800">N</text>
+  <text x="45" y="80" text-anchor="middle" fill="#8ba8c4" font-size="9" font-family="Montserrat" font-weight="700">S</text>
+  <text x="80" y="49" text-anchor="middle" fill="#8ba8c4" font-size="9" font-family="Montserrat" font-weight="700">E</text>
+  <text x="10" y="49" text-anchor="middle" fill="#8ba8c4" font-size="9" font-family="Montserrat" font-weight="700">W</text>
+  <g id="compass-needle">
+    <polygon points="45,18 48,45 45,50 42,45" fill="#f0b429"/>
+    <polygon points="45,72 48,45 45,50 42,45" fill="#8ba8c4" opacity="0.7"/>
+  </g>
+  <circle cx="45" cy="45" r="4" fill="#f0b429" opacity="0.9"/>
+</svg>
+
+<div id="toast"></div>
+
+<!-- ── MAIN APP ── -->
+<div id="app">
+  <div id="header">
+    <h1>🗺 ETHICS OF AI — DEEPFAKES &amp; MISINFORMATION</h1>
+    <div class="subtitle">🧭 Digital Detective Mission</div>
+  </div>
+
+  <div id="progress-bar">
+    <div class="prog-step active" id="step1">
+      <div class="prog-dot">1</div>
+      <span>Spot the Fake</span>
+    </div>
+    <div class="prog-line" id="line1"></div>
+    <div class="prog-step" id="step2">
+      <div class="prog-dot">2</div>
+      <span>Map the Risk</span>
+    </div>
+    <div class="prog-line" id="line2"></div>
+    <div class="prog-step" id="step3">
+      <div class="prog-dot">3</div>
+      <span>Build Policy</span>
+    </div>
+  </div>
+
+  <div id="activity-wrap">
+    <!-- Activity content injected here -->
+  </div>
+</div>
+
+<!-- POPUP -->
+<div id="popup-overlay" class="popup-overlay" style="display:none">
+  <div class="popup-box" id="popup-box">
+    <!-- injected -->
+  </div>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────
+const ACTIVITIES = [
+  // ── Activity 1: Drag & Drop (unchanged) ──
+  {
+    id: 1, type: 'dragdrop',
+    badge: "Activity 1 · Spot the Fake",
+    title: "Real or AI-Generated?",
+    desc: "Drag each media description into the correct category. Look for visual clues — deepfakes often have tell-tale signs like unnatural eyes or blurry edges.",
+    layout: "act1",
+    zones: [
+      { id: "real", icon: "✅", label: "Real Media",          color: "#2db87a" },
+      { id: "ai",   icon: "🤖", label: "AI-Generated / Fake", color: "#d94f3d" }
+    ],
+    cards: [
+      { id: "c1", text: "Video where blinking looks robotic and eye edges are blurry",           zone: "ai"   },
+      { id: "c2", text: "Live news broadcast with consistent lighting and natural movement",     zone: "real" },
+      { id: "c3", text: "Audio clip where a celebrity's voice sounds slightly metallic and off-rhythm", zone: "ai" },
+      { id: "c4", text: "Photo with matching shadows, sharp edges, and natural skin texture",   zone: "real" },
+      { id: "c5", text: "Video where lip movements do not match the words being spoken",        zone: "ai"   },
+      { id: "c6", text: "Verified screenshot from an official government website",              zone: "real" },
+    ]
+  },
+
+  // ── Activity 2: Tap-to-Assign ──
+  {
+    id: 2, type: 'tapAssign',
+    badge: "Activity 2 · Map the Risk",
+    title: "Sorting Responsibility",
+    desc: "Tap a statement to select it, then tap the correct category bucket to assign it.",
+    zones: [
+      { id: "safe",    icon: "🛡️", label: "Safe AI Use",        color: "#2db87a", bg: "rgba(45,184,122,0.08)",  border: "rgba(45,184,122,0.35)"  },
+      { id: "misinfo", icon: "⚠️", label: "Misinformation Risk", color: "#f0b429", bg: "rgba(240,180,41,0.07)", border: "rgba(240,180,41,0.35)"  },
+      { id: "account", icon: "⚖️", label: "Accountability",      color: "#64b5f6", bg: "rgba(100,181,246,0.07)", border: "rgba(100,181,246,0.35)" }
+    ],
+    cards: [
+      { id: "d1", text: "Using AI to translate your homework into another language",           zone: "safe"    },
+      { id: "d2", text: "Forwarding a viral WhatsApp video without checking if it is true",   zone: "misinfo" },
+      { id: "d3", text: "A news channel fact-checking AI-generated clips before airing them", zone: "account" },
+      { id: "d4", text: "Using an AI tool to compose music for a school project",             zone: "safe"    },
+      { id: "d5", text: "Sharing a deepfake video as if it were real to win an argument",    zone: "misinfo" },
+      { id: "d6", text: "Tech platforms labelling AI-generated content with a visible tag",  zone: "account" },
+    ]
+  },
+
+  // ── Activity 3: Flip-Card Match ──
+  {
+    id: 3, type: 'flipMatch',
+    badge: "Activity 3 · Build Policy",
+    title: "Create a School AI Policy",
+    desc: "Flip each card to reveal the rule, then choose which pillar of responsible AI it belongs to.",
+    zones: [
+      { id: "fair",    icon: "⚖️", label: "Fairness",        color: "#64b5f6", bg: "#1a3a5c" },
+      { id: "honest",  icon: "🔍", label: "Honesty",         color: "#f0b429", bg: "#3a2e00" },
+      { id: "privacy", icon: "🔒", label: "Privacy",         color: "#d94f3d", bg: "#3a1210" },
+      { id: "resp",    icon: "🤝", label: "Responsible Use", color: "#2db87a", bg: "#0e3022" }
+    ],
+    cards: [
+      { id: "e1", text: "AI tools must give equal results regardless of a student's background",      zone: "fair"    },
+      { id: "e2", text: "Always disclose when work was assisted by AI",                               zone: "honest"  },
+      { id: "e3", text: "Never enter a classmate's personal details into any AI app",                 zone: "privacy" },
+      { id: "e4", text: "Pause and verify before sharing any AI-generated content online",            zone: "resp"    },
+      { id: "e5", text: "Report any AI output that seems biased or unfair to a teacher",              zone: "fair"    },
+      { id: "e6", text: "Do not use AI to create fake reviews or fictional quotes by real people",   zone: "honest"  },
+      { id: "e7", text: "Keep personal images and voice recordings off public AI platforms",          zone: "privacy" },
+      { id: "e8", text: "Think before you share — once online, content is hard to remove",           zone: "resp"    },
+    ]
+  }
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let currentAct = 0;
+let score = 0;
+let placements = {};
+let dragCard = null;
+// Act2 state
+let act2Selected = null;
+// Act3 state
+let act3Solved = {};
+
+// ── RENDER ROUTER ─────────────────────────────────────────────────────────
+function render() {
+  const act = ACTIVITIES[currentAct];
+  placements = {};
+  act2Selected = null;
+  act3Solved = {};
+
+  const wrap = document.getElementById('activity-wrap');
+  wrap.innerHTML = '';
+  wrap.style.animation = 'none';
+  void wrap.offsetWidth;
+  wrap.style.animation = 'cardIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both';
+
+  // Shared header
+  const header = document.createElement('div');
+  header.className = 'act-header';
+  header.innerHTML = `<span class="act-badge">${act.badge}</span><span class="act-title">${act.title}</span>`;
+  wrap.appendChild(header);
+
+  const desc = document.createElement('div');
+  desc.className = 'act-desc';
+  desc.textContent = act.desc;
+  wrap.appendChild(desc);
+
+  if (act.type === 'dragdrop') renderDragDrop(act, wrap);
+  else if (act.type === 'tapAssign') renderTapAssign(act, wrap);
+  else if (act.type === 'flipMatch') renderPolicyWall(act, wrap);
+
+  updateProgress();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ACTIVITY 1 — DRAG & DROP
+// ══════════════════════════════════════════════════════════════════════════
+function renderDragDrop(act, wrap) {
+  const pool = document.createElement('div');
+  pool.id = 'cards-pool';
+  act.cards.forEach((c, i) => {
+    const card = document.createElement('div');
+    card.className = 'drag-card';
+    card.id = 'card-' + c.id;
+    card.textContent = c.text;
+    card.style.animationDelay = (i * 0.06) + 's';
+    card.draggable = true;
+    card.addEventListener('dragstart', onDragStart);
+    card.addEventListener('dragend',   onDragEnd);
+    card.addEventListener('touchstart', onTouchStart, {passive:true});
+    card.addEventListener('touchmove',  onTouchMove,  {passive:false});
+    card.addEventListener('touchend',   onTouchEnd);
+    pool.appendChild(card);
+  });
+  wrap.appendChild(pool);
+
+  const grid = document.createElement('div');
+  grid.className = 'dnd-layout ' + act.layout;
+  act.zones.forEach(z => {
+    const zone = document.createElement('div');
+    zone.className = 'drop-zone';
+    zone.id = 'zone-' + z.id;
+    zone.innerHTML = `<div class="drop-zone-title" style="color:${z.color}"><span class="zone-icon">${z.icon}</span>${z.label}</div>`;
+    zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+    zone.addEventListener('drop',      e => onDrop(e, z.id));
+    grid.appendChild(zone);
+  });
+  wrap.appendChild(grid);
+  appendBtnRow(wrap, resetDragDrop, checkDragDrop);
+}
+
+function resetDragDrop() {
+  placements = {};
+  document.querySelectorAll('.drag-card').forEach(c => { c.style.opacity = '1'; });
+  document.querySelectorAll('.placed-card').forEach(p => p.remove());
+  showToast('🔄 Activity reset!');
+}
+
+function checkDragDrop() {
+  const act = ACTIVITIES[currentAct];
+  const unplaced = act.cards.filter(c => !placements[c.id]).length;
+  if (unplaced > 0) { showToast(`Place all ${unplaced} remaining card${unplaced>1?'s':''}!`); return; }
+  score += act.cards.length;
+  document.getElementById('score-num').textContent = score;
+  showResultPopup(act.cards.length, 0);
+}
+
+// ── DRAG handlers ─────────────────────────────────────────────────────────
+function onDragStart(e) { dragCard = e.target; e.target.classList.add('dragging'); e.dataTransfer.setData('text/plain', e.target.id); }
+function onDragEnd(e)   { e.target.classList.remove('dragging'); }
+function onDrop(e, zoneId) {
+  e.preventDefault();
+  const cardId = e.dataTransfer.getData('text/plain').replace('card-', '');
+  document.getElementById('zone-' + zoneId).classList.remove('over');
+  placeCard(cardId, zoneId);
+}
+// Touch
+let touchDragging = null, touchClone = null;
+function onTouchStart(e) {
+  touchDragging = e.currentTarget;
+  const rect = touchDragging.getBoundingClientRect();
+  touchClone = touchDragging.cloneNode(true);
+  touchClone.style.cssText = `position:fixed;z-index:999;pointer-events:none;opacity:0.85;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;transform:scale(1.05);`;
+  document.body.appendChild(touchClone);
+  touchDragging.classList.add('dragging');
+}
+function onTouchMove(e) {
+  e.preventDefault();
+  const t = e.touches[0];
+  touchClone.style.top  = (t.clientY - 24) + 'px';
+  touchClone.style.left = (t.clientX - 60) + 'px';
+  document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('over'));
+  const el = document.elementFromPoint(t.clientX, t.clientY);
+  if (el) { const z = el.closest('.drop-zone'); if (z) z.classList.add('over'); }
+}
+function onTouchEnd(e) {
+  if (!touchDragging || !touchClone) return;
+  const t = e.changedTouches[0];
+  const el = document.elementFromPoint(t.clientX, t.clientY);
+  if (el) { const z = el.closest('.drop-zone'); if (z) placeCard(touchDragging.id.replace('card-',''), z.id.replace('zone-','')); }
+  touchClone.remove(); touchClone = null;
+  touchDragging.classList.remove('dragging'); touchDragging = null;
+  document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('over'));
+}
+function placeCard(cardId, zoneId) {
+  const act = ACTIVITIES[currentAct];
+  const cardData = act.cards.find(c => c.id === cardId);
+  if (!cardData) return;
+  if (cardData.zone !== zoneId) {
+    const zone = document.getElementById('zone-' + zoneId);
+    if (zone) { zone.classList.remove('wrong-flash'); void zone.offsetWidth; zone.classList.add('wrong-flash'); zone.addEventListener('animationend', () => zone.classList.remove('wrong-flash'), {once:true}); }
+    const toast = document.getElementById('toast'); toast.classList.add('wrong-toast');
+    showToast('❌ Wrong zone — try again!');
+    setTimeout(() => toast.classList.remove('wrong-toast'), 1800);
+    return;
+  }
+  if (placements[cardId]) { const prev = document.querySelector(`#zone-${placements[cardId]} [data-card="${cardId}"]`); if (prev) prev.remove(); }
+  placements[cardId] = zoneId;
+  const src = document.getElementById('card-' + cardId); if (src) src.style.opacity = '0.3';
+  const zone = document.getElementById('zone-' + zoneId); if (!zone) return;
+  const existing = zone.querySelector(`[data-card="${cardId}"]`); if (existing) existing.remove();
+  const placed = document.createElement('div');
+  placed.className = 'placed-card correct'; placed.dataset.card = cardId; placed.textContent = cardData.text;
+  zone.appendChild(placed);
+  showToast('✅ Correct placement!');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ACTIVITY 2 — TAP-TO-ASSIGN
+// ══════════════════════════════════════════════════════════════════════════
+function renderTapAssign(act, wrap) {
+  const layout = document.createElement('div');
+  layout.className = 'act2-layout';
+
+  // Left: statements
+  const stmtCol = document.createElement('div');
+  stmtCol.className = 'act2-statements';
+
+  act.cards.forEach((c, i) => {
+    const s = document.createElement('div');
+    s.className = 'act2-stmt';
+    s.id = 'stmt-' + c.id;
+    s.dataset.cardId = c.id;
+    s.style.animationDelay = (i * 0.05) + 's';
+
+    const txt = document.createElement('span');
+    txt.textContent = c.text;
+    s.appendChild(txt);
+
+    s.addEventListener('click', () => {
+      if (s.classList.contains('assigned')) return;
+      document.querySelectorAll('.act2-stmt').forEach(x => x.classList.remove('selected'));
+      if (act2Selected === c.id) { act2Selected = null; return; }
+      act2Selected = c.id;
+      s.classList.add('selected');
+      showToast('Now tap a category →');
+    });
+    stmtCol.appendChild(s);
+  });
+
+  // Right: buckets
+  const bucketCol = document.createElement('div');
+  bucketCol.className = 'act2-buckets';
+
+  act.zones.forEach(z => {
+    const bucket = document.createElement('div');
+    bucket.className = 'act2-bucket';
+    bucket.id = 'bucket-' + z.id;
+    bucket.style.cssText = `border-color:${z.border};background:${z.bg};`;
+
+    const title = document.createElement('div');
+    title.className = 'act2-bucket-title';
+    title.style.color = z.color;
+    title.innerHTML = `<span>${z.icon}</span>${z.label}`;
+    bucket.appendChild(title);
+
+    bucket.addEventListener('click', () => {
+      if (!act2Selected) { showToast('👆 Tap a statement first!'); return; }
+      const cardData = act.cards.find(c => c.id === act2Selected);
+      if (!cardData) return;
+
+      if (cardData.zone !== z.id) {
+        // Wrong bucket — shake it
+        bucket.classList.remove('pulse');
+        void bucket.offsetWidth;
+        // shake via reusing wrongShake on bucket
+        bucket.style.animation = 'wrongShake 0.45s ease';
+        setTimeout(() => bucket.style.animation = '', 500);
+        const toast = document.getElementById('toast'); toast.classList.add('wrong-toast');
+        showToast('❌ Wrong category — try again!');
+        setTimeout(() => toast.classList.remove('wrong-toast'), 1800);
+        return;
+      }
+
+      // Correct!
+      placements[act2Selected] = z.id;
+      // Mark statement as assigned
+      const stmt = document.getElementById('stmt-' + act2Selected);
+      if (stmt) { stmt.classList.remove('selected'); stmt.classList.add('assigned'); }
+      // Add chip to bucket
+      const chip = document.createElement('div');
+      chip.className = 'act2-chip';
+      chip.textContent = cardData.text;
+      bucket.appendChild(chip);
+      // Pulse bucket
+      bucket.classList.remove('pulse');
+      void bucket.offsetWidth;
+      bucket.classList.add('pulse');
+      act2Selected = null;
+      showToast('✅ Correct!');
+
+      // Auto-complete check
+      const allDone = act.cards.every(c => placements[c.id]);
+      if (allDone) {
+        setTimeout(() => {
+          score += act.cards.length;
+          document.getElementById('score-num').textContent = score;
+          showResultPopup(act.cards.length, 0);
+        }, 600);
+      }
+    });
+
+    bucketCol.appendChild(bucket);
+  });
+
+  layout.appendChild(stmtCol);
+  layout.appendChild(bucketCol);
+  wrap.appendChild(layout);
+
+  const hint = document.createElement('div');
+  hint.className = 'act2-hint';
+  hint.textContent = '👆 Tap a statement, then tap its category';
+  wrap.appendChild(hint);
+
+  appendBtnRow(wrap, resetTapAssign, checkTapAssign);
+}
+
+function resetTapAssign() {
+  placements = {};
+  act2Selected = null;
+  document.querySelectorAll('.act2-stmt').forEach(s => { s.classList.remove('selected','assigned'); });
+  document.querySelectorAll('.act2-chip').forEach(c => c.remove());
+  showToast('🔄 Activity reset!');
+}
+
+function checkTapAssign() {
+  const act = ACTIVITIES[currentAct];
+  const unplaced = act.cards.filter(c => !placements[c.id]).length;
+  if (unplaced > 0) { showToast(`Assign all ${unplaced} remaining statement${unplaced>1?'s':''}!`); return; }
+  score += act.cards.length;
+  document.getElementById('score-num').textContent = score;
+  showResultPopup(act.cards.length, 0);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ACTIVITY 3 — POLICY WALL: one-card-at-a-time queue → pillar columns
+// ══════════════════════════════════════════════════════════════════════════
+let act3Queue    = [];   // indices of remaining cards in order
+let act3QueueIdx = 0;   // which card in queue is active
+
+function renderPolicyWall(act, wrap) {
+  act3Queue    = act.cards.map((_, i) => i);
+  act3QueueIdx = 0;
+
+  const outer = document.createElement('div');
+  outer.className = 'act3-wrap';
+
+  // ── Stage row ──
+  const stage = document.createElement('div');
+  stage.className = 'act3-stage';
+
+  // Deck (card stack visual + active card)
+  const deck = document.createElement('div');
+  deck.className = 'act3-deck';
+  deck.id = 'act3-deck';
+  // shadow layers
+  [0,1].forEach(() => { const s=document.createElement('div'); s.className='act3-deck-shadow'; deck.appendChild(s); });
+  outer.appendChild(stage); // add stage early so we can reference wrap
+
+  // Sidebar
+  const sidebar = document.createElement('div');
+  sidebar.className = 'act3-sidebar';
+  const counter = document.createElement('div');
+  counter.className = 'act3-counter';
+  counter.id = 'act3-counter';
+  const dotsRow = document.createElement('div');
+  dotsRow.className = 'act3-dots';
+  dotsRow.id = 'act3-dots';
+  act.cards.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'act3-dot' + (i===0?' active':'');
+    d.id = 'act3-dot-'+i;
+    dotsRow.appendChild(d);
+  });
+  sidebar.appendChild(counter);
+  sidebar.appendChild(dotsRow);
+
+  stage.appendChild(deck);
+  stage.appendChild(sidebar);
+
+  // ── Pillar wall ──
+  const pillars = document.createElement('div');
+  pillars.className = 'act3-pillars';
+  pillars.id = 'act3-pillars';
+  act.zones.forEach(z => {
+    const col = document.createElement('div');
+    col.className = 'act3-pillar';
+    col.id = 'pillar-' + z.id;
+    col.style.cssText = `border-color:${z.color}55;background:${z.bg}88;`;
+    const hdr = document.createElement('div');
+    hdr.className = 'act3-pillar-header';
+    hdr.style.color = z.color;
+    hdr.innerHTML = `<span class="act3-pillar-icon">${z.icon}</span>${z.label}`;
+    col.appendChild(hdr);
+    col.addEventListener('click', () => act3PlaceCard(z.id));
+    pillars.appendChild(col);
+  });
+
+  outer.appendChild(pillars);
+  wrap.appendChild(outer);
+
+  // Draw first card
+  act3DrawCard(act, deck);
+  act3UpdateCounter(act);
+  appendBtnRow(wrap, resetPolicyWall, checkPolicyWall);
+}
+
+function act3DrawCard(act, deckEl) {
+  // Remove old active card
+  const old = deckEl.querySelector('.act3-active-card');
+  if (old) old.remove();
+
+  if (act3QueueIdx >= act.cards.length) {
+    // All done — show completion in deck area
+    const msg = document.createElement('div');
+    msg.className = 'act3-done-msg';
+    msg.innerHTML = '🎉 All rules placed!';
+    deckEl.appendChild(msg);
+    return;
+  }
+
+  const c = act.cards[act3QueueIdx];
+  const card = document.createElement('div');
+  card.className = 'act3-active-card';
+  card.id = 'act3-active';
+  card.innerHTML = `
+    <div class="act3-card-num">Rule ${act3QueueIdx+1} of ${act.cards.length}</div>
+    <div class="act3-card-text">${c.text}</div>
+  `;
+  deckEl.appendChild(card);
+}
+
+function act3PlaceCard(zoneId) {
+  const act = ACTIVITIES[currentAct];
+  if (act3QueueIdx >= act.cards.length) return;
+  const c = act.cards[act3QueueIdx];
+
+  if (c.zone !== zoneId) {
+    // Wrong — shake the card and the pillar
+    const card = document.getElementById('act3-active');
+    const pillar = document.getElementById('pillar-' + zoneId);
+    if (card)   { card.classList.remove('fly-wrong');   void card.offsetWidth;   card.classList.add('fly-wrong'); }
+    if (pillar) { pillar.classList.remove('wrong-flash'); void pillar.offsetWidth; pillar.classList.add('wrong-flash'); pillar.addEventListener('animationend', ()=>pillar.classList.remove('wrong-flash'),{once:true}); }
+    const toast = document.getElementById('toast'); toast.classList.add('wrong-toast');
+    showToast('❌ Wrong pillar — try again!');
+    setTimeout(() => toast.classList.remove('wrong-toast'), 1800);
+    return;
+  }
+
+  // Correct — fly card out then advance
+  placements[c.id] = zoneId;
+  act3Solved[c.id] = zoneId;
+
+  const card = document.getElementById('act3-active');
+  const pillar = document.getElementById('pillar-' + zoneId);
+  if (card) { card.classList.add('fly-out'); }
+
+  // Add chip to pillar
+  const zone = act.zones.find(z => z.id === zoneId);
+  const chip = document.createElement('div');
+  chip.className = 'act3-chip';
+  chip.textContent = c.text;
+  if (pillar) {
+    pillar.appendChild(chip);
+    pillar.classList.remove('wrong-flash');
+  }
+
+  showToast(`✅ ${zone.label}!`);
+
+  // Mark dot done, advance to next
+  const dot = document.getElementById('act3-dot-' + act3QueueIdx);
+  if (dot) { dot.classList.remove('active'); dot.classList.add('done'); }
+
+  act3QueueIdx++;
+
+  const nextDot = document.getElementById('act3-dot-' + act3QueueIdx);
+  if (nextDot) nextDot.classList.add('active');
+
+  setTimeout(() => {
+    const deck = document.getElementById('act3-deck');
+    act3DrawCard(act, deck);
+    act3UpdateCounter(act);
+    if (act3QueueIdx >= act.cards.length) {
+      setTimeout(() => {
+        score += act.cards.length;
+        document.getElementById('score-num').textContent = score;
+        showResultPopup(act.cards.length, 0);
+      }, 800);
+    }
+  }, 280);
+}
+
+function act3UpdateCounter(act) {
+  const el = document.getElementById('act3-counter');
+  if (!el) return;
+  const remaining = act.cards.length - act3QueueIdx;
+  el.innerHTML = `${remaining > 0 ? remaining : '0'} <span>left</span>`;
+}
+
+function resetPolicyWall() {
+  const act = ACTIVITIES[currentAct];
+  placements  = {};
+  act3Solved  = {};
+  act3Queue    = act.cards.map((_, i) => i);
+  act3QueueIdx = 0;
+  // Clear pillar chips
+  act.zones.forEach(z => {
+    const col = document.getElementById('pillar-' + z.id);
+    if (col) col.querySelectorAll('.act3-chip').forEach(ch => ch.remove());
+  });
+  // Reset dots
+  act.cards.forEach((_, i) => {
+    const d = document.getElementById('act3-dot-'+i);
+    if (d) { d.className = 'act3-dot' + (i===0?' active':''); }
+  });
+  // Redraw first card
+  const deck = document.getElementById('act3-deck');
+  act3DrawCard(act, deck);
+  act3UpdateCounter(act);
+  showToast('🔄 Activity reset!');
+}
+
+function checkPolicyWall() {
+  const act = ACTIVITIES[currentAct];
+  const remaining = act.cards.filter(c => !act3Solved[c.id]).length;
+  if (remaining > 0) { showToast(`Place all ${remaining} remaining rule${remaining>1?'s':''}!`); return; }
+  score += act.cards.length;
+  document.getElementById('score-num').textContent = score;
+  showResultPopup(act.cards.length, 0);
+}
+
+// ── SHARED HELPERS ────────────────────────────────────────────────────────
+function appendBtnRow(wrap, resetFn, checkFn) {
+  const btnRow = document.createElement('div');
+  btnRow.className = 'btn-row';
+
+  const resetBtn = document.createElement('button');
+  resetBtn.id = 'reset-btn';
+  resetBtn.textContent = '🔄 Reset';
+  resetBtn.addEventListener('click', resetFn);
+  btnRow.appendChild(resetBtn);
+
+  const checkBtn = document.createElement('button');
+  checkBtn.id = 'check-btn';
+  checkBtn.textContent = 'CHECK ANSWERS';
+  checkBtn.addEventListener('click', checkFn);
+  btnRow.appendChild(checkBtn);
+
+  wrap.appendChild(btnRow);
+}
+
+// ── POPUPS ────────────────────────────────────────────────────────────────
+function showResultPopup(correct, wrong) {
+  const isLast = currentAct === ACTIVITIES.length - 1;
+  const box = document.getElementById('popup-box');
+  const percent = correct / (correct + wrong);
+  const icon  = percent === 1 ? '🎯' : '🗺️';
+  const title = percent === 1 ? 'Perfect Score!' : 'Good Detective Work!';
+  const msg   = percent === 1 ? 'Outstanding! You spotted every clue with precision!' : 'Great effort! Keep exploring!';
+
+  if (isLast) {
+    box.innerHTML = `
+      <div class="popup-icon">🌍</div>
+      <div class="popup-title">Mission Complete!</div>
+      <div class="final-stars">★★★</div>
+      <div class="popup-score">
+        <div class="score-pill">✅ ${correct} Correct</div>
+        ${wrong>0?`<div class="score-pill wrong-pill">❌ ${wrong} Wrong</div>`:''}
+        <div class="score-pill">🧭 Total Score: ${score}</div>
+      </div>
+      <div class="pledge-box">
+        <strong>🔏 The Digital Detective Pledge</strong><br>
+        I will <strong>pause before I share</strong> any shocking content online.<br>
+        I will <strong>check for visual clues</strong> before trusting a video or image.<br>
+        I will <strong>use AI responsibly</strong> — for fairness, honesty, and good.<br>
+        I will <strong>protect privacy</strong> and speak up when something seems wrong.
+      </div>
+      <div class="flag-row">🇮🇳 🌐 🗺️ 🔍 🛡️</div>
+      <button class="popup-btn" onclick="restartAll()">🔄 Play Again</button>
+    `;
+  } else {
+    box.innerHTML = `
+      <div class="popup-icon">${icon}</div>
+      <div class="popup-title">${title}</div>
+      <div class="popup-msg">${msg}</div>
+      <div class="popup-score">
+        <div class="score-pill">✅ ${correct} Correct</div>
+        ${wrong>0?`<div class="score-pill wrong-pill">❌ ${wrong} Wrong</div>`:''}
+      </div>
+      <button class="popup-btn" onclick="nextActivity()">Next Mission →</button>
+    `;
+  }
+  document.getElementById('popup-overlay').style.display = 'flex';
+}
+
+function nextActivity() { document.getElementById('popup-overlay').style.display = 'none'; currentAct++; render(); }
+function restartAll()   { document.getElementById('popup-overlay').style.display = 'none'; currentAct = 0; score = 0; document.getElementById('score-num').textContent = 0; render(); }
+
+// ── PROGRESS ──────────────────────────────────────────────────────────────
+function updateProgress() {
+  ACTIVITIES.forEach((_, i) => {
+    const step = document.getElementById('step' + (i+1));
+    step.classList.remove('active','done');
+    if (i < currentAct) step.classList.add('done');
+    else if (i === currentAct) step.classList.add('active');
+    if (i < ACTIVITIES.length - 1) document.getElementById('line' + (i+1)).classList.toggle('done', i < currentAct);
+  });
+  ACTIVITIES.forEach((_, i) => {
+    const dot = document.querySelector(`#step${i+1} .prog-dot`);
+    dot.textContent = i < currentAct ? '✓' : i+1;
+  });
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+// ── COMPASS NEEDLE wander ─────────────────────────────────────────────────
+let needleAngle = 0;
+setInterval(() => {
+  needleAngle += (Math.random() - 0.5) * 0.4;
+  needleAngle = Math.max(-8, Math.min(8, needleAngle));
+  const n = document.getElementById('compass-needle');
+  if (n) n.style.transform = `rotate(${needleAngle}deg)`;
+}, 500);
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>

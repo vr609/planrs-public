@@ -436,9 +436,29 @@
   }
   .dropped-rule:hover { opacity: .7; transform: scale(.95); }
 
+  /* ── BUTTON ROW ──────────────────────────────────────── */
+  .btn-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 8px; flex-shrink: 0;
+  }
+  .reset-btn {
+    padding: 8px 18px; border-radius: 25px;
+    background: rgba(255,255,255,0.7);
+    color: #a060c0; font-family: 'Baloo 2', cursive;
+    font-size: 13px; font-weight: 800;
+    border: 2px solid rgba(180,130,255,0.4); cursor: pointer;
+    box-shadow: 0 2px 10px rgba(150,80,255,0.12);
+    transition: transform .2s, box-shadow .2s, background .2s;
+  }
+  .reset-btn:hover {
+    background: rgba(255,240,255,0.95);
+    transform: scale(1.05);
+    box-shadow: 0 4px 16px rgba(150,80,255,0.25);
+  }
+  .reset-btn:active { transform: scale(.97); }
+
   /* ── NEXT BUTTON ─────────────────────────────────────── */
   .next-btn {
-    align-self: flex-end; margin-top: 8px;
     padding: 8px 22px; border-radius: 25px;
     background: linear-gradient(135deg, #c94fcf, #7b6bff);
     color: #fff; font-family: 'Baloo 2', cursive;
@@ -455,6 +475,21 @@
   .next-btn.enabled:hover {
     transform: scale(1.07) translateY(-2px);
     box-shadow: 0 8px 28px rgba(150,80,255,0.5);
+  }
+
+  /* ── WRONG DROP FLASH ────────────────────────────────── */
+  .wrong-flash {
+    animation: wrongPulse .5s ease;
+  }
+  @keyframes wrongPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(255,80,80,0); }
+    40%  { box-shadow: 0 0 0 8px rgba(255,80,80,0.35); }
+    100% { box-shadow: 0 0 0 0 rgba(255,80,80,0); }
+  }
+  .rule-drop-area.drop-wrong {
+    border-color: #ff6060 !important;
+    background: rgba(255,96,96,0.1) !important;
+    animation: shake .35s;
   }
 
   /* ── POPUP ───────────────────────────────────────────── */
@@ -581,7 +616,10 @@
           </div>
         </div>
       </div>
-      <button class="next-btn" id="next1" onclick="showPopup('popup1')">Next Activity ✨</button>
+      <div class="btn-row">
+        <button class="reset-btn" onclick="resetAct1()">🔄 Reset</button>
+        <button class="next-btn" id="next1" onclick="showPopup('popup1')">Next Activity ✨</button>
+      </div>
     </div>
 
     <!-- ══ ACTIVITY 2 ══════════════════════════════════ -->
@@ -598,7 +636,10 @@
           <!-- populated by JS -->
         </div>
       </div>
-      <button class="next-btn" id="next2" onclick="showPopup('popup2')">Next Activity ✨</button>
+      <div class="btn-row">
+        <button class="reset-btn" onclick="resetAct2()">🔄 Reset</button>
+        <button class="next-btn" id="next2" onclick="showPopup('popup2')">Next Activity ✨</button>
+      </div>
     </div>
 
     <!-- ══ ACTIVITY 3 ══════════════════════════════════ -->
@@ -614,7 +655,10 @@
         <!-- Right: form fields -->
         <div class="form-fields" id="form-fields"><!-- populated by JS --></div>
       </div>
-      <button class="next-btn" id="next3" onclick="showPopup('popup-final')">🎉 Finish!</button>
+      <div class="btn-row">
+        <button class="reset-btn" onclick="resetAct3()">🔄 Reset</button>
+        <button class="next-btn" id="next3" onclick="showPopup('popup-final')">🎉 Finish!</button>
+      </div>
     </div>
 
   </div><!-- /activity-container -->
@@ -731,14 +775,36 @@ document.querySelectorAll('.drop-zone').forEach(zone => {
         document.getElementById('next1').classList.add('enabled');
       }
     } else {
+      // Wrong drop — reject, don't accept
       zone.classList.add('wrong');
       setTimeout(() => zone.classList.remove('wrong'), 500);
-      // shake the item too
+      // Shake the dragged item to signal wrong
+      draggingItem.classList.add('wrong-flash');
       draggingItem.style.animation = 'shake .35s';
-      setTimeout(() => draggingItem.style.animation = '', 400);
+      setTimeout(() => {
+        draggingItem.style.animation = '';
+        draggingItem.classList.remove('wrong-flash');
+      }, 500);
     }
   });
 });
+
+function resetAct1() {
+  act1Correct = 0;
+  // Restore all draggable items
+  document.querySelectorAll('.drag-item').forEach(item => {
+    item.classList.remove('placed','dragging','wrong-flash');
+    item.style.animation = '';
+    item.style.opacity = '';
+    item.style.pointerEvents = '';
+  });
+  // Clear all drop zones
+  document.querySelectorAll('.drop-zone').forEach(zone => {
+    zone.classList.remove('correct','wrong','dragover');
+    zone.querySelector('.drop-items').innerHTML = '';
+  });
+  document.getElementById('next1').classList.remove('enabled');
+}
 
 // ── ACTIVITY 2 LOGIC ─────────────────────────────────────
 const SYMBOLS = [
@@ -879,6 +945,12 @@ function checkAct2Done() {
   }
 }
 
+function resetAct2() {
+  CHALLENGES.forEach(c => { act2Progress[c.id] = Array(c.answer.length).fill(null); });
+  renderAct2();
+  document.getElementById('next2').classList.remove('enabled');
+}
+
 // ── ACTIVITY 3 LOGIC ─────────────────────────────────────
 const RULES = [
   { id:'r1', cls:'rule-r1', name:'Letters & Numbers Only', pattern:'^[a-zA-Z0-9]+$', field:'username' },
@@ -946,8 +1018,25 @@ function renderAct3() {
       e.preventDefault();
       dropArea.classList.remove('dragover');
       const ruleId  = e.dataTransfer.getData('ruleId');
-      const pattern = e.dataTransfer.getData('pattern');
       if (!ruleId) return;
+
+      const isCorrect = ruleId === f.correct;
+
+      if (!isCorrect) {
+        // Show wrong rule briefly, then reject it
+        const rule = RULES.find(r => r.id === ruleId);
+        dropArea.classList.add('drop-wrong','has-rule');
+        const tempChip = document.createElement('div');
+        tempChip.className = 'dropped-rule ' + rule.cls;
+        tempChip.textContent = rule.name;
+        dropArea.innerHTML = '';
+        dropArea.appendChild(tempChip);
+        setTimeout(() => {
+          dropArea.classList.remove('drop-wrong','has-rule');
+          dropArea.innerHTML = 'Drop a rule here…';
+        }, 700);
+        return;
+      }
 
       // Remove from previous field if already placed
       Object.keys(act3State).forEach(fid => {
@@ -1037,6 +1126,13 @@ function checkAct3Done() {
   } else {
     document.getElementById('next3').classList.remove('enabled');
   }
+}
+
+function resetAct3() {
+  act3State = {};
+  act3Correct = 0;
+  renderAct3();
+  document.getElementById('next3').classList.remove('enabled');
 }
 
 // ── POPUP / NAVIGATION ───────────────────────────────────

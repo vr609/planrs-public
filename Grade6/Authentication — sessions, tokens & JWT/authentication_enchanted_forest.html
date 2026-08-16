@@ -143,6 +143,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0e1a;font-family:
   box-shadow:0 0 10px rgba(245,200,66,0.1);
 }
 .btn-v:hover{background:rgba(245,200,66,0.08);box-shadow:0 0 26px rgba(245,200,66,0.3)}
+.btn-reset{
+  padding:6px 18px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:1.5px;font-weight:700;
+  background:transparent;border:1.5px solid rgba(248,113,113,0.45);border-radius:8px;
+  color:#f87171;cursor:pointer;transition:all .15s;
+  box-shadow:0 0 8px rgba(248,113,113,0.08);
+}
+.btn-reset:hover{background:rgba(248,113,113,0.08);box-shadow:0 0 18px rgba(248,113,113,0.25)}
+/* wrong chip bounce-back animation */
+@keyframes wrongBounce{0%{transform:scale(1)}20%{transform:scale(1.15)}50%{transform:scale(.92)}100%{transform:scale(1)}}
+.chip.wrong-flash{border-color:#f87171!important;color:#f87171!important;box-shadow:0 0 14px rgba(248,113,113,0.45)!important;animation:wrongBounce .35s ease,shk .3s ease}
 
 /* ── FEEDBACK ── */
 .fb{padding:6px 12px;border-radius:6px;font-family:'Fira Code',monospace;font-size:9px;text-align:center;min-height:28px;transition:all .25s;width:100%}
@@ -412,7 +422,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0e1a;font-family:
       </div>
 
       <div class="fb" id="fb1"></div>
-      <button class="btn-v" id="btn1">✦ VERIFY SPELL ORDER</button>
+      <div style="display:flex;gap:10px;align-items:center;justify-content:center">
+        <button class="btn-reset" id="rst1">↺ RESET QUEST</button>
+        <button class="btn-v" id="btn1">✦ VERIFY SPELL ORDER</button>
+      </div>
     </div>
 
     <!-- ═══════════ ACT 2: JWT Builder ═══════════ -->
@@ -488,7 +501,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0e1a;font-family:
       </div>
 
       <div class="fb" id="fb2"></div>
-      <button class="btn-v" id="btn2">✦ FORGE THE TOKEN</button>
+      <div style="display:flex;gap:10px;align-items:center;justify-content:center">
+        <button class="btn-reset" id="rst2">↺ RESET QUEST</button>
+        <button class="btn-v" id="btn2">✦ FORGE THE TOKEN</button>
+      </div>
     </div>
 
     <!-- ═══════════ ACT 3: Auth Flow ═══════════ -->
@@ -569,7 +585,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0e1a;font-family:
       </div>
 
       <div class="fb" id="fb3"></div>
-      <button class="btn-v" id="btn3">✦ ACTIVATE ENDPOINT</button>
+      <div style="display:flex;gap:10px;align-items:center;justify-content:center">
+        <button class="btn-reset" id="rst3">↺ RESET QUEST</button>
+        <button class="btn-v" id="btn3">✦ ACTIVATE ENDPOINT</button>
+      </div>
     </div>
 
     <!-- PROGRESS -->
@@ -685,6 +704,18 @@ function makeDrop(zone,fn){
   zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('over');fn(zone,dragging,dragOrigin)});
 }
 
+/* ─── WRONG-ANSWER FLASH: bounce chip back to pool ─── */
+function rejectChip(chip,pool,zone){
+  zone.classList.add('bad');
+  chip.classList.add('wrong-flash');
+  chip.style.opacity='1';
+  setTimeout(()=>{
+    pool.appendChild(chip);
+    chip.classList.remove('wrong-flash');
+    zone.classList.remove('bad');
+  },420);
+}
+
 /* ═══ ACT 1: Hash flow ═══ */
 const p1=document.getElementById('pool1');
 const hslots=['h1','h2','h3','h4','h5','h6'].map(id=>document.getElementById(id));
@@ -692,23 +723,30 @@ const sc1={};
 p1.querySelectorAll('.chip').forEach(makeDrag);
 hslots.forEach(s=>makeDrop(s,(zone,chip,origin)=>{
   if(!chip)return;
+  /* If zone already has a correctly placed chip, block the drop */
+  if(sc1[zone.id]&&sc1[zone.id].classList.contains('placed'))return;
+  /* Check correctness immediately */
+  const isCorrect=chip.dataset.id===zone.dataset.ans;
+  if(!isCorrect){
+    rejectChip(chip,p1,zone);
+    return;
+  }
+  /* Evict previous occupant back to pool if it exists */
   const occ=sc1[zone.id];
-  if(occ){(origin.classList.contains('dz')?(()=>{origin.textContent='Drop here';delete sc1[origin.id];origin.classList.remove('ok','bad')})():p1.appendChild(occ));occ.classList.remove('placed','wrong')}
+  if(occ){p1.appendChild(occ);occ.classList.remove('placed','wrong')}
+  /* Clear source zone */
   if(origin&&origin.classList.contains('dz')&&origin!==zone){origin.textContent='Drop here';delete sc1[origin.id];origin.classList.remove('ok','bad')}
   zone.textContent='';zone.appendChild(chip);sc1[zone.id]=chip;
+  zone.classList.add('ok');chip.classList.add('placed');
 }));
 document.getElementById('btn1').addEventListener('click',()=>{
   let ok=true;
-  hslots.forEach(s=>{
-    const chip=sc1[s.id];if(!chip){ok=false;return}
-    const good=chip.dataset.id===s.dataset.ans;
-    s.classList.remove('ok','bad');chip.classList.remove('placed','wrong');
-    if(good){s.classList.add('ok');chip.classList.add('placed')}else{s.classList.add('bad');chip.classList.add('wrong');ok=false}
-  });
+  hslots.forEach(s=>{if(!sc1[s.id]){ok=false}});
   const fb=document.getElementById('fb1');
   if(ok){fb.textContent='✓ Perfect spell order! The password is now safely hashed and can never be recovered.';fb.className='fb ok';setTimeout(()=>document.getElementById('pop1').classList.add('show'),700)}
-  else{fb.textContent='✗ Some steps are out of sequence — check the bcrypt flow in the reference panels!';fb.className='fb err'}
+  else{fb.textContent='✗ Some steps are still empty — fill all 6 slots to complete the spell!';fb.className='fb err'}
 });
+document.getElementById('rst1').addEventListener('click',()=>resetAct1());
 
 /* ═══ ACT 2: JWT builder ═══ */
 const p2=document.getElementById('pool2');
@@ -718,25 +756,25 @@ p2.querySelectorAll('.chip').forEach(makeDrag);
 Object.entries(jzones).forEach(([sec,zone])=>{
   makeDrop(zone,(z,chip,origin)=>{
     if(!chip||!chip.dataset.section)return;
+    /* Reject wrong section immediately */
+    if(chip.dataset.section!==sec){
+      rejectChip(chip,p2,z);
+      return;
+    }
     const ph=z.querySelector('.jwt-ph');if(ph)ph.remove();
     if(origin&&origin.classList.contains('jwt-drop')&&origin!==z){delete placed2[chip.dataset.id]}
     z.appendChild(chip);placed2[chip.dataset.id]=sec;
+    chip.classList.add('placed');
   });
 });
 document.getElementById('btn2').addEventListener('click',()=>{
-  const allChips=[...p2.querySelectorAll('.chip'),...Object.values(jzones).flatMap(z=>[...z.querySelectorAll('.chip')])];
-  let ok=true,cnt=0;
-  allChips.forEach(chip=>{
-    const dest=placed2[chip.dataset.id];chip.classList.remove('placed','wrong');
-    if(!dest){ok=false;return}
-    cnt++;
-    if(chip.dataset.section===dest){chip.classList.add('placed')}else{chip.classList.add('wrong');ok=false}
-  });
-  if(cnt<7)ok=false;
+  const total=[...p2.querySelectorAll('.chip'),...Object.values(jzones).flatMap(z=>[...z.querySelectorAll('.chip')])].length;
+  const placedCnt=Object.keys(placed2).length;
   const fb=document.getElementById('fb2');
-  if(ok){fb.textContent='✓ JWT forged! Header declares the algorithm, Payload holds your claims, Signature seals the deal.';fb.className='fb ok';setTimeout(()=>document.getElementById('pop2').classList.add('show'),700)}
-  else{fb.textContent='✗ Some JWT fragments are in the wrong section. Remember: Header = algorithm, Payload = claims, Signature = seal!';fb.className='fb err'}
+  if(placedCnt>=7){fb.textContent='✓ JWT forged! Header declares the algorithm, Payload holds your claims, Signature seals the deal.';fb.className='fb ok';setTimeout(()=>document.getElementById('pop2').classList.add('show'),700)}
+  else{fb.textContent='✗ Some JWT fragments are still in the pool — place all 7 pieces into their correct sections!';fb.className='fb err'}
 });
+document.getElementById('rst2').addEventListener('click',()=>resetAct2());
 
 /* ═══ ACT 3: Auth flow ═══ */
 const p3=document.getElementById('pool3');
@@ -745,23 +783,51 @@ const sc3={};
 p3.querySelectorAll('.chip').forEach(makeDrag);
 fzones.forEach(z=>makeDrop(z,(zone,chip,origin)=>{
   if(!chip||!chip.classList.contains('chip'))return;
+  /* If zone already has correct chip, block */
+  if(sc3[zone.id]&&sc3[zone.id].classList.contains('placed'))return;
+  /* Check correctness immediately */
+  const isCorrect=chip.dataset.id===zone.dataset.ans;
+  if(!isCorrect){
+    rejectChip(chip,p3,zone);
+    return;
+  }
   const occ=sc3[zone.id];
-  if(occ){(origin.classList.contains('flow-dz')?(()=>{origin.textContent='Drop block';delete sc3[origin.id];origin.classList.remove('ok','bad')})():p3.appendChild(occ));occ.classList.remove('placed','wrong')}
+  if(occ){p3.appendChild(occ);occ.classList.remove('placed','wrong')}
   if(origin&&origin.classList.contains('flow-dz')&&origin!==zone){origin.textContent='Drop block';delete sc3[origin.id];origin.classList.remove('ok','bad')}
   zone.textContent='';zone.appendChild(chip);sc3[zone.id]=chip;
+  zone.classList.add('ok');chip.classList.add('placed');
 }));
 document.getElementById('btn3').addEventListener('click',()=>{
-  let ok=true;
-  fzones.forEach(s=>{
-    const chip=sc3[s.id];if(!chip){ok=false;return}
-    const good=chip.dataset.id===s.dataset.ans;
-    s.classList.remove('ok','bad');chip.classList.remove('placed','wrong');
-    if(good){s.classList.add('ok');chip.classList.add('placed')}else{s.classList.add('bad');chip.classList.add('wrong');ok=false}
-  });
+  let ok=fzones.every(s=>sc3[s.id]);
   const fb=document.getElementById('fb3');
   if(ok){fb.textContent='✓ Endpoint activated! Your authentication flow correctly handles login, errors, and token issuance.';fb.className='fb ok';setTimeout(()=>document.getElementById('popF').classList.add('show'),700)}
-  else{fb.textContent='✗ Some blocks are in the wrong step. Trace the path: receive → find user → verify → issue token (or error)!';fb.className='fb err'}
+  else{fb.textContent='✗ Some steps are still empty — fill all 6 blocks to activate the endpoint!';fb.className='fb err'}
 });
+document.getElementById('rst3').addEventListener('click',()=>resetAct3());
+
+/* ─── PER-QUEST RESETS ─── */
+function resetAct1(){
+  hslots.forEach(s=>{
+    if(sc1[s.id]){p1.appendChild(sc1[s.id]);sc1[s.id].classList.remove('placed','wrong','wrong-flash');delete sc1[s.id]}
+    s.textContent='Drop here';s.classList.remove('ok','bad');
+  });
+  document.getElementById('fb1').className='fb';document.getElementById('fb1').textContent='';
+}
+function resetAct2(){
+  Object.values(jzones).forEach(z=>{
+    [...z.querySelectorAll('.chip')].forEach(c=>{p2.appendChild(c);c.classList.remove('placed','wrong','wrong-flash')});
+    if(!z.querySelector('.jwt-ph')){const d=document.createElement('div');d.className='jwt-ph';d.textContent='Drop pieces here';z.appendChild(d)}
+  });
+  Object.keys(placed2).forEach(k=>delete placed2[k]);
+  document.getElementById('fb2').className='fb';document.getElementById('fb2').textContent='';
+}
+function resetAct3(){
+  fzones.forEach(s=>{
+    if(sc3[s.id]){p3.appendChild(sc3[s.id]);sc3[s.id].classList.remove('placed','wrong','wrong-flash');delete sc3[s.id]}
+    s.textContent='Drop block';s.classList.remove('ok','bad');
+  });
+  document.getElementById('fb3').className='fb';document.getElementById('fb3').textContent='';
+}
 
 /* ─── NAV ─── */
 function goAct(n){
@@ -775,16 +841,7 @@ function goAct(n){
 }
 function resetAll(){
   document.querySelectorAll('.pop').forEach(p=>p.classList.remove('show'));
-  hslots.forEach(s=>{if(sc1[s.id]){p1.appendChild(sc1[s.id]);sc1[s.id].classList.remove('placed','wrong');delete sc1[s.id]}s.textContent='Drop here';s.classList.remove('ok','bad')});
-  document.getElementById('fb1').className='fb';document.getElementById('fb1').textContent='';
-  Object.values(jzones).forEach(z=>{
-    [...z.querySelectorAll('.chip')].forEach(c=>{p2.appendChild(c);c.classList.remove('placed','wrong')});
-    if(!z.querySelector('.jwt-ph')){const d=document.createElement('div');d.className='jwt-ph';d.textContent='Drop pieces here';z.appendChild(d)}
-  });
-  Object.keys(placed2).forEach(k=>delete placed2[k]);
-  document.getElementById('fb2').className='fb';document.getElementById('fb2').textContent='';
-  fzones.forEach(s=>{if(sc3[s.id]){p3.appendChild(sc3[s.id]);sc3[s.id].classList.remove('placed','wrong');delete sc3[s.id]}s.textContent='Drop block';s.classList.remove('ok','bad')});
-  document.getElementById('fb3').className='fb';document.getElementById('fb3').textContent='';
+  resetAct1();resetAct2();resetAct3();
   goAct(1);
 }
 </script>

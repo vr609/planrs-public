@@ -696,6 +696,33 @@
   }
 
   .insight-bullet::before { content: '▸'; color: var(--amber); flex-shrink: 0; margin-top: 1px; }
+
+  /* ===== WRONG ANSWER SHAKE ===== */
+  @keyframes shake {
+    0%   { transform: translateX(0); }
+    15%  { transform: translateX(-7px); }
+    30%  { transform: translateX(7px); }
+    45%  { transform: translateX(-5px); }
+    60%  { transform: translateX(5px); }
+    75%  { transform: translateX(-3px); }
+    90%  { transform: translateX(3px); }
+    100% { transform: translateX(0); }
+  }
+  .shake { animation: shake 0.45s ease; }
+
+  @keyframes zoneFlash {
+    0%   { background: rgba(239,68,68,0.28); border-color: var(--red); }
+    100% { background: transparent; border-color: rgba(255,255,255,0.15); }
+  }
+  .zone-flash { animation: zoneFlash 0.5s ease forwards; }
+
+  /* ===== RESET BUTTON ===== */
+  .btn-reset {
+    background: rgba(239,68,68,0.15);
+    border: 1.5px solid rgba(239,68,68,0.45);
+    color: #FCA5A5;
+  }
+  .btn-reset:hover { background: rgba(239,68,68,0.28); }
 </style>
 </head>
 <body>
@@ -777,6 +804,7 @@
         <div class="legend-item"><div class="legend-dot" style="background:#93C5FD"></div> Renting costs</div>
         <div id="act1-wrong-msg" style="font-size:11px;color:var(--red);display:none">⚠ Some items are in the wrong panel</div>
       </div>
+      <button class="btn btn-reset" onclick="resetAct1()">↺ Reset</button>
       <button class="btn btn-check" onclick="checkAct1()">Check Answers</button>
       <button class="btn btn-primary" id="next1-btn" onclick="showPopup('popup1')" disabled>Next Activity →</button>
     </div>
@@ -848,6 +876,7 @@
 
     <div class="btn-row">
       <div style="flex:1;font-size:11px;color:var(--text2)">Correctly placing all 8 factors unlocks the next activity</div>
+      <button class="btn btn-reset" onclick="resetAct2()">↺ Reset</button>
       <button class="btn btn-check" onclick="checkAct2()">Check Answers</button>
       <button class="btn btn-primary" id="next2-btn" onclick="showPopup('popup2')" disabled>Next Activity →</button>
     </div>
@@ -921,6 +950,7 @@
 
     <div class="btn-row">
       <div style="flex:1;font-size:11px;color:var(--text2)">Arrange all 5 steps correctly to complete your analysis!</div>
+      <button class="btn btn-reset" onclick="resetAct3()">↺ Reset</button>
       <button class="btn btn-check" onclick="checkAct3()">Verify Steps</button>
       <button class="btn btn-primary" id="next3-btn" onclick="showPopup('popup3')" disabled>See Results 🎉</button>
     </div>
@@ -1149,6 +1179,38 @@ animate();
 let dragItem = null;
 let dragOrigin = null;
 
+// Maps each drop-zone id → accepted data-panel value(s)
+const ZONE_ACCEPT = {
+  'buy-zone':        item => item.dataset.panel === 'buy',
+  'rent-zone':       item => item.dataset.panel === 'rent',
+  'buy-adv-zone':    item => item.dataset.panel === 'buy-adv',
+  'rent-adv-zone':   item => item.dataset.panel === 'rent-adv',
+  'buy-disadv-zone': item => item.dataset.panel === 'buy-disadv',
+  'rent-disadv-zone':item => item.dataset.panel === 'rent-disadv',
+};
+
+function isDropAllowed(zone, item) {
+  const check = ZONE_ACCEPT[zone.id];
+  if (!check) return true;           // drag-pool or unknown → always allow
+  return check(item);
+}
+
+function triggerWrongDrop(zone, item) {
+  // Shake the item
+  item.classList.remove('shake');
+  void item.offsetWidth;
+  item.classList.add('shake');
+  item.addEventListener('animationend', () => item.classList.remove('shake'), { once: true });
+
+  // Flash the zone red
+  zone.classList.remove('zone-flash');
+  void zone.offsetWidth;
+  zone.classList.add('zone-flash');
+  zone.addEventListener('animationend', () => zone.classList.remove('zone-flash'), { once: true });
+
+  showToast('Wrong zone — try again!', 'error');
+}
+
 function initDrag() {
   document.querySelectorAll('[draggable=true]').forEach(el => {
     el.addEventListener('dragstart', e => {
@@ -1167,11 +1229,26 @@ function initDrag() {
     zone.addEventListener('drop', e => {
       e.preventDefault();
       zone.classList.remove('dragover');
-      if (dragItem && zone !== dragOrigin) {
+      if (!dragItem || zone === dragOrigin) return;
+
+      // Pool always accepts (return item)
+      if (zone.classList.contains('drag-pool')) {
         zone.appendChild(dragItem);
         dragItem.style.cursor = 'grab';
+        dragItem.style.outline = 'none';
         onItemDropped(zone, dragItem);
+        return;
       }
+
+      if (!isDropAllowed(zone, dragItem)) {
+        triggerWrongDrop(zone, dragItem);
+        return;
+      }
+
+      zone.appendChild(dragItem);
+      dragItem.style.cursor = 'grab';
+      dragItem.style.outline = 'none';
+      onItemDropped(zone, dragItem);
     });
   });
 }
@@ -1383,12 +1460,64 @@ function startAct3() {
   updateProgress(3);
 }
 
+// ===== PER-ACTIVITY RESETS =====
+function resetAct1() {
+  const pool = document.getElementById('pool1');
+  ['buy-zone','rent-zone'].forEach(id => {
+    document.querySelectorAll(`#${id} .drag-item`).forEach(el => {
+      el.style.outline = 'none';
+      pool.appendChild(el);
+    });
+  });
+  document.getElementById('act1-wrong-msg').style.display = 'none';
+  document.getElementById('next1-btn').disabled = true;
+  updateAct1Totals();
+  showToast('Activity 1 reset!', '');
+}
+
+function resetAct2() {
+  const pool = document.getElementById('pool2');
+  ['buy-adv-zone','rent-adv-zone','buy-disadv-zone','rent-disadv-zone'].forEach(id => {
+    document.querySelectorAll(`#${id} .drag-item`).forEach(el => {
+      el.style.outline = 'none';
+      pool.appendChild(el);
+    });
+  });
+  document.getElementById('next2-btn').disabled = true;
+  updateAct2Bars();
+  showToast('Activity 2 reset!', '');
+}
+
+function resetAct3() {
+  const pool = document.getElementById('pool3');
+  Object.keys(slotContent).forEach(k => {
+    const slot = document.getElementById('slot' + k);
+    const item = slotContent[k];
+    item.style.outline = 'none';
+    pool.appendChild(item);
+    const slotIdx = parseInt(k);
+    slot.innerHTML = `<div class="slot-num">${slotIdx + 1}</div><div class="slot-hint">${['First','Second','Third','Fourth','Final'][slotIdx]} step…</div>`;
+    slot.classList.remove('filled','correct');
+  });
+  for (const k in slotContent) delete slotContent[k];
+  document.getElementById('emi-result-box').style.display = 'none';
+  document.getElementById('next3-btn').disabled = true;
+  updateFormulaDisplay();
+  showToast('Activity 3 reset!', '');
+}
+
 function resetAll() {
   hidePopup('popup3');
+  // Full reset: send all items back to pools and restart from act1
+  resetAct1();
+  resetAct2();
+  resetAct3();
+  // Return act2 items to pool2 and act3 items to pool3 that may be in act1's pool
+  // (items are activity-scoped so pools are already correct after individual resets)
   document.getElementById('act3').classList.remove('visible');
+  document.getElementById('act2').classList.remove('visible');
   document.getElementById('act1').classList.add('visible');
   updateProgress(1);
-  location.reload();
 }
 
 function updateProgress(step) {

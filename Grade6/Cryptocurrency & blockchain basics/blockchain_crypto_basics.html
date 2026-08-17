@@ -193,6 +193,18 @@ html,body{width:100vw;height:100vh;overflow:hidden;font-family:'Nunito',sans-ser
 
 ::-webkit-scrollbar{width:3px;height:3px}
 ::-webkit-scrollbar-thumb{background:rgba(0,212,255,0.25);border-radius:2px}
+
+/* ===== WRONG-ANSWER FEEDBACK ===== */
+@keyframes shake{0%{transform:translateX(0)}15%{transform:translateX(-7px)}30%{transform:translateX(7px)}45%{transform:translateX(-5px)}60%{transform:translateX(5px)}75%{transform:translateX(-3px)}90%{transform:translateX(3px)}100%{transform:translateX(0)}}
+.shake{animation:shake 0.45s ease}
+@keyframes zoneFlash{0%{background:rgba(255,45,120,0.28);border-color:var(--hot-pink)}100%{background:transparent;border-color:rgba(255,255,255,0.12)}}
+.zone-flash{animation:zoneFlash 0.5s ease forwards}
+@keyframes slotFlash{0%{border-color:var(--hot-pink);background:rgba(255,45,120,0.15)}100%{border-color:rgba(255,255,255,0.12);background:transparent}}
+.slot-flash{animation:slotFlash 0.5s ease forwards}
+
+/* ===== RESET BUTTON ===== */
+.btn-reset{background:rgba(255,45,120,0.1);border:1.5px solid rgba(255,45,120,0.4);color:#FF80A8}
+.btn-reset:hover{background:rgba(255,45,120,0.2)}
 </style>
 </head>
 <body>
@@ -255,6 +267,7 @@ html,body{width:100vw;height:100vh;overflow:hidden;font-family:'Nunito',sans-ser
     </div>
     <div class="btn-row">
       <div class="btn-hint">Place all 5 blocks in the correct order to form a valid chain</div>
+      <button class="btn btn-reset" onclick="resetAct1()">↺ Reset</button>
       <button class="btn btn-check" onclick="checkAct1()">Verify Chain</button>
       <button class="btn btn-primary" id="nxt1" onclick="showPop('pop1')" disabled>Next Mission →</button>
     </div>
@@ -304,6 +317,7 @@ html,body{width:100vw;height:100vh;overflow:hidden;font-family:'Nunito',sans-ser
     </div>
     <div class="btn-row">
       <div class="btn-hint">Arrange all 5 steps in the correct order</div>
+      <button class="btn btn-reset" onclick="resetAct2()">↺ Reset</button>
       <button class="btn btn-check" onclick="checkAct2()">Verify Order</button>
       <button class="btn btn-primary" id="nxt2" onclick="showPop('pop2')" disabled>Final Mission →</button>
     </div>
@@ -359,6 +373,7 @@ html,body{width:100vw;height:100vh;overflow:hidden;font-family:'Nunito',sans-ser
     </div>
     <div class="btn-row">
       <div class="btn-hint">Sort all 8 cards correctly to complete your analysis!</div>
+      <button class="btn btn-reset" onclick="resetAct3()">↺ Reset</button>
       <button class="btn btn-check" onclick="checkAct3()">Check Sort</button>
       <button class="btn btn-primary" id="nxt3" onclick="showPop('pop3')" disabled>See Results ⚡</button>
     </div>
@@ -408,7 +423,7 @@ html,body{width:100vw;height:100vh;overflow:hidden;font-family:'Nunito',sans-ser
       <div class="bullet">Cryptocurrency is a digital asset with real risks. Always learn before you leap!</div>
       <div class="bullet">Blockchain goes beyond money — it can power voting systems, supply chains, and more.</div>
     </div>
-    <button class="btn btn-primary" style="background:linear-gradient(135deg,var(--neon-green),var(--cyber-blue));box-shadow:0 0 20px rgba(57,255,20,0.4)" onclick="location.reload()">🔄 Play Again</button>
+    <button class="btn btn-primary" style="background:linear-gradient(135deg,var(--neon-green),var(--cyber-blue));box-shadow:0 0 20px rgba(57,255,20,0.4)" onclick="playAgain()">🔄 Play Again</button>
   </div>
 </div>
 
@@ -516,6 +531,28 @@ frame();
 
 // ===== DRAG & DROP =====
 let dragging=null,dragFrom=null;
+
+// Wrong-answer rejection helpers
+function wrongFeedback(item, zone){
+  // Shake the chip
+  item.classList.remove('shake');
+  void item.offsetWidth;
+  item.classList.add('shake');
+  item.addEventListener('animationend',()=>item.classList.remove('shake'),{once:true});
+  // Flash the zone/slot
+  zone.classList.remove('zone-flash','slot-flash');
+  void zone.offsetWidth;
+  zone.classList.add(zone.classList.contains('chain-slot')||zone.classList.contains('mine-slot')?'slot-flash':'zone-flash');
+  zone.addEventListener('animationend',()=>zone.classList.remove('zone-flash','slot-flash'),{once:true});
+  toast('Wrong zone — try again!','err');
+}
+
+// Act1: chip's data-slot must match the chain-slot's data-slot
+function act1Allowed(chip, slot){ return chip.dataset.slot === slot.dataset.slot; }
+// Act2: no ordering enforcement on drop — any step can go in any slot (checked on verify)
+// Act3: chip's data-panel must match the drop zone id prefix
+function act3Allowed(chip, zoneId){ return chip.dataset.panel === zoneId.replace('-zone',''); }
+
 function initDrag(){
   document.querySelectorAll('[draggable=true]').forEach(el=>{
     el.addEventListener('dragstart',e=>{dragging=el;dragFrom=el.parentElement;setTimeout(()=>el.classList.add('dragging'),0)});
@@ -527,10 +564,26 @@ function initDrag(){
     z.addEventListener('drop',e=>{
       e.preventDefault();z.classList.remove('over');
       if(!dragging)return;
-      const zid=z.id||z.dataset.slot;
-      if(z.classList.contains('chain-slot')){handleChainDrop(z)}
-      else if(z.classList.contains('mine-slot')){handleMineDrop(z)}
-      else{z.appendChild(dragging);onDrop(z)}
+      // Always allow dropping back to pool
+      if(z.classList.contains('pool')){
+        z.appendChild(dragging);
+        dragging.style.outline='none';
+        onDrop(z);
+        return;
+      }
+      if(z.classList.contains('chain-slot')){
+        if(!act1Allowed(dragging,z)){wrongFeedback(dragging,z);return;}
+        handleChainDrop(z);
+      } else if(z.classList.contains('mine-slot')){
+        // Mine slots accept any step (order checked on verify)
+        handleMineDrop(z);
+      } else {
+        // Act3 dz zones
+        if(!act3Allowed(dragging,z.id)){wrongFeedback(dragging,z);return;}
+        z.appendChild(dragging);
+        dragging.style.outline='none';
+        onDrop(z);
+      }
     });
   });
 }
@@ -643,6 +696,54 @@ function checkAct3(){
   else toast('Some cards are in the wrong category!','err');
 }
 
+// ===== RESET FUNCTIONS =====
+const SLOT_HINTS=['Starting point…','How it spreads…','Who checks it…','The lock is made…','Final result…'];
+
+function resetAct1(){
+  const pool=document.getElementById('pool1');
+  Object.keys(chainSlotContent).forEach(k=>{
+    const chip=chainSlotContent[k];
+    chip.style.outline='none';
+    pool.appendChild(chip);
+    const sl=document.getElementById('cslot'+k);
+    sl.innerHTML=`<div class="slot-num">${parseInt(k)+1}</div><div class="slot-ghost">Drop here</div>`;
+    sl.classList.remove('filled','correct');
+    sl.style.borderColor='';
+    delete chainSlotContent[k];
+  });
+  document.getElementById('nxt1').disabled=true;
+  toast('Activity 1 reset!','');
+}
+
+function resetAct2(){
+  const pool=document.getElementById('pool2');
+  Object.keys(mineSlotContent).forEach(k=>{
+    const chip=mineSlotContent[k];
+    chip.style.outline='none';
+    pool.appendChild(chip);
+    const sl=document.getElementById('mslot'+k);
+    sl.innerHTML=`<div class="ms-num">${parseInt(k)+1}</div><div class="ms-hint">${SLOT_HINTS[parseInt(k)]}</div>`;
+    sl.classList.remove('filled','correct','wrong');
+    delete mineSlotContent[k];
+  });
+  document.getElementById('nxt2').disabled=true;
+  updateVerifyBar();
+  toast('Activity 2 reset!','');
+}
+
+function resetAct3(){
+  const pool=document.getElementById('pool3');
+  ['crypto-zone','fiat-zone','risk-zone'].forEach(zid=>{
+    document.querySelectorAll('#'+zid+' .chip').forEach(chip=>{
+      chip.style.outline='none';
+      pool.appendChild(chip);
+    });
+  });
+  document.getElementById('nxt3').disabled=true;
+  updateRisk();
+  toast('Activity 3 reset!','');
+}
+
 // ===== NAVIGATION =====
 function goAct2(){hidePop('pop1');document.getElementById('act1').classList.remove('visible');document.getElementById('act2').classList.add('visible');setProgress(2)}
 function goAct3(){hidePop('pop2');document.getElementById('act2').classList.remove('visible');document.getElementById('act3').classList.add('visible');setProgress(3)}
@@ -652,6 +753,14 @@ function setProgress(s){
 }
 function showPop(id){document.getElementById(id).classList.add('visible')}
 function hidePop(id){document.getElementById(id).classList.remove('visible')}
+function playAgain(){
+  hidePop('pop3');
+  resetAct1();resetAct2();resetAct3();
+  document.getElementById('act3').classList.remove('visible');
+  document.getElementById('act2').classList.remove('visible');
+  document.getElementById('act1').classList.add('visible');
+  setProgress(1);
+}
 
 // ===== TOAST =====
 function toast(msg,type=''){

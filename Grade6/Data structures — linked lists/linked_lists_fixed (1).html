@@ -516,6 +516,43 @@
 
   .check-btn:hover { transform:translateY(-1px); }
 
+  /* ===== SHAKE / WRONG FEEDBACK ===== */
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20%      { transform: translateX(-7px); }
+    40%      { transform: translateX(7px); }
+    60%      { transform: translateX(-5px); }
+    80%      { transform: translateX(5px); }
+  }
+
+  .shake { animation: shake 0.4s ease !important; }
+
+  /* Wrong-drop flash on zone */
+  @keyframes wrongFlash {
+    0%,100% { background-color: initial; }
+    30%,70% { background: rgba(253,164,175,0.45) !important; border-color: #f43f5e !important; }
+  }
+  .wrong-flash { animation: wrongFlash 0.5s ease !important; }
+
+  /* Wrong-drop flash on a piece (bouncing back) */
+  .piece.wrong-drop, .step-piece.wrong-drop, .feat-piece.wrong-drop {
+    outline: 2.5px solid #f43f5e;
+    animation: shake 0.4s ease;
+  }
+
+  /* ===== RESET BUTTON ===== */
+  .reset-btn {
+    display: inline-block; margin: 0;
+    background: linear-gradient(135deg,#fda4af,#fcd34d);
+    color: #7f1d1d; border: none; border-radius: 16px;
+    font-family: 'Fredoka One', cursive; font-size: 13px;
+    padding: 6px 18px; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(253,164,175,0.4);
+    transition: all 0.3s; flex-shrink: 0;
+  }
+  .reset-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(253,164,175,0.5); }
+  .reset-btn:active { transform: scale(0.97); }
+
   /* ===== SCROLLBARS ===== */
   ::-webkit-scrollbar { width:4px; height:4px; }
   ::-webkit-scrollbar-track { background:transparent; }
@@ -607,6 +644,7 @@
     </div>
     <div id="feedback1" class="feedback-bar neutral">🌟 Start building your linked list — drag pieces onto the chain!</div>
     <div style="display:flex;gap:8px;justify-content:center;flex-shrink:0;margin-top:6px;">
+      <button class="reset-btn" onclick="resetActivity1()">🔄 Reset</button>
       <button class="check-btn" onclick="checkActivity1()">✅ Check My Answer</button>
       <button class="next-btn" id="nextBtn1" onclick="showActivity2Popup()" disabled>Next Activity →</button>
     </div>
@@ -638,6 +676,7 @@
     </div>
     <div id="feedback2" class="feedback-bar neutral">📋 Drag steps into the correct sequence!</div>
     <div style="display:flex;gap:8px;justify-content:center;flex-shrink:0;margin-top:6px;">
+      <button class="reset-btn" onclick="resetActivity2()">🔄 Reset</button>
       <button class="check-btn" onclick="checkActivity2()">✅ Check Sequence</button>
       <button class="next-btn" id="nextBtn2" onclick="showActivity3Popup()" disabled>Next Activity →</button>
     </div>
@@ -669,6 +708,7 @@
     </div>
     <div id="feedback3" class="feedback-bar neutral">🎨 Drag features to the correct structure!</div>
     <div style="display:flex;gap:8px;justify-content:center;flex-shrink:0;margin-top:6px;">
+      <button class="reset-btn" onclick="resetActivity3()">🔄 Reset</button>
       <button class="check-btn" onclick="checkActivity3()">✅ Check Answers</button>
       <button class="next-btn" id="nextBtn3" onclick="showFinalPopup()" disabled>🎉 Complete!</button>
     </div>
@@ -704,6 +744,12 @@
 </div>
 
 <script>
+// ============ SHARED HELPERS ============
+function flashWrong(el, cssClass) {
+  el.classList.add(cssClass);
+  setTimeout(() => el.classList.remove(cssClass), 600);
+}
+
 // ============ MAGIC CANVAS ============
 const canvas = document.getElementById('magic-canvas');
 const ctx = canvas.getContext('2d');
@@ -815,7 +861,12 @@ function setupDrag() {
       e.preventDefault(); el.classList.remove('over');
       if(!dragging) return;
       const pid = dragging.dataset.id;
-      if(!accepts.includes(pid)) { showFeedback1('❌ That piece doesn\'t belong here! Try another slot.','error'); return; }
+      if(!accepts.includes(pid)) {
+        flashWrong(dragging, 'wrong-drop');
+        flashWrong(el, 'wrong-flash');
+        showFeedback1('❌ That piece doesn\'t belong here! Try another slot.','error');
+        return;
+      }
       if(slotState[key]) return;
       slotState[key]=pid;
       dragging.classList.add('used');
@@ -940,11 +991,23 @@ function renderOp() {
       if(!dragging||!dragging.dataset.id) return;
       if(sequenceState[i]) return;
       const sid=dragging.dataset.id;
+      const correctId=op.correct[i];
+      if(sid !== correctId) {
+        flashWrong(dragging, 'wrong-drop');
+        flashWrong(slot, 'wrong-flash');
+        const fb=document.getElementById('feedback2');
+        fb.textContent='❌ That\'s not the right step here — think about what comes next!';
+        fb.className='feedback-bar error';
+        return;
+      }
       sequenceState[i]=sid;
       dragging.classList.add('used');
       slot.classList.add('filled');
       slot.innerHTML=`<span class="slot-num">Step ${i+1}</span><span style="flex:1;font-size:10px;font-weight:700;color:#1f2937">${dragging.textContent}</span><span class="clear-btn" data-idx="${i}" onclick="clearSlot2(${i})">✕</span>`;
       updateViz(i);
+      const fb=document.getElementById('feedback2');
+      fb.textContent='✅ Correct step! Keep going!';
+      fb.className='feedback-bar success';
     });
     seq.appendChild(slot);
   }
@@ -1000,15 +1063,16 @@ function updateViz(stepIdx) {
 
 function checkActivity2() {
   const op=operations[currentOp];
-  if(sequenceState.filter(Boolean).length<op.steps.length){ document.getElementById('feedback2').textContent='⚠️ Fill in all steps first!'; document.getElementById('feedback2').className='feedback-bar neutral'; return; }
-  const correct=op.correct.every((id,i)=>sequenceState[i]===id);
-  if(correct){
-    document.getElementById('feedback2').textContent='🎉 Perfect sequence! You nailed it!'; document.getElementById('feedback2').className='feedback-bar success';
-    document.getElementById('nextBtn2').disabled=false;
-    document.getElementById('prog2').className='prog-step done';
-  } else {
-    document.getElementById('feedback2').textContent='🤔 Not quite — check your order and try again!'; document.getElementById('feedback2').className='feedback-bar error';
+  if(sequenceState.filter(Boolean).length<op.steps.length){
+    document.getElementById('feedback2').textContent='⚠️ Fill in all steps first!';
+    document.getElementById('feedback2').className='feedback-bar neutral';
+    return;
   }
+  // All placed steps are already validated correct on drop
+  document.getElementById('feedback2').textContent='🎉 Perfect sequence! You nailed it!';
+  document.getElementById('feedback2').className='feedback-bar success';
+  document.getElementById('nextBtn2').disabled=false;
+  document.getElementById('prog2').className='prog-step done';
 }
 
 // ============ ACTIVITY 3 STATE ============
@@ -1046,13 +1110,20 @@ function setupActivity3() {
       if(!dragging||!dragging.dataset.id)return;
       const fid=dragging.dataset.id;
       if(placed3[fid])return;
+      const feature=features.find(f=>f.id===fid);
+      if(feature && feature.target !== target) {
+        flashWrong(dragging, 'wrong-drop');
+        flashWrong(zone, 'wrong-flash');
+        showFeedback3('❌ That feature doesn\'t belong here — try the other column!','error');
+        return;
+      }
       placed3[fid]=target;
       dragging.classList.add('used');
       const chip=document.createElement('div');
       chip.className=`dropped-feat ${target}-feat`; chip.textContent=dragging.textContent;
       chip.dataset.fid=fid;
       zone.appendChild(chip);
-      showFeedback3('✨ Keep going — drag more features!','neutral');
+      showFeedback3('✅ Correct! Keep going — drag more features!','success');
     });
   });
 }
@@ -1111,6 +1182,68 @@ function spawnConfetti(){
     box.appendChild(c);
     setTimeout(()=>c.remove(),3000);
   }
+}
+
+function resetActivity1() {
+  // Clear slotState
+  Object.keys(slotState).forEach(k => slotState[k] = null);
+
+  // Reset all pieces back to draggable
+  document.querySelectorAll('#piecesShelf .piece').forEach(p => p.classList.remove('used'));
+
+  // Reset the drop zones to their empty state
+  const headSlot = document.getElementById('head-slot');
+  headSlot.textContent = 'Drop HEAD';
+  headSlot.removeAttribute('style');
+  headSlot.style.cssText = 'height:22px;width:70px;font-size:9px;';
+
+  ['1','2','3'].forEach(i => {
+    const ds = document.getElementById(`data-slot-${i}`);
+    ds.textContent = 'Data';
+    ds.removeAttribute('style');
+
+    const ns = document.getElementById(`next-slot-${i}`);
+    ns.textContent = 'Next';
+    ns.removeAttribute('style');
+
+    document.getElementById(`nodebox${i}`).classList.remove('filled');
+    document.getElementById(`arr${i}`).style.opacity = '0.3';
+  });
+
+  const nullSlot = document.getElementById('null-slot');
+  nullSlot.textContent = '?';
+  nullSlot.removeAttribute('style');
+
+  showFeedback1('🌟 Start building your linked list — drag pieces onto the chain!', 'neutral');
+  document.getElementById('nextBtn1').disabled = true;
+  document.getElementById('prog1').className = 'prog-step active';
+}
+
+function resetActivity2() {
+  sequenceState = [];
+  renderOp();
+  document.getElementById('feedback2').textContent = '📋 Drag steps into the correct sequence!';
+  document.getElementById('feedback2').className = 'feedback-bar neutral';
+  document.getElementById('nextBtn2').disabled = true;
+  document.getElementById('prog2').className = 'prog-step active';
+}
+
+function resetActivity3() {
+  // Clear placed3 object
+  Object.keys(placed3).forEach(k => delete placed3[k]);
+
+  // Reset all feature pieces
+  document.querySelectorAll('#featuresPool .feat-piece').forEach(p => p.classList.remove('used'));
+
+  // Clear drop zones (keep only children that aren't dropped-feat)
+  ['llDropZone','arrDropZone'].forEach(zid => {
+    const zone = document.getElementById(zid);
+    zone.querySelectorAll('.dropped-feat').forEach(c => c.remove());
+  });
+
+  showFeedback3('🎨 Drag features to the correct structure!', 'neutral');
+  document.getElementById('nextBtn3').disabled = true;
+  document.getElementById('prog3').className = 'prog-step active';
 }
 
 function restartAll(){
